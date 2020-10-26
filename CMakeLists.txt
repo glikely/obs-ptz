@@ -33,7 +33,8 @@ add_library(ptz-controls MODULE
 target_link_libraries(ptz-controls
 	obs-frontend-api
 	Qt5::Widgets
-	libobs)
+	libobs
+	visca)
 
 set_target_properties(ptz-controls PROPERTIES FOLDER "plugins/glikely")
 install_obs_plugin_with_data(ptz-controls data)

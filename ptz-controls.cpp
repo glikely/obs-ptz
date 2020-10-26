@@ -1,5 +1,7 @@
 /* Pan Tilt Zoom camera controls
  *
+ * Copyright 2020 Grant Likely <grant.likely@secretlab.ca>
+ *
  * SPDX-License-Identifier: GPLv2
  */
 #include "ptz-controls.hpp"
@@ -69,7 +71,9 @@ void PTZControls::OBSFrontendEvent(enum obs_frontend_event event, void *ptr)
 }
 
 PTZControls::PTZControls(QWidget *parent)
-	: QDockWidget(parent), ui(new Ui::PTZControls)
+	: QDockWidget(parent),
+	  ui(new Ui::PTZControls),
+	  tty_dev("/dev/ttyUSB1")
 {
 	ui->setupUi(this);
 
@@ -81,6 +85,8 @@ PTZControls::PTZControls(QWidget *parent)
 	}
 	if (data) {
 	}
+
+	OpenInterface();
 
 	connect(ui->dockWidgetContents, &QWidget::customContextMenuRequested,
 		this, &PTZControls::ControlContextMenu);
@@ -102,6 +108,9 @@ PTZControls::~PTZControls()
 		return;
 	}
 	obs_data_t *data = obs_data_create_from_json_file(file);
+
+	CloseInterface();
+
 	if (!data)
 		data = obs_data_create();
 	obs_data_set_bool(data, "ptzTestBool", true);
@@ -116,6 +125,31 @@ PTZControls::~PTZControls()
 	obs_data_release(data);
 	bfree(file);
 	deleteLater();
+}
+
+void PTZControls::OpenInterface()
+{
+	int camera_num;
+
+	CloseInterface();
+
+	if (!tty_dev)
+		return;
+
+	if (VISCA_open_serial(&interface, tty_dev) != VISCA_SUCCESS) {
+		return;
+	}
+
+	interface.broadcast = 0;
+	VISCA_set_address(&interface, &camera_num);
+	camera.address = 1;
+	VISCA_clear(&interface, &camera);
+	VISCA_get_camera_info(&interface, &camera);
+}
+
+void PTZControls::CloseInterface()
+{
+	VISCA_close_serial(&interface);
 }
 
 void PTZControls::ControlContextMenu()
