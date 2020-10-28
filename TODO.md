@@ -20,6 +20,7 @@ PTZ Backend
 - Refactor libvisca into libptz with VISCA as backend protocol
 - Add support for VISCA over IP
 - Add support for other camera control protocols
+- Refactor backend to run in separate thread, or at least be non-blocking
 
 User Interface
 --------------
