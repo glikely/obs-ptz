@@ -172,3 +172,38 @@ void PTZControls::ControlContextMenu()
 	popup.addSeparator();
 	popup.exec(QCursor::pos());
 }
+
+/* The pan/tilt buttons are a large block of simple and mostly identical code.
+ * Use C preprocessor macro to create all the duplicate functions */
+#define button_pantilt_actions(direction) \
+	void PTZControls::on_panTiltButton_##direction##_pressed() \
+	{ VISCA_set_pantilt_##direction(&interface, &camera, 10, 10); } \
+	void PTZControls::on_panTiltButton_##direction##_released() \
+	{ VISCA_set_pantilt_stop(&interface, &camera, 10, 10); }
+
+button_pantilt_actions(up);
+button_pantilt_actions(upleft);
+button_pantilt_actions(upright);
+button_pantilt_actions(left);
+button_pantilt_actions(right);
+button_pantilt_actions(down);
+button_pantilt_actions(downleft);
+button_pantilt_actions(downright);
+
+/* There are fewer buttons for zoom or focus; so don't bother with macros */
+void PTZControls::on_zoomButton_tele_pressed()
+{
+	VISCA_set_zoom_tele(&interface, &camera);
+}
+void PTZControls::on_zoomButton_tele_released()
+{
+	VISCA_set_zoom_stop(&interface, &camera);
+}
+void PTZControls::on_zoomButton_wide_pressed()
+{
+	VISCA_set_zoom_wide(&interface, &camera);
+}
+void PTZControls::on_zoomButton_wide_released()
+{
+	VISCA_set_zoom_stop(&interface, &camera);
+}

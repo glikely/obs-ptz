@@ -35,10 +35,28 @@ private:
 	void OpenInterface();
 	void CloseInterface();
 
-/*
 private slots:
-	void SignalMediaSource();
-*/
+	void on_panTiltButton_up_pressed();
+	void on_panTiltButton_up_released();
+	void on_panTiltButton_upleft_pressed();
+	void on_panTiltButton_upleft_released();
+	void on_panTiltButton_upright_pressed();
+	void on_panTiltButton_upright_released();
+	void on_panTiltButton_left_pressed();
+	void on_panTiltButton_left_released();
+	void on_panTiltButton_right_pressed();
+	void on_panTiltButton_right_released();
+	void on_panTiltButton_down_pressed();
+	void on_panTiltButton_down_released();
+	void on_panTiltButton_downleft_pressed();
+	void on_panTiltButton_downleft_released();
+	void on_panTiltButton_downright_pressed();
+	void on_panTiltButton_downright_released();
+
+	void on_zoomButton_tele_pressed();
+	void on_zoomButton_tele_released();
+	void on_zoomButton_wide_pressed();
+	void on_zoomButton_wide_released();
 
 public:
 	PTZControls(QWidget *parent = nullptr);
