@@ -15,6 +15,7 @@
 #include "../UI/qt-wrappers.hpp"
 #include <../UI/obs-frontend-api/obs-frontend-api.h>
 
+#include "ptz-camera.hpp"
 #include "ui_ptz-controls.h"
 
 class PTZControls : public QDockWidget {
@@ -29,7 +30,7 @@ private:
 	std::unique_ptr<Ui::PTZControls> ui;
 
 	VISCAInterface_t interface;
-	VISCACamera_t camera;
+	class PTZCamera *camera;
 	const char *tty_dev;
 
 	void OpenInterface();

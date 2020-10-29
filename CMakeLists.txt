@@ -2,10 +2,12 @@ project(ptz-controls VERSION 0.1.0)
 set(PROJECT_FULL_NAME "PTZ Controls")
 
 set(ptz-controls_HEADERS
-    ptz-controls.hpp)
+    ptz-controls.hpp
+    ptz-camera.hpp)
 
 set(ptz-controls_SOURCES
-    ptz-controls.cpp)
+    ptz-controls.cpp
+    ptz-camera.cpp)
 
 if(WIN32)
 	get_filename_component(ISS_FILES_DIR "${CMAKE_BINARY_DIR}\\..\\package" ABSOLUTE)

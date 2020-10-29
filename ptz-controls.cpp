@@ -131,7 +131,7 @@ PTZControls::~PTZControls()
 
 void PTZControls::OpenInterface()
 {
-	int camera_num;
+	int camera_count;
 
 	CloseInterface();
 
@@ -143,10 +143,12 @@ void PTZControls::OpenInterface()
 	}
 
 	interface.broadcast = 0;
-	VISCA_set_address(&interface, &camera_num);
-	camera.address = 1;
-	VISCA_clear(&interface, &camera);
-	VISCA_get_camera_info(&interface, &camera);
+	VISCA_set_address(&interface, &camera_count);
+	printf("VISCA Camera count: %i\n", camera_count);
+	for (int i = 0; i < camera_count; i++) {
+		camera = new PTZCamera(&interface, i+1);
+		camera->setParent(this);
+	}
 }
 
 void PTZControls::CloseInterface()
@@ -179,9 +181,9 @@ void PTZControls::ControlContextMenu()
  * Use C preprocessor macro to create all the duplicate functions */
 #define button_pantilt_actions(direction) \
 	void PTZControls::on_panTiltButton_##direction##_pressed() \
-	{ VISCA_set_pantilt_##direction(&interface, &camera, 10, 10); } \
+	{ if (camera) camera->pantilt_##direction(10, 10); } \
 	void PTZControls::on_panTiltButton_##direction##_released() \
-	{ VISCA_set_pantilt_stop(&interface, &camera, 10, 10); }
+	{ if (camera) camera->pantilt_stop(); }
 
 button_pantilt_actions(up);
 button_pantilt_actions(upleft);
@@ -195,17 +197,21 @@ button_pantilt_actions(downright);
 /* There are fewer buttons for zoom or focus; so don't bother with macros */
 void PTZControls::on_zoomButton_tele_pressed()
 {
-	VISCA_set_zoom_tele(&interface, &camera);
+	if (camera)
+		camera->zoom_tele();
 }
 void PTZControls::on_zoomButton_tele_released()
 {
-	VISCA_set_zoom_stop(&interface, &camera);
+	if (camera)
+		camera->zoom_stop();
 }
 void PTZControls::on_zoomButton_wide_pressed()
 {
-	VISCA_set_zoom_wide(&interface, &camera);
+	if (camera)
+		camera->zoom_wide();
 }
 void PTZControls::on_zoomButton_wide_released()
 {
-	VISCA_set_zoom_stop(&interface, &camera);
+	if (camera)
+		camera->zoom_stop();
 }
