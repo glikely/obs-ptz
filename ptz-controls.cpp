@@ -43,6 +43,7 @@ MODULE_EXPORT const char *obs_module_name(void)
 	return obs_module_text("PTZControls");
 }
 
+/*
 void PTZControls::OBSSignal(void *data, const char *signal,
 			      calldata_t *call_data)
 {
@@ -59,7 +60,9 @@ void PTZControls::OBSSignal(void *data, const char *signal,
 	//PTZControls *controls = static_cast<PTZControls *>(data);
 	//QMetaObject::invokeMethod(controls, "SignalMediaSource");
 }
+*/
 
+/*
 void PTZControls::OBSFrontendEvent(enum obs_frontend_event event, void *ptr)
 {
 	//PTZControls *controls = reinterpret_cast<PTZControls *>(ptr);
@@ -69,6 +72,7 @@ void PTZControls::OBSFrontendEvent(enum obs_frontend_event event, void *ptr)
 		break;
 	}
 }
+*/
 
 PTZControls::PTZControls(QWidget *parent)
 	: QDockWidget(parent),
@@ -91,17 +95,15 @@ PTZControls::PTZControls(QWidget *parent)
 	connect(ui->dockWidgetContents, &QWidget::customContextMenuRequested,
 		this, &PTZControls::ControlContextMenu);
 
-	signal_handler_connect_global(obs_get_signal_handler(), OBSSignal,
-				      this);
-	obs_frontend_add_event_callback(OBSFrontendEvent, this);
+	//signal_handler_connect_global(obs_get_signal_handler(), OBSSignal, this);
+	//obs_frontend_add_event_callback(OBSFrontendEvent, this);
 
 	hide();
 }
 
 PTZControls::~PTZControls()
 {
-	signal_handler_disconnect_global(obs_get_signal_handler(), OBSSignal,
-					 this);
+	//signal_handler_disconnect_global(obs_get_signal_handler(), OBSSignal, this);
 	char *file = obs_module_config_path("config.json");
 	if (!file) {
 		deleteLater();
