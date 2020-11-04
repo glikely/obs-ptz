@@ -9,6 +9,7 @@ Contributions are licensed under GPLv2 and must be made with a
 Developer Certificate of Origin [DCO] attestation as described below.
 
 Use GitHub pull requests to submit proposed changes.
+Or you can email grant.likely@secretlab.ca
 
 DCO Attestation
 ---------------
