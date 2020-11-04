@@ -202,6 +202,13 @@
            </widget>
           </item>
           <item>
+           <widget class="QPushButton" name="zoomButton_wide">
+            <property name="text">
+             <string>Wide</string>
+            </property>
+           </widget>
+          </item>
+          <item>
            <spacer name="verticalSpacer_2">
             <property name="orientation">
              <enum>Qt::Vertical</enum>
@@ -215,9 +222,16 @@
            </spacer>
           </item>
           <item>
-           <widget class="QPushButton" name="zoomButton_wide">
+           <widget class="QPushButton" name="nextCameraButton">
             <property name="text">
-             <string>Wide</string>
+             <string>Next Camera</string>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QPushButton" name="prevCameraButton">
+            <property name="text">
+             <string>Previous Camera</string>
             </property>
            </widget>
           </item>
@@ -237,6 +251,9 @@
          </spacer>
         </item>
        </layout>
+      </item>
+      <item>
+       <widget class="QListView" name="ptzCameraList"/>
       </item>
       <item>
        <spacer name="verticalSpacer">

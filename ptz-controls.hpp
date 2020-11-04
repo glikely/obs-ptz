@@ -30,11 +30,16 @@ private:
 	std::unique_ptr<Ui::PTZControls> ui;
 
 	VISCAInterface_t interface;
-	class PTZCamera *camera;
+	std::vector<PTZCamera *> cameras;
+	unsigned int current_cam;
 	const char *tty_dev;
 
 	void OpenInterface();
 	void CloseInterface();
+
+	void full_stop();
+
+	PTZCamera * currCamera();
 
 private slots:
 	void on_panTiltButton_up_pressed();
@@ -58,6 +63,9 @@ private slots:
 	void on_zoomButton_tele_released();
 	void on_zoomButton_wide_pressed();
 	void on_zoomButton_wide_released();
+
+	void on_nextCameraButton_released();
+	void on_prevCameraButton_released();
 
 public:
 	PTZControls(QWidget *parent = nullptr);

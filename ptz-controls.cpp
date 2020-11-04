@@ -138,16 +138,18 @@ void PTZControls::OpenInterface()
 	if (!tty_dev)
 		return;
 
-	if (VISCA_open_serial(&interface, tty_dev) != VISCA_SUCCESS) {
+	if (VISCA_open_serial(&interface, tty_dev) != VISCA_SUCCESS)
 		return;
-	}
 
 	interface.broadcast = 0;
-	VISCA_set_address(&interface, &camera_count);
+	if (VISCA_set_address(&interface, &camera_count) != VISCA_SUCCESS)
+		return;
+
 	printf("VISCA Camera count: %i\n", camera_count);
 	for (int i = 0; i < camera_count; i++) {
-		camera = new PTZCamera(&interface, i+1);
+		PTZCamera *camera = new PTZCamera(&interface, i+1);
 		camera->setParent(this);
+		cameras.push_back(camera);
 	}
 }
 
@@ -177,13 +179,22 @@ void PTZControls::ControlContextMenu()
 	popup.exec(QCursor::pos());
 }
 
+PTZCamera * PTZControls::currCamera()
+{
+	if (cameras.size() == 0)
+		return NULL;
+	if (current_cam >= cameras.size())
+		current_cam = cameras.size() - 1;
+	return cameras.at(current_cam);
+}
+
 /* The pan/tilt buttons are a large block of simple and mostly identical code.
  * Use C preprocessor macro to create all the duplicate functions */
 #define button_pantilt_actions(direction) \
 	void PTZControls::on_panTiltButton_##direction##_pressed() \
-	{ if (camera) camera->pantilt_##direction(10, 10); } \
+	{ PTZCamera *camera = currCamera(); if (camera) camera->pantilt_##direction(10, 10); } \
 	void PTZControls::on_panTiltButton_##direction##_released() \
-	{ if (camera) camera->pantilt_stop(); }
+	{ PTZCamera *camera = currCamera(); if (camera) camera->pantilt_stop(); }
 
 button_pantilt_actions(up);
 button_pantilt_actions(upleft);
@@ -197,21 +208,50 @@ button_pantilt_actions(downright);
 /* There are fewer buttons for zoom or focus; so don't bother with macros */
 void PTZControls::on_zoomButton_tele_pressed()
 {
+	PTZCamera *camera = currCamera();
 	if (camera)
 		camera->zoom_tele();
 }
 void PTZControls::on_zoomButton_tele_released()
 {
+	PTZCamera *camera = currCamera();
 	if (camera)
 		camera->zoom_stop();
 }
 void PTZControls::on_zoomButton_wide_pressed()
 {
+	PTZCamera *camera = currCamera();
 	if (camera)
 		camera->zoom_wide();
 }
 void PTZControls::on_zoomButton_wide_released()
 {
+	PTZCamera *camera = currCamera();
 	if (camera)
 		camera->zoom_stop();
+}
+
+void PTZControls::full_stop()
+{
+	PTZCamera *camera = currCamera();
+	if (camera) {
+		camera->pantilt_stop();
+		camera->zoom_stop();
+	}
+}
+
+void PTZControls::on_nextCameraButton_released()
+{
+	full_stop();
+	current_cam++;
+	if (current_cam >= cameras.size())
+		current_cam = 0;
+}
+
+void PTZControls::on_prevCameraButton_released()
+{
+	full_stop();
+	current_cam--;
+	if (current_cam >= cameras.size())
+		current_cam = cameras.size() - 1;
 }
