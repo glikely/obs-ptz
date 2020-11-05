@@ -1,0 +1,13 @@
+<RCC>
+  <qresource prefix="icons">
+    <file>icons/pantilt_upleft.svg</file>
+    <file>icons/pantilt_upright.svg</file>
+    <file>icons/pantilt_downright.svg</file>
+    <file>icons/pantilt_downleft.svg</file>
+    <file>icons/pantilt_home.svg</file>
+    <file>icons/pantilt_down.svg</file>
+    <file>icons/pantilt_up.svg</file>
+    <file>icons/pantilt_left.svg</file>
+    <file>icons/pantilt_right.svg</file>
+  </qresource>
+</RCC>

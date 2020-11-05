@@ -6,8 +6,8 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>664</width>
-    <height>280</height>
+    <width>563</width>
+    <height>435</height>
    </rect>
   </property>
   <property name="contextMenuPolicy">
@@ -44,21 +44,11 @@
     </property>
     <item>
      <layout class="QVBoxLayout" name="verticalLayout">
+      <property name="sizeConstraint">
+       <enum>QLayout::SetDefaultConstraint</enum>
+      </property>
       <item>
        <layout class="QHBoxLayout" name="horizontalLayout">
-        <item>
-         <spacer name="horizontalSpacer_2">
-          <property name="orientation">
-           <enum>Qt::Horizontal</enum>
-          </property>
-          <property name="sizeHint" stdset="0">
-           <size>
-            <width>40</width>
-            <height>20</height>
-           </size>
-          </property>
-         </spacer>
-        </item>
         <item>
          <layout class="QGridLayout" name="gridLayout">
           <item row="0" column="0">
@@ -76,7 +66,11 @@
              </size>
             </property>
             <property name="text">
-             <string>UL</string>
+             <string/>
+            </property>
+            <property name="icon">
+             <iconset resource="ptz-controls.qrc">
+              <normaloff>:/icons/icons/pantilt_upleft.svg</normaloff>:/icons/icons/pantilt_upleft.svg</iconset>
             </property>
            </widget>
           </item>
@@ -89,7 +83,11 @@
              </size>
             </property>
             <property name="text">
-             <string>L</string>
+             <string/>
+            </property>
+            <property name="icon">
+             <iconset resource="ptz-controls.qrc">
+              <normaloff>:/icons/icons/pantilt_left.svg</normaloff>:/icons/icons/pantilt_left.svg</iconset>
             </property>
            </widget>
           </item>
@@ -102,7 +100,11 @@
              </size>
             </property>
             <property name="text">
-             <string>DL</string>
+             <string/>
+            </property>
+            <property name="icon">
+             <iconset resource="ptz-controls.qrc">
+              <normaloff>:/icons/icons/pantilt_downleft.svg</normaloff>:/icons/icons/pantilt_downleft.svg</iconset>
             </property>
            </widget>
           </item>
@@ -115,7 +117,11 @@
              </size>
             </property>
             <property name="text">
-             <string>U</string>
+             <string/>
+            </property>
+            <property name="icon">
+             <iconset resource="ptz-controls.qrc">
+              <normaloff>:/icons/icons/pantilt_up.svg</normaloff>:/icons/icons/pantilt_up.svg</iconset>
             </property>
            </widget>
           </item>
@@ -128,7 +134,11 @@
              </size>
             </property>
             <property name="text">
-             <string>UR</string>
+             <string/>
+            </property>
+            <property name="icon">
+             <iconset resource="ptz-controls.qrc">
+              <normaloff>:/icons/icons/pantilt_upright.svg</normaloff>:/icons/icons/pantilt_upright.svg</iconset>
             </property>
            </widget>
           </item>
@@ -141,7 +151,11 @@
              </size>
             </property>
             <property name="text">
-             <string>R</string>
+             <string/>
+            </property>
+            <property name="icon">
+             <iconset resource="ptz-controls.qrc">
+              <normaloff>:/icons/icons/pantilt_right.svg</normaloff>:/icons/icons/pantilt_right.svg</iconset>
             </property>
            </widget>
           </item>
@@ -160,7 +174,11 @@
              </size>
             </property>
             <property name="text">
-             <string>D</string>
+             <string/>
+            </property>
+            <property name="icon">
+             <iconset resource="ptz-controls.qrc">
+              <normaloff>:/icons/icons/pantilt_down.svg</normaloff>:/icons/icons/pantilt_down.svg</iconset>
             </property>
            </widget>
           </item>
@@ -173,7 +191,28 @@
              </size>
             </property>
             <property name="text">
-             <string>DR</string>
+             <string/>
+            </property>
+            <property name="icon">
+             <iconset resource="ptz-controls.qrc">
+              <normaloff>:/icons/icons/pantilt_downright.svg</normaloff>:/icons/icons/pantilt_downright.svg</iconset>
+            </property>
+           </widget>
+          </item>
+          <item row="1" column="1">
+           <widget class="QPushButton" name="panTiltButton_home">
+            <property name="sizePolicy">
+             <sizepolicy hsizetype="Minimum" vsizetype="Minimum">
+              <horstretch>0</horstretch>
+              <verstretch>0</verstretch>
+             </sizepolicy>
+            </property>
+            <property name="text">
+             <string/>
+            </property>
+            <property name="icon">
+             <iconset resource="ptz-controls.qrc">
+              <normaloff>:/icons/icons/pantilt_home.svg</normaloff>:/icons/icons/pantilt_home.svg</iconset>
             </property>
            </widget>
           </item>
@@ -209,19 +248,6 @@
            </widget>
           </item>
           <item>
-           <spacer name="verticalSpacer_2">
-            <property name="orientation">
-             <enum>Qt::Vertical</enum>
-            </property>
-            <property name="sizeHint" stdset="0">
-             <size>
-              <width>20</width>
-              <height>40</height>
-             </size>
-            </property>
-           </spacer>
-          </item>
-          <item>
            <widget class="QPushButton" name="nextCameraButton">
             <property name="text">
              <string>Next Camera</string>
@@ -253,26 +279,28 @@
        </layout>
       </item>
       <item>
-       <widget class="QListView" name="ptzCameraList"/>
-      </item>
-      <item>
-       <spacer name="verticalSpacer">
-        <property name="orientation">
-         <enum>Qt::Vertical</enum>
+       <widget class="QListView" name="cameraList">
+        <property name="sizePolicy">
+         <sizepolicy hsizetype="Minimum" vsizetype="Expanding">
+          <horstretch>0</horstretch>
+          <verstretch>0</verstretch>
+         </sizepolicy>
         </property>
-        <property name="sizeHint" stdset="0">
+        <property name="maximumSize">
          <size>
-          <width>20</width>
-          <height>40</height>
+          <width>16777215</width>
+          <height>16777215</height>
          </size>
         </property>
-       </spacer>
+       </widget>
       </item>
      </layout>
     </item>
    </layout>
   </widget>
  </widget>
- <resources/>
+ <resources>
+  <include location="ptz-controls.qrc"/>
+ </resources>
  <connections/>
 </ui>
