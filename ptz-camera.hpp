@@ -31,6 +31,7 @@ public:
 	void pantilt_down(uint32_t pan_speed, uint32_t tilt_speed);
 	void pantilt_downleft(uint32_t pan_speed, uint32_t tilt_speed);
 	void pantilt_downright(uint32_t pan_speed, uint32_t tilt_speed);
+	void pantilt_home();
 	void zoom_stop();
 	void zoom_tele();
 	void zoom_wide();

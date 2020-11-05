@@ -43,6 +43,11 @@ ptzcamera_pantilt_wrapper(down)
 ptzcamera_pantilt_wrapper(downleft)
 ptzcamera_pantilt_wrapper(downright)
 
+void PTZCamera::pantilt_home()
+{
+	VISCA_set_pantilt_home(interface, &camera);
+}
+
 #define ptzcamera_zoom_wrapper(dir) \
 	void PTZCamera::zoom_##dir() \
 	{ VISCA_set_zoom_##dir(interface, &camera); }

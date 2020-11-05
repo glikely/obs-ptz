@@ -205,6 +205,13 @@ button_pantilt_actions(down);
 button_pantilt_actions(downleft);
 button_pantilt_actions(downright);
 
+void PTZControls::on_panTiltButton_home_released()
+{
+	PTZCamera *camera = currCamera();
+	if (camera)
+		camera->pantilt_home();
+}
+
 /* There are fewer buttons for zoom or focus; so don't bother with macros */
 void PTZControls::on_zoomButton_tele_pressed()
 {
