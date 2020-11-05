@@ -9,6 +9,7 @@
 #include <QTimer>
 #include <obs.hpp>
 #include <QDockWidget>
+#include <QtGamepad/QGamepad>
 
 #include <visca/libvisca.h>
 
@@ -34,10 +35,14 @@ private:
 	unsigned int current_cam;
 	const char *tty_dev;
 
+	QGamepad *gamepad;
+	double joystick_pan, joystick_tilt;
+
 	void OpenInterface();
 	void CloseInterface();
 
 	void full_stop();
+	void setPanTilt(double pan, double tilt);
 
 	PTZCamera * currCamera();
 

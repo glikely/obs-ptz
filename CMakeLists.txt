@@ -30,6 +30,8 @@ endif()
 qt5_wrap_ui(ptz-controls_UI_HEADERS ptz-controls.ui)
 qt5_add_resources(ptz-controls_QRC_SOURCES ${ptz-controls_QRC})
 
+find_package(Qt5Gamepad QUIET)
+
 add_library(ptz-controls MODULE
 	${ptz-controls_HEADERS}
 	${ptz-controls_SOURCES}
@@ -39,6 +41,7 @@ add_library(ptz-controls MODULE
 target_link_libraries(ptz-controls
 	obs-frontend-api
 	Qt5::Widgets
+	${Qt5Gamepad_LIBRARIES}
 	libobs
 	visca)
 

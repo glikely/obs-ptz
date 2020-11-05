@@ -78,6 +78,7 @@ PTZControls::PTZControls(QWidget *parent)
 	: QDockWidget(parent),
 	  ui(new Ui::PTZControls),
 	  tty_dev("/dev/ttyUSB1")
+	  gamepad(0)
 {
 	ui->setupUi(this);
 
@@ -88,6 +89,20 @@ PTZControls::PTZControls(QWidget *parent)
 		bfree(file);
 	}
 	if (data) {
+	}
+
+	auto gamepads = QGamepadManager::instance()->connectedGamepads();
+	if (!gamepads.isEmpty()) {
+		gamepad = new QGamepad(*gamepads.begin(), this);
+
+		connect(gamepad, &QGamepad::axisLeftXChanged, this, [&](double value) {
+			joystick_pan = value;
+			setPanTilt(joystick_pan, joystick_tilt);
+		});
+		connect(gamepad, &QGamepad::axisLeftYChanged, this, [&](double value) {
+			joystick_tilt = value;
+			setPanTilt(joystick_pan, joystick_tilt);
+		});
 	}
 
 	OpenInterface();
@@ -186,6 +201,44 @@ PTZCamera * PTZControls::currCamera()
 	if (current_cam >= cameras.size())
 		current_cam = cameras.size() - 1;
 	return cameras.at(current_cam);
+}
+
+#define TILT_UP   (1 << 0)
+#define TILT_DOWN (1 << 1)
+#define PAN_LEFT  (1 << 2)
+#define PAN_RIGHT (1 << 3)
+
+void PTZControls::setPanTilt(double pan, double tilt)
+{
+	int pan_int = pan * 10;
+	int tilt_int = tilt * 10;
+	unsigned int direction = 0;
+	PTZCamera *camera = currCamera();
+
+	if (!camera)
+		return;
+
+	if (pan_int < 0)
+		direction |= PAN_LEFT;
+	if (pan_int > 0)
+		direction |= PAN_RIGHT;
+	if (tilt_int < 0)
+		direction |= TILT_UP;
+	if (tilt_int > 0)
+		direction |= TILT_DOWN;
+
+	switch (direction) {
+	case TILT_UP:			camera->pantilt_up(abs(pan_int), abs(tilt_int)); break;
+	case TILT_UP|PAN_LEFT:		camera->pantilt_upleft(abs(pan_int), abs(tilt_int)); break;
+	case TILT_UP|PAN_RIGHT:		camera->pantilt_upright(abs(pan_int), abs(tilt_int)); break;
+	case PAN_LEFT:			camera->pantilt_left(abs(pan_int), abs(tilt_int)); break;
+	case PAN_RIGHT:			camera->pantilt_right(abs(pan_int), abs(tilt_int)); break;
+	case TILT_DOWN:			camera->pantilt_down(abs(pan_int), abs(tilt_int)); break;
+	case TILT_DOWN|PAN_LEFT:	camera->pantilt_downleft(abs(pan_int), abs(tilt_int)); break;
+	case TILT_DOWN|PAN_RIGHT:	camera->pantilt_downright(abs(pan_int), abs(tilt_int)); break;
+	default:
+		camera->pantilt_stop();
+	}
 }
 
 /* The pan/tilt buttons are a large block of simple and mostly identical code.

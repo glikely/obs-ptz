@@ -28,6 +28,10 @@ User Interface
 
 - Add configuration dialog or other way to add/remove/edit cameras
 - Replace discrete buttons with a "virtual joystick" panel
-- Add joystick support
 - Add focus control
 - Add configuration dialog for adding/removing/modifying cameras
+- Enhance gamepad support
+  - Add zoom control
+  - Add cycling through cameras
+  - Add pan/tilt speed control
+  - Add gamepad configuration (enable/disable, select gamepads)
