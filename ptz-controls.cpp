@@ -100,14 +100,10 @@ PTZControls::PTZControls(QWidget *parent)
 	if (!gamepads.isEmpty()) {
 		gamepad = new QGamepad(*gamepads.begin(), this);
 
-		connect(gamepad, &QGamepad::axisLeftXChanged, this, [&](double value) {
-			joystick_pan = value;
-			setPanTilt(joystick_pan, joystick_tilt);
-		});
-		connect(gamepad, &QGamepad::axisLeftYChanged, this, [&](double value) {
-			joystick_tilt = value;
-			setPanTilt(joystick_pan, joystick_tilt);
-		});
+		connect(gamepad, &QGamepad::axisLeftXChanged, this,
+				&PTZControls::on_panTiltGamepad);
+		connect(gamepad, &QGamepad::axisLeftYChanged, this,
+				&PTZControls::on_panTiltGamepad);
 	}
 
 	OpenInterface();
@@ -212,42 +208,19 @@ PTZDevice * PTZControls::currCamera()
 	return cameras.at(current_cam);
 }
 
-#define TILT_UP   (1 << 0)
-#define TILT_DOWN (1 << 1)
-#define PAN_LEFT  (1 << 2)
-#define PAN_RIGHT (1 << 3)
-
 void PTZControls::setPanTilt(double pan, double tilt)
 {
-	int pan_int = pan * 10;
-	int tilt_int = tilt * 10;
-	unsigned int direction = 0;
-	PTZDevice *camera = currCamera();
-
-	if (!camera)
+	PTZDevice *ptz = currCamera();
+	if (!ptz)
 		return;
+	ptz->pantilt(pan * 10, tilt * 10);
+}
 
-	if (pan_int < 0)
-		direction |= PAN_LEFT;
-	if (pan_int > 0)
-		direction |= PAN_RIGHT;
-	if (tilt_int < 0)
-		direction |= TILT_UP;
-	if (tilt_int > 0)
-		direction |= TILT_DOWN;
-
-	switch (direction) {
-	case TILT_UP:			camera->pantilt_up(abs(pan_int), abs(tilt_int)); break;
-	case TILT_UP|PAN_LEFT:		camera->pantilt_upleft(abs(pan_int), abs(tilt_int)); break;
-	case TILT_UP|PAN_RIGHT:		camera->pantilt_upright(abs(pan_int), abs(tilt_int)); break;
-	case PAN_LEFT:			camera->pantilt_left(abs(pan_int), abs(tilt_int)); break;
-	case PAN_RIGHT:			camera->pantilt_right(abs(pan_int), abs(tilt_int)); break;
-	case TILT_DOWN:			camera->pantilt_down(abs(pan_int), abs(tilt_int)); break;
-	case TILT_DOWN|PAN_LEFT:	camera->pantilt_downleft(abs(pan_int), abs(tilt_int)); break;
-	case TILT_DOWN|PAN_RIGHT:	camera->pantilt_downright(abs(pan_int), abs(tilt_int)); break;
-	default:
-		camera->pantilt_stop();
-	}
+void PTZControls::on_panTiltGamepad()
+{
+	if (!gamepad)
+		return;
+	setPanTilt(gamepad->axisLeftX(), gamepad->axisLeftY());
 }
 
 /* The pan/tilt buttons are a large block of simple and mostly identical code.

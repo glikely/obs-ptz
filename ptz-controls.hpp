@@ -64,6 +64,7 @@ private slots:
 	void on_panTiltButton_downright_pressed();
 	void on_panTiltButton_downright_released();
 	void on_panTiltButton_home_released();
+	void on_panTiltGamepad();
 
 	void on_zoomButton_tele_pressed();
 	void on_zoomButton_tele_released();
