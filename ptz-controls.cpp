@@ -5,7 +5,6 @@
  * SPDX-License-Identifier: GPLv2
  */
 #include "ptz-controls.hpp"
-#include "ptz-visca.hpp"
 #include <QToolTip>
 
 #include <obs-module.h>
@@ -16,6 +15,11 @@
 
 #include "../../item-widget-helpers.hpp"
 #include "../../obs-app.hpp"
+
+#define CONFIG_VISCA 1
+#if CONFIG_VISCA
+#include <ptz-visca.hpp>
+#endif
 
 OBS_DECLARE_MODULE()
 OBS_MODULE_AUTHOR("Grant Likely <grant.likely@secretlab.ca>");
@@ -154,6 +158,7 @@ void PTZControls::OpenInterface()
 	if (!tty_dev)
 		return;
 
+#if CONFIG_VISCA
 	if (VISCA_open_serial(&interface, tty_dev) != VISCA_SUCCESS)
 		return;
 
@@ -167,11 +172,14 @@ void PTZControls::OpenInterface()
 		ptz->setParent(this);
 		cameras.push_back(ptz);
 	}
+#endif
 }
 
 void PTZControls::CloseInterface()
 {
+#if CONFIG_VISCA
 	VISCA_close_serial(&interface);
+#endif
 }
 
 void PTZControls::ControlContextMenu()
