@@ -154,6 +154,12 @@ void PTZControls::OpenInterface()
 	if (!tty_dev)
 		return;
 
+	for (int i = 0; i < 1; i++) {
+		PTZDevice *ptz = new PTZSimulator();
+		ptz->setParent(this);
+		cameras.push_back(ptz);
+	}
+
 #if CONFIG_VISCA
 	if (VISCA_open_serial(&interface, tty_dev) != VISCA_SUCCESS)
 		return;
