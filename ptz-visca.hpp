@@ -8,20 +8,22 @@
 
 #include <QObject>
 #include <visca/libvisca.h>
+#include "ptz-device.hpp"
 
-class PTZCamera : public QObject {
+class PTZVisca : public PTZDevice {
 	Q_OBJECT
 
 private:
 	VISCAInterface_t *interface;
 	VISCACamera_t camera;
 
-public:
-	PTZCamera(VISCAInterface_t *interface, int address);
-	~PTZCamera();
-
 	void init();
 
+public:
+	PTZVisca(VISCAInterface_t *interface, int address);
+	~PTZVisca();
+
+	void pantilt(double pan, double tilt);
 	void pantilt_stop();
 	void pantilt_up(uint32_t pan_speed, uint32_t tilt_speed);
 	void pantilt_upleft(uint32_t pan_speed, uint32_t tilt_speed);

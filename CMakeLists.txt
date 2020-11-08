@@ -3,11 +3,12 @@ set(PROJECT_FULL_NAME "PTZ Controls")
 
 set(ptz-controls_HEADERS
     ptz-controls.hpp
-    ptz-camera.hpp)
+    ptz-device.hpp
+    ptz-visca.hpp)
 
 set(ptz-controls_SOURCES
     ptz-controls.cpp
-    ptz-camera.cpp)
+    ptz-visca.cpp)
 
 set(ptz-controls_QRC
     ptz-controls.qrc)

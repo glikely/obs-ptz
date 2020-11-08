@@ -5,6 +5,7 @@
  * SPDX-License-Identifier: GPLv2
  */
 #include "ptz-controls.hpp"
+#include "ptz-visca.hpp"
 #include <QToolTip>
 
 #include <obs-module.h>
@@ -77,7 +78,7 @@ void PTZControls::OBSFrontendEvent(enum obs_frontend_event event, void *ptr)
 PTZControls::PTZControls(QWidget *parent)
 	: QDockWidget(parent),
 	  ui(new Ui::PTZControls),
-	  tty_dev("/dev/ttyUSB1")
+	  tty_dev("/dev/ttyUSB1"),
 	  gamepad(0)
 {
 	ui->setupUi(this);
@@ -162,9 +163,9 @@ void PTZControls::OpenInterface()
 
 	printf("VISCA Camera count: %i\n", camera_count);
 	for (int i = 0; i < camera_count; i++) {
-		PTZCamera *camera = new PTZCamera(&interface, i+1);
-		camera->setParent(this);
-		cameras.push_back(camera);
+		PTZDevice *ptz = new PTZVisca(&interface, i+1);
+		ptz->setParent(this);
+		cameras.push_back(ptz);
 	}
 }
 
@@ -194,7 +195,7 @@ void PTZControls::ControlContextMenu()
 	popup.exec(QCursor::pos());
 }
 
-PTZCamera * PTZControls::currCamera()
+PTZDevice * PTZControls::currCamera()
 {
 	if (cameras.size() == 0)
 		return NULL;
@@ -213,7 +214,7 @@ void PTZControls::setPanTilt(double pan, double tilt)
 	int pan_int = pan * 10;
 	int tilt_int = tilt * 10;
 	unsigned int direction = 0;
-	PTZCamera *camera = currCamera();
+	PTZDevice *camera = currCamera();
 
 	if (!camera)
 		return;
@@ -245,9 +246,9 @@ void PTZControls::setPanTilt(double pan, double tilt)
  * Use C preprocessor macro to create all the duplicate functions */
 #define button_pantilt_actions(direction) \
 	void PTZControls::on_panTiltButton_##direction##_pressed() \
-	{ PTZCamera *camera = currCamera(); if (camera) camera->pantilt_##direction(10, 10); } \
+	{ PTZDevice *ptz = currCamera(); if (ptz) ptz->pantilt_##direction(10, 10); } \
 	void PTZControls::on_panTiltButton_##direction##_released() \
-	{ PTZCamera *camera = currCamera(); if (camera) camera->pantilt_stop(); }
+	{ PTZDevice *ptz = currCamera(); if (ptz) ptz->pantilt_stop(); }
 
 button_pantilt_actions(up);
 button_pantilt_actions(upleft);
@@ -260,43 +261,43 @@ button_pantilt_actions(downright);
 
 void PTZControls::on_panTiltButton_home_released()
 {
-	PTZCamera *camera = currCamera();
-	if (camera)
-		camera->pantilt_home();
+	PTZDevice *ptz = currCamera();
+	if (ptz)
+		ptz->pantilt_home();
 }
 
 /* There are fewer buttons for zoom or focus; so don't bother with macros */
 void PTZControls::on_zoomButton_tele_pressed()
 {
-	PTZCamera *camera = currCamera();
-	if (camera)
-		camera->zoom_tele();
+	PTZDevice *ptz = currCamera();
+	if (ptz)
+		ptz->zoom_tele();
 }
 void PTZControls::on_zoomButton_tele_released()
 {
-	PTZCamera *camera = currCamera();
-	if (camera)
-		camera->zoom_stop();
+	PTZDevice *ptz = currCamera();
+	if (ptz)
+		ptz->zoom_stop();
 }
 void PTZControls::on_zoomButton_wide_pressed()
 {
-	PTZCamera *camera = currCamera();
-	if (camera)
-		camera->zoom_wide();
+	PTZDevice *ptz = currCamera();
+	if (ptz)
+		ptz->zoom_wide();
 }
 void PTZControls::on_zoomButton_wide_released()
 {
-	PTZCamera *camera = currCamera();
-	if (camera)
-		camera->zoom_stop();
+	PTZDevice *ptz = currCamera();
+	if (ptz)
+		ptz->zoom_stop();
 }
 
 void PTZControls::full_stop()
 {
-	PTZCamera *camera = currCamera();
-	if (camera) {
-		camera->pantilt_stop();
-		camera->zoom_stop();
+	PTZDevice *ptz = currCamera();
+	if (ptz) {
+		ptz->pantilt_stop();
+		ptz->zoom_stop();
 	}
 }
 

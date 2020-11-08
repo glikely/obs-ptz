@@ -16,7 +16,7 @@
 #include "../UI/qt-wrappers.hpp"
 #include <../UI/obs-frontend-api/obs-frontend-api.h>
 
-#include "ptz-camera.hpp"
+#include "ptz-device.hpp"
 #include "ui_ptz-controls.h"
 
 class PTZControls : public QDockWidget {
@@ -31,7 +31,7 @@ private:
 	std::unique_ptr<Ui::PTZControls> ui;
 
 	VISCAInterface_t interface;
-	std::vector<PTZCamera *> cameras;
+	std::vector<PTZDevice *> cameras;
 	unsigned int current_cam;
 	const char *tty_dev;
 
@@ -44,7 +44,7 @@ private:
 	void full_stop();
 	void setPanTilt(double pan, double tilt);
 
-	PTZCamera * currCamera();
+	PTZDevice * currCamera();
 
 private slots:
 	void on_panTiltButton_up_pressed();
