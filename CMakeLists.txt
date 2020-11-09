@@ -1,14 +1,23 @@
 project(ptz-controls VERSION 0.1.0)
 set(PROJECT_FULL_NAME "PTZ Controls")
 
+find_package(PkgConfig)
+
+pkg_check_modules(LIBVISCA libvisca)
+if(LIBVISCA_FOUND)
+	add_definitions( -DLIBVISCA_FOUND=${LIBVISCA_FOUND} )
+	set(visca_SOURCES ptz-visca.cpp)
+	set(visca_HEADERS ptz-visca.hpp)
+endif()
+
 set(ptz-controls_HEADERS
     ptz-controls.hpp
     ptz-device.hpp
-    ptz-visca.hpp)
+    ${visca_HEADERS})
 
 set(ptz-controls_SOURCES
     ptz-controls.cpp
-    ptz-visca.cpp)
+    ${visca_SOURCES})
 
 set(ptz-controls_QRC
     ptz-controls.qrc)
@@ -43,8 +52,8 @@ target_link_libraries(ptz-controls
 	obs-frontend-api
 	Qt5::Widgets
 	${Qt5Gamepad_LIBRARIES}
-	libobs
-	visca)
+	${LIBVISCA_LIBRARIES}
+	libobs)
 
 set_target_properties(ptz-controls PROPERTIES FOLDER "plugins/glikely")
 install_obs_plugin_with_data(ptz-controls data)

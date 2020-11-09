@@ -16,8 +16,7 @@
 #include "../../item-widget-helpers.hpp"
 #include "../../obs-app.hpp"
 
-#define CONFIG_VISCA 1
-#if CONFIG_VISCA
+#if LIBVISCA_FOUND
 #include <ptz-visca.hpp>
 #endif
 
@@ -160,7 +159,7 @@ void PTZControls::OpenInterface()
 		cameras.push_back(ptz);
 	}
 
-#if CONFIG_VISCA
+#if LIBVISCA_FOUND
 	if (VISCA_open_serial(&interface, tty_dev) != VISCA_SUCCESS)
 		return;
 

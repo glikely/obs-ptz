@@ -11,7 +11,9 @@
 #include <QDockWidget>
 #include <QtGamepad/QGamepad>
 
+#if LIBVISCA_FOUND
 #include <visca/libvisca.h>
+#endif
 
 #include "../UI/qt-wrappers.hpp"
 #include <../UI/obs-frontend-api/obs-frontend-api.h>
@@ -30,7 +32,9 @@ private:
 
 	std::unique_ptr<Ui::PTZControls> ui;
 
+#if LIBVISCA_FOUND
 	VISCAInterface_t interface;
+#endif
 	std::vector<PTZDevice *> cameras;
 	unsigned int current_cam;
 	const char *tty_dev;
