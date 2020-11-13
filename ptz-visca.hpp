@@ -10,12 +10,12 @@
 #include <visca/libvisca.h>
 #include "ptz-device.hpp"
 
+class ViscaInterface;
 class PTZVisca : public PTZDevice {
 	Q_OBJECT
 
 private:
-	static std::map<std::string, VISCAInterface_t*> interfaces;
-	VISCAInterface_t *interface;
+	ViscaInterface *interface;
 	VISCACamera_t camera;
 
 	void init();
