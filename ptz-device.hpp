@@ -9,13 +9,19 @@
 #include <QDebug>
 #include <QObject>
 #include <QtGlobal>
+#include "../../obs-app.hpp"
 
 class PTZDevice : public QObject {
 	Q_OBJECT
 
+protected:
+	std::string type;
+
 public:
-	PTZDevice() : QObject() { };
+	PTZDevice(std::string type) : QObject(), type(type) { };
 	~PTZDevice() { };
+
+	static PTZDevice* make_device(obs_data_t *config);
 
 	virtual void pantilt(double pan, double tilt) { Q_UNUSED(pan); Q_UNUSED(tilt); }
 	virtual void pantilt_stop() { }
@@ -31,12 +37,23 @@ public:
 	virtual void zoom_stop() { }
 	virtual void zoom_tele() { }
 	virtual void zoom_wide() { }
+
+	virtual void set_config(obs_data_t *ptz_data) {
+		this->setObjectName(obs_data_get_string(ptz_data, "name"));
+	}
+	virtual void get_config(obs_data_t *ptz_data) {
+		obs_data_set_string(ptz_data, "name", qPrintable(this->objectName()));
+		obs_data_set_string(ptz_data, "type", type.c_str());
+	}
 };
 
 class PTZSimulator : public PTZDevice {
 	Q_OBJECT
 
 public:
+	PTZSimulator() : PTZDevice("sim") { };
+	PTZSimulator(obs_data_t *config) : PTZDevice("sim") { set_config(config); };
+
 	void pantilt(double pan, double tilt) { qDebug() << __func__ << "Pan" << pan << "Tilt" << tilt; }
 	void pantilt_stop() { qDebug() << __func__; }
 	void pantilt_up(uint32_t pan_speed, uint32_t tilt_speed) { qDebug() << __func__ << "Pan" << pan_speed << "Tilt" << tilt_speed; }

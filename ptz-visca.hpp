@@ -22,7 +22,11 @@ private:
 
 public:
 	PTZVisca(const char *uart_name, int address);
+	PTZVisca(obs_data_t *config);
 	~PTZVisca();
+
+	void set_config(obs_data_t *ptz_data);
+	void get_config(obs_data_t *ptz_data);
 
 	void pantilt(double pan, double tilt);
 	void pantilt_stop();

@@ -65,10 +65,17 @@ ViscaInterface * ViscaInterface::get_interface(std::string uart)
  * PTZVisca Methods
  */
 PTZVisca::PTZVisca(const char *uart_name, int address)
-	: PTZDevice()
+	: PTZDevice("visca")
 {
 	interface = ViscaInterface::get_interface(uart_name);
 	camera.address = address;
+	init();
+}
+
+PTZVisca::PTZVisca(obs_data_t *config)
+	: PTZDevice("visca")
+{
+	set_config(config);
 	init();
 }
 
@@ -82,6 +89,22 @@ void PTZVisca::init()
 {
 	VISCA_clear(&interface->iface, &camera);
 	VISCA_get_camera_info(&interface->iface, &camera);
+}
+
+void PTZVisca::set_config(obs_data_t *config)
+{
+	PTZDevice::set_config(config);
+	const char *uart = obs_data_get_string(config, "port");
+	camera.address = obs_data_get_int(config, "address");
+	if (uart)
+		interface = ViscaInterface::get_interface(uart);
+}
+
+void PTZVisca::get_config(obs_data_t *config)
+{
+	PTZDevice::get_config(config);
+	obs_data_set_string(config, "port", "/dev/ttyUSB0");
+	obs_data_set_int(config, "address", camera.address);
 }
 
 void PTZVisca::pantilt(double pan, double tilt)

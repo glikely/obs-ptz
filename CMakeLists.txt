@@ -17,6 +17,7 @@ set(ptz-controls_HEADERS
 
 set(ptz-controls_SOURCES
     ptz-controls.cpp
+    ptz-device.cpp
     ${visca_SOURCES})
 
 set(ptz-controls_QRC

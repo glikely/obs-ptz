@@ -85,14 +85,7 @@ PTZControls::PTZControls(QWidget *parent)
 {
 	ui->setupUi(this);
 
-	char *file = obs_module_config_path("config.json");
-	obs_data_t *data = nullptr;
-	if (file) {
-		data = obs_data_create_from_json_file(file);
-		bfree(file);
-	}
-	if (data) {
-	}
+	LoadConfig();
 
 	auto gamepads = QGamepadManager::instance()->connectedGamepads();
 	if (!gamepads.isEmpty()) {
@@ -103,8 +96,6 @@ PTZControls::PTZControls(QWidget *parent)
 		connect(gamepad, &QGamepad::axisLeftYChanged, this,
 				&PTZControls::on_panTiltGamepad);
 	}
-
-	OpenInterface();
 
 	connect(ui->dockWidgetContents, &QWidget::customContextMenuRequested,
 		this, &PTZControls::ControlContextMenu);
@@ -118,16 +109,39 @@ PTZControls::PTZControls(QWidget *parent)
 PTZControls::~PTZControls()
 {
 	//signal_handler_disconnect_global(obs_get_signal_handler(), OBSSignal, this);
+	SaveConfig();
+	deleteLater();
+}
+
+/*
+ * Save/Load configuration methods
+ */
+void PTZControls::SaveConfig()
+{
 	char *file = obs_module_config_path("config.json");
-	if (!file) {
-		deleteLater();
+	if (!file)
 		return;
-	}
 	obs_data_t *data = obs_data_create_from_json_file(file);
 
 	if (!data)
 		data = obs_data_create();
-	obs_data_set_bool(data, "ptzTestBool", true);
+	if (!data) {
+		bfree(file);
+		return;
+	}
+
+	obs_data_set_bool(data, "use_joystick", true);
+	obs_data_erase(data, "cameras");
+	obs_data_array_t *camera_array = obs_data_array_create();
+	obs_data_set_array(data, "cameras", camera_array);
+	for (unsigned long int i = 0; i < cameras.size(); i++) {
+		PTZDevice *ptz = cameras.at(i);
+		obs_data_t *ptz_data = obs_data_create();
+		ptz->get_config(ptz_data);
+		obs_data_array_push_back(camera_array, ptz_data);
+	}
+
+	/* Save data structure to json */
 	if (!obs_data_save_json(data, file)) {
 		char *path = obs_module_config_path("");
 		if (path) {
@@ -141,11 +155,50 @@ PTZControls::~PTZControls()
 	deleteLater();
 }
 
+void PTZControls::LoadConfig()
+{
+	char *file = obs_module_config_path("config.json");
+	obs_data_t *data = nullptr;
+	obs_data_array_t *array;
+
+	if (file) {
+		data = obs_data_create_from_json_file(file);
+		bfree(file);
+	}
+	if (!data) {
+		qDebug() << "No configuration data; creating test devices";
+		OpenInterface();
+		return;
+	}
+
+	array = obs_data_get_array(data, "cameras");
+	if (!array) {
+		qDebug() << "No camera array; creating test devices";
+		OpenInterface();
+		return;
+	}
+	for (size_t i = 0; i < obs_data_array_count(array); i++) {
+		obs_data_t *ptzcfg = obs_data_array_item(array, i);
+		if (!ptzcfg) {
+			qDebug() << "Config problem!";
+			continue;
+		}
+
+		qDebug() << "creating camera" << obs_data_get_string(ptzcfg, "type") << obs_data_get_string(ptzcfg, "name");
+		PTZDevice *ptz = PTZDevice::make_device(ptzcfg);
+		if (!ptz)
+			continue;
+		ptz->setParent(this);
+		cameras.push_back(ptz);
+	}
+}
+
 void PTZControls::OpenInterface()
 {
 	for (int i = 0; i < 1; i++) {
 		PTZDevice *ptz = new PTZSimulator();
 		ptz->setParent(this);
+		ptz->setObjectName("PTZ Simulator");
 		cameras.push_back(ptz);
 	}
 
@@ -153,6 +206,7 @@ void PTZControls::OpenInterface()
 	for (int i = 0; i < 3; i++) {
 		PTZDevice *ptz = new PTZVisca("/dev/ttyUSB0", i+1);
 		ptz->setParent(this);
+		ptz->setObjectName("VISCA PTZ");
 		cameras.push_back(ptz);
 	}
 #endif

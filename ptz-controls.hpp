@@ -38,6 +38,8 @@ private:
 	QGamepad *gamepad;
 	double joystick_pan, joystick_tilt;
 
+	void SaveConfig();
+	void LoadConfig();
 	void OpenInterface();
 
 	void full_stop();
