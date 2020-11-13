@@ -81,7 +81,6 @@ void PTZControls::OBSFrontendEvent(enum obs_frontend_event event, void *ptr)
 PTZControls::PTZControls(QWidget *parent)
 	: QDockWidget(parent),
 	  ui(new Ui::PTZControls),
-	  tty_dev("/dev/ttyUSB1"),
 	  gamepad(0)
 {
 	ui->setupUi(this);
@@ -126,8 +125,6 @@ PTZControls::~PTZControls()
 	}
 	obs_data_t *data = obs_data_create_from_json_file(file);
 
-	CloseInterface();
-
 	if (!data)
 		data = obs_data_create();
 	obs_data_set_bool(data, "ptzTestBool", true);
@@ -146,13 +143,6 @@ PTZControls::~PTZControls()
 
 void PTZControls::OpenInterface()
 {
-	int camera_count;
-
-	CloseInterface();
-
-	if (!tty_dev)
-		return;
-
 	for (int i = 0; i < 1; i++) {
 		PTZDevice *ptz = new PTZSimulator();
 		ptz->setParent(this);
@@ -160,26 +150,11 @@ void PTZControls::OpenInterface()
 	}
 
 #if LIBVISCA_FOUND
-	if (VISCA_open_serial(&interface, tty_dev) != VISCA_SUCCESS)
-		return;
-
-	interface.broadcast = 0;
-	if (VISCA_set_address(&interface, &camera_count) != VISCA_SUCCESS)
-		return;
-
-	printf("VISCA Camera count: %i\n", camera_count);
-	for (int i = 0; i < camera_count; i++) {
-		PTZDevice *ptz = new PTZVisca(&interface, i+1);
+	for (int i = 0; i < 3; i++) {
+		PTZDevice *ptz = new PTZVisca("/dev/ttyUSB0", i+1);
 		ptz->setParent(this);
 		cameras.push_back(ptz);
 	}
-#endif
-}
-
-void PTZControls::CloseInterface()
-{
-#if CONFIG_VISCA
-	VISCA_close_serial(&interface);
 #endif
 }
 

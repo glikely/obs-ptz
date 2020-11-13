@@ -32,18 +32,13 @@ private:
 
 	std::unique_ptr<Ui::PTZControls> ui;
 
-#if LIBVISCA_FOUND
-	VISCAInterface_t interface;
-#endif
 	std::vector<PTZDevice *> cameras;
 	unsigned int current_cam;
-	const char *tty_dev;
 
 	QGamepad *gamepad;
 	double joystick_pan, joystick_tilt;
 
 	void OpenInterface();
-	void CloseInterface();
 
 	void full_stop();
 	void setPanTilt(double pan, double tilt);

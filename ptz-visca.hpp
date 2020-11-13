@@ -14,13 +14,14 @@ class PTZVisca : public PTZDevice {
 	Q_OBJECT
 
 private:
+	static std::map<std::string, VISCAInterface_t*> interfaces;
 	VISCAInterface_t *interface;
 	VISCACamera_t camera;
 
 	void init();
 
 public:
-	PTZVisca(VISCAInterface_t *interface, int address);
+	PTZVisca(const char *uart_name, int address);
 	~PTZVisca();
 
 	void pantilt(double pan, double tilt);
