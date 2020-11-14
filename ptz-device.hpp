@@ -8,11 +8,15 @@
 
 #include <QDebug>
 #include <QObject>
+#include <QStringListModel>
 #include <QtGlobal>
 #include "../../obs-app.hpp"
 
 class PTZDevice : public QObject {
 	Q_OBJECT
+
+private:
+	static QStringListModel name_list_model;
 
 protected:
 	std::string type;
@@ -37,9 +41,16 @@ public:
 	virtual void zoom_stop() { }
 	virtual void zoom_tele() { }
 	virtual void zoom_wide() { }
+	static QAbstractListModel * model() { return &name_list_model; }
 
 	virtual void set_config(obs_data_t *ptz_data) {
-		this->setObjectName(obs_data_get_string(ptz_data, "name"));
+		const char *name = obs_data_get_string(ptz_data, "name");
+		this->setObjectName(name);
+
+		int insert_at = name_list_model.rowCount();
+		name_list_model.insertRow(insert_at);
+		QModelIndex index = name_list_model.index(insert_at, 0);
+		name_list_model.setData(index, name);
 	}
 	virtual void get_config(obs_data_t *ptz_data) {
 		obs_data_set_string(ptz_data, "name", qPrintable(this->objectName()));

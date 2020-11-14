@@ -84,6 +84,7 @@ PTZControls::PTZControls(QWidget *parent)
 	  gamepad(0)
 {
 	ui->setupUi(this);
+	ui->cameraList->setModel(PTZDevice::model());
 
 	LoadConfig();
 

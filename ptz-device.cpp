@@ -12,6 +12,8 @@
 #include "ptz-device.hpp"
 #include "ptz-visca.hpp"
 
+QStringListModel PTZDevice::name_list_model;
+
 PTZDevice *PTZDevice::make_device(obs_data_t *config)
 {
 	std::string type = obs_data_get_string(config, "type");
