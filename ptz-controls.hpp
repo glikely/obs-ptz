@@ -45,6 +45,8 @@ private:
 	void full_stop();
 	void setPanTilt(double pan, double tilt);
 
+	void setCurrent(unsigned int index);
+
 	PTZDevice * currCamera();
 
 private slots:
@@ -74,6 +76,8 @@ private slots:
 
 	void on_nextCameraButton_released();
 	void on_prevCameraButton_released();
+
+	void on_cameraList_clicked();
 
 public:
 	PTZControls(QWidget *parent = nullptr);

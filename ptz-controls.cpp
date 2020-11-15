@@ -317,18 +317,28 @@ void PTZControls::full_stop()
 	}
 }
 
-void PTZControls::on_nextCameraButton_released()
+void PTZControls::setCurrent(unsigned int index)
 {
 	full_stop();
-	current_cam++;
-	if (current_cam >= cameras.size())
-		current_cam = 0;
+	current_cam = index;
+	ui->cameraList->setCurrentIndex(PTZDevice::model()->index(current_cam, 0));
+}
+
+void PTZControls::on_nextCameraButton_released()
+{
+	setCurrent(current_cam + 1 >= cameras.size() ? 0 : current_cam + 1);
 }
 
 void PTZControls::on_prevCameraButton_released()
 {
+	setCurrent(current_cam == 0 ? cameras.size() - 1 : current_cam - 1);
+}
+
+void PTZControls::on_cameraList_clicked()
+{
+	qDebug() << "got here!";
 	full_stop();
-	current_cam--;
+	current_cam = ui->cameraList->currentIndex().row();
 	if (current_cam >= cameras.size())
-		current_cam = cameras.size() - 1;
+		current_cam = 0;
 }
