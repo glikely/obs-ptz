@@ -39,12 +39,12 @@ void obs_module_unload() {}
 
 MODULE_EXPORT const char *obs_module_description(void)
 {
-	return obs_module_text("Description");
+	return obs_module_text("Pan, Tilt & Zoom control plugin");
 }
 
 MODULE_EXPORT const char *obs_module_name(void)
 {
-	return obs_module_text("PTZControls");
+	return obs_module_text("PTZ Controls");
 }
 
 /*
