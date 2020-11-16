@@ -274,7 +274,7 @@ void PTZControls::on_panTiltGamepad()
 {
 	if (!gamepad)
 		return;
-	setPanTilt(gamepad->axisLeftX(), gamepad->axisLeftY());
+	setPanTilt(gamepad->axisLeftX(), - gamepad->axisLeftY());
 }
 
 /* The pan/tilt buttons are a large block of simple and mostly identical code.
