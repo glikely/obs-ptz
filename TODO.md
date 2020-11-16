@@ -5,10 +5,11 @@ This is a partial list of the features I'd like to add to this project.
 Anybody who wants to pitch in and help implement these is most welcome.
 Feel free to send me patches by email, or pull requests via github.
 
-Multiple Camera Support
------------------------
+Core
+----
 
-Nothing at the moment!
+- Fix all the memory leaks (obs_data allocations, PTZDevice instances, etc.)
+- Replace PTZControls->cameras with a QAbstractListModel
 
 PTZ Backend
 -----------
@@ -17,6 +18,8 @@ PTZ Backend
 - Add support for VISCA over IP
 - Add support for other camera control protocols
 - Refactor backend to run in separate thread, or at least be non-blocking
+- Use QSerialPort for the data connection, and QSerialPortInfo to get list of
+  available ports
 
 User Interface
 --------------
@@ -33,4 +36,5 @@ User Interface
 
 Wishlist
 --------
+
 - Virtual PTZ for any source - use PTZ to translate & scale a source.
