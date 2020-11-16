@@ -22,7 +22,7 @@
 
 OBS_DECLARE_MODULE()
 OBS_MODULE_AUTHOR("Grant Likely <grant.likely@secretlab.ca>");
-OBS_MODULE_USE_DEFAULT_LOCALE("media-controls", "en-US")
+OBS_MODULE_USE_DEFAULT_LOCALE("ptz-controls", "en-US")
 
 bool obs_module_load()
 {
