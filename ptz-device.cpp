@@ -5,10 +5,6 @@
  * SPDX-License-Identifier: GPLv2
  */
 
-#include <QDebug>
-#include <QObject>
-#include <QtGlobal>
-#include "../../obs-app.hpp"
 #include "ptz-device.hpp"
 #include "ptz-visca.hpp"
 

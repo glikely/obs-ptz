@@ -6,11 +6,12 @@
  */
 #pragma once
 
+#include <memory>
 #include <QDebug>
 #include <QObject>
 #include <QStringListModel>
 #include <QtGlobal>
-#include "../../obs-app.hpp"
+#include <obs-frontend-api.h>
 
 class PTZDevice : public QObject {
 	Q_OBJECT

@@ -15,9 +15,6 @@
 #include <visca/libvisca.h>
 #endif
 
-#include "../UI/qt-wrappers.hpp"
-#include <../UI/obs-frontend-api/obs-frontend-api.h>
-
 #include "ptz-device.hpp"
 #include "ui_ptz-controls.h"
 

@@ -8,13 +8,11 @@
 #include <QToolTip>
 
 #include <obs-module.h>
+#include <util/platform.h>
 #include <QMainWindow>
 #include <QMenuBar>
 #include <QVBoxLayout>
 #include "ui_ptz-controls.h"
-
-#include "../../item-widget-helpers.hpp"
-#include "../../obs-app.hpp"
 
 #if LIBVISCA_FOUND
 #include <ptz-visca.hpp>
