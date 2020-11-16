@@ -260,20 +260,20 @@ void PTZControls::on_panTiltGamepad()
 
 /* The pan/tilt buttons are a large block of simple and mostly identical code.
  * Use C preprocessor macro to create all the duplicate functions */
-#define button_pantilt_actions(direction) \
+#define button_pantilt_actions(direction, x, y) \
 	void PTZControls::on_panTiltButton_##direction##_pressed() \
-	{ PTZDevice *ptz = currCamera(); if (ptz) ptz->pantilt_##direction(10, 10); } \
+	{ setPanTilt(x, y); } \
 	void PTZControls::on_panTiltButton_##direction##_released() \
 	{ PTZDevice *ptz = currCamera(); if (ptz) ptz->pantilt_stop(); }
 
-button_pantilt_actions(up);
-button_pantilt_actions(upleft);
-button_pantilt_actions(upright);
-button_pantilt_actions(left);
-button_pantilt_actions(right);
-button_pantilt_actions(down);
-button_pantilt_actions(downleft);
-button_pantilt_actions(downright);
+button_pantilt_actions(up, 0, 1);
+button_pantilt_actions(upleft, -1, 1);
+button_pantilt_actions(upright, 1, 1);
+button_pantilt_actions(left, -1, 0);
+button_pantilt_actions(right, 1, 0);
+button_pantilt_actions(down, 0, -1);
+button_pantilt_actions(downleft, -1, -1);
+button_pantilt_actions(downright, 1, -1);
 
 void PTZControls::on_panTiltButton_home_released()
 {

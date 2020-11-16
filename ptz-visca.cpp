@@ -117,18 +117,6 @@ void PTZVisca::pantilt_stop()
 	VISCA_set_pantilt_stop(&interface->iface, &camera, 0, 0);
 }
 
-#define ptzvisca_pantilt_wrapper(dir) \
-	void PTZVisca::pantilt_##dir(uint32_t pan_speed, uint32_t tilt_speed) \
-	{ VISCA_set_pantilt_##dir(&interface->iface, &camera, pan_speed, tilt_speed); }
-ptzvisca_pantilt_wrapper(up)
-ptzvisca_pantilt_wrapper(upleft)
-ptzvisca_pantilt_wrapper(upright)
-ptzvisca_pantilt_wrapper(left)
-ptzvisca_pantilt_wrapper(right)
-ptzvisca_pantilt_wrapper(down)
-ptzvisca_pantilt_wrapper(downleft)
-ptzvisca_pantilt_wrapper(downright)
-
 void PTZVisca::pantilt_home()
 {
 	VISCA_set_pantilt_home(&interface->iface, &camera);
