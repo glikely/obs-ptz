@@ -8,11 +8,7 @@ Feel free to send me patches by email, or pull requests via github.
 Multiple Camera Support
 -----------------------
 
-- Add list box for selecting between multiple cameras
-- Add support for multiple VISCA interfaces (multiple UARTs)
-- Add support for linking cameras to scenes
-  - Choose PTZ target based on scene visibility in program or preview
-  - User control for selecting PTZ target (preview/program/manual)
+Nothing at the moment!
 
 PTZ Backend
 -----------
@@ -21,7 +17,6 @@ PTZ Backend
 - Add support for VISCA over IP
 - Add support for other camera control protocols
 - Refactor backend to run in separate thread, or at least be non-blocking
-- Add dummy PTZ device for testing
 
 User Interface
 --------------
@@ -35,3 +30,7 @@ User Interface
   - Add cycling through cameras
   - Add pan/tilt speed control
   - Add gamepad configuration (enable/disable, select gamepads)
+
+Wishlist
+--------
+- Virtual PTZ for any source - use PTZ to translate & scale a source.
