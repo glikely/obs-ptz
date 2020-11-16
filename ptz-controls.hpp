@@ -73,9 +73,6 @@ private slots:
 	void on_zoomButton_wide_pressed();
 	void on_zoomButton_wide_released();
 
-	void on_nextCameraButton_released();
-	void on_prevCameraButton_released();
-
 	void on_targetButton_preview_clicked(bool checked);
 	void on_targetButton_program_clicked(bool checked);
 

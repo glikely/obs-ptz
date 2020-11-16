@@ -345,16 +345,6 @@ void PTZControls::setCurrent(unsigned int index)
 	ui->cameraList->setCurrentIndex(PTZDevice::model()->index(current_cam, 0));
 }
 
-void PTZControls::on_nextCameraButton_released()
-{
-	setCurrent(current_cam + 1 >= cameras.size() ? 0 : current_cam + 1);
-}
-
-void PTZControls::on_prevCameraButton_released()
-{
-	setCurrent(current_cam == 0 ? cameras.size() - 1 : current_cam - 1);
-}
-
 void PTZControls::on_targetButton_preview_clicked(bool checked)
 {
 	if (checked)

@@ -248,18 +248,17 @@
            </widget>
           </item>
           <item>
-           <widget class="QPushButton" name="nextCameraButton">
-            <property name="text">
-             <string>Next Camera</string>
+           <spacer name="verticalSpacer">
+            <property name="orientation">
+             <enum>Qt::Vertical</enum>
             </property>
-           </widget>
-          </item>
-          <item>
-           <widget class="QPushButton" name="prevCameraButton">
-            <property name="text">
-             <string>Previous Camera</string>
+            <property name="sizeHint" stdset="0">
+             <size>
+              <width>20</width>
+              <height>40</height>
+             </size>
             </property>
-           </widget>
+           </spacer>
           </item>
          </layout>
         </item>
