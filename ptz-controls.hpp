@@ -25,7 +25,8 @@ class PTZControls : public QDockWidget {
 	Q_OBJECT
 
 private:
-	static void OBSFrontendEvent(enum obs_frontend_event event, void *ptr);
+	static void OBSFrontendEventWrapper(enum obs_frontend_event event, void *ptr);
+	void OBSFrontendEvent(enum obs_frontend_event event);
 	void ControlContextMenu();
 
 	std::unique_ptr<Ui::PTZControls> ui;
@@ -74,6 +75,9 @@ private slots:
 
 	void on_nextCameraButton_released();
 	void on_prevCameraButton_released();
+
+	void on_targetButton_preview_clicked(bool checked);
+	void on_targetButton_program_clicked(bool checked);
 
 	void on_cameraList_clicked();
 

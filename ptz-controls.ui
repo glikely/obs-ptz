@@ -294,6 +294,43 @@
         </property>
        </widget>
       </item>
+      <item>
+       <layout class="QHBoxLayout" name="horizontalLayout_2">
+        <item>
+         <widget class="QRadioButton" name="targetButton_manual">
+          <property name="text">
+           <string>Manua&amp;l</string>
+          </property>
+          <property name="checked">
+           <bool>true</bool>
+          </property>
+          <attribute name="buttonGroup">
+           <string notr="true">targetButtonGroup</string>
+          </attribute>
+         </widget>
+        </item>
+        <item>
+         <widget class="QRadioButton" name="targetButton_preview">
+          <property name="text">
+           <string>Follow Preview</string>
+          </property>
+          <attribute name="buttonGroup">
+           <string notr="true">targetButtonGroup</string>
+          </attribute>
+         </widget>
+        </item>
+        <item>
+         <widget class="QRadioButton" name="targetButton_program">
+          <property name="text">
+           <string>Follow Pro&amp;gram</string>
+          </property>
+          <attribute name="buttonGroup">
+           <string notr="true">targetButtonGroup</string>
+          </attribute>
+         </widget>
+        </item>
+       </layout>
+      </item>
      </layout>
     </item>
    </layout>
@@ -303,4 +340,7 @@
   <include location="ptz-controls.qrc"/>
  </resources>
  <connections/>
+ <buttongroups>
+  <buttongroup name="targetButtonGroup"/>
+ </buttongroups>
 </ui>

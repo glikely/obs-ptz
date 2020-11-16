@@ -47,17 +47,43 @@ MODULE_EXPORT const char *obs_module_name(void)
 	return obs_module_text("PTZ Controls");
 }
 
-/*
-void PTZControls::OBSFrontendEvent(enum obs_frontend_event event, void *ptr)
+void PTZControls::OBSFrontendEventWrapper(enum obs_frontend_event event, void *ptr)
 {
-	//PTZControls *controls = reinterpret_cast<PTZControls *>(ptr);
+	PTZControls *controls = reinterpret_cast<PTZControls *>(ptr);
+	controls->OBSFrontendEvent(event);
+}
+
+void PTZControls::OBSFrontendEvent(enum obs_frontend_event event)
+{
+	obs_source_t *scene = NULL;
+	const char *name;
 
 	switch (event) {
+	case OBS_FRONTEND_EVENT_SCENE_CHANGED:
+		if (ui->targetButton_program->isChecked())
+			scene = obs_frontend_get_current_scene();
+		break;
+	case OBS_FRONTEND_EVENT_PREVIEW_SCENE_CHANGED:
+		if (ui->targetButton_preview->isChecked())
+			scene = obs_frontend_get_current_preview_scene();
+		break;
 	default:
 		break;
 	}
+
+	if (!scene)
+		return;
+
+	name = obs_source_get_name(scene);
+	for (unsigned long int i = 0; i < cameras.size(); i++) {
+		if (cameras[i]->objectName() == name) {
+			setCurrent(i);
+			break;
+		}
+	}
+
+	obs_source_release(scene);
 }
-*/
 
 PTZControls::PTZControls(QWidget *parent)
 	: QDockWidget(parent),
@@ -82,7 +108,7 @@ PTZControls::PTZControls(QWidget *parent)
 	connect(ui->dockWidgetContents, &QWidget::customContextMenuRequested,
 		this, &PTZControls::ControlContextMenu);
 
-	//obs_frontend_add_event_callback(OBSFrontendEvent, this);
+	obs_frontend_add_event_callback(OBSFrontendEventWrapper, this);
 
 	hide();
 }
@@ -112,6 +138,12 @@ void PTZControls::SaveConfig()
 	}
 
 	obs_data_set_bool(data, "use_joystick", true);
+	const char *target_mode = "manual";
+	if (ui->targetButton_preview->isChecked())
+		target_mode = "preview";
+	if (ui->targetButton_program->isChecked())
+		target_mode = "program";
+	obs_data_set_string(data, "target_mode", target_mode);
 	obs_data_erase(data, "cameras");
 	obs_data_array_t *camera_array = obs_data_array_create();
 	obs_data_set_array(data, "cameras", camera_array);
@@ -141,6 +173,7 @@ void PTZControls::LoadConfig()
 	char *file = obs_module_config_path("config.json");
 	obs_data_t *data = nullptr;
 	obs_data_array_t *array;
+	std::string target_mode;
 
 	if (file) {
 		data = obs_data_create_from_json_file(file);
@@ -151,6 +184,12 @@ void PTZControls::LoadConfig()
 		OpenInterface();
 		return;
 	}
+
+	target_mode = obs_data_get_string(data, "target_mode");
+	if (target_mode == "preview")
+		ui->targetButton_preview->setChecked(true);
+	if (target_mode == "program")
+		ui->targetButton_program->setChecked(true);
 
 	array = obs_data_get_array(data, "cameras");
 	if (!array) {
@@ -299,6 +338,8 @@ void PTZControls::full_stop()
 
 void PTZControls::setCurrent(unsigned int index)
 {
+	if (index == current_cam)
+		return;
 	full_stop();
 	current_cam = index;
 	ui->cameraList->setCurrentIndex(PTZDevice::model()->index(current_cam, 0));
@@ -314,9 +355,20 @@ void PTZControls::on_prevCameraButton_released()
 	setCurrent(current_cam == 0 ? cameras.size() - 1 : current_cam - 1);
 }
 
+void PTZControls::on_targetButton_preview_clicked(bool checked)
+{
+	if (checked)
+		OBSFrontendEvent(OBS_FRONTEND_EVENT_PREVIEW_SCENE_CHANGED);
+}
+
+void PTZControls::on_targetButton_program_clicked(bool checked)
+{
+	if (checked)
+		OBSFrontendEvent(OBS_FRONTEND_EVENT_SCENE_CHANGED);
+}
+
 void PTZControls::on_cameraList_clicked()
 {
-	qDebug() << "got here!";
 	full_stop();
 	current_cam = ui->cameraList->currentIndex().row();
 	if (current_cam >= cameras.size())
