@@ -48,25 +48,6 @@ MODULE_EXPORT const char *obs_module_name(void)
 }
 
 /*
-void PTZControls::OBSSignal(void *data, const char *signal,
-			      calldata_t *call_data)
-{
-	obs_source_t *source =
-		static_cast<obs_source_t *>(calldata_ptr(call_data, "source"));
-	if (!source)
-		return;
-	uint32_t flags = obs_source_get_output_flags(source);
-	if ((flags & OBS_SOURCE_CONTROLLABLE_MEDIA) == 0 ||
-	    strcmp(signal, "source_destroy") == 0 ||
-	    strcmp(signal, "source_remove") == 0)
-		return;
-
-	//PTZControls *controls = static_cast<PTZControls *>(data);
-	//QMetaObject::invokeMethod(controls, "SignalMediaSource");
-}
-*/
-
-/*
 void PTZControls::OBSFrontendEvent(enum obs_frontend_event event, void *ptr)
 {
 	//PTZControls *controls = reinterpret_cast<PTZControls *>(ptr);
@@ -101,7 +82,6 @@ PTZControls::PTZControls(QWidget *parent)
 	connect(ui->dockWidgetContents, &QWidget::customContextMenuRequested,
 		this, &PTZControls::ControlContextMenu);
 
-	//signal_handler_connect_global(obs_get_signal_handler(), OBSSignal, this);
 	//obs_frontend_add_event_callback(OBSFrontendEvent, this);
 
 	hide();
