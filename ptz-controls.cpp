@@ -15,7 +15,7 @@
 #include "ui_ptz-controls.h"
 
 #if LIBVISCA_FOUND
-#include <ptz-visca.hpp>
+#include "ptz-visca.hpp"
 #endif
 
 OBS_DECLARE_MODULE()
