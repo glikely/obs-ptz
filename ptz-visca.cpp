@@ -34,7 +34,6 @@ void ViscaInterface::open()
 		qDebug() << "Unable to open" << uart_name.c_str() << "for VISCA";
 		return;
 	}
-	iface.broadcast = 0;
 	if (VISCA_set_address(&iface, &camera_count) != VISCA_SUCCESS) {
 		qDebug() << "Unable to set address for VISCA";
 		return;
