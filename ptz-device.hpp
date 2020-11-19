@@ -18,15 +18,18 @@ class PTZDevice : public QObject {
 
 private:
 	static QStringListModel name_list_model;
+	static std::vector<PTZDevice *> devices;
 
 protected:
 	std::string type;
 
 public:
-	PTZDevice(std::string type) : QObject(), type(type) { };
+	PTZDevice(std::string type) : QObject(), type(type) { devices.push_back(this); };
 	~PTZDevice() { };
 
 	static PTZDevice* make_device(obs_data_t *config);
+	static PTZDevice* get_device(unsigned int index) { return devices.at(index); }
+	static unsigned int device_count() { return devices.size(); }
 
 	virtual void pantilt(double pan, double tilt) { Q_UNUSED(pan); Q_UNUSED(tilt); }
 	virtual void pantilt_stop() { }

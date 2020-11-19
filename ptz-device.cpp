@@ -9,14 +9,16 @@
 #include "ptz-visca.hpp"
 
 QStringListModel PTZDevice::name_list_model;
+std::vector<PTZDevice *> PTZDevice::devices;
 
 PTZDevice *PTZDevice::make_device(obs_data_t *config)
 {
+	PTZDevice *ptz = nullptr;
 	std::string type = obs_data_get_string(config, "type");
 
 	if (type == "sim")
-		return new PTZSimulator(config);
+		ptz = new PTZSimulator(config);
 	if (type == "visca")
-		return new PTZVisca(config);
-	return NULL;
+		ptz = new PTZVisca(config);
+	return ptz;
 }

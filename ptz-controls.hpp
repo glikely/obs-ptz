@@ -28,7 +28,6 @@ private:
 
 	std::unique_ptr<Ui::PTZControls> ui;
 
-	std::vector<PTZDevice *> cameras;
 	unsigned int current_cam;
 
 	QGamepad *gamepad;

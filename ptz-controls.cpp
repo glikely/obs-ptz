@@ -73,8 +73,9 @@ void PTZControls::OBSFrontendEvent(enum obs_frontend_event event)
 		return;
 
 	name = obs_source_get_name(scene);
-	for (unsigned long int i = 0; i < cameras.size(); i++) {
-		if (cameras[i]->objectName() == name) {
+	for (unsigned long int i = 0; i < PTZDevice::device_count(); i++) {
+		struct PTZDevice *ptz = PTZDevice::get_device(i);
+		if (ptz->objectName() == name) {
 			setCurrent(i);
 			break;
 		}
@@ -145,8 +146,10 @@ void PTZControls::SaveConfig()
 	obs_data_erase(data, "cameras");
 	obs_data_array_t *camera_array = obs_data_array_create();
 	obs_data_set_array(data, "cameras", camera_array);
-	for (unsigned long int i = 0; i < cameras.size(); i++) {
-		PTZDevice *ptz = cameras.at(i);
+	for (unsigned long int i = 0; i < PTZDevice::device_count(); i++) {
+		PTZDevice *ptz = PTZDevice::get_device(i);
+		if (!ptz)
+			continue;
 		obs_data_t *ptz_data = obs_data_create();
 		ptz->get_config(ptz_data);
 		obs_data_array_push_back(camera_array, ptz_data);
@@ -163,7 +166,6 @@ void PTZControls::SaveConfig()
 	}
 	obs_data_release(data);
 	bfree(file);
-	deleteLater();
 }
 
 void PTZControls::LoadConfig()
@@ -204,10 +206,6 @@ void PTZControls::LoadConfig()
 
 		qDebug() << "creating camera" << obs_data_get_string(ptzcfg, "type") << obs_data_get_string(ptzcfg, "name");
 		PTZDevice *ptz = PTZDevice::make_device(ptzcfg);
-		if (!ptz)
-			continue;
-		ptz->setParent(this);
-		cameras.push_back(ptz);
 	}
 }
 
@@ -215,17 +213,13 @@ void PTZControls::OpenInterface()
 {
 	for (int i = 0; i < 1; i++) {
 		PTZDevice *ptz = new PTZSimulator();
-		ptz->setParent(this);
 		ptz->setObjectName("PTZ Simulator");
-		cameras.push_back(ptz);
 	}
 
 #if LIBVISCA_FOUND
 	for (int i = 0; i < 3; i++) {
 		PTZDevice *ptz = new PTZVisca("/dev/ttyUSB0", i+1);
-		ptz->setParent(this);
 		ptz->setObjectName("VISCA PTZ");
-		cameras.push_back(ptz);
 	}
 #endif
 }
@@ -253,11 +247,11 @@ void PTZControls::ControlContextMenu()
 
 PTZDevice * PTZControls::currCamera()
 {
-	if (cameras.size() == 0)
+	if (PTZDevice::device_count() == 0)
 		return NULL;
-	if (current_cam >= cameras.size())
-		current_cam = cameras.size() - 1;
-	return cameras.at(current_cam);
+	if (current_cam >= PTZDevice::device_count())
+		current_cam = PTZDevice::device_count() - 1;
+	return PTZDevice::get_device(current_cam);
 }
 
 void PTZControls::setPanTilt(double pan, double tilt)
@@ -359,6 +353,4 @@ void PTZControls::on_cameraList_clicked()
 {
 	full_stop();
 	current_cam = ui->cameraList->currentIndex().row();
-	if (current_cam >= cameras.size())
-		current_cam = 0;
 }
