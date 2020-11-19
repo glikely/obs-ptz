@@ -8,8 +8,24 @@
 #include "ptz-device.hpp"
 #include "ptz-visca.hpp"
 
-QStringListModel PTZDevice::name_list_model;
+PTZListModel PTZDevice::ptz_list_model;
 std::vector<PTZDevice *> PTZDevice::devices;
+
+int PTZListModel::rowCount(const QModelIndex& parent) const
+{
+	return PTZDevice::device_count();
+}
+
+QVariant PTZListModel::data(const QModelIndex &index, int role) const
+{
+	if (!index.isValid())
+		return QVariant();
+
+	if (role == Qt::DisplayRole) {
+		return PTZDevice::get_device(index.row())->objectName();
+	}
+	return QVariant();
+}
 
 PTZDevice *PTZDevice::make_device(obs_data_t *config)
 {

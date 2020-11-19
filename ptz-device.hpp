@@ -13,18 +13,31 @@
 #include <QtGlobal>
 #include <obs-frontend-api.h>
 
+class PTZListModel : public QAbstractListModel {
+	Q_OBJECT
+
+public:
+	int rowCount(const QModelIndex& parent = QModelIndex()) const;
+	QVariant data(const QModelIndex &index, int role) const;
+	void do_reset() { beginResetModel(); endResetModel(); }
+};
+
 class PTZDevice : public QObject {
 	Q_OBJECT
 
 private:
-	static QStringListModel name_list_model;
+	static PTZListModel ptz_list_model;
 	static std::vector<PTZDevice *> devices;
 
 protected:
 	std::string type;
 
 public:
-	PTZDevice(std::string type) : QObject(), type(type) { devices.push_back(this); };
+	PTZDevice(std::string type) : QObject(), type(type)
+	{
+		devices.push_back(this);
+		ptz_list_model.do_reset();
+	};
 	~PTZDevice() { };
 
 	static PTZDevice* make_device(obs_data_t *config);
@@ -37,16 +50,12 @@ public:
 	virtual void zoom_stop() { }
 	virtual void zoom_tele() { }
 	virtual void zoom_wide() { }
-	static QAbstractListModel * model() { return &name_list_model; }
+	static QAbstractListModel * model() { return &ptz_list_model; }
 
 	virtual void set_config(obs_data_t *ptz_data) {
 		const char *name = obs_data_get_string(ptz_data, "name");
 		this->setObjectName(name);
-
-		int insert_at = name_list_model.rowCount();
-		name_list_model.insertRow(insert_at);
-		QModelIndex index = name_list_model.index(insert_at, 0);
-		name_list_model.setData(index, name);
+		ptz_list_model.do_reset();
 	}
 	virtual void get_config(obs_data_t *ptz_data) {
 		obs_data_set_string(ptz_data, "name", qPrintable(this->objectName()));
