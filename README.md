@@ -32,6 +32,25 @@ make
 
 To build this plugin
 --------------------
+
+### Build as standalone plugin (recommended)
+
+- Install OBS Studio including headers
+  - Follow instructions for your distribution: https://obsproject.com/wiki/install-instructions
+- clone this repository and build:
+
+```
+git clone https://github.com/glikely/obs-ptz
+mkdir obs-ptz/build
+cd obs-ptz/build
+cmake ..
+```
+
+Copy or symlink ptz-controls.so into the OBS plugins directory.
+Typically `/usr/lib/obs-plugins`.
+
+### Build in OBS source tree
+
 - Build OBS Studio: https://obsproject.com/wiki/Install-Instructions
 - Check out this repository to UI/frontend-plugins/ptz-controls
 - Add `add_subdirectory(ptz-controls)` to UI/frontend-plugins/CMakeLists.txt
