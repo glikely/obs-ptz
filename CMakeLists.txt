@@ -22,11 +22,13 @@ endif()
 set(ptz-controls_HEADERS
     ptz-controls.hpp
     ptz-device.hpp
+    settings.hpp
     ${visca_HEADERS})
 
 set(ptz-controls_SOURCES
     ptz-controls.cpp
     ptz-device.cpp
+    settings.cpp
     ${visca_SOURCES})
 
 set(ptz-controls_QRC
@@ -47,7 +49,7 @@ if(WIN32)
 		ptz-controls.rc)
 endif()
 
-qt5_wrap_ui(ptz-controls_UI_HEADERS ptz-controls.ui)
+qt5_wrap_ui(ptz-controls_UI_HEADERS ptz-controls.ui settings.ui)
 qt5_add_resources(ptz-controls_QRC_SOURCES ${ptz-controls_QRC})
 
 add_library(ptz-controls MODULE

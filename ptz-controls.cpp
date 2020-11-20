@@ -4,16 +4,17 @@
  *
  * SPDX-License-Identifier: GPLv2
  */
-#include "ptz-controls.hpp"
-#include <QToolTip>
 
 #include <obs-module.h>
 #include <util/platform.h>
 #include <QMainWindow>
 #include <QMenuBar>
 #include <QVBoxLayout>
-#include "ui_ptz-controls.h"
+#include <QToolTip>
 
+#include "ui_ptz-controls.h"
+#include "ptz-controls.hpp"
+#include "settings.hpp"
 #if LIBVISCA_FOUND
 #include "ptz-visca.hpp"
 #endif
@@ -30,6 +31,7 @@ bool obs_module_load()
 	auto *tmp = new PTZControls(main_window);
 	obs_frontend_add_dock(tmp);
 	obs_frontend_pop_ui_translation();
+	ptz_init_settings();
 	return true;
 }
 
@@ -205,7 +207,7 @@ void PTZControls::LoadConfig()
 		}
 
 		qDebug() << "creating camera" << obs_data_get_string(ptzcfg, "type") << obs_data_get_string(ptzcfg, "name");
-		PTZDevice *ptz = PTZDevice::make_device(ptzcfg);
+		PTZDevice::make_device(ptzcfg);
 	}
 }
 
@@ -353,4 +355,9 @@ void PTZControls::on_cameraList_clicked()
 {
 	full_stop();
 	current_cam = ui->cameraList->currentIndex().row();
+}
+
+void PTZControls::on_configButton_released()
+{
+	ptz_settings_show(ui->cameraList->currentIndex().row());
 }

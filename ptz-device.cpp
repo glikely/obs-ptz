@@ -24,6 +24,11 @@ QVariant PTZListModel::data(const QModelIndex &index, int role) const
 	if (role == Qt::DisplayRole) {
 		return PTZDevice::get_device(index.row())->objectName();
 	}
+#if 0
+	if (role == Qt::UserRole) {
+		return PTZDevice::get_device(index.row());
+	}
+#endif
 	return QVariant();
 }
 

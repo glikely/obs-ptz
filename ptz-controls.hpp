@@ -73,6 +73,7 @@ private slots:
 	void on_targetButton_program_clicked(bool checked);
 
 	void on_cameraList_clicked();
+	void on_configButton_released();
 
 public:
 	PTZControls(QWidget *parent = nullptr);
