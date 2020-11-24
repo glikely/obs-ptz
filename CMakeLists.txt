@@ -4,19 +4,29 @@ set(PROJECT_FULL_NAME "PTZ Controls")
 
 set(CMAKE_AUTOMOC TRUE)
 set(CMAKE_INCLUDE_CURRENT_DIR ON)
+#if(QTDIR)
+#	set(CMAKE_PREFIX_PATH ${CMAKE_PREFIX_PATH} ${QT_DIR}/lib/cmake)
+#endif()
 
 find_package(Qt5Core REQUIRED)
 find_package(Qt5Widgets REQUIRED)
 find_package(Qt5Svg REQUIRED)
 find_package(Qt5Gamepad REQUIRED)
-find_package(LibObs REQUIRED)
-find_package(PkgConfig)
 
-pkg_check_modules(LIBVISCA libvisca)
-if(LIBVISCA_FOUND)
-	add_definitions( -DLIBVISCA_FOUND=${LIBVISCA_FOUND} )
-	set(visca_SOURCES ptz-visca.cpp)
-	set(visca_HEADERS ptz-visca.hpp)
+find_package(LibObs REQUIRED)
+find_path(OBS_FRONTEND_INCLUDE_DIRS obs-frontend-api.h HINTS ${LIBOBS_INCLUDE_DIRS}/../UI/obs-frontend-api REQUIRED)
+if(WIN32)
+	find_file(OBS_FRONTEND_LIBRARIES obs-frontend-api.lib HINTS ${LibObs_DIR}/../UI/obs-frontend-api/Debug REQUIRED)
+endif()
+
+if(NOT WIN32)
+	find_package(PkgConfig)
+	pkg_check_modules(LIBVISCA libvisca)
+	if(LIBVISCA_FOUND)
+		add_definitions( -DLIBVISCA_FOUND=${LIBVISCA_FOUND} )
+		set(visca_SOURCES ptz-visca.cpp)
+		set(visca_HEADERS ptz-visca.hpp)
+	endif()
 endif()
 
 set(ptz-controls_HEADERS
@@ -34,21 +44,6 @@ set(ptz-controls_SOURCES
 set(ptz-controls_QRC
     ptz-controls.qrc)
 
-if(WIN32)
-	get_filename_component(ISS_FILES_DIR "${CMAKE_BINARY_DIR}\\..\\package" ABSOLUTE)
-	file(TO_NATIVE_PATH "${ISS_FILES_DIR}" ISS_FILES_DIR)
-	get_filename_component(ISS_PACKAGE_DIR "${CMAKE_PACKAGE_PREFIX}\\.." ABSOLUTE)
-	file(TO_NATIVE_PATH "${ISS_PACKAGE_DIR}" ISS_PACKAGE_DIR)
-	get_filename_component(ISS_SOURCE_DIR "${PROJECT_SOURCE_DIR}" ABSOLUTE)
-	file(TO_NATIVE_PATH "${ISS_SOURCE_DIR}" ISS_SOURCE_DIR)
-	configure_file("installer.iss.in"
-			"${PROJECT_BINARY_DIR}/installer.iss"
-		)
-	configure_file(resource.rc.in ptz-controls.rc)
-	list(APPEND ptz-controls_SOURCES
-		ptz-controls.rc)
-endif()
-
 qt5_wrap_ui(ptz-controls_UI_HEADERS ptz-controls.ui settings.ui)
 qt5_add_resources(ptz-controls_QRC_SOURCES ${ptz-controls_QRC})
 
@@ -59,13 +54,15 @@ add_library(ptz-controls MODULE
 	${ptz-controls_QRC_SOURCES})
 
 include_directories(${LIBOBS_INCLUDE_DIRS}
+	${OBS_FRONTEND_INCLUDE_DIRS}
 	${Qt5Core_INCLUDES}
 	${Qt5Widgets_INCLUDES})
 
 target_link_libraries(ptz-controls
 	${Qt5Widgets_LIBRARIES}
 	${Qt5Gamepad_LIBRARIES}
-	${LIBOBS_LIBARIES}
+	${LIBOBS_LIBRARIES}
+	${OBS_FRONTEND_LIBRARIES}
 	${LIBVISCA_LIBRARIES})
 
 set_target_properties(ptz-controls PROPERTIES FOLDER "plugins/glikely")

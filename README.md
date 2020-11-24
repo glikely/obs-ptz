@@ -13,8 +13,7 @@ Based on: https://github.com/obsproject/obs-studio/pull/2380
 
 ## Build
 
-So far has only been built on Linux.
-It should work on other platforms, but none of them have been tested.
+### Linux
 
 Building libvisca
 -----------------
@@ -55,6 +54,17 @@ Typically `/usr/lib/obs-plugins`.
 - Check out this repository to UI/frontend-plugins/ptz-controls
 - Add `add_subdirectory(ptz-controls)` to UI/frontend-plugins/CMakeLists.txt
 - Rebuild OBS Studio
+
+### Windows
+
+- Build OBS Studio using instructions on OBS-Studio Wiki:
+  https://obsproject.com/wiki/Install-Instructions
+- Clone this repository into a working directory
+- Modify (or copy and modify) `CI\install-script-win.cmd`, changing values of
+  `DepsPath`, `QT_DIR`, and `LibObs_DIR` to match your local environment
+- Run `CI\install-script-win.cmd` to invoke cmake
+- Run `CI\build-script-win.cmd` to make the binary
+- Copy resulting `build\Debug\ptz-controls.dll` and `Qt5Gamepadd.dll` from QT directory binaries into OBS plugins directory
 
 ## Contributing
 
