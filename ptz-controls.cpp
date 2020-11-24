@@ -76,7 +76,7 @@ void PTZControls::OBSFrontendEvent(enum obs_frontend_event event)
 
 	name = obs_source_get_name(scene);
 	for (unsigned long int i = 0; i < PTZDevice::device_count(); i++) {
-		struct PTZDevice *ptz = PTZDevice::get_device(i);
+		PTZDevice *ptz = PTZDevice::get_device(i);
 		if (ptz->objectName() == name) {
 			setCurrent(i);
 			break;

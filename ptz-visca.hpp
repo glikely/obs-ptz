@@ -6,6 +6,8 @@
  */
 #pragma once
 
+#if LIBVISCA_FOUND
+
 #include <QObject>
 #include <visca/libvisca.h>
 #include "ptz-device.hpp"
@@ -43,3 +45,4 @@ public:
 	void zoom_tele();
 	void zoom_wide();
 };
+#endif

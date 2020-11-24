@@ -39,7 +39,9 @@ PTZDevice *PTZDevice::make_device(obs_data_t *config)
 
 	if (type == "sim")
 		ptz = new PTZSimulator(config);
+#if LIBVISCA_FOUND
 	if (type == "visca")
 		ptz = new PTZVisca(config);
+#endif
 	return ptz;
 }
