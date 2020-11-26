@@ -14,8 +14,8 @@ find_package(Qt5Svg REQUIRED)
 find_package(Qt5Gamepad REQUIRED)
 
 find_package(LibObs REQUIRED)
-find_path(OBS_FRONTEND_INCLUDE_DIRS obs-frontend-api.h HINTS ${LIBOBS_INCLUDE_DIRS}/../UI/obs-frontend-api REQUIRED)
 if(WIN32)
+	find_path(OBS_FRONTEND_INCLUDE_DIRS obs-frontend-api.h HINTS ${LIBOBS_INCLUDE_DIRS}/../UI/obs-frontend-api REQUIRED)
 	find_file(OBS_FRONTEND_LIBRARIES obs-frontend-api.lib HINTS ${LibObs_DIR}/../UI/obs-frontend-api/Debug REQUIRED)
 endif()
 
