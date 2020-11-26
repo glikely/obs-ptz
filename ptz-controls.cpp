@@ -94,6 +94,11 @@ PTZControls::PTZControls(QWidget *parent)
 	ui->setupUi(this);
 	ui->cameraList->setModel(PTZDevice::model());
 
+	QItemSelectionModel *selectionModel = ui->cameraList->selectionModel();
+	connect(selectionModel,
+		SIGNAL(currentChanged(QModelIndex, QModelIndex)),
+		this, SLOT(currentChanged(QModelIndex, QModelIndex)));
+
 	LoadConfig();
 
 	auto gamepads = QGamepadManager::instance()->connectedGamepads();
@@ -351,10 +356,10 @@ void PTZControls::on_targetButton_program_clicked(bool checked)
 		OBSFrontendEvent(OBS_FRONTEND_EVENT_SCENE_CHANGED);
 }
 
-void PTZControls::on_cameraList_clicked()
+void PTZControls::currentChanged(QModelIndex current, QModelIndex previous)
 {
 	full_stop();
-	current_cam = ui->cameraList->currentIndex().row();
+	current_cam = current.row();
 }
 
 void PTZControls::on_configButton_released()

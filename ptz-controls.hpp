@@ -72,7 +72,7 @@ private slots:
 	void on_targetButton_preview_clicked(bool checked);
 	void on_targetButton_program_clicked(bool checked);
 
-	void on_cameraList_clicked();
+	void currentChanged(QModelIndex current, QModelIndex previous);
 	void on_configButton_released();
 
 public:
