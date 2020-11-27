@@ -35,7 +35,6 @@ private:
 
 	void SaveConfig();
 	void LoadConfig();
-	void OpenInterface();
 
 	void full_stop();
 	void setPanTilt(double pan, double tilt);

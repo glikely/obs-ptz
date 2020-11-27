@@ -150,9 +150,9 @@ void PTZControls::SaveConfig()
 	if (ui->targetButton_program->isChecked())
 		target_mode = "program";
 	obs_data_set_string(data, "target_mode", target_mode);
-	obs_data_erase(data, "cameras");
+	obs_data_erase(data, "devices");
 	obs_data_array_t *camera_array = obs_data_array_create();
-	obs_data_set_array(data, "cameras", camera_array);
+	obs_data_set_array(data, "devices", camera_array);
 	for (unsigned long int i = 0; i < PTZDevice::device_count(); i++) {
 		PTZDevice *ptz = PTZDevice::get_device(i);
 		if (!ptz)
@@ -187,48 +187,26 @@ void PTZControls::LoadConfig()
 		bfree(file);
 	}
 	if (!data) {
-		qDebug() << "No configuration data; creating test devices";
-		OpenInterface();
+		qDebug() << "PTZ configuration not found";
 		return;
 	}
 
 	target_mode = obs_data_get_string(data, "target_mode");
-	if (target_mode == "preview")
-		ui->targetButton_preview->setChecked(true);
-	if (target_mode == "program")
-		ui->targetButton_program->setChecked(true);
+	ui->targetButton_preview->setChecked(target_mode == "preview");
+	ui->targetButton_program->setChecked(target_mode == "program");
+	ui->targetButton_manual->setChecked(target_mode != "preview" && target_mode != "program");
 
-	array = obs_data_get_array(data, "cameras");
+	array = obs_data_get_array(data, "devices");
 	if (!array) {
-		qDebug() << "No camera array; creating test devices";
-		OpenInterface();
+		qDebug() << "No PTZ device configuration found";
 		return;
 	}
 	for (size_t i = 0; i < obs_data_array_count(array); i++) {
 		obs_data_t *ptzcfg = obs_data_array_item(array, i);
-		if (!ptzcfg) {
-			qDebug() << "Config problem!";
+		if (!ptzcfg)
 			continue;
-		}
-
-		qDebug() << "creating camera" << obs_data_get_string(ptzcfg, "type") << obs_data_get_string(ptzcfg, "name");
 		PTZDevice::make_device(ptzcfg);
 	}
-}
-
-void PTZControls::OpenInterface()
-{
-	for (int i = 0; i < 1; i++) {
-		PTZDevice *ptz = new PTZSimulator();
-		ptz->setObjectName("PTZ Simulator");
-	}
-
-#if LIBVISCA_FOUND
-	for (int i = 0; i < 3; i++) {
-		PTZDevice *ptz = new PTZVisca("/dev/ttyUSB0", i+1);
-		ptz->setObjectName("VISCA PTZ");
-	}
-#endif
 }
 
 void PTZControls::ControlContextMenu()

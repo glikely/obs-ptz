@@ -12,6 +12,8 @@
 #include <QMenu>
 #include <QUrl>
 #include <QDesktopServices>
+#include <QGamepadManager>
+#include <QSerialPortInfo>
 
 #include <string>
 
@@ -46,6 +48,10 @@ PTZSettings::PTZSettings() : QWidget(nullptr), ui(new Ui_PTZSettings)
 	ui->deviceList->setModel(PTZDevice::model());
 	int row = config_get_int(global_config, "ptz-controls", "prevPTZRow");
 	ui->deviceList->setCurrentIndex(PTZDevice::model()->index(row, 0));
+
+	QItemSelectionModel *selectionModel = ui->deviceList->selectionModel();
+	connect(selectionModel, SIGNAL(currentChanged(QModelIndex,QModelIndex)),
+		this, SLOT(currentChanged(QModelIndex,QModelIndex)));
 }
 
 PTZSettings::~PTZSettings()
@@ -63,6 +69,14 @@ void PTZSettings::set_selected(unsigned int row)
 
 void PTZSettings::RefreshLists()
 {
+	QGamepadManager *gpm = QGamepadManager::instance();
+	ui->gamepadComboBox->clear();
+	Q_FOREACH(int id, gpm->connectedGamepads())
+		ui->gamepadComboBox->addItem(gpm->gamepadName(id));
+
+	ui->viscaPortComboBox->clear();
+	Q_FOREACH(QSerialPortInfo port, QSerialPortInfo::availablePorts())
+		ui->viscaPortComboBox->addItem(port.portName());
 }
 
 void PTZSettings::on_close_clicked()
@@ -72,19 +86,46 @@ void PTZSettings::on_close_clicked()
 
 void PTZSettings::on_addPTZ_clicked()
 {
+	obs_data_t *cfg = obs_data_create();
+	obs_data_set_string(cfg, "type", "sim");
+	obs_data_set_string(cfg, "name", "PTZ");
+	PTZDevice::make_device(cfg);
+	obs_data_release(cfg);
 }
 
 void PTZSettings::on_removePTZ_clicked()
 {
+	int row = ui->deviceList->currentIndex().row();
+	if (row < 0)
+		return;
+	PTZDevice *ptz = PTZDevice::get_device(row);
+	if (!ptz)
+		return;
+
+	delete ptz;
 }
 
-void PTZSettings::current_device_changed()
+void PTZSettings::currentChanged(const QModelIndex &current, const QModelIndex &previous)
 {
-}
+	RefreshLists();
 
-void PTZSettings::on_deviceList_clicked()
-{
-	current_device_changed();
+	obs_data_t *cfg = obs_data_create();
+	if (current.row() < 0)
+		return;
+	PTZDevice *ptz = PTZDevice::get_device(current.row());
+	ptz->get_config(cfg);
+	std::string type = obs_data_get_string(cfg, "type");
+	if (type == "visca") {
+		std::string port = obs_data_get_string(cfg, "port");
+		ui->viscaPortComboBox->setCurrentText(obs_data_get_string(cfg, "port"));
+		ui->viscaIDSpinBox->setValue(obs_data_get_int(cfg, "address"));
+		ui->viscaPortComboBox->setEnabled(true);
+		ui->viscaIDSpinBox->setEnabled(true);
+	} else {
+		ui->viscaPortComboBox->setEnabled(false);
+		ui->viscaIDSpinBox->setEnabled(false);
+	}
+	obs_data_release(cfg);
 }
 
 /* ----------------------------------------------------------------- */

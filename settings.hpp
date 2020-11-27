@@ -31,7 +31,7 @@ public slots:
 	void on_addPTZ_clicked();
 	void on_removePTZ_clicked();
 
-	void on_deviceList_clicked();
+	void currentChanged(const QModelIndex &current, const QModelIndex &previous);
 };
 
 void ptz_settings_show(int row);

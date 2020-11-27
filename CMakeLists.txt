@@ -12,6 +12,7 @@ find_package(Qt5Core REQUIRED)
 find_package(Qt5Widgets REQUIRED)
 find_package(Qt5Svg REQUIRED)
 find_package(Qt5Gamepad REQUIRED)
+find_package(Qt5SerialPort REQUIRED)
 
 find_package(LibObs REQUIRED)
 if(WIN32)
@@ -61,6 +62,7 @@ include_directories(${LIBOBS_INCLUDE_DIRS}
 target_link_libraries(ptz-controls
 	${Qt5Widgets_LIBRARIES}
 	${Qt5Gamepad_LIBRARIES}
+	${Qt5SerialPort_LIBRARIES}
 	${LIBOBS_LIBRARIES}
 	${OBS_FRONTEND_LIBRARIES}
 	${LIBVISCA_LIBRARIES})

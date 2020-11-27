@@ -20,6 +20,8 @@ public:
 	int rowCount(const QModelIndex& parent = QModelIndex()) const;
 	QVariant data(const QModelIndex &index, int role) const;
 	void do_reset() { beginResetModel(); endResetModel(); }
+	Qt::ItemFlags flags(const QModelIndex &index) const;
+	bool setData(const QModelIndex &index, const QVariant &value, int role);
 };
 
 class PTZDevice : public QObject {
@@ -27,7 +29,7 @@ class PTZDevice : public QObject {
 
 private:
 	static PTZListModel ptz_list_model;
-	static std::vector<PTZDevice *> devices;
+	static QVector<PTZDevice *> devices;
 
 protected:
 	std::string type;
@@ -38,10 +40,18 @@ public:
 		devices.push_back(this);
 		ptz_list_model.do_reset();
 	};
-	~PTZDevice() { };
+	~PTZDevice()
+	{
+		int row = devices.indexOf(this);
+		if (row < 0)
+			return;
+		devices.remove(row);
+		ptz_list_model.do_reset();
+	};
 
 	static PTZDevice* make_device(obs_data_t *config);
 	static PTZDevice* get_device(unsigned int index) { return devices.at(index); }
+	static PTZDevice* get_device_by_name(QString &name);
 	static unsigned int device_count() { return devices.size(); }
 
 	virtual void pantilt(double pan, double tilt) { Q_UNUSED(pan); Q_UNUSED(tilt); }
@@ -52,9 +62,26 @@ public:
 	virtual void zoom_wide() { }
 	static QAbstractListModel * model() { return &ptz_list_model; }
 
+	virtual void setObjectName(QString name) {
+		name = name.simplified();
+		if (name == objectName())
+			return;
+		if (name == "")
+			name = "Unnamed Device";
+		QString new_name = name;
+		for (int i = 1;; i++) {
+			PTZDevice *ptz = get_device_by_name(new_name);
+			if (!ptz)
+				break;
+			new_name = name + " " + QString::number(i);
+			qDebug() << "new values" << new_name << name << i;
+		}
+		QObject::setObjectName(new_name);
+	}
+
 	virtual void set_config(obs_data_t *ptz_data) {
 		const char *name = obs_data_get_string(ptz_data, "name");
-		this->setObjectName(name);
+		setObjectName(name);
 		ptz_list_model.do_reset();
 	}
 	virtual void get_config(obs_data_t *ptz_data) {
