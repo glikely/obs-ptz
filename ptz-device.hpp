@@ -33,6 +33,7 @@ private:
 
 protected:
 	std::string type;
+	obs_data_t *config;
 
 public:
 	PTZDevice(std::string type) : QObject(), type(type)
@@ -79,14 +80,15 @@ public:
 		QObject::setObjectName(new_name);
 	}
 
-	virtual void set_config(obs_data_t *ptz_data) {
-		const char *name = obs_data_get_string(ptz_data, "name");
-		setObjectName(name);
+	virtual void set_config(obs_data_t *ptz_config) {
+		config = ptz_config;
+		obs_data_addref(config);
+		setObjectName(obs_data_get_string(config, "name"));
 		ptz_list_model.do_reset();
 	}
-	virtual void get_config(obs_data_t *ptz_data) {
-		obs_data_set_string(ptz_data, "name", qPrintable(this->objectName()));
-		obs_data_set_string(ptz_data, "type", type.c_str());
+	virtual obs_data_t *get_config() {
+		obs_data_addref(config);
+		return config;
 	}
 };
 

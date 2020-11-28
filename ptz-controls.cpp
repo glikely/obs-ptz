@@ -155,11 +155,7 @@ void PTZControls::SaveConfig()
 	obs_data_set_array(data, "devices", camera_array);
 	for (unsigned long int i = 0; i < PTZDevice::device_count(); i++) {
 		PTZDevice *ptz = PTZDevice::get_device(i);
-		if (!ptz)
-			continue;
-		obs_data_t *ptz_data = obs_data_create();
-		ptz->get_config(ptz_data);
-		obs_data_array_push_back(camera_array, ptz_data);
+		obs_data_array_push_back(camera_array, ptz->get_config());
 	}
 
 	/* Save data structure to json */

@@ -28,7 +28,7 @@ public:
 	~PTZVisca();
 
 	void set_config(obs_data_t *ptz_data);
-	void get_config(obs_data_t *ptz_data);
+	obs_data_t * get_config();
 
 	void pantilt(double pan, double tilt);
 	void pantilt_stop();

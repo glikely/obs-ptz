@@ -99,11 +99,10 @@ void PTZVisca::set_config(obs_data_t *config)
 		interface = ViscaInterface::get_interface(uart);
 }
 
-void PTZVisca::get_config(obs_data_t *config)
+obs_data_t * PTZVisca::get_config()
 {
-	PTZDevice::get_config(config);
-	obs_data_set_string(config, "port", "/dev/ttyUSB0");
 	obs_data_set_int(config, "address", camera.address);
+	return PTZDevice::get_config();
 }
 
 void PTZVisca::pantilt(double pan, double tilt)
