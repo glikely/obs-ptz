@@ -1,0 +1,98 @@
+variables:
+  isReleaseMode: ${{ startsWith(variables['Build.SourceBranch'], 'refs/tags/') }}
+
+
+trigger:
+  branches:
+    include:
+      - master
+      - sqlite
+      - releases
+  tags:
+    include:
+      - '*'
+
+jobs:
+- job: 'Build_Windows'
+  pool:
+    vmImage: 'windows-2019'
+  variables:
+    build_config: RelWithDebInfo
+    DepsBasePath: 'D:\obsdependencies'
+    DepsPath32: '$(DepsBasePath)\win32'
+    DepsPath64: '$(DepsBasePath)\win64'
+    QtBaseDir: 'D:\QtDep'
+    QTDIR32: '$(QtBaseDir)\5.10.1\msvc2017'
+    QTDIR64: '$(QtBaseDir)\5.10.1\msvc2017_64'
+    OBSPath: 'D:\obs-studio'
+    isAzure: 'true'
+  steps:
+    - checkout: self
+      submodules: true
+    - script: ./CI/install-qt-win.cmd
+      displayName: 'Install Qt'
+      env:
+        QtBaseDir: $(QtBaseDir)
+    - task: Cache@2
+      displayName: Restore cached OBS Studio dependencies
+      inputs:
+        key: 'obsdeps | "$(Agent.OS)"'
+        restoreKeys: |
+          obsdeps | "$(Agent.OS)"
+        path: $(DepsBasePath)
+    - script: ./CI/download-obs-deps.cmd
+      displayName: 'Download OBS Studio dependencies'
+    - task: Cache@2
+      displayName: Restore cached OBS Studio builds
+      inputs:
+        key: 'obs | "$(Agent.OS)"'
+        restoreKeys: |
+          obs | "$(Agent.OS)"
+        path: $(OBSPath)
+    - script: ./CI/prepare-obs-windows.cmd
+      displayName: 'Checkout & CMake OBS Studio'
+      env:
+        build_config: $(build_config)
+        DepsPath32: $(DepsPath32)
+        DepsPath64: $(DepsPath64)
+        QTDIR32: $(QTDIR32)
+        QTDIR64: $(QTDIR64)
+        OBSPath: $(OBSPath)
+        isAzure: $(isAzure)
+    - task: MSBuild@1
+      displayName: 'Build OBS Studio 32-bit'
+      inputs:
+        msbuildArguments: '/m /p:Configuration=$(build_config)'
+        solution: '$(OBSPath)\build32\obs-studio.sln'
+    - task: MSBuild@1
+      displayName: 'Build OBS Studio 64-bit'
+      inputs:
+        msbuildArguments: '/m /p:Configuration=$(build_config)'
+        solution: '$(OBSPath)\build64\obs-studio.sln'
+    - script: ./CI/prepare-windows.cmd
+      displayName: 'CMake obs-ptz'
+      env:
+        build_config: $(build_config)
+        QTDIR32: $(QTDIR32)
+        QTDIR64: $(QTDIR64)
+        OBSPath: $(OBSPath)
+        isAzure: $(isAzure)
+    - task: MSBuild@1
+      displayName: 'Build obs-ptz 32-bit'
+      inputs:
+        msbuildArguments: '/m /p:Configuration=$(build_config)'
+        solution: '.\build32\obs-ptz.sln'
+    - task: MSBuild@1
+      displayName: 'Build obs-midi 64-bit'
+      inputs:
+        msbuildArguments: '/m /p:Configuration=$(build_config)'
+        solution: '.\build64\obs-ptz.sln'
+
+    - script: ./CI/package-windows.cmd
+      displayName: 'Package obs-ptz'
+    - task: PublishBuildArtifacts@1
+      displayName: 'Upload package artifacts'
+      inputs:
+        pathtoPublish: './package'
+        artifactName: 'windows_build'
+
