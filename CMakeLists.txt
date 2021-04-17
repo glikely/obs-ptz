@@ -18,28 +18,23 @@ find_package(LibObs REQUIRED)
 if(WIN32)
 	find_path(OBS_FRONTEND_INCLUDE_DIRS obs-frontend-api.h HINTS ${LIBOBS_INCLUDE_DIRS}/../UI/obs-frontend-api REQUIRED)
 	find_file(OBS_FRONTEND_LIBRARIES obs-frontend-api.lib HINTS ${LibObs_DIR}/../UI/obs-frontend-api/Debug REQUIRED)
-endif()
-
-if(NOT WIN32)
-	find_package(PkgConfig)
-	pkg_check_modules(LIBVISCA libvisca)
-	if(LIBVISCA_FOUND)
-		add_definitions( -DLIBVISCA_FOUND=${LIBVISCA_FOUND} )
-		set(visca_SOURCES ptz-visca.cpp)
-		set(visca_HEADERS ptz-visca.hpp)
-	endif()
+	set(visca_SOURCES libvisca_win32.c)
+else()
+	set(visca_SOURCES libvisca_posix.c)
 endif()
 
 set(ptz-controls_HEADERS
     ptz-controls.hpp
     ptz-device.hpp
     settings.hpp
-    ${visca_HEADERS})
+    ptz-visca.hpp)
 
 set(ptz-controls_SOURCES
     ptz-controls.cpp
     ptz-device.cpp
     settings.cpp
+    ptz-visca.cpp
+    libvisca.c
     ${visca_SOURCES})
 
 set(ptz-controls_QRC
@@ -64,8 +59,7 @@ target_link_libraries(ptz-controls
 	${Qt5Gamepad_LIBRARIES}
 	${Qt5SerialPort_LIBRARIES}
 	${LIBOBS_LIBRARIES}
-	${OBS_FRONTEND_LIBRARIES}
-	${LIBVISCA_LIBRARIES})
+	${OBS_FRONTEND_LIBRARIES})
 
 set_target_properties(ptz-controls PROPERTIES FOLDER "plugins/glikely")
 set_target_properties(ptz-controls PROPERTIES PREFIX "")

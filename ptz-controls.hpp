@@ -11,10 +11,7 @@
 #include <QDockWidget>
 #include <QtGamepad/QGamepad>
 
-#if LIBVISCA_FOUND
-#include <visca/libvisca.h>
-#endif
-
+#include "libvisca.h"
 #include "ptz-device.hpp"
 #include "ui_ptz-controls.h"
 

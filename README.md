@@ -15,20 +15,6 @@ Based on: https://github.com/obsproject/obs-studio/pull/2380
 
 ### Linux
 
-Building libvisca
------------------
-obs-ptz depends on libvisca to provide the backend VISCA protocol
-interface library.
-Fetch and build libvisca before building obs-ptz.
-
-```
-git clone https://git.code.sf.net/p/libvisca/git libvisca
-cd libvisca
-autoreconf --install
-./configure
-make
-```
-
 To build this plugin
 --------------------
 

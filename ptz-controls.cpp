@@ -15,9 +15,7 @@
 #include "ui_ptz-controls.h"
 #include "ptz-controls.hpp"
 #include "settings.hpp"
-#if LIBVISCA_FOUND
 #include "ptz-visca.hpp"
-#endif
 
 OBS_DECLARE_MODULE()
 OBS_MODULE_AUTHOR("Grant Likely <grant.likely@secretlab.ca>");
