@@ -66,7 +66,7 @@ ViscaInterface * ViscaInterface::get_interface(std::string uart)
 PTZVisca::PTZVisca(const char *uart_name, int address)
 	: PTZDevice("visca")
 {
-	interface = ViscaInterface::get_interface(uart_name);
+	iface = ViscaInterface::get_interface(uart_name);
 	camera.address = address;
 	init();
 }
@@ -86,8 +86,8 @@ PTZVisca::~PTZVisca()
 
 void PTZVisca::init()
 {
-	VISCA_clear(&interface->iface, &camera);
-	VISCA_get_camera_info(&interface->iface, &camera);
+	VISCA_clear(&iface->iface, &camera);
+	VISCA_get_camera_info(&iface->iface, &camera);
 }
 
 void PTZVisca::set_config(obs_data_t *config)
@@ -96,7 +96,7 @@ void PTZVisca::set_config(obs_data_t *config)
 	const char *uart = obs_data_get_string(config, "port");
 	camera.address = obs_data_get_int(config, "address");
 	if (uart)
-		interface = ViscaInterface::get_interface(uart);
+		iface = ViscaInterface::get_interface(uart);
 }
 
 obs_data_t * PTZVisca::get_config()
@@ -107,22 +107,22 @@ obs_data_t * PTZVisca::get_config()
 
 void PTZVisca::pantilt(double pan, double tilt)
 {
-	VISCA_set_pantilt(&interface->iface, &camera, pan * 10, tilt * 10);
+	VISCA_set_pantilt(&iface->iface, &camera, pan * 10, tilt * 10);
 }
 
 void PTZVisca::pantilt_stop()
 {
-	VISCA_set_pantilt_stop(&interface->iface, &camera, 0, 0);
+	VISCA_set_pantilt_stop(&iface->iface, &camera, 0, 0);
 }
 
 void PTZVisca::pantilt_home()
 {
-	VISCA_set_pantilt_home(&interface->iface, &camera);
+	VISCA_set_pantilt_home(&iface->iface, &camera);
 }
 
 #define ptzvisca_zoom_wrapper(dir) \
 	void PTZVisca::zoom_##dir() \
-	{ VISCA_set_zoom_##dir(&interface->iface, &camera); }
+	{ VISCA_set_zoom_##dir(&iface->iface, &camera); }
 ptzvisca_zoom_wrapper(stop)
 ptzvisca_zoom_wrapper(tele)
 ptzvisca_zoom_wrapper(wide)

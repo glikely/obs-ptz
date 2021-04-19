@@ -15,7 +15,7 @@ class PTZVisca : public PTZDevice {
 	Q_OBJECT
 
 private:
-	ViscaInterface *interface;
+	ViscaInterface *iface;
 	VISCACamera_t camera;
 
 	void init();
