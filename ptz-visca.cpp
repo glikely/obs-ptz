@@ -112,7 +112,7 @@ void PTZVisca::pantilt(double pan, double tilt)
 
 void PTZVisca::pantilt_stop()
 {
-	VISCA_set_pantilt_stop(&iface->iface, &camera, 0, 0);
+	VISCA_set_pantilt_stop(&iface->iface, &camera);
 }
 
 void PTZVisca::pantilt_home()
