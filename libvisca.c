@@ -39,15 +39,15 @@ uint32_t _VISCA_set_address(VISCAInterface_t *iface);
 /********************************/
 
 void
-_VISCA_append_byte(VISCAPacket_t *packet, unsigned char byte)
+_VISCA_append_byte(VISCAPacket_t *packet, unsigned int byte)
 {
 	if (packet->length >= VISCA_BUFFER_SIZE)
 		return;
-	packet->bytes[packet->length++] = byte;
+	packet->bytes[packet->length++] = (byte & 0xff);
 }
 
 void
-_VISCA_encode_uint16(VISCAPacket_t *packet, uint16_t word)
+_VISCA_encode_uint16(VISCAPacket_t *packet, unsigned int word)
 {
 	if (packet->length >= (VISCA_BUFFER_SIZE - 3))
 		return;
