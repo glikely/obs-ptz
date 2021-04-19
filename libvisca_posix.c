@@ -62,7 +62,7 @@ _VISCA_write_packet_data(VISCAInterface_t *iface, VISCAPacket_t *packet)
 	return VISCA_SUCCESS;
 }
 
-ssize_t _VISCA_read_bytes(VISCAInterface_t *iface, unsigned char *read_buffer, size_t size)
+int _VISCA_read_bytes(VISCAInterface_t *iface, unsigned char *read_buffer, size_t size)
 {
 	return read(iface->port_fd, read_buffer, size);
 }

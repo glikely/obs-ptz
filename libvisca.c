@@ -105,7 +105,7 @@ _VISCA_loop(VISCAInterface_t *iface)
 {
 	VISCAPacket_t *pkt = &iface->ipacket;
 	unsigned char buffer[64];
-	ssize_t i, count;
+	int i, count;
 
 	count = _VISCA_read_bytes(iface, buffer, sizeof(buffer));
 	if (count <= 0)

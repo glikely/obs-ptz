@@ -515,7 +515,7 @@ _VISCA_send_packet(VISCAInterface_t *iface, VISCACamera_t *camera, VISCAPacket_t
 VISCA_API uint32_t
 _VISCA_get_packet(VISCAInterface_t *iface);
 
-VISCA_API ssize_t
+VISCA_API int
 _VISCA_read_bytes(VISCAInterface_t *iface, unsigned char *read_buffer, size_t size);
 
 VISCA_API uint32_t

@@ -67,7 +67,7 @@ _VISCA_write_packet_data(VISCAInterface_t *iface, VISCAPacket_t *packet)
 }
 
 
-ssize_t
+int
 _VISCA_read_bytes(VISCAInterface_t *iface, unsigned char *buffer, size_t size)
 {
 	BOOL rc;
