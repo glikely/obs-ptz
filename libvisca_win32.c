@@ -48,7 +48,7 @@ unsigned int _VISCA_send_packet_with_reply(VISCAInterface_t *iface, VISCACamera_
 uint32_t
 _VISCA_write_packet_data(VISCAInterface_t *iface, VISCAPacket_t *packet)
 {
-	DWORD iBytesWritten;
+	DWORD iBytesWritten = 0;
 	BOOL rVal = 0;
 	DWORD errors;
 	COMSTAT stat;
@@ -70,6 +70,7 @@ _VISCA_write_packet_data(VISCAInterface_t *iface, VISCAPacket_t *packet)
 int
 _VISCA_read_bytes(VISCAInterface_t *iface, unsigned char *buffer, size_t size)
 {
+	size; /* unused */
 	BOOL rc;
 	DWORD iBytesRead;
 
@@ -91,12 +92,14 @@ VISCA_open_serial(VISCAInterface_t *iface, const char *device_name)
 {
 	DCB      m_dcb;
 	COMMTIMEOUTS cto;
+	WCHAR  wname[4096];
 
 	iface->reply_packet = NULL;
 	iface->ipacket.length = 0;
 	iface->busy = 0;
 
-	iface->port_fd = CreateFile(device_name,
+	MultiByteToWideChar(0, 0, device_name, -1, wname, 4096);
+	iface->port_fd = CreateFile(wname,
 			    GENERIC_READ | GENERIC_WRITE,
 			    0, // exclusive access
 			    NULL, // no security
@@ -181,6 +184,7 @@ VISCA_open_serial(VISCAInterface_t *iface, const char *device_name)
 uint32_t
 VISCA_unread_bytes(VISCAInterface_t *iface, unsigned char *buffer, uint32_t *buffer_size)
 {
+	iface; buffer; /* unused */
 	// TODO
 	*buffer_size = 0;
 	return VISCA_SUCCESS;
