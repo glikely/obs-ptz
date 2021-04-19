@@ -1123,8 +1123,6 @@ VISCA_set_exp_comp_reset(VISCAInterface_t *iface, VISCACamera_t *camera)
   _VISCA_append_byte(&packet, VISCA_RESET);
 
   return _VISCA_send_packet_with_reply(iface, camera, &packet);
-
-  return VISCA_SUCCESS;
 }
 
 
