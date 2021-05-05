@@ -15,9 +15,12 @@ find_package(Qt5Gamepad REQUIRED)
 find_package(Qt5SerialPort REQUIRED)
 
 find_package(LibObs REQUIRED)
+get_filename_component(OBS_FRONTEND_INCLUDE_DIRS "${LIBOBS_INCLUDE_DIRS}/../UI/obs-frontend-api" ABSOLUTE)
 if(WIN32)
+	find_file(OBS_FRONTEND_LIBRARIES obs-frontend-api.lib HINTS "${LibObs_DIR}/../UI/obs-frontend-api/Debug" REQUIRED)
 	set(visca_SOURCES libvisca_win32.c)
 else()
+	set(OBS_FRONTEND_LIBRARIES obs-frontend-api)
 	set(visca_SOURCES libvisca_posix.c)
 endif()
 
@@ -56,8 +59,8 @@ target_link_libraries(ptz-controls
 	${Qt5Widgets_LIBRARIES}
 	${Qt5Gamepad_LIBRARIES}
 	${Qt5SerialPort_LIBRARIES}
-	obs-frontend-api
-	libobs)
+	${LIBOBS_LIBRARIES}
+	${OBS_FRONTEND_LIBRARIES})
 
 set_target_properties(ptz-controls PROPERTIES FOLDER "plugins/glikely")
 set_target_properties(ptz-controls PROPERTIES PREFIX "")
