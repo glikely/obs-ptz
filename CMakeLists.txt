@@ -4,9 +4,9 @@ set(PROJECT_FULL_NAME "PTZ Controls")
 
 set(CMAKE_AUTOMOC TRUE)
 set(CMAKE_INCLUDE_CURRENT_DIR ON)
-#if(QTDIR)
-#	set(CMAKE_PREFIX_PATH ${CMAKE_PREFIX_PATH} ${QT_DIR}/lib/cmake)
-#endif()
+if(QTDIR)
+	set(CMAKE_PREFIX_PATH ${CMAKE_PREFIX_PATH} ${QTDIR}/lib/cmake)
+endif()
 
 find_package(Qt5Core REQUIRED)
 find_package(Qt5Widgets REQUIRED)
