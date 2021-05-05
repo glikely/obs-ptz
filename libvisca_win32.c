@@ -28,13 +28,6 @@
 #include <fcntl.h>
 #include <errno.h>
 
-/* implemented in libvisca.c
- */
-void _VISCA_append_byte(VISCAPacket_t *packet, unsigned char byte);
-void _VISCA_init_packet(VISCAPacket_t *packet);
-unsigned int _VISCA_get_reply(VISCAInterface_t *iface, VISCACamera_t *camera);
-unsigned int _VISCA_send_packet_with_reply(VISCAInterface_t *iface, VISCACamera_t *camera, VISCAPacket_t *packet);
-
 /* Implementation of the platform specific code. The following functions must
  * be implemented here:
  *
@@ -182,15 +175,6 @@ VISCA_open_serial(VISCAInterface_t *iface, const char *device_name)
 }
 
 uint32_t
-VISCA_unread_bytes(VISCAInterface_t *iface, unsigned char *buffer, uint32_t *buffer_size)
-{
-	iface; buffer; /* unused */
-	// TODO
-	*buffer_size = 0;
-	return VISCA_SUCCESS;
-}
-
-uint32_t
 VISCA_close_serial(VISCAInterface_t *iface)
 {
 	if (iface->port_fd != NULL) {
@@ -200,12 +184,3 @@ VISCA_close_serial(VISCAInterface_t *iface)
 	}
 	return VISCA_FAILURE;
 }
-
-uint32_t
-VISCA_usleep(uint32_t useconds)
-{
-	uint32_t microsecs = useconds / 1000;
-	Sleep (microsecs);
-	return 0;
-}
-

@@ -513,9 +513,6 @@ VISCA_API uint32_t
 VISCA_open_serial(VISCAInterface_t *iface, const char *device_name);
 
 VISCA_API uint32_t
-VISCA_unread_bytes(VISCAInterface_t *iface, unsigned char *buffer, uint32_t *buffer_size);
-
-VISCA_API uint32_t
 VISCA_close_serial(VISCAInterface_t *iface);
 
 /* COMMANDS */
@@ -1091,10 +1088,6 @@ VISCA_set_register(VISCAInterface_t *iface, VISCACamera_t *camera, uint8_t reg_n
 
 VISCA_API uint32_t
 VISCA_get_register(VISCAInterface_t *iface, VISCACamera_t *camera, uint8_t reg_num, uint8_t* reg_val);
-
-/* Utility */
-VISCA_API uint32_t
-VISCA_usleep(uint32_t useconds);
 
 #ifdef __cplusplus
 } /* closing brace for extern "C" */
