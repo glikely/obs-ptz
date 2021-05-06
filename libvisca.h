@@ -426,7 +426,7 @@ typedef unsigned __int32 uint32_t;
 
 typedef struct _VISCA_packet
 {
-  unsigned char bytes[VISCA_BUFFER_SIZE];
+  char bytes[VISCA_BUFFER_SIZE];
   uint32_t length;
 } VISCAPacket_t;
 
@@ -445,6 +445,7 @@ typedef struct _VISCA_interface
 #else /* POSIX */
   int port_fd;
 #endif
+  void *data;
   uint32_t baud;
 
   // VISCA data:

@@ -6,6 +6,8 @@
  */
 
 #include "ptz-visca.hpp"
+#include <QSerialPort>
+#include <util/base.h>
 
 /*
  * ViscaInterface wrapper class for VISCAInterface_t C structure
@@ -15,13 +17,16 @@ private:
 	static std::map<std::string, ViscaInterface*> interfaces;
 	int camera_count;
 	std::string uart_name;
+	QSerialPort uart;
 
 public:
 	VISCAInterface_t iface;
 
-	ViscaInterface(std::string &uart) : uart_name(uart) { open(); }
+	ViscaInterface(std::string &uart) : uart_name(uart) { iface.data = this; open(); }
 	void open();
 	void close();
+	uint32_t write_packet_data(VISCAPacket_t *packet);
+	int read_bytes(unsigned char *buffer, size_t size);
 
 	static ViscaInterface *get_interface(std::string uart);
 };
@@ -30,21 +35,58 @@ std::map<std::string, ViscaInterface*> ViscaInterface::interfaces;
 
 void ViscaInterface::open()
 {
-	if (VISCA_open_serial(&iface, uart_name.c_str()) != VISCA_SUCCESS) {
-		qDebug() << "Unable to open" << uart_name.c_str() << "for VISCA";
+	iface.reply_packet = NULL;
+	iface.ipacket.length = 0;
+	iface.busy = 0;
+	iface.port_fd = 0;
+
+	uart.setPortName(QString::fromStdString(uart_name));
+	uart.setBaudRate(9600);
+	if (!uart.open(QIODevice::ReadWrite)) {
+		blog(LOG_INFO, "VISCA Unable to open UART %s", uart_name.c_str());
 		return;
 	}
+
 	if (VISCA_set_address(&iface, &camera_count) != VISCA_SUCCESS) {
-		qDebug() << "Unable to set address for VISCA";
-		return;
+		camera_count = 0;
 	}
-	qDebug() << "VISCA Camera count:" << camera_count;
+	blog(LOG_INFO, "VISCA Interface on %s: %i camera%s found", uart_name.c_str(),
+		camera_count, camera_count == 1 ? "" : "s");
 }
 
 void ViscaInterface::close()
 {
+	if (uart.isOpen())
+		uart.close();
 	camera_count = 0;
-	VISCA_close_serial(&iface);
+}
+
+uint32_t ViscaInterface::write_packet_data(VISCAPacket_t *packet)
+{
+	if (!uart.isOpen())
+		return VISCA_FAILURE;
+	if (uart.write(packet->bytes, packet->length) < packet->length)
+		return VISCA_FAILURE;
+	return VISCA_SUCCESS;
+}
+
+extern "C" uint32_t _VISCA_write_packet_data(VISCAInterface_t *iface, VISCAPacket_t *packet)
+{
+	ViscaInterface *visca = (ViscaInterface *)iface->data;
+	return visca->write_packet_data(packet);
+}
+
+int ViscaInterface::read_bytes(unsigned char *buffer, size_t size)
+{
+	if (!uart.isOpen())
+		return VISCA_FAILURE;
+	return uart.read((char *)buffer, size);
+}
+
+extern "C" int _VISCA_read_bytes(VISCAInterface_t *iface, unsigned char *buffer, size_t size)
+{
+	ViscaInterface *visca = (ViscaInterface *)iface->data;
+	return visca->read_bytes(buffer, size);
 }
 
 ViscaInterface * ViscaInterface::get_interface(std::string uart)

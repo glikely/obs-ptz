@@ -18,10 +18,8 @@ find_package(LibObs REQUIRED)
 get_filename_component(OBS_FRONTEND_INCLUDE_DIRS "${LIBOBS_INCLUDE_DIRS}/../UI/obs-frontend-api" ABSOLUTE)
 if(WIN32)
 	find_file(OBS_FRONTEND_LIBRARIES obs-frontend-api.lib HINTS "${LibObs_DIR}/../UI/obs-frontend-api/Debug" REQUIRED)
-	set(visca_SOURCES libvisca_win32.c)
 else()
 	set(OBS_FRONTEND_LIBRARIES obs-frontend-api)
-	set(visca_SOURCES libvisca_posix.c)
 endif()
 
 set(ptz-controls_HEADERS
@@ -35,8 +33,7 @@ set(ptz-controls_SOURCES
     ptz-device.cpp
     settings.cpp
     ptz-visca.cpp
-    libvisca.c
-    ${visca_SOURCES})
+    libvisca.c)
 
 set(ptz-controls_QRC
     ptz-controls.qrc)
