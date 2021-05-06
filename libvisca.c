@@ -24,14 +24,6 @@
 #include <stdlib.h>
 #include "libvisca.h"
 
-#ifdef VISCA_WIN
-# ifdef _DEBUG
-#  define DEBUG 1
-# else
-#  undef DEBUG
-# endif
-#endif
-
 uint32_t _VISCA_set_address(VISCAInterface_t *iface);
 
 /********************************/
@@ -154,10 +146,8 @@ uint32_t
 _VISCA_send_packet(VISCAInterface_t *iface, VISCACamera_t *camera, VISCAPacket_t *packet)
 {
     // check data:
-    if (camera->address > 7) {
-      _VISCA_debug("(%s): Invalid header parameters, address=%i\n", __FILE__, camera->address);
+    if (camera->address > 7)
       return VISCA_FAILURE;
-    }
 
     iface->busy = 1; /* Mark interface busy until reply received */
     packet->bytes[0] = 0x80 | (camera->address & 0x7);

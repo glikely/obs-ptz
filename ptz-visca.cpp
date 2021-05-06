@@ -38,7 +38,6 @@ void ViscaInterface::open()
 	iface.reply_packet = NULL;
 	iface.ipacket.length = 0;
 	iface.busy = 0;
-	iface.port_fd = 0;
 
 	uart.setPortName(QString::fromStdString(uart_name));
 	uart.setBaudRate(9600);

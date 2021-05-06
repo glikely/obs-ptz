@@ -27,21 +27,6 @@
 #define VISCA_API
 #if defined(_WIN32)||defined(WIN32)||defined(__WIN32__)||defined(_MSC_VER)
 #  define VISCA_WIN
-#else
-#  define VISCA_POSIX
-#endif
-
-#if DEBUG
-#  if defined(VISCA_WIN)
-#    define _VISCA_debug(msg, ...) _CrtDbgReport(_CRT_WARN, __FILE__, __LINE__, "libvisca", msg, __VA_ARGS__)
-#  elif defined (__AVR__)
-#    define _VISCA_debug(msg, ...) dbg_ReportStrP(PSTR(msg))
-#  else
-#    include <stdio.h>
-#    define _VISCA_debug(msg, ...) fprintf(stderr, msg, __VA_ARGS__);
-#  endif
-#else
-#  define _VISCA_debug(msg, ...) ;
 #endif
 
 /**********************/
@@ -396,25 +381,7 @@ typedef unsigned __int8 uint8_t;
 typedef unsigned __int16 uint16_t;
 typedef unsigned __int32 uint32_t;
 #  include <crtdbg.h>
-#else
-#  include <stdint.h>
-#  ifndef _RPTF0
-#    define _RPTF0(rptno,msg)
-#  endif
-#  ifndef _RPTF1
-#    define _RPTF1(rptno,msg,arg1)
-#  endif
-#  ifndef _RPTF3
-#    define _RPTF3(rptno,msg,arg1,arg2,arg3)
-#  endif
-#  ifndef _CRT_WARN
-#    define _CRT_WARN
-#  endif
 #endif /* _MSC_VER */
-
-#elif __AVR__
-
-#include "v24.h"
 
 #else /* POSIX */
 
@@ -438,15 +405,7 @@ typedef struct _VISCA_packet
 typedef struct _VISCA_interface
 {
   // RS232 data:
-#ifdef VISCA_WIN
-  HANDLE port_fd;
-#elif __AVR__
-  v24_port_t port_fd;
-#else /* POSIX */
-  int port_fd;
-#endif
   void *data;
-  uint32_t baud;
 
   // VISCA data:
   uint8_t num_cameras;
