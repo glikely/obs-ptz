@@ -6,36 +6,8 @@
  */
 
 #include "ptz-visca.hpp"
-#include <QSerialPort>
 #include <util/base.h>
 #include "libvisca.h"
-
-/*
- * ViscaInterface implementing UART protocol
- */
-class ViscaInterface : public QObject {
-private:
-	/* Global lookup table of UART instances, used to eliminate duplicates */
-	static std::map<std::string, ViscaInterface*> interfaces;
-
-	std::string uart_name;
-	QSerialPort uart;
-	QByteArray rxbuffer;
-	int camera_count;
-
-public:
-	ViscaInterface(std::string &uart) : uart_name(uart) { open(); }
-	void open();
-	void close();
-	void send(const QByteArray &packet);
-	void receive(const QByteArray &packet);
-	void cmd_enumerate();
-
-	static ViscaInterface *get_interface(std::string uart);
-
-public slots:
-	void poll();
-};
 
 std::map<std::string, ViscaInterface*> ViscaInterface::interfaces;
 
