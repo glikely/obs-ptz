@@ -32,8 +32,7 @@ set(ptz-controls_SOURCES
     ptz-controls.cpp
     ptz-device.cpp
     settings.cpp
-    ptz-visca.cpp
-    libvisca.c)
+    ptz-visca.cpp)
 
 set(ptz-controls_QRC
     ptz-controls.qrc)

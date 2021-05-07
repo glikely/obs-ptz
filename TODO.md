@@ -14,20 +14,14 @@ Core
 PTZ Backend
 -----------
 
-- Refactor libvisca into libptz with VISCA as backend protocol
 - Add support for VISCA over IP
 - Add support for other camera control protocols
-- Refactor backend to run in separate thread, or at least be non-blocking
-- Use QSerialPort for the data connection, and QSerialPortInfo to get list of
-  available ports
 
 User Interface
 --------------
 
-- Add configuration dialog or other way to add/remove/edit cameras
 - Replace discrete buttons with a "virtual joystick" panel
 - Add focus control
-- Add configuration dialog for adding/removing/modifying cameras
 - Enhance gamepad support
   - Add zoom control
   - Add cycling through cameras

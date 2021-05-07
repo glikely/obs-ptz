@@ -7,7 +7,6 @@
 #pragma once
 
 #include <QObject>
-#include "libvisca.h"
 #include "ptz-device.hpp"
 
 class ViscaInterface;
@@ -16,9 +15,10 @@ class PTZVisca : public PTZDevice {
 
 private:
 	ViscaInterface *iface;
-	VISCACamera_t camera;
+	unsigned int address;
 
 	void init();
+	void send(QByteArray &msg);
 
 public:
 	PTZVisca(const char *uart_name, int address);
@@ -28,16 +28,10 @@ public:
 	void set_config(obs_data_t *ptz_data);
 	obs_data_t * get_config();
 
+	void cmd_clear();
+	void cmd_get_camera_info();
 	void pantilt(double pan, double tilt);
 	void pantilt_stop();
-	void pantilt_up(uint32_t pan_speed, uint32_t tilt_speed);
-	void pantilt_upleft(uint32_t pan_speed, uint32_t tilt_speed);
-	void pantilt_upright(uint32_t pan_speed, uint32_t tilt_speed);
-	void pantilt_left(uint32_t pan_speed, uint32_t tilt_speed);
-	void pantilt_right(uint32_t pan_speed, uint32_t tilt_speed);
-	void pantilt_down(uint32_t pan_speed, uint32_t tilt_speed);
-	void pantilt_downleft(uint32_t pan_speed, uint32_t tilt_speed);
-	void pantilt_downright(uint32_t pan_speed, uint32_t tilt_speed);
 	void pantilt_home();
 	void zoom_stop();
 	void zoom_tele();

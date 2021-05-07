@@ -8,36 +8,40 @@
 #include "ptz-visca.hpp"
 #include <QSerialPort>
 #include <util/base.h>
+#include "libvisca.h"
 
 /*
- * ViscaInterface wrapper class for VISCAInterface_t C structure
+ * ViscaInterface implementing UART protocol
  */
-class ViscaInterface {
+class ViscaInterface : public QObject {
 private:
+	/* Global lookup table of UART instances, used to eliminate duplicates */
 	static std::map<std::string, ViscaInterface*> interfaces;
-	int camera_count;
+
 	std::string uart_name;
 	QSerialPort uart;
+	QByteArray rxbuffer;
+	int camera_count;
 
 public:
-	VISCAInterface_t iface;
-
-	ViscaInterface(std::string &uart) : uart_name(uart) { iface.data = this; open(); }
+	ViscaInterface(std::string &uart) : uart_name(uart) { open(); }
 	void open();
 	void close();
-	uint32_t write_packet_data(VISCAPacket_t *packet);
-	int read_bytes(unsigned char *buffer, size_t size);
+	void send(const QByteArray &packet);
+	void receive(const QByteArray &packet);
+	void cmd_enumerate();
 
 	static ViscaInterface *get_interface(std::string uart);
+
+public slots:
+	void poll();
 };
 
 std::map<std::string, ViscaInterface*> ViscaInterface::interfaces;
 
 void ViscaInterface::open()
 {
-	iface.reply_packet = NULL;
-	iface.ipacket.length = 0;
-	iface.busy = 0;
+	camera_count = 0;
 
 	uart.setPortName(QString::fromStdString(uart_name));
 	uart.setBaudRate(9600);
@@ -46,11 +50,15 @@ void ViscaInterface::open()
 		return;
 	}
 
-	if (VISCA_set_address(&iface, &camera_count) != VISCA_SUCCESS) {
-		camera_count = 0;
-	}
-	blog(LOG_INFO, "VISCA Interface on %s: %i camera%s found", uart_name.c_str(),
-		camera_count, camera_count == 1 ? "" : "s");
+	connect(&uart, &QSerialPort::readyRead, this, &ViscaInterface::poll);
+
+	cmd_enumerate();
+}
+
+void ViscaInterface::cmd_enumerate()
+{
+	const char msg[] = { '\x88', 0x30, 0x01, '\xff' };
+	send(QByteArray::fromRawData(msg, sizeof(msg)));
 }
 
 void ViscaInterface::close()
@@ -60,32 +68,58 @@ void ViscaInterface::close()
 	camera_count = 0;
 }
 
-uint32_t ViscaInterface::write_packet_data(VISCAPacket_t *packet)
+void ViscaInterface::send(const QByteArray &packet)
 {
 	if (!uart.isOpen())
-		return VISCA_FAILURE;
-	if (uart.write(packet->bytes, packet->length) < packet->length)
-		return VISCA_FAILURE;
-	return VISCA_SUCCESS;
+		return;
+	blog(LOG_INFO, "VISCA --> %s", packet.toHex(':').data());
+	uart.write(packet);
 }
 
-extern "C" uint32_t _VISCA_write_packet_data(VISCAInterface_t *iface, VISCAPacket_t *packet)
+void ViscaInterface::receive(const QByteArray &packet)
 {
-	ViscaInterface *visca = (ViscaInterface *)iface->data;
-	return visca->write_packet_data(packet);
+	blog(LOG_INFO, "VISCA <-- %s", packet.toHex(':').data());
+	if (packet.size() < 4)
+		return;
+	switch (packet[1] & 0xf0) { /* Decode response field */
+	case VISCA_RESPONSE_ADDRESS:
+		switch (packet[1] & 0x0f) { /* Decode Packet Socket Field */
+		case 0:
+			camera_count = (packet[2] & 0x7) - 1;
+			blog(LOG_INFO, "VISCA Interface %s: %i camera%s found", uart_name.c_str(),
+				camera_count, camera_count == 1 ? "" : "s");
+			break;
+		case 8:
+			/* network change, trigger a change */
+			cmd_enumerate();
+			break;
+		default:
+			break;
+		}
+		break;
+	case VISCA_RESPONSE_ACK:
+		/* Don't do anything with the ack yet */
+		break;
+	case VISCA_RESPONSE_COMPLETED:
+	case VISCA_RESPONSE_ERROR:
+		break;
+	default:
+		/* Unknown */
+		break;
+	}
 }
 
-int ViscaInterface::read_bytes(unsigned char *buffer, size_t size)
+void ViscaInterface::poll()
 {
-	if (!uart.isOpen())
-		return VISCA_FAILURE;
-	return uart.read((char *)buffer, size);
-}
-
-extern "C" int _VISCA_read_bytes(VISCAInterface_t *iface, unsigned char *buffer, size_t size)
-{
-	ViscaInterface *visca = (ViscaInterface *)iface->data;
-	return visca->read_bytes(buffer, size);
+	const QByteArray data = uart.readAll();
+	for (int i = 0; i < data.size(); i++) {
+		rxbuffer += data[i];
+		if ((data[i] & 0xff) == 0xff) {
+			if (rxbuffer.size())
+				receive(rxbuffer);
+			rxbuffer.clear();
+		}
+	}
 }
 
 ViscaInterface * ViscaInterface::get_interface(std::string uart)
@@ -108,7 +142,6 @@ PTZVisca::PTZVisca(const char *uart_name, int address)
 	: PTZDevice("visca")
 {
 	iface = ViscaInterface::get_interface(uart_name);
-	camera.address = address;
 	init();
 }
 
@@ -121,49 +154,123 @@ PTZVisca::PTZVisca(obs_data_t *config)
 
 PTZVisca::~PTZVisca()
 {
-	pantilt_stop();
+	pantilt(0, 0);
 	zoom_stop();
+}
+
+void PTZVisca::send(QByteArray &msg)
+{
+	msg[0] = (char)(0x80 | address & 0x7);
+	iface->send(msg);
+}
+
+void PTZVisca::cmd_clear()
+{
+	const char msg[] = { 0, 0x01, 0x00, 0x01, '\xff' };
+	send(QByteArray::fromRawData(msg, sizeof(msg)));
+}
+
+void PTZVisca::cmd_get_camera_info()
+{
+	const char msg[] = { 0, 0x09, 0x00, 0x02, '\xff' };
+	send(QByteArray::fromRawData(msg, sizeof(msg)));
 }
 
 void PTZVisca::init()
 {
-	VISCA_clear(&iface->iface, &camera);
-	VISCA_get_camera_info(&iface->iface, &camera);
+	cmd_clear();
+	cmd_get_camera_info();
 }
 
 void PTZVisca::set_config(obs_data_t *config)
 {
 	PTZDevice::set_config(config);
 	const char *uart = obs_data_get_string(config, "port");
-	camera.address = obs_data_get_int(config, "address");
+	address = obs_data_get_int(config, "address");
 	if (uart)
 		iface = ViscaInterface::get_interface(uart);
 }
 
 obs_data_t * PTZVisca::get_config()
 {
-	obs_data_set_int(config, "address", camera.address);
+	obs_data_set_int(config, "address", address);
 	return PTZDevice::get_config();
 }
 
 void PTZVisca::pantilt(double pan, double tilt)
 {
-	VISCA_set_pantilt(&iface->iface, &camera, pan * 10, tilt * 10);
+	int pan_speed = pan;
+	int tilt_speed = tilt;
+	char msg[] = {
+		0,
+		VISCA_COMMAND,
+		VISCA_CATEGORY_PAN_TILTER,
+		VISCA_PT_DRIVE,
+		0,
+		0,
+		VISCA_PT_DRIVE_HORIZ_STOP,
+		VISCA_PT_DRIVE_VERT_STOP,
+		'\xff' };
+
+	if (pan != 0) {
+		msg[4] = (char)abs(10 * pan);
+		msg[6] = pan < 0 ? VISCA_PT_DRIVE_HORIZ_LEFT : VISCA_PT_DRIVE_HORIZ_RIGHT;
+	}
+	if (tilt != 0) {
+		msg[5] = (char)abs(10 * tilt);
+		msg[7] = tilt < 0 ? VISCA_PT_DRIVE_VERT_DOWN : VISCA_PT_DRIVE_VERT_UP;
+	}
+	send(QByteArray::fromRawData(msg, sizeof(msg)));
 }
 
 void PTZVisca::pantilt_stop()
 {
-	VISCA_set_pantilt_stop(&iface->iface, &camera);
+	pantilt(0, 0);
 }
 
 void PTZVisca::pantilt_home()
 {
-	VISCA_set_pantilt_home(&iface->iface, &camera);
+	const char msg[] = {
+		0,
+		VISCA_COMMAND,
+		VISCA_CATEGORY_PAN_TILTER,
+		VISCA_PT_HOME,
+		'\xff' };
+	send(QByteArray::fromRawData(msg, sizeof(msg)));
 }
 
-#define ptzvisca_zoom_wrapper(dir) \
-	void PTZVisca::zoom_##dir() \
-	{ VISCA_set_zoom_##dir(&iface->iface, &camera); }
-ptzvisca_zoom_wrapper(stop)
-ptzvisca_zoom_wrapper(tele)
-ptzvisca_zoom_wrapper(wide)
+void PTZVisca::zoom_tele()
+{
+	const char msg[] = {
+		0,
+		VISCA_COMMAND,
+		VISCA_CATEGORY_CAMERA1,
+		VISCA_ZOOM,
+		VISCA_ZOOM_TELE,
+		'\xff' };
+	send(QByteArray::fromRawData(msg, sizeof(msg)));
+}
+
+void PTZVisca::zoom_wide()
+{
+	const char msg[] = {
+		0,
+		VISCA_COMMAND,
+		VISCA_CATEGORY_CAMERA1,
+		VISCA_ZOOM,
+		VISCA_ZOOM_WIDE,
+		'\xff' };
+	send(QByteArray::fromRawData(msg, sizeof(msg)));
+}
+
+void PTZVisca::zoom_stop()
+{
+	const char msg[] = {
+		0,
+		VISCA_COMMAND,
+		VISCA_CATEGORY_CAMERA1,
+		VISCA_ZOOM,
+		VISCA_ZOOM_STOP,
+		'\xff' };
+	send(QByteArray::fromRawData(msg, sizeof(msg)));
+}
