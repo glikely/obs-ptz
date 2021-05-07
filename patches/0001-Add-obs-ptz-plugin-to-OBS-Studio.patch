@@ -1,0 +1,48 @@
+From 6f324aa68dc9f2e82fcaa97064cc2dbf1305367b Mon Sep 17 00:00:00 2001
+From: Grant Likely <grant.likely@secretlab.ca>
+Date: Fri, 7 May 2021 16:16:47 +0100
+Subject: [PATCH] Add obs-ptz plugin to OBS Studio
+
+Add the obs-ptz subdirectory to the UI plugins and add the required Qt
+DLLs to the install path.
+
+Signed-off-by: Grant Likely <grant.likely@secretlab.ca>
+---
+ UI/frontend-plugins/CMakeLists.txt | 1 +
+ cmake/Modules/CopyMSVCBins.cmake   | 4 ++++
+ 2 files changed, 5 insertions(+)
+
+diff --git a/UI/frontend-plugins/CMakeLists.txt b/UI/frontend-plugins/CMakeLists.txt
+index eb95ba9d5..25f5c2e2d 100644
+--- a/UI/frontend-plugins/CMakeLists.txt
++++ b/UI/frontend-plugins/CMakeLists.txt
+@@ -1,3 +1,4 @@
+ add_subdirectory(decklink-output-ui)
+ add_subdirectory(frontend-tools)
+ add_subdirectory(decklink-captions)
++add_subdirectory(obs-ptz)
+diff --git a/cmake/Modules/CopyMSVCBins.cmake b/cmake/Modules/CopyMSVCBins.cmake
+index 3bebaae50..4f8224ac7 100644
+--- a/cmake/Modules/CopyMSVCBins.cmake
++++ b/cmake/Modules/CopyMSVCBins.cmake
+@@ -164,6 +164,8 @@ file(GLOB QT_DEBUG_BIN_FILES
+ 	"${Qt5Core_DIR}/../../../bin/Qt5Svgd.dll"
+ 	"${Qt5Core_DIR}/../../../bin/Qt5Xmld.dll"
+ 	"${Qt5Core_DIR}/../../../bin/Qt5Networkd.dll"
++	"${Qt5Core_DIR}/../../../bin/Qt5Gamepadd.dll"
++	"${Qt5Core_DIR}/../../../bin/Qt5SerialPortd.dll"
+ 	"${Qt5Core_DIR}/../../../bin/libGLESv2d.dll"
+ 	"${Qt5Core_DIR}/../../../bin/libEGLd.dll")
+ file(GLOB QT_DEBUG_PLAT_BIN_FILES
+@@ -183,6 +185,8 @@ file(GLOB QT_BIN_FILES
+ 	"${Qt5Core_DIR}/../../../bin/Qt5Svg.dll"
+ 	"${Qt5Core_DIR}/../../../bin/Qt5Xml.dll"
+ 	"${Qt5Core_DIR}/../../../bin/Qt5Network.dll"
++	"${Qt5Core_DIR}/../../../bin/Qt5Gamepad.dll"
++	"${Qt5Core_DIR}/../../../bin/Qt5SerialPort.dll"
+ 	"${Qt5Core_DIR}/../../../bin/libGLESv2.dll"
+ 	"${Qt5Core_DIR}/../../../bin/libEGL.dll")
+ file(GLOB QT_PLAT_BIN_FILES
+-- 
+2.31.1.windows.1
+
