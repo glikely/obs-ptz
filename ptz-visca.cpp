@@ -71,11 +71,19 @@ void ViscaInterface::receive(const QByteArray &packet)
 		break;
 	case VISCA_RESPONSE_ACK:
 		/* Don't do anything with the ack yet */
+		blog(LOG_INFO, "VISCA received ACK");
+		emit receive_ack(packet);
 		break;
 	case VISCA_RESPONSE_COMPLETED:
+		blog(LOG_INFO, "VISCA received complete");
+		emit receive_complete(packet);
+		break;
 	case VISCA_RESPONSE_ERROR:
+		blog(LOG_INFO, "VISCA received error");
+		emit receive_error(packet);
 		break;
 	default:
+		blog(LOG_INFO, "VISCA received unknown");
 		/* Unknown */
 		break;
 	}
@@ -118,7 +126,7 @@ PTZVisca::PTZVisca(const char *uart_name, int address)
 }
 
 PTZVisca::PTZVisca(obs_data_t *config)
-	: PTZDevice("visca")
+	: PTZDevice("visca"), iface(NULL)
 {
 	set_config(config);
 	init();
@@ -133,6 +141,7 @@ PTZVisca::~PTZVisca()
 void PTZVisca::send(QByteArray &msg)
 {
 	msg[0] = (char)(0x80 | address & 0x7);
+	active_cmd = msg;
 	iface->send(msg);
 }
 
@@ -150,6 +159,10 @@ void PTZVisca::cmd_get_camera_info()
 
 void PTZVisca::init()
 {
+	if (iface) {
+		connect(iface, &ViscaInterface::receive_ack, this, &PTZVisca::receive_ack);
+		connect(iface, &ViscaInterface::receive_complete, this, &PTZVisca::receive_complete);
+	}
 	cmd_clear();
 	cmd_get_camera_info();
 }
@@ -159,14 +172,39 @@ void PTZVisca::set_config(obs_data_t *config)
 	PTZDevice::set_config(config);
 	const char *uart = obs_data_get_string(config, "port");
 	address = obs_data_get_int(config, "address");
-	if (uart)
+	if (uart) {
+		if (iface)
+			iface->disconnect(this);
 		iface = ViscaInterface::get_interface(uart);
+		init();
+	}
 }
 
 obs_data_t * PTZVisca::get_config()
 {
 	obs_data_set_int(config, "address", address);
 	return PTZDevice::get_config();
+}
+
+void PTZVisca::receive_ack(const QByteArray &msg)
+{
+	if (VISCA_PACKET_SENDER(msg) != address)
+		return;
+}
+
+void PTZVisca::receive_complete(const QByteArray &msg)
+{
+	blog(LOG_INFO, "VISCA receive_complete slot: %s", msg.toHex(':').data());
+	if (VISCA_PACKET_SENDER(msg) != address || active_cmd.size() < 3)
+		return;
+	switch (active_cmd[2] & 0xff) {
+	case VISCA_DEVICE_INFO:
+		blog(LOG_INFO, "VISCA device info received: %s", msg.toHex(':').data());
+		break;
+	default:
+		break;
+	}
+	active_cmd.clear();
 }
 
 void PTZVisca::pantilt(double pan, double tilt)
