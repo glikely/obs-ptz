@@ -51,7 +51,7 @@ void ViscaInterface::send(const QByteArray &packet)
 void ViscaInterface::receive(const QByteArray &packet)
 {
 	blog(LOG_INFO, "VISCA <-- %s", packet.toHex(':').data());
-	if (packet.size() < 4)
+	if (packet.size() < 3)
 		return;
 	switch (packet[1] & 0xf0) { /* Decode response field */
 	case VISCA_RESPONSE_ADDRESS:
@@ -71,15 +71,15 @@ void ViscaInterface::receive(const QByteArray &packet)
 		break;
 	case VISCA_RESPONSE_ACK:
 		/* Don't do anything with the ack yet */
-		blog(LOG_INFO, "VISCA received ACK");
+		blog(LOG_DEBUG, "VISCA received ACK");
 		emit receive_ack(packet);
 		break;
 	case VISCA_RESPONSE_COMPLETED:
-		blog(LOG_INFO, "VISCA received complete");
+		blog(LOG_DEBUG, "VISCA received complete");
 		emit receive_complete(packet);
 		break;
 	case VISCA_RESPONSE_ERROR:
-		blog(LOG_INFO, "VISCA received error");
+		blog(LOG_DEBUG, "VISCA received error");
 		emit receive_error(packet);
 		break;
 	default:
@@ -121,15 +121,13 @@ ViscaInterface * ViscaInterface::get_interface(std::string uart)
 PTZVisca::PTZVisca(const char *uart_name, int address)
 	: PTZDevice("visca")
 {
-	iface = ViscaInterface::get_interface(uart_name);
-	init();
+	attach_interface(ViscaInterface::get_interface(uart_name));
 }
 
 PTZVisca::PTZVisca(obs_data_t *config)
 	: PTZDevice("visca"), iface(NULL)
 {
 	set_config(config);
-	init();
 }
 
 PTZVisca::~PTZVisca()
@@ -138,11 +136,19 @@ PTZVisca::~PTZVisca()
 	zoom_stop();
 }
 
+void PTZVisca::send_pending()
+{
+	if (active_cmd.size() != 0 || pending_cmds.isEmpty())
+		return;
+	active_cmd = pending_cmds.takeFirst();
+	iface->send(active_cmd);
+}
+
 void PTZVisca::send(QByteArray &msg)
 {
 	msg[0] = (char)(0x80 | address & 0x7);
-	active_cmd = msg;
-	iface->send(msg);
+	pending_cmds.append(msg);
+	send_pending();
 }
 
 void PTZVisca::cmd_clear()
@@ -157,14 +163,22 @@ void PTZVisca::cmd_get_camera_info()
 	send(QByteArray::fromRawData(msg, sizeof(msg)));
 }
 
-void PTZVisca::init()
+void PTZVisca::reset()
 {
+	cmd_clear();
+	cmd_get_camera_info();
+}
+
+void PTZVisca::attach_interface(ViscaInterface *new_iface)
+{
+	if (iface)
+		iface->disconnect(this);
+	iface = new_iface;
 	if (iface) {
 		connect(iface, &ViscaInterface::receive_ack, this, &PTZVisca::receive_ack);
 		connect(iface, &ViscaInterface::receive_complete, this, &PTZVisca::receive_complete);
 	}
-	cmd_clear();
-	cmd_get_camera_info();
+	reset();
 }
 
 void PTZVisca::set_config(obs_data_t *config)
@@ -172,12 +186,11 @@ void PTZVisca::set_config(obs_data_t *config)
 	PTZDevice::set_config(config);
 	const char *uart = obs_data_get_string(config, "port");
 	address = obs_data_get_int(config, "address");
-	if (uart) {
-		if (iface)
-			iface->disconnect(this);
-		iface = ViscaInterface::get_interface(uart);
-		init();
-	}
+	if (!uart)
+		return;
+
+	blog(LOG_INFO, "PTZVisca::set_config() %p iface=%p", this, iface);
+	attach_interface(ViscaInterface::get_interface(uart));
 }
 
 obs_data_t * PTZVisca::get_config()
@@ -190,11 +203,13 @@ void PTZVisca::receive_ack(const QByteArray &msg)
 {
 	if (VISCA_PACKET_SENDER(msg) != address)
 		return;
+	active_cmd.clear();
+	send_pending();
 }
 
 void PTZVisca::receive_complete(const QByteArray &msg)
 {
-	blog(LOG_INFO, "VISCA receive_complete slot: %s", msg.toHex(':').data());
+	blog(LOG_INFO, "VISCA %p receive_complete slot: %s", this, msg.toHex(':').data());
 	if (VISCA_PACKET_SENDER(msg) != address || active_cmd.size() < 3)
 		return;
 	switch (active_cmd[2] & 0xff) {
@@ -205,6 +220,7 @@ void PTZVisca::receive_complete(const QByteArray &msg)
 		break;
 	}
 	active_cmd.clear();
+	send_pending();
 }
 
 void PTZVisca::pantilt(double pan, double tilt)

@@ -51,9 +51,12 @@ class PTZVisca : public PTZDevice {
 private:
 	ViscaInterface *iface;
 	unsigned int address;
+	QByteArrayList pending_cmds;
 	QByteArray active_cmd;
 
-	void init();
+	void reset();
+	void attach_interface(ViscaInterface *iface);
+	void send_pending();
 	void send(QByteArray &msg);
 
 private slots:
