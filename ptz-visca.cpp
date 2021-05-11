@@ -144,7 +144,7 @@ void PTZVisca::send_pending()
 	iface->send(active_cmd);
 }
 
-void PTZVisca::send(QByteArray &msg)
+void PTZVisca::send(QByteArray msg)
 {
 	msg[0] = (char)(0x80 | address & 0x7);
 	pending_cmds.append(msg);

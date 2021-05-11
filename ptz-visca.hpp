@@ -57,7 +57,7 @@ private:
 	void reset();
 	void attach_interface(ViscaInterface *iface);
 	void send_pending();
-	void send(QByteArray &msg);
+	void send(QByteArray msg);
 
 private slots:
 	void receive_ack(const QByteArray &msg);
