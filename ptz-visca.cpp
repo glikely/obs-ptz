@@ -60,6 +60,7 @@ void ViscaInterface::receive(const QByteArray &packet)
 			camera_count = (packet[2] & 0x7) - 1;
 			blog(LOG_INFO, "VISCA Interface %s: %i camera%s found", uart_name.c_str(),
 				camera_count, camera_count == 1 ? "" : "s");
+			emit reset();
 			break;
 		case 8:
 			/* network change, trigger a change */
@@ -128,6 +129,7 @@ PTZVisca::PTZVisca(obs_data_t *config)
 	: PTZDevice("visca"), iface(NULL)
 {
 	set_config(config);
+	connect(&timeout_timer, &QTimer::timeout, this, &PTZVisca::timeout);
 }
 
 PTZVisca::~PTZVisca()
@@ -142,6 +144,8 @@ void PTZVisca::send_pending()
 		return;
 	active_cmd = pending_cmds.takeFirst();
 	iface->send(active_cmd);
+	timeout_timer.setSingleShot(true);
+	timeout_timer.start(1000);
 }
 
 void PTZVisca::send(QByteArray msg)
@@ -149,6 +153,13 @@ void PTZVisca::send(QByteArray msg)
 	msg[0] = (char)(0x80 | address & 0x7);
 	pending_cmds.append(msg);
 	send_pending();
+}
+
+void PTZVisca::timeout()
+{
+	blog(LOG_INFO, "PTZVisca::timeout() %p", this);
+	active_cmd.clear();
+	pending_cmds.clear();
 }
 
 void PTZVisca::cmd_clear()
@@ -177,8 +188,8 @@ void PTZVisca::attach_interface(ViscaInterface *new_iface)
 	if (iface) {
 		connect(iface, &ViscaInterface::receive_ack, this, &PTZVisca::receive_ack);
 		connect(iface, &ViscaInterface::receive_complete, this, &PTZVisca::receive_complete);
+		connect(iface, &ViscaInterface::reset, this, &PTZVisca::reset);
 	}
-	reset();
 }
 
 void PTZVisca::set_config(obs_data_t *config)
@@ -203,6 +214,7 @@ void PTZVisca::receive_ack(const QByteArray &msg)
 {
 	if (VISCA_PACKET_SENDER(msg) != address)
 		return;
+	timeout_timer.stop();
 	active_cmd.clear();
 	send_pending();
 }
@@ -212,6 +224,7 @@ void PTZVisca::receive_complete(const QByteArray &msg)
 	blog(LOG_INFO, "VISCA %p receive_complete slot: %s", this, msg.toHex(':').data());
 	if (VISCA_PACKET_SENDER(msg) != address || active_cmd.size() < 3)
 		return;
+	timeout_timer.stop();
 	switch (active_cmd[2] & 0xff) {
 	case VISCA_DEVICE_INFO:
 		blog(LOG_INFO, "VISCA device info received: %s", msg.toHex(':').data());

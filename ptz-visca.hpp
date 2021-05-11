@@ -7,6 +7,7 @@
 #pragma once
 
 #include <QObject>
+#include <QTimer>
 #include <QSerialPort>
 #include "ptz-device.hpp"
 
@@ -29,6 +30,7 @@ signals:
 	void receive_ack(const QByteArray &packet);
 	void receive_complete(const QByteArray &packet);
 	void receive_error(const QByteArray &packet);
+	void reset();
 
 public:
 	ViscaInterface(std::string &uart) : uart_name(uart) { open(); }
@@ -53,11 +55,13 @@ private:
 	unsigned int address;
 	QByteArrayList pending_cmds;
 	QByteArray active_cmd;
+	QTimer timeout_timer;
 
 	void reset();
 	void attach_interface(ViscaInterface *iface);
 	void send_pending();
 	void send(QByteArray msg);
+	void timeout();
 
 private slots:
 	void receive_ack(const QByteArray &msg);
