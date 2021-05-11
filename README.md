@@ -26,6 +26,7 @@ git clone https://github.com/glikely/obs-ptz
 mkdir obs-ptz/build
 cd obs-ptz/build
 cmake ..
+make
 ```
 
 Copy or symlink ptz-controls.so into the OBS plugins directory.
