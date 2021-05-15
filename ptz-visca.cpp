@@ -7,9 +7,55 @@
 
 #include "ptz-visca.hpp"
 #include <util/base.h>
-#include "libvisca.h"
 
 std::map<std::string, ViscaInterface*> ViscaInterface::interfaces;
+
+const ViscaCmd VISCA_ENUMERATE("883001ff");
+
+const ViscaCmd VISCA_Clear("80010001ff");
+const ViscaCmd VISCA_CommandCancel("8020ff", {new visca_u4("socket", 1)});
+const ViscaCmd VISCA_CAM_Power_On("8001040002ff");
+const ViscaCmd VISCA_CAM_Power_Off("8001040003ff");
+
+const ViscaCmd VISCA_CAM_Zoom_Stop("8001040700ff");
+const ViscaCmd VISCA_CAM_Zoom_Tele("8001040702ff");
+const ViscaCmd VISCA_CAM_Zoom_Wide("8001040703ff");
+const ViscaCmd VISCA_CAM_Zoom_TeleVar("8001040720ff", {new visca_u4("p", 4),});
+const ViscaCmd VISCA_CAM_Zoom_WideVar("8001040730ff", {new visca_u4("p", 4),});
+const ViscaCmd VISCA_CAM_Zoom_Direct ("8001044700000000ff", {new visca_u16("pos", 4),});
+const ViscaCmd VISCA_CAM_DZoom_On("8001040602ff");
+const ViscaCmd VISCA_CAM_DZoom_Off("8001040603ff");
+
+const ViscaCmd VISCA_CAM_Focus_Stop("8001040800ff");
+const ViscaCmd VISCA_CAM_Focus_Far("8001040802ff");
+const ViscaCmd VISCA_CAM_Focus_Near("8001040803ff");
+const ViscaCmd VISCA_CAM_Focus_FarVar("8001040820ff", {new visca_u4("p", 4),});
+const ViscaCmd VISCA_CAM_Focus_NearVar("8001040830ff", {new visca_u4("p", 4),});
+const ViscaCmd VISCA_CAM_Focus_Direct("8001044800000000ff", {new visca_u16("pos", 4),});
+const ViscaCmd VISCA_CAM_Focus_Auto("8001043802ff");
+const ViscaCmd VISCA_CAM_Focus_Manual("8001043803ff");
+const ViscaCmd VISCA_CAM_Focus_AutoManual("8001043810ff");
+const ViscaCmd VISCA_CAM_Focus_OneTouch("8001041801ff");
+const ViscaCmd VISCA_CAM_Focus_Infinity("8001041802ff");
+const ViscaCmd VISCA_CAM_NearLimit("8001042800000000ff", {new visca_u16("limit", 4)});
+const ViscaCmd VISCA_PanTilt_drive("8001060100000303ff", {new visca_s7("pan", 4), new visca_s7("tilt", 5)});
+const ViscaCmd VISCA_PanTilt_drive_abs("8001060200000000000000000000ff",
+	                                  {new visca_u7("panspeed", 4), new visca_u7("tiltspeed", 5),
+					   new visca_u16("panpos", 6), new visca_u16("tiltpos", 10)});
+const ViscaCmd VISCA_PanTilt_drive_rel("8001060300000000000000000000ff",
+	                                  {new visca_u7("panspeed", 4), new visca_u7("tiltspeed", 5),
+					   new visca_u16("panpos", 6), new visca_u16("tiltpos", 10)});
+const ViscaCmd VISCA_PanTilt_Home("80010604ff");
+const ViscaCmd VISCA_PanTilt_Reset("80010605ff");
+
+const ViscaInq VISCA_PowerInq("80090400ff", {new visca_flag("power_on", 2)});
+const ViscaInq VISCA_ZoomPosInq("80090447ff", {new visca_u16("zoom_pos", 2)});
+const ViscaInq VISCA_DZoomModeInq("80090406ff", {new visca_flag("dzoom_on", 2)});
+const ViscaInq VISCA_FocusModeInq("80090438ff", {new visca_flag("autofocus_on", 2)});
+const ViscaInq VISCA_FocusPosInq("80090448ff", {new visca_u16("focus_pos", 2)});
+const ViscaInq VISCA_FocusNearLimitInq("80090428ff", {new visca_u16("focus_near_limit", 2)});
+
+const ViscaInq VISCA_PanTiltPosInq("80090612ff", {new visca_u16("pan_pos", 2), new visca_u16("tilt_pos", 6)});
 
 void ViscaInterface::open()
 {
@@ -24,13 +70,7 @@ void ViscaInterface::open()
 
 	connect(&uart, &QSerialPort::readyRead, this, &ViscaInterface::poll);
 
-	cmd_enumerate();
-}
-
-void ViscaInterface::cmd_enumerate()
-{
-	const char msg[] = { '\x88', 0x30, 0x01, '\xff' };
-	send(QByteArray::fromRawData(msg, sizeof(msg)));
+	send(VISCA_ENUMERATE.cmd);
 }
 
 void ViscaInterface::close()
@@ -48,6 +88,12 @@ void ViscaInterface::send(const QByteArray &packet)
 	uart.write(packet);
 }
 
+#define VISCA_RESPONSE_ADDRESS   0x30
+#define VISCA_RESPONSE_ACK       0x40
+#define VISCA_RESPONSE_COMPLETED 0x50
+#define VISCA_RESPONSE_ERROR     0x60
+#define VISCA_PACKET_SENDER(pkt) (((pkt)[0] & 0x70) >> 4)
+
 void ViscaInterface::receive(const QByteArray &packet)
 {
 	blog(LOG_INFO, "VISCA <-- %s", packet.toHex(':').data());
@@ -64,7 +110,7 @@ void ViscaInterface::receive(const QByteArray &packet)
 			break;
 		case 8:
 			/* network change, trigger a change */
-			cmd_enumerate();
+			send(VISCA_ENUMERATE.cmd);
 			break;
 		default:
 			break;
@@ -120,13 +166,13 @@ ViscaInterface * ViscaInterface::get_interface(std::string uart)
  * PTZVisca Methods
  */
 PTZVisca::PTZVisca(const char *uart_name, int address)
-	: PTZDevice("visca")
+	: PTZDevice("visca"), active_cmd(false)
 {
 	attach_interface(ViscaInterface::get_interface(uart_name));
 }
 
 PTZVisca::PTZVisca(obs_data_t *config)
-	: PTZDevice("visca"), iface(NULL)
+	: PTZDevice("visca"), active_cmd(false), iface(NULL)
 {
 	set_config(config);
 	connect(&timeout_timer, &QTimer::timeout, this, &PTZVisca::timeout);
@@ -140,43 +186,44 @@ PTZVisca::~PTZVisca()
 
 void PTZVisca::send_pending()
 {
-	if (active_cmd.size() != 0 || pending_cmds.isEmpty())
+	if (active_cmd || pending_cmds.isEmpty())
 		return;
-	active_cmd = pending_cmds.takeFirst();
-	iface->send(active_cmd);
+	active_cmd = true;
+	iface->send(pending_cmds.first().cmd);
 	timeout_timer.setSingleShot(true);
 	timeout_timer.start(1000);
 }
 
-void PTZVisca::send(QByteArray msg)
+void PTZVisca::send(const ViscaCmd &cmd)
 {
-	msg[0] = (char)(0x80 | address & 0x7);
-	pending_cmds.append(msg);
+	pending_cmds.append(cmd);
+	pending_cmds.last().encode(address);
+	send_pending();
+}
+
+void PTZVisca::send(const ViscaCmd &cmd, QList<int> args)
+{
+	pending_cmds.append(cmd);
+	pending_cmds.last().encode(address, args);
 	send_pending();
 }
 
 void PTZVisca::timeout()
 {
 	blog(LOG_INFO, "PTZVisca::timeout() %p", this);
-	active_cmd.clear();
+	active_cmd = false;
 	pending_cmds.clear();
-}
-
-void PTZVisca::cmd_clear()
-{
-	const char msg[] = { 0, 0x01, 0x00, 0x01, '\xff' };
-	send(QByteArray::fromRawData(msg, sizeof(msg)));
 }
 
 void PTZVisca::cmd_get_camera_info()
 {
-	const char msg[] = { 0, 0x09, 0x00, 0x02, '\xff' };
-	send(QByteArray::fromRawData(msg, sizeof(msg)));
+	send(VISCA_ZoomPosInq);
+	send(VISCA_PanTiltPosInq);
 }
 
 void PTZVisca::reset()
 {
-	cmd_clear();
+	send(VISCA_Clear);
 	cmd_get_camera_info();
 }
 
@@ -215,101 +262,83 @@ void PTZVisca::receive_ack(const QByteArray &msg)
 	if (VISCA_PACKET_SENDER(msg) != address)
 		return;
 	timeout_timer.stop();
-	active_cmd.clear();
+	if (active_cmd) {
+		active_cmd = false;
+		pending_cmds.removeFirst();
+	}
 	send_pending();
 }
 
 void PTZVisca::receive_complete(const QByteArray &msg)
 {
-	blog(LOG_INFO, "VISCA %p receive_complete slot: %s", this, msg.toHex(':').data());
-	if (VISCA_PACKET_SENDER(msg) != address || active_cmd.size() < 3)
+	if (VISCA_PACKET_SENDER(msg) != address || !active_cmd)
 		return;
 	timeout_timer.stop();
-	switch (active_cmd[2] & 0xff) {
-	case VISCA_DEVICE_INFO:
+	blog(LOG_INFO, "VISCA %p receive_complete slot: %s", this, msg.toHex(':').data());
+
+	/*
+	switch (active_cmd) {
+	case 0x0002:
 		blog(LOG_INFO, "VISCA device info received: %s", msg.toHex(':').data());
 		break;
+	case 0x0447:
+		if (msg.size() == 7)
+			blog(LOG_INFO, "VISCA zoom=%x", (msg[2] & 0xf) << 12 |
+							(msg[3] & 0xf) << 8 |
+							(msg[4] & 0xf) << 4 |
+							(msg[5] & 0xf));
+		break;
+	case 0x0612:
+		if (msg.size() == 11)
+			blog(LOG_INFO, "VISCA pan=%x, tilt=%x", (msg[2] & 0xf) << 12 |
+							  (msg[3] & 0xf) << 8 |
+							  (msg[4] & 0xf) << 4 |
+							  (msg[5] & 0xf),
+							  (msg[6] & 0xf) << 12 |
+							  (msg[7] & 0xf) << 8 |
+							  (msg[8] & 0xf) << 4 |
+							  (msg[9] & 0xf));
+	case 0x0610:
+		if (msg.size() == 5)
+			blog(LOG_INFO, "VISCA pantilt status=0x%x", (msg[2] & 0xff) << 8 |
+							  (msg[3] & 0xff));
 	default:
 		break;
 	}
-	active_cmd.clear();
+	*/
+	if (active_cmd) {
+		active_cmd = false;
+		pending_cmds.removeFirst();
+	}
 	send_pending();
 }
 
 void PTZVisca::pantilt(double pan, double tilt)
 {
-	int pan_speed = pan;
-	int tilt_speed = tilt;
-	char msg[] = {
-		0,
-		VISCA_COMMAND,
-		VISCA_CATEGORY_PAN_TILTER,
-		VISCA_PT_DRIVE,
-		0,
-		0,
-		VISCA_PT_DRIVE_HORIZ_STOP,
-		VISCA_PT_DRIVE_VERT_STOP,
-		'\xff' };
-
-	if (pan != 0) {
-		msg[4] = (char)abs(10 * pan);
-		msg[6] = pan < 0 ? VISCA_PT_DRIVE_HORIZ_LEFT : VISCA_PT_DRIVE_HORIZ_RIGHT;
-	}
-	if (tilt != 0) {
-		msg[5] = (char)abs(10 * tilt);
-		msg[7] = tilt < 0 ? VISCA_PT_DRIVE_VERT_DOWN : VISCA_PT_DRIVE_VERT_UP;
-	}
-	send(QByteArray::fromRawData(msg, sizeof(msg)));
+	send(VISCA_PanTilt_drive, {(int)pan, (int)-tilt});
 }
 
 void PTZVisca::pantilt_stop()
 {
-	pantilt(0, 0);
+	send(VISCA_PanTilt_drive, {0, 0});
 }
 
 void PTZVisca::pantilt_home()
 {
-	const char msg[] = {
-		0,
-		VISCA_COMMAND,
-		VISCA_CATEGORY_PAN_TILTER,
-		VISCA_PT_HOME,
-		'\xff' };
-	send(QByteArray::fromRawData(msg, sizeof(msg)));
+	send(VISCA_PanTilt_Home);
 }
 
 void PTZVisca::zoom_tele()
 {
-	const char msg[] = {
-		0,
-		VISCA_COMMAND,
-		VISCA_CATEGORY_CAMERA1,
-		VISCA_ZOOM,
-		VISCA_ZOOM_TELE,
-		'\xff' };
-	send(QByteArray::fromRawData(msg, sizeof(msg)));
+	send(VISCA_CAM_Zoom_Tele);
 }
 
 void PTZVisca::zoom_wide()
 {
-	const char msg[] = {
-		0,
-		VISCA_COMMAND,
-		VISCA_CATEGORY_CAMERA1,
-		VISCA_ZOOM,
-		VISCA_ZOOM_WIDE,
-		'\xff' };
-	send(QByteArray::fromRawData(msg, sizeof(msg)));
+	send(VISCA_CAM_Zoom_Wide);
 }
 
 void PTZVisca::zoom_stop()
 {
-	const char msg[] = {
-		0,
-		VISCA_COMMAND,
-		VISCA_CATEGORY_CAMERA1,
-		VISCA_ZOOM,
-		VISCA_ZOOM_STOP,
-		'\xff' };
-	send(QByteArray::fromRawData(msg, sizeof(msg)));
+	send(VISCA_CAM_Zoom_Stop);
 }
