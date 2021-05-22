@@ -276,36 +276,14 @@ void PTZVisca::receive_complete(const QByteArray &msg)
 	timeout_timer.stop();
 	blog(LOG_INFO, "VISCA %p receive_complete slot: %s", this, msg.toHex(':').data());
 
-	/*
-	switch (active_cmd) {
-	case 0x0002:
-		blog(LOG_INFO, "VISCA device info received: %s", msg.toHex(':').data());
-		break;
-	case 0x0447:
-		if (msg.size() == 7)
-			blog(LOG_INFO, "VISCA zoom=%x", (msg[2] & 0xf) << 12 |
-							(msg[3] & 0xf) << 8 |
-							(msg[4] & 0xf) << 4 |
-							(msg[5] & 0xf));
-		break;
-	case 0x0612:
-		if (msg.size() == 11)
-			blog(LOG_INFO, "VISCA pan=%x, tilt=%x", (msg[2] & 0xf) << 12 |
-							  (msg[3] & 0xf) << 8 |
-							  (msg[4] & 0xf) << 4 |
-							  (msg[5] & 0xf),
-							  (msg[6] & 0xf) << 12 |
-							  (msg[7] & 0xf) << 8 |
-							  (msg[8] & 0xf) << 4 |
-							  (msg[9] & 0xf));
-	case 0x0610:
-		if (msg.size() == 5)
-			blog(LOG_INFO, "VISCA pantilt status=0x%x", (msg[2] & 0xff) << 8 |
-							  (msg[3] & 0xff));
-	default:
-		break;
-	}
-	*/
+	pending_cmds.first().decode(this, msg);
+
+	QByteArrayList propnames = dynamicPropertyNames();
+	QString logmsg(objectName() + ":");
+	for (QByteArrayList::iterator i = propnames.begin(); i != propnames.end(); i++) 
+		logmsg = logmsg + " " + QString(i->data()) + "=" + property(i->data()).toString();
+	blog(LOG_INFO, qPrintable(logmsg));
+
 	if (active_cmd) {
 		active_cmd = false;
 		pending_cmds.removeFirst();

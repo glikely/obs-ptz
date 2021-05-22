@@ -13,15 +13,15 @@
 
 class visca_encoding {
 public:
-	QString name;
+	const char *name;
 	int offset;
-	visca_encoding(char *name, int offset) : name(name), offset(offset) { }
+	visca_encoding(const char *name, int offset) : name(name), offset(offset) { }
 	virtual void encode(QByteArray &data, int val) = 0;
 	virtual int decode(QByteArray &data) = 0;
 };
 class visca_u4 : public visca_encoding {
 public:
-	visca_u4(char *name, int offset) : visca_encoding(name, offset) { }
+	visca_u4(const char *name, int offset) : visca_encoding(name, offset) { }
 	void encode(QByteArray &data, int val) {
 		if (data.size() < offset + 1)
 			return;
@@ -33,7 +33,7 @@ public:
 };
 class visca_flag : public visca_encoding {
 public:
-	visca_flag(char *name, int offset) : visca_encoding(name, offset) { }
+	visca_flag(const char *name, int offset) : visca_encoding(name, offset) { }
 	void encode(QByteArray &data, int val) {
 		if (data.size() < offset + 1)
 			return;
@@ -45,7 +45,7 @@ public:
 };
 class visca_u7 : public visca_encoding {
 public:
-	visca_u7(char *name, int offset) : visca_encoding(name, offset) { }
+	visca_u7(const char *name, int offset) : visca_encoding(name, offset) { }
 	void encode(QByteArray &data, int val) {
 		if (data.size() < offset + 1)
 			return;
@@ -57,7 +57,7 @@ public:
 };
 class visca_s7 : public visca_encoding {
 public:
-	visca_s7(char *name, int offset) : visca_encoding(name, offset) { }
+	visca_s7(const char *name, int offset) : visca_encoding(name, offset) { }
 	virtual void encode(QByteArray &data, int val) {
 		if (data.size() < offset + 3)
 			return;
@@ -73,7 +73,7 @@ public:
 };
 class visca_u16 : public visca_encoding {
 public:
-	visca_u16(char *name, int offset) : visca_encoding(name, offset) { }
+	visca_u16(const char *name, int offset) : visca_encoding(name, offset) { }
 	void encode(QByteArray &data, int val) {
 		if (data.size() < offset + 4)
 			return;
@@ -98,10 +98,10 @@ public:
 	QByteArray cmd;
 	const QList<visca_encoding*> args;
 	const QList<visca_encoding*> results;
-	ViscaCmd(char *cmd_hex) : cmd(QByteArray::fromHex(cmd_hex)) { }
-	ViscaCmd(char *cmd_hex, QList<visca_encoding*> args) :
+	ViscaCmd(const char *cmd_hex) : cmd(QByteArray::fromHex(cmd_hex)) { }
+	ViscaCmd(const char *cmd_hex, QList<visca_encoding*> args) :
 		cmd(QByteArray::fromHex(cmd_hex)), args(args) { }
-	ViscaCmd(char *cmd_hex, QList<visca_encoding*> args, QList<visca_encoding*> rslts) :
+	ViscaCmd(const char *cmd_hex, QList<visca_encoding*> args, QList<visca_encoding*> rslts) :
 		cmd(QByteArray::fromHex(cmd_hex)), args(args), results(rslts) { }
 	void encode(int address) {
 		cmd[0] = (char)(0x80 | address & 0x7);
@@ -111,11 +111,15 @@ public:
 		for (int i = 0; i < arglist.size(), i < args.size(); i++)
 			args[i]->encode(cmd, arglist[i]);
 	}
+	void decode(QObject *target, QByteArray msg) {
+		for (int i = 0; i < results.size(); i++)
+			target->setProperty(results[i]->name, results[i]->decode(msg));
+	}
 };
 class ViscaInq : public ViscaCmd {
 public:
-	ViscaInq(char *cmd_hex) : ViscaCmd(cmd_hex) { }
-	ViscaInq(char *cmd_hex, QList<visca_encoding*> rslts) : ViscaCmd(cmd_hex, {}, rslts) {}
+	ViscaInq(const char *cmd_hex) : ViscaCmd(cmd_hex) { }
+	ViscaInq(const char *cmd_hex, QList<visca_encoding*> rslts) : ViscaCmd(cmd_hex, {}, rslts) {}
 };
 
 
