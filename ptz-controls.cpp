@@ -132,7 +132,7 @@ void PTZControls::SaveConfig()
 	char *file = obs_module_config_path("config.json");
 	if (!file)
 		return;
-	obs_data_t *data = obs_data_create_from_json_file(file);
+	obs_data_t *data = obs_data_create_from_json_file_safe(file, "bak");
 
 	if (!data)
 		data = obs_data_create();
@@ -157,13 +157,13 @@ void PTZControls::SaveConfig()
 	}
 
 	/* Save data structure to json */
-	if (!obs_data_save_json(data, file)) {
+	if (!obs_data_save_json_safe(data, file, "tmp", "bak")) {
 		char *path = obs_module_config_path("");
 		if (path) {
 			os_mkdirs(path);
 			bfree(path);
 		}
-		obs_data_save_json(data, file);
+		obs_data_save_json_safe(data, file, "tmp", "bak");
 	}
 	obs_data_release(data);
 	bfree(file);
@@ -177,7 +177,7 @@ void PTZControls::LoadConfig()
 	std::string target_mode;
 
 	if (file) {
-		data = obs_data_create_from_json_file(file);
+		data = obs_data_create_from_json_file_safe(file, "bak");
 		bfree(file);
 	}
 	if (!data) {
