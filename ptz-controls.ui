@@ -20,7 +20,7 @@
    <set>QDockWidget::DockWidgetClosable|QDockWidget::DockWidgetMovable|QDockWidget::DockWidgetFloatable</set>
   </property>
   <property name="windowTitle">
-   <string>&amp;PTZ Controls</string>
+   <string>PTZ Controls</string>
   </property>
   <widget class="QWidget" name="dockWidgetContents">
    <property name="contextMenuPolicy">
