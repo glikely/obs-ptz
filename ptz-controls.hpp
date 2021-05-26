@@ -68,6 +68,9 @@ private slots:
 	void on_targetButton_program_clicked(bool checked);
 
 	void currentChanged(QModelIndex current, QModelIndex previous);
+
+	void on_presetListView_activated(QModelIndex index);
+	void on_presetListView_customContextMenuRequested(const QPoint &pos);
 	void on_configButton_released();
 
 public:

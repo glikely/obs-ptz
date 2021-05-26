@@ -332,6 +332,38 @@ void PTZControls::currentChanged(QModelIndex current, QModelIndex previous)
 {
 	full_stop();
 	current_cam = current.row();
+	PTZDevice *ptz = PTZDevice::get_device(current_cam);
+	ui->presetListView->setModel(ptz->presetModel());
+}
+
+void PTZControls::on_presetListView_activated(QModelIndex index)
+{
+	PTZDevice *ptz = PTZDevice::get_device(current_cam);
+	if (!ptz)
+		return;
+	ptz->memory_recall(index.row());
+}
+
+void PTZControls::on_presetListView_customContextMenuRequested(const QPoint &pos)
+{
+	QPoint globalpos = ui->presetListView->mapToGlobal(pos);
+	QModelIndex index = ui->presetListView->indexAt(pos);
+	PTZDevice *ptz = PTZDevice::get_device(current_cam);
+
+	QMenu presetContext;
+	QAction *renameAction = presetContext.addAction("Rename");
+	QAction *setAction = presetContext.addAction("Save Preset");
+	QAction *resetAction = presetContext.addAction("Clear Preset");
+	QAction *action = presetContext.exec(globalpos);
+
+	if (action == renameAction) {
+		ui->presetListView->edit(index);
+	} else if (action == setAction) {
+		ptz->memory_set(index.row());
+	} else if (action == resetAction) {
+		ptz->memory_reset(index.row());
+		ui->presetListView->model()->setData(index, QString("Preset %1").arg(index.row() + 1));
+	}
 }
 
 void PTZControls::on_configButton_released()

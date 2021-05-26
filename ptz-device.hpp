@@ -24,6 +24,8 @@ public:
 	bool setData(const QModelIndex &index, const QVariant &value, int role);
 };
 
+const QStringList default_preset_names({"Preset 1", "Preset 2", "Preset 3", "Preset 4", "Preset 5", "Preset 6"});
+
 class PTZDevice : public QObject {
 	Q_OBJECT
 
@@ -34,12 +36,14 @@ private:
 protected:
 	std::string type;
 	obs_data_t *config;
+	QStringListModel preset_names_model;
 
 public:
 	PTZDevice(std::string type) : QObject(), type(type)
 	{
 		devices.push_back(this);
 		ptz_list_model.do_reset();
+		preset_names_model.setStringList(default_preset_names);
 	};
 	~PTZDevice()
 	{
@@ -61,7 +65,14 @@ public:
 	virtual void zoom_stop() { }
 	virtual void zoom_tele() { }
 	virtual void zoom_wide() { }
+	virtual void memory_set(int i) { }
+	virtual void memory_recall(int i) { }
+	virtual void memory_reset(int i) { }
 	static QAbstractListModel * model() { return &ptz_list_model; }
+	virtual QAbstractListModel * presetModel() { return &preset_names_model; }
+
+	virtual void set_config(obs_data_t *ptz_config);
+	virtual obs_data_t *get_config();
 
 	virtual void setObjectName(QString name) {
 		name = name.simplified();
@@ -78,17 +89,6 @@ public:
 			qDebug() << "new values" << new_name << name << i;
 		}
 		QObject::setObjectName(new_name);
-	}
-
-	virtual void set_config(obs_data_t *ptz_config) {
-		config = ptz_config;
-		obs_data_addref(config);
-		setObjectName(obs_data_get_string(config, "name"));
-		ptz_list_model.do_reset();
-	}
-	virtual obs_data_t *get_config() {
-		obs_data_addref(config);
-		return config;
 	}
 };
 

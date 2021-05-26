@@ -194,4 +194,7 @@ public:
 	void zoom_stop();
 	void zoom_tele();
 	void zoom_wide();
+	void memory_reset(int i);
+	void memory_set(int i);
+	void memory_recall(int i);
 };

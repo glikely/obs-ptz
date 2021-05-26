@@ -38,6 +38,10 @@ const ViscaCmd VISCA_CAM_Focus_AutoManual("8001043810ff");
 const ViscaCmd VISCA_CAM_Focus_OneTouch("8001041801ff");
 const ViscaCmd VISCA_CAM_Focus_Infinity("8001041802ff");
 const ViscaCmd VISCA_CAM_NearLimit("8001042800000000ff", {new visca_u16("limit", 4)});
+const ViscaCmd VISCA_CAM_Memory_Reset ("8001043f0000ff", {new visca_u4("preset_num", 5)});
+const ViscaCmd VISCA_CAM_Memory_Set   ("8001043f0100ff", {new visca_u4("preset_num", 5)});
+const ViscaCmd VISCA_CAM_Memory_Recall("8001043f0200ff", {new visca_u4("preset_num", 5)});
+
 const ViscaCmd VISCA_PanTilt_drive("8001060100000303ff", {new visca_s7("pan", 4), new visca_s7("tilt", 5)});
 const ViscaCmd VISCA_PanTilt_drive_abs("8001060200000000000000000000ff",
 	                                  {new visca_u7("panspeed", 4), new visca_u7("tiltspeed", 5),
@@ -319,4 +323,19 @@ void PTZVisca::zoom_wide()
 void PTZVisca::zoom_stop()
 {
 	send(VISCA_CAM_Zoom_Stop);
+}
+
+void PTZVisca::memory_reset(int i)
+{
+	send(VISCA_CAM_Memory_Reset, {i});
+}
+
+void PTZVisca::memory_set(int i)
+{
+	send(VISCA_CAM_Memory_Set, {i});
+}
+
+void PTZVisca::memory_recall(int i)
+{
+	send(VISCA_CAM_Memory_Recall, {i});
 }
