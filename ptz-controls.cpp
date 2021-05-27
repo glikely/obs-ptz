@@ -121,6 +121,7 @@ PTZControls::~PTZControls()
 {
 	//signal_handler_disconnect_global(obs_get_signal_handler(), OBSSignal, this);
 	SaveConfig();
+	PTZDevice::delete_all();
 	deleteLater();
 }
 

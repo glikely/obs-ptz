@@ -58,6 +58,10 @@ public:
 	static PTZDevice* get_device(unsigned int index) { return devices.at(index); }
 	static PTZDevice* get_device_by_name(QString &name);
 	static unsigned int device_count() { return devices.size(); }
+	static void delete_all() {
+		while (!devices.empty())
+			delete devices.first();
+	}
 
 	virtual void pantilt(double pan, double tilt) { Q_UNUSED(pan); Q_UNUSED(tilt); }
 	virtual void pantilt_stop() { }
