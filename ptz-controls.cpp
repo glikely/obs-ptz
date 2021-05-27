@@ -113,6 +113,9 @@ PTZControls::PTZControls(QWidget *parent)
 	connect(ui->dockWidgetContents, &QWidget::customContextMenuRequested,
 		this, &PTZControls::ControlContextMenu);
 
+	ui->speedSlider->setMinimum(0);
+	ui->speedSlider->setMaximum(0x14);
+
 	obs_frontend_add_event_callback(OBSFrontendEventWrapper, this);
 
 	hide();
@@ -231,17 +234,21 @@ PTZDevice * PTZControls::currCamera()
 
 void PTZControls::setPanTilt(double pan, double tilt)
 {
+	int speed = ui->speedSlider->value();
 	PTZDevice *ptz = currCamera();
 	if (!ptz)
 		return;
-	ptz->pantilt(pan * 10, tilt * 10);
+	if (speed)
+		ptz->pantilt(pan * speed, tilt * speed);
+	else
+		ptz->pantilt_rel(pan*2, tilt*2);
 }
 
 void PTZControls::on_panTiltGamepad()
 {
 	if (!gamepad)
 		return;
-	setPanTilt(gamepad->axisLeftX() * 10, - gamepad->axisLeftY() * 10);
+	setPanTilt(gamepad->axisLeftX(), - gamepad->axisLeftY());
 }
 
 /* The pan/tilt buttons are a large block of simple and mostly identical code.

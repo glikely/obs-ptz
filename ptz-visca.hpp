@@ -189,6 +189,7 @@ public:
 
 	void cmd_get_camera_info();
 	void pantilt(double pan, double tilt);
+	void pantilt_rel(int pan, int tilt);
 	void pantilt_stop();
 	void pantilt_home();
 	void zoom_stop();

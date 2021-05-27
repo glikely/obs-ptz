@@ -300,6 +300,11 @@ void PTZVisca::pantilt(double pan, double tilt)
 	send(VISCA_PanTilt_drive, {(int)pan, (int)-tilt});
 }
 
+void PTZVisca::pantilt_rel(int pan, int tilt)
+{
+	send(VISCA_PanTilt_drive_rel, {0x14, 0x14, (int)pan, (int)-tilt});
+}
+
 void PTZVisca::pantilt_stop()
 {
 	send(VISCA_PanTilt_drive, {0, 0});

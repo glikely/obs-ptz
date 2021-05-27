@@ -219,33 +219,38 @@
          </layout>
         </item>
         <item>
-         <spacer name="horizontalSpacer">
+         <widget class="QSlider" name="speedSlider">
           <property name="orientation">
-           <enum>Qt::Horizontal</enum>
+           <enum>Qt::Vertical</enum>
           </property>
-          <property name="sizeHint" stdset="0">
-           <size>
-            <width>40</width>
-            <height>20</height>
-           </size>
-          </property>
-         </spacer>
+         </widget>
         </item>
         <item>
          <layout class="QVBoxLayout" name="verticalLayout_2">
           <item>
-           <widget class="QPushButton" name="zoomButton_tele">
-            <property name="text">
-             <string>Tele</string>
-            </property>
-           </widget>
-          </item>
-          <item>
-           <widget class="QPushButton" name="zoomButton_wide">
-            <property name="text">
-             <string>Wide</string>
-            </property>
-           </widget>
+           <layout class="QHBoxLayout" name="zoomControlsHorizontalLayout">
+            <item>
+             <widget class="QPushButton" name="zoomButton_tele">
+              <property name="text">
+               <string>Tele</string>
+              </property>
+             </widget>
+            </item>
+            <item>
+             <widget class="QSlider" name="horizontalSlider">
+              <property name="orientation">
+               <enum>Qt::Horizontal</enum>
+              </property>
+             </widget>
+            </item>
+            <item>
+             <widget class="QPushButton" name="zoomButton_wide">
+              <property name="text">
+               <string>Wide</string>
+              </property>
+             </widget>
+            </item>
+           </layout>
           </item>
           <item>
            <widget class="QLabel" name="label">

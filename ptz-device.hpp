@@ -65,6 +65,7 @@ public:
 	}
 
 	virtual void pantilt(double pan, double tilt) { Q_UNUSED(pan); Q_UNUSED(tilt); }
+	virtual void pantilt_rel(int pan, int tilt) { Q_UNUSED(pan); Q_UNUSED(tilt); }
 	virtual void pantilt_stop() { }
 	virtual void pantilt_home() { }
 	virtual void zoom_stop() { }
