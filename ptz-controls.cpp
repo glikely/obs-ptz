@@ -6,6 +6,7 @@
  */
 
 #include <obs-module.h>
+#include <obs.hpp>
 #include <util/platform.h>
 #include <QMainWindow>
 #include <QMenuBar>
@@ -133,14 +134,9 @@ void PTZControls::SaveConfig()
 	char *file = obs_module_config_path("config.json");
 	if (!file)
 		return;
-	obs_data_t *data = obs_data_create_from_json_file_safe(file, "bak");
 
-	if (!data)
-		data = obs_data_create();
-	if (!data) {
-		bfree(file);
-		return;
-	}
+	OBSData data = obs_data_create();
+	obs_data_release(data);
 
 	obs_data_set_bool(data, "use_joystick", true);
 	const char *target_mode = "manual";
@@ -149,13 +145,14 @@ void PTZControls::SaveConfig()
 	if (ui->targetButton_program->isChecked())
 		target_mode = "program";
 	obs_data_set_string(data, "target_mode", target_mode);
-	obs_data_erase(data, "devices");
-	obs_data_array_t *camera_array = obs_data_array_create();
-	obs_data_set_array(data, "devices", camera_array);
+
+	OBSDataArray camera_array = obs_data_array_create();
+	obs_data_array_release(camera_array);
 	for (unsigned long int i = 0; i < PTZDevice::device_count(); i++) {
 		PTZDevice *ptz = PTZDevice::get_device(i);
 		obs_data_array_push_back(camera_array, ptz->get_config());
 	}
+	obs_data_set_array(data, "devices", camera_array);
 
 	/* Save data structure to json */
 	if (!obs_data_save_json_safe(data, file, "tmp", "bak")) {
@@ -166,25 +163,23 @@ void PTZControls::SaveConfig()
 		}
 		obs_data_save_json_safe(data, file, "tmp", "bak");
 	}
-	obs_data_release(data);
 	bfree(file);
 }
 
 void PTZControls::LoadConfig()
 {
 	char *file = obs_module_config_path("config.json");
-	obs_data_t *data = nullptr;
-	obs_data_array_t *array;
+	OBSDataArray array;
 	std::string target_mode;
 
-	if (file) {
-		data = obs_data_create_from_json_file_safe(file, "bak");
-		bfree(file);
-	}
-	if (!data) {
-		qDebug() << "PTZ configuration not found";
+	if (!file)
 		return;
-	}
+
+	OBSData data = obs_data_create_from_json_file_safe(file, "bak");
+	bfree(file);
+	if (!data)
+		return;
+	obs_data_release(data);
 
 	target_mode = obs_data_get_string(data, "target_mode");
 	ui->targetButton_preview->setChecked(target_mode == "preview");
@@ -192,14 +187,14 @@ void PTZControls::LoadConfig()
 	ui->targetButton_manual->setChecked(target_mode != "preview" && target_mode != "program");
 
 	array = obs_data_get_array(data, "devices");
+	obs_data_array_release(array);
 	if (!array) {
 		qDebug() << "No PTZ device configuration found";
 		return;
 	}
 	for (size_t i = 0; i < obs_data_array_count(array); i++) {
-		obs_data_t *ptzcfg = obs_data_array_item(array, i);
-		if (!ptzcfg)
-			continue;
+		OBSData ptzcfg = obs_data_array_item(array, i);
+		obs_data_release(ptzcfg);
 		PTZDevice::make_device(ptzcfg);
 	}
 }

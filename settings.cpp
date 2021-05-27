@@ -85,7 +85,7 @@ void PTZSettings::on_applyButton_clicked()
 	if (row < 0)
 		return;
 	PTZDevice *ptz = PTZDevice::get_device(row);
-	obs_data_t *cfg = ptz->get_config();
+	OBSData cfg = ptz->get_config();
 
 	if (QString("visca") != obs_data_get_string(cfg, "type"))
 		return;
@@ -103,11 +103,11 @@ void PTZSettings::on_close_clicked()
 
 void PTZSettings::on_addPTZ_clicked()
 {
-	obs_data_t *cfg = obs_data_create();
+	OBSData cfg = obs_data_create();
+	obs_data_release(cfg);
 	obs_data_set_string(cfg, "type", "visca");
 	obs_data_set_string(cfg, "name", "PTZ");
 	PTZDevice::make_device(cfg);
-	obs_data_release(cfg);
 }
 
 void PTZSettings::on_removePTZ_clicked()
@@ -129,7 +129,7 @@ void PTZSettings::currentChanged(const QModelIndex &current, const QModelIndex &
 	if (current.row() < 0)
 		return;
 	PTZDevice *ptz = PTZDevice::get_device(current.row());
-	obs_data_t *cfg = ptz->get_config();
+	OBSData cfg = ptz->get_config();
 	std::string type = obs_data_get_string(cfg, "type");
 	if (type == "visca") {
 		std::string port = obs_data_get_string(cfg, "port");
@@ -141,7 +141,6 @@ void PTZSettings::currentChanged(const QModelIndex &current, const QModelIndex &
 		ui->viscaPortComboBox->setEnabled(false);
 		ui->viscaIDSpinBox->setEnabled(false);
 	}
-	obs_data_release(cfg);
 }
 
 /* ----------------------------------------------------------------- */

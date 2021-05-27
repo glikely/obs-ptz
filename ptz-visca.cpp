@@ -175,7 +175,7 @@ PTZVisca::PTZVisca(const char *uart_name, int address)
 	attach_interface(ViscaInterface::get_interface(uart_name));
 }
 
-PTZVisca::PTZVisca(obs_data_t *config)
+PTZVisca::PTZVisca(OBSData config)
 	: PTZDevice("visca"), active_cmd(false), iface(NULL)
 {
 	set_config(config);
@@ -243,7 +243,7 @@ void PTZVisca::attach_interface(ViscaInterface *new_iface)
 	}
 }
 
-void PTZVisca::set_config(obs_data_t *config)
+void PTZVisca::set_config(OBSData config)
 {
 	PTZDevice::set_config(config);
 	const char *uart = obs_data_get_string(config, "port");
@@ -255,7 +255,7 @@ void PTZVisca::set_config(obs_data_t *config)
 	attach_interface(ViscaInterface::get_interface(uart));
 }
 
-obs_data_t * PTZVisca::get_config()
+OBSData PTZVisca::get_config()
 {
 	obs_data_set_int(config, "address", address);
 	return PTZDevice::get_config();

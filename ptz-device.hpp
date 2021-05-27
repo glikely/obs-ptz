@@ -11,6 +11,7 @@
 #include <QObject>
 #include <QStringListModel>
 #include <QtGlobal>
+#include <obs.hpp>
 #include <obs-frontend-api.h>
 
 class PTZListModel : public QAbstractListModel {
@@ -35,7 +36,7 @@ private:
 
 protected:
 	std::string type;
-	obs_data_t *config;
+	OBSData config;
 	QStringListModel preset_names_model;
 
 public:
@@ -54,7 +55,7 @@ public:
 		ptz_list_model.do_reset();
 	};
 
-	static PTZDevice* make_device(obs_data_t *config);
+	static PTZDevice* make_device(OBSData config);
 	static PTZDevice* get_device(unsigned int index) { return devices.at(index); }
 	static PTZDevice* get_device_by_name(QString &name);
 	static unsigned int device_count() { return devices.size(); }
@@ -75,8 +76,8 @@ public:
 	static QAbstractListModel * model() { return &ptz_list_model; }
 	virtual QAbstractListModel * presetModel() { return &preset_names_model; }
 
-	virtual void set_config(obs_data_t *ptz_config);
-	virtual obs_data_t *get_config();
+	virtual void set_config(OBSData ptz_config);
+	virtual OBSData get_config();
 
 	virtual void setObjectName(QString name) {
 		name = name.simplified();
@@ -101,7 +102,7 @@ class PTZSimulator : public PTZDevice {
 
 public:
 	PTZSimulator() : PTZDevice("sim") { };
-	PTZSimulator(obs_data_t *config) : PTZDevice("sim") { set_config(config); };
+	PTZSimulator(OBSData config) : PTZDevice("sim") { set_config(config); };
 
 	void pantilt(double pan, double tilt) { qDebug() << __func__ << "Pan" << pan << "Tilt" << tilt; }
 	void pantilt_stop() { qDebug() << __func__; }

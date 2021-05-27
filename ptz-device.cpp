@@ -5,6 +5,7 @@
  * SPDX-License-Identifier: GPLv2
  */
 
+#include <obs.hpp>
 #include "ptz-device.hpp"
 #include "ptz-visca.hpp"
 
@@ -58,7 +59,7 @@ PTZDevice *PTZDevice::get_device_by_name(QString &name)
 	return NULL;
 }
 
-PTZDevice *PTZDevice::make_device(obs_data_t *config)
+PTZDevice *PTZDevice::make_device(OBSData config)
 {
 	PTZDevice *ptz = nullptr;
 	std::string type = obs_data_get_string(config, "type");
@@ -70,21 +71,20 @@ PTZDevice *PTZDevice::make_device(obs_data_t *config)
 	return ptz;
 }
 
-void PTZDevice::set_config(obs_data_t *ptz_config)
+void PTZDevice::set_config(OBSData ptz_config)
 {
 	config = ptz_config;
-	obs_data_addref(config);
 	setObjectName(obs_data_get_string(config, "name"));
 	ptz_list_model.do_reset();
 
 	/* Update the list of preset names */
-	obs_data_array_t *preset_array = obs_data_get_array(config, "presets");
+	OBSDataArray preset_array = obs_data_get_array(config, "presets");
+	obs_data_array_release(preset_array);
 	if (preset_array) {
 		QStringList preset_names = default_preset_names;
 		for (int i = 0; i < obs_data_array_count(preset_array); i++) {
-			obs_data_t *preset = obs_data_array_item(preset_array, i);
-			if (!preset)
-				continue;
+			OBSData preset = obs_data_array_item(preset_array, i);
+			obs_data_release(preset);
 			int preset_id = obs_data_get_int(preset, "id");
 			const char *preset_name = obs_data_get_string(preset, "name");
 			if ((preset_id >= 0) && (preset_id < preset_names.size()) && preset_name)
@@ -94,13 +94,15 @@ void PTZDevice::set_config(obs_data_t *ptz_config)
 	}
 }
 
-obs_data_t *PTZDevice::get_config()
+OBSData PTZDevice::get_config()
 {
 	QStringList list = preset_names_model.stringList();
-	obs_data_addref(config);
-	obs_data_array_t *preset_array = obs_data_array_create();
+	OBSDataArray preset_array = obs_data_array_create();
+	obs_data_array_release(preset_array);
+
 	for (int i = 0; i < list.size(); i++) {
-		obs_data_t *preset = obs_data_create();
+		OBSData preset = obs_data_create();
+		obs_data_release(preset);
 		obs_data_set_int(preset, "id", i);
 		obs_data_set_string(preset, "name", qPrintable(list[i]));
 		obs_data_array_push_back(preset_array, preset);

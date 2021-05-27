@@ -181,11 +181,11 @@ private slots:
 
 public:
 	PTZVisca(const char *uart_name, int address);
-	PTZVisca(obs_data_t *config);
+	PTZVisca(OBSData config);
 	~PTZVisca();
 
-	void set_config(obs_data_t *ptz_data);
-	obs_data_t * get_config();
+	void set_config(OBSData ptz_data);
+	OBSData get_config();
 
 	void cmd_get_camera_info();
 	void pantilt(double pan, double tilt);
