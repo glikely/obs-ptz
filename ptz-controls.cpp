@@ -110,9 +110,7 @@ PTZControls::PTZControls(QWidget *parent)
 				&PTZControls::on_panTiltGamepad);
 	}
 
-	connect(ui->dockWidgetContents, &QWidget::customContextMenuRequested,
-		this, &PTZControls::ControlContextMenu);
-
+	ui->speedSlider->setValue(10);
 	ui->speedSlider->setMinimum(0);
 	ui->speedSlider->setMaximum(0x14);
 
@@ -200,27 +198,6 @@ void PTZControls::LoadConfig()
 		obs_data_release(ptzcfg);
 		PTZDevice::make_device(ptzcfg);
 	}
-}
-
-void PTZControls::ControlContextMenu()
-{
-
-	/*
-	QAction showTimeDecimalsAction(obs_module_text("ShowTimeDecimals"),
-				       this);
-	showTimeDecimalsAction.setCheckable(true);
-	showTimeDecimalsAction.setChecked(showTimeDecimals);
-
-	connect(&showTimeDecimalsAction, &QAction::toggled, this,
-		&diaControls::ToggleShowTimeDecimals, Qt::DirectConnection);
-	*/
-
-	QMenu popup;
-	/*
-	popup.addAction(&showTimeDecimalsAction);
-	*/
-	popup.addSeparator();
-	popup.exec(QCursor::pos());
 }
 
 PTZDevice * PTZControls::currCamera()

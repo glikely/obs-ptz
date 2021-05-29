@@ -20,7 +20,6 @@ class PTZControls : public QDockWidget {
 private:
 	static void OBSFrontendEventWrapper(enum obs_frontend_event event, void *ptr);
 	void OBSFrontendEvent(enum obs_frontend_event event);
-	void ControlContextMenu();
 
 	std::unique_ptr<Ui::PTZControls> ui;
 
