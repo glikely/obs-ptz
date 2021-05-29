@@ -71,9 +71,9 @@ public:
 	virtual void zoom_stop() { }
 	virtual void zoom_tele() { }
 	virtual void zoom_wide() { }
-	virtual void memory_set(int i) { }
-	virtual void memory_recall(int i) { }
-	virtual void memory_reset(int i) { }
+	virtual void memory_set(int i) { Q_UNUSED(i); }
+	virtual void memory_recall(int i) { Q_UNUSED(i); }
+	virtual void memory_reset(int i) { Q_UNUSED(i); }
 	static QAbstractListModel * model() { return &ptz_list_model; }
 	virtual QAbstractListModel * presetModel() { return &preset_names_model; }
 
