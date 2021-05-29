@@ -25,7 +25,8 @@ public:
 	bool setData(const QModelIndex &index, const QVariant &value, int role);
 };
 
-const QStringList default_preset_names({"Preset 1", "Preset 2", "Preset 3", "Preset 4", "Preset 5", "Preset 6"});
+const QStringList default_preset_names({"Preset 1", "Preset 2", "Preset 3", "Preset 4", "Preset 5",
+					"Preset 6", "Preset 7", "Preset 8", "Preset 9", "Preset 10"});
 
 class PTZDevice : public QObject {
 	Q_OBJECT
