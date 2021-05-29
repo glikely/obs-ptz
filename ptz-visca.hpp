@@ -180,7 +180,7 @@ private slots:
 	void receive_complete(const QByteArray &msg);
 
 public:
-	PTZVisca(const char *uart_name, int address);
+	PTZVisca(const char *uart_name, unsigned int address);
 	PTZVisca(OBSData config);
 	~PTZVisca();
 

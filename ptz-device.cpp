@@ -14,6 +14,7 @@ QVector<PTZDevice *> PTZDevice::devices;
 
 int PTZListModel::rowCount(const QModelIndex& parent) const
 {
+	Q_UNUSED(parent);
 	return PTZDevice::device_count();
 }
 

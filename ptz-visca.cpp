@@ -96,7 +96,7 @@ void ViscaInterface::send(const QByteArray &packet)
 #define VISCA_RESPONSE_ACK       0x40
 #define VISCA_RESPONSE_COMPLETED 0x50
 #define VISCA_RESPONSE_ERROR     0x60
-#define VISCA_PACKET_SENDER(pkt) (((pkt)[0] & 0x70) >> 4)
+#define VISCA_PACKET_SENDER(pkt) ((unsigned)((pkt)[0] & 0x70) >> 4)
 
 void ViscaInterface::receive(const QByteArray &packet)
 {
@@ -169,8 +169,8 @@ ViscaInterface * ViscaInterface::get_interface(std::string uart)
 /*
  * PTZVisca Methods
  */
-PTZVisca::PTZVisca(const char *uart_name, int address)
-	: PTZDevice("visca"), active_cmd(false)
+PTZVisca::PTZVisca(const char *uart_name, unsigned int address)
+	: PTZDevice("visca"), active_cmd(false), address(address)
 {
 	attach_interface(ViscaInterface::get_interface(uart_name));
 }

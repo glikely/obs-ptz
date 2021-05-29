@@ -310,6 +310,7 @@ void PTZControls::on_targetButton_program_clicked(bool checked)
 
 void PTZControls::currentChanged(QModelIndex current, QModelIndex previous)
 {
+	Q_UNUSED(previous);
 	full_stop();
 	current_cam = current.row();
 	PTZDevice *ptz = PTZDevice::get_device(current_cam);

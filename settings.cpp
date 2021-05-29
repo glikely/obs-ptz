@@ -124,6 +124,7 @@ void PTZSettings::on_removePTZ_clicked()
 
 void PTZSettings::currentChanged(const QModelIndex &current, const QModelIndex &previous)
 {
+	Q_UNUSED(previous);
 	RefreshLists();
 
 	if (current.row() < 0)
