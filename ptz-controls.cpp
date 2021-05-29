@@ -241,7 +241,7 @@ void PTZControls::setPanTilt(double pan, double tilt)
 	if (speed)
 		ptz->pantilt(pan * speed, tilt * speed);
 	else
-		ptz->pantilt_rel(pan*2, tilt*2);
+		ptz->pantilt_rel(pan*2, - tilt*2);
 }
 
 void PTZControls::on_panTiltGamepad()
