@@ -143,9 +143,9 @@ void ViscaInterface::receive(const QByteArray &packet)
 void ViscaInterface::poll()
 {
 	const QByteArray data = uart.readAll();
-	for (int i = 0; i < data.size(); i++) {
-		rxbuffer += data[i];
-		if ((data[i] & 0xff) == 0xff) {
+	for (auto b : data) {
+		rxbuffer += b;
+		if ((b & 0xff) == 0xff) {
 			if (rxbuffer.size())
 				receive(rxbuffer);
 			rxbuffer.clear();
