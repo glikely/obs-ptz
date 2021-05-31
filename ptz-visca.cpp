@@ -250,15 +250,15 @@ void PTZVisca::set_config(OBSData config)
 	address = obs_data_get_int(config, "address");
 	if (!uart)
 		return;
-
-	blog(LOG_INFO, "PTZVisca::set_config() %p iface=%p", this, iface);
 	attach_interface(ViscaInterface::get_interface(uart));
 }
 
 OBSData PTZVisca::get_config()
 {
+	OBSData config = PTZDevice::get_config();
+	obs_data_set_string(config, "port", qPrintable(iface->portName()));
 	obs_data_set_int(config, "address", address);
-	return PTZDevice::get_config();
+	return config;
 }
 
 void PTZVisca::receive_ack(const QByteArray &msg)

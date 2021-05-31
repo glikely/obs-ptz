@@ -37,7 +37,6 @@ private:
 
 protected:
 	std::string type;
-	OBSData config;
 	QStringListModel preset_names_model;
 
 public:

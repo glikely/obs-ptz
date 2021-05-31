@@ -72,11 +72,13 @@ PTZDevice *PTZDevice::make_device(OBSData config)
 	return ptz;
 }
 
-void PTZDevice::set_config(OBSData ptz_config)
+void PTZDevice::set_config(OBSData config)
 {
-	config = ptz_config;
-	setObjectName(obs_data_get_string(config, "name"));
-	ptz_list_model.do_reset();
+	const char *name = obs_data_get_string(config, "name");
+	if (name) {
+		setObjectName(name);
+		ptz_list_model.do_reset();
+	}
 
 	/* Update the list of preset names */
 	OBSDataArray preset_array = obs_data_get_array(config, "presets");
@@ -97,10 +99,14 @@ void PTZDevice::set_config(OBSData ptz_config)
 
 OBSData PTZDevice::get_config()
 {
+	OBSData config = obs_data_create();
+	obs_data_release(config);
+
+	obs_data_set_string(config, "name", qPrintable(objectName()));
+	obs_data_set_string(config, "type", type.c_str());
 	QStringList list = preset_names_model.stringList();
 	OBSDataArray preset_array = obs_data_array_create();
 	obs_data_array_release(preset_array);
-
 	for (int i = 0; i < list.size(); i++) {
 		OBSData preset = obs_data_create();
 		obs_data_release(preset);
