@@ -8,7 +8,7 @@
 #include "ptz-visca.hpp"
 #include <util/base.h>
 
-std::map<std::string, ViscaInterface*> ViscaInterface::interfaces;
+std::map<QString, ViscaInterface*> ViscaInterface::interfaces;
 
 const ViscaCmd VISCA_ENUMERATE("883001ff");
 
@@ -65,10 +65,10 @@ void ViscaInterface::open()
 {
 	camera_count = 0;
 
-	uart.setPortName(QString::fromStdString(uart_name));
+	uart.setPortName(port_name);
 	uart.setBaudRate(9600);
 	if (!uart.open(QIODevice::ReadWrite)) {
-		blog(LOG_INFO, "VISCA Unable to open UART %s", uart_name.c_str());
+		blog(LOG_INFO, "VISCA Unable to open UART %s", qPrintable(port_name));
 		return;
 	}
 
@@ -108,7 +108,7 @@ void ViscaInterface::receive(const QByteArray &packet)
 		switch (packet[1] & 0x0f) { /* Decode Packet Socket Field */
 		case 0:
 			camera_count = (packet[2] & 0x7) - 1;
-			blog(LOG_INFO, "VISCA Interface %s: %i camera%s found", uart_name.c_str(),
+			blog(LOG_INFO, "VISCA Interface %s: %i camera%s found", qPrintable(uart.portName()),
 				camera_count, camera_count == 1 ? "" : "s");
 			emit reset();
 			break;
@@ -153,15 +153,15 @@ void ViscaInterface::poll()
 	}
 }
 
-ViscaInterface * ViscaInterface::get_interface(std::string uart)
+ViscaInterface * ViscaInterface::get_interface(QString port_name)
 {
 	ViscaInterface *iface;
-	qDebug() << "Looking for UART object" << uart.c_str();
-	iface = interfaces[uart];
+	qDebug() << "Looking for UART object" << port_name;
+	iface = interfaces[port_name];
 	if (!iface) {
-		qDebug() << "Creating new VISCA object" << uart.c_str();
-		iface = new ViscaInterface(uart);
-		interfaces[uart] = iface;
+		qDebug() << "Creating new VISCA object" << port_name;
+		iface = new ViscaInterface(port_name);
+		interfaces[port_name] = iface;
 	}
 	return iface;
 }
@@ -169,7 +169,7 @@ ViscaInterface * ViscaInterface::get_interface(std::string uart)
 /*
  * PTZVisca Methods
  */
-PTZVisca::PTZVisca(const char *uart_name, unsigned int address)
+PTZVisca::PTZVisca(QString uart_name, unsigned int address)
 	: PTZDevice("visca"), active_cmd(false), address(address)
 {
 	attach_interface(ViscaInterface::get_interface(uart_name));

@@ -131,9 +131,9 @@ class ViscaInterface : public QObject {
 
 private:
 	/* Global lookup table of UART instances, used to eliminate duplicates */
-	static std::map<std::string, ViscaInterface*> interfaces;
+	static std::map<QString, ViscaInterface*> interfaces;
 
-	std::string uart_name;
+	QString port_name;
 	QSerialPort uart;
 	QByteArray rxbuffer;
 	int camera_count;
@@ -145,13 +145,14 @@ signals:
 	void reset();
 
 public:
-	ViscaInterface(std::string &uart) : uart_name(uart) { open(); }
+	ViscaInterface(QString &port_name) : port_name(port_name) { open(); }
 	void open();
 	void close();
 	void send(const QByteArray &packet);
 	void receive(const QByteArray &packet);
+	QString portName() { return port_name; }
 
-	static ViscaInterface *get_interface(std::string uart);
+	static ViscaInterface *get_interface(QString port_name);
 
 public slots:
 	void poll();
@@ -180,7 +181,7 @@ private slots:
 	void receive_complete(const QByteArray &msg);
 
 public:
-	PTZVisca(const char *uart_name, unsigned int address);
+	PTZVisca(QString uart_name, unsigned int address);
 	PTZVisca(OBSData config);
 	~PTZVisca();
 
