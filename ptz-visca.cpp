@@ -61,6 +61,12 @@ const ViscaInq VISCA_FocusNearLimitInq("80090428ff", {new visca_u16("focus_near_
 
 const ViscaInq VISCA_PanTiltPosInq("80090612ff", {new visca_u16("pan_pos", 2), new visca_u16("tilt_pos", 6)});
 
+ViscaInterface::ViscaInterface(QString &port_name) : port_name(port_name)
+{
+	connect(&uart, &QSerialPort::readyRead, this, &ViscaInterface::poll);
+	open();
+}
+
 void ViscaInterface::open()
 {
 	camera_count = 0;
@@ -71,8 +77,6 @@ void ViscaInterface::open()
 		blog(LOG_INFO, "VISCA Unable to open UART %s", qPrintable(port_name));
 		return;
 	}
-
-	connect(&uart, &QSerialPort::readyRead, this, &ViscaInterface::poll);
 
 	send(VISCA_ENUMERATE.cmd);
 }

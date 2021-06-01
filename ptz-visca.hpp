@@ -145,7 +145,7 @@ signals:
 	void reset();
 
 public:
-	ViscaInterface(QString &port_name) : port_name(port_name) { open(); }
+	ViscaInterface(QString &port_name);
 	void open();
 	void close();
 	void send(const QByteArray &packet);
