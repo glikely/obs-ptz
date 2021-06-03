@@ -5,6 +5,7 @@
  * SPDX-License-Identifier: GPLv2
  */
 
+#include <QNetworkDatagram>
 #include "ptz-visca.hpp"
 #include <util/base.h>
 
@@ -162,13 +163,18 @@ ViscaUART * ViscaUART::get_interface(QString port_name)
 	ViscaUART *iface;
 	qDebug() << "Looking for UART object" << port_name;
 	iface = interfaces[port_name];
-	if (!iface) {
-		qDebug() << "Creating new VISCA object" << port_name;
+	if (iface)
+		return iface;
+
+	qDebug() << "Creating new VISCA object" << port_name;
+	if (port_name == "UDP")
+		iface = new ViscaUDPSocket();
+	else
 		iface = new ViscaUART(port_name);
-		interfaces[port_name] = iface;
-	}
+	interfaces[port_name] = iface;
 	return iface;
 }
+
 
 /*
  * PTZVisca Methods
@@ -348,3 +354,66 @@ void PTZVisca::memory_recall(int i)
 {
 	send(VISCA_CAM_Memory_Recall, {i});
 }
+
+/*
+ * VISCA-over-IP implementation
+ */
+ViscaUDPSocket::ViscaUDPSocket(int port, int discovery_port) :
+	ViscaUART(QString("UDP")), visca_port(port), discovery_port(discovery_port)
+{
+	visca_socket.bind(QHostAddress::Any, visca_port);
+	discovery_socket.bind(QHostAddress::Any, discovery_port);
+	connect(&visca_socket, &QUdpSocket::readyRead, this, &ViscaUDPSocket::poll);
+	connect(&discovery_socket, &QUdpSocket::readyRead, this, &ViscaUDPSocket::poll_discovery);
+	discovery_socket.writeDatagram(QByteArray("\2ENQ:network\xff\3"), QHostAddress::Broadcast, discovery_port);
+	camera_address.setAddress("192.168.16.11");
+}
+
+void ViscaUDPSocket::receive_datagram(QNetworkDatagram &dg)
+{
+	QByteArray data = dg.data();
+	int size = data[2] << 8 | data[3];
+	if (data.size() == size + 8)
+		receive(data.mid(8, size));
+}
+
+void ViscaUDPSocket::send(const QByteArray &packet)
+{
+	static uint32_t sequence = 0;
+	if (sequence == 0) {
+		visca_socket.writeDatagram(QByteArray::fromHex("020000010000000001"), camera_address, visca_port);
+	}
+	QByteArray p = QByteArray::fromHex("0100000000000000") + packet;
+	p[3] = packet.size();
+	p[4] = (sequence >> 24) & 0xff;
+	p[5] = (sequence >> 16) & 0xff;
+	p[6] = (sequence >> 8) & 0xff;
+	p[7] = sequence & 0xff;
+	sequence++;
+	blog(LOG_INFO, "VISCA UDP --> %s", qPrintable(p.toHex(':')));
+	visca_socket.writeDatagram(p, camera_address, visca_port);
+}
+
+void ViscaUDPSocket::poll_discovery()
+{
+	while (discovery_socket.hasPendingDatagrams()) {
+		QNetworkDatagram dg = discovery_socket.receiveDatagram();
+		QByteArray data = dg.data();
+		if ((data.isEmpty()) || ((char)data.front() != 2) || ((char)data.back() != 3))
+			return;
+		auto prop_array = data.mid(1, data.size()-2).split((char)'\xff');
+		for (auto prop : prop_array) {
+			auto keyvalue = prop.split(':');
+			if (keyvalue.size() != 2)
+				continue;
+			blog(LOG_INFO, "Camera property %s = %s", qPrintable(keyvalue[0]), qPrintable(keyvalue[1]));
+		}
+	}
+}
+
+void ViscaUDPSocket::poll()
+{
+	while (visca_socket.hasPendingDatagrams())
+		receive_datagram(visca_socket.receiveDatagram());
+}
+

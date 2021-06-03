@@ -9,6 +9,7 @@
 #include <QObject>
 #include <QTimer>
 #include <QSerialPort>
+#include <QUdpSocket>
 #include "ptz-device.hpp"
 
 class visca_encoding {
@@ -148,16 +149,15 @@ public:
 	ViscaUART(QString &port_name);
 	void open();
 	void close();
-	void send(const QByteArray &packet);
-	void receive(const QByteArray &packet);
+	virtual void send(const QByteArray &packet);
+	virtual void receive(const QByteArray &packet);
 	QString portName() { return port_name; }
 
 	static ViscaUART *get_interface(QString port_name);
 
 public slots:
-	void poll();
+	virtual void poll();
 };
-
 
 class PTZVisca : public PTZDevice {
 	Q_OBJECT
@@ -200,3 +200,25 @@ public:
 	void memory_set(int i);
 	void memory_recall(int i);
 };
+
+class ViscaUDPSocket : public ViscaUART {
+	Q_OBJECT
+
+private:
+	int visca_port;
+	QUdpSocket visca_socket;
+	int discovery_port;
+	QUdpSocket discovery_socket;
+	QHostAddress camera_address;
+
+public:
+	ViscaUDPSocket(int port = 52381, int discovery_port = 51380);
+	void receive_datagram(QNetworkDatagram &datagram);
+	virtual void send(const QByteArray &packet);
+
+public slots:
+	virtual void poll();
+	virtual void poll_discovery();
+};
+
+
