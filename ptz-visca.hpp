@@ -122,43 +122,6 @@ public:
 	ViscaInq(const char *cmd_hex, QList<visca_encoding*> rslts) : ViscaCmd(cmd_hex, {}, rslts) {}
 };
 
-
-/*
- * ViscaUART implementing UART protocol
- */
-class ViscaUART : public QObject {
-	Q_OBJECT
-
-private:
-	/* Global lookup table of UART instances, used to eliminate duplicates */
-	static std::map<QString, ViscaUART*> interfaces;
-
-	QString port_name;
-	QSerialPort uart;
-	QByteArray rxbuffer;
-	int camera_count;
-
-signals:
-	void receive_ack(const QByteArray &packet);
-	void receive_complete(const QByteArray &packet);
-	void receive_error(const QByteArray &packet);
-	void reset();
-
-public:
-	ViscaUART(QString &port_name);
-	void open();
-	void close();
-	void send(const QByteArray &packet);
-	void receive(const QByteArray &packet);
-	QString portName() { return port_name; }
-
-	static ViscaUART *get_interface(QString port_name);
-
-public slots:
-	void poll();
-};
-
-
 class PTZVisca : public PTZDevice {
 	Q_OBJECT
 
@@ -199,4 +162,39 @@ public:
 	void memory_reset(int i);
 	void memory_set(int i);
 	void memory_recall(int i);
+};
+
+/*
+ * ViscaUART implementing UART protocol
+ */
+class ViscaUART : public QObject {
+	Q_OBJECT
+
+private:
+	/* Global lookup table of UART instances, used to eliminate duplicates */
+	static std::map<QString, ViscaUART*> interfaces;
+
+	QString port_name;
+	QSerialPort uart;
+	QByteArray rxbuffer;
+	int camera_count;
+
+signals:
+	void receive_ack(const QByteArray &packet);
+	void receive_complete(const QByteArray &packet);
+	void receive_error(const QByteArray &packet);
+	void reset();
+
+public:
+	ViscaUART(QString &port_name);
+	void open();
+	void close();
+	void send(const QByteArray &packet);
+	void receive(const QByteArray &packet);
+	QString portName() { return port_name; }
+
+	static ViscaUART *get_interface(QString port_name);
+
+public slots:
+	void poll();
 };

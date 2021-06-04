@@ -61,114 +61,11 @@ const ViscaInq VISCA_FocusNearLimitInq("80090428ff", {new visca_u16("focus_near_
 
 const ViscaInq VISCA_PanTiltPosInq("80090612ff", {new visca_u16("pan_pos", 2), new visca_u16("tilt_pos", 6)});
 
-ViscaUART::ViscaUART(QString &port_name) : port_name(port_name)
-{
-	connect(&uart, &QSerialPort::readyRead, this, &ViscaUART::poll);
-	open();
-}
-
-void ViscaUART::open()
-{
-	camera_count = 0;
-
-	uart.setPortName(port_name);
-	uart.setBaudRate(9600);
-	if (!uart.open(QIODevice::ReadWrite)) {
-		blog(LOG_INFO, "VISCA Unable to open UART %s", qPrintable(port_name));
-		return;
-	}
-
-	send(VISCA_ENUMERATE.cmd);
-}
-
-void ViscaUART::close()
-{
-	if (uart.isOpen())
-		uart.close();
-	camera_count = 0;
-}
-
-void ViscaUART::send(const QByteArray &packet)
-{
-	if (!uart.isOpen())
-		return;
-	blog(LOG_INFO, "VISCA --> %s", packet.toHex(':').data());
-	uart.write(packet);
-}
-
 #define VISCA_RESPONSE_ADDRESS   0x30
 #define VISCA_RESPONSE_ACK       0x40
 #define VISCA_RESPONSE_COMPLETED 0x50
 #define VISCA_RESPONSE_ERROR     0x60
 #define VISCA_PACKET_SENDER(pkt) ((unsigned)((pkt)[0] & 0x70) >> 4)
-
-void ViscaUART::receive(const QByteArray &packet)
-{
-	blog(LOG_INFO, "VISCA <-- %s", packet.toHex(':').data());
-	if (packet.size() < 3)
-		return;
-	switch (packet[1] & 0xf0) { /* Decode response field */
-	case VISCA_RESPONSE_ADDRESS:
-		switch (packet[1] & 0x0f) { /* Decode Packet Socket Field */
-		case 0:
-			camera_count = (packet[2] & 0x7) - 1;
-			blog(LOG_INFO, "VISCA Interface %s: %i camera%s found", qPrintable(uart.portName()),
-				camera_count, camera_count == 1 ? "" : "s");
-			emit reset();
-			break;
-		case 8:
-			/* network change, trigger a change */
-			send(VISCA_ENUMERATE.cmd);
-			break;
-		default:
-			break;
-		}
-		break;
-	case VISCA_RESPONSE_ACK:
-		/* Don't do anything with the ack yet */
-		blog(LOG_DEBUG, "VISCA received ACK");
-		emit receive_ack(packet);
-		break;
-	case VISCA_RESPONSE_COMPLETED:
-		blog(LOG_DEBUG, "VISCA received complete");
-		emit receive_complete(packet);
-		break;
-	case VISCA_RESPONSE_ERROR:
-		blog(LOG_DEBUG, "VISCA received error");
-		emit receive_error(packet);
-		break;
-	default:
-		blog(LOG_INFO, "VISCA received unknown");
-		/* Unknown */
-		break;
-	}
-}
-
-void ViscaUART::poll()
-{
-	const QByteArray data = uart.readAll();
-	for (auto b : data) {
-		rxbuffer += b;
-		if ((b & 0xff) == 0xff) {
-			if (rxbuffer.size())
-				receive(rxbuffer);
-			rxbuffer.clear();
-		}
-	}
-}
-
-ViscaUART * ViscaUART::get_interface(QString port_name)
-{
-	ViscaUART *iface;
-	qDebug() << "Looking for UART object" << port_name;
-	iface = interfaces[port_name];
-	if (!iface) {
-		qDebug() << "Creating new VISCA object" << port_name;
-		iface = new ViscaUART(port_name);
-		interfaces[port_name] = iface;
-	}
-	return iface;
-}
 
 /*
  * PTZVisca Methods
@@ -347,4 +244,107 @@ void PTZVisca::memory_set(int i)
 void PTZVisca::memory_recall(int i)
 {
 	send(VISCA_CAM_Memory_Recall, {i});
+}
+
+ViscaUART::ViscaUART(QString &port_name) : port_name(port_name)
+{
+	connect(&uart, &QSerialPort::readyRead, this, &ViscaUART::poll);
+	open();
+}
+
+void ViscaUART::open()
+{
+	camera_count = 0;
+
+	uart.setPortName(port_name);
+	uart.setBaudRate(9600);
+	if (!uart.open(QIODevice::ReadWrite)) {
+		blog(LOG_INFO, "VISCA Unable to open UART %s", qPrintable(port_name));
+		return;
+	}
+
+	send(VISCA_ENUMERATE.cmd);
+}
+
+void ViscaUART::close()
+{
+	if (uart.isOpen())
+		uart.close();
+	camera_count = 0;
+}
+
+void ViscaUART::send(const QByteArray &packet)
+{
+	if (!uart.isOpen())
+		return;
+	blog(LOG_INFO, "VISCA --> %s", packet.toHex(':').data());
+	uart.write(packet);
+}
+
+void ViscaUART::receive(const QByteArray &packet)
+{
+	blog(LOG_INFO, "VISCA <-- %s", packet.toHex(':').data());
+	if (packet.size() < 3)
+		return;
+	switch (packet[1] & 0xf0) { /* Decode response field */
+	case VISCA_RESPONSE_ADDRESS:
+		switch (packet[1] & 0x0f) { /* Decode Packet Socket Field */
+		case 0:
+			camera_count = (packet[2] & 0x7) - 1;
+			blog(LOG_INFO, "VISCA Interface %s: %i camera%s found", qPrintable(uart.portName()),
+				camera_count, camera_count == 1 ? "" : "s");
+			emit reset();
+			break;
+		case 8:
+			/* network change, trigger a change */
+			send(VISCA_ENUMERATE.cmd);
+			break;
+		default:
+			break;
+		}
+		break;
+	case VISCA_RESPONSE_ACK:
+		/* Don't do anything with the ack yet */
+		blog(LOG_DEBUG, "VISCA received ACK");
+		emit receive_ack(packet);
+		break;
+	case VISCA_RESPONSE_COMPLETED:
+		blog(LOG_DEBUG, "VISCA received complete");
+		emit receive_complete(packet);
+		break;
+	case VISCA_RESPONSE_ERROR:
+		blog(LOG_DEBUG, "VISCA received error");
+		emit receive_error(packet);
+		break;
+	default:
+		blog(LOG_INFO, "VISCA received unknown");
+		/* Unknown */
+		break;
+	}
+}
+
+void ViscaUART::poll()
+{
+	const QByteArray data = uart.readAll();
+	for (auto b : data) {
+		rxbuffer += b;
+		if ((b & 0xff) == 0xff) {
+			if (rxbuffer.size())
+				receive(rxbuffer);
+			rxbuffer.clear();
+		}
+	}
+}
+
+ViscaUART * ViscaUART::get_interface(QString port_name)
+{
+	ViscaUART *iface;
+	qDebug() << "Looking for UART object" << port_name;
+	iface = interfaces[port_name];
+	if (!iface) {
+		qDebug() << "Creating new VISCA object" << port_name;
+		iface = new ViscaUART(port_name);
+		interfaces[port_name] = iface;
+	}
+	return iface;
 }
