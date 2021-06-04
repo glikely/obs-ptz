@@ -86,12 +86,17 @@ void PTZSettings::on_applyButton_clicked()
 		return;
 	PTZDevice *ptz = PTZDevice::get_device(row);
 	OBSData cfg = ptz->get_config();
+	std::string type = obs_data_get_string(cfg, "type");
 
-	if (QString("visca") != obs_data_get_string(cfg, "type"))
+	if (type == "visca") {
+		obs_data_set_int(cfg, "address", ui->viscaIDSpinBox->value());
+		obs_data_set_string(cfg, "port", qPrintable(ui->viscaPortComboBox->currentText()));
+	} else if (type == "visca-over-ip") {
+		obs_data_set_string(cfg, "address", qPrintable(ui->ipAddressComboBox->currentText()));
+		obs_data_set_int(cfg, "port", ui->udpPortSpinBox->value());
+	} else {
 		return;
-
-	obs_data_set_int(cfg, "address", ui->viscaIDSpinBox->value());
-	obs_data_set_string(cfg, "port", qPrintable(ui->viscaPortComboBox->currentText()));
+	}
 
 	ptz->set_config(cfg);
 }
@@ -103,11 +108,27 @@ void PTZSettings::on_close_clicked()
 
 void PTZSettings::on_addPTZ_clicked()
 {
-	OBSData cfg = obs_data_create();
-	obs_data_release(cfg);
-	obs_data_set_string(cfg, "type", "visca");
-	obs_data_set_string(cfg, "name", "PTZ");
-	PTZDevice::make_device(cfg);
+	QMenu addPTZContext;
+	QAction *addViscaSerial = addPTZContext.addAction("VISCA Serial");
+	QAction *addViscaIP = addPTZContext.addAction("VISCA over IP");
+	QAction *action = addPTZContext.exec(QCursor::pos());
+
+	if (action == addViscaSerial) {
+		OBSData cfg = obs_data_create();
+		obs_data_release(cfg);
+		obs_data_set_string(cfg, "type", "visca");
+		obs_data_set_string(cfg, "name", "PTZ");
+		PTZDevice::make_device(cfg);
+	}
+	if (action == addViscaIP) {
+		OBSData cfg = obs_data_create();
+		obs_data_release(cfg);
+		obs_data_set_string(cfg, "type", "visca-over-ip");
+		obs_data_set_string(cfg, "name", "PTZ");
+		obs_data_set_string(cfg, "address", "192.168.0.100");
+		obs_data_set_int(cfg, "port", 52381);
+		PTZDevice::make_device(cfg);
+	}
 }
 
 void PTZSettings::on_removePTZ_clicked()
@@ -141,6 +162,16 @@ void PTZSettings::currentChanged(const QModelIndex &current, const QModelIndex &
 	} else {
 		ui->viscaPortComboBox->setEnabled(false);
 		ui->viscaIDSpinBox->setEnabled(false);
+	}
+
+	if (type == "visca-over-ip") {
+		ui->ipAddressComboBox->setCurrentText(obs_data_get_string(cfg, "address"));
+		ui->udpPortSpinBox->setValue(obs_data_get_int(cfg, "port"));
+		ui->ipAddressComboBox->setEnabled(true);
+		ui->udpPortSpinBox->setEnabled(true);
+	} else {
+		ui->ipAddressComboBox->setEnabled(false);
+		ui->udpPortSpinBox->setEnabled(false);
 	}
 }
 

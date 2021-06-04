@@ -13,6 +13,7 @@ find_package(Qt5Widgets REQUIRED)
 find_package(Qt5Svg REQUIRED)
 find_package(Qt5Gamepad REQUIRED)
 find_package(Qt5SerialPort REQUIRED)
+find_package(Qt5Network REQUIRED)
 
 find_package(LibObs REQUIRED)
 get_filename_component(OBS_FRONTEND_INCLUDE_DIRS "${LIBOBS_INCLUDE_DIRS}/../UI/obs-frontend-api" ABSOLUTE)
@@ -49,12 +50,14 @@ add_library(ptz-controls MODULE
 include_directories(${LIBOBS_INCLUDE_DIRS}
 	${OBS_FRONTEND_INCLUDE_DIRS}
 	${Qt5Core_INCLUDES}
-	${Qt5Widgets_INCLUDES})
+	${Qt5Widgets_INCLUDES}
+	${Qt5Network_INCLUDES})
 
 target_link_libraries(ptz-controls
 	${Qt5Widgets_LIBRARIES}
 	${Qt5Gamepad_LIBRARIES}
 	${Qt5SerialPort_LIBRARIES}
+	${Qt5Network_LIBRARIES}
 	${LIBOBS_LIBRARIES}
 	${OBS_FRONTEND_LIBRARIES})
 
