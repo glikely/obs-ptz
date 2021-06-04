@@ -103,11 +103,10 @@ public:
 		cmd(QByteArray::fromHex(cmd_hex)), args(args) { }
 	ViscaCmd(const char *cmd_hex, QList<visca_encoding*> args, QList<visca_encoding*> rslts) :
 		cmd(QByteArray::fromHex(cmd_hex)), args(args), results(rslts) { }
-	void encode(int address) {
+	void setAddress(int address) {
 		cmd[0] = (char)(0x80 | address & 0x7);
 	}
-	void encode(int address, QList<int> arglist) {
-		encode(address);
+	void encode(QList<int> arglist) {
 		for (int i = 0; i < arglist.size(), i < args.size(); i++)
 			args[i]->encode(cmd, arglist[i]);
 	}

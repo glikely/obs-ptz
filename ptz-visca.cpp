@@ -12,54 +12,54 @@ std::map<QString, ViscaUART*> ViscaUART::interfaces;
 
 const ViscaCmd VISCA_ENUMERATE("883001ff");
 
-const ViscaCmd VISCA_Clear("80010001ff");
-const ViscaCmd VISCA_CommandCancel("8020ff", {new visca_u4("socket", 1)});
-const ViscaCmd VISCA_CAM_Power_On("8001040002ff");
-const ViscaCmd VISCA_CAM_Power_Off("8001040003ff");
+const ViscaCmd VISCA_Clear("81010001ff");
+const ViscaCmd VISCA_CommandCancel("8120ff", {new visca_u4("socket", 1)});
+const ViscaCmd VISCA_CAM_Power_On("8101040002ff");
+const ViscaCmd VISCA_CAM_Power_Off("8101040003ff");
 
-const ViscaCmd VISCA_CAM_Zoom_Stop("8001040700ff");
-const ViscaCmd VISCA_CAM_Zoom_Tele("8001040702ff");
-const ViscaCmd VISCA_CAM_Zoom_Wide("8001040703ff");
-const ViscaCmd VISCA_CAM_Zoom_TeleVar("8001040720ff", {new visca_u4("p", 4),});
-const ViscaCmd VISCA_CAM_Zoom_WideVar("8001040730ff", {new visca_u4("p", 4),});
-const ViscaCmd VISCA_CAM_Zoom_Direct ("8001044700000000ff", {new visca_u16("pos", 4),});
-const ViscaCmd VISCA_CAM_DZoom_On("8001040602ff");
-const ViscaCmd VISCA_CAM_DZoom_Off("8001040603ff");
+const ViscaCmd VISCA_CAM_Zoom_Stop("8101040700ff");
+const ViscaCmd VISCA_CAM_Zoom_Tele("8101040702ff");
+const ViscaCmd VISCA_CAM_Zoom_Wide("8101040703ff");
+const ViscaCmd VISCA_CAM_Zoom_TeleVar("8101040720ff", {new visca_u4("p", 4),});
+const ViscaCmd VISCA_CAM_Zoom_WideVar("8101040730ff", {new visca_u4("p", 4),});
+const ViscaCmd VISCA_CAM_Zoom_Direct ("8101044700000000ff", {new visca_u16("pos", 4),});
+const ViscaCmd VISCA_CAM_DZoom_On("8101040602ff");
+const ViscaCmd VISCA_CAM_DZoom_Off("8101040603ff");
 
-const ViscaCmd VISCA_CAM_Focus_Stop("8001040800ff");
-const ViscaCmd VISCA_CAM_Focus_Far("8001040802ff");
-const ViscaCmd VISCA_CAM_Focus_Near("8001040803ff");
-const ViscaCmd VISCA_CAM_Focus_FarVar("8001040820ff", {new visca_u4("p", 4),});
-const ViscaCmd VISCA_CAM_Focus_NearVar("8001040830ff", {new visca_u4("p", 4),});
-const ViscaCmd VISCA_CAM_Focus_Direct("8001044800000000ff", {new visca_u16("pos", 4),});
-const ViscaCmd VISCA_CAM_Focus_Auto("8001043802ff");
-const ViscaCmd VISCA_CAM_Focus_Manual("8001043803ff");
-const ViscaCmd VISCA_CAM_Focus_AutoManual("8001043810ff");
-const ViscaCmd VISCA_CAM_Focus_OneTouch("8001041801ff");
-const ViscaCmd VISCA_CAM_Focus_Infinity("8001041802ff");
-const ViscaCmd VISCA_CAM_NearLimit("8001042800000000ff", {new visca_u16("limit", 4)});
-const ViscaCmd VISCA_CAM_Memory_Reset ("8001043f0000ff", {new visca_u4("preset_num", 5)});
-const ViscaCmd VISCA_CAM_Memory_Set   ("8001043f0100ff", {new visca_u4("preset_num", 5)});
-const ViscaCmd VISCA_CAM_Memory_Recall("8001043f0200ff", {new visca_u4("preset_num", 5)});
+const ViscaCmd VISCA_CAM_Focus_Stop("8101040800ff");
+const ViscaCmd VISCA_CAM_Focus_Far("8101040802ff");
+const ViscaCmd VISCA_CAM_Focus_Near("8101040803ff");
+const ViscaCmd VISCA_CAM_Focus_FarVar("8101040820ff", {new visca_u4("p", 4),});
+const ViscaCmd VISCA_CAM_Focus_NearVar("8101040830ff", {new visca_u4("p", 4),});
+const ViscaCmd VISCA_CAM_Focus_Direct("8101044800000000ff", {new visca_u16("pos", 4),});
+const ViscaCmd VISCA_CAM_Focus_Auto("8101043802ff");
+const ViscaCmd VISCA_CAM_Focus_Manual("8101043803ff");
+const ViscaCmd VISCA_CAM_Focus_AutoManual("8101043810ff");
+const ViscaCmd VISCA_CAM_Focus_OneTouch("8101041801ff");
+const ViscaCmd VISCA_CAM_Focus_Infinity("8101041802ff");
+const ViscaCmd VISCA_CAM_NearLimit("8101042800000000ff", {new visca_u16("limit", 4)});
+const ViscaCmd VISCA_CAM_Memory_Reset ("8101043f0000ff", {new visca_u4("preset_num", 5)});
+const ViscaCmd VISCA_CAM_Memory_Set   ("8101043f0100ff", {new visca_u4("preset_num", 5)});
+const ViscaCmd VISCA_CAM_Memory_Recall("8101043f0200ff", {new visca_u4("preset_num", 5)});
 
-const ViscaCmd VISCA_PanTilt_drive("8001060100000303ff", {new visca_s7("pan", 4), new visca_s7("tilt", 5)});
-const ViscaCmd VISCA_PanTilt_drive_abs("8001060200000000000000000000ff",
+const ViscaCmd VISCA_PanTilt_drive("8101060100000303ff", {new visca_s7("pan", 4), new visca_s7("tilt", 5)});
+const ViscaCmd VISCA_PanTilt_drive_abs("8101060200000000000000000000ff",
 	                                  {new visca_u7("panspeed", 4), new visca_u7("tiltspeed", 5),
 					   new visca_u16("panpos", 6), new visca_u16("tiltpos", 10)});
-const ViscaCmd VISCA_PanTilt_drive_rel("8001060300000000000000000000ff",
+const ViscaCmd VISCA_PanTilt_drive_rel("8101060300000000000000000000ff",
 	                                  {new visca_u7("panspeed", 4), new visca_u7("tiltspeed", 5),
 					   new visca_u16("panpos", 6), new visca_u16("tiltpos", 10)});
-const ViscaCmd VISCA_PanTilt_Home("80010604ff");
-const ViscaCmd VISCA_PanTilt_Reset("80010605ff");
+const ViscaCmd VISCA_PanTilt_Home("81010604ff");
+const ViscaCmd VISCA_PanTilt_Reset("81010605ff");
 
-const ViscaInq VISCA_PowerInq("80090400ff", {new visca_flag("power_on", 2)});
-const ViscaInq VISCA_ZoomPosInq("80090447ff", {new visca_u16("zoom_pos", 2)});
-const ViscaInq VISCA_DZoomModeInq("80090406ff", {new visca_flag("dzoom_on", 2)});
-const ViscaInq VISCA_FocusModeInq("80090438ff", {new visca_flag("autofocus_on", 2)});
-const ViscaInq VISCA_FocusPosInq("80090448ff", {new visca_u16("focus_pos", 2)});
-const ViscaInq VISCA_FocusNearLimitInq("80090428ff", {new visca_u16("focus_near_limit", 2)});
+const ViscaInq VISCA_PowerInq("81090400ff", {new visca_flag("power_on", 2)});
+const ViscaInq VISCA_ZoomPosInq("81090447ff", {new visca_u16("zoom_pos", 2)});
+const ViscaInq VISCA_DZoomModeInq("81090406ff", {new visca_flag("dzoom_on", 2)});
+const ViscaInq VISCA_FocusModeInq("81090438ff", {new visca_flag("autofocus_on", 2)});
+const ViscaInq VISCA_FocusPosInq("81090448ff", {new visca_u16("focus_pos", 2)});
+const ViscaInq VISCA_FocusNearLimitInq("81090428ff", {new visca_u16("focus_near_limit", 2)});
 
-const ViscaInq VISCA_PanTiltPosInq("80090612ff", {new visca_u16("pan_pos", 2), new visca_u16("tilt_pos", 6)});
+const ViscaInq VISCA_PanTiltPosInq("81090612ff", {new visca_u16("pan_pos", 2), new visca_u16("tilt_pos", 6)});
 
 #define VISCA_RESPONSE_ADDRESS   0x30
 #define VISCA_RESPONSE_ACK       0x40
@@ -87,14 +87,13 @@ PTZVisca::~PTZVisca()
 void PTZVisca::send(const ViscaCmd &cmd)
 {
 	pending_cmds.append(cmd);
-	pending_cmds.last().encode(address);
 	send_pending();
 }
 
 void PTZVisca::send(const ViscaCmd &cmd, QList<int> args)
 {
 	pending_cmds.append(cmd);
-	pending_cmds.last().encode(address, args);
+	pending_cmds.last().encode(args);
 	send_pending();
 }
 
@@ -330,6 +329,7 @@ void PTZViscaSerial::send_pending()
 	if (active_cmd || pending_cmds.isEmpty())
 		return;
 	active_cmd = true;
+	pending_cmds.first().setAddress(address);
 	iface->send(pending_cmds.first().cmd);
 	timeout_timer.setSingleShot(true);
 	timeout_timer.start(1000);
