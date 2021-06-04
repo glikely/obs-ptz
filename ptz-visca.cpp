@@ -70,33 +70,18 @@ const ViscaInq VISCA_PanTiltPosInq("80090612ff", {new visca_u16("pan_pos", 2), n
 /*
  * PTZVisca Methods
  */
-PTZVisca::PTZVisca(QString uart_name, unsigned int address)
-	: PTZDevice("visca"), active_cmd(false), address(address)
+PTZVisca::PTZVisca(std::string type)
+	: PTZDevice(type), active_cmd(false)
 {
-	attach_interface(ViscaUART::get_interface(uart_name));
-}
-
-PTZVisca::PTZVisca(OBSData config)
-	: PTZDevice("visca"), active_cmd(false), iface(NULL)
-{
-	set_config(config);
 	connect(&timeout_timer, &QTimer::timeout, this, &PTZVisca::timeout);
 }
 
 PTZVisca::~PTZVisca()
 {
+	/*
 	pantilt(0, 0);
 	zoom_stop();
-}
-
-void PTZVisca::send_pending()
-{
-	if (active_cmd || pending_cmds.isEmpty())
-		return;
-	active_cmd = true;
-	iface->send(pending_cmds.first().cmd);
-	timeout_timer.setSingleShot(true);
-	timeout_timer.start(1000);
+	*/
 }
 
 void PTZVisca::send(const ViscaCmd &cmd)
@@ -124,42 +109,6 @@ void PTZVisca::cmd_get_camera_info()
 {
 	send(VISCA_ZoomPosInq);
 	send(VISCA_PanTiltPosInq);
-}
-
-void PTZVisca::reset()
-{
-	send(VISCA_Clear);
-	cmd_get_camera_info();
-}
-
-void PTZVisca::attach_interface(ViscaUART *new_iface)
-{
-	if (iface)
-		iface->disconnect(this);
-	iface = new_iface;
-	if (iface) {
-		connect(iface, &ViscaUART::receive_ack, this, &PTZVisca::receive_ack);
-		connect(iface, &ViscaUART::receive_complete, this, &PTZVisca::receive_complete);
-		connect(iface, &ViscaUART::reset, this, &PTZVisca::reset);
-	}
-}
-
-void PTZVisca::set_config(OBSData config)
-{
-	PTZDevice::set_config(config);
-	const char *uart = obs_data_get_string(config, "port");
-	address = obs_data_get_int(config, "address");
-	if (!uart)
-		return;
-	attach_interface(ViscaUART::get_interface(uart));
-}
-
-OBSData PTZVisca::get_config()
-{
-	OBSData config = PTZDevice::get_config();
-	obs_data_set_string(config, "port", qPrintable(iface->portName()));
-	obs_data_set_int(config, "address", address);
-	return config;
 }
 
 void PTZVisca::receive_ack(const QByteArray &msg)
@@ -246,6 +195,9 @@ void PTZVisca::memory_recall(int i)
 	send(VISCA_CAM_Memory_Recall, {i});
 }
 
+/*
+ * VISCA over serial UART implementation
+ */
 ViscaUART::ViscaUART(QString &port_name) : port_name(port_name)
 {
 	connect(&uart, &QSerialPort::readyRead, this, &ViscaUART::poll);
@@ -347,4 +299,56 @@ ViscaUART * ViscaUART::get_interface(QString port_name)
 		interfaces[port_name] = iface;
 	}
 	return iface;
+}
+
+PTZViscaSerial::PTZViscaSerial(OBSData config)
+	: PTZVisca("visca"), iface(NULL)
+{
+	set_config(config);
+}
+
+void PTZViscaSerial::attach_interface(ViscaUART *new_iface)
+{
+	if (iface)
+		iface->disconnect(this);
+	iface = new_iface;
+	if (iface) {
+		connect(iface, &ViscaUART::receive_ack, this, &PTZViscaSerial::receive_ack);
+		connect(iface, &ViscaUART::receive_complete, this, &PTZViscaSerial::receive_complete);
+		connect(iface, &ViscaUART::reset, this, &PTZViscaSerial::reset);
+	}
+}
+
+void PTZViscaSerial::reset()
+{
+	send(VISCA_Clear);
+	cmd_get_camera_info();
+}
+
+void PTZViscaSerial::send_pending()
+{
+	if (active_cmd || pending_cmds.isEmpty())
+		return;
+	active_cmd = true;
+	iface->send(pending_cmds.first().cmd);
+	timeout_timer.setSingleShot(true);
+	timeout_timer.start(1000);
+}
+
+void PTZViscaSerial::set_config(OBSData config)
+{
+	PTZDevice::set_config(config);
+	const char *uart = obs_data_get_string(config, "port");
+	address = obs_data_get_int(config, "address");
+	if (!uart)
+		return;
+	attach_interface(ViscaUART::get_interface(uart));
+}
+
+OBSData PTZViscaSerial::get_config()
+{
+	OBSData config = PTZDevice::get_config();
+	obs_data_set_string(config, "port", qPrintable(iface->portName()));
+	obs_data_set_int(config, "address", address);
+	return config;
 }

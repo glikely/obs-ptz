@@ -68,7 +68,7 @@ PTZDevice *PTZDevice::make_device(OBSData config)
 	if (type == "sim")
 		ptz = new PTZSimulator(config);
 	if (type == "visca")
-		ptz = new PTZVisca(config);
+		ptz = new PTZViscaSerial(config);
 	return ptz;
 }
 

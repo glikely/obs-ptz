@@ -122,34 +122,34 @@ public:
 	ViscaInq(const char *cmd_hex, QList<visca_encoding*> rslts) : ViscaCmd(cmd_hex, {}, rslts) {}
 };
 
+/*
+ * VISCA Abstract base class, used for both Serial UART and UDP implementations
+ */
 class PTZVisca : public PTZDevice {
 	Q_OBJECT
 
-private:
-	ViscaUART *iface;
+protected:
 	unsigned int address;
 	QList<ViscaCmd> pending_cmds;
 	bool active_cmd;
 	QTimer timeout_timer;
 
-	void reset();
-	void attach_interface(ViscaUART *iface);
-	void send_pending();
+	virtual void reset() = 0;
+	virtual void send_pending() = 0;
 	void send(const ViscaCmd &cmd);
 	void send(const ViscaCmd &cmd, QList<int> args);
 	void timeout();
 
-private slots:
+protected slots:
 	void receive_ack(const QByteArray &msg);
 	void receive_complete(const QByteArray &msg);
 
 public:
-	PTZVisca(QString uart_name, unsigned int address);
-	PTZVisca(OBSData config);
+	PTZVisca(std::string type);
 	~PTZVisca();
 
-	void set_config(OBSData ptz_data);
-	OBSData get_config();
+	virtual void set_config(OBSData ptz_data) = 0;
+	virtual OBSData get_config() = 0;
 
 	void cmd_get_camera_info();
 	void pantilt(double pan, double tilt);
@@ -165,7 +165,7 @@ public:
 };
 
 /*
- * ViscaUART implementing UART protocol
+ * VISCA over Serial UART classes
  */
 class ViscaUART : public QObject {
 	Q_OBJECT
@@ -197,4 +197,22 @@ public:
 
 public slots:
 	void poll();
+};
+
+class PTZViscaSerial : public PTZVisca {
+	Q_OBJECT
+
+private:
+	ViscaUART *iface;
+	void attach_interface(ViscaUART *iface);
+
+protected:
+	void send_pending();
+	void reset();
+
+public:
+	PTZViscaSerial(OBSData config);
+
+	void set_config(OBSData ptz_data);
+	OBSData get_config();
 };
