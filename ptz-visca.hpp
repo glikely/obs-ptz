@@ -133,15 +133,15 @@ protected:
 	bool active_cmd;
 	QTimer timeout_timer;
 
-	virtual void reset() = 0;
 	virtual void send_pending() = 0;
 	void send(const ViscaCmd &cmd);
 	void send(const ViscaCmd &cmd, QList<int> args);
 	void timeout();
-
-protected slots:
 	void receive_ack(const QByteArray &msg);
 	void receive_complete(const QByteArray &msg);
+
+protected slots:
+	void receive(const QByteArray &msg);
 
 public:
 	PTZVisca(std::string type);
@@ -179,9 +179,7 @@ private:
 	int camera_count;
 
 signals:
-	void receive_ack(const QByteArray &packet);
-	void receive_complete(const QByteArray &packet);
-	void receive_error(const QByteArray &packet);
+	void receive(const QByteArray &packet);
 	void reset();
 
 public:
@@ -189,7 +187,7 @@ public:
 	void open();
 	void close();
 	void send(const QByteArray &packet);
-	void receive(const QByteArray &packet);
+	void receive_datagram(const QByteArray &packet);
 	QString portName() { return port_name; }
 
 	static ViscaUART *get_interface(QString port_name);

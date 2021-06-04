@@ -110,10 +110,29 @@ void PTZVisca::cmd_get_camera_info()
 	send(VISCA_PanTiltPosInq);
 }
 
-void PTZVisca::receive_ack(const QByteArray &msg)
+void PTZVisca::receive(const QByteArray &msg)
 {
 	if (VISCA_PACKET_SENDER(msg) != address)
 		return;
+
+	switch (msg[1] & 0xf0) {
+	case VISCA_RESPONSE_ACK:
+		receive_ack(msg);
+		break;
+	case VISCA_RESPONSE_COMPLETED:
+		receive_complete(msg);
+		break;
+	case VISCA_RESPONSE_ERROR:
+		blog(LOG_DEBUG, "VISCA received error");
+		break;
+	default:
+		blog(LOG_INFO, "VISCA received unknown");
+		break;
+	}
+}
+
+void PTZVisca::receive_ack(const QByteArray &msg)
+{
 	timeout_timer.stop();
 	if (active_cmd) {
 		active_cmd = false;
@@ -124,7 +143,7 @@ void PTZVisca::receive_ack(const QByteArray &msg)
 
 void PTZVisca::receive_complete(const QByteArray &msg)
 {
-	if (VISCA_PACKET_SENDER(msg) != address || !active_cmd)
+	if (!active_cmd)
 		return;
 	timeout_timer.stop();
 	blog(LOG_INFO, "VISCA %p receive_complete slot: %s", this, msg.toHex(':').data());
@@ -232,13 +251,12 @@ void ViscaUART::send(const QByteArray &packet)
 	uart.write(packet);
 }
 
-void ViscaUART::receive(const QByteArray &packet)
+void ViscaUART::receive_datagram(const QByteArray &packet)
 {
 	blog(LOG_INFO, "VISCA <-- %s", packet.toHex(':').data());
 	if (packet.size() < 3)
 		return;
-	switch (packet[1] & 0xf0) { /* Decode response field */
-	case VISCA_RESPONSE_ADDRESS:
+	if ((packet[1] & 0xf0) == VISCA_RESPONSE_ADDRESS) {
 		switch (packet[1] & 0x0f) { /* Decode Packet Socket Field */
 		case 0:
 			camera_count = (packet[2] & 0x7) - 1;
@@ -253,25 +271,10 @@ void ViscaUART::receive(const QByteArray &packet)
 		default:
 			break;
 		}
-		break;
-	case VISCA_RESPONSE_ACK:
-		/* Don't do anything with the ack yet */
-		blog(LOG_DEBUG, "VISCA received ACK");
-		emit receive_ack(packet);
-		break;
-	case VISCA_RESPONSE_COMPLETED:
-		blog(LOG_DEBUG, "VISCA received complete");
-		emit receive_complete(packet);
-		break;
-	case VISCA_RESPONSE_ERROR:
-		blog(LOG_DEBUG, "VISCA received error");
-		emit receive_error(packet);
-		break;
-	default:
-		blog(LOG_INFO, "VISCA received unknown");
-		/* Unknown */
-		break;
+		return;
 	}
+
+	emit receive(packet);
 }
 
 void ViscaUART::poll()
@@ -281,7 +284,7 @@ void ViscaUART::poll()
 		rxbuffer += b;
 		if ((b & 0xff) == 0xff) {
 			if (rxbuffer.size())
-				receive(rxbuffer);
+				receive_datagram(rxbuffer);
 			rxbuffer.clear();
 		}
 	}
@@ -312,8 +315,7 @@ void PTZViscaSerial::attach_interface(ViscaUART *new_iface)
 		iface->disconnect(this);
 	iface = new_iface;
 	if (iface) {
-		connect(iface, &ViscaUART::receive_ack, this, &PTZViscaSerial::receive_ack);
-		connect(iface, &ViscaUART::receive_complete, this, &PTZViscaSerial::receive_complete);
+		connect(iface, &ViscaUART::receive, this, &PTZViscaSerial::receive);
 		connect(iface, &ViscaUART::reset, this, &PTZViscaSerial::reset);
 	}
 }
