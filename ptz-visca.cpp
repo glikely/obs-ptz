@@ -8,7 +8,7 @@
 #include "ptz-visca.hpp"
 #include <util/base.h>
 
-std::map<QString, ViscaInterface*> ViscaInterface::interfaces;
+std::map<QString, ViscaUART*> ViscaUART::interfaces;
 
 const ViscaCmd VISCA_ENUMERATE("883001ff");
 
@@ -61,13 +61,13 @@ const ViscaInq VISCA_FocusNearLimitInq("80090428ff", {new visca_u16("focus_near_
 
 const ViscaInq VISCA_PanTiltPosInq("80090612ff", {new visca_u16("pan_pos", 2), new visca_u16("tilt_pos", 6)});
 
-ViscaInterface::ViscaInterface(QString &port_name) : port_name(port_name)
+ViscaUART::ViscaUART(QString &port_name) : port_name(port_name)
 {
-	connect(&uart, &QSerialPort::readyRead, this, &ViscaInterface::poll);
+	connect(&uart, &QSerialPort::readyRead, this, &ViscaUART::poll);
 	open();
 }
 
-void ViscaInterface::open()
+void ViscaUART::open()
 {
 	camera_count = 0;
 
@@ -81,14 +81,14 @@ void ViscaInterface::open()
 	send(VISCA_ENUMERATE.cmd);
 }
 
-void ViscaInterface::close()
+void ViscaUART::close()
 {
 	if (uart.isOpen())
 		uart.close();
 	camera_count = 0;
 }
 
-void ViscaInterface::send(const QByteArray &packet)
+void ViscaUART::send(const QByteArray &packet)
 {
 	if (!uart.isOpen())
 		return;
@@ -102,7 +102,7 @@ void ViscaInterface::send(const QByteArray &packet)
 #define VISCA_RESPONSE_ERROR     0x60
 #define VISCA_PACKET_SENDER(pkt) ((unsigned)((pkt)[0] & 0x70) >> 4)
 
-void ViscaInterface::receive(const QByteArray &packet)
+void ViscaUART::receive(const QByteArray &packet)
 {
 	blog(LOG_INFO, "VISCA <-- %s", packet.toHex(':').data());
 	if (packet.size() < 3)
@@ -144,7 +144,7 @@ void ViscaInterface::receive(const QByteArray &packet)
 	}
 }
 
-void ViscaInterface::poll()
+void ViscaUART::poll()
 {
 	const QByteArray data = uart.readAll();
 	for (auto b : data) {
@@ -157,14 +157,14 @@ void ViscaInterface::poll()
 	}
 }
 
-ViscaInterface * ViscaInterface::get_interface(QString port_name)
+ViscaUART * ViscaUART::get_interface(QString port_name)
 {
-	ViscaInterface *iface;
+	ViscaUART *iface;
 	qDebug() << "Looking for UART object" << port_name;
 	iface = interfaces[port_name];
 	if (!iface) {
 		qDebug() << "Creating new VISCA object" << port_name;
-		iface = new ViscaInterface(port_name);
+		iface = new ViscaUART(port_name);
 		interfaces[port_name] = iface;
 	}
 	return iface;
@@ -176,7 +176,7 @@ ViscaInterface * ViscaInterface::get_interface(QString port_name)
 PTZVisca::PTZVisca(QString uart_name, unsigned int address)
 	: PTZDevice("visca"), active_cmd(false), address(address)
 {
-	attach_interface(ViscaInterface::get_interface(uart_name));
+	attach_interface(ViscaUART::get_interface(uart_name));
 }
 
 PTZVisca::PTZVisca(OBSData config)
@@ -235,15 +235,15 @@ void PTZVisca::reset()
 	cmd_get_camera_info();
 }
 
-void PTZVisca::attach_interface(ViscaInterface *new_iface)
+void PTZVisca::attach_interface(ViscaUART *new_iface)
 {
 	if (iface)
 		iface->disconnect(this);
 	iface = new_iface;
 	if (iface) {
-		connect(iface, &ViscaInterface::receive_ack, this, &PTZVisca::receive_ack);
-		connect(iface, &ViscaInterface::receive_complete, this, &PTZVisca::receive_complete);
-		connect(iface, &ViscaInterface::reset, this, &PTZVisca::reset);
+		connect(iface, &ViscaUART::receive_ack, this, &PTZVisca::receive_ack);
+		connect(iface, &ViscaUART::receive_complete, this, &PTZVisca::receive_complete);
+		connect(iface, &ViscaUART::reset, this, &PTZVisca::reset);
 	}
 }
 
@@ -254,7 +254,7 @@ void PTZVisca::set_config(OBSData config)
 	address = obs_data_get_int(config, "address");
 	if (!uart)
 		return;
-	attach_interface(ViscaInterface::get_interface(uart));
+	attach_interface(ViscaUART::get_interface(uart));
 }
 
 OBSData PTZVisca::get_config()

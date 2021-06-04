@@ -124,14 +124,14 @@ public:
 
 
 /*
- * ViscaInterface implementing UART protocol
+ * ViscaUART implementing UART protocol
  */
-class ViscaInterface : public QObject {
+class ViscaUART : public QObject {
 	Q_OBJECT
 
 private:
 	/* Global lookup table of UART instances, used to eliminate duplicates */
-	static std::map<QString, ViscaInterface*> interfaces;
+	static std::map<QString, ViscaUART*> interfaces;
 
 	QString port_name;
 	QSerialPort uart;
@@ -145,14 +145,14 @@ signals:
 	void reset();
 
 public:
-	ViscaInterface(QString &port_name);
+	ViscaUART(QString &port_name);
 	void open();
 	void close();
 	void send(const QByteArray &packet);
 	void receive(const QByteArray &packet);
 	QString portName() { return port_name; }
 
-	static ViscaInterface *get_interface(QString port_name);
+	static ViscaUART *get_interface(QString port_name);
 
 public slots:
 	void poll();
@@ -163,14 +163,14 @@ class PTZVisca : public PTZDevice {
 	Q_OBJECT
 
 private:
-	ViscaInterface *iface;
+	ViscaUART *iface;
 	unsigned int address;
 	QList<ViscaCmd> pending_cmds;
 	bool active_cmd;
 	QTimer timeout_timer;
 
 	void reset();
-	void attach_interface(ViscaInterface *iface);
+	void attach_interface(ViscaUART *iface);
 	void send_pending();
 	void send(const ViscaCmd &cmd);
 	void send(const ViscaCmd &cmd, QList<int> args);
