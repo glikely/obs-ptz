@@ -127,6 +127,7 @@ void PTZVisca::receive(const QByteArray &msg)
 
 void PTZVisca::receive_ack(const QByteArray &msg)
 {
+	Q_UNUSED(msg);
 	timeout_timer.stop();
 	if (active_cmd) {
 		active_cmd = false;
@@ -381,8 +382,10 @@ void ViscaUDPSocket::send(QHostAddress ip_address, const QByteArray &packet)
 
 void ViscaUDPSocket::poll()
 {
-	while (visca_socket.hasPendingDatagrams())
-		receive_datagram(visca_socket.receiveDatagram());
+	while (visca_socket.hasPendingDatagrams()) {
+		QNetworkDatagram dg = visca_socket.receiveDatagram();
+		receive_datagram(dg);
+	}
 }
 
 ViscaUDPSocket * ViscaUDPSocket::get_interface(int port)
