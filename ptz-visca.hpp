@@ -145,7 +145,6 @@ protected slots:
 
 public:
 	PTZVisca(std::string type);
-	~PTZVisca();
 
 	virtual void set_config(OBSData ptz_data) = 0;
 	virtual OBSData get_config() = 0;
@@ -209,6 +208,7 @@ protected:
 
 public:
 	PTZViscaSerial(OBSData config);
+	~PTZViscaSerial();
 
 	void set_config(OBSData ptz_data);
 	OBSData get_config();

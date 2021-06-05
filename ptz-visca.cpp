@@ -76,14 +76,6 @@ PTZVisca::PTZVisca(std::string type)
 	connect(&timeout_timer, &QTimer::timeout, this, &PTZVisca::timeout);
 }
 
-PTZVisca::~PTZVisca()
-{
-	/*
-	pantilt(0, 0);
-	zoom_stop();
-	*/
-}
-
 void PTZVisca::send(const ViscaCmd &cmd)
 {
 	pending_cmds.append(cmd);
@@ -307,6 +299,11 @@ PTZViscaSerial::PTZViscaSerial(OBSData config)
 	: PTZVisca("visca"), iface(NULL)
 {
 	set_config(config);
+}
+
+PTZViscaSerial::~PTZViscaSerial()
+{
+	attach_interface(nullptr);
 }
 
 void PTZViscaSerial::attach_interface(ViscaUART *new_iface)
