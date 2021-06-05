@@ -372,6 +372,8 @@ void ViscaUDPSocket::receive_datagram(QNetworkDatagram &dg)
 	blog(LOG_INFO, "VISCA UDP <-- %s", qPrintable(data.toHex(':')));
 	if (data.size() == size + 8)
 		emit receive(data.mid(8, size));
+	else
+		emit reset();
 }
 
 void ViscaUDPSocket::send(QHostAddress ip_address, const QByteArray &packet)
