@@ -72,9 +72,9 @@ public:
 		return (data.size() < offset + 3) ? 0 : data[offset] & 0x7f;
 	}
 };
-class visca_u16 : public visca_encoding {
+class visca_s16 : public visca_encoding {
 public:
-	visca_u16(const char *name, int offset) : visca_encoding(name, offset) { }
+	visca_s16(const char *name, int offset) : visca_encoding(name, offset) { }
 	void encode(QByteArray &data, int val) {
 		if (data.size() < offset + 4)
 			return;
@@ -82,15 +82,15 @@ public:
 		data[offset+1] = (val >> 8) & 0x0f;
 		data[offset+2] = (val >> 4) & 0x0f;
 		data[offset+3] = val & 0x0f;
-
 	}
 	int decode(QByteArray &data) {
 		if (data.size() < offset + 4)
 			return 0;
-		return (data[offset] & 0xf) << 12 |
-		       (data[offset+1] & 0xf) << 8 |
-		       (data[offset+2] & 0xf) << 4 |
-		       (data[offset+3] & 0xf);
+		int16_t val = (data[offset] & 0xf) << 12 |
+			      (data[offset+1] & 0xf) << 8 |
+			      (data[offset+2] & 0xf) << 4 |
+			      (data[offset+3] & 0xf);
+		return val;
 	}
 };
 

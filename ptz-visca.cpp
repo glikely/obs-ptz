@@ -24,7 +24,7 @@ const ViscaCmd VISCA_CAM_Zoom_Tele("8101040702ff");
 const ViscaCmd VISCA_CAM_Zoom_Wide("8101040703ff");
 const ViscaCmd VISCA_CAM_Zoom_TeleVar("8101040720ff", {new visca_u4("p", 4),});
 const ViscaCmd VISCA_CAM_Zoom_WideVar("8101040730ff", {new visca_u4("p", 4),});
-const ViscaCmd VISCA_CAM_Zoom_Direct ("8101044700000000ff", {new visca_u16("pos", 4),});
+const ViscaCmd VISCA_CAM_Zoom_Direct ("8101044700000000ff", {new visca_s16("pos", 4),});
 const ViscaCmd VISCA_CAM_DZoom_On("8101040602ff");
 const ViscaCmd VISCA_CAM_DZoom_Off("8101040603ff");
 
@@ -33,13 +33,13 @@ const ViscaCmd VISCA_CAM_Focus_Far("8101040802ff");
 const ViscaCmd VISCA_CAM_Focus_Near("8101040803ff");
 const ViscaCmd VISCA_CAM_Focus_FarVar("8101040820ff", {new visca_u4("p", 4),});
 const ViscaCmd VISCA_CAM_Focus_NearVar("8101040830ff", {new visca_u4("p", 4),});
-const ViscaCmd VISCA_CAM_Focus_Direct("8101044800000000ff", {new visca_u16("pos", 4),});
+const ViscaCmd VISCA_CAM_Focus_Direct("8101044800000000ff", {new visca_s16("pos", 4),});
 const ViscaCmd VISCA_CAM_Focus_Auto("8101043802ff");
 const ViscaCmd VISCA_CAM_Focus_Manual("8101043803ff");
 const ViscaCmd VISCA_CAM_Focus_AutoManual("8101043810ff");
 const ViscaCmd VISCA_CAM_Focus_OneTouch("8101041801ff");
 const ViscaCmd VISCA_CAM_Focus_Infinity("8101041802ff");
-const ViscaCmd VISCA_CAM_NearLimit("8101042800000000ff", {new visca_u16("limit", 4)});
+const ViscaCmd VISCA_CAM_NearLimit("8101042800000000ff", {new visca_s16("limit", 4)});
 const ViscaCmd VISCA_CAM_Memory_Reset ("8101043f0000ff", {new visca_u4("preset_num", 5)});
 const ViscaCmd VISCA_CAM_Memory_Set   ("8101043f0100ff", {new visca_u4("preset_num", 5)});
 const ViscaCmd VISCA_CAM_Memory_Recall("8101043f0200ff", {new visca_u4("preset_num", 5)});
@@ -47,21 +47,21 @@ const ViscaCmd VISCA_CAM_Memory_Recall("8101043f0200ff", {new visca_u4("preset_n
 const ViscaCmd VISCA_PanTilt_drive("8101060100000303ff", {new visca_s7("pan", 4), new visca_s7("tilt", 5)});
 const ViscaCmd VISCA_PanTilt_drive_abs("8101060200000000000000000000ff",
 	                                  {new visca_u7("panspeed", 4), new visca_u7("tiltspeed", 5),
-					   new visca_u16("panpos", 6), new visca_u16("tiltpos", 10)});
+					   new visca_s16("panpos", 6), new visca_s16("tiltpos", 10)});
 const ViscaCmd VISCA_PanTilt_drive_rel("8101060300000000000000000000ff",
 	                                  {new visca_u7("panspeed", 4), new visca_u7("tiltspeed", 5),
-					   new visca_u16("panpos", 6), new visca_u16("tiltpos", 10)});
+					   new visca_s16("panpos", 6), new visca_s16("tiltpos", 10)});
 const ViscaCmd VISCA_PanTilt_Home("81010604ff");
 const ViscaCmd VISCA_PanTilt_Reset("81010605ff");
 
 const ViscaInq VISCA_PowerInq("81090400ff", {new visca_flag("power_on", 2)});
-const ViscaInq VISCA_ZoomPosInq("81090447ff", {new visca_u16("zoom_pos", 2)});
+const ViscaInq VISCA_ZoomPosInq("81090447ff", {new visca_s16("zoom_pos", 2)});
 const ViscaInq VISCA_DZoomModeInq("81090406ff", {new visca_flag("dzoom_on", 2)});
 const ViscaInq VISCA_FocusModeInq("81090438ff", {new visca_flag("autofocus_on", 2)});
-const ViscaInq VISCA_FocusPosInq("81090448ff", {new visca_u16("focus_pos", 2)});
-const ViscaInq VISCA_FocusNearLimitInq("81090428ff", {new visca_u16("focus_near_limit", 2)});
+const ViscaInq VISCA_FocusPosInq("81090448ff", {new visca_s16("focus_pos", 2)});
+const ViscaInq VISCA_FocusNearLimitInq("81090428ff", {new visca_s16("focus_near_limit", 2)});
 
-const ViscaInq VISCA_PanTiltPosInq("81090612ff", {new visca_u16("pan_pos", 2), new visca_u16("tilt_pos", 6)});
+const ViscaInq VISCA_PanTiltPosInq("81090612ff", {new visca_s16("pan_pos", 2), new visca_s16("tilt_pos", 6)});
 
 #define VISCA_RESPONSE_ADDRESS   0x30
 #define VISCA_RESPONSE_ACK       0x40
