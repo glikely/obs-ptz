@@ -71,8 +71,13 @@ void PTZSettings::RefreshLists()
 {
 	QGamepadManager *gpm = QGamepadManager::instance();
 	ui->gamepadComboBox->clear();
-	Q_FOREACH(int id, gpm->connectedGamepads())
-		ui->gamepadComboBox->addItem(gpm->gamepadName(id));
+	Q_FOREACH(int id, gpm->connectedGamepads()) {
+		// WIN32 doesn't return gamepad names, so manufacture one
+		if (gpm->gamepadName(id).isEmpty())
+			ui->gamepadComboBox->addItem(QString("Gamepad %1").arg(id));
+		else
+			ui->gamepadComboBox->addItem(gpm->gamepadName(id));
+	}
 
 	ui->viscaPortComboBox->clear();
 	Q_FOREACH(QSerialPortInfo port, QSerialPortInfo::availablePorts())

@@ -12,6 +12,7 @@
 #include <QMenuBar>
 #include <QVBoxLayout>
 #include <QToolTip>
+#include <QWindow>
 
 #include "ui_ptz-controls.h"
 #include "ptz-controls.hpp"
@@ -100,7 +101,18 @@ PTZControls::PTZControls(QWidget *parent)
 
 	LoadConfig();
 
-	auto gamepads = QGamepadManager::instance()->connectedGamepads();
+	QGamepadManager* gamepad_manager = QGamepadManager::instance();
+
+	// from https://stackoverflow.com/questions/62668629/qgamepadmanager-connecteddevices-empty-but-windows-detects-gamepad
+	QWindow* wnd = new QWindow();
+	wnd->show();
+	delete wnd;
+	qApp->processEvents();
+
+	QList<int> gamepads = gamepad_manager->connectedGamepads();
+
+	blog(LOG_INFO, "gamepads found %d", gamepads.size());
+
 	if (!gamepads.isEmpty()) {
 		gamepad = new QGamepad(*gamepads.begin(), this);
 
