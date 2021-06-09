@@ -443,6 +443,7 @@ void PTZViscaOverIP::send_pending()
 
 	QByteArray packet = pending_cmds.first().cmd;
 	QByteArray p = QByteArray::fromHex("0100000000000000") + packet;
+	p[1] = (0x9 == packet[1]) ? 0x10 : 0x00;
 	p[3] = packet.size();
 	p[4] = (sequence >> 24) & 0xff;
 	p[5] = (sequence >> 16) & 0xff;
