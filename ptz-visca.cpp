@@ -254,8 +254,10 @@ const ViscaCmd VISCA_PanTilt_LimitClearDownLeft("810106070100070f0f0f070f0f0fff"
  * PTZVisca Methods
  */
 PTZVisca::PTZVisca(std::string type)
-	: PTZDevice(type), active_cmd(false)
+	: PTZDevice(type)
 {
+	for (int i = 0; i < 8; i++)
+		active_cmd[i] = false;
 	connect(&timeout_timer, &QTimer::timeout, this, &PTZVisca::timeout);
 }
 
@@ -275,7 +277,7 @@ void PTZVisca::send(const ViscaCmd &cmd, QList<int> args)
 void PTZVisca::timeout()
 {
 	blog(LOG_INFO, "PTZVisca::timeout() %p", this);
-	active_cmd = false;
+	active_cmd[0] = false;
 	pending_cmds.clear();
 }
 
@@ -287,54 +289,49 @@ void PTZVisca::cmd_get_camera_info()
 
 void PTZVisca::receive(const QByteArray &msg)
 {
-	if (VISCA_PACKET_SENDER(msg) != address)
+	if (VISCA_PACKET_SENDER(msg) != address || (msg.size() < 3))
 		return;
+	int slot = msg[1] & 0x7;
 
 	switch (msg[1] & 0xf0) {
 	case VISCA_RESPONSE_ACK:
-		receive_ack(msg);
+		timeout_timer.stop();
+		if (active_cmd[0]) {
+			pending_cmds.removeFirst();
+			active_cmd[0] = false;
+			active_cmd[slot] = true;
+		}
 		break;
 	case VISCA_RESPONSE_COMPLETED:
-		receive_complete(msg);
+		if (!active_cmd[slot]) {
+			blog(LOG_INFO, "VISCA %s spurious reply: %s", qPrintable(objectName()), msg.toHex(':').data());
+			break;
+		}
+		active_cmd[slot] = false;
+
+		/* Slot 0 responses are inquiries that need to be parsed */
+		if (slot == 0) {
+			timeout_timer.stop();
+			pending_cmds.first().decode(this, msg);
+			pending_cmds.removeFirst();
+
+			QByteArrayList propnames = dynamicPropertyNames();
+			QString logmsg(objectName() + ":");
+			for (QByteArrayList::iterator i = propnames.begin(); i != propnames.end(); i++) 
+				logmsg = logmsg + " " + QString(i->data()) + "=" + property(i->data()).toString();
+			blog(LOG_INFO, qPrintable(logmsg));
+		}
+
 		break;
 	case VISCA_RESPONSE_ERROR:
-		blog(LOG_DEBUG, "VISCA received error");
+		active_cmd[slot] = false;
+		if (slot == 0)
+			timeout_timer.stop();
+		blog(LOG_INFO, "VISCA %s received error: %s", qPrintable(objectName()), msg.toHex(':').data());
 		break;
 	default:
-		blog(LOG_INFO, "VISCA received unknown");
+		blog(LOG_INFO, "VISCA %s received unknown: %s", qPrintable(objectName()), msg.toHex(':').data());
 		break;
-	}
-}
-
-void PTZVisca::receive_ack(const QByteArray &msg)
-{
-	Q_UNUSED(msg);
-	timeout_timer.stop();
-	if (active_cmd) {
-		active_cmd = false;
-		pending_cmds.removeFirst();
-	}
-	send_pending();
-}
-
-void PTZVisca::receive_complete(const QByteArray &msg)
-{
-	if (!active_cmd)
-		return;
-	timeout_timer.stop();
-	blog(LOG_INFO, "VISCA %p receive_complete slot: %s", this, msg.toHex(':').data());
-
-	pending_cmds.first().decode(this, msg);
-
-	QByteArrayList propnames = dynamicPropertyNames();
-	QString logmsg(objectName() + ":");
-	for (QByteArrayList::iterator i = propnames.begin(); i != propnames.end(); i++) 
-		logmsg = logmsg + " " + QString(i->data()) + "=" + property(i->data()).toString();
-	blog(LOG_INFO, qPrintable(logmsg));
-
-	if (active_cmd) {
-		active_cmd = false;
-		pending_cmds.removeFirst();
 	}
 	send_pending();
 }
@@ -509,9 +506,9 @@ void PTZViscaSerial::reset()
 
 void PTZViscaSerial::send_pending()
 {
-	if (active_cmd || pending_cmds.isEmpty())
+	if (active_cmd[0] || pending_cmds.isEmpty())
 		return;
-	active_cmd = true;
+	active_cmd[0] = true;
 	pending_cmds.first().setAddress(address);
 	iface->send(pending_cmds.first().cmd);
 	timeout_timer.setSingleShot(true);
@@ -618,9 +615,9 @@ void PTZViscaOverIP::reset()
 
 void PTZViscaOverIP::send_pending()
 {
-	if (active_cmd || pending_cmds.isEmpty())
+	if (active_cmd[0] || pending_cmds.isEmpty())
 		return;
-	active_cmd = true;
+	active_cmd[0] = true;
 
 	QByteArray packet = pending_cmds.first().cmd;
 	QByteArray p = QByteArray::fromHex("0100000000000000") + packet;

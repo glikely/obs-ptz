@@ -169,15 +169,13 @@ class PTZVisca : public PTZDevice {
 protected:
 	unsigned int address;
 	QList<ViscaCmd> pending_cmds;
-	bool active_cmd;
+	bool active_cmd[8];
 	QTimer timeout_timer;
 
 	virtual void send_pending() = 0;
 	void send(const ViscaCmd &cmd);
 	void send(const ViscaCmd &cmd, QList<int> args);
 	void timeout();
-	void receive_ack(const QByteArray &msg);
-	void receive_complete(const QByteArray &msg);
 
 protected slots:
 	void receive(const QByteArray &msg);
