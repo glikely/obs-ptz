@@ -1,0 +1,126 @@
+name: 'CI Multiplatform Build'
+
+on:
+  push:
+    paths-ignore:
+      - '**.md'
+    branches:
+      - main
+    tags:
+      - '*'
+  pull_request:
+    paths-ignore:
+      - '**.md'
+    branches:
+      - master
+
+jobs:
+  win64:
+    name: 'Windows 64-bit'
+    runs-on: [windows-latest]
+    env:
+      QT_VERSION: '5.15.2'
+      CMAKE_GENERATOR: "Visual Studio 16 2019"
+      CMAKE_SYSTEM_VERSION: "10.0.18363.657"
+      WINDOWS_DEPS_VERSION: '2019'
+      WINDOWS_DEPS_CACHE_VERSION: '1'
+      OBS_VERSION: '27.0.0'
+      LibObs_Dir: "${{ github.workspace }}/obs-studio/build64"
+    steps:
+      - name: 'Add msbuild to PATH'
+        uses: microsoft/setup-msbuild@v1.0.2
+      - name: 'Checkout OBS PTZ'
+        uses: actions/checkout@v2.3.3
+        with:
+          path: obs-ptz
+      - name: 'Fetch Git Tags'
+        working-directory: ${{ github.workspace}}/obs-ptz
+        shell: bash
+        run: |
+          git fetch --prune --unshallow
+          echo "OBS_PTZ_BRANCH=$(git rev-parse --abbrev-ref HEAD)" >> $GITHUB_ENV
+          echo "OBS_PTZ_HASH=$(git rev-parse --short HEAD)" >> $GITHUB_ENV
+          echo "OBS_PTZ_TAG=$(git describe --tags --abbrev=0)" >> $GITHUB_ENV
+      - name: 'Restore QT dependency from cache'
+        id: qt-jurplel-cache
+        uses: actions/cache@v2.1.2
+        env:
+          CACHE_NAME: 'windows-qt-jurplel-cache'
+        with:
+          path: ${{ github.workspace }}/cmbuild/QT
+          key: ${{ runner.os }}-pr-${{ env.CACHE_NAME }}-${{ env.QT_VERSION }}
+      - name: 'Restore pre-built dependencies from cache'
+        id: deps-cache
+        uses: actions/cache@v2.1.2
+        env:
+          CACHE_NAME: 'windows-deps-cache'
+        with:
+          path: ${{ github.workspace }}/cmbuild/deps
+          key: ${{ runner.os }}-pr-${{ env.CACHE_NAME }}-${{ env.WINDOWS_DEPS_VERSION }}-${{ env.WINDOWS_DEPS_CACHE_VERSION }}
+      - name: 'Restore pre-built OBS Studio from cache'
+        id: obs-cache
+        uses: actions/cache@v2.1.2
+        env:
+          CACHE_NAME: 'obs-studio-cache'
+        with:
+          path: ${{ github.workspace }}/obs-studio
+          key: ${{ runner.os }}-pr-${{ env.CACHE_NAME }}-${{ env.OBS_VERSION }}
+      - name: 'Install prerequisite: QT'
+        uses: jurplel/install-qt-action@v2
+        with:
+          version: 5.15.2
+          arch: win64_msvc2019_64
+          dir: ${{ github.workspace }}/cmbuild/
+          modules: debug_info
+          cached: ${{ steps.qt-jurplel-cache.outputs.cache-hit }}
+      - name: 'Install prerequisite: Pre-built dependencies'
+        if: steps.deps-cache.outputs.cache-hit != 'true'
+        run: |
+          curl -kLO https://cdn-fastly.obsproject.com/downloads/dependencies${{ env.WINDOWS_DEPS_VERSION }}.zip -f --retry 5 -C -
+          7z x dependencies${{ env.WINDOWS_DEPS_VERSION }}.zip -o"${{ github.workspace }}/cmbuild/deps"
+      - name: 'Checkout OBS Studio'
+        if: steps.obs-cache.outputs.cache-hit != 'true'
+        uses: actions/checkout@v2.3.3
+        with:
+          submodules: 'recursive'
+          repository: 'obsproject/obs-studio'
+          path: obs-studio
+          ref: ${{ env.OBS_VERSION }}
+      - name: 'Configure OBS'
+        if: steps.obs-cache.outputs.cache-hit != 'true'
+        working-directory: ${{ github.workspace}}/obs-studio
+        run: |
+          mkdir ./build64
+          cd ./build64
+          cmake -G"${{ env.CMAKE_GENERATOR }}" -A"x64" -DCMAKE_SYSTEM_VERSION="${{ env.CMAKE_SYSTEM_VERSION }}" -DDepsPath="${{ github.workspace }}/cmbuild/deps/win64" -DQTDIR="${{ github.workspace }}/cmbuild/QT/${{ env.QT_VERSION }}/msvc2019_64" -DCOPIED_DEPENDENCIES=FALSE -DCOPY_DEPENDENCIES=TRUE -DBUILD_BROWSER=FALSE ..
+      - name: 'Build OBS'
+        if: steps.obs-cache.outputs.cache-hit != 'true'
+        working-directory: ${{ github.workspace}}/obs-studio
+        run: msbuild /m /p:Configuration=RelWithDebInfo .\build64\obs-studio.sln
+      - name: 'Configure OBS PTZ'
+        working-directory: ${{ github.workspace }}/obs-ptz
+        run: |
+          mkdir ./build
+          mkdir ./build64
+          cd ./build64
+          cmake -G"${{ env.CMAKE_GENERATOR }}" -A"x64" -DCMAKE_SYSTEM_VERSION="${{ env.CMAKE_SYSTEM_VERSION }}" -DQTDIR="${{ github.workspace }}/cmbuild/QT/${{ env.QT_VERSION }}/msvc2019_64" ..
+      - name: 'Build OBS PTZ'
+        working-directory: ${{ github.workspace }}/obs-ptz
+        run: msbuild /m /p:Configuration=RelWithDebInfo .\build64\ptz-controls.sln
+      - name: 'Package'
+        working-directory: ${{ github.workspace }}/obs-ptz
+        if: success() && (github.event_name != 'pull_request' || env.SEEKING_TESTERS == '1')
+        run: |
+          $env:FILE_DATE=(Get-Date -UFormat "%F")
+          $env:FILE_NAME="${env:FILE_DATE}-${{ env.OBS_PTZ_HASH }}-${{ env.OBS_PTZ_TAG }}-win64.zip"
+          echo "FILE_NAME=${env:FILE_NAME}" >> ${env:GITHUB_ENV}
+          robocopy .\build64\RelWithDebInfo .\build\ /E /XF .gitignore
+          robocopy ${{ github.workspace }}/cmbuild/QT/${{env.QT_VERSION }}/msvc2019_64/lib/Qt5Gamepad* .\build\
+          robocopy ${{ github.workspace }}/cmbuild/QT/${{env.QT_VERSION }}/msvc2019_64/lib/Qt5SerialPort* .\build\
+          7z a ${env:FILE_NAME} .\build\*
+      - name: 'Publish'
+        if: success() && (github.event_name != 'pull_request' || env.SEEKING_TESTERS == '1')
+        uses: actions/upload-artifact@v2.2.0
+        with:
+          name: 'obs-ptz/${{ env.FILE_NAME }}'
+          path: '*-win64.zip'
