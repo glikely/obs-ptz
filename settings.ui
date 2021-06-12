@@ -105,7 +105,7 @@
       </layout>
      </item>
      <item>
-      <layout class="QVBoxLayout" name="propertiesLayout">
+      <layout class="QVBoxLayout" name="propertiesLayout" stretch="0,1,0,0">
        <property name="sizeConstraint">
         <enum>QLayout::SetDefaultConstraint</enum>
        </property>
@@ -225,8 +225,14 @@
        </item>
        <item>
         <widget class="QLabel" name="versionLabel">
+         <property name="sizePolicy">
+          <sizepolicy hsizetype="Preferred" vsizetype="Minimum">
+           <horstretch>0</horstretch>
+           <verstretch>0</verstretch>
+          </sizepolicy>
+         </property>
          <property name="text">
-          <string>OBS PTZ Controls Plugin</string>
+          <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;OBS PTZ Controls Plugin v0.3.0&lt;/p&gt;&lt;p&gt;&lt;a href=&quot;https://github.com/glikely/obs-ptz&quot;&gt;&lt;span style=&quot; text-decoration: underline; color:#0000ff;&quot;&gt;https://github.com/glikely/obs-ptz&lt;/span&gt;&lt;/a&gt;&lt;/p&gt;&lt;p&gt;By Grant Likely &amp;lt;grant.likely@secretlab.ca&amp;gt;&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
          </property>
         </widget>
        </item>

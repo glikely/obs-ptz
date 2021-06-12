@@ -276,7 +276,7 @@
          </widget>
         </item>
         <item row="3" column="0" colspan="3">
-         <layout class="QHBoxLayout" name="zoomControlsHorizontalLayout" stretch="0,1,0">
+         <layout class="QHBoxLayout" name="zoomControlsHorizontalLayout" stretch="0,0">
           <property name="spacing">
            <number>6</number>
           </property>
@@ -296,13 +296,6 @@
             </property>
             <property name="text">
              <string>Wide</string>
-            </property>
-           </widget>
-          </item>
-          <item>
-           <widget class="QSlider" name="horizontalSlider">
-            <property name="orientation">
-             <enum>Qt::Horizontal</enum>
             </property>
            </widget>
           </item>
