@@ -112,15 +112,14 @@ jobs:
         if: success() && (github.event_name != 'pull_request' || env.SEEKING_TESTERS == '1')
         run: |
           $env:FILE_DATE=(Get-Date -UFormat "%F")
-          $env:FILE_NAME="${env:FILE_DATE}-${{ env.OBS_PTZ_HASH }}-${{ env.OBS_PTZ_TAG }}-win64.zip"
+          $env:FILE_NAME="obs-ptz-${env:FILE_DATE}-${{ env.OBS_PTZ_HASH }}-${{ env.OBS_PTZ_TAG }}-win64.zip"
           echo "FILE_NAME=${env:FILE_NAME}" >> ${env:GITHUB_ENV}
           robocopy .\build64\RelWithDebInfo .\build\ /E /XF .gitignore
-          robocopy ${{ github.workspace }}/cmbuild/QT/${{env.QT_VERSION }}/msvc2019_64/lib/Qt5Gamepad* .\build\
-          robocopy ${{ github.workspace }}/cmbuild/QT/${{env.QT_VERSION }}/msvc2019_64/lib/Qt5SerialPort* .\build\
+          robocopy ${{ github.workspace }}\cmbuild\QT\${{env.QT_VERSION }}\msvc2019_64\lib .\build\ Qt5Gamepad*.* Qt5SerialPort*.*
           7z a ${env:FILE_NAME} .\build\*
       - name: 'Publish'
         if: success() && (github.event_name != 'pull_request' || env.SEEKING_TESTERS == '1')
         uses: actions/upload-artifact@v2.2.0
         with:
-          name: 'obs-ptz/${{ env.FILE_NAME }}'
-          path: '*-win64.zip'
+          name: '${{ env.FILE_NAME }}'
+          path: 'obs-ptz/*-win64.zip'
