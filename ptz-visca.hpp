@@ -135,8 +135,8 @@ public:
 class ViscaCmd {
 public:
 	QByteArray cmd;
-	const QList<visca_encoding*> args;
-	const QList<visca_encoding*> results;
+	QList<visca_encoding*> args;
+	QList<visca_encoding*> results;
 	ViscaCmd(const char *cmd_hex) : cmd(QByteArray::fromHex(cmd_hex)) { }
 	ViscaCmd(const char *cmd_hex, QList<visca_encoding*> args) :
 		cmd(QByteArray::fromHex(cmd_hex)), args(args) { }
