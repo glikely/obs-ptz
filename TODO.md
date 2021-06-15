@@ -8,27 +8,42 @@ Feel free to send me patches by email, or pull requests via github.
 Core
 ----
 
-- Fix all the memory leaks (obs_data allocations, PTZDevice instances, etc.)
 - Replace PTZControls->cameras with a QAbstractListModel
+- Add generic properties infrastructure so each camera can expose
+  different settings
+- Fix display of transient window on startup
+- Fix gamepad detection on Windows
+  - Ideally get QGamepad to work with DirectInput instead of XInput
 
 PTZ Backend
 -----------
 
-- Add support for VISCA over IP
 - Add support for other camera control protocols
+
+VISCA
+-----
+
+- Handle VISCA devices that don't send acknowledgement or completion messages
+- Add badge showing when a camera is non-responsive
+- Reorganize settings dialog to show VISCA-over-SERIAL hierarchy
+- Send commands immediately instead of queuing. Only inquiry packets need to be
+  queued because multiple inquiries cannot be in flight over serial.
 
 User Interface
 --------------
 
-- Replace discrete buttons with a "virtual joystick" panel
+- Add a virtual joystick alternative to the discrete direction buttons
 - Add focus control
 - Enhance gamepad support
   - Add zoom control
   - Add cycling through cameras
   - Add pan/tilt speed control
   - Add gamepad configuration (enable/disable, select gamepads)
+- Display current camera info in settings dialog (pan, tilt, picture, focus, etc)
 
 Wishlist
 --------
 
 - Virtual PTZ for any source - use PTZ to translate & scale a source.
+- Spacemouse support
+- VISCA controller input support
