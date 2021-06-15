@@ -1,5 +1,7 @@
 # Pan Tilt Zoom (PTZ) Controls for OBS Studio
 
+![build status](https://github.com/glikely/obs-ptz/actions/workflows/main.yml/badge.svg)
+
 Plugin for OBS Studio to add a PTZ Camera control dock.
 
 ![PTZ Controls Screenshot](/doc/ptz-controls-screenshot.png?raw=true "OBS Studio PTZ Controls")
