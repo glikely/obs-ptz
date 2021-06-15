@@ -16,6 +16,10 @@ Features:
 
 Project build infrastructure based on: https://github.com/obsproject/obs-studio/pull/2380
 
+[OBS project resource page](https://obsproject.com/forum/resources/ptz-controls.1284/)
+
+[#obsptz on Twitter](https://twitter.com/hashtag/obsptz?s=09)
+
 # Build Instructions
 
 ## Build as standalone plugin (recommended for faster build turnaround)
@@ -88,4 +92,4 @@ Contributions welcome!
 You can submit changes as GitHub pull requests.
 Or email patches to me at mailto:grant.likely@secretlab.ca
 
-See CONTRIBUTING.md for details.
+See [CONTRIBUTING.md](CONTRIBUTING.md) for details.
