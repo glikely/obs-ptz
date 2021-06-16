@@ -276,7 +276,7 @@ void PTZVisca::send(ViscaCmd cmd, QList<int> args)
 
 void PTZVisca::timeout()
 {
-	blog(LOG_INFO, "PTZVisca::timeout() %p", this);
+	blog(LOG_INFO, "VISCA %s timeout", qPrintable(objectName()));
 	active_cmd[0] = false;
 	pending_cmds.clear();
 }
