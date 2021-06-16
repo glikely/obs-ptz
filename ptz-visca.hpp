@@ -142,9 +142,6 @@ public:
 		cmd(QByteArray::fromHex(cmd_hex)), args(args) { }
 	ViscaCmd(const char *cmd_hex, QList<visca_encoding*> args, QList<visca_encoding*> rslts) :
 		cmd(QByteArray::fromHex(cmd_hex)), args(args), results(rslts) { }
-	void setAddress(int address) {
-		cmd[0] = (char)(0x80 | address & 0x7);
-	}
 	void encode(QList<int> arglist) {
 		for (int i = 0; i < arglist.size(), i < args.size(); i++)
 			args[i]->encode(cmd, arglist[i]);
@@ -172,9 +169,10 @@ protected:
 	bool active_cmd[8];
 	QTimer timeout_timer;
 
-	virtual void send_pending() = 0;
-	void send(const ViscaCmd &cmd);
-	void send(const ViscaCmd &cmd, QList<int> args);
+	virtual void send_immediate(QByteArray &msg) = 0;
+	void send(ViscaCmd cmd);
+	void send(ViscaCmd cmd, QList<int> args);
+	void send_pending();
 	void timeout();
 
 protected slots:
@@ -240,7 +238,7 @@ private:
 	void attach_interface(ViscaUART *iface);
 
 protected:
-	void send_pending();
+	void send_immediate(QByteArray &msg);
 	void reset();
 
 public:
@@ -290,7 +288,7 @@ private:
 	void attach_interface(ViscaUDPSocket *iface);
 
 protected:
-	void send_pending();
+	void send_immediate(QByteArray &msg);
 	void reset();
 
 public:

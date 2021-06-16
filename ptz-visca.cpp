@@ -261,17 +261,16 @@ PTZVisca::PTZVisca(std::string type)
 	connect(&timeout_timer, &QTimer::timeout, this, &PTZVisca::timeout);
 }
 
-void PTZVisca::send(const ViscaCmd &cmd)
+void PTZVisca::send(ViscaCmd cmd)
 {
 	pending_cmds.append(cmd);
 	send_pending();
 }
 
-void PTZVisca::send(const ViscaCmd &cmd, QList<int> args)
+void PTZVisca::send(ViscaCmd cmd, QList<int> args)
 {
-	pending_cmds.append(cmd);
-	pending_cmds.last().encode(args);
-	send_pending();
+	cmd.encode(args);
+	send(cmd);
 }
 
 void PTZVisca::timeout()
@@ -334,6 +333,16 @@ void PTZVisca::receive(const QByteArray &msg)
 		break;
 	}
 	send_pending();
+}
+
+void PTZVisca::send_pending()
+{
+	if (active_cmd[0] || pending_cmds.isEmpty())
+		return;
+	active_cmd[0] = true;
+	send_immediate(pending_cmds.first().cmd);
+	timeout_timer.setSingleShot(true);
+	timeout_timer.start(1000);
 }
 
 void PTZVisca::pantilt(double pan, double tilt)
@@ -504,15 +513,10 @@ void PTZViscaSerial::reset()
 	cmd_get_camera_info();
 }
 
-void PTZViscaSerial::send_pending()
+void PTZViscaSerial::send_immediate(QByteArray &msg)
 {
-	if (active_cmd[0] || pending_cmds.isEmpty())
-		return;
-	active_cmd[0] = true;
-	pending_cmds.first().setAddress(address);
-	iface->send(pending_cmds.first().cmd);
-	timeout_timer.setSingleShot(true);
-	timeout_timer.start(1000);
+	msg[0] = (char)(0x80 | address & 0x7); // Set the camera address
+	iface->send(msg);
 }
 
 void PTZViscaSerial::set_config(OBSData config)
@@ -613,26 +617,18 @@ void PTZViscaOverIP::reset()
 	cmd_get_camera_info();
 }
 
-void PTZViscaOverIP::send_pending()
+void PTZViscaOverIP::send_immediate(QByteArray &msg)
 {
-	if (active_cmd[0] || pending_cmds.isEmpty())
-		return;
-	active_cmd[0] = true;
-
-	QByteArray packet = pending_cmds.first().cmd;
-	QByteArray p = QByteArray::fromHex("0100000000000000") + packet;
-	p[1] = (0x9 == packet[1]) ? 0x10 : 0x00;
-	p[3] = packet.size();
+	QByteArray p = QByteArray::fromHex("0100000000000000") + msg;
+	p[1] = (0x9 == msg[1]) ? 0x10 : 0x00;
+	p[3] = msg.size();
 	p[4] = (sequence >> 24) & 0xff;
 	p[5] = (sequence >> 16) & 0xff;
 	p[6] = (sequence >> 8) & 0xff;
 	p[7] = sequence & 0xff;
 	p[8] = '\x81';
 	sequence++;
-
 	iface->send(ip_address, p);
-	timeout_timer.setSingleShot(true);
-	timeout_timer.start(1000);
 }
 
 void PTZViscaOverIP::set_config(OBSData config)
