@@ -343,7 +343,7 @@ void PTZVisca::send_pending()
 	active_cmd[0] = true;
 	send_immediate(pending_cmds.first().cmd);
 	timeout_timer.setSingleShot(true);
-	timeout_timer.start(1000);
+	timeout_timer.start(2000);
 }
 
 void PTZVisca::pantilt(double pan, double tilt)
