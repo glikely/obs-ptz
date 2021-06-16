@@ -554,12 +554,27 @@ ViscaUDPSocket::ViscaUDPSocket(int port) :
 void ViscaUDPSocket::receive_datagram(QNetworkDatagram &dg)
 {
 	QByteArray data = dg.data();
+	int type = ((data[0] & 0xff) << 8) | (data[1] & 0xff);
 	int size = data[2] << 8 | data[3];
+
+	if ((data.size() != size + 8) || size < 1) {
+		blog(LOG_INFO, "VISCA UDP (malformed) <-- %s", qPrintable(data.toHex(':')));
+		return;
+	}
 	blog(LOG_INFO, "VISCA UDP <-- %s", qPrintable(data.toHex(':')));
-	if (data.size() == size + 8)
+
+	switch (type) {
+	case 0x0111:
 		emit receive(data.mid(8, size));
-	else
-		emit reset();
+		break;
+	case 0x0201: /* Check for sequence number out of sync */
+		if (data[8] == (char)0x0f && data[8+1] == (char)1)
+			emit reset();
+		break;
+	default:
+		blog(LOG_INFO, "VISCA UDP unrecognized type: %x", type);
+	}
+
 }
 
 void ViscaUDPSocket::send(QHostAddress ip_address, const QByteArray &packet)
