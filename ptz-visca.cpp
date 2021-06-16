@@ -264,8 +264,12 @@ PTZVisca::PTZVisca(std::string type)
 
 void PTZVisca::send(ViscaCmd cmd)
 {
-	pending_cmds.append(cmd);
-	send_pending();
+	if (cmd.cmd[1] == (char)0x01) { // command packets get sent immediately
+		send_immediate(cmd.cmd);
+	} else {
+		pending_cmds.append(cmd);
+		send_pending();
+	}
 }
 
 void PTZVisca::send(ViscaCmd cmd, QList<int> args)
@@ -295,12 +299,7 @@ void PTZVisca::receive(const QByteArray &msg)
 
 	switch (msg[1] & 0xf0) {
 	case VISCA_RESPONSE_ACK:
-		timeout_timer.stop();
-		if (active_cmd[0]) {
-			pending_cmds.removeFirst();
-			active_cmd[0] = false;
-			active_cmd[slot] = true;
-		}
+		active_cmd[slot] = true;
 		break;
 	case VISCA_RESPONSE_COMPLETED:
 		if (!active_cmd[slot]) {
