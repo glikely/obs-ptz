@@ -13,6 +13,7 @@ std::map<QString, ViscaUART*> ViscaUART::interfaces;
 std::map<int, ViscaUDPSocket*> ViscaUDPSocket::interfaces;
 
 const ViscaCmd VISCA_ENUMERATE("883001ff");
+const ViscaCmd VISCA_IF_CLEAR("88010001ff");
 
 const ViscaCmd VISCA_Clear("81010001ff");
 const ViscaCmd VISCA_CommandCancel("8120ff", {new visca_u4("socket", 1)});
@@ -444,7 +445,11 @@ void ViscaUART::receive_datagram(const QByteArray &packet)
 			camera_count = (packet[2] & 0x7) - 1;
 			blog(LOG_INFO, "VISCA Interface %s: %i camera%s found", qPrintable(uart.portName()),
 				camera_count, camera_count == 1 ? "" : "s");
+			send(VISCA_IF_CLEAR.cmd);
 			emit reset();
+			break;
+		case 1:
+			// Response from IF_CLEAR message; ignore
 			break;
 		case 8:
 			/* network change, trigger a change */
@@ -509,7 +514,6 @@ void PTZViscaSerial::attach_interface(ViscaUART *new_iface)
 
 void PTZViscaSerial::reset()
 {
-	send(VISCA_Clear);
 	cmd_get_camera_info();
 }
 
