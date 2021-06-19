@@ -64,7 +64,9 @@ PTZSettings::~PTZSettings()
 
 void PTZSettings::set_selected(unsigned int row)
 {
-	ui->deviceList->setCurrentIndex(PTZDevice::model()->index(row, 0));
+	ui->deviceList->setCurrentIndex(QModelIndex());
+	if (row >= 0)
+		ui->deviceList->setCurrentIndex(PTZDevice::model()->index(row, 0));
 }
 
 void PTZSettings::RefreshLists()
@@ -153,6 +155,11 @@ void PTZSettings::currentChanged(const QModelIndex &current, const QModelIndex &
 	Q_UNUSED(previous);
 	RefreshLists();
 
+	ui->viscaPortComboBox->setEnabled(false);
+	ui->viscaIDSpinBox->setEnabled(false);
+	ui->ipAddressComboBox->setEnabled(false);
+	ui->udpPortSpinBox->setEnabled(false);
+
 	if (current.row() < 0)
 		return;
 	PTZDevice *ptz = PTZDevice::get_device(current.row());
@@ -164,9 +171,6 @@ void PTZSettings::currentChanged(const QModelIndex &current, const QModelIndex &
 		ui->viscaIDSpinBox->setValue(obs_data_get_int(cfg, "address"));
 		ui->viscaPortComboBox->setEnabled(true);
 		ui->viscaIDSpinBox->setEnabled(true);
-	} else {
-		ui->viscaPortComboBox->setEnabled(false);
-		ui->viscaIDSpinBox->setEnabled(false);
 	}
 
 	if (type == "visca-over-ip") {
@@ -174,9 +178,6 @@ void PTZSettings::currentChanged(const QModelIndex &current, const QModelIndex &
 		ui->udpPortSpinBox->setValue(obs_data_get_int(cfg, "port"));
 		ui->ipAddressComboBox->setEnabled(true);
 		ui->udpPortSpinBox->setEnabled(true);
-	} else {
-		ui->ipAddressComboBox->setEnabled(false);
-		ui->udpPortSpinBox->setEnabled(false);
 	}
 }
 
@@ -194,8 +195,7 @@ void ptz_settings_show(int row)
 
 	if (!ptzSettingsWindow)
 		ptzSettingsWindow = new PTZSettings();
-	if (row >= 0)
-		ptzSettingsWindow->set_selected(row);
+	ptzSettingsWindow->set_selected(row);
 	ptzSettingsWindow->show();
 	ptzSettingsWindow->raise();
 
