@@ -23,11 +23,8 @@ PTZ Backend
 VISCA
 -----
 
-- Handle VISCA devices that don't send acknowledgement or completion messages
 - Add badge showing when a camera is non-responsive
 - Reorganize settings dialog to show VISCA-over-SERIAL hierarchy
-- Send commands immediately instead of queuing. Only inquiry packets need to be
-  queued because multiple inquiries cannot be in flight over serial.
 
 User Interface
 --------------
