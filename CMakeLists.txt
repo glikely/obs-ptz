@@ -8,6 +8,16 @@ if(QTDIR)
 	set(CMAKE_PREFIX_PATH ${CMAKE_PREFIX_PATH} ${QTDIR}/lib/cmake)
 endif()
 
+if(EXISTS "${CMAKE_SOURCE_DIR}/.git")
+	execute_process(COMMAND git describe --always --tags --dirty=-modified
+		OUTPUT_VARIABLE OBS_PTZ_VERSION
+		WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
+		OUTPUT_STRIP_TRAILING_WHITESPACE)
+else()
+	set(OBS_PTZ_VERSION "unknown")
+endif()
+add_definitions( -DOBS_PTZ_VERSION=${OBS_PTZ_VERSION} )
+
 find_package(Qt5Core REQUIRED)
 find_package(Qt5Widgets REQUIRED)
 find_package(Qt5Svg REQUIRED)

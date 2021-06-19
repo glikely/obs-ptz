@@ -231,9 +231,6 @@
            <verstretch>0</verstretch>
           </sizepolicy>
          </property>
-         <property name="text">
-          <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;OBS PTZ Controls Plugin v0.3.0&lt;/p&gt;&lt;p&gt;&lt;a href=&quot;https://github.com/glikely/obs-ptz&quot;&gt;&lt;span style=&quot; text-decoration: underline; color:#0000ff;&quot;&gt;https://github.com/glikely/obs-ptz&lt;/span&gt;&lt;/a&gt;&lt;/p&gt;&lt;p&gt;By Grant Likely &amp;lt;grant.likely@secretlab.ca&amp;gt;&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
-         </property>
         </widget>
        </item>
        <item>

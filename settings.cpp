@@ -24,6 +24,7 @@
 #include <obs-properties.h>
 
 #include "ptz-device.hpp"
+#include "ptz-controls.hpp"
 #include "settings.hpp"
 #include "ui_settings.h"
 
@@ -32,6 +33,15 @@
 static PTZSettings *ptzSettingsWindow = nullptr;
 
 /* ----------------------------------------------------------------- */
+
+const char *description_text = "<html><head/><body>"
+	"<p>OBS PTZ Controls Plugin<br>"
+	TOSTRING(OBS_PTZ_VERSION) "<br>"
+	"By Grant Likely &lt;grant.likely@secretlab.ca&gt;</p>"
+	"<p><a href=\"https://github.com/glikely/obs-ptz\">"
+		"<span style=\" text-decoration: underline; color:#7f7fff;\">"
+		"https://github.com/glikely/obs-ptz</span></a></p>"
+	"</body></html>";
 
 PTZSettings::PTZSettings() : QWidget(nullptr), ui(new Ui_PTZSettings)
 {
@@ -43,6 +53,7 @@ PTZSettings::PTZSettings() : QWidget(nullptr), ui(new Ui_PTZSettings)
 	propertiesView->setSizePolicy(QSizePolicy::Expanding,
 				      QSizePolicy::Expanding);
 	ui->propertiesLayout->addWidget(propertiesView);
+	ui->versionLabel->setText(description_text);
 
 	config_t *global_config = obs_frontend_get_global_config();
 	ui->deviceList->setModel(PTZDevice::model());

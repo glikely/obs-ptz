@@ -25,6 +25,7 @@ OBS_MODULE_USE_DEFAULT_LOCALE("ptz-controls", "en-US")
 
 bool obs_module_load()
 {
+	blog(LOG_INFO, "PTZ Controls plugin " TOSTRING(OBS_PTZ_VERSION));
 	const auto main_window =
 		static_cast<QMainWindow *>(obs_frontend_get_main_window());
 	obs_frontend_push_ui_translation(obs_module_get_string);
