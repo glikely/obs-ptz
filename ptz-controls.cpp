@@ -272,9 +272,17 @@ void PTZControls::on_panTiltButton_home_released()
 /* There are fewer buttons for zoom or focus; so don't bother with macros */
 void PTZControls::on_zoomButton_tele_pressed()
 {
+	double speed = ui->speedSlider->value();
 	PTZDevice *ptz = currCamera();
-	if (ptz)
-		ptz->zoom_tele();
+	if (!ptz)
+		return;
+
+	if (QGuiApplication::keyboardModifiers().testFlag(Qt::ControlModifier))
+		ptz->zoom_tele(1);
+	else if (QGuiApplication::keyboardModifiers().testFlag(Qt::ShiftModifier))
+		ptz->zoom_tele(0);
+	else
+		ptz->zoom_tele(speed / 100);
 }
 void PTZControls::on_zoomButton_tele_released()
 {
@@ -284,9 +292,17 @@ void PTZControls::on_zoomButton_tele_released()
 }
 void PTZControls::on_zoomButton_wide_pressed()
 {
+	double speed = ui->speedSlider->value();
 	PTZDevice *ptz = currCamera();
-	if (ptz)
-		ptz->zoom_wide();
+	if (!ptz)
+		return;
+
+	if (QGuiApplication::keyboardModifiers().testFlag(Qt::ControlModifier))
+		ptz->zoom_wide(1);
+	else if (QGuiApplication::keyboardModifiers().testFlag(Qt::ShiftModifier))
+		ptz->zoom_wide(0);
+	else
+		ptz->zoom_wide(speed / 100);
 }
 void PTZControls::on_zoomButton_wide_released()
 {

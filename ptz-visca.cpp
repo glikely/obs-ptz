@@ -367,14 +367,16 @@ void PTZVisca::pantilt_home()
 	send(VISCA_PanTilt_Home);
 }
 
-void PTZVisca::zoom_tele()
+void PTZVisca::zoom_tele(double speed_)
 {
-	send(VISCA_CAM_Zoom_Tele);
+	int speed = (speed_ > 1 ? 1 : (speed_ < 0 ? 0 : speed_)) * 0x7;
+	send(VISCA_CAM_Zoom_TeleVar, { speed });
 }
 
-void PTZVisca::zoom_wide()
+void PTZVisca::zoom_wide(double speed_)
 {
-	send(VISCA_CAM_Zoom_Wide);
+	int speed = (speed_ > 1 ? 1 : (speed_ < 0 ? 0 : speed_)) * 0x7;
+	send(VISCA_CAM_Zoom_WideVar, { speed });
 }
 
 void PTZVisca::zoom_stop()
