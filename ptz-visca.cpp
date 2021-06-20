@@ -345,14 +345,16 @@ void PTZVisca::send_pending()
 	timeout_timer.start(2000);
 }
 
-void PTZVisca::pantilt(double pan, double tilt)
+void PTZVisca::pantilt(double pan_, double tilt_)
 {
-	send(VISCA_PanTilt_drive, {(int)pan, (int)-tilt});
+	int pan = (pan_ > 1 ? 1 : (pan_ < -1 ? -1 : pan_)) * 0x18;
+	int tilt = (tilt_ > 1 ? 1 : (tilt_ < -1 ? -1 : tilt_)) * 0x14;
+	send(VISCA_PanTilt_drive, {pan, -tilt});
 }
 
 void PTZVisca::pantilt_rel(int pan, int tilt)
 {
-	send(VISCA_PanTilt_drive_rel, {0x14, 0x14, (int)pan, (int)-tilt});
+	send(VISCA_PanTilt_drive_rel, {0x14, 0x14, pan, -tilt});
 }
 
 void PTZVisca::pantilt_stop()

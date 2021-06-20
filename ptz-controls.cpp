@@ -123,9 +123,9 @@ PTZControls::PTZControls(QWidget *parent)
 				&PTZControls::on_panTiltGamepad);
 	}
 
-	ui->speedSlider->setValue(10);
+	ui->speedSlider->setValue(50);
 	ui->speedSlider->setMinimum(0);
-	ui->speedSlider->setMaximum(0x14);
+	ui->speedSlider->setMaximum(100);
 
 	obs_frontend_add_event_callback(OBSFrontendEventWrapper, this);
 
@@ -224,14 +224,18 @@ PTZDevice * PTZControls::currCamera()
 
 void PTZControls::setPanTilt(double pan, double tilt)
 {
-	int speed = ui->speedSlider->value();
+	double speed = ui->speedSlider->value();
 	PTZDevice *ptz = currCamera();
 	if (!ptz)
 		return;
-	if (speed)
-		ptz->pantilt(pan * speed, tilt * speed);
-	else
-		ptz->pantilt_rel(pan*2, - tilt*2);
+
+	if (QGuiApplication::keyboardModifiers().testFlag(Qt::ControlModifier)) {
+		ptz->pantilt(pan, tilt);
+	} else if (QGuiApplication::keyboardModifiers().testFlag(Qt::ShiftModifier)) {
+		ptz->pantilt_rel(pan, - tilt);
+	} else {
+		ptz->pantilt(pan * speed / 100, tilt * speed / 100);
+	}
 }
 
 void PTZControls::on_panTiltGamepad()
