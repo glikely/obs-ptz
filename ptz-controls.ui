@@ -69,6 +69,9 @@
             <height>55</height>
            </size>
           </property>
+          <property name="toolTip">
+           <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Move camera up left&lt;br/&gt;&amp;lt;ctrl&amp;gt;+click: fast&lt;br/&gt;&amp;lt;shift&amp;gt;+click: slow&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+          </property>
           <property name="text">
            <string/>
           </property>
@@ -91,6 +94,9 @@
             <width>55</width>
             <height>55</height>
            </size>
+          </property>
+          <property name="toolTip">
+           <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Move camera up&lt;br/&gt;&amp;lt;ctrl&amp;gt;+click: fast&lt;br/&gt;&amp;lt;shift&amp;gt;+click: slow&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
           </property>
           <property name="text">
            <string/>
@@ -115,6 +121,9 @@
             <height>55</height>
            </size>
           </property>
+          <property name="toolTip">
+           <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Move camera down right&lt;br/&gt;&amp;lt;ctrl&amp;gt;+click: fast&lt;br/&gt;&amp;lt;shift&amp;gt;+click: slow&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+          </property>
           <property name="text">
            <string/>
           </property>
@@ -138,6 +147,9 @@
             <height>55</height>
            </size>
           </property>
+          <property name="toolTip">
+           <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Move camera up right&lt;br/&gt;&amp;lt;ctrl&amp;gt;+click: fast&lt;br/&gt;&amp;lt;shift&amp;gt;+click: slow&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+          </property>
           <property name="text">
            <string/>
           </property>
@@ -151,6 +163,9 @@
          <widget class="QSlider" name="speedSlider">
           <property name="orientation">
            <enum>Qt::Vertical</enum>
+          </property>
+          <property name="toolTip">
+           <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Set speed of pan, tilt and zoom commands&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
           </property>
          </widget>
         </item>
@@ -191,6 +206,9 @@
             <height>55</height>
            </size>
           </property>
+          <property name="toolTip">
+           <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Move camera left&lt;br/&gt;&amp;lt;ctrl&amp;gt;+click: fast&lt;br/&gt;&amp;lt;shift&amp;gt;+click: slow&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+          </property>
           <property name="text">
            <string/>
           </property>
@@ -220,6 +238,9 @@
             <height>16777215</height>
            </size>
           </property>
+          <property name="toolTip">
+           <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Move camera down&lt;br/&gt;&amp;lt;ctrl&amp;gt;+click: fast&lt;br/&gt;&amp;lt;shift&amp;gt;+click: slow&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+          </property>
           <property name="text">
            <string/>
           </property>
@@ -243,6 +264,9 @@
             <height>55</height>
            </size>
           </property>
+          <property name="toolTip">
+           <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Move camera down left&lt;br/&gt;&amp;lt;ctrl&amp;gt;+click: fast&lt;br/&gt;&amp;lt;shift&amp;gt;+click: slow&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+          </property>
           <property name="text">
            <string/>
           </property>
@@ -265,6 +289,9 @@
             <width>55</width>
             <height>55</height>
            </size>
+          </property>
+          <property name="toolTip">
+           <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Move camera right&lt;br/&gt;&amp;lt;ctrl&amp;gt;+click: fast&lt;br/&gt;&amp;lt;shift&amp;gt;+click: slow&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
           </property>
           <property name="text">
            <string/>
@@ -294,6 +321,9 @@
               <height>27</height>
              </size>
             </property>
+            <property name="toolTip">
+             <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Zoom camera out&lt;br/&gt;&amp;lt;ctrl&amp;gt;+click: fast&lt;br/&gt;&amp;lt;shift&amp;gt;+click: slow&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+            </property>
             <property name="text">
              <string>Wide</string>
             </property>
@@ -312,6 +342,9 @@
               <width>50</width>
               <height>27</height>
              </size>
+            </property>
+            <property name="toolTip">
+             <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Zoom camera in&lt;br/&gt;&amp;lt;ctrl&amp;gt;+click: fast&lt;br/&gt;&amp;lt;shift&amp;gt;+click: slow&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
             </property>
             <property name="layoutDirection">
              <enum>Qt::LeftToRight</enum>
