@@ -82,19 +82,10 @@ void PTZSettings::set_selected(unsigned int row)
 
 void PTZSettings::RefreshLists()
 {
-	QGamepadManager *gpm = QGamepadManager::instance();
-	ui->gamepadComboBox->clear();
-	Q_FOREACH(int id, gpm->connectedGamepads()) {
-		// WIN32 doesn't return gamepad names, so manufacture one
-		if (gpm->gamepadName(id).isEmpty())
-			ui->gamepadComboBox->addItem(QString("Gamepad %1").arg(id));
-		else
-			ui->gamepadComboBox->addItem(gpm->gamepadName(id));
-	}
-
+	ui->gamepadCheckBox->setChecked(PTZControls::getInstance()->gamepadEnabled());
 	ui->viscaPortComboBox->clear();
 	Q_FOREACH(QSerialPortInfo port, QSerialPortInfo::availablePorts())
-		ui->viscaPortComboBox->addItem(port.portName());
+		ui->viscaPortComboBox->addItem(port.portName());	
 }
 
 void PTZSettings::on_applyButton_clicked()
@@ -106,7 +97,10 @@ void PTZSettings::on_applyButton_clicked()
 	OBSData cfg = ptz->get_config();
 	std::string type = obs_data_get_string(cfg, "type");
 
-	if (type == "visca") {
+	if (type == "pelco-p") {
+		obs_data_set_int(cfg, "address", ui->viscaIDSpinBox->value());
+		obs_data_set_string(cfg, "port", qPrintable(ui->viscaPortComboBox->currentText()));
+	} else if (type == "visca") {
 		obs_data_set_int(cfg, "address", ui->viscaIDSpinBox->value());
 		obs_data_set_string(cfg, "port", qPrintable(ui->viscaPortComboBox->currentText()));
 	} else if (type == "visca-over-ip") {
@@ -129,6 +123,7 @@ void PTZSettings::on_addPTZ_clicked()
 	QMenu addPTZContext;
 	QAction *addViscaSerial = addPTZContext.addAction("VISCA Serial");
 	QAction *addViscaIP = addPTZContext.addAction("VISCA over IP");
+	QAction *addPelcoP = addPTZContext.addAction("Pelco P");
 	QAction *action = addPTZContext.exec(QCursor::pos());
 
 	if (action == addViscaSerial) {
@@ -147,6 +142,14 @@ void PTZSettings::on_addPTZ_clicked()
 		obs_data_set_int(cfg, "port", 52381);
 		PTZDevice::make_device(cfg);
 	}
+	if (action == addPelcoP)
+	{
+		OBSData cfg = obs_data_create();
+		obs_data_release(cfg);
+		obs_data_set_string(cfg, "type", "pelco-p");
+		obs_data_set_string(cfg, "name", "PTZ");
+		PTZDevice::make_device(cfg);
+	}
 }
 
 void PTZSettings::on_removePTZ_clicked()
@@ -159,6 +162,11 @@ void PTZSettings::on_removePTZ_clicked()
 		return;
 
 	delete ptz;
+}
+
+void PTZSettings::on_gamepadCheckBox_stateChanged(int state)
+{
+	PTZControls::getInstance()->setGamepadEnabled(ui->gamepadCheckBox->isChecked());
 }
 
 void PTZSettings::currentChanged(const QModelIndex &current, const QModelIndex &previous)
@@ -178,6 +186,7 @@ void PTZSettings::currentChanged(const QModelIndex &current, const QModelIndex &
 	std::string type = obs_data_get_string(cfg, "type");
 	if (type == "visca") {
 		std::string port = obs_data_get_string(cfg, "port");
+		ui->serialLabel->setText("Visca Serial");
 		ui->viscaPortComboBox->setCurrentText(obs_data_get_string(cfg, "port"));
 		ui->viscaIDSpinBox->setValue(obs_data_get_int(cfg, "address"));
 		ui->viscaPortComboBox->setEnabled(true);
@@ -189,6 +198,14 @@ void PTZSettings::currentChanged(const QModelIndex &current, const QModelIndex &
 		ui->udpPortSpinBox->setValue(obs_data_get_int(cfg, "port"));
 		ui->ipAddressComboBox->setEnabled(true);
 		ui->udpPortSpinBox->setEnabled(true);
+	}
+	if (type == "pelco-p")
+	{
+		ui->serialLabel->setText("PELCO-P Serial");
+		ui->viscaPortComboBox->setCurrentText(obs_data_get_string(cfg, "port"));
+		ui->viscaIDSpinBox->setValue(obs_data_get_int(cfg, "address"));
+		ui->viscaPortComboBox->setEnabled(true);
+		ui->viscaIDSpinBox->setEnabled(true);
 	}
 }
 

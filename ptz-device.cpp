@@ -8,6 +8,9 @@
 #include <obs.hpp>
 #include "ptz-device.hpp"
 #include "ptz-visca.hpp"
+#include "ptz-pelco-p.hpp"
+
+int ptz_debug_level = LOG_INFO;
 
 PTZListModel PTZDevice::ptz_list_model;
 QVector<PTZDevice *> PTZDevice::devices;
@@ -65,6 +68,8 @@ PTZDevice *PTZDevice::make_device(OBSData config)
 	PTZDevice *ptz = nullptr;
 	std::string type = obs_data_get_string(config, "type");
 
+	if (type == "pelco-p")
+		ptz = new PTZPelcoP(config);
 	if (type == "sim")
 		ptz = new PTZSimulator(config);
 	if (type == "visca")

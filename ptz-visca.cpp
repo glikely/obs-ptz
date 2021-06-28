@@ -280,7 +280,7 @@ void PTZVisca::send(ViscaCmd cmd, QList<int> args)
 
 void PTZVisca::timeout()
 {
-	blog(LOG_INFO, "VISCA %s timeout", qPrintable(objectName()));
+	ptz_debug("VISCA %s timeout", qPrintable(objectName()));
 	active_cmd[0] = false;
 	pending_cmds.clear();
 }
@@ -303,7 +303,7 @@ void PTZVisca::receive(const QByteArray &msg)
 		break;
 	case VISCA_RESPONSE_COMPLETED:
 		if (!active_cmd[slot]) {
-			blog(LOG_INFO, "VISCA %s spurious reply: %s", qPrintable(objectName()), msg.toHex(':').data());
+			ptz_debug("VISCA %s spurious reply: %s", qPrintable(objectName()), msg.toHex(':').data());
 			break;
 		}
 		active_cmd[slot] = false;
@@ -318,7 +318,7 @@ void PTZVisca::receive(const QByteArray &msg)
 			QString logmsg(objectName() + ":");
 			for (QByteArrayList::iterator i = propnames.begin(); i != propnames.end(); i++) 
 				logmsg = logmsg + " " + QString(i->data()) + "=" + property(i->data()).toString();
-			blog(LOG_INFO, qPrintable(logmsg));
+			ptz_debug("%s", qPrintable(logmsg));
 		}
 
 		break;
@@ -326,10 +326,10 @@ void PTZVisca::receive(const QByteArray &msg)
 		active_cmd[slot] = false;
 		if (slot == 0)
 			timeout_timer.stop();
-		blog(LOG_INFO, "VISCA %s received error: %s", qPrintable(objectName()), msg.toHex(':').data());
+		ptz_debug("VISCA %s received error: %s", qPrintable(objectName()), msg.toHex(':').data());
 		break;
 	default:
-		blog(LOG_INFO, "VISCA %s received unknown: %s", qPrintable(objectName()), msg.toHex(':').data());
+		ptz_debug("VISCA %s received unknown: %s", qPrintable(objectName()), msg.toHex(':').data());
 		break;
 	}
 	send_pending();
@@ -433,20 +433,21 @@ void ViscaUART::send(const QByteArray &packet)
 {
 	if (!uart.isOpen())
 		return;
-	blog(LOG_INFO, "VISCA --> %s", packet.toHex(':').data());
+	ptz_debug("VISCA --> %s", packet.toHex(':').data());
 	uart.write(packet);
 }
 
 void ViscaUART::receive_datagram(const QByteArray &packet)
 {
-	blog(LOG_INFO, "VISCA <-- %s", packet.toHex(':').data());
+	ptz_debug("VISCA <-- %s", packet.toHex(':').data());
 	if (packet.size() < 3)
 		return;
 	if ((packet[1] & 0xf0) == VISCA_RESPONSE_ADDRESS) {
 		switch (packet[1] & 0x0f) { /* Decode Packet Socket Field */
 		case 0:
 			camera_count = (packet[2] & 0x7) - 1;
-			blog(LOG_INFO, "VISCA Interface %s: %i camera%s found", qPrintable(uart.portName()),
+			blog(LOG_INFO, "VISCA Interface %s: %i camera%s found",
+				qPrintable(uart.portName()),
 				camera_count, camera_count == 1 ? "" : "s");
 			send(VISCA_IF_CLEAR.cmd);
 			emit reset();
@@ -483,10 +484,10 @@ void ViscaUART::poll()
 ViscaUART * ViscaUART::get_interface(QString port_name)
 {
 	ViscaUART *iface;
-	qDebug() << "Looking for UART object" << port_name;
+	ptz_debug("Looking for UART object %s", qPrintable(port_name));
 	iface = interfaces[port_name];
 	if (!iface) {
-		qDebug() << "Creating new VISCA object" << port_name;
+		ptz_debug("Creating new VISCA object %s", qPrintable(port_name));
 		iface = new ViscaUART(port_name);
 		interfaces[port_name] = iface;
 	}
@@ -561,10 +562,10 @@ void ViscaUDPSocket::receive_datagram(QNetworkDatagram &dg)
 	int size = data[2] << 8 | data[3];
 
 	if ((data.size() != size + 8) || size < 1) {
-		blog(LOG_INFO, "VISCA UDP (malformed) <-- %s", qPrintable(data.toHex(':')));
+		ptz_debug("VISCA UDP (malformed) <-- %s", qPrintable(data.toHex(':')));
 		return;
 	}
-	blog(LOG_INFO, "VISCA UDP <-- %s", qPrintable(data.toHex(':')));
+	ptz_debug("VISCA UDP <-- %s", qPrintable(data.toHex(':')));
 
 	switch (type) {
 	case 0x0111:
@@ -575,14 +576,14 @@ void ViscaUDPSocket::receive_datagram(QNetworkDatagram &dg)
 			emit reset();
 		break;
 	default:
-		blog(LOG_INFO, "VISCA UDP unrecognized type: %x", type);
+		ptz_debug("VISCA UDP unrecognized type: %x", type);
 	}
 
 }
 
 void ViscaUDPSocket::send(QHostAddress ip_address, const QByteArray &packet)
 {
-	blog(LOG_INFO, "VISCA UDP --> %s", qPrintable(packet.toHex(':')));
+	ptz_debug("VISCA UDP --> %s", qPrintable(packet.toHex(':')));
 	visca_socket.writeDatagram(packet, ip_address, visca_port);
 }
 
@@ -597,10 +598,10 @@ void ViscaUDPSocket::poll()
 ViscaUDPSocket * ViscaUDPSocket::get_interface(int port)
 {
 	ViscaUDPSocket *iface;
-	qDebug() << "Looking for Visca UDP Socket object" << port;
+	ptz_debug("Looking for Visca UDP Socket object %i", port);
 	iface = interfaces[port];
 	if (!iface) {
-		qDebug() << "Creating new VISCA object" << port;
+		ptz_debug("Creating new VISCA object %i", port);
 		iface = new ViscaUDPSocket(port);
 		interfaces[port] = iface;
 	}

@@ -37,13 +37,15 @@ set(ptz-controls_HEADERS
     ptz-controls.hpp
     ptz-device.hpp
     settings.hpp
-    ptz-visca.hpp)
+    ptz-visca.hpp
+    ptz-pelco-p.hpp)
 
 set(ptz-controls_SOURCES
     ptz-controls.cpp
     ptz-device.cpp
     settings.cpp
-    ptz-visca.cpp)
+    ptz-visca.cpp
+    ptz-pelco-p.cpp)
 
 set(ptz-controls_QRC
     ptz-controls.qrc)
