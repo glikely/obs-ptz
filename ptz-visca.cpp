@@ -483,10 +483,10 @@ void ViscaUART::poll()
 ViscaUART * ViscaUART::get_interface(QString port_name)
 {
 	ViscaUART *iface;
-	qDebug() << "Looking for UART object" << port_name;
+	blog(LOG_DEBUG, "Looking for UART object %s", qPrintable(port_name));
 	iface = interfaces[port_name];
 	if (!iface) {
-		qDebug() << "Creating new VISCA object" << port_name;
+		blog(LOG_DEBUG, "Creating new VISCA object %s", qPrintable(port_name));
 		iface = new ViscaUART(port_name);
 		interfaces[port_name] = iface;
 	}
@@ -597,10 +597,10 @@ void ViscaUDPSocket::poll()
 ViscaUDPSocket * ViscaUDPSocket::get_interface(int port)
 {
 	ViscaUDPSocket *iface;
-	qDebug() << "Looking for Visca UDP Socket object" << port;
+	blog(LOG_DEBUG, "Looking for Visca UDP Socket object %i", port);
 	iface = interfaces[port];
 	if (!iface) {
-		qDebug() << "Creating new VISCA object" << port;
+		blog(LOG_DEBUG, "Creating new VISCA object %i", port);
 		iface = new ViscaUDPSocket(port);
 		interfaces[port] = iface;
 	}

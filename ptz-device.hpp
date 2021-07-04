@@ -7,7 +7,6 @@
 #pragma once
 
 #include <memory>
-#include <QDebug>
 #include <QObject>
 #include <QStringListModel>
 #include <QtGlobal>
@@ -92,7 +91,7 @@ public:
 			if (!ptz)
 				break;
 			new_name = name + " " + QString::number(i);
-			qDebug() << "new values" << new_name << name << i;
+			blog(LOG_DEBUG, "new name %s", qPrintable(new_name));
 		}
 		QObject::setObjectName(new_name);
 	}
@@ -105,10 +104,10 @@ public:
 	PTZSimulator() : PTZDevice("sim") { };
 	PTZSimulator(OBSData config) : PTZDevice("sim") { set_config(config); };
 
-	void pantilt(double pan, double tilt) { qDebug() << __func__ << "Pan" << pan << "Tilt" << tilt; }
-	void pantilt_stop() { qDebug() << __func__; }
-	void pantilt_home() { qDebug() << __func__; }
-	void zoom_stop() { qDebug() << __func__; }
-	void zoom_tele(double speed) { Q_UNUSED(speed); qDebug() << __func__; }
-	void zoom_wide(double speed) { Q_UNUSED(speed); qDebug() << __func__; }
+	void pantilt(double pan, double tilt) { blog(LOG_DEBUG, "%s Pan %f Tile %f", __func__, pan, tilt); }
+	void pantilt_stop() { blog(LOG_DEBUG, __func__); }
+	void pantilt_home() { blog(LOG_DEBUG, __func__); }
+	void zoom_stop() { blog(LOG_DEBUG, __func__); }
+	void zoom_tele(double speed) { blog(LOG_DEBUG, "%s speed=%f", __func__, speed); }
+	void zoom_wide(double speed) { blog(LOG_DEBUG, "%s speed=%f", __func__, speed); }
 };

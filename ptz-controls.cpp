@@ -203,7 +203,7 @@ void PTZControls::LoadConfig()
 	array = obs_data_get_array(data, "devices");
 	obs_data_array_release(array);
 	if (!array) {
-		qDebug() << "No PTZ device configuration found";
+		blog(LOG_DEBUG, "No PTZ device configuration found");
 		return;
 	}
 	for (size_t i = 0; i < obs_data_array_count(array); i++) {
