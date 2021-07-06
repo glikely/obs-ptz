@@ -13,6 +13,11 @@
 #include <obs.hpp>
 #include <obs-frontend-api.h>
 
+extern int ptz_debug_level;
+#define ptz_debug(format, ...) \
+	blog(ptz_debug_level, "%s():%i: " format, __FUNCTION__, __LINE__, \
+	##__VA_ARGS__)
+
 class PTZListModel : public QAbstractListModel {
 	Q_OBJECT
 
@@ -91,7 +96,7 @@ public:
 			if (!ptz)
 				break;
 			new_name = name + " " + QString::number(i);
-			blog(LOG_DEBUG, "new name %s", qPrintable(new_name));
+			ptz_debug("new name %s", qPrintable(new_name));
 		}
 		QObject::setObjectName(new_name);
 	}
@@ -104,10 +109,10 @@ public:
 	PTZSimulator() : PTZDevice("sim") { };
 	PTZSimulator(OBSData config) : PTZDevice("sim") { set_config(config); };
 
-	void pantilt(double pan, double tilt) { blog(LOG_DEBUG, "%s Pan %f Tile %f", __func__, pan, tilt); }
-	void pantilt_stop() { blog(LOG_DEBUG, __func__); }
-	void pantilt_home() { blog(LOG_DEBUG, __func__); }
-	void zoom_stop() { blog(LOG_DEBUG, __func__); }
-	void zoom_tele(double speed) { blog(LOG_DEBUG, "%s speed=%f", __func__, speed); }
-	void zoom_wide(double speed) { blog(LOG_DEBUG, "%s speed=%f", __func__, speed); }
+	void pantilt(double pan, double tilt) { ptz_debug("Pan %f Tile %f", pan, tilt); }
+	void pantilt_stop() { ptz_debug("pantilt stop"); }
+	void pantilt_home() { ptz_debug("pantilt home"); }
+	void zoom_stop() { ptz_debug("zoom stop"); }
+	void zoom_tele(double speed) { ptz_debug("speed=%f", speed); }
+	void zoom_wide(double speed) { ptz_debug("speed=%f", speed); }
 };

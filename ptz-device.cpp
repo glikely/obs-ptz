@@ -9,6 +9,8 @@
 #include "ptz-device.hpp"
 #include "ptz-visca.hpp"
 
+int ptz_debug_level = LOG_INFO;
+
 PTZListModel PTZDevice::ptz_list_model;
 QVector<PTZDevice *> PTZDevice::devices;
 

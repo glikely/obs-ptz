@@ -153,6 +153,7 @@ void PTZControls::SaveConfig()
 	obs_data_release(data);
 
 	obs_data_set_bool(data, "use_joystick", true);
+	obs_data_set_int(data, "debug_log_level", ptz_debug_level);
 	const char *target_mode = "manual";
 	if (ui->targetButton_preview->isChecked())
 		target_mode = "preview";
@@ -194,7 +195,10 @@ void PTZControls::LoadConfig()
 	if (!data)
 		return;
 	obs_data_release(data);
+	obs_data_set_default_int(data, "debug_log_level", LOG_INFO);
+	obs_data_set_default_string(data, "target_mode", "preview");
 
+	ptz_debug_level = obs_data_get_int(data, "debug_log_level");
 	target_mode = obs_data_get_string(data, "target_mode");
 	ui->targetButton_preview->setChecked(target_mode == "preview");
 	ui->targetButton_program->setChecked(target_mode == "program");
@@ -203,7 +207,7 @@ void PTZControls::LoadConfig()
 	array = obs_data_get_array(data, "devices");
 	obs_data_array_release(array);
 	if (!array) {
-		blog(LOG_DEBUG, "No PTZ device configuration found");
+		blog(LOG_INFO, "No PTZ configuration found");
 		return;
 	}
 	for (size_t i = 0; i < obs_data_array_count(array); i++) {
