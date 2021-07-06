@@ -82,16 +82,7 @@ void PTZSettings::set_selected(unsigned int row)
 
 void PTZSettings::RefreshLists()
 {
-	QGamepadManager *gpm = QGamepadManager::instance();
-	ui->gamepadComboBox->clear();
-	Q_FOREACH(int id, gpm->connectedGamepads()) {
-		// WIN32 doesn't return gamepad names, so manufacture one
-		if (gpm->gamepadName(id).isEmpty())
-			ui->gamepadComboBox->addItem(QString("Gamepad %1").arg(id));
-		else
-			ui->gamepadComboBox->addItem(gpm->gamepadName(id));
-	}
-
+	ui->gamepadCheckBox->setChecked(PTZControls::getInstance()->gamepadEnabled());
 	ui->viscaPortComboBox->clear();
 	Q_FOREACH(QSerialPortInfo port, QSerialPortInfo::availablePorts())
 		ui->viscaPortComboBox->addItem(port.portName());
@@ -159,6 +150,11 @@ void PTZSettings::on_removePTZ_clicked()
 		return;
 
 	delete ptz;
+}
+
+void PTZSettings::on_gamepadCheckBox_stateChanged(int state)
+{
+	PTZControls::getInstance()->setGamepadEnabled(ui->gamepadCheckBox->isChecked());
 }
 
 void PTZSettings::currentChanged(const QModelIndex &current, const QModelIndex &previous)

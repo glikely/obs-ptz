@@ -22,14 +22,15 @@ class PTZControls : public QDockWidget {
 
 private:
 	static void OBSFrontendEventWrapper(enum obs_frontend_event event, void *ptr);
+	static PTZControls *instance;
 	void OBSFrontendEvent(enum obs_frontend_event event);
 
 	std::unique_ptr<Ui::PTZControls> ui;
 
 	unsigned int current_cam;
 
+	bool use_gamepad;
 	QGamepad *gamepad;
-	double joystick_pan, joystick_tilt;
 
 	void SaveConfig();
 	void LoadConfig();
@@ -78,4 +79,7 @@ private slots:
 public:
 	PTZControls(QWidget *parent = nullptr);
 	~PTZControls();
+	void setGamepadEnabled(bool enable);
+	bool gamepadEnabled() { return use_gamepad; };
+	static PTZControls* getInstance() { return instance; };
 };
