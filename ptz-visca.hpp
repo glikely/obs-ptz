@@ -89,6 +89,24 @@ public:
 		return val;
 	}
 };
+/* 15 bit value encoded into two bytes. Protocol encoding forces bit 15 & 7 to zero */
+class visca_u15 : public visca_encoding {
+public:
+	visca_u15(const char *name, int offset) : visca_encoding(name, offset) { }
+	void encode(QByteArray &data, int val) {
+		if (data.size() < offset + 2)
+			return;
+		data[offset] = (val >> 8) & 0x7f;
+		data[offset+1] = val & 0x7f;
+	}
+	int decode(QByteArray &data) {
+		if (data.size() < offset + 2)
+			return 0;
+		uint16_t val = (data[offset] & 0x7f) << 8 |
+			       (data[offset+1] & 0x7f);
+		return val;
+	}
+};
 class visca_s16 : public visca_encoding {
 public:
 	visca_s16(const char *name, int offset) : visca_encoding(name, offset) { }
@@ -164,6 +182,8 @@ class PTZVisca : public PTZDevice {
 	Q_OBJECT
 
 protected:
+	static const QMap<uint16_t, QString> viscaVendors;
+	static const QMap<uint32_t, QString> viscaModels;
 	unsigned int address;
 	QList<ViscaCmd> pending_cmds;
 	bool active_cmd[8];

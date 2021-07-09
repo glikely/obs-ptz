@@ -15,6 +15,13 @@ std::map<int, ViscaUDPSocket*> ViscaUDPSocket::interfaces;
 const ViscaCmd VISCA_ENUMERATE("883001ff");
 const ViscaCmd VISCA_IF_CLEAR("88010001ff");
 
+const ViscaInq VISCA_CAM_VersionInq("81090002ff", {
+		new visca_u15("vendor", 2),
+		new visca_u15("model", 4),
+		new visca_u15("rom_version", 6),
+		new visca_u7("socket_number", 8)
+	});
+
 const ViscaCmd VISCA_Clear("81010001ff");
 const ViscaCmd VISCA_CommandCancel("8120ff", {new visca_u4("socket", 1)});
 const ViscaCmd VISCA_CAM_Power_On("8101040002ff");
@@ -251,6 +258,16 @@ const ViscaCmd VISCA_PanTilt_LimitClearDownLeft("810106070100070f0f0f070f0f0fff"
 #define VISCA_RESPONSE_ERROR     0x60
 #define VISCA_PACKET_SENDER(pkt) ((unsigned)((pkt)[0] & 0x70) >> 4)
 
+const QMap<uint16_t, QString> PTZVisca::viscaVendors = {
+	{ 0x0001, "Sony" },
+};
+
+/* lookup in this table is: (Vendor ID << 16) | Model ID */
+const QMap<uint32_t, QString> PTZVisca::viscaModels = {
+	/* Sony Cameras */
+	{ 0x00010511, "SRG-120DH" },
+};
+
 /*
  * PTZVisca Methods
  */
@@ -287,6 +304,8 @@ void PTZVisca::timeout()
 
 void PTZVisca::cmd_get_camera_info()
 {
+	send(VISCA_CAM_VersionInq);
+	send(VISCA_CAM_VersionInq); // hack: first inquiry doesn't always work, send twice
 	send(VISCA_CAM_ZoomPosInq);
 	send(VISCA_PanTilt_PosInq);
 }
@@ -316,8 +335,20 @@ void PTZVisca::receive(const QByteArray &msg)
 
 			QByteArrayList propnames = dynamicPropertyNames();
 			QString logmsg(objectName() + ":");
-			for (QByteArrayList::iterator i = propnames.begin(); i != propnames.end(); i++) 
+			for (QByteArrayList::iterator i = propnames.begin(); i != propnames.end(); i++) {
 				logmsg = logmsg + " " + QString(i->data()) + "=" + property(i->data()).toString();
+				if (QString(i->data()) == "vendor") {
+					int vendor = property(i->data()).toInt();
+					if (viscaVendors.contains(vendor))
+						logmsg += "," + viscaVendors[vendor];
+				}
+				if (QString(i->data()) == "model") {
+					int vendormodel = (property("vendor").toInt() << 16) |
+							   property("model").toInt();
+					if (viscaModels.contains(vendormodel))
+						logmsg += "," + viscaModels[vendormodel];
+				}
+			}
 			ptz_debug("%s", qPrintable(logmsg));
 		}
 
@@ -563,17 +594,20 @@ void ViscaUDPSocket::receive_datagram(QNetworkDatagram &dg)
 	QByteArray data = dg.data();
 	int type = ((data[0] & 0xff) << 8) | (data[1] & 0xff);
 	int size = data[2] << 8 | data[3];
+	int seq = data[4] << 24 | data[5] << 16 | data[6] << 8 | data[7];
 
 	if ((data.size() != size + 8) || size < 1) {
 		ptz_debug("VISCA UDP (malformed) <-- %s", qPrintable(data.toHex(':')));
 		return;
 	}
-	ptz_debug("VISCA UDP <-- %s", qPrintable(data.toHex(':')));
+	ptz_debug("VISCA UDP type=%.4x seq=%i size=%i <-- %s",
+		type, seq, size, qPrintable(data.toHex(':')));
 
 	switch (type) {
 	case 0x0111:
 		emit receive(data.mid(8, size));
 		break;
+	case 0x0200:
 	case 0x0201: /* Check for sequence number out of sync */
 		if (data[8] == (char)0x0f && data[8+1] == (char)1)
 			emit reset();
