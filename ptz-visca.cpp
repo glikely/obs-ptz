@@ -551,7 +551,10 @@ OBSData PTZViscaSerial::get_config()
 ViscaUDPSocket::ViscaUDPSocket(int port) :
 	visca_port(port)
 {
-	visca_socket.bind(QHostAddress::Any, visca_port);
+	if (!visca_socket.bind(QHostAddress::Any, visca_port)) {
+		blog(LOG_INFO, "VISCA-over-IP bind to port %i failed", visca_port);
+		return;
+	}
 	connect(&visca_socket, &QUdpSocket::readyRead, this, &ViscaUDPSocket::poll);
 }
 
