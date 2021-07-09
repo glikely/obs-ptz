@@ -88,7 +88,9 @@ jobs:
                  libxss-dev \
                  qtwayland5 \
                  libgles2-mesa \
-                 libgles2-mesa-dev
+                 libgles2-mesa-dev \
+                 libqt5gamepad5-dev \
+                 libqt5serialport5-dev
       - name: 'Restore pre-built OBS Studio from cache'
         id: obs-cache
         uses: actions/cache@v2.1.2
@@ -121,6 +123,15 @@ jobs:
       - name: 'Install OBS'
         working-directory: ${{ github.workspace}}/obs-studio/build
         run: sudo dpkg -i obs-studio_${{ env.OBS_VERSION}}-git-1_amd64.deb
+      - name: 'Configure OBS PTZ'
+        working-directory: ${{ github.workspace }}/obs-ptz
+        run: |
+          mkdir ./build
+          cd ./build
+          cmake ..
+      - name: 'Build OBS PTZ'
+        working-directory: ${{ github.workspace }}/obs-ptz/build
+        run: make
   win64:
     name: 'Windows 64-bit'
     runs-on: [windows-latest]
