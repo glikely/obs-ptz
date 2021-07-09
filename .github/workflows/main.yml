@@ -18,7 +18,7 @@ on:
 jobs:
   ubuntu64:
     name: 'Linux/Ubuntu 64-bit'
-    runs-on: [ubuntu-18.04]
+    runs-on: [ubuntu-20.04]
     env:
       OBS_VERSION: '27.0.0'
       LibObs_Dir: "${{ github.workspace }}/obs-studio"
