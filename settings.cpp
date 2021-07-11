@@ -97,7 +97,7 @@ void PTZSettings::on_applyButton_clicked()
 	OBSData cfg = ptz->get_config();
 	std::string type = obs_data_get_string(cfg, "type");
 
-	if (type == "visca") {
+	if ((type == "pelco-p") || (type == "visca")) {
 		obs_data_set_int(cfg, "address", ui->viscaIDSpinBox->value());
 		obs_data_set_string(cfg, "port", qPrintable(ui->viscaPortComboBox->currentText()));
 	} else if (type == "visca-over-ip") {
@@ -120,6 +120,7 @@ void PTZSettings::on_addPTZ_clicked()
 	QMenu addPTZContext;
 	QAction *addViscaSerial = addPTZContext.addAction("VISCA Serial");
 	QAction *addViscaIP = addPTZContext.addAction("VISCA over IP");
+	QAction *addPelcoP = addPTZContext.addAction("Pelco P");
 	QAction *action = addPTZContext.exec(QCursor::pos());
 
 	if (action == addViscaSerial) {
@@ -136,6 +137,13 @@ void PTZSettings::on_addPTZ_clicked()
 		obs_data_set_string(cfg, "name", "PTZ");
 		obs_data_set_string(cfg, "address", "192.168.0.100");
 		obs_data_set_int(cfg, "port", 52381);
+		PTZDevice::make_device(cfg);
+	}
+	if (action == addPelcoP) {
+		OBSData cfg = obs_data_create();
+		obs_data_release(cfg);
+		obs_data_set_string(cfg, "type", "pelco-p");
+		obs_data_set_string(cfg, "name", "PTZ");
 		PTZDevice::make_device(cfg);
 	}
 }
@@ -174,6 +182,7 @@ void PTZSettings::currentChanged(const QModelIndex &current, const QModelIndex &
 	std::string type = obs_data_get_string(cfg, "type");
 	if (type == "visca") {
 		std::string port = obs_data_get_string(cfg, "port");
+		ui->serialLabel->setText("Visca Serial");
 		ui->viscaPortComboBox->setCurrentText(obs_data_get_string(cfg, "port"));
 		ui->viscaIDSpinBox->setValue(obs_data_get_int(cfg, "address"));
 		ui->viscaPortComboBox->setEnabled(true);
@@ -185,6 +194,14 @@ void PTZSettings::currentChanged(const QModelIndex &current, const QModelIndex &
 		ui->udpPortSpinBox->setValue(obs_data_get_int(cfg, "port"));
 		ui->ipAddressComboBox->setEnabled(true);
 		ui->udpPortSpinBox->setEnabled(true);
+	}
+
+	if (type == "pelco-p") {
+		ui->serialLabel->setText("PELCO-P Serial");
+		ui->viscaPortComboBox->setCurrentText(obs_data_get_string(cfg, "port"));
+		ui->viscaIDSpinBox->setValue(obs_data_get_int(cfg, "address"));
+		ui->viscaPortComboBox->setEnabled(true);
+		ui->viscaIDSpinBox->setEnabled(true);
 	}
 }
 
