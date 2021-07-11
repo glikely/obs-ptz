@@ -161,7 +161,7 @@ public:
 	ViscaCmd(const char *cmd_hex, QList<visca_encoding*> args, QList<visca_encoding*> rslts) :
 		cmd(QByteArray::fromHex(cmd_hex)), args(args), results(rslts) { }
 	void encode(QList<int> arglist) {
-		for (int i = 0; i < arglist.size(), i < args.size(); i++)
+		for (int i = 0; i < arglist.size() && i < args.size(); i++)
 			args[i]->encode(cmd, arglist[i]);
 	}
 	void decode(QObject *target, QByteArray msg) {

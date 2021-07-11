@@ -81,7 +81,7 @@ git clone https://github.com/glikely/obs-ptz
 
 ```
 cd obs-studio
-git am < UI/frontend-plugins/patches/0001-Add-obs-ptz-plugin-to-OBS-Studio.patch
+git am < UI/frontend-plugins/obs-ptz/patches/0001-Add-obs-ptz-plugin-to-OBS-Studio.patch
 ```
 
 - Rebuild OBS Studio
