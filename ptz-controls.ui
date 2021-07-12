@@ -16,9 +16,6 @@
   <property name="floating">
    <bool>true</bool>
   </property>
-  <property name="features">
-   <set>QDockWidget::DockWidgetClosable|QDockWidget::DockWidgetMovable|QDockWidget::DockWidgetFloatable</set>
-  </property>
   <property name="windowTitle">
    <string>PTZ Controls</string>
   </property>
