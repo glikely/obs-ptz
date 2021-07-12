@@ -83,9 +83,9 @@ void PTZSettings::set_selected(unsigned int row)
 void PTZSettings::RefreshLists()
 {
 	ui->gamepadCheckBox->setChecked(PTZControls::getInstance()->gamepadEnabled());
-	ui->viscaPortComboBox->clear();
+	ui->serialPortComboBox->clear();
 	Q_FOREACH(QSerialPortInfo port, QSerialPortInfo::availablePorts())
-		ui->viscaPortComboBox->addItem(port.portName());
+		ui->serialPortComboBox->addItem(port.portName());
 }
 
 void PTZSettings::on_applyButton_clicked()
@@ -98,8 +98,8 @@ void PTZSettings::on_applyButton_clicked()
 	std::string type = obs_data_get_string(cfg, "type");
 
 	if ((type == "pelco-p") || (type == "visca")) {
-		obs_data_set_int(cfg, "address", ui->viscaIDSpinBox->value());
-		obs_data_set_string(cfg, "port", qPrintable(ui->viscaPortComboBox->currentText()));
+		obs_data_set_int(cfg, "address", ui->serialDevIDSpinBox->value());
+		obs_data_set_string(cfg, "port", qPrintable(ui->serialPortComboBox->currentText()));
 	} else if (type == "visca-over-ip") {
 		obs_data_set_string(cfg, "address", qPrintable(ui->ipAddressComboBox->currentText()));
 		obs_data_set_int(cfg, "port", ui->udpPortSpinBox->value());
@@ -170,38 +170,26 @@ void PTZSettings::currentChanged(const QModelIndex &current, const QModelIndex &
 	Q_UNUSED(previous);
 	RefreshLists();
 
-	ui->viscaPortComboBox->setEnabled(false);
-	ui->viscaIDSpinBox->setEnabled(false);
-	ui->ipAddressComboBox->setEnabled(false);
-	ui->udpPortSpinBox->setEnabled(false);
+	ui->ipSettingsGroup->hide();
+	ui->serialSettingsGroup->hide();
 
 	if (current.row() < 0)
 		return;
 	PTZDevice *ptz = PTZDevice::get_device(current.row());
 	OBSData cfg = ptz->get_config();
-	std::string type = obs_data_get_string(cfg, "type");
-	if (type == "visca") {
-		std::string port = obs_data_get_string(cfg, "port");
-		ui->serialLabel->setText("Visca Serial");
-		ui->viscaPortComboBox->setCurrentText(obs_data_get_string(cfg, "port"));
-		ui->viscaIDSpinBox->setValue(obs_data_get_int(cfg, "address"));
-		ui->viscaPortComboBox->setEnabled(true);
-		ui->viscaIDSpinBox->setEnabled(true);
+	QString type = obs_data_get_string(cfg, "type");
+	ui->protocolLabel->setText(QString("PTZ Protocol: ") + type);
+
+	if ((type == "visca") || (type == "pelco-p")) {
+		ui->serialPortComboBox->setCurrentText(obs_data_get_string(cfg, "port"));
+		ui->serialDevIDSpinBox->setValue(obs_data_get_int(cfg, "address"));
+		ui->serialSettingsGroup->show();
 	}
 
 	if (type == "visca-over-ip") {
 		ui->ipAddressComboBox->setCurrentText(obs_data_get_string(cfg, "address"));
 		ui->udpPortSpinBox->setValue(obs_data_get_int(cfg, "port"));
-		ui->ipAddressComboBox->setEnabled(true);
-		ui->udpPortSpinBox->setEnabled(true);
-	}
-
-	if (type == "pelco-p") {
-		ui->serialLabel->setText("PELCO-P Serial");
-		ui->viscaPortComboBox->setCurrentText(obs_data_get_string(cfg, "port"));
-		ui->viscaIDSpinBox->setValue(obs_data_get_int(cfg, "address"));
-		ui->viscaPortComboBox->setEnabled(true);
-		ui->viscaIDSpinBox->setEnabled(true);
+		ui->ipSettingsGroup->show();
 	}
 }
 
