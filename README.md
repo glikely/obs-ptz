@@ -17,6 +17,7 @@ Features:
 - Supported protocols
   - VISCA
   - VISCA-over-IP
+  - Pelco-P
 
 [OBS project resource page](https://obsproject.com/forum/resources/ptz-controls.1284/)
 
@@ -65,7 +66,7 @@ cd build
 
 - Copy the following files into OBS plugins directory
   - `build\Debug\ptz-controls.dll`
-  - `%QTDIR%\bin\Qt5SerialPort.dll`
+  - `%QTDIR%\bin\Qt5SerialPortd.dll`
   - `%QTDIR%\bin\Qt5Gamepadd.dll`
 
 ## Build inside OBS source tree
