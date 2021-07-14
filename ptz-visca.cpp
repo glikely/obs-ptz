@@ -408,14 +408,14 @@ void PTZVisca::send_pending()
 
 void PTZVisca::pantilt(double pan_, double tilt_)
 {
-	int pan = (pan_ > 1 ? 1 : (pan_ < -1 ? -1 : pan_)) * 0x18;
-	int tilt = (tilt_ > 1 ? 1 : (tilt_ < -1 ? -1 : tilt_)) * 0x14;
+	int pan = (pan_ > 1 ? 1 : (pan_ < -1 ? -1 : pan_)) * 0x0f; /* HACK; cisco limits */
+	int tilt = (tilt_ > 1 ? 1 : (tilt_ < -1 ? -1 : tilt_)) * 0x0f; /* HACK; cisco limits */
 	send(VISCA_PanTilt_drive, {pan, -tilt});
 }
 
 void PTZVisca::pantilt_rel(int pan, int tilt)
 {
-	send(VISCA_PanTilt_drive_rel, {0x14, 0x14, pan, -tilt});
+	send(VISCA_PanTilt_drive_rel, {0x0f, 0x0f, pan, -tilt});
 }
 
 void PTZVisca::pantilt_abs(int pan, int tilt)
