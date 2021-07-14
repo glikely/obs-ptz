@@ -282,6 +282,7 @@ public:
 
 	void set_config(OBSData ptz_data);
 	OBSData get_config();
+	obs_properties_t *get_obs_properties();
 };
 
 /*
@@ -332,4 +333,5 @@ public:
 
 	void set_config(OBSData ptz_data);
 	OBSData get_config();
+	obs_properties_t *get_obs_properties();
 };

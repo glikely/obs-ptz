@@ -124,3 +124,44 @@ OBSData PTZDevice::get_config()
 	obs_data_set_array(config, "presets", preset_array);
 	return config;
 }
+
+OBSData PTZDevice::get_settings()
+{
+	OBSData settings = get_config();
+
+	QByteArrayList propnames = dynamicPropertyNames();
+	foreach(auto item, propnames) {
+		QVariant &data = property(item.data());
+		switch (data.type()) {
+		case QMetaType::Int:
+			obs_data_set_int(settings, qPrintable(item), data.toInt());
+			break;
+		case QMetaType::QString:
+			obs_data_set_string(settings, qPrintable(item),
+					    qPrintable(data.toString()));
+			break;
+		}
+	}
+	return settings;
+}
+
+obs_properties_t *PTZDevice::get_obs_properties()
+{
+	obs_properties_t *props = obs_properties_create();
+	obs_properties_t *config = obs_properties_create();
+	obs_properties_add_group(props, "interface", "Connection", OBS_GROUP_NORMAL, config);
+
+	QByteArrayList propnames = dynamicPropertyNames();
+	foreach(auto item, propnames) {
+		switch (property(item.data()).type()) {
+		case QMetaType::Int:
+			obs_properties_add_int(props, item.data(), item.data(), INT_MIN, INT_MAX, 1);
+			break;
+		case QMetaType::QString:
+			obs_properties_add_text(props, item.data(), item.data(), OBS_TEXT_DEFAULT);
+			break;
+		}
+	}
+
+	return props;
+}

@@ -48,13 +48,6 @@ PTZSettings::PTZSettings() : QWidget(nullptr), ui(new Ui_PTZSettings)
 	ui->setupUi(this);
 	RefreshLists();
 
-	delete propertiesView;
-	propertiesView = new QWidget();
-	propertiesView->setSizePolicy(QSizePolicy::Expanding,
-				      QSizePolicy::Expanding);
-	ui->propertiesLayout->addWidget(propertiesView);
-	ui->versionLabel->setText(description_text);
-
 	config_t *global_config = obs_frontend_get_global_config();
 	ui->deviceList->setModel(PTZDevice::model());
 	int row = config_get_int(global_config, "ptz-controls", "prevPTZRow");
@@ -69,7 +62,6 @@ PTZSettings::~PTZSettings()
 {
 	config_t *global_config = obs_frontend_get_global_config();
 	config_set_int(global_config, "ptz-controls", "prevPTZRow", ui->deviceList->currentIndex().row());
-
 	delete ui;
 }
 
@@ -83,9 +75,6 @@ void PTZSettings::set_selected(unsigned int row)
 void PTZSettings::RefreshLists()
 {
 	ui->gamepadCheckBox->setChecked(PTZControls::getInstance()->gamepadEnabled());
-	ui->serialPortComboBox->clear();
-	Q_FOREACH(QSerialPortInfo port, QSerialPortInfo::availablePorts())
-		ui->serialPortComboBox->addItem(port.portName());
 }
 
 void PTZSettings::on_applyButton_clicked()
@@ -94,20 +83,7 @@ void PTZSettings::on_applyButton_clicked()
 	if (row < 0)
 		return;
 	PTZDevice *ptz = PTZDevice::get_device(row);
-	OBSData cfg = ptz->get_config();
-	std::string type = obs_data_get_string(cfg, "type");
-
-	if ((type == "pelco-p") || (type == "visca")) {
-		obs_data_set_int(cfg, "address", ui->serialDevIDSpinBox->value());
-		obs_data_set_string(cfg, "port", qPrintable(ui->serialPortComboBox->currentText()));
-	} else if (type == "visca-over-ip") {
-		obs_data_set_string(cfg, "address", qPrintable(ui->ipAddressComboBox->currentText()));
-		obs_data_set_int(cfg, "port", ui->udpPortSpinBox->value());
-	} else {
-		return;
-	}
-
-	ptz->set_config(cfg);
+	ptz->set_config(propertiesView->GetSettings());
 }
 
 void PTZSettings::on_close_clicked()
@@ -165,32 +141,33 @@ void PTZSettings::on_gamepadCheckBox_stateChanged(int state)
 	PTZControls::getInstance()->setGamepadEnabled(ui->gamepadCheckBox->isChecked());
 }
 
+obs_properties_t * settings_reload_cb(void *obj)
+{
+	PTZDevice *ptz = static_cast<PTZDevice *>(obj);
+	return ptz ? ptz->get_obs_properties() : obs_properties_create();
+};
+
 void PTZSettings::currentChanged(const QModelIndex &current, const QModelIndex &previous)
 {
 	Q_UNUSED(previous);
 	RefreshLists();
 
-	ui->ipSettingsGroup->hide();
-	ui->serialSettingsGroup->hide();
+	if (propertiesView) {
+		ui->propertiesLayout->removeWidget(propertiesView);
+		delete propertiesView;
+		propertiesView = nullptr;
+	}
 
 	if (current.row() < 0)
 		return;
 	PTZDevice *ptz = PTZDevice::get_device(current.row());
-	OBSData cfg = ptz->get_config();
-	QString type = obs_data_get_string(cfg, "type");
-	ui->protocolLabel->setText(QString("PTZ Protocol: ") + type);
-
-	if ((type == "visca") || (type == "pelco-p")) {
-		ui->serialPortComboBox->setCurrentText(obs_data_get_string(cfg, "port"));
-		ui->serialDevIDSpinBox->setValue(obs_data_get_int(cfg, "address"));
-		ui->serialSettingsGroup->show();
-	}
-
-	if (type == "visca-over-ip") {
-		ui->ipAddressComboBox->setCurrentText(obs_data_get_string(cfg, "address"));
-		ui->udpPortSpinBox->setValue(obs_data_get_int(cfg, "port"));
-		ui->ipSettingsGroup->show();
-	}
+	obs_data_t *settings = obs_data_create();
+	OBSData cfg = ptz->get_settings();
+	obs_data_apply(settings, cfg);
+	propertiesView = new OBSPropertiesView(settings, ptz, settings_reload_cb, nullptr);
+	ui->propertiesLayout->insertWidget(1, propertiesView);
+	ui->versionLabel->setText(description_text);
+	obs_data_release(settings);
 }
 
 /* ----------------------------------------------------------------- */

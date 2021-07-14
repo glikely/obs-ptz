@@ -37,6 +37,14 @@ set(ptz-controls_HEADERS
     ptz-controls.hpp
     ptz-device.hpp
     settings.hpp
+    imported/qt-wrappers.hpp
+    imported/properties-view.hpp
+    imported/properties-view.moc.hpp
+    imported/vertical-scroll-area.hpp
+    imported/double-slider.hpp
+    imported/slider-ignorewheel.hpp
+    imported/combobox-ignorewheel.hpp
+    imported/spinbox-ignorewheel.hpp
     ptz-pelco-p.hpp
     ptz-visca.hpp)
 
@@ -44,6 +52,13 @@ set(ptz-controls_SOURCES
     ptz-controls.cpp
     ptz-device.cpp
     settings.cpp
+    imported/qt-wrappers.cpp
+    imported/properties-view.cpp
+    imported/vertical-scroll-area.cpp
+    imported/double-slider.cpp
+    imported/slider-ignorewheel.cpp
+    imported/combobox-ignorewheel.cpp
+    imported/spinbox-ignorewheel.cpp
     ptz-pelco-p.cpp
     ptz-visca.cpp)
 

@@ -8,6 +8,7 @@
 
 #include <QWidget>
 #include <QString>
+#include <imported/properties-view.hpp>
 
 class Ui_PTZSettings;
 
@@ -16,7 +17,7 @@ class PTZSettings : public QWidget {
 
 private:
 	Ui_PTZSettings *ui;
-	QWidget *propertiesView = nullptr;
+	OBSPropertiesView *propertiesView = nullptr;
 	void current_device_changed();
 
 public:

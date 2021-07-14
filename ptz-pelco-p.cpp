@@ -179,6 +179,18 @@ OBSData PTZPelcoP::get_config()
 	return config;
 }
 
+obs_properties_t *PTZPelcoP::get_obs_properties()
+{
+	obs_properties_t *props = PTZDevice::get_obs_properties();
+	obs_property_t *config_prop = obs_properties_get(props, "interface");
+	obs_properties_t *config = obs_property_group_content(config_prop);
+
+	obs_property_set_description(config_prop, "Pelco-P Connection");
+	obs_properties_add_text(config, "port", "UART Port", OBS_TEXT_DEFAULT);
+	obs_properties_add_int(config, "address", "PelcoP ID", 0, 15, 1);
+	return props;
+}
+
 void PTZPelcoP::pantilt(double pan, double tilt)
 {
 	unsigned char panTiltData = 0x00;
