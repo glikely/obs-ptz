@@ -321,6 +321,12 @@ void PTZVisca::receive(const QByteArray &msg)
 		active_cmd[slot] = true;
 		break;
 	case VISCA_RESPONSE_COMPLETED:
+		if (msg.size() == 3 && slot == 0) {
+			/* Some devices *cough*cicso*cough* don't use slots and commands
+			 * complete immediately. If the response is empty, then assume
+			 * it was the result of a command not an enquiry */
+			break;
+		}
 		if (!active_cmd[slot]) {
 			ptz_debug("VISCA %s spurious reply: %s", qPrintable(objectName()), msg.toHex(':').data());
 			break;
