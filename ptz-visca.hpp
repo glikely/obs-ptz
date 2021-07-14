@@ -62,7 +62,7 @@ public:
 	virtual void encode(QByteArray &data, int val) {
 		if (data.size() < offset + 3)
 			return;
-		data[offset] = abs(val) & 0x7f;
+		data[offset] = val == 0 ? 3 : abs(val) & 0x7f; /* Hack for CISCO */
 		data[offset+2] = 3;
 		if (val)
 			data[offset+2] = val < 0 ? 1 : 2;
