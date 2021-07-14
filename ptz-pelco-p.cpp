@@ -6,6 +6,7 @@
  * SPDX-License-Identifier: GPLv2
  */
 
+#include <QSerialPortInfo>
 #include "ptz-pelco-p.hpp"
 
 const QByteArray STOP = QByteArray::fromHex("00000000");
@@ -177,6 +178,23 @@ OBSData PTZPelcoP::get_config()
 	obs_data_set_int(config, "address", address);
 	obs_data_set_string(config, "port", qPrintable(iface->portName()));
 	return config;
+}
+
+obs_properties_t *PTZPelcoP::get_obs_properties()
+{
+	obs_properties_t *props = PTZDevice::get_obs_properties();
+	obs_property_t *p = obs_properties_get(props, "interface");
+	obs_properties_t *config = obs_property_group_content(p);
+	obs_property_set_description(p, "Pelco-P Connection");
+
+	p = obs_properties_add_list(config, "port", "UART Port", OBS_COMBO_TYPE_EDITABLE,
+				OBS_COMBO_FORMAT_STRING);
+	Q_FOREACH(auto port, QSerialPortInfo::availablePorts()) {
+		const char *name = qPrintable(port.portName());
+		obs_property_list_add_string(p, name, name);
+	}
+	obs_properties_add_int(config, "address", "PelcoP ID", 0, 15, 1);
+	return props;
 }
 
 void PTZPelcoP::pantilt(double pan, double tilt)

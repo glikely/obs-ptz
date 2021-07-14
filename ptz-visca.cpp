@@ -6,6 +6,7 @@
  */
 
 #include <QNetworkDatagram>
+#include <QSerialPortInfo>
 #include "ptz-visca.hpp"
 #include <util/base.h>
 
@@ -587,6 +588,23 @@ OBSData PTZViscaSerial::get_config()
 	return config;
 }
 
+obs_properties_t *PTZViscaSerial::get_obs_properties()
+{
+	obs_properties_t *props = PTZDevice::get_obs_properties();
+	obs_property_t *p = obs_properties_get(props, "interface");
+	obs_properties_t *config = obs_property_group_content(p);
+	obs_property_set_description(p, "VISCA Connection");
+
+	p = obs_properties_add_list(config, "port", "UART Port", OBS_COMBO_TYPE_EDITABLE,
+				OBS_COMBO_FORMAT_STRING);
+	Q_FOREACH(auto port, QSerialPortInfo::availablePorts()) {
+		const char *name = qPrintable(port.portName());
+		obs_property_list_add_string(p, name, name);
+	}
+	obs_properties_add_int(config, "address", "VISCA ID", 1, 7, 1);
+	return props;
+}
+
 /*
  * VISCA over IP implementation
  */
@@ -720,4 +738,15 @@ OBSData PTZViscaOverIP::get_config()
 	obs_data_set_string(config, "address", qPrintable(ip_address.toString()));
 	obs_data_set_int(config, "port", iface->port());
 	return config;
+}
+
+obs_properties_t *PTZViscaOverIP::get_obs_properties()
+{
+	obs_properties_t *props = PTZDevice::get_obs_properties();
+	obs_property_t *p = obs_properties_get(props, "interface");
+	obs_properties_t *config = obs_property_group_content(p);
+	obs_property_set_description(p, "VISCA-over-IP Connection");
+	obs_properties_add_text(config, "address", "IP Address", OBS_TEXT_DEFAULT);
+	obs_properties_add_int(config, "port", "UDP port", 1, 65535, 1);
+	return props;
 }

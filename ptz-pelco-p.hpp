@@ -72,6 +72,7 @@ public:
 
 	void set_config(OBSData ptz_data);
 	OBSData get_config();
+	obs_properties_t *get_obs_properties();
 
 	void pantilt(double pan, double tilt);
 	void pantilt_rel(int pan, int tilt);
