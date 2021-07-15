@@ -355,8 +355,11 @@ void PTZVisca::receive(const QByteArray &msg)
 		break;
 	case VISCA_RESPONSE_ERROR:
 		active_cmd[slot] = false;
-		if (slot == 0)
+		if ((slot == 0) && (msg[2] != 3) && (msg[2] != 4) && (msg[2] != 5)) {
 			timeout_timer.stop();
+			if (!pending_cmds.isEmpty())
+				pending_cmds.removeFirst();
+		}
 		ptz_debug("VISCA %s received error: %s", qPrintable(objectName()), msg.toHex(':').data());
 		break;
 	default:
