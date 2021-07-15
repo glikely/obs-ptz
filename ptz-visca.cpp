@@ -217,7 +217,7 @@ const ViscaCmd VISCA_CAM_Memory_Recall("8101043f0200ff", {new visca_u4("preset_n
 const ViscaCmd VISCA_CAM_IDWrite ("8101042200000000ff", {new visca_u16("camera_id", 4),});
 const ViscaInq VISCA_CAM_IDInq(   "81090422ff", {new visca_u16("camera_id", 2)});
 
-const ViscaInq VISCA_CISCO_CAM_HWIDInq("81090424ff");
+const ViscaInq VISCA_CISCO_CAM_HWIDInq("81090424ff", {new visca_string("hwid", 2)});
 
 const ViscaCmd VISCA_CAM_ChromaSuppress(   "8101045f00ff", {new visca_u4("chroma_suppress", 4)});
 const ViscaInq VISCA_CAM_ChromaSuppressInq("8109045fff", {new visca_u4("chroma_suppress", 2)});

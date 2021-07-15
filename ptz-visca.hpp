@@ -149,6 +149,19 @@ public:
 		return val;
 	}
 };
+class visca_string : public visca_encoding {
+public:
+	visca_string(const char *name, int offset) : visca_encoding(name, offset) { }
+	void encode(QByteArray &data, int val) { }
+	int decode(QByteArray &data) {
+		if (data.size() < offset + 2)
+			return 0;
+		QByteArray tmp = data.right(offset);
+		tmp.chop(1);
+		ptz_debug("Decoded String: %s = '%s'", qPrintable(name), qPrintable(QString(tmp)));
+		return 0;
+	}
+};
 
 class ViscaCmd {
 public:
