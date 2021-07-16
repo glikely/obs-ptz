@@ -42,6 +42,13 @@ private:
 
 	PTZDevice * currCamera();
 
+	obs_hotkey_id panTiltLeftHotkey = 0;
+	obs_hotkey_id panTiltRightHotkey = 0;
+	obs_hotkey_id panTiltUpHotkey = 0;
+	obs_hotkey_id panTiltDownHotkey = 0;
+	obs_hotkey_id zoomWideHotkey = 0;
+	obs_hotkey_id zoomTeleHotkey = 0;
+
 private slots:
 	void on_panTiltButton_up_pressed();
 	void on_panTiltButton_up_released();

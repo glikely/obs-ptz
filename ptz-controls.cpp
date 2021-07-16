@@ -7,6 +7,7 @@
 
 #include <obs-module.h>
 #include <obs.hpp>
+#include <util/config-file.h>
 #include <util/platform.h>
 #include <QMainWindow>
 #include <QMenuBar>
@@ -112,10 +113,61 @@ PTZControls::PTZControls(QWidget *parent)
 	obs_frontend_add_event_callback(OBSFrontendEventWrapper, this);
 
 	hide();
+
+	/* loadHotkey helpers lifted from obs-studio/UI/window-basic-main.cpp */
+	auto loadHotkeyData = [&](const char *name) -> OBSData {
+		config_t *cfg = obs_frontend_get_profile_config();
+		const char *info = config_get_string(cfg, "Hotkeys", name);
+		if (!info)
+			return {};
+		obs_data_t *data = obs_data_create_from_json(info);
+		if (!data)
+			return {};
+		OBSData res = data;
+		obs_data_release(data);
+		return res;
+	};
+	auto registerHotkey = [&](const char *name, const char *description,
+			      obs_hotkey_func func, void *data) -> obs_hotkey_id {
+		obs_hotkey_id id;
+
+		id = obs_hotkey_register_frontend(name, description, func, data);
+		obs_data_array_t *array =
+			obs_data_get_array(loadHotkeyData(name), "bindings");
+		obs_hotkey_load(id, array);
+		obs_data_array_release(array);
+		return id;
+	};
+	auto cb = [](void *data, obs_hotkey_id, obs_hotkey_t *, bool pressed) {
+		QPushButton *button = static_cast<QPushButton*>(data);
+		if (pressed)
+			button->pressed();
+		else
+			button->released();
+	};
+	panTiltLeftHotkey = registerHotkey("PTZ.PanTiltLeft",
+		"PTZ Pan camera left", cb, ui->panTiltButton_left);
+	panTiltRightHotkey = registerHotkey("PTZ.PanTiltRight",
+		"PTZ Pan camera right", cb, ui->panTiltButton_right);
+	panTiltUpHotkey = registerHotkey("PTZ.PanTiltUp",
+		"PTZ Tilt camera up", cb, ui->panTiltButton_up);
+	panTiltDownHotkey = registerHotkey("PTZ.PanTiltDown",
+		"PTZ Tilt camera down", cb, ui->panTiltButton_down);
+	zoomWideHotkey = registerHotkey("PTZ.ZoomWide",
+		"PTZ Zoom camera out (wide)", cb, ui->zoomButton_wide);
+	zoomTeleHotkey = registerHotkey("PTZ.ZoomTele",
+		"PTZ Zoom camera in (telefocal)", cb, ui->zoomButton_tele);
 }
 
 PTZControls::~PTZControls()
 {
+	obs_hotkey_unregister(panTiltLeftHotkey);
+	obs_hotkey_unregister(panTiltRightHotkey);
+	obs_hotkey_unregister(panTiltUpHotkey);
+	obs_hotkey_unregister(panTiltDownHotkey);
+	obs_hotkey_unregister(zoomWideHotkey);
+	obs_hotkey_unregister(zoomTeleHotkey);
+
 	//signal_handler_disconnect_global(obs_get_signal_handler(), OBSSignal, this);
 	SaveConfig();
 	PTZDevice::delete_all();
