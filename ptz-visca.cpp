@@ -299,7 +299,9 @@ void PTZVisca::timeout()
 {
 	ptz_debug("VISCA %s timeout", qPrintable(objectName()));
 	active_cmd[0] = false;
-	pending_cmds.clear();
+	if (!pending_cmds.isEmpty())
+		pending_cmds.removeFirst();
+	send_pending();
 }
 
 void PTZVisca::cmd_get_camera_info()
