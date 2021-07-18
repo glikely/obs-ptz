@@ -22,6 +22,25 @@ const ViscaInq VISCA_CAM_VersionInq("81090002ff", {
 		new visca_u7("socket_number", 8)
 	});
 
+const ViscaInq VISCA_LensControlInq("81097e7e00ff", {
+		new visca_s16("zoom_pos", 2),
+		new visca_u8("focus_near_limit", 6),
+		new visca_s16("focus_pos", 8)
+	});
+
+const ViscaInq VISCA_CameraControlInq("81097e7e01ff", {
+		new visca_u8("r_gain", 2),
+		new visca_u8("b_gain", 4),
+		new visca_u4("wb_mode", 6),
+		new visca_u4("aperature_gain", 7),
+		new visca_u4("exposure_mode", 8),
+		new visca_u4("shutter_pos", 10),
+		new visca_u4("iris_pos", 11),
+		new visca_u4("gain_pos", 12),
+		new visca_u4("bright_pos", 13),
+		new visca_u4("exposure_comp_pos", 14)
+	});
+
 const ViscaCmd VISCA_Clear("81010001ff");
 const ViscaCmd VISCA_CommandCancel("8120ff", {new visca_u4("socket", 1)});
 const ViscaCmd VISCA_CAM_Power_On("8101040002ff");
