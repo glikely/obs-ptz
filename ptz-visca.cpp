@@ -35,7 +35,7 @@ const ViscaCmd VISCA_CAM_Zoom_Tele("8101040702ff");
 const ViscaCmd VISCA_CAM_Zoom_Wide("8101040703ff");
 const ViscaCmd VISCA_CAM_Zoom_TeleVar("8101040720ff", {new visca_u4("p", 4),});
 const ViscaCmd VISCA_CAM_Zoom_WideVar("8101040730ff", {new visca_u4("p", 4),});
-const ViscaCmd VISCA_CAM_Zoom_Direct ("8101044700000000ff", {new visca_s16("zoompos", 4),});
+const ViscaCmd VISCA_CAM_Zoom_Direct ("8101044700000000ff", {new visca_s16("zoom_pos", 4),});
 const ViscaInq VISCA_CAM_ZoomPosInq("81090447ff", {new visca_s16("zoom_pos", 2)});
 
 const ViscaCmd VISCA_CAM_DZoom_On("8101040602ff");
@@ -400,6 +400,11 @@ void PTZVisca::pantilt_rel(int pan, int tilt)
 	send(VISCA_PanTilt_drive_rel, {0x14, 0x14, pan, -tilt});
 }
 
+void PTZVisca::pantilt_abs(int pan, int tilt)
+{
+	send(VISCA_PanTilt_drive_abs, {0x0f, 0x0f, pan, tilt});
+}
+
 void PTZVisca::pantilt_stop()
 {
 	send(VISCA_PanTilt_drive, {0, 0});
@@ -420,6 +425,11 @@ void PTZVisca::zoom_wide(double speed_)
 {
 	int speed = (speed_ > 1 ? 1 : (speed_ < 0 ? 0 : speed_)) * 0x7;
 	send(VISCA_CAM_Zoom_WideVar, { speed });
+}
+
+void PTZVisca::zoom_abs(int pos)
+{
+	send(VISCA_CAM_Zoom_Direct, { pos });
 }
 
 void PTZVisca::zoom_stop()

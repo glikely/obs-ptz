@@ -207,11 +207,13 @@ public:
 	void cmd_get_camera_info();
 	void pantilt(double pan, double tilt);
 	void pantilt_rel(int pan, int tilt);
+	void pantilt_abs(int pan, int tilt);
 	void pantilt_stop();
 	void pantilt_home();
 	void zoom_stop();
 	void zoom_tele(double speed);
 	void zoom_wide(double speed);
+	void zoom_abs(int pos);
 	void memory_reset(int i);
 	void memory_set(int i);
 	void memory_recall(int i);
