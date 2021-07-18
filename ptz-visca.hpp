@@ -20,6 +20,53 @@ public:
 	virtual void encode(QByteArray &data, int val) = 0;
 	virtual int decode(QByteArray &data) = 0;
 };
+
+class int_field : public visca_encoding {
+public:
+	const unsigned int mask;
+	int size;
+	int_field(const char *name, unsigned offset, unsigned int mask) :
+			visca_encoding(name, offset), mask(mask)
+	{
+		size = 0;
+		unsigned int wm = mask;
+		while (wm) {
+			wm >>= 8;
+			size++;
+		}
+	}
+	void encode(QByteArray &data, int val) {
+		unsigned int encoded = 0;
+		unsigned int current_bit = 0;
+		if (data.size() < offset + size)
+			return;
+		for (unsigned int wm = mask; wm; wm = wm >> 1, current_bit++) {
+			if (wm & 1) {
+				encoded |= (val & 1) << current_bit;
+				val = val >> 1;
+			}
+		}
+		for (int i = 0; i < size; i++)
+			data[offset + i] = (encoded >> (size - i - 1) * 8) & 0xff;
+	}
+	int decode(QByteArray &data) {
+		unsigned int encoded = 0;
+		unsigned int val = 0;
+		unsigned int current_bit = 0;
+		if (data.size() < offset + size)
+			return 0;
+		for (int i = 0; i < size; i++)
+			encoded = encoded << 8 | data[offset+i];
+		for (unsigned int wm = mask; wm; wm >>= 1, encoded >>= 1) {
+			if (wm & 1) {
+				val |= (encoded & 1) << current_bit;
+				current_bit++;
+			}
+		}
+		return val;
+	}
+};
+
 class visca_u4 : public visca_encoding {
 public:
 	visca_u4(const char *name, int offset) : visca_encoding(name, offset) { }

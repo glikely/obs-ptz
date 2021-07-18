@@ -17,10 +17,66 @@ const ViscaCmd VISCA_ENUMERATE("883001ff");
 const ViscaCmd VISCA_IF_CLEAR("88010001ff");
 
 const ViscaInq VISCA_CAM_VersionInq("81090002ff", {
-		new visca_u15("vendor", 2),
-		new visca_u15("model", 4),
-		new visca_u15("rom_version", 6),
-		new visca_u7("socket_number", 8)
+		new int_field("vendor", 2, 0xffff),
+		new int_field("model", 4, 0xffff),
+		new int_field("rom_version", 6, 0xffff),
+		new int_field("socket_number", 8, 0xff)
+	});
+
+const ViscaInq VISCA_LensControlInq("81097e7e00ff", {
+		new int_field("zoom_pos", 2, 0x0f0f0f0f),
+		new int_field("focus_near_limit", 6, 0x0f0f0f0f),
+		new int_field("focus_pos", 8, 0x0f0f0f0f),
+		new int_field("af_mode", 13, 0b00011000),
+		new int_field("af_sensitivity", 13, 0b0100),
+		new int_field("dzoom", 13, 0b0010),
+		new int_field("focus_mode", 13, 0b0001),
+		new int_field("low_contrast_mode", 14, 0b1000)
+	});
+
+const ViscaInq VISCA_CameraControlInq("81097e7e01ff", {
+		new visca_u8("r_gain", 2),
+		new visca_u8("b_gain", 4),
+		new visca_u4("wb_mode", 6),
+		new visca_u4("aperature_gain", 7),
+		new visca_u4("exposure_mode", 8),
+		new int_field("high_resolution", 9, 0b00100000),
+		new int_field("wide_d", 9, 0b00010000),
+		new int_field("back_light", 9, 0b1000),
+		new int_field("exposure_comp", 9, 0b1000),
+		new int_field("slow_shutter", 9, 0b0001),
+		new int_field("shutter_pos", 10, 0x1f),
+		new int_field("iris_pos", 11, 0x1f),
+		new int_field("gain_pos", 12, 0x1f),
+		new int_field("bright_pos", 13, 0x1f),
+		new int_field("exposure_comp_pos", 14, 0x0f)
+	});
+
+const ViscaInq VISCA_OtherInq("81097e7e02ff", {
+		new int_field("power", 2, 0b0001),
+		new int_field("picture_effect_mode", 5, 0x0f),
+		new int_field("camera_id", 8, 0x0f0f0f0f),
+		new int_field("framerate", 12, 0b0001)
+	});
+
+const ViscaInq VISCA_EnlargementFunction1Inq("81097e7e03ff", {
+		new int_field("dzoom_pos", 2, 0x0f0f),
+		new int_field("af_activation_time", 4, 0x0f0f),
+		new int_field("af_interval_time", 6, 0x0f0f),
+		new int_field("color_gain", 11, 0b01111000),
+		new int_field("gamma", 13, 0b01110000),
+		new int_field("high_sensitivity", 13, 0b00001000),
+		new int_field("nr_level", 13, 0b00000111),
+		new int_field("chroma_suppress", 14, 0b01110000),
+		new int_field("gain_limit", 14, 0b00001111),
+	});
+
+const ViscaInq VISCA_EnlargementFunction2Inq("81097e7e04ff", {
+		new int_field("defog_mode", 7, 0b0001)
+	});
+
+const ViscaInq VISCA_EnlargementFunction3Inq("81097e7e05ff", {
+		new int_field("color_hue", 2, 0b1111)
 	});
 
 const ViscaCmd VISCA_Clear("81010001ff");
@@ -56,14 +112,14 @@ const ViscaInq VISCA_CAM_FocusModeInq(    "81090438ff", {new visca_flag("autofoc
 const ViscaCmd VISCA_CAM_Focus_OneTouch("8101041801ff");
 const ViscaCmd VISCA_CAM_Focus_Infinity("8101041802ff");
 
-const ViscaCmd VISCA_CAM_FocusPos(   "8101044800000000ff", {new visca_s16("focuspos", 4),});
-const ViscaInq VISCA_CAM_FocusPosInq("81090448ff", {new visca_s16("focuspos", 2)});
+const ViscaCmd VISCA_CAM_FocusPos(   "8101044800000000ff", {new visca_s16("focus_pos", 4),});
+const ViscaInq VISCA_CAM_FocusPosInq("81090448ff", {new visca_s16("focus_pos", 2)});
 
 const ViscaCmd VISCA_CAM_Focus_NearLimit(  "8101042800000000ff", {new visca_s16("focus_nearlimit", 4)});
 const ViscaInq VISCA_CAM_FocusNearLimitInq("81090428ff", {new visca_s16("focus_near_limit", 2)});
 
 const ViscaCmd VISCA_CAM_ZoomFocus_Direct("810104470000000000000000ff",
-		{new visca_s16("zoompos", 4), new visca_s16("focuspos", 8)});
+		{new visca_s16("zoom_pos", 4), new visca_s16("focus_pos", 8)});
 
 const ViscaCmd VISCA_CAM_AF_SensitivityNormal("8101045802ff");
 const ViscaCmd VISCA_CAM_AF_SensitivityLow(   "8101045803ff");
@@ -121,19 +177,19 @@ const ViscaCmd VISCA_CAM_Shutter_Reset( "8101040a00ff");
 const ViscaCmd VISCA_CAM_Shutter_Up(    "8101040a02ff");
 const ViscaCmd VISCA_CAM_Shutter_Down(  "8101040a03ff");
 const ViscaCmd VISCA_CAM_Shutter_Direct("8101044a00000000ff", {new visca_u8("shutter", 6)});
-const ViscaInq VISCA_CAM_ShutterPosInq( "8109044aff", {new visca_u8("shutterpos", 4)});
+const ViscaInq VISCA_CAM_ShutterPosInq( "8109044aff", {new visca_u8("shutter_pos", 4)});
 
 const ViscaCmd VISCA_CAM_Iris_Reset( "8101040b00ff");
 const ViscaCmd VISCA_CAM_Iris_Up(    "8101040b02ff");
 const ViscaCmd VISCA_CAM_Iris_Down(  "8101040b03ff");
 const ViscaCmd VISCA_CAM_Iris_Direct("8101044b00000000ff", {new visca_u8("iris", 6)});
-const ViscaInq VISCA_CAM_IrisPosInq( "8109044bff", {new visca_u8("irispos", 4)});
+const ViscaInq VISCA_CAM_IrisPosInq( "8109044bff", {new visca_u8("iris_pos", 4)});
 
 const ViscaCmd VISCA_CAM_Gain_Reset( "8101040c00ff");
 const ViscaCmd VISCA_CAM_Gain_Up(    "8101040c02ff");
 const ViscaCmd VISCA_CAM_Gain_Down(  "8101040c03ff");
 const ViscaCmd VISCA_CAM_Gain_Direct("8101044c00000000ff", {new visca_u8("gain", 6)});
-const ViscaInq VISCA_CAM_GainPosInq( "8109044cff", {new visca_u8("gainpos", 4)});
+const ViscaInq VISCA_CAM_GainPosInq( "8109044cff", {new visca_u8("gain_pos", 4)});
 
 const ViscaCmd VISCA_CAM_Gain_Limit( "8101042c00ff", {new visca_u4("ae_gain_limit", 4)});
 const ViscaInq VISCA_CAM_GainLimitInq("8109042cff", {new visca_u4("gain_limit", 2)});
@@ -141,7 +197,7 @@ const ViscaInq VISCA_CAM_GainLimitInq("8109042cff", {new visca_u4("gain_limit", 
 const ViscaCmd VISCA_CAM_Bright_Up(    "8101040d02ff");
 const ViscaCmd VISCA_CAM_Bright_Down(  "8101040d03ff");
 const ViscaCmd VISCA_CAM_Bright_Direct("8101044d00000000ff", {new visca_u8("bright", 6)});
-const ViscaInq VISCA_CAM_BrightPosInq("8109044dff", {new visca_u8("brightpos", 4)});
+const ViscaInq VISCA_CAM_BrightPosInq("8109044dff", {new visca_u8("bright_pos", 4)});
 
 const ViscaCmd VISCA_CAM_ExpComp_On(    "8101043e02ff");
 const ViscaCmd VISCA_CAM_ExpComp_Off(   "8101043e03ff");
@@ -240,10 +296,10 @@ const ViscaInq VISCA_PanTilt_MaxSpeedInq("81090611ff", {new visca_u7("panmaxspee
 const ViscaCmd VISCA_PanTilt_drive(    "8101060100000303ff", {new visca_s7("pan", 4), new visca_s7("tilt", 5)});
 const ViscaCmd VISCA_PanTilt_drive_abs("8101060200000000000000000000ff",
 	                                  {new visca_u7("panspeed", 4), new visca_u7("tiltspeed", 5),
-					   new visca_s16("panpos", 6), new visca_s16("tiltpos", 10)});
+					   new visca_s16("pan_pos", 6), new visca_s16("tilt_pos", 10)});
 const ViscaCmd VISCA_PanTilt_drive_rel("8101060300000000000000000000ff",
 	                                  {new visca_u7("panspeed", 4), new visca_u7("tiltspeed", 5),
-					   new visca_s16("panpos", 6), new visca_s16("tiltpos", 10)});
+					   new visca_s16("pan_pos", 6), new visca_s16("tilt_pos", 10)});
 const ViscaCmd VISCA_PanTilt_Home(     "81010604ff");
 const ViscaCmd VISCA_PanTilt_Reset(    "81010605ff");
 const ViscaInq VISCA_PanTilt_PosInq(   "81090612ff", {new visca_s16("pan_pos", 2), new visca_s16("tilt_pos", 6)});
@@ -309,8 +365,13 @@ void PTZVisca::cmd_get_camera_info()
 {
 	send(VISCA_CAM_VersionInq);
 	send(VISCA_CAM_VersionInq); // hack: first inquiry doesn't always work, send twice
-	send(VISCA_CAM_ZoomPosInq);
 	send(VISCA_PanTilt_PosInq);
+	send(VISCA_LensControlInq);
+	send(VISCA_CameraControlInq);
+	send(VISCA_OtherInq);
+	send(VISCA_EnlargementFunction1Inq);
+	send(VISCA_EnlargementFunction2Inq);
+	send(VISCA_EnlargementFunction3Inq);
 }
 
 void PTZVisca::receive(const QByteArray &msg)
@@ -503,10 +564,10 @@ void ViscaUART::receive_datagram(const QByteArray &packet)
 				qPrintable(uart.portName()),
 				camera_count, camera_count == 1 ? "" : "s");
 			send(VISCA_IF_CLEAR.cmd);
-			emit reset();
 			break;
 		case 1:
-			// Response from IF_CLEAR message; ignore
+			// Response from IF_CLEAR message; query all the cameras
+			emit reset();
 			break;
 		case 8:
 			/* network change, trigger a change */
