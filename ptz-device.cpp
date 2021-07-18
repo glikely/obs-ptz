@@ -104,6 +104,33 @@ void PTZDevice::set_config(OBSData config)
 	}
 }
 
+bool ptz_device_set_config_callback(void *priv, obs_properties_t *props,
+				obs_property_t *property, obs_data_t *settings)
+{
+	auto *ptz = static_cast<PTZDevice *>(priv);
+	ptz_debug("Update Callback on %s", obs_property_name(property));
+	ptz->set_config(settings);
+	return true;
+};
+
+bool ptz_device_set_pantilt_callback(void *priv, obs_properties_t *props,
+				obs_property_t *property, obs_data_t *settings)
+{
+	auto *ptz = static_cast<PTZDevice *>(priv);
+	int pan = obs_data_get_int(settings, "pan_pos");
+	int tilt = obs_data_get_int(settings, "tilt_pos");
+	ptz->pantilt_rel(pan, tilt);
+	return false;
+};
+
+bool ptz_device_set_zoom_callback(void *priv, obs_properties_t *props,
+				obs_property_t *property, obs_data_t *settings)
+{
+	auto *ptz = static_cast<PTZDevice *>(priv);
+	ptz_debug("zoom %s", obs_property_name(property));
+	return true;
+};
+
 OBSData PTZDevice::get_config()
 {
 	OBSData config = obs_data_create();
@@ -150,6 +177,19 @@ obs_properties_t *PTZDevice::get_obs_properties()
 	obs_properties_t *props = obs_properties_create();
 	obs_properties_t *config = obs_properties_create();
 	obs_properties_add_group(props, "interface", "Connection", OBS_GROUP_NORMAL, config);
+
+	obs_properties_t *camera = obs_properties_create();
+	obs_properties_add_group(props, "position", "Camera Position", OBS_GROUP_NORMAL, camera);
+	obs_property_t *p;
+	p = obs_properties_add_int_slider(camera, "pan_pos", "Pan Position" , pan_min, pan_max, 1);
+	obs_property_set_modified_callback2(p, ptz_device_set_pantilt_callback, this);
+	p = obs_properties_add_int_slider(camera, "tilt_pos", "Tilt Position" , tilt_min, tilt_max, 1);
+	obs_property_set_modified_callback2(p, ptz_device_set_pantilt_callback, this);
+	p = obs_properties_add_int_slider(camera, "zoom_pos", "Zoom Position",
+					zoom_min, zoom_max, 1);
+	p = obs_properties_add_bool(camera, "focus_autofocus", "Autofocus enabled");
+	p = obs_properties_add_int_slider(camera, "focus_pos", "Focus Position" ,
+					focus_min, focus_max, 1);
 
 	QByteArrayList propnames = dynamicPropertyNames();
 	foreach(auto item, propnames) {

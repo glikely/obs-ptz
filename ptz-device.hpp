@@ -44,6 +44,11 @@ protected:
 	QStringListModel preset_names_model;
 	obs_properties_t *props;
 
+	int pan_min = -0x13ff, pan_max = 0x1400;
+	int tilt_min = -0x4ff, tilt_max = 0x500;
+	int zoom_min = 0, zoom_max = 0x4000;
+	int focus_min = 0x1000, focus_max = 0xe000;
+
 public:
 	PTZDevice(std::string type) : QObject(), type(type)
 	{
@@ -106,6 +111,10 @@ public:
 		QObject::setObjectName(new_name);
 	}
 };
+
+/* Helper callbacks for properties dialog */
+bool ptz_device_set_config_callback(void *priv, obs_properties_t *props,
+				obs_property_t *property, obs_data_t *settings);
 
 class PTZSimulator : public PTZDevice {
 	Q_OBJECT
