@@ -402,7 +402,7 @@ void PTZVisca::receive(const QByteArray &msg)
 			timeout_timer.stop();
 			pending_cmds.first().decode(this, msg);
 			pending_cmds.removeFirst();
-
+#if 0 // debug messages for property settings; to be removed
 			QByteArrayList propnames = dynamicPropertyNames();
 			QString logmsg(objectName() + ":");
 			for (QByteArrayList::iterator i = propnames.begin(); i != propnames.end(); i++) {
@@ -420,6 +420,7 @@ void PTZVisca::receive(const QByteArray &msg)
 				}
 			}
 			ptz_debug("%s", qPrintable(logmsg));
+#endif
 		}
 
 		break;
