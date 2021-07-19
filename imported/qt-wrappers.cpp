@@ -33,7 +33,7 @@
 #include <obs-nix-platform.h>
 #endif
 
-#ifdef ENABLE_WAYLAND
+#if 0 // #ifdef ENABLE_WAYLAND
 #include <qpa/qplatformnativeinterface.h>
 #endif
 
@@ -127,7 +127,7 @@ bool QTToGSWindow(QWindow *window, gs_window &gswindow)
 		gswindow.id = window->winId();
 		gswindow.display = obs_get_nix_platform_display();
 		break;
-#ifdef ENABLE_WAYLAND
+#if 0 // #ifdef ENABLE_WAYLAND
 	case OBS_NIX_PLATFORM_WAYLAND:
 		QPlatformNativeInterface *native =
 			QGuiApplication::platformNativeInterface();
