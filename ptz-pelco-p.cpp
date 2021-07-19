@@ -190,8 +190,8 @@ obs_properties_t *PTZPelcoP::get_obs_properties()
 	p = obs_properties_add_list(config, "port", "UART Port", OBS_COMBO_TYPE_EDITABLE,
 				OBS_COMBO_FORMAT_STRING);
 	Q_FOREACH(auto port, QSerialPortInfo::availablePorts()) {
-		const char *name = qPrintable(port.portName());
-		obs_property_list_add_string(p, name, name);
+		std::string name = port.portName().toStdString();
+		obs_property_list_add_string(p, name.c_str(), name.c_str());
 	}
 	obs_properties_add_int(config, "address", "PelcoP ID", 0, 15, 1);
 	return props;
