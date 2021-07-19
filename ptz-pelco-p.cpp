@@ -73,7 +73,7 @@ void PelcoPUART::poll()
 PelcoPUART* PelcoPUART::get_interface(QString port_name)
 {
 	PelcoPUART* iface;
-	ptz_debug("Looking for UART object %s", port_name);
+	ptz_debug("Looking for UART object %s", qPrintable(port_name));
 
 	iface = interfaces[port_name];
 	return iface;
@@ -83,7 +83,7 @@ PelcoPUART* PelcoPUART::add_interface(QString port_name, qint32 baudrate)
 {
 	PelcoPUART* iface = get_interface(port_name);
 	if (!iface) {
-		ptz_debug("Creating new UART object %s", port_name);
+		ptz_debug("Creating new UART object %s", qPrintable(port_name));
 		iface = new PelcoPUART(port_name, baudrate);
 		interfaces[port_name] = iface;
 		return iface;
