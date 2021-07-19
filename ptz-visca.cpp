@@ -564,10 +564,10 @@ void ViscaUART::receive_datagram(const QByteArray &packet)
 				qPrintable(uart.portName()),
 				camera_count, camera_count == 1 ? "" : "s");
 			send(VISCA_IF_CLEAR.cmd);
+			emit reset();
 			break;
 		case 1:
-			// Response from IF_CLEAR message; query all the cameras
-			emit reset();
+			// Response from IF_CLEAR message; ignore
 			break;
 		case 8:
 			/* network change, trigger a change */
