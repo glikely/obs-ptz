@@ -131,7 +131,7 @@ OBSData PTZDevice::get_settings()
 
 	QByteArrayList propnames = dynamicPropertyNames();
 	foreach(auto item, propnames) {
-		QVariant &data = property(item.data());
+		QVariant data = property(item.data());
 		switch (data.type()) {
 		case QMetaType::Int:
 			obs_data_set_int(settings, qPrintable(item), data.toInt());
