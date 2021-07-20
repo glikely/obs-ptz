@@ -11,77 +11,16 @@
 #include <QUdpSocket>
 #include "protocol-helpers.hpp"
 #include "ptz-device.hpp"
+#include "protocol-helpers.hpp"
 
-class visca_encoding {
+class visca_u4 : public int_field {
 public:
-	const char *name;
-	int offset;
-	visca_encoding(const char *name, int offset) : name(name), offset(offset) { }
-	virtual void encode(QByteArray &data, int val) = 0;
-	virtual int decode(QByteArray &data) = 0;
+	visca_u4(const char *name, int offset) : int_field(name, offset, 0x0f) { }
 };
 
-class int_field : public visca_encoding {
+class visca_flag : public datagram_field {
 public:
-	const unsigned int mask;
-	int size;
-	int_field(const char *name, unsigned offset, unsigned int mask) :
-			visca_encoding(name, offset), mask(mask)
-	{
-		size = 0;
-		unsigned int wm = mask;
-		while (wm) {
-			wm >>= 8;
-			size++;
-		}
-	}
-	void encode(QByteArray &data, int val) {
-		unsigned int encoded = 0;
-		unsigned int current_bit = 0;
-		if (data.size() < offset + size)
-			return;
-		for (unsigned int wm = mask; wm; wm = wm >> 1, current_bit++) {
-			if (wm & 1) {
-				encoded |= (val & 1) << current_bit;
-				val = val >> 1;
-			}
-		}
-		for (int i = 0; i < size; i++)
-			data[offset + i] = (encoded >> (size - i - 1) * 8) & 0xff;
-	}
-	int decode(QByteArray &data) {
-		unsigned int encoded = 0;
-		unsigned int val = 0;
-		unsigned int current_bit = 0;
-		if (data.size() < offset + size)
-			return 0;
-		for (int i = 0; i < size; i++)
-			encoded = encoded << 8 | data[offset+i];
-		for (unsigned int wm = mask; wm; wm >>= 1, encoded >>= 1) {
-			if (wm & 1) {
-				val |= (encoded & 1) << current_bit;
-				current_bit++;
-			}
-		}
-		return val;
-	}
-};
-
-class visca_u4 : public visca_encoding {
-public:
-	visca_u4(const char *name, int offset) : visca_encoding(name, offset) { }
-	void encode(QByteArray &data, int val) {
-		if (data.size() < offset + 1)
-			return;
-		data[offset] = data[offset] & 0xf0 | val & 0x0f;
-	}
-	int decode(QByteArray &data) {
-		return (data.size() < offset + 1) ? 0 : data[offset] & 0xf;
-	}
-};
-class visca_flag : public visca_encoding {
-public:
-	visca_flag(const char *name, int offset) : visca_encoding(name, offset) { }
+	visca_flag(const char *name, int offset) : datagram_field(name, offset) { }
 	void encode(QByteArray &data, int val) {
 		if (data.size() < offset + 1)
 			return;
@@ -91,55 +30,44 @@ public:
 		return (data.size() < offset + 1) ? 0 : 0x02 == data[offset];
 	}
 };
-class visca_u7 : public visca_encoding {
+
+class visca_u7 : public int_field {
 public:
-	visca_u7(const char *name, int offset) : visca_encoding(name, offset) { }
-	void encode(QByteArray &data, int val) {
-		if (data.size() < offset + 1)
-			return;
-		data[offset] = val & 0x7f;
-	}
-	int decode(QByteArray &data) {
-		return (data.size() < offset + 1) ? 0 : data[offset] & 0x7f;
-	}
+	visca_u7(const char *name, int offset) : int_field(name, offset, 0x7f) { }
 };
-class visca_s7 : public visca_encoding {
+
+class visca_s7 : public datagram_field {
 public:
-	visca_s7(const char *name, int offset) : visca_encoding(name, offset) { }
-	virtual void encode(QByteArray &data, int val) {
+	visca_s7(const char *name, int offset) : datagram_field(name, offset) { }
+	void encode(QByteArray &data, int val) {
 		if (data.size() < offset + 3)
 			return;
 		data[offset] = abs(val) & 0x7f;
 		data[offset+2] = 3;
 		if (val)
 			data[offset+2] = val < 0 ? 1 : 2;
-
-	}
-	virtual int decode(QByteArray &data) {
-		return (data.size() < offset + 3) ? 0 : data[offset] & 0x7f;
-	}
-};
-class visca_u8 : public visca_encoding {
-public:
-	visca_u8(const char *name, int offset) : visca_encoding(name, offset) { }
-	void encode(QByteArray &data, int val) {
-		if (data.size() < offset + 2)
-			return;
-		data[offset]   = (val >> 4) & 0x0f;
-		data[offset+1] = val & 0x0f;
 	}
 	int decode(QByteArray &data) {
-		if (data.size() < offset + 2)
+		if (data.size() < offset + 3)
 			return 0;
-		int16_t val = (data[offset] & 0xf) << 4 |
-			      (data[offset+1] & 0xf);
-		return val;
+		int val = data[offset] & 0x7f;
+		switch (data[offset+2]) {
+		case 1: return -val;
+		case 2: return val;
+		}
+		return 0;
 	}
 };
-/* 15 bit value encoded into two bytes. Protocol encoding forces bit 15 & 7 to zero */
-class visca_u15 : public visca_encoding {
+
+class visca_u8 : public int_field {
 public:
-	visca_u15(const char *name, int offset) : visca_encoding(name, offset) { }
+	visca_u8(const char *name, int offset) : int_field(name, offset, 0x0f0f) { }
+};
+
+/* 15 bit value encoded into two bytes. Protocol encoding forces bit 15 & 7 to zero */
+class visca_u15 : public datagram_field {
+public:
+	visca_u15(const char *name, int offset) : datagram_field(name, offset) { }
 	void encode(QByteArray &data, int val) {
 		if (data.size() < offset + 2)
 			return;
@@ -154,58 +82,26 @@ public:
 		return val;
 	}
 };
-class visca_s16 : public visca_encoding {
+
+class visca_s16 : public int_field {
 public:
-	visca_s16(const char *name, int offset) : visca_encoding(name, offset) { }
-	void encode(QByteArray &data, int val) {
-		if (data.size() < offset + 4)
-			return;
-		data[offset] = (val >> 12) & 0x0f;
-		data[offset+1] = (val >> 8) & 0x0f;
-		data[offset+2] = (val >> 4) & 0x0f;
-		data[offset+3] = val & 0x0f;
-	}
-	int decode(QByteArray &data) {
-		if (data.size() < offset + 4)
-			return 0;
-		int16_t val = (data[offset] & 0xf) << 12 |
-			      (data[offset+1] & 0xf) << 8 |
-			      (data[offset+2] & 0xf) << 4 |
-			      (data[offset+3] & 0xf);
-		return val;
-	}
+	visca_s16(const char *name, int offset) : int_field(name, offset, 0x0f0f0f0f, true) { }
 };
-class visca_u16 : public visca_encoding {
+
+class visca_u16 : public int_field {
 public:
-	visca_u16(const char *name, int offset) : visca_encoding(name, offset) { }
-	void encode(QByteArray &data, int val) {
-		if (data.size() < offset + 4)
-			return;
-		data[offset] = (val >> 12) & 0x0f;
-		data[offset+1] = (val >> 8) & 0x0f;
-		data[offset+2] = (val >> 4) & 0x0f;
-		data[offset+3] = val & 0x0f;
-	}
-	int decode(QByteArray &data) {
-		if (data.size() < offset + 4)
-			return 0;
-		uint16_t val = (data[offset] & 0xf) << 12 |
-			       (data[offset+1] & 0xf) << 8 |
-			       (data[offset+2] & 0xf) << 4 |
-			       (data[offset+3] & 0xf);
-		return val;
-	}
+	visca_u16(const char *name, int offset) : int_field(name, offset, 0x0f0f0f0f) { }
 };
 
 class ViscaCmd {
 public:
 	QByteArray cmd;
-	QList<visca_encoding*> args;
-	QList<visca_encoding*> results;
+	QList<datagram_field*> args;
+	QList<datagram_field*> results;
 	ViscaCmd(const char *cmd_hex) : cmd(QByteArray::fromHex(cmd_hex)) { }
-	ViscaCmd(const char *cmd_hex, QList<visca_encoding*> args) :
+	ViscaCmd(const char *cmd_hex, QList<datagram_field*> args) :
 		cmd(QByteArray::fromHex(cmd_hex)), args(args) { }
-	ViscaCmd(const char *cmd_hex, QList<visca_encoding*> args, QList<visca_encoding*> rslts) :
+	ViscaCmd(const char *cmd_hex, QList<datagram_field*> args, QList<datagram_field*> rslts) :
 		cmd(QByteArray::fromHex(cmd_hex)), args(args), results(rslts) { }
 	void encode(QList<int> arglist) {
 		for (int i = 0; i < arglist.size() && i < args.size(); i++)
@@ -221,7 +117,7 @@ public:
 class ViscaInq : public ViscaCmd {
 public:
 	ViscaInq(const char *cmd_hex) : ViscaCmd(cmd_hex) { }
-	ViscaInq(const char *cmd_hex, QList<visca_encoding*> rslts) : ViscaCmd(cmd_hex, {}, rslts) {}
+	ViscaInq(const char *cmd_hex, QList<datagram_field*> rslts) : ViscaCmd(cmd_hex, {}, rslts) {}
 };
 
 /*

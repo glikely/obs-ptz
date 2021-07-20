@@ -28,10 +28,10 @@ const ViscaInq VISCA_LensControlInq("81097e7e00ff", {
 		new int_field("focus_near_limit", 6, 0x0f0f0f0f),
 		new int_field("focus_pos", 8, 0x0f0f0f0f),
 		new int_field("af_mode", 13, 0b00011000),
-		new int_field("af_sensitivity", 13, 0b0100),
-		new int_field("dzoom", 13, 0b0010),
-		new int_field("focus_mode", 13, 0b0001),
-		new int_field("low_contrast_mode", 14, 0b1000)
+		new bool_field("af_sensitivity", 13, 0b0100),
+		new bool_field("dzoom", 13, 0b0010),
+		new bool_field("focus_mode", 13, 0b0001),
+		new bool_field("low_contrast_mode", 14, 0b1000)
 	});
 
 const ViscaInq VISCA_CameraControlInq("81097e7e01ff", {
@@ -40,11 +40,11 @@ const ViscaInq VISCA_CameraControlInq("81097e7e01ff", {
 		new visca_u4("wb_mode", 6),
 		new visca_u4("aperature_gain", 7),
 		new visca_u4("exposure_mode", 8),
-		new int_field("high_resolution", 9, 0b00100000),
-		new int_field("wide_d", 9, 0b00010000),
-		new int_field("back_light", 9, 0b1000),
-		new int_field("exposure_comp", 9, 0b1000),
-		new int_field("slow_shutter", 9, 0b0001),
+		new bool_field("high_resolution", 9, 0b00100000),
+		new bool_field("wide_d", 9, 0b00010000),
+		new bool_field("back_light", 9, 0b1000),
+		new bool_field("exposure_comp", 9, 0b1000),
+		new bool_field("slow_shutter", 9, 0b0001),
 		new int_field("shutter_pos", 10, 0x1f),
 		new int_field("iris_pos", 11, 0x1f),
 		new int_field("gain_pos", 12, 0x1f),
@@ -65,14 +65,14 @@ const ViscaInq VISCA_EnlargementFunction1Inq("81097e7e03ff", {
 		new int_field("af_interval_time", 6, 0x0f0f),
 		new int_field("color_gain", 11, 0b01111000),
 		new int_field("gamma", 13, 0b01110000),
-		new int_field("high_sensitivity", 13, 0b00001000),
+		new bool_field("high_sensitivity", 13, 0b00001000),
 		new int_field("nr_level", 13, 0b00000111),
 		new int_field("chroma_suppress", 14, 0b01110000),
 		new int_field("gain_limit", 14, 0b00001111),
 	});
 
 const ViscaInq VISCA_EnlargementFunction2Inq("81097e7e04ff", {
-		new int_field("defog_mode", 7, 0b0001)
+		new bool_field("defog_mode", 7, 0b0001)
 	});
 
 const ViscaInq VISCA_EnlargementFunction3Inq("81097e7e05ff", {
