@@ -107,18 +107,3 @@ public:
 		QObject::setObjectName(new_name);
 	}
 };
-
-class PTZSimulator : public PTZDevice {
-	Q_OBJECT
-
-public:
-	PTZSimulator() : PTZDevice("sim") { };
-	PTZSimulator(OBSData config) : PTZDevice("sim") { set_config(config); };
-
-	void pantilt(double pan, double tilt) { ptz_debug("Pan %f Tile %f", pan, tilt); }
-	void pantilt_stop() { ptz_debug("pantilt stop"); }
-	void pantilt_home() { ptz_debug("pantilt home"); }
-	void zoom_stop() { ptz_debug("zoom stop"); }
-	void zoom_tele(double speed) { ptz_debug("speed=%f", speed); }
-	void zoom_wide(double speed) { ptz_debug("speed=%f", speed); }
-};

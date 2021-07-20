@@ -70,8 +70,6 @@ PTZDevice *PTZDevice::make_device(OBSData config)
 
 	if (type == "pelco-p")
 		ptz = new PTZPelcoP(config);
-	if (type == "sim")
-		ptz = new PTZSimulator(config);
 	if (type == "visca")
 		ptz = new PTZViscaSerial(config);
 	if (type == "visca-over-ip")
