@@ -125,21 +125,7 @@ OBSData PTZDevice::get_config()
 
 OBSData PTZDevice::get_settings()
 {
-	OBSData settings = get_config();
-
-	QByteArrayList propnames = dynamicPropertyNames();
-	foreach(auto item, propnames) {
-		QVariant data = property(item.data());
-		switch (data.type()) {
-		case QMetaType::Int:
-			obs_data_set_int(settings, qPrintable(item), data.toInt());
-			break;
-		case QMetaType::QString:
-			obs_data_set_string(settings, qPrintable(item),
-					    qPrintable(data.toString()));
-			break;
-		}
-	}
+	obs_data_apply(settings, get_config());
 	return settings;
 }
 
@@ -149,15 +135,19 @@ obs_properties_t *PTZDevice::get_obs_properties()
 	obs_properties_t *config = obs_properties_create();
 	obs_properties_add_group(props, "interface", "Connection", OBS_GROUP_NORMAL, config);
 
-	QByteArrayList propnames = dynamicPropertyNames();
-	foreach(auto item, propnames) {
+	for (obs_data_item_t *item = obs_data_first(settings); item; obs_data_item_next(&item)) {
+		enum obs_data_type type = obs_data_item_gettype(item);
+		const char *name = obs_data_item_get_name(item);
+		if (auto_settings_filter.contains(name))
+			continue;
 		obs_property_t *p = nullptr;
-		switch (property(item.data()).type()) {
-		case QMetaType::Int:
-			p = obs_properties_add_int(props, item.data(), item.data(), INT_MIN, INT_MAX, 1);
+
+		switch (type) {
+		case OBS_DATA_NUMBER:
+			p = obs_properties_add_int(props, name, name, INT_MIN, INT_MAX, 1);
 			break;
-		case QMetaType::QString:
-			p = obs_properties_add_text(props, item.data(), item.data(), OBS_TEXT_DEFAULT);
+		case OBS_DATA_STRING:
+			p = obs_properties_add_text(props, name, name, OBS_TEXT_DEFAULT);
 			break;
 		}
 		if (p)

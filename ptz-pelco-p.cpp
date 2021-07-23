@@ -150,6 +150,7 @@ PTZPelcoP::PTZPelcoP(OBSData data)
 {
 	set_config(data);
 	ptz_debug("pelco-p device created");
+	auto_settings_filter += {"port", "address"};
 }
 
 PTZPelcoP::~PTZPelcoP()

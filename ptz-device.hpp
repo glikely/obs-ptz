@@ -42,12 +42,17 @@ private:
 
 protected:
 	std::string type;
+	QStringList auto_settings_filter = {"name", "type"};
+
 	QStringListModel preset_names_model;
 	obs_properties_t *props;
+	OBSData settings;
 
 public:
 	PTZDevice(std::string type) : QObject(), type(type)
 	{
+		settings = obs_data_create();
+		obs_data_release(settings);
 		devices.push_back(this);
 		ptz_list_model.do_reset();
 		preset_names_model.setStringList(default_preset_names);

@@ -211,9 +211,11 @@ public:
 		for (int i = 0; i < arglist.size() && i < args.size(); i++)
 			args[i]->encode(cmd, arglist[i]);
 	}
-	void decode(QObject *target, QByteArray msg) {
+	obs_data_t *decode(QByteArray msg) {
+		obs_data_t *data = obs_data_create();
 		for (int i = 0; i < results.size(); i++)
-			target->setProperty(results[i]->name, results[i]->decode(msg));
+			obs_data_set_int(data, results[i]->name, results[i]->decode(msg));
+		return data;
 	}
 };
 class ViscaInq : public ViscaCmd {

@@ -400,27 +400,10 @@ void PTZVisca::receive(const QByteArray &msg)
 		/* Slot 0 responses are inquiries that need to be parsed */
 		if (slot == 0) {
 			timeout_timer.stop();
-			pending_cmds.first().decode(this, msg);
+			obs_data_t *props = pending_cmds.first().decode(msg);
+			obs_data_apply(settings, props);
+			obs_data_release(props);
 			pending_cmds.removeFirst();
-#if 0 // debug messages for property settings; to be removed
-			QByteArrayList propnames = dynamicPropertyNames();
-			QString logmsg(objectName() + ":");
-			for (QByteArrayList::iterator i = propnames.begin(); i != propnames.end(); i++) {
-				logmsg = logmsg + " " + QString(i->data()) + "=" + property(i->data()).toString();
-				if (QString(i->data()) == "vendor") {
-					int vendor = property(i->data()).toInt();
-					if (viscaVendors.contains(vendor))
-						logmsg += "," + viscaVendors[vendor];
-				}
-				if (QString(i->data()) == "model") {
-					int vendormodel = (property("vendor").toInt() << 16) |
-							   property("model").toInt();
-					if (viscaModels.contains(vendormodel))
-						logmsg += "," + viscaModels[vendormodel];
-				}
-			}
-			ptz_debug("%s", qPrintable(logmsg));
-#endif
 		}
 
 		break;
@@ -613,6 +596,7 @@ PTZViscaSerial::PTZViscaSerial(OBSData config)
 	: PTZVisca("visca"), iface(NULL)
 {
 	set_config(config);
+	auto_settings_filter += {"port", "address"};
 }
 
 PTZViscaSerial::~PTZViscaSerial()
@@ -751,6 +735,7 @@ PTZViscaOverIP::PTZViscaOverIP(OBSData config)
 {
 	address = 1;
 	set_config(config);
+	auto_settings_filter += {"port", "address"};
 }
 
 PTZViscaOverIP::~PTZViscaOverIP()
