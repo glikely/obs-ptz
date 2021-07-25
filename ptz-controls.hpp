@@ -74,6 +74,13 @@ private slots:
 	void on_zoomButton_wide_pressed();
 	void on_zoomButton_wide_released();
 
+	void on_focusButton_auto_clicked(bool checked);
+	void on_focusButton_near_pressed();
+	void on_focusButton_near_released();
+	void on_focusButton_far_pressed();
+	void on_focusButton_far_released();
+	void on_focusButton_onetouch_clicked();
+
 	void on_targetButton_preview_clicked(bool checked);
 	void on_targetButton_program_clicked(bool checked);
 

@@ -84,6 +84,11 @@ public:
 	virtual void zoom_tele(double speed) { Q_UNUSED(speed); }
 	virtual void zoom_wide(double speed) { Q_UNUSED(speed); }
 	virtual void zoom_abs(int pos) { Q_UNUSED(pos); };
+	virtual void set_autofocus(bool enabled) { Q_UNUSED(enabled); };
+	virtual void focus_stop() { }
+	virtual void focus_near(double speed) { Q_UNUSED(speed); }
+	virtual void focus_far(double speed) { Q_UNUSED(speed); }
+	virtual void focus_onetouch() { }
 	virtual void memory_set(int i) { Q_UNUSED(i); }
 	virtual void memory_recall(int i) { Q_UNUSED(i); }
 	virtual void memory_reset(int i) { Q_UNUSED(i); }
