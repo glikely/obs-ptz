@@ -54,6 +54,11 @@ public:
 	void zoom_tele(double speed);
 	void zoom_wide(double speed);
 	void zoom_abs(int pos);
+	void set_autofocus(bool enabled);
+	void focus_stop();
+	void focus_near(double speed);
+	void focus_far(double speed);
+	void focus_onetouch();
 	void memory_reset(int i);
 	void memory_set(int i);
 	void memory_recall(int i);

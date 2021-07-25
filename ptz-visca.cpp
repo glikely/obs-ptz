@@ -125,10 +125,10 @@ const PTZInq VISCA_LensControlInq("81097e7e00ff", {
 		new int_field("zoom_pos", 2, 0x0f0f0f0f),
 		new int_field("focus_near_limit", 6, 0x0f0f0f0f),
 		new int_field("focus_pos", 8, 0x0f0f0f0f),
-		new int_field("af_mode", 13, 0b00011000),
-		new bool_field("af_sensitivity", 13, 0b0100),
+		new int_field("focus_af_mode", 13, 0b00011000),
+		new bool_field("focus_af_sensitivity", 13, 0b0100),
 		new bool_field("dzoom", 13, 0b0010),
-		new bool_field("focus_mode", 13, 0b0001),
+		new bool_field("focus_af_enabled", 13, 0b0001),
 		new bool_field("low_contrast_mode", 14, 0b1000)
 	});
 
@@ -159,8 +159,8 @@ const PTZInq VISCA_OtherInq("81097e7e02ff", {
 
 const PTZInq VISCA_EnlargementFunction1Inq("81097e7e03ff", {
 		new int_field("dzoom_pos", 2, 0x0f0f),
-		new int_field("af_activation_time", 4, 0x0f0f),
-		new int_field("af_interval_time", 6, 0x0f0f),
+		new int_field("focus_af_move_time", 4, 0x0f0f),
+		new int_field("focus_af_interval_time", 6, 0x0f0f),
 		new int_field("color_gain", 11, 0b01111000),
 		new int_field("gamma", 13, 0b01110000),
 		new bool_field("high_sensitivity", 13, 0b00001000),
@@ -205,7 +205,7 @@ const PTZCmd VISCA_CAM_Focus_NearVar("8101040830ff", {new visca_u4("p", 4),});
 const PTZCmd VISCA_CAM_Focus_Auto(      "8101043802ff");
 const PTZCmd VISCA_CAM_Focus_Manual(    "8101043803ff");
 const PTZCmd VISCA_CAM_Focus_AutoManual("8101043810ff");
-const PTZInq VISCA_CAM_FocusModeInq(    "81090438ff", {new visca_flag("autofocus_on", 2)});
+const PTZInq VISCA_CAM_Focus_AFEnabledInq(    "81090438ff", {new visca_flag("focus_af_enabled", 2)});
 
 const PTZCmd VISCA_CAM_Focus_OneTouch("8101041801ff");
 const PTZCmd VISCA_CAM_Focus_Infinity("8101041802ff");
@@ -221,21 +221,20 @@ const PTZCmd VISCA_CAM_ZoomFocus_Direct("810104470000000000000000ff",
 
 const PTZCmd VISCA_CAM_AF_SensitivityNormal("8101045802ff");
 const PTZCmd VISCA_CAM_AF_SensitivityLow(   "8101045803ff");
-const PTZInq VISCA_CAM_AFSensitivityInq(    "81090458ff", {new visca_flag("af_sensitivity", 2)});
+const PTZInq VISCA_CAM_AFSensitivityInq(    "81090458ff", {new visca_flag("focus_af_sensitivity", 2)});
 
 const PTZCmd VISCA_CAM_AFMode_Normal(     "8101045700ff");
 const PTZCmd VISCA_CAM_AFMode_Interval(   "8101045701ff");
 const PTZCmd VISCA_CAM_AFMode_ZoomTrigger("8101045702ff");
-const PTZInq VISCA_CAM_AFModeInq( "81090457ff", {new visca_flag("af_mode", 2)});
+const PTZInq VISCA_CAM_AFModeInq( "81090457ff", {new visca_flag("focus_af_mode", 2)});
 
 const PTZCmd VISCA_CAM_AFMode_ActiveIntervalTime("8101042700000000ff", {
-		new visca_u8("af_movement_time", 4),
-		new visca_u8("af_interval", 6)
+		new visca_u8("focus_af_move_time", 4),
+		new visca_u8("focus_af_move_interval", 6)
 	});
-
 const PTZInq VISCA_CAM_AFTimeSettingInq("81090427ff", {
-		new visca_u8("move_time", 2),
-		new visca_u8("move_interval", 4)
+		new visca_u8("focus_af_move_time", 2),
+		new visca_u8("focus_af_move_interval", 4)
 	});
 
 const PTZCmd VISCA_CAM_IRCorrection_Standard("8101041100ff");
@@ -606,6 +605,41 @@ void PTZVisca::zoom_wide(double speed_)
 void PTZVisca::zoom_abs(int pos)
 {
 	send(VISCA_CAM_Zoom_Direct, { pos });
+}
+
+void PTZVisca::set_autofocus(bool enabled)
+{
+	send(enabled ? VISCA_CAM_Focus_Auto : VISCA_CAM_Focus_Manual);
+	obs_data_set_bool(settings, "focus_af_enabled", enabled);
+}
+
+void PTZVisca::focus_stop()
+{
+	send(VISCA_CAM_Focus_Stop);
+}
+
+void PTZVisca::focus_near(double speed_)
+{
+	// The following two lines allows the focus speed to be adjusted using
+	// the speed slide, but in practical terms this makes the focus change
+	// far too quickly. Just use the slowest speed instead.
+	//int speed = (speed_ > 1 ? 1 : (speed_ < 0 ? 0 : speed_)) * 0x7;
+	//send(VISCA_CAM_Focus_NearVar, { speed });
+
+	send(VISCA_CAM_Focus_NearVar, { 1 });
+}
+
+void PTZVisca::focus_far(double speed_)
+{
+	//int speed = (speed_ > 1 ? 1 : (speed_ < 0 ? 0 : speed_)) * 0x7;
+	//send(VISCA_CAM_Focus_FarVar, { speed });
+
+	send(VISCA_CAM_Focus_FarVar, { 1 });
+}
+
+void PTZVisca::focus_onetouch()
+{
+	send(VISCA_CAM_Focus_OneTouch);
 }
 
 void PTZVisca::zoom_stop()

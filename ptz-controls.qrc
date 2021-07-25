@@ -1,5 +1,9 @@
 <RCC>
   <qresource prefix="icons">
+    <file>icons/focus_onetouch.svg</file>
+    <file>icons/focus_far.svg</file>
+    <file>icons/focus_auto.svg</file>
+    <file>icons/focus_near.svg</file>
     <file>icons/pantilt_upleft.svg</file>
     <file>icons/zoom_in.svg</file>
     <file>icons/zoom_out.svg</file>

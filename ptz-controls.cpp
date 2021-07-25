@@ -392,6 +392,56 @@ void PTZControls::on_zoomButton_wide_released()
 		ptz->zoom_stop();
 }
 
+void PTZControls::on_focusButton_auto_clicked(bool checked)
+{
+	ui->focusButton_near->setFlat(checked);
+	ui->focusButton_near->setEnabled(!checked);
+	ui->focusButton_far->setFlat(checked);
+	ui->focusButton_far->setEnabled(!checked);
+	ui->focusButton_onetouch->setFlat(checked);
+	ui->focusButton_onetouch->setEnabled(!checked);
+	PTZDevice *ptz = currCamera();
+	if (ptz)
+		ptz->set_autofocus(checked);
+}
+
+void PTZControls::on_focusButton_near_pressed()
+{
+	double speed = ui->speedSlider->value();
+	PTZDevice *ptz = currCamera();
+	if (ptz)
+		ptz->focus_near(speed / 100);
+}
+
+void PTZControls::on_focusButton_near_released()
+{
+	PTZDevice *ptz = currCamera();
+	if (ptz)
+		ptz->focus_stop();
+}
+
+void PTZControls::on_focusButton_far_pressed()
+{
+	double speed = ui->speedSlider->value();
+	PTZDevice *ptz = currCamera();
+	if (ptz)
+		ptz->focus_far(speed / 100);
+}
+
+void PTZControls::on_focusButton_far_released()
+{
+	PTZDevice *ptz = currCamera();
+	if (ptz)
+		ptz->focus_stop();
+}
+
+void PTZControls::on_focusButton_onetouch_clicked()
+{
+	PTZDevice *ptz = currCamera();
+	if (ptz)
+		ptz->focus_onetouch();
+}
+
 void PTZControls::full_stop()
 {
 	PTZDevice *ptz = currCamera();
@@ -429,6 +479,17 @@ void PTZControls::currentChanged(QModelIndex current, QModelIndex previous)
 	current_cam = current.row();
 	PTZDevice *ptz = PTZDevice::get_device(current_cam);
 	ui->presetListView->setModel(ptz->presetModel());
+
+	auto settings = ptz->get_settings();
+	bool autofocus_on = obs_data_get_bool(settings, "focus_af_enabled");
+
+	ui->focusButton_auto->setChecked(autofocus_on);
+	ui->focusButton_near->setFlat(autofocus_on);
+	ui->focusButton_near->setEnabled(!autofocus_on);
+	ui->focusButton_far->setFlat(autofocus_on);
+	ui->focusButton_far->setEnabled(!autofocus_on);
+	ui->focusButton_onetouch->setFlat(autofocus_on);
+	ui->focusButton_onetouch->setEnabled(!autofocus_on);
 }
 
 void PTZControls::on_presetListView_activated(QModelIndex index)
