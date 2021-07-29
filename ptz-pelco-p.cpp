@@ -16,7 +16,7 @@ const QByteArray ZOOM_OUT = QByteArray::fromHex("00400000");
 
 std::map<QString, PelcoPUART*> PelcoPUART::interfaces;
 
-PelcoPUART::PelcoPUART(QString& port_name, qint32 baudrate)
+PelcoPUART::PelcoPUART(QString& port_name, QSerialPort::BaudRate baudrate)
 	: port_name(port_name), baud_rate(baudrate)
 {
 	connect(&uart, &QSerialPort::readyRead, this, &PelcoPUART::poll);
@@ -79,7 +79,7 @@ PelcoPUART* PelcoPUART::get_interface(QString port_name)
 	return iface;
 }
 
-PelcoPUART* PelcoPUART::add_interface(QString port_name, qint32 baudrate)
+PelcoPUART* PelcoPUART::add_interface(QString port_name, QSerialPort::BaudRate baudrate)
 {
 	PelcoPUART* iface = get_interface(port_name);
 	if (!iface) {
@@ -161,13 +161,21 @@ void PTZPelcoP::set_config(OBSData config)
 {
 	PTZDevice::set_config(config);
 	const char* uartt = obs_data_get_string(config, "port");
+	QSerialPort::BaudRate baudRate = (QSerialPort::BaudRate)obs_data_get_int(config, "baud_rate");
 	address = obs_data_get_int(config, "address");
 	if (!uartt)
 		return;
 
 	PelcoPUART* iface = PelcoPUART::get_interface(uartt);
 	if (!iface)
-		iface = PelcoPUART::add_interface(uartt);
+		iface = PelcoPUART::add_interface(uartt, baudRate);
+
+	//Settings can only be changed if the serial connection is closed;
+	if (iface->baud_rate != baudRate){
+		iface->close();
+		iface->baud_rate = baudRate;
+		iface->open();
+	}
 
 	attach_interface(iface);
 }
@@ -177,6 +185,7 @@ OBSData PTZPelcoP::get_config()
 	OBSData config = PTZDevice::get_config();
 	obs_data_set_int(config, "address", address);
 	obs_data_set_string(config, "port", qPrintable(iface->portName()));
+	obs_data_set_int(config, "baud_rate", iface->baud_rate);
 	return config;
 }
 
@@ -194,6 +203,14 @@ obs_properties_t *PTZPelcoP::get_obs_properties()
 		obs_property_list_add_string(p, name.c_str(), name.c_str());
 	}
 	obs_properties_add_int(config, "address", "PelcoP ID", 0, 15, 1);
+
+	p = obs_properties_add_list(config, "baud_rate", "Baud Rate", OBS_COMBO_TYPE_LIST,
+		OBS_COMBO_FORMAT_INT);
+	for (QSerialPort::BaudRate baud_rate : common_baud_rates) {
+		std::string baud_rate_string = std::to_string(baud_rate);
+		obs_property_list_add_int(p, baud_rate_string.c_str(), baud_rate);
+	}
+
 	return props;
 }
 
