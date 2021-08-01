@@ -25,7 +25,6 @@ private:
 	static std::map<QString, PelcoPUART*> interfaces;
 
 	QString port_name;
-	qint32 baud_rate;
 	QSerialPort uart;
 	QByteArray rxbuffer;
 
@@ -35,8 +34,9 @@ signals:
 	void receive(const QByteArray& packet);
 
 public:
+	QSerialPort::BaudRate baud_rate = QSerialPort::Baud9600;
 
-	PelcoPUART(QString& port_name, qint32 baudrate = 9600);
+	PelcoPUART(QString& port_name, QSerialPort::BaudRate baudrate = QSerialPort::Baud9600);
 	void open();
 	void close();
 	void send(const QByteArray& packet);
@@ -45,7 +45,7 @@ public:
 
 
 	static PelcoPUART* get_interface(QString port_name);
-	static PelcoPUART* add_interface(QString port_name, qint32 baudrate = 9600);
+	static PelcoPUART* add_interface(QString port_name, QSerialPort::BaudRate baudrate = QSerialPort::Baud9600);
 
 public slots:
 	void poll();
