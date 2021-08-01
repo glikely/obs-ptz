@@ -20,7 +20,12 @@ extern int ptz_debug_level;
 	blog(ptz_debug_level, "%s():%i: " format, __FUNCTION__, __LINE__, \
 	##__VA_ARGS__)
 
-const QList<QSerialPort::BaudRate> common_baud_rates({ QSerialPort::Baud2400, QSerialPort::Baud38400, QSerialPort::Baud4800, QSerialPort::Baud9600, QSerialPort::Baud115200 });
+const QList<QSerialPort::BaudRate> common_baud_rates({
+	QSerialPort::Baud2400,
+	QSerialPort::Baud4800,
+	QSerialPort::Baud9600,
+	QSerialPort::Baud38400,
+	QSerialPort::Baud115200 });
 
 class PTZListModel : public QAbstractListModel {
 	Q_OBJECT
