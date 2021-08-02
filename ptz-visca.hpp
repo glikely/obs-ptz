@@ -288,16 +288,16 @@ signals:
 	void reset();
 
 public:
-	QSerialPort::BaudRate baud_rate = QSerialPort::Baud9600;
+	int baud_rate = QSerialPort::Baud9600;
 
-	ViscaUART(QString &port_name, QSerialPort::BaudRate baud_rate= QSerialPort::Baud9600);
+	ViscaUART(QString &port_name, int baud_rate = QSerialPort::Baud9600);
 	void open();
 	void close();
 	void send(const QByteArray &packet);
 	void receive_datagram(const QByteArray &packet);
 	QString portName() { return port_name; }
 
-	static ViscaUART *get_interface(QString port_name, QSerialPort::BaudRate baud_rate = QSerialPort::Baud9600);
+	static ViscaUART *get_interface(QString port_name, int baud_rate = QSerialPort::Baud9600);
 
 public slots:
 	void poll();

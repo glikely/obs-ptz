@@ -500,7 +500,8 @@ void PTZVisca::memory_recall(int i)
 /*
  * VISCA over serial UART implementation
  */
-ViscaUART::ViscaUART(QString &port_name, QSerialPort::BaudRate baud_rate) : port_name(port_name), baud_rate(baud_rate)
+ViscaUART::ViscaUART(QString &port_name, int baud_rate) :
+	port_name(port_name), baud_rate(baud_rate)
 {
 	connect(&uart, &QSerialPort::readyRead, this, &ViscaUART::poll);
 	open();
@@ -579,7 +580,7 @@ void ViscaUART::poll()
 	}
 }
 
-ViscaUART * ViscaUART::get_interface(QString port_name, QSerialPort::BaudRate baud_rate)
+ViscaUART * ViscaUART::get_interface(QString port_name, int baud_rate)
 {
 	ViscaUART *iface;
 	ptz_debug("Looking for UART object %s", qPrintable(port_name));
@@ -631,7 +632,7 @@ void PTZViscaSerial::set_config(OBSData config)
 	PTZDevice::set_config(config);
 	const char *uart = obs_data_get_string(config, "port");
 	address = obs_data_get_int(config, "address");
-	QSerialPort::BaudRate baudRate = (QSerialPort::BaudRate)obs_data_get_int(config, "baud_rate");
+	int baudRate = obs_data_get_int(config, "baud_rate");
 	if (!uart)
 		return;
 
@@ -640,7 +641,7 @@ void PTZViscaSerial::set_config(OBSData config)
 	//Settings can only be changed if the serial connection is closed;
 	if (iface->baud_rate != baudRate){
 		iface->close();
-		iface->baud_rate = (QSerialPort::BaudRate)baudRate;
+		iface->baud_rate = baudRate;
 		iface->open();
 	}
 

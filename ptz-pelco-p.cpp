@@ -16,7 +16,7 @@ const QByteArray ZOOM_OUT = QByteArray::fromHex("00400000");
 
 std::map<QString, PelcoPUART*> PelcoPUART::interfaces;
 
-PelcoPUART::PelcoPUART(QString& port_name, QSerialPort::BaudRate baudrate)
+PelcoPUART::PelcoPUART(QString& port_name, int baudrate)
 	: port_name(port_name), baud_rate(baudrate)
 {
 	connect(&uart, &QSerialPort::readyRead, this, &PelcoPUART::poll);
@@ -79,7 +79,7 @@ PelcoPUART* PelcoPUART::get_interface(QString port_name)
 	return iface;
 }
 
-PelcoPUART* PelcoPUART::add_interface(QString port_name, QSerialPort::BaudRate baudrate)
+PelcoPUART* PelcoPUART::add_interface(QString port_name, int baudrate)
 {
 	PelcoPUART* iface = get_interface(port_name);
 	if (!iface) {
@@ -162,7 +162,7 @@ void PTZPelcoP::set_config(OBSData config)
 {
 	PTZDevice::set_config(config);
 	const char* uartt = obs_data_get_string(config, "port");
-	QSerialPort::BaudRate baudRate = (QSerialPort::BaudRate)obs_data_get_int(config, "baud_rate");
+	int baudRate = obs_data_get_int(config, "baud_rate");
 	address = obs_data_get_int(config, "address");
 	if (!uartt)
 		return;
