@@ -616,23 +616,19 @@ void PTZViscaSerial::set_config(OBSData config)
 	PTZDevice::set_config(config);
 	const char *uart = obs_data_get_string(config, "port");
 	address = obs_data_get_int(config, "address");
-	int baudRate = obs_data_get_int(config, "baud_rate");
 	if (!uart)
 		return;
 
 	iface = ViscaUART::get_interface(uart);
-	if (baudRate)
-		iface->setBaudRate(baudRate);
-
+	iface->setConfig(config);
 	attach_interface(iface);
 }
 
 OBSData PTZViscaSerial::get_config()
 {
 	OBSData config = PTZDevice::get_config();
-	obs_data_set_string(config, "port", qPrintable(iface->portName()));
+	obs_data_apply(config, iface->getConfig());
 	obs_data_set_int(config, "address", address);
-	obs_data_set_int(config, "baud_rate", iface->baudRate());
 	return config;
 }
 
@@ -643,20 +639,8 @@ obs_properties_t *PTZViscaSerial::get_obs_properties()
 	obs_properties_t *config = obs_property_group_content(p);
 	obs_property_set_description(p, "VISCA Connection");
 
-	p = obs_properties_add_list(config, "port", "UART Port", OBS_COMBO_TYPE_EDITABLE,
-				OBS_COMBO_FORMAT_STRING);
-	Q_FOREACH(auto port, QSerialPortInfo::availablePorts()) {
-		std::string name = port.portName().toStdString();
-		obs_property_list_add_string(p, name.c_str(), name.c_str());
-	}
+	iface->addOBSProperties(config);
 	obs_properties_add_int(config, "address", "VISCA ID", 1, 7, 1);
-
-	p = obs_properties_add_list(config, "baud_rate", "Baud Rate", OBS_COMBO_TYPE_LIST,
-		OBS_COMBO_FORMAT_INT);
-	for(QSerialPort::BaudRate baud_rate : common_baud_rates) {
-		std::string baud_rate_string = std::to_string(baud_rate);
-		obs_property_list_add_int(p, baud_rate_string.c_str(), baud_rate);
-	}
 
 	return props;
 }
