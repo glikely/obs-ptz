@@ -8,8 +8,8 @@
 
 #include <QObject>
 #include <QTimer>
-#include <QSerialPort>
 #include <QUdpSocket>
+#include "protocol-helpers.hpp"
 #include "ptz-device.hpp"
 
 class visca_encoding {
@@ -271,36 +271,23 @@ public:
 /*
  * VISCA over Serial UART classes
  */
-class ViscaUART : public QObject {
+class ViscaUART : public PTZUARTWrapper {
 	Q_OBJECT
 
 private:
 	/* Global lookup table of UART instances, used to eliminate duplicates */
 	static std::map<QString, ViscaUART*> interfaces;
 
-	QString port_name;
-	QSerialPort uart;
-	QByteArray rxbuffer;
 	int camera_count;
 
-signals:
-	void receive(const QByteArray &packet);
-	void reset();
-
 public:
-	ViscaUART(QString &port_name, int baud_rate = QSerialPort::Baud9600);
-	void open();
+	ViscaUART(QString &port_name);
+	bool open();
 	void close();
-	void setBaudRate(int baudRate);
-	int baudRate();
-	void send(const QByteArray &packet);
 	void receive_datagram(const QByteArray &packet);
-	QString portName() { return port_name; }
+	void receiveBytes(const QByteArray &packet);
 
 	static ViscaUART *get_interface(QString port_name);
-
-public slots:
-	void poll();
 };
 
 class PTZViscaSerial : public PTZVisca {

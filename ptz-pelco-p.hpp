@@ -10,44 +10,27 @@
 #include "ptz-device.hpp"
 #include <util/base.h>
 #include <QObject>
-#include <QSerialPort>
 #include <QDebug>
 #include <QStringListModel>
 #include <QtGlobal>
+#include "protocol-helpers.hpp"
 
 /*
 * General Serial UART class
 */
-class PelcoPUART : public QObject {
+class PelcoPUART : public PTZUARTWrapper {
 	Q_OBJECT
 
 private:
 	static std::map<QString, PelcoPUART*> interfaces;
-
-	QString port_name;
-	QSerialPort uart;
-	QByteArray rxbuffer;
-
 	const int messageLength = 8;
 
-signals:
-	void receive(const QByteArray& packet);
-
 public:
-	PelcoPUART(QString& port_name, int baudrate = QSerialPort::Baud9600);
-	void open();
-	void close();
-	void setBaudRate(int baudRate);
-	int baudRate();
-	void send(const QByteArray& packet);
+	PelcoPUART(QString& port_name) : PTZUARTWrapper(port_name) { }
 	void receive_datagram(const QByteArray& packet);
-	QString portName() { return port_name; }
-
+	void receiveBytes(const QByteArray& packet);
 
 	static PelcoPUART* get_interface(QString port_name);
-
-public slots:
-	void poll();
 };
 
 class PTZPelcoP : public PTZDevice {

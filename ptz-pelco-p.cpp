@@ -16,55 +16,6 @@ const QByteArray ZOOM_OUT = QByteArray::fromHex("00400000");
 
 std::map<QString, PelcoPUART*> PelcoPUART::interfaces;
 
-PelcoPUART::PelcoPUART(QString& port_name, int baudrate)
-	: port_name(port_name)
-{
-	connect(&uart, &QSerialPort::readyRead, this, &PelcoPUART::poll);
-	uart.setPortName(port_name);
-	uart.setBaudRate(baudrate);
-	open();
-}
-
-void PelcoPUART::open()
-{
-	if (!uart.open(QIODevice::ReadWrite)) {
-		blog(LOG_INFO, "Unable to open UART %s", qPrintable(port_name));
-		return;
-	}
-	blog(LOG_INFO, "Serial connection with %s is opened", qPrintable(port_name));
-}
-
-void PelcoPUART::close()
-{
-	if (uart.isOpen()) {
-		uart.close();
-		blog(LOG_INFO, "Serial connection %s is closed", qPrintable(port_name));
-	}
-}
-
-void PelcoPUART::setBaudRate(int baudRate)
-{
-	if (!baudRate || baudRate == uart.baudRate())
-		return;
-
-	close();
-	uart.setBaudRate(baudRate);
-	open();
-}
-
-int PelcoPUART::baudRate()
-{
-	return uart.baudRate();
-}
-
-void PelcoPUART::send(const QByteArray& packet)
-{
-	if (!uart.isOpen())
-		return;
-	ptz_debug("%s --> %s", packet.toHex(':').data(), qPrintable(port_name));
-	uart.write(packet);
-}
-
 void PelcoPUART::receive_datagram(const QByteArray& packet)
 {
 	ptz_debug("%s <-- %s", qPrintable(port_name), packet.toHex(':').data());
@@ -72,9 +23,8 @@ void PelcoPUART::receive_datagram(const QByteArray& packet)
 	emit receive(packet);
 }
 
-void PelcoPUART::poll()
+void PelcoPUART::receiveBytes(const QByteArray &data)
 {
-	const QByteArray data = uart.readAll();
 	for (auto b : data) {
 		rxbuffer += b;
 		if (rxbuffer.size() >= messageLength) {

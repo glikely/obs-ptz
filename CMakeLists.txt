@@ -37,6 +37,7 @@ set(ptz-controls_HEADERS
     ptz-controls.hpp
     ptz-device.hpp
     settings.hpp
+    protocol-helpers.hpp
     imported/qt-wrappers.hpp
     imported/properties-view.hpp
     imported/properties-view.moc.hpp
@@ -52,6 +53,7 @@ set(ptz-controls_SOURCES
     ptz-controls.cpp
     ptz-device.cpp
     settings.cpp
+    protocol-helpers.cpp
     imported/qt-wrappers.cpp
     imported/properties-view.cpp
     imported/vertical-scroll-area.cpp

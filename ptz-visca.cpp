@@ -500,55 +500,25 @@ void PTZVisca::memory_recall(int i)
 /*
  * VISCA over serial UART implementation
  */
-ViscaUART::ViscaUART(QString &port_name, int baud_rate) :
-	port_name(port_name)
-{
-	connect(&uart, &QSerialPort::readyRead, this, &ViscaUART::poll);
-	uart.setPortName(port_name);
-	uart.setBaudRate(baud_rate);
-	open();
-}
-
-void ViscaUART::open()
+ViscaUART::ViscaUART(QString &port_name) :
+	PTZUARTWrapper(port_name)
 {
 	camera_count = 0;
+}
 
-	if (!uart.open(QIODevice::ReadWrite)) {
-		blog(LOG_INFO, "VISCA Unable to open UART %s", qPrintable(port_name));
-		return;
-	}
-
-	send(VISCA_ENUMERATE.cmd);
+bool ViscaUART::open()
+{
+	camera_count = 0;
+	bool rc = PTZUARTWrapper::open();
+	if (rc)
+		send(VISCA_ENUMERATE.cmd);
+	return rc;
 }
 
 void ViscaUART::close()
 {
-	if (uart.isOpen())
-		uart.close();
+	PTZUARTWrapper::close();
 	camera_count = 0;
-}
-
-void ViscaUART::setBaudRate(int baudRate)
-{
-	if (!baudRate || baudRate == uart.baudRate())
-		return;
-
-	close();
-	uart.setBaudRate(baudRate);
-	open();
-}
-
-int ViscaUART::baudRate()
-{
-	return uart.baudRate();
-}
-
-void ViscaUART::send(const QByteArray &packet)
-{
-	if (!uart.isOpen())
-		return;
-	ptz_debug("VISCA --> %s", packet.toHex(':').data());
-	uart.write(packet);
 }
 
 void ViscaUART::receive_datagram(const QByteArray &packet)
@@ -582,9 +552,8 @@ void ViscaUART::receive_datagram(const QByteArray &packet)
 	emit receive(packet);
 }
 
-void ViscaUART::poll()
+void ViscaUART::receiveBytes(const QByteArray &data)
 {
-	const QByteArray data = uart.readAll();
 	for (auto b : data) {
 		rxbuffer += b;
 		if ((b & 0xff) == 0xff) {
