@@ -7,6 +7,7 @@
 
 #include <QSerialPortInfo>
 #include <QSerialPort>
+#include <QMetaEnum>
 #include "protocol-helpers.hpp"
 #include "ptz-device.hpp"
 
@@ -61,13 +62,6 @@ OBSData PTZUARTWrapper::getConfig()
 	return config;
 }
 
-const QList<QSerialPort::BaudRate> common_baud_rates({
-	QSerialPort::Baud2400,
-	QSerialPort::Baud4800,
-	QSerialPort::Baud9600,
-	QSerialPort::Baud38400,
-	QSerialPort::Baud115200 });
-
 void PTZUARTWrapper::addOBSProperties(obs_properties_t *props)
 {
 	obs_property_t *p;
@@ -81,8 +75,12 @@ void PTZUARTWrapper::addOBSProperties(obs_properties_t *props)
 
 	p = obs_properties_add_list(props, "baud_rate", "Baud Rate", OBS_COMBO_TYPE_LIST,
 		OBS_COMBO_FORMAT_INT);
-	for(QSerialPort::BaudRate baud_rate : common_baud_rates) {
-		std::string baud_rate_string = std::to_string(baud_rate);
+	QMetaEnum e = QMetaEnum::fromType<QSerialPort::BaudRate>();
+	for (int i = 0; i < e.keyCount(); i++) {
+		auto baud_rate = (QSerialPort::BaudRate) e.value(i);
+		auto baud_rate_string = std::to_string(baud_rate);
+		if (baud_rate < 0)
+			continue;
 		obs_property_list_add_int(p, baud_rate_string.c_str(), baud_rate);
 	}
 }
