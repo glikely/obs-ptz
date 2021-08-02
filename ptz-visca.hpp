@@ -13,113 +13,6 @@
 #include "ptz-device.hpp"
 #include "protocol-helpers.hpp"
 
-class visca_u4 : public int_field {
-public:
-	visca_u4(const char *name, int offset) : int_field(name, offset, 0x0f) { }
-};
-
-class visca_flag : public datagram_field {
-public:
-	visca_flag(const char *name, int offset) : datagram_field(name, offset) { }
-	void encode(QByteArray &data, int val) {
-		if (data.size() < offset + 1)
-			return;
-		data[offset] = val ? 0x2 : 0x3;
-	}
-	int decode(QByteArray &data) {
-		return (data.size() < offset + 1) ? 0 : 0x02 == data[offset];
-	}
-};
-
-class visca_u7 : public int_field {
-public:
-	visca_u7(const char *name, int offset) : int_field(name, offset, 0x7f) { }
-};
-
-class visca_s7 : public datagram_field {
-public:
-	visca_s7(const char *name, int offset) : datagram_field(name, offset) { }
-	void encode(QByteArray &data, int val) {
-		if (data.size() < offset + 3)
-			return;
-		data[offset] = abs(val) & 0x7f;
-		data[offset+2] = 3;
-		if (val)
-			data[offset+2] = val < 0 ? 1 : 2;
-	}
-	int decode(QByteArray &data) {
-		if (data.size() < offset + 3)
-			return 0;
-		int val = data[offset] & 0x7f;
-		switch (data[offset+2]) {
-		case 1: return -val;
-		case 2: return val;
-		}
-		return 0;
-	}
-};
-
-class visca_u8 : public int_field {
-public:
-	visca_u8(const char *name, int offset) : int_field(name, offset, 0x0f0f) { }
-};
-
-/* 15 bit value encoded into two bytes. Protocol encoding forces bit 15 & 7 to zero */
-class visca_u15 : public datagram_field {
-public:
-	visca_u15(const char *name, int offset) : datagram_field(name, offset) { }
-	void encode(QByteArray &data, int val) {
-		if (data.size() < offset + 2)
-			return;
-		data[offset] = (val >> 8) & 0x7f;
-		data[offset+1] = val & 0x7f;
-	}
-	int decode(QByteArray &data) {
-		if (data.size() < offset + 2)
-			return 0;
-		uint16_t val = (data[offset] & 0x7f) << 8 |
-			       (data[offset+1] & 0x7f);
-		return val;
-	}
-};
-
-class visca_s16 : public int_field {
-public:
-	visca_s16(const char *name, int offset) : int_field(name, offset, 0x0f0f0f0f, true) { }
-};
-
-class visca_u16 : public int_field {
-public:
-	visca_u16(const char *name, int offset) : int_field(name, offset, 0x0f0f0f0f) { }
-};
-
-class ViscaCmd {
-public:
-	QByteArray cmd;
-	QList<datagram_field*> args;
-	QList<datagram_field*> results;
-	ViscaCmd(const char *cmd_hex) : cmd(QByteArray::fromHex(cmd_hex)) { }
-	ViscaCmd(const char *cmd_hex, QList<datagram_field*> args) :
-		cmd(QByteArray::fromHex(cmd_hex)), args(args) { }
-	ViscaCmd(const char *cmd_hex, QList<datagram_field*> args, QList<datagram_field*> rslts) :
-		cmd(QByteArray::fromHex(cmd_hex)), args(args), results(rslts) { }
-	void encode(QList<int> arglist) {
-		for (int i = 0; i < arglist.size() && i < args.size(); i++)
-			args[i]->encode(cmd, arglist[i]);
-	}
-	obs_data_t *decode(QByteArray msg) {
-		obs_data_t *data = obs_data_create();
-		for (int i = 0; i < results.size(); i++)
-			obs_data_set_int(data, results[i]->name, results[i]->decode(msg));
-		return data;
-	}
-};
-class ViscaInq : public ViscaCmd {
-public:
-	ViscaInq(const char *cmd_hex) : ViscaCmd(cmd_hex) { }
-	ViscaInq(const char *cmd_hex, QList<datagram_field*> rslts) : ViscaCmd(cmd_hex, {}, rslts) {}
-};
-
 /*
  * VISCA Abstract base class, used for both Serial UART and UDP implementations
  */
@@ -130,13 +23,13 @@ protected:
 	static const QMap<uint16_t, QString> viscaVendors;
 	static const QMap<uint32_t, QString> viscaModels;
 	unsigned int address;
-	QList<ViscaCmd> pending_cmds;
+	QList<PTZCmd> pending_cmds;
 	bool active_cmd[8];
 	QTimer timeout_timer;
 
 	virtual void send_immediate(QByteArray &msg) = 0;
-	void send(ViscaCmd cmd);
-	void send(ViscaCmd cmd, QList<int> args);
+	void send(PTZCmd cmd);
+	void send(PTZCmd cmd, QList<int> args);
 	void send_pending();
 	void timeout();
 

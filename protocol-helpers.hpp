@@ -101,6 +101,35 @@ public:
 	}
 };
 
+class PTZCmd {
+public:
+	QByteArray cmd;
+	QList<datagram_field*> args;
+	QList<datagram_field*> results;
+	PTZCmd(const char *cmd_hex) : cmd(QByteArray::fromHex(cmd_hex)) { }
+	PTZCmd(const char *cmd_hex, QList<datagram_field*> args) :
+		cmd(QByteArray::fromHex(cmd_hex)), args(args) { }
+	PTZCmd(const char *cmd_hex, QList<datagram_field*> args, QList<datagram_field*> rslts) :
+		cmd(QByteArray::fromHex(cmd_hex)), args(args), results(rslts) { }
+	void encode(QList<int> arglist) {
+		for (int i = 0; i < arglist.size() && i < args.size(); i++)
+			args[i]->encode(cmd, arglist[i]);
+	}
+	obs_data_t *decode(QByteArray msg) {
+		obs_data_t *data = obs_data_create();
+		for (int i = 0; i < results.size(); i++)
+			obs_data_set_int(data, results[i]->name, results[i]->decode(msg));
+		return data;
+	}
+};
+
+class PTZInq : public PTZCmd {
+public:
+	PTZInq(const char *cmd_hex) : PTZCmd(cmd_hex) { }
+	PTZInq(const char *cmd_hex, QList<datagram_field*> rslts) :
+		PTZCmd(cmd_hex, {}, rslts) {}
+};
+
 /*
  * Protocol UART wrapper abstract base class
  */
