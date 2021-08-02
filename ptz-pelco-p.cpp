@@ -17,17 +17,16 @@ const QByteArray ZOOM_OUT = QByteArray::fromHex("00400000");
 std::map<QString, PelcoPUART*> PelcoPUART::interfaces;
 
 PelcoPUART::PelcoPUART(QString& port_name, int baudrate)
-	: port_name(port_name), baud_rate(baudrate)
+	: port_name(port_name)
 {
 	connect(&uart, &QSerialPort::readyRead, this, &PelcoPUART::poll);
+	uart.setPortName(port_name);
+	uart.setBaudRate(baudrate);
 	open();
 }
 
 void PelcoPUART::open()
 {
-	uart.setPortName(port_name);
-	uart.setBaudRate(baud_rate);
-
 	if (!uart.open(QIODevice::ReadWrite)) {
 		blog(LOG_INFO, "Unable to open UART %s", qPrintable(port_name));
 		return;
@@ -41,6 +40,21 @@ void PelcoPUART::close()
 		uart.close();
 		blog(LOG_INFO, "Serial connection %s is closed", qPrintable(port_name));
 	}
+}
+
+void PelcoPUART::setBaudRate(int baudRate)
+{
+	if (!baudRate || baudRate == uart.baudRate())
+		return;
+
+	close();
+	uart.setBaudRate(baudRate);
+	open();
+}
+
+int PelcoPUART::baudRate()
+{
+	return uart.baudRate();
 }
 
 void PelcoPUART::send(const QByteArray& packet)
@@ -170,13 +184,8 @@ void PTZPelcoP::set_config(OBSData config)
 	PelcoPUART* iface = PelcoPUART::get_interface(uartt);
 	if (!iface)
 		iface = PelcoPUART::add_interface(uartt, baudRate);
-
-	//Settings can only be changed if the serial connection is closed;
-	if (iface->baud_rate != baudRate){
-		iface->close();
-		iface->baud_rate = baudRate;
-		iface->open();
-	}
+	if (baudRate)
+		iface->setBaudRate(baudRate);
 
 	attach_interface(iface);
 }
@@ -186,7 +195,7 @@ OBSData PTZPelcoP::get_config()
 	OBSData config = PTZDevice::get_config();
 	obs_data_set_int(config, "address", address);
 	obs_data_set_string(config, "port", qPrintable(iface->portName()));
-	obs_data_set_int(config, "baud_rate", iface->baud_rate);
+	obs_data_set_int(config, "baud_rate", iface->baudRate());
 	return config;
 }
 

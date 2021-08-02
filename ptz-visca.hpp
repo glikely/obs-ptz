@@ -288,11 +288,11 @@ signals:
 	void reset();
 
 public:
-	int baud_rate = QSerialPort::Baud9600;
-
 	ViscaUART(QString &port_name, int baud_rate = QSerialPort::Baud9600);
 	void open();
 	void close();
+	void setBaudRate(int baudRate);
+	int baudRate();
 	void send(const QByteArray &packet);
 	void receive_datagram(const QByteArray &packet);
 	QString portName() { return port_name; }

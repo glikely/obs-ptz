@@ -34,11 +34,11 @@ signals:
 	void receive(const QByteArray& packet);
 
 public:
-	int baud_rate = QSerialPort::Baud9600;
-
 	PelcoPUART(QString& port_name, int baudrate = QSerialPort::Baud9600);
 	void open();
 	void close();
+	void setBaudRate(int baudRate);
+	int baudRate();
 	void send(const QByteArray& packet);
 	void receive_datagram(const QByteArray& packet);
 	QString portName() { return port_name; }

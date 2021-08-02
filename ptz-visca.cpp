@@ -501,9 +501,11 @@ void PTZVisca::memory_recall(int i)
  * VISCA over serial UART implementation
  */
 ViscaUART::ViscaUART(QString &port_name, int baud_rate) :
-	port_name(port_name), baud_rate(baud_rate)
+	port_name(port_name)
 {
 	connect(&uart, &QSerialPort::readyRead, this, &ViscaUART::poll);
+	uart.setPortName(port_name);
+	uart.setBaudRate(baud_rate);
 	open();
 }
 
@@ -511,8 +513,6 @@ void ViscaUART::open()
 {
 	camera_count = 0;
 
-	uart.setPortName(port_name);
-	uart.setBaudRate(baud_rate);
 	if (!uart.open(QIODevice::ReadWrite)) {
 		blog(LOG_INFO, "VISCA Unable to open UART %s", qPrintable(port_name));
 		return;
@@ -526,6 +526,21 @@ void ViscaUART::close()
 	if (uart.isOpen())
 		uart.close();
 	camera_count = 0;
+}
+
+void ViscaUART::setBaudRate(int baudRate)
+{
+	if (!baudRate || baudRate == uart.baudRate())
+		return;
+
+	close();
+	uart.setBaudRate(baudRate);
+	open();
+}
+
+int ViscaUART::baudRate()
+{
+	return uart.baudRate();
 }
 
 void ViscaUART::send(const QByteArray &packet)
@@ -637,13 +652,8 @@ void PTZViscaSerial::set_config(OBSData config)
 		return;
 
 	iface = ViscaUART::get_interface(uart);
-
-	//Settings can only be changed if the serial connection is closed;
-	if (iface->baud_rate != baudRate){
-		iface->close();
-		iface->baud_rate = baudRate;
-		iface->open();
-	}
+	if (baudRate)
+		iface->setBaudRate(baudRate);
 
 	attach_interface(iface);
 }
@@ -653,7 +663,7 @@ OBSData PTZViscaSerial::get_config()
 	OBSData config = PTZDevice::get_config();
 	obs_data_set_string(config, "port", qPrintable(iface->portName()));
 	obs_data_set_int(config, "address", address);
-	obs_data_set_int(config, "baud_rate", iface->baud_rate);
+	obs_data_set_int(config, "baud_rate", iface->baudRate());
 	return config;
 }
 
