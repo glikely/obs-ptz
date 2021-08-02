@@ -90,17 +90,10 @@ PelcoPUART* PelcoPUART::get_interface(QString port_name)
 	ptz_debug("Looking for UART object %s", qPrintable(port_name));
 
 	iface = interfaces[port_name];
-	return iface;
-}
-
-PelcoPUART* PelcoPUART::add_interface(QString port_name, int baudrate)
-{
-	PelcoPUART* iface = get_interface(port_name);
 	if (!iface) {
-		ptz_debug("Creating new UART object %s", qPrintable(port_name));
-		iface = new PelcoPUART(port_name, baudrate);
+		ptz_debug("Creating new Pelco-P UART object %s", qPrintable(port_name));
+		iface = new PelcoPUART(port_name);
 		interfaces[port_name] = iface;
-		return iface;
 	}
 	return iface;
 }
@@ -182,8 +175,6 @@ void PTZPelcoP::set_config(OBSData config)
 		return;
 
 	PelcoPUART* iface = PelcoPUART::get_interface(uartt);
-	if (!iface)
-		iface = PelcoPUART::add_interface(uartt, baudRate);
 	if (baudRate)
 		iface->setBaudRate(baudRate);
 

@@ -297,7 +297,7 @@ public:
 	void receive_datagram(const QByteArray &packet);
 	QString portName() { return port_name; }
 
-	static ViscaUART *get_interface(QString port_name, int baud_rate = QSerialPort::Baud9600);
+	static ViscaUART *get_interface(QString port_name);
 
 public slots:
 	void poll();

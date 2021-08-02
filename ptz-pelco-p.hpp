@@ -45,8 +45,6 @@ public:
 
 
 	static PelcoPUART* get_interface(QString port_name);
-	static PelcoPUART* add_interface(QString port_name,
-					 int baudrate = QSerialPort::Baud9600);
 
 public slots:
 	void poll();

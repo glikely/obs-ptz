@@ -595,14 +595,14 @@ void ViscaUART::poll()
 	}
 }
 
-ViscaUART * ViscaUART::get_interface(QString port_name, int baud_rate)
+ViscaUART * ViscaUART::get_interface(QString port_name)
 {
 	ViscaUART *iface;
 	ptz_debug("Looking for UART object %s", qPrintable(port_name));
 	iface = interfaces[port_name];
 	if (!iface) {
 		ptz_debug("Creating new VISCA object %s", qPrintable(port_name));
-		iface = new ViscaUART(port_name, baud_rate);
+		iface = new ViscaUART(port_name);
 		interfaces[port_name] = iface;
 	}
 	return iface;
