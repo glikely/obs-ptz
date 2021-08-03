@@ -22,13 +22,23 @@ public:
 class visca_flag : public datagram_field {
 public:
 	visca_flag(const char *name, int offset) : datagram_field(name, offset) { }
-	void encode(QByteArray &data, int val) {
-		if (data.size() < offset + 1)
+	void encode(QByteArray &msg, int val) {
+		if (msg.size() < offset + 1)
 			return;
-		data[offset] = val ? 0x2 : 0x3;
+		msg[offset] = val ? 0x2 : 0x3;
 	}
-	int decode(QByteArray &data) {
-		return (data.size() < offset + 1) ? 0 : 0x02 == data[offset];
+	bool decode(OBSData data, QByteArray &msg) {
+		if (msg.size() < offset + 1)
+			return false;
+		switch (msg[offset]) {
+		case 0x02:
+			obs_data_set_bool(data, name, true); break;
+		case 0x03:
+			obs_data_set_bool(data, name, false); break;
+		default:
+			return false;
+		}
+		return true;
 	}
 };
 
@@ -40,23 +50,27 @@ public:
 class visca_s7 : public datagram_field {
 public:
 	visca_s7(const char *name, int offset) : datagram_field(name, offset) { }
-	void encode(QByteArray &data, int val) {
-		if (data.size() < offset + 3)
+	void encode(QByteArray &msg, int val) {
+		if (msg.size() < offset + 3)
 			return;
-		data[offset] = abs(val) & 0x7f;
-		data[offset+2] = 3;
+		msg[offset] = abs(val) & 0x7f;
+		msg[offset+2] = 3;
 		if (val)
-			data[offset+2] = val < 0 ? 1 : 2;
+			msg[offset+2] = val < 0 ? 1 : 2;
 	}
-	int decode(QByteArray &data) {
-		if (data.size() < offset + 3)
-			return 0;
-		int val = data[offset] & 0x7f;
-		switch (data[offset+2]) {
-		case 1: return -val;
-		case 2: return val;
+	bool decode(OBSData data, QByteArray &msg) {
+		if (msg.size() < offset + 3)
+			return false;
+		int val = msg[offset] & 0x7f;
+		switch (msg[offset+2]) {
+		case 0x01:
+			obs_data_set_int(data, name, -val); break;
+		case 0x02:
+			obs_data_set_int(data, name, val); break;
+		default:
+			return false;
 		}
-		return 0;
+		return true;
 	}
 };
 
@@ -69,18 +83,19 @@ public:
 class visca_u15 : public datagram_field {
 public:
 	visca_u15(const char *name, int offset) : datagram_field(name, offset) { }
-	void encode(QByteArray &data, int val) {
-		if (data.size() < offset + 2)
+	void encode(QByteArray &msg, int val) {
+		if (msg.size() < offset + 2)
 			return;
-		data[offset] = (val >> 8) & 0x7f;
-		data[offset+1] = val & 0x7f;
+		msg[offset] = (val >> 8) & 0x7f;
+		msg[offset+1] = val & 0x7f;
 	}
-	int decode(QByteArray &data) {
-		if (data.size() < offset + 2)
-			return 0;
-		uint16_t val = (data[offset] & 0x7f) << 8 |
-			(data[offset+1] & 0x7f);
-		return val;
+	bool decode(OBSData data, QByteArray &msg) {
+		if (msg.size() < offset + 2)
+			return false;
+		uint16_t val = (msg[offset] & 0x7f) << 8 |
+			(msg[offset+1] & 0x7f);
+		obs_data_set_int(data, name, val);
+		return true;
 	}
 };
 
@@ -666,9 +681,9 @@ void ViscaUART::receive_datagram(const QByteArray &packet)
 	emit receive(packet);
 }
 
-void ViscaUART::receiveBytes(const QByteArray &data)
+void ViscaUART::receiveBytes(const QByteArray &msg)
 {
-	for (auto b : data) {
+	for (auto b : msg) {
 		rxbuffer += b;
 		if ((b & 0xff) == 0xff) {
 			if (rxbuffer.size())

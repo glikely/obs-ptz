@@ -143,6 +143,9 @@ obs_properties_t *PTZDevice::get_obs_properties()
 		obs_property_t *p = nullptr;
 
 		switch (type) {
+		case OBS_DATA_BOOLEAN:
+			p = obs_properties_add_bool(props, name, name);
+			break;
 		case OBS_DATA_NUMBER:
 			p = obs_properties_add_int(props, name, name, INT_MIN, INT_MAX, 1);
 			break;

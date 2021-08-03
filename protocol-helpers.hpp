@@ -20,7 +20,7 @@ public:
 	int offset;
 	datagram_field(const char *name, int offset) : name(name), offset(offset) { }
 	virtual void encode(QByteArray &msg, int val) = 0;
-	virtual int decode(QByteArray &msg) = 0;
+	virtual bool decode(OBSData data, QByteArray &msg) = 0;
 };
 
 class bool_field : public datagram_field {
@@ -35,10 +35,11 @@ public:
 			return;
 		msg[offset] = (msg[offset] & ~mask) | (val ? mask : 0);
 	}
-	int decode(QByteArray &msg) {
+	bool decode(OBSData data, QByteArray &msg) {
 		if (msg.size() < offset + 1)
-			return 0;
-		return (msg[offset] & mask) != 0;
+			return false;
+		obs_data_set_bool(data, name, (msg[offset] & mask) != 0);
+		return true;
 	}
 };
 
@@ -82,12 +83,13 @@ public:
 		for (int i = 0; i < size; i++)
 			msg[offset + i] = (encoded >> (size - i - 1) * 8) & 0xff;
 	}
-	int decode(QByteArray &msg) {
+
+	bool decode(OBSData data, QByteArray &msg) {
 		unsigned int encoded = 0;
 		unsigned int val = 0;
 		unsigned int current_bit = 0;
 		if (msg.size() < offset + size)
-			return 0;
+			return false;
 		for (int i = 0; i < size; i++)
 			encoded = encoded << 8 | msg[offset+i];
 		for (unsigned int wm = mask; wm; wm >>= 1, encoded >>= 1) {
@@ -97,7 +99,8 @@ public:
 			}
 		}
 		val = (val ^ extend_mask) - extend_mask;
-		return val;
+		obs_data_set_int(data, name, val);
+		return true;
 	}
 };
 
@@ -117,8 +120,8 @@ public:
 	}
 	obs_data_t *decode(QByteArray msg) {
 		obs_data_t *data = obs_data_create();
-		for (int i = 0; i < results.size(); i++)
-			obs_data_set_int(data, results[i]->name, results[i]->decode(msg));
+		for (auto field : results)
+			field->decode(data, msg);
 		return data;
 	}
 };
