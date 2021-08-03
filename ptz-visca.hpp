@@ -19,9 +19,11 @@
 class PTZVisca : public PTZDevice {
 	Q_OBJECT
 
+public:
+	static const QMap<int, std::string> viscaVendors;
+	static const QMap<int, std::string> viscaModels;
+
 protected:
-	static const QMap<uint16_t, QString> viscaVendors;
-	static const QMap<uint32_t, QString> viscaModels;
 	unsigned int address;
 	QList<PTZCmd> pending_cmds;
 	bool active_cmd[8];

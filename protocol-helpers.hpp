@@ -88,9 +88,9 @@ public:
 		}
 	}
 
-	bool decode(OBSData data, QByteArray &msg) {
+	bool decode_int(int *val_, QByteArray &msg) {
 		unsigned int encoded = 0;
-		unsigned int val = 0;
+		int val = 0;
 		unsigned int current_bit = 0;
 		if (msg.size() < offset + size)
 			return false;
@@ -102,8 +102,35 @@ public:
 				current_bit++;
 			}
 		}
-		val = (val ^ extend_mask) - extend_mask;
-		obs_data_set_int(data, name, val);
+		*val_ = (val ^ extend_mask) - extend_mask;
+		return true;
+	}
+
+	bool decode(OBSData data, QByteArray &msg) {
+		int val;
+		bool rc = decode_int(&val, msg);
+		if (rc)
+			obs_data_set_int(data, name, val);
+		return rc;
+	}
+};
+
+class string_lookup_field : public int_field {
+public:
+	const QMap<int, std::string> *lookup;
+	string_lookup_field(const char *name, const QMap<int, std::string> &lookuptable,
+			    unsigned offset, unsigned int mask, bool signextend = false) :
+		int_field(name, offset, mask, signextend)
+	{
+		lookup = &lookuptable;
+	}
+
+	bool decode(OBSData data, QByteArray &msg) {
+		int val;
+		bool rc = decode_int(&val, msg);
+		if (!rc)
+			return false;
+		obs_data_set_string(data, name, lookup->value(val, "Unknown").c_str());
 		return true;
 	}
 };

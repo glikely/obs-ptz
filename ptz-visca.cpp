@@ -113,8 +113,10 @@ const PTZCmd VISCA_ENUMERATE("883001ff");
 const PTZCmd VISCA_IF_CLEAR("88010001ff");
 
 const PTZInq VISCA_CAM_VersionInq("81090002ff", {
-		new int_field("vendor", 2, 0xffff),
-		new int_field("model", 4, 0xffff),
+		new int_field("vendor_id", 2, 0x7fff),
+		new int_field("model_id", 4, 0x7fff),
+		new string_lookup_field("vendor_name", PTZVisca::viscaVendors, 2, 0x7fff),
+		new string_lookup_field("model_name", PTZVisca::viscaModels, 2, 0x7fffffff),
 		new int_field("rom_version", 6, 0xffff),
 		new int_field("socket_number", 8, 0xff)
 	});
@@ -444,12 +446,12 @@ const PTZCmd VISCA_PanTilt_LimitClearDownLeft("810106070100070f0f0f070f0f0fff", 
 #define VISCA_RESPONSE_ERROR     0x60
 #define VISCA_PACKET_SENDER(pkt) ((unsigned)((pkt)[0] & 0x70) >> 4)
 
-const QMap<uint16_t, QString> PTZVisca::viscaVendors = {
+const QMap<int, std::string> PTZVisca::viscaVendors = {
 	{ 0x0001, "Sony" },
 };
 
 /* lookup in this table is: (Vendor ID << 16) | Model ID */
-const QMap<uint32_t, QString> PTZVisca::viscaModels = {
+const QMap<int, std::string> PTZVisca::viscaModels = {
 	/* Sony Cameras */
 	{ 0x00010511, "SRG-120DH" },
 };
