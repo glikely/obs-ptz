@@ -31,12 +31,12 @@ public:
 	void encode(QByteArray &msg, int val) {
 		unsigned int encoded = 0;
 		unsigned int current_bit = 0;
-		if (msg.size() < offset)
+		if (msg.size() < offset + 1)
 			return;
 		msg[offset] = (msg[offset] & ~mask) | (val ? mask : 0);
 	}
 	int decode(QByteArray &msg) {
-		if (msg.size() < offset)
+		if (msg.size() < offset + 1)
 			return 0;
 		return (msg[offset] & mask) != 0;
 	}
