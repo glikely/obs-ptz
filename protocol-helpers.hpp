@@ -72,16 +72,20 @@ public:
 	void encode(QByteArray &msg, int val) {
 		unsigned int encoded = 0;
 		unsigned int current_bit = 0;
+		unsigned int wm;
 		if (msg.size() < offset + size)
 			return;
-		for (unsigned int wm = mask; wm; wm = wm >> 1, current_bit++) {
+		for (wm = mask; wm; wm = wm >> 1, current_bit++) {
 			if (wm & 1) {
 				encoded |= (val & 1) << current_bit;
 				val = val >> 1;
 			}
 		}
-		for (int i = 0; i < size; i++)
-			msg[offset + i] = (encoded >> (size - i - 1) * 8) & 0xff;
+		for (int i = size - 1, wm = mask; i >= 0; i--) {
+			msg[offset + i] = 0xff & ((~wm & msg[offset + i]) | encoded);
+			wm >>= 8;
+			encoded >>= 8;
+		}
 	}
 
 	bool decode(OBSData data, QByteArray &msg) {
