@@ -162,7 +162,7 @@ void PTZSettings::currentChanged(const QModelIndex &current, const QModelIndex &
 	obs_data_apply(settings, cfg);
 	propertiesView = new OBSPropertiesView(settings, ptz, settings_reload_cb, nullptr);
 	propertiesView->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
-	ui->propertiesLayout->insertWidget(1, propertiesView);
+	ui->propertiesLayout->insertWidget(1, propertiesView, 1);
 	ui->versionLabel->setText(description_text);
 	obs_data_release(settings);
 }
