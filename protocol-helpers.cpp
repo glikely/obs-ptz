@@ -16,7 +16,6 @@ PTZUARTWrapper::PTZUARTWrapper(QString &port_name) :
 {
 	connect(&uart, &QSerialPort::readyRead, this, &PTZUARTWrapper::poll);
 	uart.setPortName(port_name);
-	open();
 }
 
 bool PTZUARTWrapper::open()

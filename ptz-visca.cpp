@@ -703,6 +703,7 @@ ViscaUART * ViscaUART::get_interface(QString port_name)
 	if (!iface) {
 		ptz_debug("Creating new VISCA object %s", qPrintable(port_name));
 		iface = new ViscaUART(port_name);
+		iface->open();
 		interfaces[port_name] = iface;
 	}
 	return iface;

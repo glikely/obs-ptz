@@ -43,6 +43,7 @@ PelcoPUART* PelcoPUART::get_interface(QString port_name)
 	if (!iface) {
 		ptz_debug("Creating new Pelco-P UART object %s", qPrintable(port_name));
 		iface = new PelcoPUART(port_name);
+		iface->open();
 		interfaces[port_name] = iface;
 	}
 	return iface;
@@ -125,7 +126,6 @@ void PTZPelcoP::set_config(OBSData config)
 
 	PelcoPUART* iface = PelcoPUART::get_interface(uartt);
 	iface->setConfig(config);
-
 	attach_interface(iface);
 }
 
