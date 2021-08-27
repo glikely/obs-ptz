@@ -6,6 +6,7 @@
  */
 
 #include <obs.hpp>
+#include "imported/qt-wrappers.hpp"
 #include "ptz-device.hpp"
 #include "ptz-visca.hpp"
 #include "ptz-pelco-p.hpp"
@@ -107,7 +108,7 @@ OBSData PTZDevice::get_config()
 	OBSData config = obs_data_create();
 	obs_data_release(config);
 
-	obs_data_set_string(config, "name", qPrintable(objectName()));
+	obs_data_set_string(config, "name", QT_TO_UTF8(objectName()));
 	obs_data_set_string(config, "type", type.c_str());
 	QStringList list = preset_names_model.stringList();
 	OBSDataArray preset_array = obs_data_array_create();
@@ -116,7 +117,7 @@ OBSData PTZDevice::get_config()
 		OBSData preset = obs_data_create();
 		obs_data_release(preset);
 		obs_data_set_int(preset, "id", i);
-		obs_data_set_string(preset, "name", qPrintable(list[i]));
+		obs_data_set_string(preset, "name", QT_TO_UTF8(list[i]));
 		obs_data_array_push_back(preset_array, preset);
 	}
 	obs_data_set_array(config, "presets", preset_array);
