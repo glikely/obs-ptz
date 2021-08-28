@@ -81,7 +81,7 @@ PTZDevice *PTZDevice::make_device(OBSData config)
 void PTZDevice::set_config(OBSData config)
 {
 	const char *name = obs_data_get_string(config, "name");
-	if (name) {
+	if (name && strlen(name)) {
 		setObjectName(name);
 		ptz_list_model.do_reset();
 	}

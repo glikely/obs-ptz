@@ -160,6 +160,9 @@ void PTZSettings::currentChanged(const QModelIndex &current, const QModelIndex &
 	obs_data_t *settings = obs_data_create();
 	OBSData cfg = ptz->get_settings();
 	obs_data_apply(settings, cfg);
+	/* The settings dialog doesn't touch presets or the device name, so remove them */
+	obs_data_erase(settings, "name");
+	obs_data_erase(settings, "presets");
 	propertiesView = new OBSPropertiesView(settings, ptz, settings_reload_cb, nullptr);
 	propertiesView->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
 	ui->propertiesLayout->insertWidget(1, propertiesView, 1);
