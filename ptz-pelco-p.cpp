@@ -163,7 +163,7 @@ void PTZPelcoP::pantilt(double pan, double tilt)
 	ptz_debug("pantilt: pan %f tilt %f", pan, tilt);
 }
 
-void PTZPelcoP::pantilt_rel(int pan, int tilt) //What is this?
+void PTZPelcoP::pantilt_rel(int pan, int tilt)
 {
 	ptz_debug("pantilt_rel");
 }
@@ -205,7 +205,7 @@ void PTZPelcoP::memory_reset(int i)
 	if (i < 0x01 || i > 0xFF)
 		return;
 
-	send(0x00, 0x05, 0x00, i - 1);
+	send(0x00, 0x05, 0x00, i + 1);
 	ptz_debug("memory_reset");
 }
 
@@ -214,15 +214,15 @@ void PTZPelcoP::memory_set(int i)
 	if (i < 0x01 || i > 0xFF)
 		return;
 
-	send(0x00, 0x03, 0x00, i - 1);
+	send(0x00, 0x03, 0x00, i + 1);
 	ptz_debug("memory_set");
 }
 
 void PTZPelcoP::memory_recall(int i)
 {
-	if (i < 0x01 || i > 0xFF)
+	if (i < 0x00 || i > 0xFF)
 		return;
 
-	send(0x00, 0x07, 0x00, i - 1);
+	send(0x00, 0x07, 0x00, i + 1);
 	ptz_debug("memory_recall");
 }
