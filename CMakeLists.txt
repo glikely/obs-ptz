@@ -47,6 +47,7 @@ set(ptz-controls_HEADERS
     imported/combobox-ignorewheel.hpp
     imported/spinbox-ignorewheel.hpp
     ptz-pelco-p.hpp
+    ptz-pelco-d.hpp
     ptz-visca.hpp)
 
 set(ptz-controls_SOURCES
@@ -62,6 +63,7 @@ set(ptz-controls_SOURCES
     imported/combobox-ignorewheel.cpp
     imported/spinbox-ignorewheel.cpp
     ptz-pelco-p.cpp
+    ptz-pelco-d.cpp
     ptz-visca.cpp)
 
 set(ptz-controls_QRC

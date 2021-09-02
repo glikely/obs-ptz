@@ -9,6 +9,7 @@
 #include "ptz-device.hpp"
 #include "ptz-visca.hpp"
 #include "ptz-pelco-p.hpp"
+#include "ptz-pelco-d.hpp"
 
 int ptz_debug_level = LOG_INFO;
 
@@ -68,6 +69,8 @@ PTZDevice *PTZDevice::make_device(OBSData config)
 	PTZDevice *ptz = nullptr;
 	std::string type = obs_data_get_string(config, "type");
 
+	if (type == "pelco-d")
+		ptz = new PTZPelcoD(config);
 	if (type == "pelco-p")
 		ptz = new PTZPelcoP(config);
 	if (type == "visca")
