@@ -341,7 +341,7 @@
                </size>
               </property>
               <property name="toolTip">
-               <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Focus near&lt;br/&gt;&amp;lt;ctrl&amp;gt;+click: fast&lt;br/&gt;&amp;lt;shift&amp;gt;+click: slow&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+               <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Toggle Autofocus On/Off&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
               </property>
               <property name="icon">
                <iconset resource="ptz-controls.qrc">
