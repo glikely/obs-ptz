@@ -4,7 +4,7 @@
 
 Plugin for OBS Studio to add a PTZ Camera control dock.
 
-Latest Version: v0.7.0-rc1
+Latest Version: v0.7.0
 
 ![PTZ Controls Screenshot](/doc/ptz-controls-screenshot.png?raw=true "OBS Studio PTZ Controls")
 
