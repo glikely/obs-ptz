@@ -37,6 +37,7 @@ private:
 
 	void setCurrent(unsigned int index);
 	void presetRecall(int id);
+	void setAutofocusEnabled(bool autofocus_on);
 
 	PTZDevice * currCamera();
 
