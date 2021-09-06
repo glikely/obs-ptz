@@ -447,12 +447,14 @@ const PTZCmd VISCA_PanTilt_LimitClearDownLeft("810106070100070f0f0f070f0f0fff", 
 
 const QMap<int, std::string> PTZVisca::viscaVendors = {
 	{ 0x0001, "Sony" },
+	{ 0x0109, "Birddog" },
 };
 
 /* lookup in this table is: (Vendor ID << 16) | Model ID */
 const QMap<int, std::string> PTZVisca::viscaModels = {
 	/* Sony Cameras */
 	{ 0x00010511, "SRG-120DH" },
+	{ 0x01092020, "P100" },
 };
 
 /*
