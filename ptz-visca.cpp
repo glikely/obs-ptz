@@ -5,6 +5,7 @@
  * SPDX-License-Identifier: GPLv2
  */
 
+#include "imported/qt-wrappers.hpp"
 #include <QNetworkDatagram>
 #include <QSerialPortInfo>
 #include "ptz-visca.hpp"
@@ -833,8 +834,9 @@ void PTZViscaSerial::reset()
 	cmd_get_camera_info();
 }
 
-void PTZViscaSerial::send_immediate(QByteArray &msg)
+void PTZViscaSerial::send_immediate(const QByteArray &msg_)
 {
+	QByteArray msg = msg_;
 	msg[0] = (char)(0x80 | address & 0x7); // Set the camera address
 	iface->send(msg);
 }
@@ -975,7 +977,7 @@ void PTZViscaOverIP::reset()
 	cmd_get_camera_info();
 }
 
-void PTZViscaOverIP::send_immediate(QByteArray &msg)
+void PTZViscaOverIP::send_immediate(const QByteArray &msg)
 {
 	QByteArray p = QByteArray::fromHex("0100000000000000") + msg;
 	p[1] = (0x9 == msg[1]) ? 0x10 : 0x00;
@@ -1017,5 +1019,123 @@ obs_properties_t *PTZViscaOverIP::get_obs_properties()
 	obs_property_set_description(p, "VISCA-over-IP Connection");
 	obs_properties_add_text(config, "address", "IP Address", OBS_TEXT_DEFAULT);
 	obs_properties_add_int(config, "port", "UDP port", 1, 65535, 1);
+	return props;
+}
+
+/*
+ * VISCA over TCP implementation (e.g., PTZOptics cameras
+ */
+PTZViscaOverTCP::PTZViscaOverTCP(OBSData config)
+	: PTZVisca("visca-over-tcp")
+{
+	address = 1;
+	set_config(config);
+	auto_settings_filter += {"port", "host"};
+	connect(&visca_socket, &QTcpSocket::readyRead, this, &PTZViscaOverTCP::poll);
+	connect(&visca_socket, &QTcpSocket::stateChanged, this, &PTZViscaOverTCP::on_socket_stateChanged);
+}
+
+void PTZViscaOverTCP::reset()
+{
+	send(VISCA_Clear);
+	cmd_get_camera_info();
+}
+
+void PTZViscaOverTCP::connectSocket()
+{
+	visca_socket.connectToHost(host, port);
+}
+
+void PTZViscaOverTCP::on_socket_stateChanged(QAbstractSocket::SocketState state)
+{
+	blog(LOG_INFO, "VISCA_over_TCP socket state: %i", state);
+	switch (state) {
+	case QAbstractSocket::UnconnectedState:
+		/* Attempt reconnection periodically */
+		QTimer::singleShot(900, this, SLOT(connectSocket));
+		break;
+	case QAbstractSocket::ConnectedState:
+		blog(LOG_INFO, "VISCA_over_TCP %s connected", QT_TO_UTF8(objectName()));
+		reset();
+		break;
+	default:
+		break;
+	}
+}
+
+void PTZViscaOverTCP::send_immediate(const QByteArray &msg)
+{
+	ptz_debug("VISCA_over_TCP --> %s", qPrintable(msg.toHex(':')));
+	visca_socket.write(msg);
+}
+
+void PTZViscaOverTCP::receive_datagram(const QByteArray &packet)
+{
+	int camera_count = 0;
+	ptz_debug("VISCA_over_TCP <-- %s", packet.toHex(':').data());
+	if (packet.size() < 3)
+		return;
+	if ((packet[1] & 0xf0) == VISCA_RESPONSE_ADDRESS) {
+		switch (packet[1] & 0x0f) { /* Decode Packet Socket Field */
+		case 0:
+			camera_count = (packet[2] & 0x7) - 1;
+			blog(LOG_INFO, "VISCA-over-TCP Interface %i camera%s found",
+				camera_count, camera_count == 1 ? "" : "s");
+			send_immediate(VISCA_IF_CLEAR.cmd);
+			reset();
+			break;
+		case 1:
+			// Response from IF_CLEAR message; ignore
+			break;
+		case 8:
+			/* network change, trigger a change */
+			send_immediate(VISCA_ENUMERATE.cmd);
+			break;
+		default:
+			break;
+		}
+		return;
+	}
+	receive(packet);
+}
+
+void PTZViscaOverTCP::poll()
+{
+	for (auto b : visca_socket.readAll()) {
+		rxbuffer += b;
+		if ((b & 0xff) == 0xff) {
+			if (rxbuffer.size())
+				receive_datagram(rxbuffer);
+			rxbuffer.clear();
+		}
+	}
+}
+
+void PTZViscaOverTCP::set_config(OBSData config)
+{
+	PTZDevice::set_config(config);
+	host = obs_data_get_string(config, "host");
+	port = obs_data_get_int(config, "port");
+	if (!port)
+		port = 5678;
+	connectSocket();
+}
+
+OBSData PTZViscaOverTCP::get_config()
+{
+	OBSData config = PTZDevice::get_config();
+	obs_data_set_string(config, "host", QT_TO_UTF8(host));
+	obs_data_set_int(config, "port", port);
+	return config;
+}
+
+obs_properties_t *PTZViscaOverTCP::get_obs_properties()
+{
+	obs_properties_t *props = PTZVisca::get_obs_properties();
+	obs_property_t *p = obs_properties_get(props, "interface");
+	obs_properties_t *config = obs_property_group_content(p);
+	obs_property_set_description(p, "VISCA-over-IP Connection");
+	obs_properties_add_text(config, "host", "IP Host", OBS_TEXT_DEFAULT);
+	obs_properties_add_int(config, "port", "TCP port", 1, 65535, 1);
 	return props;
 }

@@ -9,6 +9,7 @@
 #include <QObject>
 #include <QTimer>
 #include <QUdpSocket>
+#include <QTcpSocket>
 #include "protocol-helpers.hpp"
 #include "ptz-device.hpp"
 #include "protocol-helpers.hpp"
@@ -29,7 +30,7 @@ protected:
 	bool active_cmd[8];
 	QTimer timeout_timer;
 
-	virtual void send_immediate(QByteArray &msg) = 0;
+	virtual void send_immediate(const QByteArray &msg) = 0;
 	void send(PTZCmd cmd);
 	void send(PTZCmd cmd, QList<int> args);
 	void send_pending();
@@ -96,7 +97,7 @@ private:
 	void attach_interface(ViscaUART *iface);
 
 protected:
-	void send_immediate(QByteArray &msg);
+	void send_immediate(const QByteArray &msg);
 	void reset();
 
 public:
@@ -147,12 +148,39 @@ private:
 	void attach_interface(ViscaUDPSocket *iface);
 
 protected:
-	void send_immediate(QByteArray &msg);
+	void send_immediate(const QByteArray &msg);
 	void reset();
 
 public:
 	PTZViscaOverIP(OBSData config);
 	~PTZViscaOverIP();
+
+	void set_config(OBSData ptz_data);
+	OBSData get_config();
+	obs_properties_t *get_obs_properties();
+};
+
+class PTZViscaOverTCP : public PTZVisca {
+	Q_OBJECT
+
+private:
+	QTcpSocket visca_socket;
+	QByteArray rxbuffer;
+	QString host;
+	int port;
+
+protected:
+	void send_immediate(const QByteArray &msg);
+	void reset();
+	void receive_datagram(const QByteArray &packet);
+	void poll();
+
+private slots:
+	void connectSocket();
+	void on_socket_stateChanged(QAbstractSocket::SocketState);
+
+public:
+	PTZViscaOverTCP(OBSData config);
 
 	void set_config(OBSData ptz_data);
 	OBSData get_config();

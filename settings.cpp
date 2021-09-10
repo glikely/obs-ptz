@@ -121,7 +121,8 @@ void PTZSettings::on_addPTZ_clicked()
 {
 	QMenu addPTZContext;
 	QAction *addViscaSerial = addPTZContext.addAction("VISCA Serial");
-	QAction *addViscaIP = addPTZContext.addAction("VISCA over IP");
+	QAction *addViscaUDP = addPTZContext.addAction("VISCA over UDP");
+	QAction *addViscaTCP = addPTZContext.addAction("VISCA over TCP");
 	QAction *addPelcoD = addPTZContext.addAction("Pelco D");
 	QAction *addPelcoP = addPTZContext.addAction("Pelco P");
 	QAction *action = addPTZContext.exec(QCursor::pos());
@@ -133,13 +134,22 @@ void PTZSettings::on_addPTZ_clicked()
 		obs_data_set_string(cfg, "name", "PTZ");
 		ptzDeviceList.make_device(cfg);
 	}
-	if (action == addViscaIP) {
+	if (action == addViscaUDP) {
 		OBSData cfg = obs_data_create();
 		obs_data_release(cfg);
 		obs_data_set_string(cfg, "type", "visca-over-ip");
 		obs_data_set_string(cfg, "name", "PTZ");
 		obs_data_set_string(cfg, "address", "192.168.0.100");
 		obs_data_set_int(cfg, "port", 52381);
+		ptzDeviceList.make_device(cfg);
+	}
+	if (action == addViscaTCP) {
+		OBSData cfg = obs_data_create();
+		obs_data_release(cfg);
+		obs_data_set_string(cfg, "type", "visca-over-tcp");
+		obs_data_set_string(cfg, "name", "PTZ");
+		obs_data_set_string(cfg, "host", "localhost");
+		obs_data_set_int(cfg, "port", 5678);
 		ptzDeviceList.make_device(cfg);
 	}
 	if (action == addPelcoD) {

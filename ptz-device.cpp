@@ -76,6 +76,8 @@ PTZDevice *PTZListModel::make_device(OBSData config)
 		ptz = new PTZViscaSerial(config);
 	if (type == "visca-over-ip")
 		ptz = new PTZViscaOverIP(config);
+	if (type == "visca-over-tcp")
+		ptz = new PTZViscaOverTCP(config);
 	return ptz;
 }
 
