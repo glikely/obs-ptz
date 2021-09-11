@@ -14,6 +14,7 @@
 #include <QVBoxLayout>
 #include <QToolTip>
 #include <QWindow>
+#include <QResizeEvent>
 
 #include "ui_ptz-controls.h"
 #include "ptz-controls.hpp"
@@ -51,6 +52,29 @@ MODULE_EXPORT const char *obs_module_name(void)
 }
 
 PTZControls* PTZControls::instance = NULL;
+
+/**
+ * class buttonResizeFilter - Event filter to adjust button minimum height and resize icon
+ *
+ * This filter will update the minimumHeight property to keep a button square
+ * when possible. It will also resize the button icon to match the button size.
+ */
+class buttonResizeFilter:public QObject {
+public:
+	buttonResizeFilter(QObject *parent) : QObject(parent) {}
+	bool eventFilter(QObject *watched, QEvent *event) override {
+		if (event->type() != QEvent::Resize)
+			return false;
+		auto button = static_cast<QAbstractButton*>(watched);
+		auto resEvent = static_cast<QResizeEvent*>(event);
+
+		button->setMinimumHeight(resEvent->size().width());
+
+		int size = resEvent->size().width() * 2/3;
+		button->setIconSize(QSize(size, size));
+		return true;
+	}
+};
 
 void PTZControls::OBSFrontendEventWrapper(enum obs_frontend_event event, void *ptr)
 {
@@ -109,6 +133,23 @@ PTZControls::PTZControls(QWidget *parent)
 	ui->speedSlider->setValue(50);
 	ui->speedSlider->setMinimum(0);
 	ui->speedSlider->setMaximum(100);
+
+	auto filter = new buttonResizeFilter(this);
+	ui->panTiltButton_upleft->installEventFilter(filter);
+	ui->panTiltButton_up->installEventFilter(filter);
+	ui->panTiltButton_upright->installEventFilter(filter);
+	ui->panTiltButton_left->installEventFilter(filter);
+	ui->panTiltButton_home->installEventFilter(filter);
+	ui->panTiltButton_right->installEventFilter(filter);
+	ui->panTiltButton_downleft->installEventFilter(filter);
+	ui->panTiltButton_down->installEventFilter(filter);
+	ui->panTiltButton_downright->installEventFilter(filter);
+	ui->zoomButton_wide->installEventFilter(filter);
+	ui->zoomButton_tele->installEventFilter(filter);
+	ui->focusButton_auto->installEventFilter(filter);
+	ui->focusButton_near->installEventFilter(filter);
+	ui->focusButton_far->installEventFilter(filter);
+	ui->focusButton_onetouch->installEventFilter(filter);
 
 	obs_frontend_add_event_callback(OBSFrontendEventWrapper, this);
 
