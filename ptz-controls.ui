@@ -47,7 +47,13 @@
       <property name="childrenCollapsible">
        <bool>false</bool>
       </property>
-      <widget class="QWidget" name="widget_2" native="true">
+      <widget class="QWidget" name="splitterWidgetLeft" native="true">
+       <property name="maximumSize">
+        <size>
+         <width>200</width>
+         <height>16777215</height>
+        </size>
+       </property>
        <layout class="QVBoxLayout" name="verticalLayout_5">
         <property name="leftMargin">
          <number>0</number>
@@ -515,7 +521,7 @@
         </item>
        </layout>
       </widget>
-      <widget class="QWidget" name="widget" native="true">
+      <widget class="QWidget" name="splitterWidgetRight" native="true">
        <layout class="QVBoxLayout" name="verticalLayout_3">
         <property name="leftMargin">
          <number>0</number>
