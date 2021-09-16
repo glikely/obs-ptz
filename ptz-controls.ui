@@ -544,12 +544,6 @@
         </item>
         <item>
          <widget class="QListView" name="presetListView">
-          <property name="minimumSize">
-           <size>
-            <width>100</width>
-            <height>0</height>
-           </size>
-          </property>
           <property name="contextMenuPolicy">
            <enum>Qt::CustomContextMenu</enum>
           </property>
