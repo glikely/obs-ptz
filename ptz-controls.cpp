@@ -227,6 +227,9 @@ void PTZControls::SaveConfig()
 	OBSData data = obs_data_create();
 	obs_data_release(data);
 
+	obs_data_set_string(data, "splitter_state",
+			ui->splitter->saveState().toBase64().constData());
+
 	obs_data_set_bool(data, "use_gamepad", use_gamepad);
 	obs_data_set_int(data, "debug_log_level", ptz_debug_level);
 	const char *target_mode = "manual";
@@ -282,6 +285,12 @@ void PTZControls::LoadConfig()
 	ui->targetButton_manual->setChecked(target_mode != "preview" && target_mode != "program");
 
 	setGamepadEnabled(use_gamepad);
+
+	const char *splitterStateStr = obs_data_get_string(data, "splitter_state");
+	if (splitterStateStr) {
+		QByteArray splitterState = QByteArray::fromBase64(QByteArray(splitterStateStr));
+		ui->splitter->restoreState(splitterState);
+	}
 
 	array = obs_data_get_array(data, "devices");
 	obs_data_array_release(array);
