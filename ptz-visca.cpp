@@ -453,7 +453,9 @@ const QMap<int, std::string> PTZVisca::viscaVendors = {
 /* lookup in this table is: (Vendor ID << 16) | Model ID */
 const QMap<int, std::string> PTZVisca::viscaModels = {
 	/* Sony Cameras */
+	{ 0x0001040f, "BRC-300" },
 	{ 0x00010511, "SRG-120DH" },
+	/* Birddog */
 	{ 0x01092020, "P100" },
 };
 
