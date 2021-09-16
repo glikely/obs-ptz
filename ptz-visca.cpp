@@ -53,7 +53,7 @@ public:
 	void encode(QByteArray &msg, int val) {
 		if (msg.size() < offset + 3)
 			return;
-		msg[offset] = abs(val) & 0x7f;
+		msg[offset] = qMax(abs(val) & 0x7f, 1);
 		msg[offset+2] = 3;
 		if (val)
 			msg[offset+2] = val < 0 ? 1 : 2;
