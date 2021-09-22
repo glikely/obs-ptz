@@ -40,6 +40,7 @@ protected slots:
 
 public:
 	PTZVisca(std::string type);
+	obs_properties_t *get_obs_properties();
 
 	virtual void set_config(OBSData ptz_data) = 0;
 	virtual OBSData get_config() = 0;

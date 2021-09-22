@@ -242,6 +242,7 @@ const PTZInq VISCA_CAM_IRCorrectionInq(      "81090411ff", {
 		new visca_flag("ircorrection", 2)
 	});
 
+const PTZCmd VISCA_CAM_WB_Mode(  "8101043500ff", {new visca_u4("wb_mode", 4)});
 const PTZCmd VISCA_CAM_WB_Auto(  "8101043500ff");
 const PTZCmd VISCA_CAM_WB_Indoor("8101043501ff");
 const PTZCmd VISCA_CAM_WB_Outdoor("8101043502ff");
@@ -467,32 +468,63 @@ PTZVisca::PTZVisca(std::string type)
 	for (int i = 0; i < 8; i++)
 		active_cmd[i] = false;
 	connect(&timeout_timer, &QTimer::timeout, this, &PTZVisca::timeout);
+	auto_settings_filter.append("wb_mode");
 }
 
-void PTZVisca::set_settings(OBSData updated)
+void PTZVisca::set_settings(OBSData new_settings)
 {
-	OBSData changed = obs_data_create();
-	obs_data_release(changed);
-	bool send_signal = false;
+	/* `updates` is the property values that should be cached */
+	OBSData updates = obs_data_create();
+	obs_data_release(updates);
 
-	if (obs_data_has_user_value(updated, "power_on")) {
-		bool old_power = obs_data_get_bool(settings, "power_on");
-		bool new_power = obs_data_get_bool(updated, "power_on");
-		if (old_power != new_power) {
-			send(VISCA_CAM_Power, {new_power});
-			obs_data_set_bool(changed, "power_on", new_power);
-			send_signal = true;
+	if (obs_data_has_user_value(new_settings, "power_on")) {
+		bool power_on = obs_data_get_bool(new_settings, "power_on");
+		if (power_on != obs_data_get_bool(settings, "power_on")) {
+			send(VISCA_CAM_Power, {power_on});
+			obs_data_set_bool(updates, "power_on", power_on);
 		}
 	}
-	if (obs_data_has_user_value(updated, "wb_onepush_trigger")) {
+
+	int wb_mode = obs_data_get_int(new_settings, "wb_mode");
+	if (wb_mode != obs_data_get_int(settings, "wb_mode")) {
+		send(VISCA_CAM_WB_Mode, {wb_mode});
+		obs_data_set_int(updates, "wb_mode", wb_mode);
+	}
+
+	if (obs_data_has_user_value(new_settings, "wb_onepush_trigger")) {
 		/* Just send command, don't change state */
 		send(VISCA_CAM_WB_OnePushTrigger);
 	}
 
-	if (send_signal) {
-		obs_data_apply(settings, changed);
-		emit settingsChanged(changed);
+	if (obs_data_first(updates) != nullptr) {
+		obs_data_apply(settings, updates);
+		emit settingsChanged(updates);
 	}
+}
+
+obs_properties_t *PTZVisca::get_obs_properties()
+{
+	auto *props = PTZDevice::get_obs_properties();
+
+	auto *wbGroup = obs_properties_create();
+	obs_properties_add_group(props, "whitebalance", "White Balance", OBS_GROUP_NORMAL, wbGroup);
+
+	auto *list = obs_properties_add_list(wbGroup, "wb_mode", "Mode",
+					OBS_COMBO_TYPE_LIST, OBS_COMBO_FORMAT_INT);
+	obs_property_list_add_int(list, "Auto", 0);
+	obs_property_list_add_int(list, "Indoor", 1);
+	obs_property_list_add_int(list, "Outdoor", 2);
+	obs_property_list_add_int(list, "One Push", 3);
+	obs_property_list_add_int(list, "Auto Tracing", 4);
+	obs_property_list_add_int(list, "Manual", 5);
+
+	auto clicked_cb = [](obs_properties_t *props, obs_property_t *property, void *data) {
+		PTZVisca *ptz = static_cast<PTZVisca*>(data);
+		ptz->send(VISCA_CAM_WB_OnePushTrigger);
+		return false;
+	};
+	auto *button = obs_properties_add_button2(wbGroup, "one-push", "One Push Whitebalance", clicked_cb, this);
+	return props;
 }
 
 void PTZVisca::send(PTZCmd cmd)
@@ -830,7 +862,7 @@ OBSData PTZViscaSerial::get_config()
 
 obs_properties_t *PTZViscaSerial::get_obs_properties()
 {
-	obs_properties_t *props = PTZDevice::get_obs_properties();
+	obs_properties_t *props = PTZVisca::get_obs_properties();
 	obs_property_t *p = obs_properties_get(props, "interface");
 	obs_properties_t *config = obs_property_group_content(p);
 	obs_property_set_description(p, "VISCA Connection");
@@ -979,7 +1011,7 @@ OBSData PTZViscaOverIP::get_config()
 
 obs_properties_t *PTZViscaOverIP::get_obs_properties()
 {
-	obs_properties_t *props = PTZDevice::get_obs_properties();
+	obs_properties_t *props = PTZVisca::get_obs_properties();
 	obs_property_t *p = obs_properties_get(props, "interface");
 	obs_properties_t *config = obs_property_group_content(p);
 	obs_property_set_description(p, "VISCA-over-IP Connection");
