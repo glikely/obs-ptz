@@ -185,3 +185,33 @@ void ptz_devices_set_config(obs_data_array_t *devices)
 		PTZDevice::make_device(ptzcfg);
 	}
 }
+
+void ptz_preset_recall(void *data, calldata_t *cd)
+{
+	unsigned int id = (unsigned int) calldata_int(cd, "device_id");
+	if (id >= PTZDevice::device_count())
+		return;
+	PTZDevice* ptz = PTZDevice::get_device(id);
+	ptz->memory_recall(calldata_int(cd, "preset_id"));
+}
+
+void ptz_pantilt(void *data, calldata_t *cd)
+{
+	unsigned int id = (unsigned int) calldata_int(cd, "device_id");
+	if (id >= PTZDevice::device_count() || id < 0)
+		return;
+	PTZDevice* ptz = PTZDevice::get_device(id);
+	ptz->pantilt(calldata_float(cd, "pan"), calldata_float(cd, "tilt"));
+}
+
+void ptz_load_devices(void)
+{
+	/* Register the proc handlers for issuing PTZ commands */
+	proc_handler_t *ph = obs_get_proc_handler();
+	if (!ph)
+		return;
+	proc_handler_add(ph, "void ptz_preset_recall(int device_id, int preset_id)",
+			ptz_preset_recall, NULL);
+	proc_handler_add(ph, "void ptz_pantilt(int device_id, float pan, float tilt)",
+			ptz_pantilt, NULL);
+}

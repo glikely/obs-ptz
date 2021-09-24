@@ -17,6 +17,8 @@
 extern "C" {
 #endif
 
+extern void ptz_load_devices(void);
+extern void ptz_load_action_source(void);
 extern void ptz_load_controls(void);
 extern void ptz_load_settings(void);
 

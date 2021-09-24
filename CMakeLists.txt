@@ -55,6 +55,7 @@ set(ptz-controls_SOURCES
     ptz-controls.cpp
     ptz-device.cpp
     settings.cpp
+    ptz-action-source.c
     protocol-helpers.cpp
     imported/qt-wrappers.cpp
     imported/properties-view.cpp

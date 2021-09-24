@@ -19,6 +19,8 @@ OBS_MODULE_USE_DEFAULT_LOCALE("ptz-controls", "en-US");
 bool obs_module_load()
 {
 	blog(LOG_INFO, "PTZ Controls plugin " TOSTRING(OBS_PTZ_VERSION));
+	ptz_load_devices();
+	ptz_load_action_source();
 	ptz_load_controls();
 	ptz_load_settings();
 	return true;
