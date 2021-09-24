@@ -161,3 +161,27 @@ obs_properties_t *PTZDevice::get_obs_properties()
 
 	return props;
 }
+
+/* C interface for non-QT parts of the plugin */
+obs_data_array_t *ptz_devices_get_config(void)
+{
+	obs_data_array_t *devices = obs_data_array_create();
+	for (unsigned long int i = 0; i < PTZDevice::device_count(); i++) {
+		PTZDevice *ptz = PTZDevice::get_device(i);
+		obs_data_array_push_back(devices, ptz->get_config());
+	}
+	return devices;
+}
+
+void ptz_devices_set_config(obs_data_array_t *devices)
+{
+	if (!devices) {
+		blog(LOG_INFO, "No PTZ device configuration found");
+		return;
+	}
+	for (size_t i = 0; i < obs_data_array_count(devices); i++) {
+		OBSData ptzcfg = obs_data_array_item(devices, i);
+		obs_data_release(ptzcfg);
+		PTZDevice::make_device(ptzcfg);
+	}
+}

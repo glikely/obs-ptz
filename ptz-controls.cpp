@@ -221,12 +221,8 @@ void PTZControls::SaveConfig()
 		target_mode = "program";
 	obs_data_set_string(data, "target_mode", target_mode);
 
-	OBSDataArray camera_array = obs_data_array_create();
+	OBSDataArray camera_array = ptz_devices_get_config();
 	obs_data_array_release(camera_array);
-	for (unsigned long int i = 0; i < PTZDevice::device_count(); i++) {
-		PTZDevice *ptz = PTZDevice::get_device(i);
-		obs_data_array_push_back(camera_array, ptz->get_config());
-	}
 	obs_data_set_array(data, "devices", camera_array);
 
 	/* Save data structure to json */
@@ -276,15 +272,7 @@ void PTZControls::LoadConfig()
 
 	array = obs_data_get_array(data, "devices");
 	obs_data_array_release(array);
-	if (!array) {
-		blog(LOG_INFO, "No PTZ configuration found");
-		return;
-	}
-	for (size_t i = 0; i < obs_data_array_count(array); i++) {
-		OBSData ptzcfg = obs_data_array_item(array, i);
-		obs_data_release(ptzcfg);
-		PTZDevice::make_device(ptzcfg);
-	}
+	ptz_devices_set_config(array);
 }
 
 
