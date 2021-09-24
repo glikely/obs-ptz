@@ -34,6 +34,7 @@ else()
 endif()
 
 set(ptz-controls_HEADERS
+    ptz.h
     ptz-controls.hpp
     ptz-device.hpp
     settings.hpp
@@ -50,6 +51,7 @@ set(ptz-controls_HEADERS
     ptz-visca.hpp)
 
 set(ptz-controls_SOURCES
+    ptz.c
     ptz-controls.cpp
     ptz-device.cpp
     settings.cpp

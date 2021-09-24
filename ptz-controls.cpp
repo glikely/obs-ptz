@@ -21,34 +21,16 @@
 #include "settings.hpp"
 #include "ptz-visca.hpp"
 #include "ptz-pelco-p.hpp"
+#include "ptz.h"
 
-OBS_DECLARE_MODULE()
-OBS_MODULE_AUTHOR("Grant Likely <grant.likely@secretlab.ca>");
-OBS_MODULE_USE_DEFAULT_LOCALE("ptz-controls", "en-US")
-
-bool obs_module_load()
+void ptz_load_controls(void)
 {
-	blog(LOG_INFO, "PTZ Controls plugin " TOSTRING(OBS_PTZ_VERSION));
 	const auto main_window =
 		static_cast<QMainWindow *>(obs_frontend_get_main_window());
 	obs_frontend_push_ui_translation(obs_module_get_string);
 	auto *tmp = new PTZControls(main_window);
 	obs_frontend_add_dock(tmp);
 	obs_frontend_pop_ui_translation();
-	ptz_init_settings();
-	return true;
-}
-
-void obs_module_unload() {}
-
-MODULE_EXPORT const char *obs_module_description(void)
-{
-	return obs_module_text("Pan, Tilt & Zoom control plugin");
-}
-
-MODULE_EXPORT const char *obs_module_name(void)
-{
-	return obs_module_text("PTZ Controls");
 }
 
 PTZControls* PTZControls::instance = NULL;

@@ -14,9 +14,6 @@
 #include "ptz-device.hpp"
 #include "ui_ptz-controls.h"
 
-#define STRINGIFY(x) #x
-#define TOSTRING(x) STRINGIFY(x)
-
 class PTZControls : public QDockWidget {
 	Q_OBJECT
 

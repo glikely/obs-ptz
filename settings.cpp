@@ -23,6 +23,7 @@
 #include <util/config-file.h>
 #include <obs-properties.h>
 
+#include "ptz.h"
 #include "ptz-device.hpp"
 #include "ptz-controls.hpp"
 #include "settings.hpp"
@@ -191,7 +192,7 @@ void ptz_settings_show(int row)
 	obs_frontend_pop_ui_translation();
 }
 
-extern "C" void ptz_init_settings()
+extern "C" void ptz_load_settings()
 {
 	QAction *action = (QAction *)obs_frontend_add_tools_menu_qaction(
 		obs_module_text("PTZ Devices"));

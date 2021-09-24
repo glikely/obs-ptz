@@ -10,6 +10,7 @@
 #include "ptz-device.hpp"
 #include "ptz-visca.hpp"
 #include "ptz-pelco-p.hpp"
+#include "ptz.h"
 
 int ptz_debug_level = LOG_INFO;
 
