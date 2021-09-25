@@ -80,7 +80,7 @@ void PTZPelcoD::send(const QByteArray& msg)
 {
 	QByteArray result = QByteArray::fromHex("ff00") + msg + QByteArray::fromHex("00");
 	result[1] = address;
-	QByteArray &data = result.mid(1, 5);
+	QByteArray data = result.mid(1, 5);
 	result[6] = checkSum(data);
 
 	iface->send(result);
