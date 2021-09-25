@@ -37,7 +37,7 @@ class PTZPelcoD : public PTZDevice {
 private:
 	PelcoDUART* iface;
 	void attach_interface(PelcoDUART* new_iface);
-	char checkSum(QByteArray &data);
+	char checkSum(const QByteArray &data);
 
 protected:
 	unsigned int address;

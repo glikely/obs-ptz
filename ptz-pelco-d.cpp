@@ -57,7 +57,7 @@ void PTZPelcoD::attach_interface(PelcoDUART* new_iface)
 		connect(iface, &PelcoDUART::receive, this, &PTZPelcoD::receive);
 }
 
-char PTZPelcoD::checkSum(QByteArray& data)
+char PTZPelcoD::checkSum(const QByteArray &data)
 {
 	int sum = 0x00;
 	for (char c : data)
@@ -80,7 +80,8 @@ void PTZPelcoD::send(const QByteArray& msg)
 {
 	QByteArray result = QByteArray::fromHex("ff00") + msg + QByteArray::fromHex("00");
 	result[1] = address;
-	result[6] = checkSum(result.mid(1, 5));
+	QByteArray &data = result.mid(1, 5);
+	result[6] = checkSum(data);
 
 	iface->send(result);
 
