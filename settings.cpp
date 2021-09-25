@@ -94,6 +94,7 @@ void PTZSettings::on_addPTZ_clicked()
 	QMenu addPTZContext;
 	QAction *addViscaSerial = addPTZContext.addAction("VISCA Serial");
 	QAction *addViscaIP = addPTZContext.addAction("VISCA over IP");
+	QAction *addPelcoD = addPTZContext.addAction("Pelco D");
 	QAction *addPelcoP = addPTZContext.addAction("Pelco P");
 	QAction *action = addPTZContext.exec(QCursor::pos());
 
@@ -111,6 +112,13 @@ void PTZSettings::on_addPTZ_clicked()
 		obs_data_set_string(cfg, "name", "PTZ");
 		obs_data_set_string(cfg, "address", "192.168.0.100");
 		obs_data_set_int(cfg, "port", 52381);
+		PTZDevice::make_device(cfg);
+	}
+	if (action == addPelcoD) {
+		OBSData cfg = obs_data_create();
+		obs_data_release(cfg);
+		obs_data_set_string(cfg, "type", "pelco-d");
+		obs_data_set_string(cfg, "name", "PTZ");
 		PTZDevice::make_device(cfg);
 	}
 	if (action == addPelcoP) {

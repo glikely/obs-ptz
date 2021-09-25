@@ -38,6 +38,7 @@ set(ptz-controls_HEADERS
     ptz-controls.hpp
     ptz-device.hpp
     settings.hpp
+    ptz-pelco-d.hpp
     ptz-pelco-p.hpp
     ptz-visca.hpp
     protocol-helpers.hpp
@@ -55,6 +56,7 @@ set(ptz-controls_SOURCES
     ptz-controls.cpp
     ptz-device.cpp
     settings.cpp
+    ptz-pelco-d.cpp
     ptz-pelco-p.cpp
     ptz-visca.cpp
     ptz-action-source.c
