@@ -7,23 +7,23 @@
  */
 
 #include <QSerialPortInfo>
-#include "ptz-pelco-p.hpp"
+#include "ptz-pelco.hpp"
 
 const QByteArray STOP = QByteArray::fromHex("00000000");
 const QByteArray HOME = QByteArray::fromHex("0007002B");
 const QByteArray ZOOM_IN = QByteArray::fromHex("00200000");
 const QByteArray ZOOM_OUT = QByteArray::fromHex("00400000");
 
-std::map<QString, PelcoPUART*> PelcoPUART::interfaces;
+std::map<QString, PelcoUART*> PelcoUART::interfaces;
 
-void PelcoPUART::receive_datagram(const QByteArray& packet)
+void PelcoUART::receive_datagram(const QByteArray& packet)
 {
 	ptz_debug("%s <-- %s", qPrintable(port_name), packet.toHex(':').data());
 
 	emit receive(packet);
 }
 
-void PelcoPUART::receiveBytes(const QByteArray &data)
+void PelcoUART::receiveBytes(const QByteArray &data)
 {
 	for (auto b : data) {
 		rxbuffer += b;
@@ -34,28 +34,28 @@ void PelcoPUART::receiveBytes(const QByteArray &data)
 	}
 }
 
-PelcoPUART* PelcoPUART::get_interface(QString port_name)
+PelcoUART* PelcoUART::get_interface(QString port_name)
 {
-	PelcoPUART* iface;
+	PelcoUART* iface;
 	ptz_debug("Looking for UART object %s", qPrintable(port_name));
 
 	iface = interfaces[port_name];
 	if (!iface) {
-		ptz_debug("Creating new Pelco-P UART object %s", qPrintable(port_name));
-		iface = new PelcoPUART(port_name);
+		ptz_debug("Creating new Pelco UART object %s", qPrintable(port_name));
+		iface = new PelcoUART(port_name);
 		iface->open();
 		interfaces[port_name] = iface;
 	}
 	return iface;
 }
 
-void PTZPelcoP::attach_interface(PelcoPUART* new_iface)
+void PTZPelcoP::attach_interface(PelcoUART* new_iface)
 {
 	if (iface)
 		iface->disconnect(this);
 	iface = new_iface;
 	if (iface)
-		connect(iface, &PelcoPUART::receive, this, &PTZPelcoP::receive);
+		connect(iface, &PelcoUART::receive, this, &PTZPelcoP::receive);
 }
 
 char PTZPelcoP::checkSum(QByteArray& data)
@@ -124,7 +124,7 @@ void PTZPelcoP::set_config(OBSData config)
 	if (!uartt)
 		return;
 
-	PelcoPUART* iface = PelcoPUART::get_interface(uartt);
+	PelcoUART* iface = PelcoUART::get_interface(uartt);
 	iface->setConfig(config);
 	attach_interface(iface);
 }

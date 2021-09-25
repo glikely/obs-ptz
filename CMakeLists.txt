@@ -38,8 +38,7 @@ set(ptz-controls_HEADERS
     ptz-controls.hpp
     ptz-device.hpp
     settings.hpp
-    ptz-pelco-d.hpp
-    ptz-pelco-p.hpp
+    ptz-pelco.hpp
     ptz-visca.hpp
     protocol-helpers.hpp
     imported/qt-wrappers.hpp

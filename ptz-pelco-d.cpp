@@ -7,55 +7,20 @@
  */
 
 #include <QSerialPortInfo>
-#include "ptz-pelco-d.hpp"
+#include "ptz-pelco.hpp"
 
 const QByteArray STOP = QByteArray::fromHex("00000000");
 const QByteArray HOME = QByteArray::fromHex("0007002B");
 const QByteArray ZOOM_IN = QByteArray::fromHex("00200000");
 const QByteArray ZOOM_OUT = QByteArray::fromHex("00400000");
 
-std::map<QString, PelcoDUART*> PelcoDUART::interfaces;
-
-void PelcoDUART::receive_datagram(const QByteArray& packet)
-{
-	ptz_debug("%s <-- %s", qPrintable(port_name), packet.toHex(':').data());
-
-	emit receive(packet);
-}
-
-void PelcoDUART::receiveBytes(const QByteArray &data)
-{
-	for (auto b : data) {
-		rxbuffer += b;
-		if (rxbuffer.size() >= messageLength) {
-			receive_datagram(rxbuffer);
-			rxbuffer.clear();
-		}
-	}
-}
-
-PelcoDUART* PelcoDUART::get_interface(QString port_name)
-{
-	PelcoDUART* iface;
-	ptz_debug("Looking for UART object %s", qPrintable(port_name));
-
-	iface = interfaces[port_name];
-	if (!iface) {
-		ptz_debug("Creating new Pelco-D UART object %s", qPrintable(port_name));
-		iface = new PelcoDUART(port_name);
-		iface->open();
-		interfaces[port_name] = iface;
-	}
-	return iface;
-}
-
-void PTZPelcoD::attach_interface(PelcoDUART* new_iface)
+void PTZPelcoD::attach_interface(PelcoUART* new_iface)
 {
 	if (iface)
 		iface->disconnect(this);
 	iface = new_iface;
 	if (iface)
-		connect(iface, &PelcoDUART::receive, this, &PTZPelcoD::receive);
+		connect(iface, &PelcoUART::receive, this, &PTZPelcoD::receive);
 }
 
 char PTZPelcoD::checkSum(const QByteArray &data)
@@ -128,7 +93,7 @@ void PTZPelcoD::set_config(OBSData config)
 	if (!uartt)
 		return;
 
-	PelcoDUART* iface = PelcoDUART::get_interface(uartt);
+	PelcoUART* iface = PelcoUART::get_interface(uartt);
 	iface->setConfig(config);
 
 	attach_interface(iface);
