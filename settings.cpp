@@ -117,15 +117,17 @@ void PTZSettings::on_addPTZ_clicked()
 	if (action == addPelcoD) {
 		OBSData cfg = obs_data_create();
 		obs_data_release(cfg);
-		obs_data_set_string(cfg, "type", "pelco-d");
+		obs_data_set_string(cfg, "type", "pelco");
 		obs_data_set_string(cfg, "name", "PTZ");
+		obs_data_set_bool(cfg, "use_pelco_d", true);
 		PTZDevice::make_device(cfg);
 	}
 	if (action == addPelcoP) {
 		OBSData cfg = obs_data_create();
 		obs_data_release(cfg);
-		obs_data_set_string(cfg, "type", "pelco-p");
+		obs_data_set_string(cfg, "type", "pelco");
 		obs_data_set_string(cfg, "name", "PTZ");
+		obs_data_set_bool(cfg, "use_pelco_d", false);
 		PTZDevice::make_device(cfg);
 	}
 }

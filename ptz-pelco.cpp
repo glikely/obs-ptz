@@ -1,4 +1,4 @@
-/* Pan Tilt Zoom camera pelco-p instance
+/* Pan Tilt Zoom camera pelco-p and pelco-d instance
  *
  * Copyright 2021 Luuk Verhagen <developer@verhagenluuk.nl>
  * Copyright 2020-2021 Grant Likely <grant.likely@secretlab.ca>
@@ -15,6 +15,10 @@ const QByteArray ZOOM_IN = QByteArray::fromHex("00200000");
 const QByteArray ZOOM_OUT = QByteArray::fromHex("00400000");
 
 std::map<QString, PelcoUART*> PelcoUART::interfaces;
+
+/*
+ * Pelco UART wrapper implementation
+ */
 
 void PelcoUART::receive_datagram(const QByteArray& packet)
 {
@@ -49,6 +53,10 @@ PelcoUART* PelcoUART::get_interface(QString port_name)
 	return iface;
 }
 
+/*
+ * PTZPelco class implementation with -P and -D variants
+ */
+
 void PTZPelco::attach_interface(PelcoUART* new_iface)
 {
 	if (iface)
@@ -60,29 +68,50 @@ void PTZPelco::attach_interface(PelcoUART* new_iface)
 
 char PTZPelco::checkSum(QByteArray& data)
 {
-	char sum = 0x00;
-	for (char c : data)
-		sum ^= c;
-	return sum;
+	int sum = 0x00;
+	if (use_pelco_d) {
+		/* Pelco-D checksum */
+		for (char c : data)
+			sum += c;
+		sum = sum % 100;
+	} else {
+		/* Pelco-P checksum */
+		for (char c : data)
+			sum ^= c;
+	}
+
+	return sum & 0xff;
 }
 
 void PTZPelco::receive(const QByteArray &msg)
 {
-	int address = msg[1] + 1;
-
+	int address = msg[1];
+	if (!use_pelco_d)
+		address++;
 	if (address == this->address)
-		ptz_debug("Pelco P received: %s", qPrintable(msg.toHex()));
+		ptz_debug("Pelco received: %s", qPrintable(msg.toHex()));
 }
 
 void PTZPelco::send(const QByteArray& msg)
 {
-	QByteArray result = QByteArray::fromHex("a000") + msg + QByteArray::fromHex("af00");
-	result[1] = address - 1;
-	result[7] = checkSum(result);
+	QByteArray result = msg;
+	if (use_pelco_d) {
+		/* Pelco-D datagram */
+		result.prepend(address);
+		result.append(checkSum(result));
+		result.prepend(QByteArray::fromHex("ff"));
+	} else {
+		/* Pelco-P datagram */
+		result.prepend(address - 1);
+		result.prepend(QByteArray::fromHex("a0"));
+		result.append(QByteArray::fromHex("af"));
+		result.append(checkSum(result));
+	}
 
 	iface->send(result);
 
-	ptz_debug("Pelco P command send: %s", qPrintable(result.toHex(':')));
+	ptz_debug("Pelco %c command send: %s", use_pelco_d ? 'D' : 'P',
+			qPrintable(result.toHex(':')));
 }
 
 void PTZPelco::send(const unsigned char data_1, const unsigned char data_2,
@@ -104,11 +133,11 @@ void PTZPelco::zoom_speed_set(double speed)
 }
 
 PTZPelco::PTZPelco(OBSData data)
-	: PTZDevice("pelco-p"), iface(NULL)
+	: PTZDevice("pelco"), iface(NULL)
 {
 	set_config(data);
-	ptz_debug("pelco-p device created");
-	auto_settings_filter += {"port", "address", "baud_rate"};
+	ptz_debug("pelco device created");
+	auto_settings_filter += {"port", "address", "baud_rate", "use_pelco_d"};
 }
 
 PTZPelco::~PTZPelco()
@@ -120,6 +149,7 @@ void PTZPelco::set_config(OBSData config)
 {
 	PTZDevice::set_config(config);
 	const char* uartt = obs_data_get_string(config, "port");
+	use_pelco_d = obs_data_get_bool(config, "use_pelco_d");
 	address = obs_data_get_int(config, "address");
 	if (!uartt)
 		return;
@@ -134,6 +164,7 @@ OBSData PTZPelco::get_config()
 	OBSData config = PTZDevice::get_config();
 	obs_data_apply(config, iface->getConfig());
 	obs_data_set_int(config, "address", address);
+	obs_data_set_bool(config, "use_pelco_d", use_pelco_d);
 	return config;
 }
 
@@ -142,10 +173,11 @@ obs_properties_t *PTZPelco::get_obs_properties()
 	obs_properties_t *props = PTZDevice::get_obs_properties();
 	obs_property_t *p = obs_properties_get(props, "interface");
 	obs_properties_t *config = obs_property_group_content(p);
-	obs_property_set_description(p, "Pelco-P Connection");
+	obs_property_set_description(p, "Serial Port");
 
 	iface->addOBSProperties(config);
-	obs_properties_add_int(config, "address", "PelcoP ID", 0, 15, 1);
+	obs_properties_add_int(config, "address", "Device ID", 0, 15, 1);
+	obs_properties_add_bool(config, "use_pelco_d", "Use Pelco-D");
 
 	return props;
 }

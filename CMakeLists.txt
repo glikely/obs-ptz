@@ -55,8 +55,7 @@ set(ptz-controls_SOURCES
     ptz-controls.cpp
     ptz-device.cpp
     settings.cpp
-    ptz-pelco-d.cpp
-    ptz-pelco-p.cpp
+    ptz-pelco.cpp
     ptz-visca.cpp
     ptz-action-source.c
     protocol-helpers.cpp

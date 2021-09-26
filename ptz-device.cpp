@@ -70,9 +70,7 @@ PTZDevice *PTZDevice::make_device(OBSData config)
 	PTZDevice *ptz = nullptr;
 	std::string type = obs_data_get_string(config, "type");
 
-	if (type == "pelco-d")
-		ptz = new PTZPelcoD(config);
-	if (type == "pelco-p")
+	if (type == "pelco" || type == "pelco-p")
 		ptz = new PTZPelco(config);
 	if (type == "visca")
 		ptz = new PTZViscaSerial(config);
