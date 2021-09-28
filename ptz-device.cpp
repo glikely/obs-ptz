@@ -73,7 +73,7 @@ PTZDevice *PTZDevice::make_device(OBSData config)
 	if (type == "pelco-d")
 		ptz = new PTZPelcoD(config);
 	if (type == "pelco-p")
-		ptz = new PTZPelcoP(config);
+		ptz = new PTZPelco(config);
 	if (type == "visca")
 		ptz = new PTZViscaSerial(config);
 	if (type == "visca-over-ip")

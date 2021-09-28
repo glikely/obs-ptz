@@ -49,16 +49,16 @@ PelcoUART* PelcoUART::get_interface(QString port_name)
 	return iface;
 }
 
-void PTZPelcoP::attach_interface(PelcoUART* new_iface)
+void PTZPelco::attach_interface(PelcoUART* new_iface)
 {
 	if (iface)
 		iface->disconnect(this);
 	iface = new_iface;
 	if (iface)
-		connect(iface, &PelcoUART::receive, this, &PTZPelcoP::receive);
+		connect(iface, &PelcoUART::receive, this, &PTZPelco::receive);
 }
 
-char PTZPelcoP::checkSum(QByteArray& data)
+char PTZPelco::checkSum(QByteArray& data)
 {
 	char sum = 0x00;
 	for (char c : data)
@@ -66,7 +66,7 @@ char PTZPelcoP::checkSum(QByteArray& data)
 	return sum;
 }
 
-void PTZPelcoP::receive(const QByteArray &msg)
+void PTZPelco::receive(const QByteArray &msg)
 {
 	int address = msg[1] + 1;
 
@@ -74,7 +74,7 @@ void PTZPelcoP::receive(const QByteArray &msg)
 		ptz_debug("Pelco P received: %s", qPrintable(msg.toHex()));
 }
 
-void PTZPelcoP::send(const QByteArray& msg)
+void PTZPelco::send(const QByteArray& msg)
 {
 	QByteArray result = QByteArray::fromHex("a000") + msg + QByteArray::fromHex("af00");
 	result[1] = address - 1;
@@ -85,7 +85,7 @@ void PTZPelcoP::send(const QByteArray& msg)
 	ptz_debug("Pelco P command send: %s", qPrintable(result.toHex(':')));
 }
 
-void PTZPelcoP::send(const unsigned char data_1, const unsigned char data_2,
+void PTZPelco::send(const unsigned char data_1, const unsigned char data_2,
 		     const unsigned char data_3, const unsigned char data_4)
 {
 	QByteArray message;
@@ -98,12 +98,12 @@ void PTZPelcoP::send(const unsigned char data_1, const unsigned char data_2,
 	send(message);
 }
 
-void PTZPelcoP::zoom_speed_set(double speed)
+void PTZPelco::zoom_speed_set(double speed)
 {
 	send(0x00, 0x25, 0x00, abs(speed) * 0x33);
 }
 
-PTZPelcoP::PTZPelcoP(OBSData data)
+PTZPelco::PTZPelco(OBSData data)
 	: PTZDevice("pelco-p"), iface(NULL)
 {
 	set_config(data);
@@ -111,12 +111,12 @@ PTZPelcoP::PTZPelcoP(OBSData data)
 	auto_settings_filter += {"port", "address", "baud_rate"};
 }
 
-PTZPelcoP::~PTZPelcoP()
+PTZPelco::~PTZPelco()
 {
 	attach_interface(nullptr);
 }
 
-void PTZPelcoP::set_config(OBSData config)
+void PTZPelco::set_config(OBSData config)
 {
 	PTZDevice::set_config(config);
 	const char* uartt = obs_data_get_string(config, "port");
@@ -129,7 +129,7 @@ void PTZPelcoP::set_config(OBSData config)
 	attach_interface(iface);
 }
 
-OBSData PTZPelcoP::get_config()
+OBSData PTZPelco::get_config()
 {
 	OBSData config = PTZDevice::get_config();
 	obs_data_apply(config, iface->getConfig());
@@ -137,7 +137,7 @@ OBSData PTZPelcoP::get_config()
 	return config;
 }
 
-obs_properties_t *PTZPelcoP::get_obs_properties()
+obs_properties_t *PTZPelco::get_obs_properties()
 {
 	obs_properties_t *props = PTZDevice::get_obs_properties();
 	obs_property_t *p = obs_properties_get(props, "interface");
@@ -150,7 +150,7 @@ obs_properties_t *PTZPelcoP::get_obs_properties()
 	return props;
 }
 
-void PTZPelcoP::pantilt(double pan, double tilt)
+void PTZPelco::pantilt(double pan, double tilt)
 {
 	unsigned char panTiltData = 0x00;
 	if (tilt < -0.005) panTiltData |= (1 << 4);
@@ -163,44 +163,44 @@ void PTZPelcoP::pantilt(double pan, double tilt)
 	ptz_debug("pantilt: pan %f tilt %f", pan, tilt);
 }
 
-void PTZPelcoP::pantilt_rel(int pan, int tilt)
+void PTZPelco::pantilt_rel(int pan, int tilt)
 {
 	ptz_debug("pantilt_rel");
 }
 
-void PTZPelcoP::pantilt_stop()
+void PTZPelco::pantilt_stop()
 {
 	send(STOP);
 	ptz_debug("pantilt_stop");
 }
 
-void PTZPelcoP::pantilt_home()
+void PTZPelco::pantilt_home()
 {
 	send(HOME);
 	ptz_debug("pantilt_home");
 }
 
-void PTZPelcoP::zoom_stop()
+void PTZPelco::zoom_stop()
 {
 	send(STOP);
 	ptz_debug("zoom_stop");
 }
 
-void PTZPelcoP::zoom_tele(double speed)
+void PTZPelco::zoom_tele(double speed)
 {
 	zoom_speed_set(speed);
 	send(ZOOM_IN);
 	ptz_debug("zoom_tele");
 }
 
-void PTZPelcoP::zoom_wide(double speed)
+void PTZPelco::zoom_wide(double speed)
 {
 	zoom_speed_set(speed);
 	send(ZOOM_OUT);
 	ptz_debug("zoom_wide");
 }
 
-void PTZPelcoP::memory_reset(int i)
+void PTZPelco::memory_reset(int i)
 {
 	if (i < 0x01 || i > 0xFF)
 		return;
@@ -209,7 +209,7 @@ void PTZPelcoP::memory_reset(int i)
 	ptz_debug("memory_reset");
 }
 
-void PTZPelcoP::memory_set(int i)
+void PTZPelco::memory_set(int i)
 {
 	if (i < 0x01 || i > 0xFF)
 		return;
@@ -218,7 +218,7 @@ void PTZPelcoP::memory_set(int i)
 	ptz_debug("memory_set");
 }
 
-void PTZPelcoP::memory_recall(int i)
+void PTZPelco::memory_recall(int i)
 {
 	if (i < 0x00 || i > 0xFF)
 		return;

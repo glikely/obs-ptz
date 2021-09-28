@@ -33,7 +33,7 @@ public:
 	static PelcoUART* get_interface(QString port_name);
 };
 
-class PTZPelcoP : public PTZDevice {
+class PTZPelco : public PTZDevice {
 private:
 	PelcoUART* iface;
 	void attach_interface(PelcoUART* new_iface);
@@ -49,8 +49,8 @@ protected:
 	void receive(const QByteArray &msg);
 
 public:
-	PTZPelcoP(OBSData data);
-	~PTZPelcoP();
+	PTZPelco(OBSData data);
+	~PTZPelco();
 
 	void set_config(OBSData ptz_data);
 	OBSData get_config();
