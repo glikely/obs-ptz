@@ -86,8 +86,8 @@ void PTZControls::OBSFrontendEvent(enum obs_frontend_event event)
 		return;
 
 	name = obs_source_get_name(scene);
-	for (unsigned long int i = 0; i < PTZDevice::device_count(); i++) {
-		PTZDevice *ptz = PTZDevice::get_device(i);
+	for (unsigned long int i = 0; i < ptzDeviceList.device_count(); i++) {
+		PTZDevice *ptz = ptzDeviceList.get_device(i);
 		if (ptz->objectName() == name) {
 			setCurrent(i);
 			break;
@@ -103,7 +103,7 @@ PTZControls::PTZControls(QWidget *parent)
 {
 	instance = this;
 	ui->setupUi(this);
-	ui->cameraList->setModel(PTZDevice::model());
+	ui->cameraList->setModel(&ptzDeviceList);
 
 	QItemSelectionModel *selectionModel = ui->cameraList->selectionModel();
 	connect(selectionModel,
@@ -193,7 +193,7 @@ PTZControls::~PTZControls()
 
 	//signal_handler_disconnect_global(obs_get_signal_handler(), OBSSignal, this);
 	SaveConfig();
-	PTZDevice::delete_all();
+	ptzDeviceList.delete_all();
 	deleteLater();
 }
 
@@ -316,11 +316,7 @@ void PTZControls::setGamepadEnabled(bool enable)
 
 PTZDevice * PTZControls::currCamera()
 {
-	if (PTZDevice::device_count() == 0)
-		return NULL;
-	if (current_cam >= PTZDevice::device_count())
-		current_cam = PTZDevice::device_count() - 1;
-	return PTZDevice::get_device(current_cam);
+	return ptzDeviceList.get_device(current_cam);
 }
 
 void PTZControls::setPanTilt(double pan, double tilt)
@@ -477,7 +473,7 @@ void PTZControls::setCurrent(unsigned int index)
 		return;
 	full_stop();
 	current_cam = index;
-	ui->cameraList->setCurrentIndex(PTZDevice::model()->index(current_cam, 0));
+	ui->cameraList->setCurrentIndex(ptzDeviceList.index(current_cam, 0));
 }
 
 void PTZControls::on_targetButton_preview_clicked(bool checked)
@@ -497,7 +493,7 @@ void PTZControls::currentChanged(QModelIndex current, QModelIndex previous)
 	Q_UNUSED(previous);
 	full_stop();
 	current_cam = current.row();
-	PTZDevice *ptz = PTZDevice::get_device(current_cam);
+	PTZDevice *ptz = ptzDeviceList.get_device(current_cam);
 	ui->presetListView->setModel(ptz->presetModel());
 
 	auto settings = ptz->get_settings();
@@ -514,7 +510,7 @@ void PTZControls::currentChanged(QModelIndex current, QModelIndex previous)
 
 void PTZControls::on_presetListView_activated(QModelIndex index)
 {
-	PTZDevice *ptz = PTZDevice::get_device(current_cam);
+	PTZDevice *ptz = ptzDeviceList.get_device(current_cam);
 	if (!ptz)
 		return;
 	ptz->memory_recall(index.row());
@@ -524,7 +520,7 @@ void PTZControls::on_presetListView_customContextMenuRequested(const QPoint &pos
 {
 	QPoint globalpos = ui->presetListView->mapToGlobal(pos);
 	QModelIndex index = ui->presetListView->indexAt(pos);
-	PTZDevice *ptz = PTZDevice::get_device(current_cam);
+	PTZDevice *ptz = ptzDeviceList.get_device(current_cam);
 
 	QMenu presetContext;
 	QAction *renameAction = presetContext.addAction("Rename");

@@ -18,8 +18,13 @@ extern int ptz_debug_level;
 	blog(ptz_debug_level, "%s():%i: " format, __FUNCTION__, __LINE__, \
 	##__VA_ARGS__)
 
+class PTZDevice;
+
 class PTZListModel : public QAbstractListModel {
 	Q_OBJECT
+
+private:
+	static QVector<PTZDevice *> devices;
 
 public:
 	int rowCount(const QModelIndex& parent = QModelIndex()) const;
@@ -27,7 +32,24 @@ public:
 	void do_reset() { beginResetModel(); endResetModel(); }
 	Qt::ItemFlags flags(const QModelIndex &index) const;
 	bool setData(const QModelIndex &index, const QVariant &value, int role);
+
+	/* Data Model */
+	PTZDevice* make_device(OBSData config);
+	PTZDevice* get_device(unsigned int index) { return devices.value(index, nullptr); }
+	PTZDevice* get_device_by_name(QString &name);
+	void add(PTZDevice *ptz) { devices.push_back(ptz); do_reset(); }
+	void remove(PTZDevice *ptz) {
+		int row = devices.indexOf(ptz);
+		if (row < 0)
+			return;
+		devices.remove(row);
+		do_reset();
+	}
+	unsigned int device_count() { return devices.size(); }
+	void delete_all();
 };
+
+extern PTZListModel ptzDeviceList;
 
 const QStringList default_preset_names({"Preset 1", "Preset 2", "Preset 3", "Preset 4",
 	"Preset 5",  "Preset 6",  "Preset 7",  "Preset 8",  "Preset 9",  "Preset 10",
@@ -35,10 +57,6 @@ const QStringList default_preset_names({"Preset 1", "Preset 2", "Preset 3", "Pre
 
 class PTZDevice : public QObject {
 	Q_OBJECT
-
-private:
-	static PTZListModel ptz_list_model;
-	static QVector<PTZDevice *> devices;
 
 protected:
 	std::string type;
@@ -53,27 +71,13 @@ public:
 	{
 		settings = obs_data_create();
 		obs_data_release(settings);
-		devices.push_back(this);
-		ptz_list_model.do_reset();
+		ptzDeviceList.add(this);
 		preset_names_model.setStringList(default_preset_names);
 	};
 	~PTZDevice()
 	{
-		int row = devices.indexOf(this);
-		if (row < 0)
-			return;
-		devices.remove(row);
-		ptz_list_model.do_reset();
+		ptzDeviceList.remove(this);
 	};
-
-	static PTZDevice* make_device(OBSData config);
-	static PTZDevice* get_device(unsigned int index) { return devices.at(index); }
-	static PTZDevice* get_device_by_name(QString &name);
-	static unsigned int device_count() { return devices.size(); }
-	static void delete_all() {
-		while (!devices.empty())
-			delete devices.first();
-	}
 
 	virtual void pantilt(double pan, double tilt) { Q_UNUSED(pan); Q_UNUSED(tilt); }
 	virtual void pantilt_rel(int pan, int tilt) { Q_UNUSED(pan); Q_UNUSED(tilt); }
@@ -92,7 +96,6 @@ public:
 	virtual void memory_set(int i) { Q_UNUSED(i); }
 	virtual void memory_recall(int i) { Q_UNUSED(i); }
 	virtual void memory_reset(int i) { Q_UNUSED(i); }
-	static QAbstractListModel * model() { return &ptz_list_model; }
 	virtual QAbstractListModel * presetModel() { return &preset_names_model; }
 
 	virtual void set_config(OBSData ptz_config);
@@ -108,7 +111,7 @@ public:
 			name = "Unnamed Device";
 		QString new_name = name;
 		for (int i = 1;; i++) {
-			PTZDevice *ptz = get_device_by_name(new_name);
+			PTZDevice *ptz = ptzDeviceList.get_device_by_name(new_name);
 			if (!ptz)
 				break;
 			new_name = name + " " + QString::number(i);

@@ -14,13 +14,13 @@
 
 int ptz_debug_level = LOG_INFO;
 
-PTZListModel PTZDevice::ptz_list_model;
-QVector<PTZDevice *> PTZDevice::devices;
+PTZListModel ptzDeviceList;
+QVector<PTZDevice *> PTZListModel::devices;
 
 int PTZListModel::rowCount(const QModelIndex& parent) const
 {
 	Q_UNUSED(parent);
-	return PTZDevice::device_count();
+	return devices.size();
 }
 
 Qt::ItemFlags PTZListModel::flags(const QModelIndex &index) const
@@ -36,11 +36,11 @@ QVariant PTZListModel::data(const QModelIndex &index, int role) const
 		return QVariant();
 
 	if (role == Qt::DisplayRole || role == Qt::EditRole) {
-		return PTZDevice::get_device(index.row())->objectName();
+		return devices.at(index.row())->objectName();
 	}
 #if 0
 	if (role == Qt::UserRole) {
-		return PTZDevice::get_device(index.row());
+		return get_device(index.row());
 	}
 #endif
 	return QVariant();
@@ -49,7 +49,7 @@ QVariant PTZListModel::data(const QModelIndex &index, int role) const
 bool PTZListModel::setData(const QModelIndex &index, const QVariant &value, int role)
 {
 	if (index.isValid() && role == Qt::EditRole) {
-		PTZDevice *ptz = PTZDevice::get_device(index.row());
+		PTZDevice *ptz = ptzDeviceList.get_device(index.row());
 		if (ptz)
 			ptz->setObjectName(value.toString());
 		emit dataChanged(index, index);
@@ -57,7 +57,7 @@ bool PTZListModel::setData(const QModelIndex &index, const QVariant &value, int 
 	return false;
 }
 
-PTZDevice *PTZDevice::get_device_by_name(QString &name)
+PTZDevice *PTZListModel::get_device_by_name(QString &name)
 {
 	for (auto ptz : devices)
 		if (name == ptz->objectName())
@@ -65,7 +65,7 @@ PTZDevice *PTZDevice::get_device_by_name(QString &name)
 	return NULL;
 }
 
-PTZDevice *PTZDevice::make_device(OBSData config)
+PTZDevice *PTZListModel::make_device(OBSData config)
 {
 	PTZDevice *ptz = nullptr;
 	std::string type = obs_data_get_string(config, "type");
@@ -79,12 +79,18 @@ PTZDevice *PTZDevice::make_device(OBSData config)
 	return ptz;
 }
 
+void PTZListModel::delete_all()
+{
+	while (!devices.empty())
+		delete devices.first();
+}
+
 void PTZDevice::set_config(OBSData config)
 {
 	const char *name = obs_data_get_string(config, "name");
 	if (name && strlen(name)) {
 		setObjectName(name);
-		ptz_list_model.do_reset();
+		ptzDeviceList.do_reset();
 	}
 
 	/* Update the list of preset names */
@@ -166,8 +172,8 @@ obs_properties_t *PTZDevice::get_obs_properties()
 obs_data_array_t *ptz_devices_get_config(void)
 {
 	obs_data_array_t *devices = obs_data_array_create();
-	for (unsigned long int i = 0; i < PTZDevice::device_count(); i++) {
-		PTZDevice *ptz = PTZDevice::get_device(i);
+	for (unsigned long int i = 0; i < ptzDeviceList.device_count(); i++) {
+		PTZDevice *ptz = ptzDeviceList.get_device(i);
 		obs_data_array_push_back(devices, ptz->get_config());
 	}
 	return devices;
@@ -182,26 +188,24 @@ void ptz_devices_set_config(obs_data_array_t *devices)
 	for (size_t i = 0; i < obs_data_array_count(devices); i++) {
 		OBSData ptzcfg = obs_data_array_item(devices, i);
 		obs_data_release(ptzcfg);
-		PTZDevice::make_device(ptzcfg);
+		ptzDeviceList.make_device(ptzcfg);
 	}
 }
 
 void ptz_preset_recall(void *data, calldata_t *cd)
 {
 	unsigned int id = (unsigned int) calldata_int(cd, "device_id");
-	if (id >= PTZDevice::device_count())
-		return;
-	PTZDevice* ptz = PTZDevice::get_device(id);
-	ptz->memory_recall(calldata_int(cd, "preset_id"));
+	PTZDevice* ptz = ptzDeviceList.get_device(id);
+	if (ptz)
+		ptz->memory_recall(calldata_int(cd, "preset_id"));
 }
 
 void ptz_pantilt(void *data, calldata_t *cd)
 {
 	unsigned int id = (unsigned int) calldata_int(cd, "device_id");
-	if (id >= PTZDevice::device_count() || id < 0)
-		return;
-	PTZDevice* ptz = PTZDevice::get_device(id);
-	ptz->pantilt(calldata_float(cd, "pan"), calldata_float(cd, "tilt"));
+	PTZDevice* ptz = ptzDeviceList.get_device(id);
+	if (ptz)
+		ptz->pantilt(calldata_float(cd, "pan"), calldata_float(cd, "tilt"));
 }
 
 void ptz_load_devices(void)

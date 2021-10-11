@@ -51,9 +51,9 @@ PTZSettings::PTZSettings() : QWidget(nullptr), ui(new Ui_PTZSettings)
 	ui->gamepadCheckBox->setChecked(PTZControls::getInstance()->gamepadEnabled());
 
 	config_t *global_config = obs_frontend_get_global_config();
-	ui->deviceList->setModel(PTZDevice::model());
+	ui->deviceList->setModel(&ptzDeviceList);
 	int row = config_get_int(global_config, "ptz-controls", "prevPTZRow");
-	ui->deviceList->setCurrentIndex(PTZDevice::model()->index(row, 0));
+	ui->deviceList->setCurrentIndex(ptzDeviceList.index(row, 0));
 
 	QItemSelectionModel *selectionModel = ui->deviceList->selectionModel();
 	connect(selectionModel, SIGNAL(currentChanged(QModelIndex,QModelIndex)),
@@ -72,7 +72,7 @@ void PTZSettings::set_selected(unsigned int row)
 {
 	ui->deviceList->setCurrentIndex(QModelIndex());
 	if (row >= 0)
-		ui->deviceList->setCurrentIndex(PTZDevice::model()->index(row, 0));
+		ui->deviceList->setCurrentIndex(ptzDeviceList.index(row, 0));
 }
 
 void PTZSettings::on_applyButton_clicked()
@@ -80,7 +80,7 @@ void PTZSettings::on_applyButton_clicked()
 	int row = ui->deviceList->currentIndex().row();
 	if (row < 0)
 		return;
-	PTZDevice *ptz = PTZDevice::get_device(row);
+	PTZDevice *ptz = ptzDeviceList.get_device(row);
 	ptz->set_config(propertiesView->GetSettings());
 }
 
@@ -103,7 +103,7 @@ void PTZSettings::on_addPTZ_clicked()
 		obs_data_release(cfg);
 		obs_data_set_string(cfg, "type", "visca");
 		obs_data_set_string(cfg, "name", "PTZ");
-		PTZDevice::make_device(cfg);
+		ptzDeviceList.make_device(cfg);
 	}
 	if (action == addViscaIP) {
 		OBSData cfg = obs_data_create();
@@ -112,7 +112,7 @@ void PTZSettings::on_addPTZ_clicked()
 		obs_data_set_string(cfg, "name", "PTZ");
 		obs_data_set_string(cfg, "address", "192.168.0.100");
 		obs_data_set_int(cfg, "port", 52381);
-		PTZDevice::make_device(cfg);
+		ptzDeviceList.make_device(cfg);
 	}
 	if (action == addPelcoD) {
 		OBSData cfg = obs_data_create();
@@ -120,7 +120,7 @@ void PTZSettings::on_addPTZ_clicked()
 		obs_data_set_string(cfg, "type", "pelco");
 		obs_data_set_string(cfg, "name", "PTZ");
 		obs_data_set_bool(cfg, "use_pelco_d", true);
-		PTZDevice::make_device(cfg);
+		ptzDeviceList.make_device(cfg);
 	}
 	if (action == addPelcoP) {
 		OBSData cfg = obs_data_create();
@@ -128,7 +128,7 @@ void PTZSettings::on_addPTZ_clicked()
 		obs_data_set_string(cfg, "type", "pelco");
 		obs_data_set_string(cfg, "name", "PTZ");
 		obs_data_set_bool(cfg, "use_pelco_d", false);
-		PTZDevice::make_device(cfg);
+		ptzDeviceList.make_device(cfg);
 	}
 }
 
@@ -137,7 +137,7 @@ void PTZSettings::on_removePTZ_clicked()
 	int row = ui->deviceList->currentIndex().row();
 	if (row < 0)
 		return;
-	PTZDevice *ptz = PTZDevice::get_device(row);
+	PTZDevice *ptz = ptzDeviceList.get_device(row);
 	if (!ptz)
 		return;
 
@@ -167,7 +167,7 @@ void PTZSettings::currentChanged(const QModelIndex &current, const QModelIndex &
 
 	if (current.row() < 0)
 		return;
-	PTZDevice *ptz = PTZDevice::get_device(current.row());
+	PTZDevice *ptz = ptzDeviceList.get_device(current.row());
 	obs_data_t *settings = obs_data_create();
 	OBSData cfg = ptz->get_settings();
 	obs_data_apply(settings, cfg);
