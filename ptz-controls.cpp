@@ -16,6 +16,7 @@
 #include <QWindow>
 #include <QResizeEvent>
 
+#include "imported/qt-wrappers.hpp"
 #include "ui_ptz-controls.h"
 #include "ptz-controls.hpp"
 #include "settings.hpp"
@@ -168,28 +169,61 @@ PTZControls::PTZControls(QWidget *parent)
 		else
 			button->released();
 	};
-	panTiltLeftHotkey = registerHotkey("PTZ.PanTiltLeft",
-		"PTZ Pan camera left", cb, ui->panTiltButton_left);
-	panTiltRightHotkey = registerHotkey("PTZ.PanTiltRight",
-		"PTZ Pan camera right", cb, ui->panTiltButton_right);
-	panTiltUpHotkey = registerHotkey("PTZ.PanTiltUp",
-		"PTZ Tilt camera up", cb, ui->panTiltButton_up);
-	panTiltDownHotkey = registerHotkey("PTZ.PanTiltDown",
-		"PTZ Tilt camera down", cb, ui->panTiltButton_down);
-	zoomWideHotkey = registerHotkey("PTZ.ZoomWide",
-		"PTZ Zoom camera out (wide)", cb, ui->zoomButton_wide);
-	zoomTeleHotkey = registerHotkey("PTZ.ZoomTele",
-		"PTZ Zoom camera in (telefocal)", cb, ui->zoomButton_tele);
+	auto autofocustogglecb = [](void *data, obs_hotkey_id, obs_hotkey_t *, bool pressed) {
+		PTZControls *ptzctrl = static_cast<PTZControls*>(data);
+		if (pressed)
+			ptzctrl->on_focusButton_auto_clicked(!ptzctrl->ui->focusButton_auto->isChecked());
+	};
+	hotkeys << registerHotkey("PTZ.PanTiltUpLeft", "PTZ Pan camera up & left",
+				cb, ui->panTiltButton_upleft);
+	hotkeys << registerHotkey("PTZ.PanTiltLeft", "PTZ Pan camera left",
+				cb, ui->panTiltButton_left);
+	hotkeys << registerHotkey("PTZ.PanTiltDownLeft", "PTZ Pan camera down & left",
+				cb, ui->panTiltButton_downleft);
+	hotkeys << registerHotkey("PTZ.PanTiltUpRight", "PTZ Pan camera up & right",
+				cb, ui->panTiltButton_upright);
+	hotkeys << registerHotkey("PTZ.PanTiltRight", "PTZ Pan camera right",
+				cb, ui->panTiltButton_right);
+	hotkeys << registerHotkey("PTZ.PanTiltDownRight", "PTZ Pan camera down & right",
+				cb, ui->panTiltButton_downright);
+	hotkeys << registerHotkey("PTZ.PanTiltUp", "PTZ Tilt camera up",
+				cb, ui->panTiltButton_up);
+	hotkeys << registerHotkey("PTZ.PanTiltDown", "PTZ Tilt camera down",
+				cb, ui->panTiltButton_down);
+	hotkeys << registerHotkey("PTZ.ZoomWide", "PTZ Zoom camera out (wide)",
+				cb, ui->zoomButton_wide);
+	hotkeys << registerHotkey("PTZ.ZoomTele", "PTZ Zoom camera in (telefocal)",
+				cb, ui->zoomButton_tele);
+	hotkeys << registerHotkey("PTZ.FocusAutoFocus", "PTZ Toggle Autofocus",
+				autofocustogglecb, this);
+	hotkeys << registerHotkey("PTZ.FocusNear", "PTZ Focus far",
+				cb, ui->focusButton_far);
+	hotkeys << registerHotkey("PTZ.FocusFar", "PTZ Focus near",
+				cb, ui->focusButton_near);
+	hotkeys << registerHotkey("PTZ.FocusOneTouch", "PTZ One touch focus trigger",
+				cb, ui->focusButton_onetouch);
+
+	auto preset_recall_cb = [](void *data, obs_hotkey_id hotkey, obs_hotkey_t *, bool pressed) {
+		PTZControls *ptzctrl = static_cast<PTZControls*>(data);
+		blog(LOG_INFO, "Recalling %i", ptzctrl->preset_hotkey_map[hotkey]);
+		if (pressed)
+			ptzctrl->presetRecall(ptzctrl->preset_hotkey_map[hotkey]);
+	};
+
+	for (int i = 0; i < 16; i++) {
+		auto name = QString("PTZ.Recall%1").arg(i+1);
+		auto description = QString("PTZ Memory Recall #%1").arg(i+1);
+		obs_hotkey_id hotkey = registerHotkey(QT_TO_UTF8(name), QT_TO_UTF8(description),
+							preset_recall_cb, this);
+		preset_hotkey_map[hotkey] = i;
+		hotkeys << hotkey;
+	}
 }
 
 PTZControls::~PTZControls()
 {
-	obs_hotkey_unregister(panTiltLeftHotkey);
-	obs_hotkey_unregister(panTiltRightHotkey);
-	obs_hotkey_unregister(panTiltUpHotkey);
-	obs_hotkey_unregister(panTiltDownHotkey);
-	obs_hotkey_unregister(zoomWideHotkey);
-	obs_hotkey_unregister(zoomTeleHotkey);
+	while (!hotkeys.isEmpty())
+		obs_hotkey_unregister(hotkeys.takeFirst());
 
 	//signal_handler_disconnect_global(obs_get_signal_handler(), OBSSignal, this);
 	SaveConfig();
@@ -508,12 +542,17 @@ void PTZControls::currentChanged(QModelIndex current, QModelIndex previous)
 	ui->focusButton_onetouch->setEnabled(!autofocus_on);
 }
 
-void PTZControls::on_presetListView_activated(QModelIndex index)
+void PTZControls::presetRecall(int id)
 {
 	PTZDevice *ptz = ptzDeviceList.get_device(current_cam);
 	if (!ptz)
 		return;
-	ptz->memory_recall(index.row());
+	ptz->memory_recall(id);
+}
+
+void PTZControls::on_presetListView_activated(QModelIndex index)
+{
+	presetRecall(index.row());
 }
 
 void PTZControls::on_presetListView_customContextMenuRequested(const QPoint &pos)

@@ -36,15 +36,12 @@ private:
 	void setPanTilt(double pan, double tilt);
 
 	void setCurrent(unsigned int index);
+	void presetRecall(int id);
 
 	PTZDevice * currCamera();
 
-	obs_hotkey_id panTiltLeftHotkey = 0;
-	obs_hotkey_id panTiltRightHotkey = 0;
-	obs_hotkey_id panTiltUpHotkey = 0;
-	obs_hotkey_id panTiltDownHotkey = 0;
-	obs_hotkey_id zoomWideHotkey = 0;
-	obs_hotkey_id zoomTeleHotkey = 0;
+	QList<obs_hotkey_id> hotkeys;
+	QMap<obs_hotkey_id, int> preset_hotkey_map;
 
 private slots:
 	void on_panTiltButton_up_pressed();
