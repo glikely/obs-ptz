@@ -85,6 +85,20 @@ void PTZListModel::delete_all()
 		delete devices.first();
 }
 
+void PTZListModel::preset_recall(int id, int preset_id)
+{
+	PTZDevice* ptz = ptzDeviceList.get_device(id);
+	if (ptz)
+		ptz->memory_recall(preset_id);
+}
+
+void PTZListModel::pantilt(int id, double pan, double tilt)
+{
+	PTZDevice* ptz = ptzDeviceList.get_device(id);
+	if (ptz)
+		ptz->pantilt(pan, tilt);
+}
+
 void PTZDevice::set_config(OBSData config)
 {
 	const char *name = obs_data_get_string(config, "name");
@@ -192,30 +206,29 @@ void ptz_devices_set_config(obs_data_array_t *devices)
 	}
 }
 
-void ptz_preset_recall(void *data, calldata_t *cd)
-{
-	unsigned int id = (unsigned int) calldata_int(cd, "device_id");
-	PTZDevice* ptz = ptzDeviceList.get_device(id);
-	if (ptz)
-		ptz->memory_recall(calldata_int(cd, "preset_id"));
-}
-
-void ptz_pantilt(void *data, calldata_t *cd)
-{
-	unsigned int id = (unsigned int) calldata_int(cd, "device_id");
-	PTZDevice* ptz = ptzDeviceList.get_device(id);
-	if (ptz)
-		ptz->pantilt(calldata_float(cd, "pan"), calldata_float(cd, "tilt"));
-}
-
 void ptz_load_devices(void)
 {
 	/* Register the proc handlers for issuing PTZ commands */
 	proc_handler_t *ph = obs_get_proc_handler();
 	if (!ph)
 		return;
+
+	/* Preset Recall Callback */
+	auto ptz_preset_recall = [](void *data, calldata_t *cd) {
+		QMetaObject::invokeMethod(&ptzDeviceList, "preset_recall",
+					Q_ARG(int, calldata_int(cd, "device_id")),
+					Q_ARG(int, calldata_int(cd, "preset_id")));
+	};
 	proc_handler_add(ph, "void ptz_preset_recall(int device_id, int preset_id)",
 			ptz_preset_recall, NULL);
+
+	/* Pantilt Callback */
+	auto ptz_pantilt = [](void *data, calldata_t *cd) {
+		QMetaObject::invokeMethod(&ptzDeviceList, "pantilt",
+					Q_ARG(int, calldata_int(cd, "device_id")),
+					Q_ARG(double, calldata_float(cd, "pan")),
+					Q_ARG(double, calldata_float(cd, "tilt")));
+	};
 	proc_handler_add(ph, "void ptz_pantilt(int device_id, float pan, float tilt)",
 			ptz_pantilt, NULL);
 }

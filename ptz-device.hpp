@@ -47,6 +47,10 @@ public:
 	}
 	unsigned int device_count() { return devices.size(); }
 	void delete_all();
+
+public slots:
+	void preset_recall(int id, int preset_id);
+	void pantilt(int id, double pan, double tilt);
 };
 
 extern PTZListModel ptzDeviceList;
