@@ -577,6 +577,11 @@ void PTZControls::on_presetListView_customContextMenuRequested(const QPoint &pos
 	}
 }
 
+void PTZControls::on_cameraList_doubleClicked(const QModelIndex &index)
+{
+	ptz_settings_show(index.row());
+}
+
 void PTZControls::on_configButton_released()
 {
 	ptz_settings_show(ui->cameraList->currentIndex().row());
