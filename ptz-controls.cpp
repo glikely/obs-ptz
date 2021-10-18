@@ -603,6 +603,11 @@ void PTZControls::on_cameraList_customContextMenuRequested(const QPoint &pos)
 	QMenu context;
 	bool power_on = obs_data_get_bool(settings, "power_on");
 	QAction *powerAction = context.addAction(power_on ? "Power Off" : "Power On");
+
+	QAction *wbOnetouchAction = nullptr;
+	bool wb_onepush = (obs_data_get_int(settings, "wb_mode") == 3);
+	if (wb_onepush)
+		wbOnetouchAction = context.addAction("Trigger One-Push White Balance");
 	QAction *action = context.exec(globalpos);
 
 	OBSData data = obs_data_create();
@@ -610,6 +615,9 @@ void PTZControls::on_cameraList_customContextMenuRequested(const QPoint &pos)
 
 	if (action == powerAction) {
 		obs_data_set_bool(data, "power_on", !power_on);
+		ptz->set_settings(data);
+	} else if (wb_onepush && action == wbOnetouchAction) {
+		obs_data_set_bool(data, "wb_onepush_trigger", true);
 		ptz->set_settings(data);
 	}
 }

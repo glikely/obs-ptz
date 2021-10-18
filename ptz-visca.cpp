@@ -248,7 +248,7 @@ const PTZCmd VISCA_CAM_WB_Outdoor("8101043502ff");
 const PTZCmd VISCA_CAM_WB_OnePush("8101043503ff");
 const PTZCmd VISCA_CAM_WB_AutoTracing(   "8101043504ff");
 const PTZCmd VISCA_CAM_WB_Manual("8101043505ff");
-const PTZInq VISCA_CAM_WBModeInq("81090435ff", {new visca_u4("wbmode", 2)});
+const PTZInq VISCA_CAM_WBModeInq("81090435ff", {new visca_u4("wb_mode", 2)});
 
 const PTZCmd VISCA_CAM_WB_OnePushTrigger("8101041005ff");
 
@@ -483,6 +483,10 @@ void PTZVisca::set_settings(OBSData updated)
 			obs_data_set_bool(changed, "power_on", new_power);
 			send_signal = true;
 		}
+	}
+	if (obs_data_has_user_value(updated, "wb_onepush_trigger")) {
+		/* Just send command, don't change state */
+		send(VISCA_CAM_WB_OnePushTrigger);
 	}
 
 	if (send_signal) {
