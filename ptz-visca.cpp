@@ -536,6 +536,7 @@ void PTZVisca::receive(const QByteArray &msg)
 			timeout_timer.stop();
 			obs_data_t *props = pending_cmds.first().decode(msg);
 			obs_data_apply(settings, props);
+			emit settingsChanged(props);
 			obs_data_release(props);
 			pending_cmds.removeFirst();
 		}

@@ -532,12 +532,24 @@ void PTZControls::currentChanged(QModelIndex current, QModelIndex previous)
 {
 	Q_UNUSED(previous);
 	full_stop();
-	current_cam = current.row();
+
 	PTZDevice *ptz = ptzDeviceList.get_device(current_cam);
+	if (ptz)
+		disconnect(ptz, nullptr, this, nullptr);
+
+	current_cam = current.row();
+	ptz = ptzDeviceList.get_device(current_cam);
 	ui->presetListView->setModel(ptz->presetModel());
+	ptz->connect(ptz, SIGNAL(settingsChanged()), this, SLOT(settingsChanged()));
 
 	auto settings = ptz->get_settings();
 	setAutofocusEnabled(obs_data_get_bool(settings, "focus_af_enabled"));
+}
+
+void PTZControls::settingsChanged(OBSData settings)
+{
+	if (obs_data_has_user_value(settings, "focus_af_enabled"))
+		setAutofocusEnabled(obs_data_get_bool(settings, "focus_af_enabled"));
 }
 
 void PTZControls::presetRecall(int id)
