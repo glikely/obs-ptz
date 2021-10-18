@@ -17,6 +17,7 @@ class PTZSettings : public QWidget {
 
 private:
 	Ui_PTZSettings *ui;
+	OBSData settings;
 	OBSPropertiesView *propertiesView = nullptr;
 	void current_device_changed();
 
@@ -34,6 +35,7 @@ public slots:
 	void on_gamepadCheckBox_stateChanged(int state);
 
 	void currentChanged(const QModelIndex &current, const QModelIndex &previous);
+	obs_properties_t *getCurrentProperties(void);
 };
 
 void ptz_settings_show(int row);

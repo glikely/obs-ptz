@@ -44,8 +44,23 @@ const char *description_text = "<html><head/><body>"
 		"https://github.com/glikely/obs-ptz</span></a></p>"
 	"</body></html>";
 
+static obs_properties_t * properties_reload_cb(void *obj)
+{
+	PTZSettings *me = static_cast<PTZSettings *>(obj);
+	return me->getCurrentProperties();
+}
+
+obs_properties_t *PTZSettings::getCurrentProperties(void)
+{
+	PTZDevice *ptz = ptzDeviceList.get_device(ui->deviceList->currentIndex().row());
+	return ptz ? ptz->get_obs_properties() : obs_properties_create();
+}
+
 PTZSettings::PTZSettings() : QWidget(nullptr), ui(new Ui_PTZSettings)
 {
+	settings = obs_data_create();
+	obs_data_release(settings);
+
 	ui->setupUi(this);
 
 	ui->gamepadCheckBox->setChecked(PTZControls::getInstance()->gamepadEnabled());
@@ -58,6 +73,11 @@ PTZSettings::PTZSettings() : QWidget(nullptr), ui(new Ui_PTZSettings)
 	QItemSelectionModel *selectionModel = ui->deviceList->selectionModel();
 	connect(selectionModel, SIGNAL(currentChanged(QModelIndex,QModelIndex)),
 		this, SLOT(currentChanged(QModelIndex,QModelIndex)));
+
+	propertiesView = new OBSPropertiesView(settings, this, properties_reload_cb, nullptr);
+	propertiesView->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
+	ui->propertiesLayout->insertWidget(1, propertiesView, 1);
+	ui->versionLabel->setText(description_text);
 }
 
 PTZSettings::~PTZSettings()
@@ -149,36 +169,22 @@ void PTZSettings::on_gamepadCheckBox_stateChanged(int state)
 	PTZControls::getInstance()->setGamepadEnabled(ui->gamepadCheckBox->isChecked());
 }
 
-obs_properties_t * settings_reload_cb(void *obj)
-{
-	PTZDevice *ptz = static_cast<PTZDevice *>(obj);
-	return ptz ? ptz->get_obs_properties() : obs_properties_create();
-};
-
 void PTZSettings::currentChanged(const QModelIndex &current, const QModelIndex &previous)
 {
 	Q_UNUSED(previous);
 
-	if (propertiesView) {
-		ui->propertiesLayout->removeWidget(propertiesView);
-		delete propertiesView;
-		propertiesView = nullptr;
-	}
-
+	obs_data_clear(settings);
 	if (current.row() < 0)
 		return;
+
 	PTZDevice *ptz = ptzDeviceList.get_device(current.row());
-	obs_data_t *settings = obs_data_create();
-	OBSData cfg = ptz->get_settings();
-	obs_data_apply(settings, cfg);
+	obs_data_apply(settings, ptz->get_settings());
+
 	/* The settings dialog doesn't touch presets or the device name, so remove them */
 	obs_data_erase(settings, "name");
 	obs_data_erase(settings, "presets");
-	propertiesView = new OBSPropertiesView(settings, ptz, settings_reload_cb, nullptr);
-	propertiesView->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
-	ui->propertiesLayout->insertWidget(1, propertiesView, 1);
-	ui->versionLabel->setText(description_text);
-	obs_data_release(settings);
+
+	propertiesView->ReloadProperties();
 }
 
 /* ----------------------------------------------------------------- */
