@@ -179,8 +179,7 @@ const PTZInq VISCA_EnlargementFunction3Inq("81097e7e05ff", {
 
 const PTZCmd VISCA_Clear("81010001ff");
 const PTZCmd VISCA_CommandCancel("8120ff", {new visca_u4("socket", 1)});
-const PTZCmd VISCA_CAM_Power_On("8101040002ff");
-const PTZCmd VISCA_CAM_Power_Off("8101040003ff");
+const PTZCmd VISCA_CAM_Power("8101040000ff", {new visca_flag("power_on", 4)});
 const PTZInq VISCA_CAM_PowerInq("81090400ff", {new visca_flag("power_on", 2)});
 
 
@@ -468,6 +467,28 @@ PTZVisca::PTZVisca(std::string type)
 	for (int i = 0; i < 8; i++)
 		active_cmd[i] = false;
 	connect(&timeout_timer, &QTimer::timeout, this, &PTZVisca::timeout);
+}
+
+void PTZVisca::set_settings(OBSData updated)
+{
+	OBSData changed = obs_data_create();
+	obs_data_release(changed);
+	bool send_signal = false;
+
+	if (obs_data_has_user_value(updated, "power_on")) {
+		bool old_power = obs_data_get_bool(settings, "power_on");
+		bool new_power = obs_data_get_bool(updated, "power_on");
+		if (old_power != new_power) {
+			send(VISCA_CAM_Power, {new_power});
+			obs_data_set_bool(changed, "power_on", new_power);
+			send_signal = true;
+		}
+	}
+
+	if (send_signal) {
+		obs_data_apply(settings, changed);
+		emit settingsChanged(changed);
+	}
 }
 
 void PTZVisca::send(PTZCmd cmd)

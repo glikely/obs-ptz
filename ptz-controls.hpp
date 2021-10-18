@@ -85,6 +85,7 @@ private slots:
 	void on_presetListView_activated(QModelIndex index);
 	void on_presetListView_customContextMenuRequested(const QPoint &pos);
 	void on_cameraList_doubleClicked(const QModelIndex &index);
+	void on_cameraList_customContextMenuRequested(const QPoint &pos);
 	void on_configButton_released();
 
 public:

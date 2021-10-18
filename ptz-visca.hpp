@@ -43,6 +43,7 @@ public:
 
 	virtual void set_config(OBSData ptz_data) = 0;
 	virtual OBSData get_config() = 0;
+	void set_settings(OBSData setting);
 
 	void cmd_get_camera_info();
 	void pantilt(double pan, double tilt);

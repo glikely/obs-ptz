@@ -105,9 +105,18 @@ public:
 	virtual void memory_reset(int i) { Q_UNUSED(i); }
 	virtual QAbstractListModel * presetModel() { return &preset_names_model; }
 
+	/* `config` is the device configuration, saved to the config file
+	 * `settings` are the dynamic state of the device which includes the
+	 * config.  Most of the data in settings is not saved in the config
+	 * file. `set_config()` is used to change saved config values, and
+	 * `set_settings()` is used to send commands to the camera to change
+	 * the state */
 	virtual void set_config(OBSData ptz_config);
 	virtual OBSData get_config();
+	virtual void set_settings(OBSData setting) {}
 	virtual OBSData get_settings();
+
+	/* Properties describe how to display the settings in a GUI dialog */
 	virtual obs_properties_t *get_obs_properties();
 
 	virtual void setObjectName(QString name) {

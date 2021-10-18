@@ -592,6 +592,28 @@ void PTZControls::on_cameraList_doubleClicked(const QModelIndex &index)
 	ptz_settings_show(index.row());
 }
 
+void PTZControls::on_cameraList_customContextMenuRequested(const QPoint &pos)
+{
+	QPoint globalpos = ui->cameraList->mapToGlobal(pos);
+	QModelIndex index = ui->cameraList->indexAt(pos);
+	PTZDevice *ptz = ptzDeviceList.get_device(index.row());
+
+	OBSData settings = ptz->get_settings();
+
+	QMenu context;
+	bool power_on = obs_data_get_bool(settings, "power_on");
+	QAction *powerAction = context.addAction(power_on ? "Power Off" : "Power On");
+	QAction *action = context.exec(globalpos);
+
+	OBSData data = obs_data_create();
+	obs_data_release(data);
+
+	if (action == powerAction) {
+		obs_data_set_bool(data, "power_on", !power_on);
+		ptz->set_settings(data);
+	}
+}
+
 void PTZControls::on_configButton_released()
 {
 	ptz_settings_show(ui->cameraList->currentIndex().row());
