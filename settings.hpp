@@ -35,7 +35,8 @@ public slots:
 	void on_gamepadCheckBox_stateChanged(int state);
 
 	void currentChanged(const QModelIndex &current, const QModelIndex &previous);
-	obs_properties_t *getCurrentProperties(void);
+	obs_properties_t *getProperties(void);
+	void updateProperties(OBSData old_settings, OBSData new_settings);
 };
 
 void ptz_settings_show(int row);

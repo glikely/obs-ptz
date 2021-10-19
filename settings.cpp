@@ -44,16 +44,18 @@ const char *description_text = "<html><head/><body>"
 		"https://github.com/glikely/obs-ptz</span></a></p>"
 	"</body></html>";
 
-static obs_properties_t * properties_reload_cb(void *obj)
-{
-	PTZSettings *me = static_cast<PTZSettings *>(obj);
-	return me->getCurrentProperties();
-}
-
-obs_properties_t *PTZSettings::getCurrentProperties(void)
+obs_properties_t *PTZSettings::getProperties(void)
 {
 	PTZDevice *ptz = ptzDeviceList.get_device(ui->deviceList->currentIndex().row());
 	return ptz ? ptz->get_obs_properties() : obs_properties_create();
+}
+
+void PTZSettings::updateProperties(OBSData old_settings, OBSData new_settings)
+{
+	PTZDevice *ptz = ptzDeviceList.get_device(ui->deviceList->currentIndex().row());
+	if (ptz)
+		ptz->set_settings(new_settings);
+	Q_UNUSED(old_settings);
 }
 
 PTZSettings::PTZSettings() : QWidget(nullptr), ui(new Ui_PTZSettings)
@@ -74,7 +76,13 @@ PTZSettings::PTZSettings() : QWidget(nullptr), ui(new Ui_PTZSettings)
 	connect(selectionModel, SIGNAL(currentChanged(QModelIndex,QModelIndex)),
 		this, SLOT(currentChanged(QModelIndex,QModelIndex)));
 
-	propertiesView = new OBSPropertiesView(settings, this, properties_reload_cb, nullptr);
+	auto reload_cb = [](void *obj) {
+		return static_cast<PTZSettings *>(obj)->getProperties();
+	};
+	auto update_cb = [](void *obj, obs_data_t *oldset, obs_data_t *newset) {
+		static_cast<PTZSettings *>(obj)->updateProperties(oldset, newset);
+	};
+	propertiesView = new OBSPropertiesView(settings, this, reload_cb, update_cb);
 	propertiesView->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
 	ui->propertiesLayout->insertWidget(1, propertiesView, 1);
 	ui->versionLabel->setText(description_text);
