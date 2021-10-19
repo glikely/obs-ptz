@@ -182,15 +182,14 @@ void PTZSettings::currentChanged(const QModelIndex &current, const QModelIndex &
 	Q_UNUSED(previous);
 
 	obs_data_clear(settings);
-	if (current.row() < 0)
-		return;
-
 	PTZDevice *ptz = ptzDeviceList.get_device(current.row());
-	obs_data_apply(settings, ptz->get_settings());
+	if (ptz) {
+		obs_data_apply(settings, ptz->get_settings());
 
-	/* The settings dialog doesn't touch presets or the device name, so remove them */
-	obs_data_erase(settings, "name");
-	obs_data_erase(settings, "presets");
+		/* The settings dialog doesn't touch presets or the device name, so remove them */
+		obs_data_erase(settings, "name");
+		obs_data_erase(settings, "presets");
+	}
 
 	propertiesView->ReloadProperties();
 }
