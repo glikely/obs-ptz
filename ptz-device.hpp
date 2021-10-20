@@ -6,6 +6,7 @@
  */
 #pragma once
 
+#include "ptz.h"
 #include <memory>
 #include <QObject>
 #include <QStringListModel>

@@ -1,22 +1,24 @@
 cmake_minimum_required(VERSION 3.5)
-project(ptz-controls VERSION 0.1.0)
-set(PROJECT_FULL_NAME "PTZ Controls")
+
+if(EXISTS "${CMAKE_SOURCE_DIR}/.git")
+	execute_process(COMMAND git describe --always --tags --dirty=-modified
+		OUTPUT_VARIABLE PLUGIN_VERSION
+		WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
+		OUTPUT_STRIP_TRAILING_WHITESPACE)
+else()
+	set(PLUGIN_VERSION "v0.8.0")
+endif()
+if (PLUGIN_VERSION MATCHES "^v([.0-9]*)")
+	set(PLUGIN_SIMPLE_VERSION "${CMAKE_MATCH_1}")
+endif()
+project(ptz-controls VERSION ${PLUGIN_SIMPLE_VERSION})
+set(PLUGIN_FULL_NAME "PTZ controller OBS Plugin")
 
 set(CMAKE_AUTOMOC TRUE)
 set(CMAKE_INCLUDE_CURRENT_DIR ON)
 if(QTDIR)
 	set(CMAKE_PREFIX_PATH ${CMAKE_PREFIX_PATH} ${QTDIR}/lib/cmake)
 endif()
-
-if(EXISTS "${CMAKE_SOURCE_DIR}/.git")
-	execute_process(COMMAND git describe --always --tags --dirty=-modified
-		OUTPUT_VARIABLE OBS_PTZ_VERSION
-		WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
-		OUTPUT_STRIP_TRAILING_WHITESPACE)
-else()
-	set(OBS_PTZ_VERSION "unknown")
-endif()
-add_definitions( -DOBS_PTZ_VERSION=${OBS_PTZ_VERSION} )
 
 find_package(Qt5Core REQUIRED)
 find_package(Qt5Widgets REQUIRED)
@@ -33,7 +35,10 @@ else()
 	set(OBS_FRONTEND_LIBRARIES obs-frontend-api)
 endif()
 
+configure_file(config.h.in config.generated.h)
+
 set(ptz-controls_HEADERS
+    config.generated.h
     ptz.h
     ptz-controls.hpp
     ptz-device.hpp

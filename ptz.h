@@ -10,6 +10,9 @@
 #ifndef PTZ_H
 #define PTZ_H
 
+#include <obs-module.h>
+#include "config.generated.h"
+
 #define STRINGIFY(x) #x
 #define TOSTRING(x) STRINGIFY(x)
 

@@ -6,6 +6,7 @@
  */
 #pragma once
 
+#include "ptz.h"
 #include <QTimer>
 #include <obs.hpp>
 #include <QDockWidget>

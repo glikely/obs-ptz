@@ -1,0 +1,19 @@
+/* Pan Tilt Zoom OBS Plugin macros
+ *
+ * Copyright 2020,2021 Grant Likely <grant.likely@secretlab.ca>
+ *
+ * SPDX-License-Identifier: GPLv2
+ *
+ * Build configuration macros
+ */
+
+#ifndef CONFIG_H
+#define CONFIG_H
+
+#define PLUGIN_NAME "@CMAKE_PROJECT_NAME@"
+#define PLUGIN_FULL_NAME "@PLUGIN_FULL_NAME@"
+#define PLUGIN_VERSION "@PLUGIN_VERSION@"
+
+#define blog(level, msg, ...) blog(level, "[" PLUGIN_NAME "] " msg, ##__VA_ARGS__)
+
+#endif // PLUGING_MACROS_H
