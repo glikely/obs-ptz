@@ -51,19 +51,19 @@ Typically `/usr/lib/obs-plugins`.
 - Build OBS Studio using instructions on OBS-Studio Wiki:
   https://obsproject.com/wiki/Install-Instructions
 - Clone this repository into a working directory
-- Modify (or copy and modify) `CI\install-script-win.cmd`, changing values of
+- Modify (or copy and modify) `ci\install-script-win.cmd`, changing values of
   `DepsPath`, `QTDIR`, and `LibObs_DIR` to match your local environment
 - Create a build directory under obs-ptz
-- Run `CI\windows-configure.cmd` to invoke cmake
-- Run `CI\windows-build.cmd` to make the binary
+- Run `ci\windows-configure.cmd` to invoke cmake
+- Run `ci\windows-build.cmd` to make the binary
 
 ```
 git clone https://github.com/glikely/obs-ptz
 cd obs-ptz
 mkdir build
 cd build
-..\CI\windows-configure.cmd
-..\CI\windows-build.cmd
+..\ci\windows-configure.cmd
+..\ci\windows-build.cmd
 ```
 
 - Copy the following files into OBS plugins directory
