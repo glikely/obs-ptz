@@ -9,7 +9,7 @@ cmake -G "Visual Studio 16 2019" -A x64 -DCMAKE_SYSTEM_VERSION=10.0 -DQTDIR="%QT
 REM Import the generated includes to get the plugin's name
 call "%~dp0..\ci_includes.generated.cmd"
 
-REM Rename the solution files to something CI can pick up 
+REM Copy the solution files to something CI can pick up
 cd ..
-ren "build32\%PluginName%.sln" "main.sln"
-ren "build64\%PluginName%.sln" "main.sln"
+cp "build32\%PluginName%.sln" "main.sln"
+cp "build64\%PluginName%.sln" "main.sln"

@@ -48,48 +48,27 @@ Typically `/usr/lib/obs-plugins`.
 
 ### Standalone Build for Windows
 
+This project contains a helper script for building the plugin that assumes that
+`obs-studio` and `obs-ptz` share the same top level directory.
+It also assumes that Qt5 is installed under `c:\Qt\`.
+If you have Qt5 installed or obs-studio checked out somewhere else then you'll
+need to modify the `winbuild` and `winrun` scripts.
+
 - Build OBS Studio using instructions on OBS-Studio Wiki:
   https://obsproject.com/wiki/Install-Instructions
 - Clone this repository into a working directory
-- Modify (or copy and modify) `ci\install-script-win.cmd`, changing values of
-  `DepsPath`, `QTDIR`, and `LibObs_DIR` to match your local environment
-- Create a build directory under obs-ptz
-- Run `ci\windows-configure.cmd` to invoke cmake
-- Run `ci\windows-build.cmd` to make the binary
+- Run `scripts\winbuild.cmd` to build the plugin
+- Run `scripts\winrun32.cmd` or `scripts\winrun64.cmd` to run OBS either the
+  32bit or 64bit version of the plugin
+
+From Powershell:
 
 ```
 git clone https://github.com/glikely/obs-ptz
 cd obs-ptz
-mkdir build
-cd build
-..\ci\windows-configure.cmd
-..\ci\windows-build.cmd
+.\scripts\winbuild.cmd
+.\scripts\winrun64.cmd
 ```
-
-- Copy the following files into OBS plugins directory
-  - `build\Debug\ptz-controls.dll`
-  - `%QTDIR%\bin\Qt5SerialPortd.dll`
-  - `%QTDIR%\bin\Qt5Gamepadd.dll`
-
-## Build inside OBS source tree
-
-- Build OBS according to official instructions:
-  https://obsproject.com/wiki/Install-Instructions
-- Check out this repository to UI/frontend-plugins
-
-```
-cd obs-studio/UI/frontend-plugins
-git clone https://github.com/glikely/obs-ptz
-```
-
-- Add obs-ptz to the OBS build scripts using included patch
-
-```
-cd obs-studio
-git am < UI/frontend-plugins/obs-ptz/patches/0001-Add-obs-ptz-plugin-to-OBS-Studio.patch
-```
-
-- Rebuild OBS Studio
 
 # Contributing
 
