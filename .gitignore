@@ -40,6 +40,8 @@ GeneratedFiles/
 .vscode/
 
 
+# ignore generated files
+*.generated.*
 
 /other/
 
