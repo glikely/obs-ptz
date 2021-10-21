@@ -191,6 +191,13 @@ if(WIN32)
                 "${RELEASE_DIR}/obs-plugins/${ARCH_NAME}"
         )
 
+        COMMAND if $<OR:$<CONFIG:Release>,$<CONFIG:RelWithDebInfo>>==1 (
+            "${CMAKE_COMMAND}" -E copy
+	        "$<SHELL_PATH:${QTDIR}/bin/Qt5Gamepad.dll>"
+	        "$<SHELL_PATH:${QTDIR}/bin/Qt5SerialPort.dll>"
+                "${RELEASE_DIR}/obs-plugins/${ARCH_NAME}"
+        )
+
         # If config is RelWithDebInfo, copy the pdb file
         COMMAND if $<CONFIG:RelWithDebInfo>==1 (
             "${CMAKE_COMMAND}" -E copy
@@ -208,6 +215,13 @@ if(WIN32)
         COMMAND if $<CONFIG:Debug>==1 (
             "${CMAKE_COMMAND}" -E copy
                 "$<TARGET_PDB_FILE:${CMAKE_PROJECT_NAME}>"
+                "${LIBOBS_INCLUDE_DIR}/../${OBS_BUILDDIR_ARCH}/rundir/$<CONFIG>/obs-plugins/${ARCH_NAME}"
+        )
+
+        COMMAND if $<CONFIG:Debug>==1 (
+            "${CMAKE_COMMAND}" -E copy
+	        "$<SHELL_PATH:${QTDIR}/bin/Qt5Gamepadd.dll>"
+	        "$<SHELL_PATH:${QTDIR}/bin/Qt5SerialPortd.dll>"
                 "${LIBOBS_INCLUDE_DIR}/../${OBS_BUILDDIR_ARCH}/rundir/$<CONFIG>/obs-plugins/${ARCH_NAME}"
         )
 
