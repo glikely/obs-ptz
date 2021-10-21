@@ -27,9 +27,7 @@ Features:
 
 # Build Instructions
 
-## Build as standalone plugin (recommended for faster build turnaround)
-
-### Standalone Build for Linux
+## Linux
 
 - Install OBS Studio including headers
   - Follow instructions for your distribution: https://obsproject.com/wiki/install-instructions
@@ -46,13 +44,21 @@ make
 Copy or symlink ptz-controls.so into the OBS plugins directory.
 Typically `/usr/lib/obs-plugins`.
 
-### Standalone Build for Windows
+## Windows
+
+To simplify development it helps to include `MSBuild`, `7-Zip`, and `Inno Setup
+Compiler` in your default path (Search for 'Edit the System Environment
+Variables' in the Windows search bar).
 
 This project contains a helper script for building the plugin that assumes that
 `obs-studio` and `obs-ptz` share the same top level directory.
 It also assumes that Qt5 is installed under `c:\Qt\`.
 If you have Qt5 installed or obs-studio checked out somewhere else then you'll
 need to modify the `winbuild` and `winrun` scripts.
+
+Both 32 and 64 bit versions of the plugin will be built if you've built both
+version of OBS Studio.
+Edit the script if you only want to build one version.
 
 - Build OBS Studio using instructions on OBS-Studio Wiki:
   https://obsproject.com/wiki/Install-Instructions
@@ -69,6 +75,11 @@ cd obs-ptz
 .\scripts\winbuild.cmd
 .\scripts\winrun64.cmd
 ```
+
+Use the `scripts\winbuild-rel.cmd` script to build the release version of the
+plugin as a zip file and installer.
+You'll first need to build a `RelWithDebInfo` version of OBS Studio before
+building the release plugin.
 
 # Contributing
 
