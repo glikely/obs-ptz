@@ -137,12 +137,15 @@ jobs:
     runs-on: [windows-latest]
     env:
       QT_VERSION: '5.15.2'
+      QTDIR32: "${{ github.workspace }}/cmbuild/QT/5.15.2/msvc2019"
+      QTDIR64: "${{ github.workspace }}/cmbuild/QT/5.15.2/msvc2019_64"
       CMAKE_GENERATOR: "Visual Studio 16 2019"
       CMAKE_SYSTEM_VERSION: "10.0.18363.657"
       WINDOWS_DEPS_VERSION: '2019'
       WINDOWS_DEPS_CACHE_VERSION: '1'
-      OBS_VERSION: '27.0.0'
-      LibObs_Dir: "${{ github.workspace }}/obs-studio/build64"
+      OBS_VERSION: '27.1.1'
+      OBSPath: "${{ github.workspace }}/obs-studio"
+      build_config: RelWithDebInfo
     steps:
       - name: 'Add msbuild to PATH'
         uses: microsoft/setup-msbuild@v1.0.2
@@ -209,34 +212,30 @@ jobs:
         run: |
           mkdir ./build64
           cd ./build64
-          cmake -G"${{ env.CMAKE_GENERATOR }}" -A"x64" -DCMAKE_SYSTEM_VERSION="${{ env.CMAKE_SYSTEM_VERSION }}" -DDepsPath="${{ github.workspace }}/cmbuild/deps/win64" -DQTDIR="${{ github.workspace }}/cmbuild/QT/${{ env.QT_VERSION }}/msvc2019_64" -DCOPIED_DEPENDENCIES=FALSE -DCOPY_DEPENDENCIES=TRUE -DBUILD_BROWSER=FALSE ..
+          cmake -G"${{ env.CMAKE_GENERATOR }}" -A"x64" -DCMAKE_SYSTEM_VERSION="${{ env.CMAKE_SYSTEM_VERSION }}" -DDepsPath="${{ github.workspace }}/cmbuild/deps/win64" -DQTDIR="${{ env.QTDIR64 }}" -DDISABLE_PLUGINS=true -DCOPIED_DEPENDENCIES=FALSE -DCOPY_DEPENDENCIES=TRUE -DBUILD_BROWSER=FALSE ..
       - name: 'Build OBS'
         if: steps.obs-cache.outputs.cache-hit != 'true'
         working-directory: ${{ github.workspace}}/obs-studio
         run: msbuild /m /p:Configuration=RelWithDebInfo .\build64\obs-studio.sln
       - name: 'Configure OBS PTZ'
         working-directory: ${{ github.workspace }}/obs-ptz
-        run: |
-          mkdir ./build
-          mkdir ./build64
-          cd ./build64
-          cmake -G"${{ env.CMAKE_GENERATOR }}" -A"x64" -DCMAKE_SYSTEM_VERSION="${{ env.CMAKE_SYSTEM_VERSION }}" -DQTDIR="${{ github.workspace }}/cmbuild/QT/${{ env.QT_VERSION }}/msvc2019_64" ..
+        run: ./ci/windows/prepare-windows.cmd
       - name: 'Build OBS PTZ'
         working-directory: ${{ github.workspace }}/obs-ptz
         run: msbuild /m /p:Configuration=RelWithDebInfo .\build64\ptz-controls.sln
       - name: 'Package'
         working-directory: ${{ github.workspace }}/obs-ptz
         if: success() && (github.event_name != 'pull_request' || env.SEEKING_TESTERS == '1')
-        run: |
-          $env:FILE_DATE=(Get-Date -UFormat "%F")
-          $env:FILE_NAME="obs-ptz-${env:FILE_DATE}-${{ env.OBS_PTZ_HASH }}-${{ env.OBS_PTZ_TAG }}-win64.zip"
-          echo "FILE_NAME=${env:FILE_NAME}" >> ${env:GITHUB_ENV}
-          robocopy .\build64\RelWithDebInfo .\build\ ptz-controls.dll ptz-controls.pdb /E /XF .gitignore
-          robocopy ${{ github.workspace }}\cmbuild\QT\${{env.QT_VERSION }}\msvc2019_64\bin .\build\ Qt5Gamepad.dll Qt5SerialPort.dll
-          7z a ${env:FILE_NAME} .\build\*
+        run: ./ci/windows/package-windows.cmd
       - name: 'Publish'
         if: success() && (github.event_name != 'pull_request' || env.SEEKING_TESTERS == '1')
         uses: actions/upload-artifact@v2.2.0
         with:
-          name: '${{ env.FILE_NAME }}'
-          path: 'obs-ptz/build/'
+          name: 'ptz-controls-${{ env.OBS_PTZ_HASH }}-Windows.zip'
+          path: 'obs-ptz/package/'
+      - name: 'Publish Installer'
+        if: success() && (github.event_name != 'pull_request' || env.SEEKING_TESTERS == '1')
+        uses: actions/upload-artifact@v2.2.0
+        with:
+          name: 'ptz-controls-${{ env.OBS_PTZ_HASH }}-Windows-Installer.exe'
+          path: 'obs-ptz/package/'
