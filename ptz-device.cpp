@@ -114,7 +114,7 @@ void PTZDevice::set_config(OBSData config)
 	obs_data_array_release(preset_array);
 	if (preset_array) {
 		QStringList preset_names = default_preset_names;
-		for (int i = 0; i < obs_data_array_count(preset_array); i++) {
+		for (size_t i = 0; i < obs_data_array_count(preset_array); i++) {
 			OBSData preset = obs_data_array_item(preset_array, i);
 			obs_data_release(preset);
 			int preset_id = obs_data_get_int(preset, "id");

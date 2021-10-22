@@ -142,13 +142,13 @@ static bool ptz_action_source_device_changed_cb(obs_properties_t *props,
 	obs_property_list_clear(prop_preset);
 
 	/* Find the camera config */
-	int64_t camera = obs_data_get_int(settings, "camera");
+	size_t camera = (size_t) obs_data_get_int(settings, "camera");
 	obs_data_array_t *array = ptz_devices_get_config();
 	obs_data_t *config = obs_data_array_item(array, camera);
 
 	obs_data_array_t *preset_array = obs_data_get_array(config, "presets");
 	if (preset_array) {
-		for (int i = 0; i < obs_data_array_count(preset_array); i++) {
+		for (size_t i = 0; i < obs_data_array_count(preset_array); i++) {
 			obs_data_t *preset = obs_data_array_item(preset_array, i);
 			obs_property_list_add_int(prop_preset, obs_data_get_string(preset, "name"),
 						obs_data_get_int(preset, "id"));
@@ -203,7 +203,7 @@ static obs_properties_t *ptz_action_source_get_properties(void *data)
 					OBS_COMBO_TYPE_LIST, OBS_COMBO_FORMAT_INT);
 	obs_property_set_modified_callback(prop, ptz_action_source_device_changed_cb);
 	obs_data_array_t *array = ptz_devices_get_config();
-	for (int i = 0; i < obs_data_array_count(array); i++) {
+	for (size_t i = 0; i < obs_data_array_count(array); i++) {
 		obs_data_t *config = obs_data_array_item(array, i);
 		obs_property_list_add_int(prop, obs_data_get_string(config, "name"), i);
 		obs_data_release(config);
