@@ -82,6 +82,7 @@ set(PLUGIN_SOURCES
 	ptz-pelco.cpp
 	ptz-visca.cpp
 	ptz-action-source.c
+	ptz-control-filter.c
 	protocol-helpers.cpp
 	imported/qt-wrappers.cpp
 	imported/properties-view.cpp

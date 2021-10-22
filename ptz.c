@@ -21,6 +21,7 @@ bool obs_module_load()
 	blog(LOG_INFO, PLUGIN_FULL_NAME TOSTRING(PLUGIN_VERSION));
 	ptz_load_devices();
 	ptz_load_action_source();
+	ptz_load_control_filter();
 	ptz_load_controls();
 	ptz_load_settings();
 	return true;
