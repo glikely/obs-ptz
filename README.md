@@ -4,8 +4,6 @@
 
 Plugin for OBS Studio to add a PTZ Camera control dock.
 
-Latest Version: v0.7.0
-
 ![PTZ Controls Screenshot](/doc/ptz-controls-screenshot.png?raw=true "OBS Studio PTZ Controls")
 
 ![PTZ Controls Screenshot](/doc/ptz-settings-screenshot.png?raw=true "OBS Studio PTZ Device Settings")
@@ -13,13 +11,18 @@ Latest Version: v0.7.0
 Features:
 
 - Pan, Tilt, and Zoom controls
+- Auto and manual focus
 - Save and recall camera presets
 - Control any number of cameras
 - Auto select active camera based on active scene
+- Control camera power
+- Whitebalance control
 - Supported protocols
   - VISCA
-  - VISCA-over-IP
+  - VISCA over UDP (Sony protocol)
+  - VISCA over TCP (PTZ Optics and others)
   - Pelco-P
+  - Pelco-D
 
 [OBS project resource page](https://obsproject.com/forum/resources/ptz-controls.1284/)
 
