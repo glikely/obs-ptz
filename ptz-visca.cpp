@@ -845,7 +845,7 @@ void PTZViscaSerial::set_config(OBSData config)
 {
 	PTZDevice::set_config(config);
 	const char *uart = obs_data_get_string(config, "port");
-	address = obs_data_get_int(config, "address");
+	address = qBound(1, (int)obs_data_get_int(config, "address"), 7);
 	if (!uart)
 		return;
 
