@@ -27,9 +27,9 @@ enum ptz_action_type {
 
 struct ptz_action_source_data {
 	enum ptz_action_trigger_type trigger;
-	unsigned int camera;
+	uint32_t device_id;
 	enum ptz_action_type action;
-	unsigned int preset;
+	uint32_t preset_id;
 	double pan_speed;
 	double tilt_speed;
 	obs_source_t *src;
@@ -46,9 +46,9 @@ static void ptz_action_source_update(void *data, obs_data_t *settings)
 	struct ptz_action_source_data *context = data;
 
 	context->trigger = (unsigned int) obs_data_get_int(settings, "trigger");
-	context->camera = (unsigned int) obs_data_get_int(settings, "camera");
+	context->device_id = (uint32_t) obs_data_get_int(settings, "device_id");
 	context->action = (unsigned int) obs_data_get_int(settings, "action");
-	context->preset = (unsigned int) obs_data_get_int(settings, "preset");
+	context->preset_id = (uint32_t) obs_data_get_int(settings, "preset_id");
 	context->pan_speed = obs_data_get_double(settings, "pan_speed");
 	context->tilt_speed = obs_data_get_double(settings, "tilt_speed");
 }
@@ -62,10 +62,10 @@ static void ptz_action_source_handler(void *data, calldata_t *calldata)
 static void ptz_action_source_do_action(struct ptz_action_source_data *context)
 {
 	calldata_t cd = {0};
-	calldata_set_int(&cd, "device_id", context->camera);
+	calldata_set_int(&cd, "device_id", context->device_id);
 	switch (context->action) {
 	case PTZ_ACTION_PRESET_RECALL:
-		calldata_set_int(&cd, "preset_id", context->preset);
+		calldata_set_int(&cd, "preset_id", context->preset_id);
 		proc_handler_call(obs_get_proc_handler(), "ptz_preset_recall", &cd);
 		break;
 	case PTZ_ACTION_PAN_TILT:
@@ -138,13 +138,13 @@ static void ptz_action_source_destroy(void *data)
 static bool ptz_action_source_device_changed_cb(obs_properties_t *props,
 					obs_property_t *prop_camera, obs_data_t *settings)
 {
-	obs_property_t *prop_preset = obs_properties_get(props, "preset");
+	obs_property_t *prop_preset = obs_properties_get(props, "preset_id");
 	obs_property_list_clear(prop_preset);
 
 	/* Find the camera config */
-	size_t camera = (size_t) obs_data_get_int(settings, "camera");
+	uint32_t id = (uint32_t) obs_data_get_int(settings, "device_id");
 	obs_data_array_t *array = ptz_devices_get_config();
-	obs_data_t *config = obs_data_array_item(array, camera);
+	obs_data_t *config = obs_data_array_item(array, id);
 
 	obs_data_array_t *preset_array = obs_data_get_array(config, "presets");
 	if (preset_array) {
@@ -173,7 +173,7 @@ static bool ptz_action_source_action_changed_cb(obs_properties_t *props,
 					obs_property_t *prop, obs_data_t *settings)
 {
 	int64_t action = obs_data_get_int(settings, "action");
-	property_set_visible(props, "preset", action == PTZ_ACTION_PRESET_RECALL);
+	property_set_visible(props, "preset_id", action == PTZ_ACTION_PRESET_RECALL);
 	property_set_visible(props, "pan_speed", action == PTZ_ACTION_PAN_TILT);
 	property_set_visible(props, "tilt_speed", action == PTZ_ACTION_PAN_TILT);
 	return true;
@@ -199,7 +199,7 @@ static obs_properties_t *ptz_action_source_get_properties(void *data)
 				PTZ_ACTION_TRIGGER_PREVIEW_ACTIVE);
 
 	/* Enumerate the cameras */
-	prop = obs_properties_add_list(props, "camera", "Camera",
+	prop = obs_properties_add_list(props, "device_id", "Camera",
 					OBS_COMBO_TYPE_LIST, OBS_COMBO_FORMAT_INT);
 	obs_property_set_modified_callback(prop, ptz_action_source_device_changed_cb);
 	obs_data_array_t *array = ptz_devices_get_config();
@@ -218,7 +218,7 @@ static obs_properties_t *ptz_action_source_get_properties(void *data)
 	obs_property_list_add_int(prop, "Pan/Tilt", PTZ_ACTION_PAN_TILT);
 	obs_property_list_add_int(prop, "Stop", PTZ_ACTION_STOP);
 
-	obs_properties_add_list(props, "preset", "Preset",
+	obs_properties_add_list(props, "preset_id", "Preset",
 				OBS_COMBO_TYPE_LIST, OBS_COMBO_FORMAT_INT);
 	obs_properties_add_float_slider(props, "pan_speed", "Pan Speed", -1.0, 1.0, 0.01);
 	obs_properties_add_float_slider(props, "tilt_speed", "Tilt Speed", -1.0, 1.0, 0.01);
