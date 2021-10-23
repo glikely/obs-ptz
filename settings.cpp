@@ -46,13 +46,13 @@ const char *description_text = "<html><head/><body>"
 
 obs_properties_t *PTZSettings::getProperties(void)
 {
-	PTZDevice *ptz = ptzDeviceList.get_device(ui->deviceList->currentIndex().row());
+	PTZDevice *ptz = ptzDeviceList.getDevice(ui->deviceList->currentIndex());
 	return ptz ? ptz->get_obs_properties() : obs_properties_create();
 }
 
 void PTZSettings::updateProperties(OBSData old_settings, OBSData new_settings)
 {
-	PTZDevice *ptz = ptzDeviceList.get_device(ui->deviceList->currentIndex().row());
+	PTZDevice *ptz = ptzDeviceList.getDevice(ui->deviceList->currentIndex());
 	if (ptz)
 		ptz->set_settings(new_settings);
 	Q_UNUSED(old_settings);
@@ -67,10 +67,7 @@ PTZSettings::PTZSettings() : QWidget(nullptr), ui(new Ui_PTZSettings)
 
 	ui->gamepadCheckBox->setChecked(PTZControls::getInstance()->gamepadEnabled());
 
-	config_t *global_config = obs_frontend_get_global_config();
 	ui->deviceList->setModel(&ptzDeviceList);
-	int row = config_get_int(global_config, "ptz-controls", "prevPTZRow");
-	ui->deviceList->setCurrentIndex(ptzDeviceList.index(row, 0));
 
 	QItemSelectionModel *selectionModel = ui->deviceList->selectionModel();
 	connect(selectionModel, SIGNAL(currentChanged(QModelIndex,QModelIndex)),
@@ -90,26 +87,19 @@ PTZSettings::PTZSettings() : QWidget(nullptr), ui(new Ui_PTZSettings)
 
 PTZSettings::~PTZSettings()
 {
-	config_t *global_config = obs_frontend_get_global_config();
-	config_set_int(global_config, "ptz-controls", "prevPTZRow", ui->deviceList->currentIndex().row());
-
 	delete ui;
 }
 
-void PTZSettings::set_selected(unsigned int row)
+void PTZSettings::set_selected(uint32_t device_id)
 {
-	ui->deviceList->setCurrentIndex(QModelIndex());
-	if (row >= 0)
-		ui->deviceList->setCurrentIndex(ptzDeviceList.index(row, 0));
+	ui->deviceList->setCurrentIndex(ptzDeviceList.indexFromDeviceId(device_id));
 }
 
 void PTZSettings::on_applyButton_clicked()
 {
-	int row = ui->deviceList->currentIndex().row();
-	if (row < 0)
-		return;
-	PTZDevice *ptz = ptzDeviceList.get_device(row);
-	ptz->set_config(propertiesView->GetSettings());
+	PTZDevice *ptz = ptzDeviceList.getDevice(ui->deviceList->currentIndex());
+	if (ptz)
+		ptz->set_config(propertiesView->GetSettings());
 }
 
 void PTZSettings::on_close_clicked()
@@ -167,13 +157,9 @@ void PTZSettings::on_addPTZ_clicked()
 
 void PTZSettings::on_removePTZ_clicked()
 {
-	int row = ui->deviceList->currentIndex().row();
-	if (row < 0)
-		return;
-	PTZDevice *ptz = ptzDeviceList.get_device(row);
+	PTZDevice *ptz = ptzDeviceList.getDevice(ui->deviceList->currentIndex());
 	if (!ptz)
 		return;
-
 	delete ptz;
 }
 
@@ -187,7 +173,7 @@ void PTZSettings::currentChanged(const QModelIndex &current, const QModelIndex &
 	Q_UNUSED(previous);
 
 	obs_data_clear(settings);
-	PTZDevice *ptz = ptzDeviceList.get_device(current.row());
+	PTZDevice *ptz = ptzDeviceList.getDevice(current);
 	if (ptz) {
 		obs_data_apply(settings, ptz->get_settings());
 
@@ -207,13 +193,13 @@ static void obs_event(enum obs_frontend_event event, void *)
 		delete ptzSettingsWindow;
 }
 
-void ptz_settings_show(int row)
+void ptz_settings_show(uint32_t device_id)
 {
 	obs_frontend_push_ui_translation(obs_module_get_string);
 
 	if (!ptzSettingsWindow)
 		ptzSettingsWindow = new PTZSettings();
-	ptzSettingsWindow->set_selected(row);
+	ptzSettingsWindow->set_selected(device_id);
 	ptzSettingsWindow->show();
 	ptzSettingsWindow->raise();
 

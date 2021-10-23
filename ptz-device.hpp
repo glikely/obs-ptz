@@ -25,7 +25,7 @@ class PTZListModel : public QAbstractListModel {
 	Q_OBJECT
 
 private:
-	static QVector<PTZDevice *> devices;
+	static QMap<uint32_t, PTZDevice *> devices;
 
 public:
 	int rowCount(const QModelIndex& parent = QModelIndex()) const;
@@ -36,22 +36,20 @@ public:
 
 	/* Data Model */
 	PTZDevice* make_device(OBSData config);
-	PTZDevice* get_device(unsigned int index) { return devices.value(index, nullptr); }
-	PTZDevice* get_device_by_name(QString &name);
-	void add(PTZDevice *ptz) { devices.push_back(ptz); do_reset(); }
-	void remove(PTZDevice *ptz) {
-		int row = devices.indexOf(ptz);
-		if (row < 0)
-			return;
-		devices.remove(row);
-		do_reset();
-	}
+	PTZDevice* getDevice(const QModelIndex &index);
+	uint32_t getDeviceId(const QModelIndex &index);
+	PTZDevice* getDevice(uint32_t device_id);
+	PTZDevice* getDeviceByName(QString &name);
+	QModelIndex indexFromDeviceId(uint32_t device_id);
+	obs_data_array_t* getConfigs();
+	void add(PTZDevice *ptz);
+	void remove(PTZDevice *ptz);
 	unsigned int device_count() { return devices.size(); }
 	void delete_all();
 
 public slots:
-	void preset_recall(int id, int preset_id);
-	void pantilt(int id, double pan, double tilt);
+	void preset_recall(uint32_t device_id, int preset_id);
+	void pantilt(uint32_t device_id, double pan, double tilt);
 };
 
 extern PTZListModel ptzDeviceList;
@@ -62,8 +60,10 @@ const QStringList default_preset_names({"Preset 1", "Preset 2", "Preset 3", "Pre
 
 class PTZDevice : public QObject {
 	Q_OBJECT
+	friend class PTZListModel;
 
 protected:
+	uint32_t id = 0;
 	std::string type;
 	QStringList auto_settings_filter = {"name", "type"};
 
@@ -78,6 +78,7 @@ public:
 	PTZDevice(OBSData config) : QObject()
 	{
 		setObjectName(obs_data_get_string(config, "name"));
+		id = obs_data_get_int(config, "id");
 		type = obs_data_get_string(config, "type");
 		settings = obs_data_create();
 		obs_data_release(settings);
@@ -88,6 +89,7 @@ public:
 	{
 		ptzDeviceList.remove(this);
 	};
+	uint32_t getId() { return id; }
 
 	void setObjectName(QString name);
 

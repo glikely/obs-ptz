@@ -143,10 +143,15 @@ static bool ptz_action_source_device_changed_cb(obs_properties_t *props,
 
 	/* Find the camera config */
 	uint32_t id = (uint32_t) obs_data_get_int(settings, "device_id");
-	obs_data_array_t *array = ptz_devices_get_config();
-	obs_data_t *config = obs_data_array_item(array, id);
+	obs_data_array_t *device_array = ptz_devices_get_config();
+	obs_data_array_t *preset_array = NULL;
+	for (size_t i = 0; i < obs_data_array_count(device_array) && !preset_array; i++) {
+		obs_data_t *config = obs_data_array_item(device_array, i);
+		if (obs_data_get_int(config, "id") == id)
+			preset_array = obs_data_get_array(config, "presets");
+		obs_data_release(config);
+	}
 
-	obs_data_array_t *preset_array = obs_data_get_array(config, "presets");
 	if (preset_array) {
 		for (size_t i = 0; i < obs_data_array_count(preset_array); i++) {
 			obs_data_t *preset = obs_data_array_item(preset_array, i);
@@ -154,11 +159,10 @@ static bool ptz_action_source_device_changed_cb(obs_properties_t *props,
 						obs_data_get_int(preset, "id"));
 			obs_data_release(preset);
 		}
-		obs_data_array_release(preset_array);
 	}
 
-	obs_data_release(config);
-	obs_data_array_release(array);
+	obs_data_array_release(preset_array);
+	obs_data_array_release(device_array);
 	return true;
 }
 
@@ -205,7 +209,8 @@ static obs_properties_t *ptz_action_source_get_properties(void *data)
 	obs_data_array_t *array = ptz_devices_get_config();
 	for (size_t i = 0; i < obs_data_array_count(array); i++) {
 		obs_data_t *config = obs_data_array_item(array, i);
-		obs_property_list_add_int(prop, obs_data_get_string(config, "name"), i);
+		obs_property_list_add_int(prop, obs_data_get_string(config, "name"),
+					obs_data_get_int(config, "id"));
 		obs_data_release(config);
 	}
 	obs_data_array_release(array);

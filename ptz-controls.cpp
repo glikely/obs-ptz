@@ -68,7 +68,6 @@ void PTZControls::OBSFrontendEventWrapper(enum obs_frontend_event event, void *p
 void PTZControls::OBSFrontendEvent(enum obs_frontend_event event)
 {
 	obs_source_t *scene = NULL;
-	const char *name;
 
 	switch (event) {
 	case OBS_FRONTEND_EVENT_SCENE_CHANGED:
@@ -86,14 +85,10 @@ void PTZControls::OBSFrontendEvent(enum obs_frontend_event event)
 	if (!scene)
 		return;
 
-	name = obs_source_get_name(scene);
-	for (unsigned long int i = 0; i < ptzDeviceList.device_count(); i++) {
-		PTZDevice *ptz = ptzDeviceList.get_device(i);
-		if (ptz->objectName() == name) {
-			setCurrent(i);
-			break;
-		}
-	}
+	QString name = obs_source_get_name(scene);
+	PTZDevice *ptz = ptzDeviceList.getDeviceByName(name);
+	if (ptz)
+		setCurrent(ptz->getId());
 
 	obs_source_release(scene);
 }
@@ -350,7 +345,7 @@ void PTZControls::setGamepadEnabled(bool enable)
 
 PTZDevice * PTZControls::currCamera()
 {
-	return ptzDeviceList.get_device(ui->cameraList->currentIndex().row());
+	return ptzDeviceList.getDevice(ui->cameraList->currentIndex());
 }
 
 void PTZControls::setPanTilt(double pan, double tilt)
@@ -498,10 +493,10 @@ void PTZControls::full_stop()
 
 void PTZControls::setCurrent(uint32_t device_id)
 {
-	if (device_id == ui->cameraList->currentIndex().row())
+	if (device_id == ptzDeviceList.getDeviceId(ui->cameraList->currentIndex()))
 		return;
 	full_stop();
-	ui->cameraList->setCurrentIndex(ptzDeviceList.index(device_id, 0));
+	ui->cameraList->setCurrentIndex(ptzDeviceList.indexFromDeviceId(device_id));
 }
 
 void PTZControls::on_targetButton_preview_clicked(bool checked)
@@ -532,11 +527,11 @@ void PTZControls::currentChanged(QModelIndex current, QModelIndex previous)
 	Q_UNUSED(previous);
 	full_stop();
 
-	PTZDevice *ptz = currCamera();
+	PTZDevice *ptz = ptzDeviceList.getDevice(previous);
 	if (ptz)
 		disconnect(ptz, nullptr, this, nullptr);
 
-	ptz = currCamera();
+	ptz = ptzDeviceList.getDevice(current);
 	if (ptz) {
 		ui->presetListView->setModel(ptz->presetModel());
 		ptz->connect(ptz, SIGNAL(settingsChanged()), this, SLOT(settingsChanged()));
@@ -552,12 +547,12 @@ void PTZControls::settingsChanged(OBSData settings)
 		setAutofocusEnabled(obs_data_get_bool(settings, "focus_af_enabled"));
 }
 
-void PTZControls::presetRecall(int id)
+void PTZControls::presetRecall(int preset_id)
 {
 	PTZDevice *ptz = currCamera();
 	if (!ptz)
 		return;
-	ptz->memory_recall(id);
+	ptz->memory_recall(preset_id);
 }
 
 void PTZControls::on_presetListView_activated(QModelIndex index)
@@ -591,14 +586,16 @@ void PTZControls::on_presetListView_customContextMenuRequested(const QPoint &pos
 
 void PTZControls::on_cameraList_doubleClicked(const QModelIndex &index)
 {
-	ptz_settings_show(index.row());
+	ptz_settings_show(ptzDeviceList.getDeviceId(index));
 }
 
 void PTZControls::on_cameraList_customContextMenuRequested(const QPoint &pos)
 {
 	QPoint globalpos = ui->cameraList->mapToGlobal(pos);
 	QModelIndex index = ui->cameraList->indexAt(pos);
-	PTZDevice *ptz = ptzDeviceList.get_device(index.row());
+	PTZDevice *ptz = ptzDeviceList.getDevice(index);
+	if (!ptz)
+		return;
 
 	OBSData settings = ptz->get_settings();
 
@@ -626,5 +623,5 @@ void PTZControls::on_cameraList_customContextMenuRequested(const QPoint &pos)
 
 void PTZControls::on_configButton_released()
 {
-	ptz_settings_show(ui->cameraList->currentIndex().row());
+	ptz_settings_show(ptzDeviceList.getDeviceId(ui->cameraList->currentIndex()));
 }

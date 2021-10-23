@@ -24,7 +24,7 @@ private:
 public:
 	PTZSettings();
 	~PTZSettings();
-	void set_selected(unsigned int row);
+	void set_selected(uint32_t device_id);
 
 public slots:
 	void on_close_clicked();
@@ -39,5 +39,5 @@ public slots:
 	void updateProperties(OBSData old_settings, OBSData new_settings);
 };
 
-void ptz_settings_show(int row);
+void ptz_settings_show(uint32_t device_id = 0);
 extern "C" void ptz_init_settings();
