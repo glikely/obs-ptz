@@ -350,7 +350,7 @@ void PTZControls::setGamepadEnabled(bool enable)
 
 PTZDevice * PTZControls::currCamera()
 {
-	return ptzDeviceList.get_device(current_cam);
+	return ptzDeviceList.get_device(ui->cameraList->currentIndex().row());
 }
 
 void PTZControls::setPanTilt(double pan, double tilt)
@@ -496,13 +496,12 @@ void PTZControls::full_stop()
 	}
 }
 
-void PTZControls::setCurrent(unsigned int index)
+void PTZControls::setCurrent(uint32_t device_id)
 {
-	if (index == current_cam)
+	if (device_id == ui->cameraList->currentIndex().row())
 		return;
 	full_stop();
-	current_cam = index;
-	ui->cameraList->setCurrentIndex(ptzDeviceList.index(current_cam, 0));
+	ui->cameraList->setCurrentIndex(ptzDeviceList.index(device_id, 0));
 }
 
 void PTZControls::on_targetButton_preview_clicked(bool checked)
@@ -533,17 +532,18 @@ void PTZControls::currentChanged(QModelIndex current, QModelIndex previous)
 	Q_UNUSED(previous);
 	full_stop();
 
-	PTZDevice *ptz = ptzDeviceList.get_device(current_cam);
+	PTZDevice *ptz = currCamera();
 	if (ptz)
 		disconnect(ptz, nullptr, this, nullptr);
 
-	current_cam = current.row();
-	ptz = ptzDeviceList.get_device(current_cam);
-	ui->presetListView->setModel(ptz->presetModel());
-	ptz->connect(ptz, SIGNAL(settingsChanged()), this, SLOT(settingsChanged()));
+	ptz = currCamera();
+	if (ptz) {
+		ui->presetListView->setModel(ptz->presetModel());
+		ptz->connect(ptz, SIGNAL(settingsChanged()), this, SLOT(settingsChanged()));
 
-	auto settings = ptz->get_settings();
-	setAutofocusEnabled(obs_data_get_bool(settings, "focus_af_enabled"));
+		auto settings = ptz->get_settings();
+		setAutofocusEnabled(obs_data_get_bool(settings, "focus_af_enabled"));
+	}
 }
 
 void PTZControls::settingsChanged(OBSData settings)
@@ -554,7 +554,7 @@ void PTZControls::settingsChanged(OBSData settings)
 
 void PTZControls::presetRecall(int id)
 {
-	PTZDevice *ptz = ptzDeviceList.get_device(current_cam);
+	PTZDevice *ptz = currCamera();
 	if (!ptz)
 		return;
 	ptz->memory_recall(id);
@@ -569,7 +569,9 @@ void PTZControls::on_presetListView_customContextMenuRequested(const QPoint &pos
 {
 	QPoint globalpos = ui->presetListView->mapToGlobal(pos);
 	QModelIndex index = ui->presetListView->indexAt(pos);
-	PTZDevice *ptz = ptzDeviceList.get_device(current_cam);
+	PTZDevice *ptz = currCamera();
+	if (!ptz)
+		return;
 
 	QMenu presetContext;
 	QAction *renameAction = presetContext.addAction("Rename");

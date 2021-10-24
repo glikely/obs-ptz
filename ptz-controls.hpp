@@ -25,8 +25,6 @@ private:
 
 	std::unique_ptr<Ui::PTZControls> ui;
 
-	unsigned int current_cam;
-
 	bool use_gamepad;
 	QGamepad *gamepad;
 
