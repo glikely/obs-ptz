@@ -75,8 +75,9 @@ signals:
 	void settingsChanged(OBSData settings);
 
 public:
-	PTZDevice(std::string type) : QObject(), type(type)
+	PTZDevice(OBSData config) : QObject()
 	{
+		type = obs_data_get_string(config, "type");
 		settings = obs_data_create();
 		obs_data_release(settings);
 		ptzDeviceList.add(this);

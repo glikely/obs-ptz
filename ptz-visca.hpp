@@ -40,7 +40,7 @@ protected slots:
 	void receive(const QByteArray &msg);
 
 public:
-	PTZVisca(std::string type);
+	PTZVisca(OBSData config);
 	obs_properties_t *get_obs_properties();
 
 	virtual void set_config(OBSData ptz_data) = 0;

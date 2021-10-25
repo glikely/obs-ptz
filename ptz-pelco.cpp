@@ -133,7 +133,7 @@ void PTZPelco::zoom_speed_set(double speed)
 }
 
 PTZPelco::PTZPelco(OBSData data)
-	: PTZDevice("pelco"), iface(NULL)
+	: PTZDevice(data), iface(NULL)
 {
 	set_config(data);
 	ptz_debug("pelco device created");

@@ -463,8 +463,8 @@ const QMap<int, std::string> PTZVisca::viscaModels = {
 /*
  * PTZVisca Methods
  */
-PTZVisca::PTZVisca(std::string type)
-	: PTZDevice(type)
+PTZVisca::PTZVisca(OBSData config)
+	: PTZDevice(config)
 {
 	for (int i = 0; i < 8; i++)
 		active_cmd[i] = false;
@@ -807,7 +807,7 @@ ViscaUART * ViscaUART::get_interface(QString port_name)
 }
 
 PTZViscaSerial::PTZViscaSerial(OBSData config)
-	: PTZVisca("visca"), iface(NULL)
+	: PTZVisca(config), iface(NULL)
 {
 	set_config(config);
 	auto_settings_filter += {"port", "address", "baud_rate"};
@@ -945,7 +945,7 @@ ViscaUDPSocket * ViscaUDPSocket::get_interface(int port)
 }
 
 PTZViscaOverIP::PTZViscaOverIP(OBSData config)
-	: PTZVisca("visca-over-ip"), iface(NULL)
+	: PTZVisca(config), iface(NULL)
 {
 	address = 1;
 	set_config(config);
@@ -1026,7 +1026,7 @@ obs_properties_t *PTZViscaOverIP::get_obs_properties()
  * VISCA over TCP implementation (e.g., PTZOptics cameras
  */
 PTZViscaOverTCP::PTZViscaOverTCP(OBSData config)
-	: PTZVisca("visca-over-tcp")
+	: PTZVisca(config)
 {
 	address = 1;
 	set_config(config);
