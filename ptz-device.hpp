@@ -77,6 +77,7 @@ signals:
 public:
 	PTZDevice(OBSData config) : QObject()
 	{
+		setObjectName(obs_data_get_string(config, "name"));
 		type = obs_data_get_string(config, "type");
 		settings = obs_data_create();
 		obs_data_release(settings);
@@ -87,6 +88,8 @@ public:
 	{
 		ptzDeviceList.remove(this);
 	};
+
+	void setObjectName(QString name);
 
 	virtual void pantilt(double pan, double tilt) { Q_UNUSED(pan); Q_UNUSED(tilt); }
 	virtual void pantilt_rel(int pan, int tilt) { Q_UNUSED(pan); Q_UNUSED(tilt); }
@@ -120,21 +123,4 @@ public:
 
 	/* Properties describe how to display the settings in a GUI dialog */
 	virtual obs_properties_t *get_obs_properties();
-
-	virtual void setObjectName(QString name) {
-		name = name.simplified();
-		if (name == objectName())
-			return;
-		if (name == "")
-			name = "Unnamed Device";
-		QString new_name = name;
-		for (int i = 1;; i++) {
-			PTZDevice *ptz = ptzDeviceList.get_device_by_name(new_name);
-			if (!ptz)
-				break;
-			new_name = name + " " + QString::number(i);
-			ptz_debug("new name %s", qPrintable(new_name));
-		}
-		QObject::setObjectName(new_name);
-	}
 };

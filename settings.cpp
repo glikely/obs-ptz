@@ -131,14 +131,12 @@ void PTZSettings::on_addPTZ_clicked()
 		OBSData cfg = obs_data_create();
 		obs_data_release(cfg);
 		obs_data_set_string(cfg, "type", "visca");
-		obs_data_set_string(cfg, "name", "PTZ");
 		ptzDeviceList.make_device(cfg);
 	}
 	if (action == addViscaUDP) {
 		OBSData cfg = obs_data_create();
 		obs_data_release(cfg);
 		obs_data_set_string(cfg, "type", "visca-over-ip");
-		obs_data_set_string(cfg, "name", "PTZ");
 		obs_data_set_string(cfg, "address", "192.168.0.100");
 		obs_data_set_int(cfg, "port", 52381);
 		ptzDeviceList.make_device(cfg);
@@ -147,7 +145,6 @@ void PTZSettings::on_addPTZ_clicked()
 		OBSData cfg = obs_data_create();
 		obs_data_release(cfg);
 		obs_data_set_string(cfg, "type", "visca-over-tcp");
-		obs_data_set_string(cfg, "name", "PTZ");
 		obs_data_set_string(cfg, "host", "localhost");
 		obs_data_set_int(cfg, "port", 5678);
 		ptzDeviceList.make_device(cfg);
@@ -156,7 +153,6 @@ void PTZSettings::on_addPTZ_clicked()
 		OBSData cfg = obs_data_create();
 		obs_data_release(cfg);
 		obs_data_set_string(cfg, "type", "pelco");
-		obs_data_set_string(cfg, "name", "PTZ");
 		obs_data_set_bool(cfg, "use_pelco_d", true);
 		ptzDeviceList.make_device(cfg);
 	}
@@ -164,7 +160,6 @@ void PTZSettings::on_addPTZ_clicked()
 		OBSData cfg = obs_data_create();
 		obs_data_release(cfg);
 		obs_data_set_string(cfg, "type", "pelco");
-		obs_data_set_string(cfg, "name", "PTZ");
 		obs_data_set_bool(cfg, "use_pelco_d", false);
 		ptzDeviceList.make_device(cfg);
 	}

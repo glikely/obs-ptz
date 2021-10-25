@@ -101,14 +101,28 @@ void PTZListModel::pantilt(int id, double pan, double tilt)
 		ptz->pantilt(pan, tilt);
 }
 
+
+void PTZDevice::setObjectName(QString name)
+{
+	name = name.simplified();
+	if (name == "")
+		name = "PTZ Device";
+	if (name == objectName())
+		return;
+	QString new_name = name;
+	for (int i = 1;; i++) {
+		PTZDevice *ptz = ptzDeviceList.get_device_by_name(new_name);
+		if (!ptz)
+			break;
+		new_name = name + " " + QString::number(i);
+		ptz_debug("new name %s", qPrintable(new_name));
+	}
+	QObject::setObjectName(new_name);
+	ptzDeviceList.do_reset();
+}
+
 void PTZDevice::set_config(OBSData config)
 {
-	const char *name = obs_data_get_string(config, "name");
-	if (name && strlen(name)) {
-		setObjectName(name);
-		ptzDeviceList.do_reset();
-	}
-
 	/* Update the list of preset names */
 	OBSDataArray preset_array = obs_data_get_array(config, "presets");
 	obs_data_array_release(preset_array);
