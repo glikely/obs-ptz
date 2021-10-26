@@ -76,16 +76,19 @@ static void ptz_action_source_do_action(struct ptz_action_source_data *context)
 	calldata_free(&cd);
 }
 
+static void ptz_action_source_activate(void *data)
+{
+	struct ptz_action_source_data *context = data;
+	if (context->trigger == PTZ_ACTION_TRIGGER_PROGRAM_ACTIVE)
+		ptz_action_source_do_action(context);
+}
+
 static void ptz_action_source_fe_callback(enum obs_frontend_event event, void *data)
 {
 	struct ptz_action_source_data *context = data;
 	obs_source_t *source = NULL;
 
 	switch (event) {
-	case OBS_FRONTEND_EVENT_SCENE_CHANGED:
-		if (context->trigger == PTZ_ACTION_TRIGGER_PROGRAM_ACTIVE)
-			source = obs_frontend_get_current_scene();
-		break;
 	case OBS_FRONTEND_EVENT_PREVIEW_SCENE_CHANGED:
 		if (context->trigger == PTZ_ACTION_TRIGGER_PREVIEW_ACTIVE)
 			source = obs_frontend_get_current_preview_scene();
@@ -227,6 +230,7 @@ struct obs_source_info ptz_action_source = {
 	.type = OBS_SOURCE_TYPE_INPUT,
 	.get_name = ptz_action_source_get_name,
 	.create = ptz_action_source_create,
+	.activate = ptz_action_source_activate,
 	.destroy = ptz_action_source_destroy,
 	.update = ptz_action_source_update,
 	.get_properties = ptz_action_source_get_properties,
