@@ -53,7 +53,7 @@
          <property name="orientation">
           <enum>Qt::Horizontal</enum>
          </property>
-         <widget class="QWidget" name="" native="true">
+         <widget class="QWidget" name="widget_1" native="true">
           <layout class="QVBoxLayout" name="verticalLayout_3">
            <property name="sizeConstraint">
             <enum>QLayout::SetMinimumSize</enum>
@@ -141,11 +141,21 @@
            </item>
           </layout>
          </widget>
-         <widget class="QWidget" name="" native="true">
-          <layout class="QVBoxLayout" name="propertiesLayout" stretch="0,0">
+         <widget class="QWidget" name="widget" native="true">
+          <layout class="QVBoxLayout" name="propertiesLayout" stretch="0,0,0">
            <property name="sizeConstraint">
             <enum>QLayout::SetDefaultConstraint</enum>
            </property>
+           <item>
+            <widget class="QCheckBox" name="livemoveCheckBox">
+             <property name="toolTip">
+              <string>Disable movement controls for cameras in the currently active program scene</string>
+             </property>
+             <property name="text">
+              <string>Disable Controls for active cameras</string>
+             </property>
+            </widget>
+           </item>
            <item>
             <widget class="QCheckBox" name="gamepadCheckBox">
              <property name="text">

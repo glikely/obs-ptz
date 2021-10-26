@@ -166,6 +166,11 @@ void PTZSettings::on_gamepadCheckBox_stateChanged(int state)
 	PTZControls::getInstance()->setGamepadEnabled(ui->gamepadCheckBox->isChecked());
 }
 
+void PTZSettings::on_livemoveCheckBox_stateChanged(int state)
+{
+	PTZControls::getInstance()->setDisableLiveMoves(ui->livemoveCheckBox->isChecked());
+}
+
 void PTZSettings::currentChanged(const QModelIndex &current, const QModelIndex &previous)
 {
 	Q_UNUSED(previous);

@@ -73,6 +73,7 @@ void PTZControls::OBSFrontendEvent(enum obs_frontend_event event)
 	case OBS_FRONTEND_EVENT_SCENE_CHANGED:
 		if (ui->targetButton_program->isChecked())
 			scene = obs_frontend_get_current_scene();
+		updateMoveControls();
 		break;
 	case OBS_FRONTEND_EVENT_STUDIO_MODE_ENABLED:
 	case OBS_FRONTEND_EVENT_STUDIO_MODE_DISABLED:
@@ -253,6 +254,7 @@ void PTZControls::SaveConfig()
 			ui->splitter->saveState().toBase64().constData());
 
 	obs_data_set_bool(data, "use_gamepad", use_gamepad);
+	obs_data_set_bool(data, "live_moves_disabled", live_moves_disabled);
 	obs_data_set_int(data, "debug_log_level", ptz_debug_level);
 	const char *target_mode = "manual";
 	if (ui->targetButton_preview->isChecked())
@@ -293,10 +295,12 @@ void PTZControls::LoadConfig()
 	obs_data_release(data);
 	obs_data_set_default_int(data, "debug_log_level", LOG_INFO);
 	obs_data_set_default_bool(data, "use_gamepad", false);
+	obs_data_set_default_bool(data, "live_moves_disabled", false);
 	obs_data_set_default_string(data, "target_mode", "preview");
 
 	ptz_debug_level = obs_data_get_int(data, "debug_log_level");
 	use_gamepad = obs_data_get_bool(data, "use_gamepad");
+	live_moves_disabled = obs_data_get_bool(data, "live_moves_disabled");
 	target_mode = obs_data_get_string(data, "target_mode");
 	ui->targetButton_preview->setChecked(target_mode == "preview");
 	ui->targetButton_program->setChecked(target_mode == "program");
@@ -315,6 +319,11 @@ void PTZControls::LoadConfig()
 	ptz_devices_set_config(array);
 }
 
+void PTZControls::setDisableLiveMoves(bool disable)
+{
+	live_moves_disabled = disable;
+	updateMoveControls();
+}
 
 void PTZControls::setGamepadEnabled(bool enable)
 {
@@ -533,6 +542,25 @@ void PTZControls::setAutofocusEnabled(bool autofocus_on)
 	ui->focusButton_onetouch->setEnabled(!autofocus_on);
 }
 
+void PTZControls::updateMoveControls()
+{
+	bool ctrls_enabled = true;
+	PTZDevice *ptz = currCamera();
+
+	// Check if the device's source is in the active program scene
+	// If it is then disable the pan/tilt/zoom controls
+	if (live_moves_disabled && ptz) {
+		obs_source_t *source = obs_get_source_by_name(QT_TO_UTF8(ptz->objectName()));
+		if (source) {
+			ctrls_enabled = !obs_source_active(source);
+			obs_source_release(source);
+		}
+	}
+
+	ui->movementControlsWidget->setEnabled(ctrls_enabled);
+	ui->presetListView->setEnabled(ctrls_enabled);
+}
+
 void PTZControls::currentChanged(QModelIndex current, QModelIndex previous)
 {
 	Q_UNUSED(previous);
@@ -550,6 +578,8 @@ void PTZControls::currentChanged(QModelIndex current, QModelIndex previous)
 		auto settings = ptz->get_settings();
 		setAutofocusEnabled(obs_data_get_bool(settings, "focus_af_enabled"));
 	}
+
+	updateMoveControls();
 }
 
 void PTZControls::settingsChanged(OBSData settings)

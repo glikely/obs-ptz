@@ -68,304 +68,306 @@
          <number>0</number>
         </property>
         <item>
-         <layout class="QGridLayout" name="gridLayout">
-          <property name="leftMargin">
-           <number>0</number>
-          </property>
-          <property name="topMargin">
-           <number>0</number>
-          </property>
-          <property name="rightMargin">
-           <number>0</number>
-          </property>
-          <property name="bottomMargin">
-           <number>0</number>
-          </property>
-          <item row="0" column="0">
-           <widget class="QPushButton" name="panTiltButton_upleft">
-            <property name="sizePolicy">
-             <sizepolicy hsizetype="Minimum" vsizetype="Minimum">
-              <horstretch>0</horstretch>
-              <verstretch>0</verstretch>
-             </sizepolicy>
-            </property>
-            <property name="minimumSize">
-             <size>
-              <width>20</width>
-              <height>20</height>
-             </size>
-            </property>
-            <property name="toolTip">
-             <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Move camera up left&lt;br/&gt;&amp;lt;ctrl&amp;gt;+click: fast&lt;br/&gt;&amp;lt;shift&amp;gt;+click: slow&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
-            </property>
-            <property name="text">
-             <string/>
-            </property>
-            <property name="icon">
-             <iconset resource="ptz-controls.qrc">
-              <normaloff>:/icons/icons/pantilt_upleft.svg</normaloff>:/icons/icons/pantilt_upleft.svg</iconset>
-            </property>
-           </widget>
-          </item>
-          <item row="0" column="1">
-           <widget class="QPushButton" name="panTiltButton_up">
-            <property name="sizePolicy">
-             <sizepolicy hsizetype="Minimum" vsizetype="Minimum">
-              <horstretch>0</horstretch>
-              <verstretch>0</verstretch>
-             </sizepolicy>
-            </property>
-            <property name="minimumSize">
-             <size>
-              <width>20</width>
-              <height>20</height>
-             </size>
-            </property>
-            <property name="toolTip">
-             <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Move camera up&lt;br/&gt;&amp;lt;ctrl&amp;gt;+click: fast&lt;br/&gt;&amp;lt;shift&amp;gt;+click: slow&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
-            </property>
-            <property name="text">
-             <string/>
-            </property>
-            <property name="icon">
-             <iconset resource="ptz-controls.qrc">
-              <normaloff>:/icons/icons/pantilt_up.svg</normaloff>:/icons/icons/pantilt_up.svg</iconset>
-            </property>
-           </widget>
-          </item>
-          <item row="2" column="2">
-           <widget class="QPushButton" name="panTiltButton_downright">
-            <property name="sizePolicy">
-             <sizepolicy hsizetype="Minimum" vsizetype="Minimum">
-              <horstretch>0</horstretch>
-              <verstretch>0</verstretch>
-             </sizepolicy>
-            </property>
-            <property name="minimumSize">
-             <size>
-              <width>20</width>
-              <height>20</height>
-             </size>
-            </property>
-            <property name="toolTip">
-             <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Move camera down right&lt;br/&gt;&amp;lt;ctrl&amp;gt;+click: fast&lt;br/&gt;&amp;lt;shift&amp;gt;+click: slow&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
-            </property>
-            <property name="text">
-             <string/>
-            </property>
-            <property name="icon">
-             <iconset resource="ptz-controls.qrc">
-              <normaloff>:/icons/icons/pantilt_downright.svg</normaloff>:/icons/icons/pantilt_downright.svg</iconset>
-            </property>
-           </widget>
-          </item>
-          <item row="0" column="2">
-           <widget class="QPushButton" name="panTiltButton_upright">
-            <property name="sizePolicy">
-             <sizepolicy hsizetype="Minimum" vsizetype="Minimum">
-              <horstretch>0</horstretch>
-              <verstretch>0</verstretch>
-             </sizepolicy>
-            </property>
-            <property name="minimumSize">
-             <size>
-              <width>20</width>
-              <height>20</height>
-             </size>
-            </property>
-            <property name="toolTip">
-             <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Move camera up right&lt;br/&gt;&amp;lt;ctrl&amp;gt;+click: fast&lt;br/&gt;&amp;lt;shift&amp;gt;+click: slow&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
-            </property>
-            <property name="text">
-             <string/>
-            </property>
-            <property name="icon">
-             <iconset resource="ptz-controls.qrc">
-              <normaloff>:/icons/icons/pantilt_upright.svg</normaloff>:/icons/icons/pantilt_upright.svg</iconset>
-            </property>
-           </widget>
-          </item>
-          <item row="1" column="1">
-           <widget class="QPushButton" name="panTiltButton_home">
-            <property name="sizePolicy">
-             <sizepolicy hsizetype="Minimum" vsizetype="Minimum">
-              <horstretch>0</horstretch>
-              <verstretch>0</verstretch>
-             </sizepolicy>
-            </property>
-            <property name="minimumSize">
-             <size>
-              <width>20</width>
-              <height>20</height>
-             </size>
-            </property>
-            <property name="text">
-             <string/>
-            </property>
-            <property name="icon">
-             <iconset resource="ptz-controls.qrc">
-              <normaloff>:/icons/icons/pantilt_home.svg</normaloff>:/icons/icons/pantilt_home.svg</iconset>
-            </property>
-           </widget>
-          </item>
-          <item row="1" column="0">
-           <widget class="QPushButton" name="panTiltButton_left">
-            <property name="sizePolicy">
-             <sizepolicy hsizetype="Minimum" vsizetype="Minimum">
-              <horstretch>0</horstretch>
-              <verstretch>0</verstretch>
-             </sizepolicy>
-            </property>
-            <property name="minimumSize">
-             <size>
-              <width>20</width>
-              <height>20</height>
-             </size>
-            </property>
-            <property name="toolTip">
-             <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Move camera left&lt;br/&gt;&amp;lt;ctrl&amp;gt;+click: fast&lt;br/&gt;&amp;lt;shift&amp;gt;+click: slow&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
-            </property>
-            <property name="text">
-             <string/>
-            </property>
-            <property name="icon">
-             <iconset resource="ptz-controls.qrc">
-              <normaloff>:/icons/icons/pantilt_left.svg</normaloff>:/icons/icons/pantilt_left.svg</iconset>
-            </property>
-           </widget>
-          </item>
-          <item row="2" column="1">
-           <widget class="QPushButton" name="panTiltButton_down">
-            <property name="sizePolicy">
-             <sizepolicy hsizetype="Minimum" vsizetype="Minimum">
-              <horstretch>0</horstretch>
-              <verstretch>0</verstretch>
-             </sizepolicy>
-            </property>
-            <property name="minimumSize">
-             <size>
-              <width>20</width>
-              <height>20</height>
-             </size>
-            </property>
-            <property name="toolTip">
-             <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Move camera down&lt;br/&gt;&amp;lt;ctrl&amp;gt;+click: fast&lt;br/&gt;&amp;lt;shift&amp;gt;+click: slow&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
-            </property>
-            <property name="text">
-             <string/>
-            </property>
-            <property name="icon">
-             <iconset resource="ptz-controls.qrc">
-              <normaloff>:/icons/icons/pantilt_down.svg</normaloff>:/icons/icons/pantilt_down.svg</iconset>
-            </property>
-           </widget>
-          </item>
-          <item row="2" column="0">
-           <widget class="QPushButton" name="panTiltButton_downleft">
-            <property name="sizePolicy">
-             <sizepolicy hsizetype="Minimum" vsizetype="Minimum">
-              <horstretch>0</horstretch>
-              <verstretch>0</verstretch>
-             </sizepolicy>
-            </property>
-            <property name="minimumSize">
-             <size>
-              <width>20</width>
-              <height>20</height>
-             </size>
-            </property>
-            <property name="toolTip">
-             <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Move camera down left&lt;br/&gt;&amp;lt;ctrl&amp;gt;+click: fast&lt;br/&gt;&amp;lt;shift&amp;gt;+click: slow&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
-            </property>
-            <property name="text">
-             <string/>
-            </property>
-            <property name="icon">
-             <iconset resource="ptz-controls.qrc">
-              <normaloff>:/icons/icons/pantilt_downleft.svg</normaloff>:/icons/icons/pantilt_downleft.svg</iconset>
-            </property>
-           </widget>
-          </item>
-          <item row="1" column="2">
-           <widget class="QPushButton" name="panTiltButton_right">
-            <property name="sizePolicy">
-             <sizepolicy hsizetype="Minimum" vsizetype="Minimum">
-              <horstretch>0</horstretch>
-              <verstretch>0</verstretch>
-             </sizepolicy>
-            </property>
-            <property name="minimumSize">
-             <size>
-              <width>20</width>
-              <height>20</height>
-             </size>
-            </property>
-            <property name="toolTip">
-             <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Move camera right&lt;br/&gt;&amp;lt;ctrl&amp;gt;+click: fast&lt;br/&gt;&amp;lt;shift&amp;gt;+click: slow&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
-            </property>
-            <property name="text">
-             <string/>
-            </property>
-            <property name="icon">
-             <iconset resource="ptz-controls.qrc">
-              <normaloff>:/icons/icons/pantilt_right.svg</normaloff>:/icons/icons/pantilt_right.svg</iconset>
-            </property>
-           </widget>
-          </item>
-          <item row="0" column="3" rowspan="3">
-           <layout class="QVBoxLayout" name="zoomControlsVerticalLayout">
-            <item>
-             <widget class="QPushButton" name="zoomButton_tele">
-              <property name="sizePolicy">
-               <sizepolicy hsizetype="Minimum" vsizetype="Minimum">
-                <horstretch>0</horstretch>
-                <verstretch>0</verstretch>
-               </sizepolicy>
-              </property>
-              <property name="minimumSize">
-               <size>
-                <width>20</width>
-                <height>20</height>
-               </size>
-              </property>
-              <property name="toolTip">
-               <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Zoom camera in&lt;br/&gt;&amp;lt;ctrl&amp;gt;+click: fast&lt;br/&gt;&amp;lt;shift&amp;gt;+click: slow&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
-              </property>
-              <property name="layoutDirection">
-               <enum>Qt::LeftToRight</enum>
-              </property>
-              <property name="icon">
-               <iconset resource="ptz-controls.qrc">
-                <normaloff>:/icons/icons/zoom_in.svg</normaloff>:/icons/icons/zoom_in.svg</iconset>
-              </property>
-             </widget>
-            </item>
-            <item>
-             <widget class="QPushButton" name="zoomButton_wide">
-              <property name="sizePolicy">
-               <sizepolicy hsizetype="Minimum" vsizetype="Minimum">
-                <horstretch>0</horstretch>
-                <verstretch>0</verstretch>
-               </sizepolicy>
-              </property>
-              <property name="minimumSize">
-               <size>
-                <width>20</width>
-                <height>20</height>
-               </size>
-              </property>
-              <property name="toolTip">
-               <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Zoom camera out&lt;br/&gt;&amp;lt;ctrl&amp;gt;+click: fast&lt;br/&gt;&amp;lt;shift&amp;gt;+click: slow&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
-              </property>
-              <property name="icon">
-               <iconset resource="ptz-controls.qrc">
-                <normaloff>:/icons/icons/zoom_out.svg</normaloff>:/icons/icons/zoom_out.svg</iconset>
-              </property>
-             </widget>
-            </item>
-           </layout>
-          </item>
-         </layout>
+         <widget class="QWidget" name="movementControlsWidget" native="true">
+          <layout class="QGridLayout" name="gridLayout">
+           <property name="leftMargin">
+            <number>0</number>
+           </property>
+           <property name="topMargin">
+            <number>0</number>
+           </property>
+           <property name="rightMargin">
+            <number>0</number>
+           </property>
+           <property name="bottomMargin">
+            <number>0</number>
+           </property>
+           <item row="0" column="0">
+            <widget class="QPushButton" name="panTiltButton_upleft">
+             <property name="sizePolicy">
+              <sizepolicy hsizetype="Minimum" vsizetype="Minimum">
+               <horstretch>0</horstretch>
+               <verstretch>0</verstretch>
+              </sizepolicy>
+             </property>
+             <property name="minimumSize">
+              <size>
+               <width>20</width>
+               <height>20</height>
+              </size>
+             </property>
+             <property name="toolTip">
+              <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Move camera up left&lt;br/&gt;&amp;lt;ctrl&amp;gt;+click: fast&lt;br/&gt;&amp;lt;shift&amp;gt;+click: slow&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+             </property>
+             <property name="text">
+              <string/>
+             </property>
+             <property name="icon">
+              <iconset resource="ptz-controls.qrc">
+               <normaloff>:/icons/icons/pantilt_upleft.svg</normaloff>:/icons/icons/pantilt_upleft.svg</iconset>
+             </property>
+            </widget>
+           </item>
+           <item row="0" column="1">
+            <widget class="QPushButton" name="panTiltButton_up">
+             <property name="sizePolicy">
+              <sizepolicy hsizetype="Minimum" vsizetype="Minimum">
+               <horstretch>0</horstretch>
+               <verstretch>0</verstretch>
+              </sizepolicy>
+             </property>
+             <property name="minimumSize">
+              <size>
+               <width>20</width>
+               <height>20</height>
+              </size>
+             </property>
+             <property name="toolTip">
+              <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Move camera up&lt;br/&gt;&amp;lt;ctrl&amp;gt;+click: fast&lt;br/&gt;&amp;lt;shift&amp;gt;+click: slow&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+             </property>
+             <property name="text">
+              <string/>
+             </property>
+             <property name="icon">
+              <iconset resource="ptz-controls.qrc">
+               <normaloff>:/icons/icons/pantilt_up.svg</normaloff>:/icons/icons/pantilt_up.svg</iconset>
+             </property>
+            </widget>
+           </item>
+           <item row="2" column="2">
+            <widget class="QPushButton" name="panTiltButton_downright">
+             <property name="sizePolicy">
+              <sizepolicy hsizetype="Minimum" vsizetype="Minimum">
+               <horstretch>0</horstretch>
+               <verstretch>0</verstretch>
+              </sizepolicy>
+             </property>
+             <property name="minimumSize">
+              <size>
+               <width>20</width>
+               <height>20</height>
+              </size>
+             </property>
+             <property name="toolTip">
+              <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Move camera down right&lt;br/&gt;&amp;lt;ctrl&amp;gt;+click: fast&lt;br/&gt;&amp;lt;shift&amp;gt;+click: slow&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+             </property>
+             <property name="text">
+              <string/>
+             </property>
+             <property name="icon">
+              <iconset resource="ptz-controls.qrc">
+               <normaloff>:/icons/icons/pantilt_downright.svg</normaloff>:/icons/icons/pantilt_downright.svg</iconset>
+             </property>
+            </widget>
+           </item>
+           <item row="0" column="2">
+            <widget class="QPushButton" name="panTiltButton_upright">
+             <property name="sizePolicy">
+              <sizepolicy hsizetype="Minimum" vsizetype="Minimum">
+               <horstretch>0</horstretch>
+               <verstretch>0</verstretch>
+              </sizepolicy>
+             </property>
+             <property name="minimumSize">
+              <size>
+               <width>20</width>
+               <height>20</height>
+              </size>
+             </property>
+             <property name="toolTip">
+              <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Move camera up right&lt;br/&gt;&amp;lt;ctrl&amp;gt;+click: fast&lt;br/&gt;&amp;lt;shift&amp;gt;+click: slow&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+             </property>
+             <property name="text">
+              <string/>
+             </property>
+             <property name="icon">
+              <iconset resource="ptz-controls.qrc">
+               <normaloff>:/icons/icons/pantilt_upright.svg</normaloff>:/icons/icons/pantilt_upright.svg</iconset>
+             </property>
+            </widget>
+           </item>
+           <item row="1" column="1">
+            <widget class="QPushButton" name="panTiltButton_home">
+             <property name="sizePolicy">
+              <sizepolicy hsizetype="Minimum" vsizetype="Minimum">
+               <horstretch>0</horstretch>
+               <verstretch>0</verstretch>
+              </sizepolicy>
+             </property>
+             <property name="minimumSize">
+              <size>
+               <width>20</width>
+               <height>20</height>
+              </size>
+             </property>
+             <property name="text">
+              <string/>
+             </property>
+             <property name="icon">
+              <iconset resource="ptz-controls.qrc">
+               <normaloff>:/icons/icons/pantilt_home.svg</normaloff>:/icons/icons/pantilt_home.svg</iconset>
+             </property>
+            </widget>
+           </item>
+           <item row="1" column="0">
+            <widget class="QPushButton" name="panTiltButton_left">
+             <property name="sizePolicy">
+              <sizepolicy hsizetype="Minimum" vsizetype="Minimum">
+               <horstretch>0</horstretch>
+               <verstretch>0</verstretch>
+              </sizepolicy>
+             </property>
+             <property name="minimumSize">
+              <size>
+               <width>20</width>
+               <height>20</height>
+              </size>
+             </property>
+             <property name="toolTip">
+              <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Move camera left&lt;br/&gt;&amp;lt;ctrl&amp;gt;+click: fast&lt;br/&gt;&amp;lt;shift&amp;gt;+click: slow&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+             </property>
+             <property name="text">
+              <string/>
+             </property>
+             <property name="icon">
+              <iconset resource="ptz-controls.qrc">
+               <normaloff>:/icons/icons/pantilt_left.svg</normaloff>:/icons/icons/pantilt_left.svg</iconset>
+             </property>
+            </widget>
+           </item>
+           <item row="2" column="1">
+            <widget class="QPushButton" name="panTiltButton_down">
+             <property name="sizePolicy">
+              <sizepolicy hsizetype="Minimum" vsizetype="Minimum">
+               <horstretch>0</horstretch>
+               <verstretch>0</verstretch>
+              </sizepolicy>
+             </property>
+             <property name="minimumSize">
+              <size>
+               <width>20</width>
+               <height>20</height>
+              </size>
+             </property>
+             <property name="toolTip">
+              <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Move camera down&lt;br/&gt;&amp;lt;ctrl&amp;gt;+click: fast&lt;br/&gt;&amp;lt;shift&amp;gt;+click: slow&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+             </property>
+             <property name="text">
+              <string/>
+             </property>
+             <property name="icon">
+              <iconset resource="ptz-controls.qrc">
+               <normaloff>:/icons/icons/pantilt_down.svg</normaloff>:/icons/icons/pantilt_down.svg</iconset>
+             </property>
+            </widget>
+           </item>
+           <item row="2" column="0">
+            <widget class="QPushButton" name="panTiltButton_downleft">
+             <property name="sizePolicy">
+              <sizepolicy hsizetype="Minimum" vsizetype="Minimum">
+               <horstretch>0</horstretch>
+               <verstretch>0</verstretch>
+              </sizepolicy>
+             </property>
+             <property name="minimumSize">
+              <size>
+               <width>20</width>
+               <height>20</height>
+              </size>
+             </property>
+             <property name="toolTip">
+              <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Move camera down left&lt;br/&gt;&amp;lt;ctrl&amp;gt;+click: fast&lt;br/&gt;&amp;lt;shift&amp;gt;+click: slow&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+             </property>
+             <property name="text">
+              <string/>
+             </property>
+             <property name="icon">
+              <iconset resource="ptz-controls.qrc">
+               <normaloff>:/icons/icons/pantilt_downleft.svg</normaloff>:/icons/icons/pantilt_downleft.svg</iconset>
+             </property>
+            </widget>
+           </item>
+           <item row="1" column="2">
+            <widget class="QPushButton" name="panTiltButton_right">
+             <property name="sizePolicy">
+              <sizepolicy hsizetype="Minimum" vsizetype="Minimum">
+               <horstretch>0</horstretch>
+               <verstretch>0</verstretch>
+              </sizepolicy>
+             </property>
+             <property name="minimumSize">
+              <size>
+               <width>20</width>
+               <height>20</height>
+              </size>
+             </property>
+             <property name="toolTip">
+              <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Move camera right&lt;br/&gt;&amp;lt;ctrl&amp;gt;+click: fast&lt;br/&gt;&amp;lt;shift&amp;gt;+click: slow&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+             </property>
+             <property name="text">
+              <string/>
+             </property>
+             <property name="icon">
+              <iconset resource="ptz-controls.qrc">
+               <normaloff>:/icons/icons/pantilt_right.svg</normaloff>:/icons/icons/pantilt_right.svg</iconset>
+             </property>
+            </widget>
+           </item>
+           <item row="0" column="3" rowspan="3">
+            <layout class="QVBoxLayout" name="zoomControlsVerticalLayout">
+             <item>
+              <widget class="QPushButton" name="zoomButton_tele">
+               <property name="sizePolicy">
+                <sizepolicy hsizetype="Minimum" vsizetype="Minimum">
+                 <horstretch>0</horstretch>
+                 <verstretch>0</verstretch>
+                </sizepolicy>
+               </property>
+               <property name="minimumSize">
+                <size>
+                 <width>20</width>
+                 <height>20</height>
+                </size>
+               </property>
+               <property name="toolTip">
+                <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Zoom camera in&lt;br/&gt;&amp;lt;ctrl&amp;gt;+click: fast&lt;br/&gt;&amp;lt;shift&amp;gt;+click: slow&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+               </property>
+               <property name="layoutDirection">
+                <enum>Qt::LeftToRight</enum>
+               </property>
+               <property name="icon">
+                <iconset resource="ptz-controls.qrc">
+                 <normaloff>:/icons/icons/zoom_in.svg</normaloff>:/icons/icons/zoom_in.svg</iconset>
+               </property>
+              </widget>
+             </item>
+             <item>
+              <widget class="QPushButton" name="zoomButton_wide">
+               <property name="sizePolicy">
+                <sizepolicy hsizetype="Minimum" vsizetype="Minimum">
+                 <horstretch>0</horstretch>
+                 <verstretch>0</verstretch>
+                </sizepolicy>
+               </property>
+               <property name="minimumSize">
+                <size>
+                 <width>20</width>
+                 <height>20</height>
+                </size>
+               </property>
+               <property name="toolTip">
+                <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Zoom camera out&lt;br/&gt;&amp;lt;ctrl&amp;gt;+click: fast&lt;br/&gt;&amp;lt;shift&amp;gt;+click: slow&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+               </property>
+               <property name="icon">
+                <iconset resource="ptz-controls.qrc">
+                 <normaloff>:/icons/icons/zoom_out.svg</normaloff>:/icons/icons/zoom_out.svg</iconset>
+               </property>
+              </widget>
+             </item>
+            </layout>
+           </item>
+          </layout>
+         </widget>
         </item>
         <item>
          <layout class="QHBoxLayout" name="horizontalLayout">

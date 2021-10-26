@@ -25,6 +25,7 @@ private:
 
 	std::unique_ptr<Ui::PTZControls> ui;
 
+	bool live_moves_disabled = false;
 	bool use_gamepad;
 	QGamepad *gamepad;
 
@@ -80,6 +81,7 @@ private slots:
 
 	void currentChanged(QModelIndex current, QModelIndex previous);
 	void settingsChanged(OBSData settings);
+	void updateMoveControls();
 
 	void on_presetListView_activated(QModelIndex index);
 	void on_presetListView_customContextMenuRequested(const QPoint &pos);
@@ -91,6 +93,8 @@ public:
 	PTZControls(QWidget *parent = nullptr);
 	~PTZControls();
 	void setGamepadEnabled(bool enable);
+	void setDisableLiveMoves(bool enable);
 	bool gamepadEnabled() { return use_gamepad; };
+	bool liveMovesDisabled() { return live_moves_disabled; };
 	static PTZControls* getInstance() { return instance; };
 };
