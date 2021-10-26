@@ -220,7 +220,6 @@ PTZControls::~PTZControls()
 	while (!hotkeys.isEmpty())
 		obs_hotkey_unregister(hotkeys.takeFirst());
 
-	//signal_handler_disconnect_global(obs_get_signal_handler(), OBSSignal, this);
 	SaveConfig();
 	ptzDeviceList.delete_all();
 	deleteLater();
