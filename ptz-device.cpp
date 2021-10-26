@@ -76,7 +76,7 @@ PTZDevice *PTZListModel::getDevice(uint32_t device_id)
 	return devices.value(device_id, nullptr);
 }
 
-PTZDevice *PTZListModel::getDeviceByName(QString &name)
+PTZDevice *PTZListModel::getDeviceByName(const QString &name)
 {
 	for (auto key : devices.keys()) {
 		auto ptz = devices.value(key);

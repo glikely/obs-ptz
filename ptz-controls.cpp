@@ -94,10 +94,10 @@ void PTZControls::OBSFrontendEvent(enum obs_frontend_event event)
 	auto active_src_cb = [](obs_source_t *parent, obs_source_t *child, void *data) {
 		struct active_src_cb_data *context = static_cast<struct active_src_cb_data*>(data);
 		if (!context->ptz)
-			context->ptz = ptzDeviceList.getDeviceByName(QString(obs_source_get_name(child)));
+			context->ptz = ptzDeviceList.getDeviceByName(obs_source_get_name(child));
 	};
 	struct active_src_cb_data cb_data;
-	cb_data.ptz = ptzDeviceList.getDeviceByName(QString(obs_source_get_name(scene)));
+	cb_data.ptz = ptzDeviceList.getDeviceByName(obs_source_get_name(scene));
 	if (!cb_data.ptz)
 		obs_source_enum_active_sources(scene, active_src_cb, &cb_data);
 	obs_source_release(scene);
