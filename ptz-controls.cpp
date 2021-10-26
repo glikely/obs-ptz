@@ -74,6 +74,8 @@ void PTZControls::OBSFrontendEvent(enum obs_frontend_event event)
 		if (ui->targetButton_program->isChecked())
 			scene = obs_frontend_get_current_scene();
 		break;
+	case OBS_FRONTEND_EVENT_STUDIO_MODE_ENABLED:
+	case OBS_FRONTEND_EVENT_STUDIO_MODE_DISABLED:
 	case OBS_FRONTEND_EVENT_PREVIEW_SCENE_CHANGED:
 		if (ui->targetButton_preview->isChecked())
 			scene = obs_frontend_get_current_preview_scene();
@@ -85,12 +87,22 @@ void PTZControls::OBSFrontendEvent(enum obs_frontend_event event)
 	if (!scene)
 		return;
 
-	QString name = obs_source_get_name(scene);
-	PTZDevice *ptz = ptzDeviceList.getDeviceByName(name);
-	if (ptz)
-		setCurrent(ptz->getId());
-
+	struct active_src_cb_data {
+		PTZDevice *ptz;
+	};
+	auto active_src_cb = [](obs_source_t *parent, obs_source_t *child, void *data) {
+		struct active_src_cb_data *context = static_cast<struct active_src_cb_data*>(data);
+		if (!context->ptz)
+			context->ptz = ptzDeviceList.getDeviceByName(QString(obs_source_get_name(child)));
+	};
+	struct active_src_cb_data cb_data;
+	cb_data.ptz = ptzDeviceList.getDeviceByName(QString(obs_source_get_name(scene)));
+	if (!cb_data.ptz)
+		obs_source_enum_active_sources(scene, active_src_cb, &cb_data);
 	obs_source_release(scene);
+
+	if (cb_data.ptz)
+		setCurrent(cb_data.ptz->getId());
 }
 
 PTZControls::PTZControls(QWidget *parent)
