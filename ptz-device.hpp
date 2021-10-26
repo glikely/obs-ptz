@@ -75,20 +75,8 @@ signals:
 	void settingsChanged(OBSData settings);
 
 public:
-	PTZDevice(OBSData config) : QObject()
-	{
-		setObjectName(obs_data_get_string(config, "name"));
-		id = obs_data_get_int(config, "id");
-		type = obs_data_get_string(config, "type");
-		settings = obs_data_create();
-		obs_data_release(settings);
-		ptzDeviceList.add(this);
-		preset_names_model.setStringList(default_preset_names);
-	};
-	~PTZDevice()
-	{
-		ptzDeviceList.remove(this);
-	};
+	~PTZDevice();
+	PTZDevice(OBSData config);
 	uint32_t getId() { return id; }
 
 	void setObjectName(QString name);

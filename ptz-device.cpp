@@ -162,6 +162,22 @@ void PTZListModel::pantilt(uint32_t device_id, double pan, double tilt)
 }
 
 
+PTZDevice::PTZDevice(OBSData config) : QObject()
+{
+	setObjectName(obs_data_get_string(config, "name"));
+	id = obs_data_get_int(config, "id");
+	type = obs_data_get_string(config, "type");
+	settings = obs_data_create();
+	obs_data_release(settings);
+	ptzDeviceList.add(this);
+	preset_names_model.setStringList(default_preset_names);
+};
+
+PTZDevice::~PTZDevice()
+{
+	ptzDeviceList.remove(this);
+};
+
 void PTZDevice::setObjectName(QString name)
 {
 	name = name.simplified();
