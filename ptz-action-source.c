@@ -33,6 +33,8 @@ struct ptz_action_source_data {
 	double pan_speed;
 	double tilt_speed;
 	obs_source_t *src;
+	bool is_preview;
+	bool was_preview;
 };
 
 static const char *ptz_action_source_get_name(void *unused)
@@ -83,30 +85,38 @@ static void ptz_action_source_activate(void *data)
 		ptz_action_source_do_action(context);
 }
 
+static void ptz_action_source_preview_cb(obs_source_t *parent, obs_source_t *child, void *data)
+{
+	UNUSED_PARAMETER(parent);
+	struct ptz_action_source_data *context = data;
+	if (child == context->src)
+		context->is_preview = true;
+}
+
 static void ptz_action_source_fe_callback(enum obs_frontend_event event, void *data)
 {
 	struct ptz_action_source_data *context = data;
-	obs_source_t *source = NULL;
+	obs_source_t *source;
 
 	switch (event) {
+	case OBS_FRONTEND_EVENT_STUDIO_MODE_ENABLED:
+	case OBS_FRONTEND_EVENT_STUDIO_MODE_DISABLED:
 	case OBS_FRONTEND_EVENT_PREVIEW_SCENE_CHANGED:
-		if (context->trigger == PTZ_ACTION_TRIGGER_PREVIEW_ACTIVE)
-			source = obs_frontend_get_current_preview_scene();
+		if (context->trigger != PTZ_ACTION_TRIGGER_PREVIEW_ACTIVE)
+			break;
+		source = obs_frontend_get_current_preview_scene();
+		if (source) {
+			context->is_preview = false;
+			obs_source_enum_active_sources(source, ptz_action_source_preview_cb, context);
+			obs_source_release(source);
+
+			if (!context->was_preview && context->is_preview)
+				ptz_action_source_do_action(context);
+			context->was_preview = context->is_preview;
+		}
 		break;
 	default:
 		return;
-	}
-
-	/* For scene changed events, check if the ptz action source is in the
-	 * chosen scene. If so then trigger the action. */
-	if (source) {
-		obs_scene_t *scene = obs_scene_from_source(source);
-		obs_sceneitem_t *item = obs_scene_sceneitem_from_source(scene, context->src);
-		if (item) {
-			obs_sceneitem_release(item);
-			ptz_action_source_do_action(context);
-		}
-		obs_scene_release(scene);
 	}
 }
 
