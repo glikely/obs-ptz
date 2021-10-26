@@ -81,7 +81,7 @@ PTZSettings::PTZSettings() : QWidget(nullptr), ui(new Ui_PTZSettings)
 	};
 	propertiesView = new OBSPropertiesView(settings, this, reload_cb, update_cb);
 	propertiesView->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
-	ui->propertiesLayout->insertWidget(1, propertiesView, 1);
+	ui->propertiesLayout->insertWidget(2, propertiesView, 1);
 	ui->versionLabel->setText(description_text);
 }
 
