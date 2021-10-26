@@ -53,12 +53,6 @@ static void ptz_action_source_update(void *data, obs_data_t *settings)
 	context->tilt_speed = obs_data_get_double(settings, "tilt_speed");
 }
 
-static void ptz_action_source_handler(void *data, calldata_t *calldata)
-{
-	UNUSED_PARAMETER(data);
-	UNUSED_PARAMETER(calldata);
-}
-
 static void ptz_action_source_do_action(struct ptz_action_source_data *context)
 {
 	calldata_t cd = {0};
@@ -119,11 +113,6 @@ static void *ptz_action_source_create(obs_data_t *settings, obs_source_t *source
 
 	context->src = source;
 	ptz_action_source_update(context, settings);
-
-	signal_handler_t *sh = obs_source_get_signal_handler(source);
-	signal_handler_connect(sh, "hide", ptz_action_source_handler, context);
-	signal_handler_connect(sh, "activate", ptz_action_source_handler, context);
-	signal_handler_connect(sh, "deactivate", ptz_action_source_handler, context);
 
 	obs_frontend_add_event_callback(ptz_action_source_fe_callback, context);
 
