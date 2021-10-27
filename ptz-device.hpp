@@ -28,6 +28,8 @@ private:
 	static QMap<uint32_t, PTZDevice *> devices;
 
 public:
+	PTZListModel();
+	~PTZListModel();
 	int rowCount(const QModelIndex& parent = QModelIndex()) const;
 	QVariant data(const QModelIndex &index, int role) const;
 	void do_reset() { beginResetModel(); endResetModel(); }
@@ -41,6 +43,7 @@ public:
 	PTZDevice* getDevice(uint32_t device_id);
 	PTZDevice* getDeviceByName(const QString &name);
 	QModelIndex indexFromDeviceId(uint32_t device_id);
+	void renameDevice(QString new_name, QString prev_name);
 	obs_data_array_t* getConfigs();
 	void add(PTZDevice *ptz);
 	void remove(PTZDevice *ptz);

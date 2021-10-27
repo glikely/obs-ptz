@@ -17,6 +17,32 @@ int ptz_debug_level = LOG_INFO;
 PTZListModel ptzDeviceList;
 QMap<uint32_t, PTZDevice *> PTZListModel::devices;
 
+static void source_rename_cb(void *data, calldata_t *cd)
+{
+	auto ptzlm = static_cast<PTZListModel*>(data);
+	ptzlm->renameDevice(calldata_string(cd, "new_name"),
+			    calldata_string(cd, "prev_name"));
+}
+
+void PTZListModel::renameDevice(QString new_name, QString prev_name)
+{
+	auto ptz = getDeviceByName(prev_name);
+	if (ptz)
+		ptz->setObjectName(new_name);
+}
+
+PTZListModel::PTZListModel()
+{
+	signal_handler_t *sh = obs_get_signal_handler();
+	signal_handler_connect(sh, "source_rename", source_rename_cb, this);
+}
+
+PTZListModel::~PTZListModel()
+{
+	signal_handler_t *sh = obs_get_signal_handler();
+	signal_handler_disconnect(sh, "source_rename", source_rename_cb, this);
+}
+
 int PTZListModel::rowCount(const QModelIndex& parent) const
 {
 	Q_UNUSED(parent);
