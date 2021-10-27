@@ -1031,6 +1031,7 @@ PTZViscaOverTCP::PTZViscaOverTCP(OBSData config)
 	address = 1;
 	set_config(config);
 	auto_settings_filter += {"port", "host"};
+	visca_socket.setSocketOption(QAbstractSocket::KeepAliveOption, 1);
 	connect(&visca_socket, &QTcpSocket::readyRead, this, &PTZViscaOverTCP::poll);
 	connect(&visca_socket, &QTcpSocket::stateChanged, this, &PTZViscaOverTCP::on_socket_stateChanged);
 }
@@ -1048,7 +1049,7 @@ void PTZViscaOverTCP::connectSocket()
 
 void PTZViscaOverTCP::on_socket_stateChanged(QAbstractSocket::SocketState state)
 {
-	blog(LOG_INFO, "VISCA_over_TCP socket state: %i", state);
+	blog(LOG_INFO, "VISCA_over_TCP socket state: %s", qPrintable(QVariant::fromValue(state).toString()));
 	switch (state) {
 	case QAbstractSocket::UnconnectedState:
 		/* Attempt reconnection periodically */
@@ -1065,6 +1066,8 @@ void PTZViscaOverTCP::on_socket_stateChanged(QAbstractSocket::SocketState state)
 
 void PTZViscaOverTCP::send_immediate(const QByteArray &msg)
 {
+	if (visca_socket.state() == QAbstractSocket::UnconnectedState)
+		connectSocket();
 	ptz_debug("VISCA_over_TCP --> %s", qPrintable(msg.toHex(':')));
 	visca_socket.write(msg);
 }
