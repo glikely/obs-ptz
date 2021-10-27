@@ -498,7 +498,7 @@
         <item>
          <widget class="QLabel" name="cameraListLabel">
           <property name="text">
-           <string>Cameras</string>
+           <string>PTZ Devices</string>
           </property>
          </widget>
         </item>
