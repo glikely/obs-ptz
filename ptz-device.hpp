@@ -42,6 +42,7 @@ public:
 	uint32_t getDeviceId(const QModelIndex &index);
 	PTZDevice* getDevice(uint32_t device_id);
 	PTZDevice* getDeviceByName(const QString &name);
+	QStringList getDeviceNames();
 	QModelIndex indexFromDeviceId(uint32_t device_id);
 	void renameDevice(QString new_name, QString prev_name);
 	obs_data_array_t* getConfigs();

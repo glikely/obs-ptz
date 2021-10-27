@@ -112,6 +112,14 @@ PTZDevice *PTZListModel::getDeviceByName(const QString &name)
 	return NULL;
 }
 
+QStringList PTZListModel::getDeviceNames()
+{
+	QStringList names;
+	for (auto key : devices.keys())
+		names.append(devices.value(key)->objectName());
+	return names;
+}
+
 QModelIndex PTZListModel::indexFromDeviceId(uint32_t device_id)
 {
 	int row = devices.keys().indexOf(device_id);

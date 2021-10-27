@@ -7,10 +7,24 @@
 #pragma once
 
 #include <QWidget>
+#include <QStyledItemDelegate>
 #include <QString>
 #include <imported/properties-view.hpp>
 
 class Ui_PTZSettings;
+
+class SourceNameDelegate : public QStyledItemDelegate
+{
+	Q_OBJECT
+
+public:
+	SourceNameDelegate(QObject *parent = nullptr) : QStyledItemDelegate(parent) {};
+	QWidget *createEditor(QWidget *parent, const QStyleOptionViewItem &option,
+			const QModelIndex &index) const override;
+	void setEditorData(QWidget *editor, const QModelIndex &index) const override;
+	void setModelData(QWidget *editor, QAbstractItemModel *model,
+			const QModelIndex &index) const override;
+};
 
 class PTZSettings : public QWidget {
 	Q_OBJECT

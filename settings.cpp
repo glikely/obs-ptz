@@ -1,4 +1,5 @@
 #include <QPlainTextEdit>
+#include <QComboBox>
 #include <QHBoxLayout>
 #include <QVBoxLayout>
 #include <QScrollBar>
@@ -14,6 +15,7 @@
 #include <QDesktopServices>
 #include <QGamepadManager>
 #include <QSerialPortInfo>
+#include <QStringList>
 
 #include <string>
 
@@ -44,6 +46,51 @@ const char *description_text = "<html><head/><body>"
 		"https://github.com/glikely/obs-ptz</span></a></p>"
 	"</body></html>";
 
+QWidget *SourceNameDelegate::createEditor(QWidget *parent,
+					const QStyleOptionViewItem &option,
+					const QModelIndex &index) const
+{
+	QComboBox *cb = new QComboBox(parent);
+	cb->setEditable(true);
+	const int row = index.row();
+
+	// Get list of all sources
+	auto src_cb = [](void *data, obs_source_t* src) {
+		auto srcnames = static_cast<QStringList*>(data);
+		srcnames->append(obs_source_get_name(src));
+		return true;
+	};
+	QStringList srcnames;
+	obs_enum_sources(src_cb, &srcnames);
+
+	// Remove the ones already assigned
+	QStringListIterator i(ptzDeviceList.getDeviceNames());
+	while (i.hasNext())
+		srcnames.removeAll(i.next());
+	cb->addItems(srcnames);
+
+	// Put the current name at the top of the list
+	cb->insertItem(0, index.data(Qt::EditRole).toString());
+	return cb;
+}
+
+void SourceNameDelegate::setEditorData(QWidget *editor,
+					const QModelIndex &index) const
+{
+	QComboBox *cb = qobject_cast<QComboBox *>(editor);
+	Q_ASSERT(cb);
+	cb->setCurrentText(index.data(Qt::EditRole).toString());
+}
+
+void SourceNameDelegate::setModelData(QWidget *editor,
+					QAbstractItemModel *model,
+					const QModelIndex &index) const
+{
+	QComboBox *cb = qobject_cast<QComboBox *>(editor);
+	Q_ASSERT(cb);
+	model->setData(index, cb->currentText(), Qt::EditRole);
+}
+
 obs_properties_t *PTZSettings::getProperties(void)
 {
 	PTZDevice *ptz = ptzDeviceList.getDevice(ui->deviceList->currentIndex());
@@ -67,7 +114,9 @@ PTZSettings::PTZSettings() : QWidget(nullptr), ui(new Ui_PTZSettings)
 
 	ui->gamepadCheckBox->setChecked(PTZControls::getInstance()->gamepadEnabled());
 
+	auto snd = new SourceNameDelegate(this);
 	ui->deviceList->setModel(&ptzDeviceList);
+	ui->deviceList->setItemDelegateForColumn(0, snd);
 
 	QItemSelectionModel *selectionModel = ui->deviceList->selectionModel();
 	connect(selectionModel, SIGNAL(currentChanged(QModelIndex,QModelIndex)),
