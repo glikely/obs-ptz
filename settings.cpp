@@ -113,6 +113,7 @@ PTZSettings::PTZSettings() : QWidget(nullptr), ui(new Ui_PTZSettings)
 	ui->setupUi(this);
 
 	ui->gamepadCheckBox->setChecked(PTZControls::getInstance()->gamepadEnabled());
+	ui->livemoveCheckBox->setChecked(PTZControls::getInstance()->liveMovesDisabled());
 
 	auto snd = new SourceNameDelegate(this);
 	ui->deviceList->setModel(&ptzDeviceList);
