@@ -375,12 +375,61 @@ void PTZControls::setPanTilt(double pan, double tilt)
 	if (!ptz)
 		return;
 
+	pantiltingFlag = std::abs(pan) > 0 || std::abs(tilt) > 0;
 	if (QGuiApplication::keyboardModifiers().testFlag(Qt::ControlModifier)) {
 		ptz->pantilt(pan, tilt);
 	} else if (QGuiApplication::keyboardModifiers().testFlag(Qt::ShiftModifier)) {
 		ptz->pantilt_rel(pan, - tilt);
 	} else {
 		ptz->pantilt(pan * speed / 100, tilt * speed / 100);
+	}
+}
+
+/** setZoom(double speed)
+ *
+ * Direction:
+ *   speed < 0: Zoom out (wide)
+ *   speed = 0: Stop Zooming
+ *   speed > 0: Zoom in (tele)
+ */
+void PTZControls::setZoom(double zoom)
+{
+	double speed = ui->speedSlider->value();
+	PTZDevice *ptz = currCamera();
+	if (!ptz)
+		return;
+
+	if (!QGuiApplication::keyboardModifiers().testFlag(Qt::ControlModifier))
+		zoom *= (speed / 100);
+
+	if (zoom < 0) {
+		ptz->zoom_wide(std::abs(zoom));
+		zoomingFlag = true;
+	} else if (zoom > 0) {
+		ptz->zoom_tele(zoom);
+		zoomingFlag = true;
+	} else {
+		ptz->zoom_stop();
+		zoomingFlag = false;
+	}
+}
+
+void PTZControls::setFocus(double focus)
+{
+	double speed = std::abs(focus) * ui->speedSlider->value() / 100;
+	PTZDevice *ptz = currCamera();
+	if (!ptz)
+		return;
+
+	if (focus < 0) {
+		ptz->focus_far(speed);
+		focusingFlag = true;
+	} else if (focus > 0) {
+		ptz->focus_near(speed);
+		focusingFlag = true;
+	} else {
+		ptz->focus_stop();
+		focusingFlag = false;
 	}
 }
 
@@ -397,7 +446,7 @@ void PTZControls::on_panTiltGamepad()
 	void PTZControls::on_panTiltButton_##direction##_pressed() \
 	{ setPanTilt(x, y); } \
 	void PTZControls::on_panTiltButton_##direction##_released() \
-	{ PTZDevice *ptz = currCamera(); if (ptz) ptz->pantilt_stop(); }
+	{ setPanTilt(0, 0); }
 
 button_pantilt_actions(up, 0, 1);
 button_pantilt_actions(upleft, -1, 1);
@@ -418,43 +467,22 @@ void PTZControls::on_panTiltButton_home_released()
 /* There are fewer buttons for zoom or focus; so don't bother with macros */
 void PTZControls::on_zoomButton_tele_pressed()
 {
-	double speed = ui->speedSlider->value();
-	PTZDevice *ptz = currCamera();
-	if (!ptz)
-		return;
-
-	if (QGuiApplication::keyboardModifiers().testFlag(Qt::ControlModifier))
-		ptz->zoom_tele(1);
-	else if (QGuiApplication::keyboardModifiers().testFlag(Qt::ShiftModifier))
-		ptz->zoom_tele(0);
-	else
-		ptz->zoom_tele(speed / 100);
+	setZoom(1);
 }
+
 void PTZControls::on_zoomButton_tele_released()
 {
-	PTZDevice *ptz = currCamera();
-	if (ptz)
-		ptz->zoom_stop();
+	setZoom(0);
 }
+
 void PTZControls::on_zoomButton_wide_pressed()
 {
-	double speed = ui->speedSlider->value();
-	PTZDevice *ptz = currCamera();
-	if (!ptz)
-		return;
-
-	if (QGuiApplication::keyboardModifiers().testFlag(Qt::ControlModifier))
-		ptz->zoom_wide(1);
-	else if (QGuiApplication::keyboardModifiers().testFlag(Qt::ShiftModifier))
-		ptz->zoom_wide(0);
-	else
-		ptz->zoom_wide(speed / 100);
+	setZoom(-1);
 }
+
 void PTZControls::on_zoomButton_wide_released()
 {
-	PTZDevice *ptz = currCamera();
-	if (ptz)
-		ptz->zoom_stop();
+	setZoom(0);
 }
 
 void PTZControls::on_focusButton_auto_clicked(bool checked)
@@ -467,32 +495,22 @@ void PTZControls::on_focusButton_auto_clicked(bool checked)
 
 void PTZControls::on_focusButton_near_pressed()
 {
-	double speed = ui->speedSlider->value();
-	PTZDevice *ptz = currCamera();
-	if (ptz)
-		ptz->focus_near(speed / 100);
+	setFocus(1);
 }
 
 void PTZControls::on_focusButton_near_released()
 {
-	PTZDevice *ptz = currCamera();
-	if (ptz)
-		ptz->focus_stop();
+	setFocus(0);
 }
 
 void PTZControls::on_focusButton_far_pressed()
 {
-	double speed = ui->speedSlider->value();
-	PTZDevice *ptz = currCamera();
-	if (ptz)
-		ptz->focus_far(speed / 100);
+	setFocus(-1);
 }
 
 void PTZControls::on_focusButton_far_released()
 {
-	PTZDevice *ptz = currCamera();
-	if (ptz)
-		ptz->focus_stop();
+	setFocus(0);
 }
 
 void PTZControls::on_focusButton_onetouch_clicked()
@@ -502,20 +520,10 @@ void PTZControls::on_focusButton_onetouch_clicked()
 		ptz->focus_onetouch();
 }
 
-void PTZControls::full_stop()
-{
-	PTZDevice *ptz = currCamera();
-	if (ptz) {
-		ptz->pantilt_stop();
-		ptz->zoom_stop();
-	}
-}
-
 void PTZControls::setCurrent(uint32_t device_id)
 {
 	if (device_id == ptzDeviceList.getDeviceId(ui->cameraList->currentIndex()))
 		return;
-	full_stop();
 	ui->cameraList->setCurrentIndex(ptzDeviceList.indexFromDeviceId(device_id));
 }
 
@@ -560,12 +568,19 @@ void PTZControls::updateMoveControls()
 
 void PTZControls::currentChanged(QModelIndex current, QModelIndex previous)
 {
-	Q_UNUSED(previous);
-	full_stop();
-
 	PTZDevice *ptz = ptzDeviceList.getDevice(previous);
-	if (ptz)
+	if (ptz) {
 		disconnect(ptz, nullptr, this, nullptr);
+		if (pantiltingFlag)
+			ptz->pantilt_stop();
+		if (zoomingFlag)
+			ptz->zoom_stop();
+		if (focusingFlag)
+			ptz->focus_stop();
+	}
+	pantiltingFlag = false;
+	zoomingFlag = false;
+	focusingFlag = false;
 
 	ptz = ptzDeviceList.getDevice(current);
 	if (ptz) {

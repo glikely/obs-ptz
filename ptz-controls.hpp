@@ -29,11 +29,17 @@ private:
 	bool use_gamepad;
 	QGamepad *gamepad;
 
+	// Current status
+	bool pantiltingFlag = false;
+	bool zoomingFlag = false;
+	bool focusingFlag = false;
+
 	void SaveConfig();
 	void LoadConfig();
 
-	void full_stop();
 	void setPanTilt(double pan, double tilt);
+	void setZoom(double speed);
+	void setFocus(double speed);
 
 	void setCurrent(unsigned int index);
 	void presetRecall(int id);
