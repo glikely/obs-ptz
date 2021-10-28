@@ -534,11 +534,8 @@ void PTZControls::on_targetButton_program_clicked(bool checked)
 void PTZControls::setAutofocusEnabled(bool autofocus_on)
 {
 	ui->focusButton_auto->setChecked(autofocus_on);
-	ui->focusButton_near->setFlat(autofocus_on);
 	ui->focusButton_near->setEnabled(!autofocus_on);
-	ui->focusButton_far->setFlat(autofocus_on);
 	ui->focusButton_far->setEnabled(!autofocus_on);
-	ui->focusButton_onetouch->setFlat(autofocus_on);
 	ui->focusButton_onetouch->setEnabled(!autofocus_on);
 }
 
