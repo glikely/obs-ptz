@@ -589,6 +589,36 @@
        </widget>
       </item>
       <item>
+       <widget class="QPushButton" name="lockButton">
+        <property name="maximumSize">
+         <size>
+          <width>22</width>
+          <height>22</height>
+         </size>
+        </property>
+        <property name="toolTip">
+         <string>Lock controls</string>
+        </property>
+        <property name="accessibleName">
+         <string>Lock controls</string>
+        </property>
+        <property name="text">
+         <string/>
+        </property>
+        <property name="icon">
+         <iconset resource="ptz-controls.qrc">
+          <normaloff>:/icons/icons/unlocked.svg</normaloff>
+          <normalon>:/icons/icons/locked.svg</normalon>:/icons/icons/unlocked.svg</iconset>
+        </property>
+        <property name="checkable">
+         <bool>true</bool>
+        </property>
+        <property name="flat">
+         <bool>true</bool>
+        </property>
+       </widget>
+      </item>
+      <item>
        <spacer name="horizontalSpacer_2">
         <property name="orientation">
          <enum>Qt::Horizontal</enum>

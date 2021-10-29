@@ -94,6 +94,7 @@ private slots:
 	void on_cameraList_doubleClicked(const QModelIndex &index);
 	void on_cameraList_customContextMenuRequested(const QPoint &pos);
 	void on_configButton_released();
+	void on_lockButton_clicked(bool checked);
 
 public:
 	PTZControls(QWidget *parent = nullptr);

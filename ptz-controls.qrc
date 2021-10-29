@@ -1,5 +1,7 @@
 <RCC>
   <qresource prefix="icons">
+    <file>icons/locked.svg</file>
+    <file>icons/unlocked.svg</file>
     <file>icons/focus_onetouch.svg</file>
     <file>icons/focus_far.svg</file>
     <file>icons/focus_auto.svg</file>

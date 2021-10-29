@@ -563,6 +563,8 @@ void PTZControls::updateMoveControls()
 		}
 	}
 
+	ui->lockButton->setVisible(obs_frontend_preview_program_mode_active() && live_moves_disabled);
+	ui->lockButton->setChecked(!ctrls_enabled);
 	ui->movementControlsWidget->setEnabled(ctrls_enabled);
 	ui->presetListView->setEnabled(ctrls_enabled);
 }
@@ -678,4 +680,10 @@ void PTZControls::on_cameraList_customContextMenuRequested(const QPoint &pos)
 void PTZControls::on_configButton_released()
 {
 	ptz_settings_show(ptzDeviceList.getDeviceId(ui->cameraList->currentIndex()));
+}
+
+void PTZControls::on_lockButton_clicked(bool checked)
+{
+	ui->movementControlsWidget->setEnabled(!checked);
+	ui->presetListView->setEnabled(!checked);
 }
