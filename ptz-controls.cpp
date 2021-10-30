@@ -70,6 +70,9 @@ void PTZControls::OBSFrontendEvent(enum obs_frontend_event event)
 	obs_source_t *scene = NULL;
 
 	switch (event) {
+	case OBS_FRONTEND_EVENT_TRANSITION_STOPPED:
+		updateMoveControls();
+		break;
 	case OBS_FRONTEND_EVENT_SCENE_CHANGED:
 		if (ui->targetButton_program->isChecked())
 			scene = obs_frontend_get_current_scene();
@@ -561,10 +564,30 @@ void PTZControls::updateMoveControls()
 	// Check if the device's source is in the active program scene
 	// If it is then disable the pan/tilt/zoom controls
 	if (obs_frontend_preview_program_mode_active() && live_moves_disabled && ptz) {
-		obs_source_t *source = obs_get_source_by_name(QT_TO_UTF8(ptz->objectName()));
-		if (source) {
-			ctrls_enabled = !obs_source_active(source);
-			obs_source_release(source);
+		struct active_src_cb_data {
+			obs_source_t *source;
+			bool active;
+		};
+		auto active_src_cb = [](obs_source_t *parent, obs_source_t *child, void *data) {
+			struct active_src_cb_data *context = static_cast<struct active_src_cb_data*>(data);
+			if (child == context->source)
+				context->active = true;
+		};
+		struct active_src_cb_data cb_data;
+		cb_data.source = obs_get_source_by_name(QT_TO_UTF8(ptz->objectName()));
+		cb_data.active = false;
+		if (cb_data.source) {
+			auto program = obs_frontend_get_current_scene();
+			obs_source_enum_active_sources(program, active_src_cb, &cb_data);
+			ctrls_enabled = !cb_data.active;
+			/*
+			blog(LOG_INFO, "updateMoveControls(), program:%s ptz:%s active:%s",
+					obs_source_get_name(program),
+					obs_source_get_name(cb_data.source),
+					ctrls_enabled ? "true" : "false");
+			*/
+			obs_source_release(program);
+			obs_source_release(cb_data.source);
 		}
 	}
 
