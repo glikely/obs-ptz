@@ -504,9 +504,6 @@
         </item>
         <item>
          <widget class="QListView" name="cameraList">
-          <property name="contextMenuPolicy">
-           <enum>Qt::CustomContextMenu</enum>
-          </property>
           <property name="sizePolicy">
            <sizepolicy hsizetype="Minimum" vsizetype="Expanding">
             <horstretch>0</horstretch>
@@ -518,6 +515,9 @@
             <width>100</width>
             <height>50</height>
            </size>
+          </property>
+          <property name="contextMenuPolicy">
+           <enum>Qt::CustomContextMenu</enum>
           </property>
           <property name="editTriggers">
            <set>QAbstractItemView::EditKeyPressed</set>
@@ -632,11 +632,20 @@
        </spacer>
       </item>
       <item>
-       <widget class="QRadioButton" name="targetButton_manual">
+       <widget class="QToolButton" name="targetButton_manual">
+        <property name="toolTip">
+         <string>Don't autoselect PTZ device when scene changes</string>
+        </property>
         <property name="text">
-         <string>Manua&amp;l</string>
+         <string>Off</string>
+        </property>
+        <property name="checkable">
+         <bool>true</bool>
         </property>
         <property name="checked">
+         <bool>true</bool>
+        </property>
+        <property name="autoExclusive">
          <bool>true</bool>
         </property>
         <attribute name="buttonGroup">
@@ -645,9 +654,18 @@
        </widget>
       </item>
       <item>
-       <widget class="QRadioButton" name="targetButton_preview">
+       <widget class="QToolButton" name="targetButton_preview">
+        <property name="toolTip">
+         <string>Autoselect a PTZ device when its source appears in the preview scene</string>
+        </property>
         <property name="text">
-         <string>Follow Preview</string>
+         <string>Preview</string>
+        </property>
+        <property name="checkable">
+         <bool>true</bool>
+        </property>
+        <property name="autoExclusive">
+         <bool>true</bool>
         </property>
         <attribute name="buttonGroup">
          <string notr="true">targetButtonGroup</string>
@@ -655,9 +673,18 @@
        </widget>
       </item>
       <item>
-       <widget class="QRadioButton" name="targetButton_program">
+       <widget class="QToolButton" name="targetButton_program">
+        <property name="toolTip">
+         <string>Autoselect a PTZ device when it becomes active in the live (program) scene</string>
+        </property>
         <property name="text">
-         <string>Follow Pro&amp;gram</string>
+         <string>Program</string>
+        </property>
+        <property name="checkable">
+         <bool>true</bool>
+        </property>
+        <property name="autoExclusive">
+         <bool>true</bool>
         </property>
         <attribute name="buttonGroup">
          <string notr="true">targetButtonGroup</string>

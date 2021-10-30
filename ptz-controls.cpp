@@ -120,6 +120,11 @@ PTZControls::PTZControls(QWidget *parent)
 		SIGNAL(currentChanged(QModelIndex, QModelIndex)),
 		this, SLOT(currentChanged(QModelIndex, QModelIndex)));
 
+	// Fix the style of the autoselect buttons
+	ui->targetButton_preview->setStyleSheet("QToolButton:checked {background-color: black;}");
+	ui->targetButton_program->setStyleSheet("QToolButton:checked {background-color: black;}");
+	ui->targetButton_manual->setStyleSheet("QToolButton:checked {background-color: black;}");
+
 	LoadConfig();
 
 	ui->speedSlider->setValue(50);
@@ -567,6 +572,8 @@ void PTZControls::updateMoveControls()
 	ui->lockButton->setChecked(!ctrls_enabled);
 	ui->movementControlsWidget->setEnabled(ctrls_enabled);
 	ui->presetListView->setEnabled(ctrls_enabled);
+
+	ui->targetButton_preview->setVisible(obs_frontend_preview_program_mode_active());
 }
 
 void PTZControls::currentChanged(QModelIndex current, QModelIndex previous)
