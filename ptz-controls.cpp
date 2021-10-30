@@ -80,6 +80,7 @@ void PTZControls::OBSFrontendEvent(enum obs_frontend_event event)
 	case OBS_FRONTEND_EVENT_PREVIEW_SCENE_CHANGED:
 		if (ui->targetButton_preview->isChecked())
 			scene = obs_frontend_get_current_preview_scene();
+		updateMoveControls();
 		break;
 	default:
 		break;
@@ -554,7 +555,7 @@ void PTZControls::updateMoveControls()
 
 	// Check if the device's source is in the active program scene
 	// If it is then disable the pan/tilt/zoom controls
-	if (live_moves_disabled && ptz) {
+	if (obs_frontend_preview_program_mode_active() && live_moves_disabled && ptz) {
 		obs_source_t *source = obs_get_source_by_name(QT_TO_UTF8(ptz->objectName()));
 		if (source) {
 			ctrls_enabled = !obs_source_active(source);

@@ -149,10 +149,10 @@
            <item>
             <widget class="QCheckBox" name="livemoveCheckBox">
              <property name="toolTip">
-              <string>Disable movement controls for cameras in the currently active program scene</string>
+              <string>Disable movement controls for cameras in the currently active program scene. This protects against accidental camera moves on the live stream.</string>
              </property>
              <property name="text">
-              <string>Disable Controls for active cameras</string>
+              <string>Lockout live PTZ moves in studio mode</string>
              </property>
             </widget>
            </item>
