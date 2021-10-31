@@ -578,7 +578,10 @@ void PTZControls::updateMoveControls()
 		cb_data.active = false;
 		if (cb_data.source) {
 			auto program = obs_frontend_get_current_scene();
-			obs_source_enum_active_sources(program, active_src_cb, &cb_data);
+			if (cb_data.source == program)
+				cb_data.active = true;
+			else
+				obs_source_enum_active_sources(program, active_src_cb, &cb_data);
 			ctrls_enabled = !cb_data.active;
 			/*
 			blog(LOG_INFO, "updateMoveControls(), program:%s ptz:%s active:%s",
