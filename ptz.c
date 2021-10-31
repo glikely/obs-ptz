@@ -37,3 +37,25 @@ MODULE_EXPORT const char *obs_module_name(void)
 {
 	return obs_module_text("PTZ Controls");
 }
+
+struct source_active_cb_data {
+	obs_source_t *source;
+	bool active;
+};
+
+static void source_active_cb(obs_source_t *parent, obs_source_t *child, void *data)
+{
+	UNUSED_PARAMETER(parent);
+	struct source_active_cb_data *cb_data = data;
+	if (child == cb_data->source)
+		cb_data->active = true;
+}
+
+bool ptz_scene_is_source_active(obs_source_t *scene, obs_source_t *source)
+{
+	struct source_active_cb_data cb_data = { .source = source, .active = false };
+	if (scene == source)
+		return true;
+	obs_source_enum_active_sources(scene, source_active_cb, &cb_data);
+	return cb_data.active;
+}

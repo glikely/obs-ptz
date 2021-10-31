@@ -33,7 +33,6 @@ struct ptz_action_source_data {
 	double pan_speed;
 	double tilt_speed;
 	obs_source_t *src;
-	bool is_preview;
 	bool was_preview;
 };
 
@@ -85,14 +84,6 @@ static void ptz_action_source_activate(void *data)
 		ptz_action_source_do_action(context);
 }
 
-static void ptz_action_source_preview_cb(obs_source_t *parent, obs_source_t *child, void *data)
-{
-	UNUSED_PARAMETER(parent);
-	struct ptz_action_source_data *context = data;
-	if (child == context->src)
-		context->is_preview = true;
-}
-
 static void ptz_action_source_fe_callback(enum obs_frontend_event event, void *data)
 {
 	struct ptz_action_source_data *context = data;
@@ -106,13 +97,12 @@ static void ptz_action_source_fe_callback(enum obs_frontend_event event, void *d
 			break;
 		source = obs_frontend_get_current_preview_scene();
 		if (source) {
-			context->is_preview = false;
-			obs_source_enum_active_sources(source, ptz_action_source_preview_cb, context);
+			bool is_preview = ptz_scene_is_source_active(source, context->src);
 			obs_source_release(source);
 
-			if (!context->was_preview && context->is_preview)
+			if (!context->was_preview && is_preview)
 				ptz_action_source_do_action(context);
-			context->was_preview = context->is_preview;
+			context->was_preview = is_preview;
 		}
 		break;
 	default:
