@@ -73,6 +73,8 @@ static void ptz_action_source_do_action(struct ptz_action_source_data *context)
 		calldata_set_float(&cd, "tilt", 0.0);
 		proc_handler_call(obs_get_proc_handler(), "ptz_pantilt", &cd);
 		break;
+	default:
+		break;
 	}
 	calldata_free(&cd);
 }

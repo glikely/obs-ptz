@@ -301,6 +301,8 @@ obs_properties_t *PTZDevice::get_obs_properties()
 		case OBS_DATA_STRING:
 			p = obs_properties_add_text(props, name, name, OBS_TEXT_DEFAULT);
 			break;
+		default:
+			break;
 		}
 		if (p)
 			obs_property_set_enabled(p, false);
