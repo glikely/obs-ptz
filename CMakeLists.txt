@@ -45,12 +45,6 @@ endif()
 
 find_package(LibObs REQUIRED)
 find_package(Qt5 REQUIRED COMPONENTS Core Widgets Svg Gamepad SerialPort Network)
-get_filename_component(OBS_FRONTEND_INCLUDE_DIRS "${LIBOBS_INCLUDE_DIRS}/../UI/obs-frontend-api" ABSOLUTE)
-if(WIN32)
-	find_file(OBS_FRONTEND_LIB obs-frontend-api.lib HINTS "${LibObs_DIR}/../UI/obs-frontend-api/RelWithDebInfo" REQUIRED)
-else()
-	set(OBS_FRONTEND_LIB obs-frontend-api)
-endif()
 
 configure_file(
 	config.h.in
