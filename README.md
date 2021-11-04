@@ -84,6 +84,26 @@ plugin as a zip file and installer.
 You'll first need to build a `RelWithDebInfo` version of OBS Studio before
 building the release plugin.
 
+## MacOS
+
+- Install Homebrew
+- Install Packages
+
+```
+$ brew install packages
+```
+
+- Install and build OBS Studio from source using instructions from OBS wiki:
+  https://obsproject.com/wiki/install-instructions
+
+- clone this repository and build:
+
+```
+git clone https://github.com/glikely/obs-ptz
+CI/macos/macos-build.sh
+CI/macos/macos-package.sh
+```
+
 # Contributing
 
 Contributions welcome!
