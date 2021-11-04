@@ -111,12 +111,17 @@ void PTZControls::OBSFrontendEvent(enum obs_frontend_event event)
 }
 
 PTZControls::PTZControls(QWidget *parent)
-	: QDockWidget(parent), ui(new Ui::PTZControls),
-	  use_gamepad(false), gamepad(NULL)
+	: QDockWidget(parent), ui(new Ui::PTZControls)
 {
 	instance = this;
 	ui->setupUi(this);
 	ui->cameraList->setModel(&ptzDeviceList);
+
+#ifdef CONFIG_USE_GAMEPAD
+	gpm = QGamepadManager::instance();
+	connect(gpm, &QGamepadManager::connectedGamepadsChanged, this,
+					&PTZControls::on_connectedGamepadsChanged);
+#endif
 
 	QItemSelectionModel *selectionModel = ui->cameraList->selectionModel();
 	connect(selectionModel,
@@ -262,7 +267,9 @@ void PTZControls::SaveConfig()
 	obs_data_set_string(data, "splitter_state",
 			ui->splitter->saveState().toBase64().constData());
 
+#ifdef CONFIG_USE_GAMEPAD
 	obs_data_set_bool(data, "use_gamepad", use_gamepad);
+#endif
 	obs_data_set_bool(data, "live_moves_disabled", live_moves_disabled);
 	obs_data_set_int(data, "debug_log_level", ptz_debug_level);
 	const char *target_mode = "manual";
@@ -308,14 +315,16 @@ void PTZControls::LoadConfig()
 	obs_data_set_default_string(data, "target_mode", "preview");
 
 	ptz_debug_level = obs_data_get_int(data, "debug_log_level");
-	use_gamepad = obs_data_get_bool(data, "use_gamepad");
 	live_moves_disabled = obs_data_get_bool(data, "live_moves_disabled");
 	target_mode = obs_data_get_string(data, "target_mode");
 	ui->targetButton_preview->setChecked(target_mode == "preview");
 	ui->targetButton_program->setChecked(target_mode == "program");
 	ui->targetButton_manual->setChecked(target_mode != "preview" && target_mode != "program");
 
+#ifdef CONFIG_USE_GAMEPAD
+	use_gamepad = obs_data_get_bool(data, "use_gamepad");
 	setGamepadEnabled(use_gamepad);
+#endif
 
 	const char *splitterStateStr = obs_data_get_string(data, "splitter_state");
 	if (splitterStateStr) {
@@ -334,33 +343,24 @@ void PTZControls::setDisableLiveMoves(bool disable)
 	updateMoveControls();
 }
 
-void PTZControls::setGamepadEnabled(bool enable)
+#ifdef CONFIG_USE_GAMEPAD
+void PTZControls::on_panTiltGamepad()
 {
-	use_gamepad = enable;
+	if (!gamepad)
+		return;
+	setPanTilt(gamepad->axisLeftX(), - gamepad->axisLeftY());
+}
 
-	if (!use_gamepad && gamepad) {
-		disconnect(gamepad);
-		delete gamepad;
-		gamepad = NULL;
+void PTZControls::on_connectedGamepadsChanged()
+{
+	QList<int> gamepads = gpm->connectedGamepads();
+	blog(LOG_INFO, "gamepads changed", gamepads.size());
+	Q_FOREACH(int id, gpm->connectedGamepads()) {
+		if (!gpm->gamepadName(id).isEmpty())
+			ptz_debug("Gamepad %i: %s", id, qPrintable(gpm->gamepadName(id)));
 	}
 
 	if (use_gamepad && !gamepad) {
-		QGamepadManager* gpm = QGamepadManager::instance();
-		// Windows workaround from StackOverflow:
-		// https://stackoverflow.com/questions/62668629/qgamepadmanager-connecteddevices-empty-but-windows-detects-gamepad
-		QWindow* wnd = new QWindow();
-		wnd->show();
-		delete wnd;
-		qApp->processEvents();
-
-		QList<int> gamepads = gpm->connectedGamepads();
-
-		blog(LOG_INFO, "gamepads found %d", gamepads.size());
-		Q_FOREACH(int id, gpm->connectedGamepads()) {
-			if (!gpm->gamepadName(id).isEmpty())
-				ptz_debug("Gamepad %i: %s", id, qPrintable(gpm->gamepadName(id)));
-		}
-
 		if (!gamepads.isEmpty()) {
 			gamepad = new QGamepad(*gamepads.begin(), this);
 
@@ -371,6 +371,19 @@ void PTZControls::setGamepadEnabled(bool enable)
 		}
 	}
 }
+
+void PTZControls::setGamepadEnabled(bool enable)
+{
+	use_gamepad = enable;
+
+	if (!use_gamepad && gamepad) {
+		disconnect(gamepad);
+		delete gamepad;
+		gamepad = NULL;
+	}
+	on_connectedGamepadsChanged();
+}
+#endif
 
 PTZDevice * PTZControls::currCamera()
 {
@@ -440,13 +453,6 @@ void PTZControls::setFocus(double focus)
 		ptz->focus_stop();
 		focusingFlag = false;
 	}
-}
-
-void PTZControls::on_panTiltGamepad()
-{
-	if (!gamepad)
-		return;
-	setPanTilt(gamepad->axisLeftX(), - gamepad->axisLeftY());
 }
 
 /* The pan/tilt buttons are a large block of simple and mostly identical code.

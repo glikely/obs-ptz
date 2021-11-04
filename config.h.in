@@ -14,6 +14,8 @@
 #define PLUGIN_FULL_NAME "@PLUGIN_FULL_NAME@"
 #define PLUGIN_VERSION "@PLUGIN_VERSION@"
 
+@QT_USE_GAMEPAD@
+
 #define blog(level, msg, ...) blog(level, "[" PLUGIN_NAME "] " msg, ##__VA_ARGS__)
 
 #endif // PLUGING_MACROS_H

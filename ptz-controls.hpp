@@ -10,7 +10,10 @@
 #include <QTimer>
 #include <obs.hpp>
 #include <QDockWidget>
+
+#ifdef CONFIG_USE_GAMEPAD
 #include <QtGamepad/QGamepad>
+#endif
 
 #include "ptz-device.hpp"
 #include "ui_ptz-controls.h"
@@ -25,9 +28,8 @@ private:
 
 	std::unique_ptr<Ui::PTZControls> ui;
 
+
 	bool live_moves_disabled = false;
-	bool use_gamepad;
-	QGamepad *gamepad;
 
 	// Current status
 	bool pantiltingFlag = false;
@@ -68,7 +70,6 @@ private slots:
 	void on_panTiltButton_downright_pressed();
 	void on_panTiltButton_downright_released();
 	void on_panTiltButton_home_released();
-	void on_panTiltGamepad();
 
 	void on_zoomButton_tele_pressed();
 	void on_zoomButton_tele_released();
@@ -99,9 +100,25 @@ private slots:
 public:
 	PTZControls(QWidget *parent = nullptr);
 	~PTZControls();
-	void setGamepadEnabled(bool enable);
 	void setDisableLiveMoves(bool enable);
-	bool gamepadEnabled() { return use_gamepad; };
 	bool liveMovesDisabled() { return live_moves_disabled; };
 	static PTZControls* getInstance() { return instance; };
+
+#ifdef CONFIG_USE_GAMEPAD
+private:
+	bool use_gamepad = false;
+	QGamepadManager* gpm = NULL;
+	QGamepad *gamepad = NULL;
+private slots:
+	void on_panTiltGamepad();
+	void on_connectedGamepadsChanged();
+public:
+	bool gamepadEnabled() { return use_gamepad; };
+	void setGamepadEnabled(bool enable);
+#else
+public:
+	bool gamepadEnabled() { return false; };
+	void setGamepadEnabled(bool enable) {Q_UNUSED(enable);};
+#endif
+
 };
