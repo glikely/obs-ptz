@@ -41,6 +41,18 @@ install_name_tool \
 echo "=> Dependencies for $PLUGIN_NAME"
 otool -L ./build/$PLUGIN_NAME.so
 
+echo "=> Modifying QtSerialPort"
+cp /tmp/obsdeps/lib/QtSerialPort.framework/Versions/5/QtSerialPort ./build/
+install_name_tool \
+	-id @loader_path/../lib/QtSerialPort \
+	-change /tmp/obsdeps/lib/QtCore.framework/Versions/5/QtCore \
+		@executable_path/../Frameworks/QtCore.framework/Versions/5/QtCore \
+	./build/QtSerialPort
+
+# Check if replacement worked
+echo "=> Dependencies for QtSerialPort"
+otool -L ./build/QtSerialPort
+
 if [[ "$RELEASE_MODE" == "True" ]]; then
 	echo "=> Signing plugin binary: $PLUGIN_NAME.so"
 	codesign --sign "$CODE_SIGNING_IDENTITY" ./build/$PLUGIN_NAME.so
