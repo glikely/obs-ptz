@@ -39,8 +39,8 @@ PTZListModel::PTZListModel()
 
 PTZListModel::~PTZListModel()
 {
-	signal_handler_t *sh = obs_get_signal_handler();
-	signal_handler_disconnect(sh, "source_rename", source_rename_cb, this);
+	//signal_handler_t *sh = obs_get_signal_handler();
+	//signal_handler_disconnect(sh, "source_rename", source_rename_cb, this);
 }
 
 int PTZListModel::rowCount(const QModelIndex& parent) const
