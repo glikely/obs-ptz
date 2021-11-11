@@ -88,16 +88,11 @@ public:
 	virtual void pantilt(double pan, double tilt) { Q_UNUSED(pan); Q_UNUSED(tilt); }
 	virtual void pantilt_rel(int pan, int tilt) { Q_UNUSED(pan); Q_UNUSED(tilt); }
 	virtual void pantilt_abs(int pan, int tilt) { Q_UNUSED(pan); Q_UNUSED(tilt); }
-	virtual void pantilt_stop() { }
 	virtual void pantilt_home() { }
-	virtual void zoom_stop() { }
-	virtual void zoom_tele(double speed) { Q_UNUSED(speed); }
-	virtual void zoom_wide(double speed) { Q_UNUSED(speed); }
+	virtual void zoom(double speed) { Q_UNUSED(speed); }
 	virtual void zoom_abs(int pos) { Q_UNUSED(pos); };
 	virtual void set_autofocus(bool enabled) { Q_UNUSED(enabled); };
-	virtual void focus_stop() { }
-	virtual void focus_near(double speed) { Q_UNUSED(speed); }
-	virtual void focus_far(double speed) { Q_UNUSED(speed); }
+	virtual void focus(double speed) { Q_UNUSED(speed); }
 	virtual void focus_onetouch() { }
 	virtual void memory_set(int i) { Q_UNUSED(i); }
 	virtual void memory_recall(int i) { Q_UNUSED(i); }

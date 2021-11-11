@@ -200,36 +200,20 @@ void PTZPelco::pantilt_rel(int pan, int tilt)
 	ptz_debug("pantilt_rel");
 }
 
-void PTZPelco::pantilt_stop()
-{
-	send(STOP);
-	ptz_debug("pantilt_stop");
-}
-
 void PTZPelco::pantilt_home()
 {
 	send(HOME);
 	ptz_debug("pantilt_home");
 }
 
-void PTZPelco::zoom_stop()
+void PTZPelco::zoom(double speed)
 {
-	send(STOP);
-	ptz_debug("zoom_stop");
-}
-
-void PTZPelco::zoom_tele(double speed)
-{
-	zoom_speed_set(speed);
-	send(ZOOM_IN);
-	ptz_debug("zoom_tele");
-}
-
-void PTZPelco::zoom_wide(double speed)
-{
-	zoom_speed_set(speed);
-	send(ZOOM_OUT);
-	ptz_debug("zoom_wide");
+	zoom_speed_set(std::abs(speed));
+	if (std::abs(speed) < 0)
+		send(STOP);
+	else
+		send(speed < 0 ? ZOOM_OUT : ZOOM_IN);
+	ptz_debug("zoom(%f)", speed);
 }
 
 void PTZPelco::memory_reset(int i)
@@ -238,7 +222,7 @@ void PTZPelco::memory_reset(int i)
 		return;
 
 	send(0x00, 0x05, 0x00, i + 1);
-	ptz_debug("memory_reset");
+	ptz_debug("memory_reset(%i)", i);
 }
 
 void PTZPelco::memory_set(int i)

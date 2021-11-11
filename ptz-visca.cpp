@@ -643,26 +643,20 @@ void PTZVisca::pantilt_abs(int pan, int tilt)
 	send(VISCA_PanTilt_drive_abs, {0x0f, 0x0f, pan, tilt});
 }
 
-void PTZVisca::pantilt_stop()
-{
-	send(VISCA_PanTilt_drive, {0, 0});
-}
-
 void PTZVisca::pantilt_home()
 {
 	send(VISCA_PanTilt_Home);
 }
 
-void PTZVisca::zoom_tele(double speed_)
+void PTZVisca::zoom(double speed_)
 {
-	int speed = (speed_ > 1 ? 1 : (speed_ < 0 ? 0 : speed_)) * 0x7;
-	send(VISCA_CAM_Zoom_TeleVar, { speed });
-}
-
-void PTZVisca::zoom_wide(double speed_)
-{
-	int speed = (speed_ > 1 ? 1 : (speed_ < 0 ? 0 : speed_)) * 0x7;
-	send(VISCA_CAM_Zoom_WideVar, { speed });
+	int speed = std::abs(speed_) * 0x7;
+	if (speed > 0x7)
+		speed = 0x7;
+	if (speed == 0)
+		send(VISCA_CAM_Zoom_Stop);
+	else
+		send(speed_ < 0 ? VISCA_CAM_Zoom_WideVar : VISCA_CAM_Zoom_TeleVar, { speed });
 }
 
 void PTZVisca::zoom_abs(int pos)
@@ -676,38 +670,24 @@ void PTZVisca::set_autofocus(bool enabled)
 	obs_data_set_bool(settings, "focus_af_enabled", enabled);
 }
 
-void PTZVisca::focus_stop()
-{
-	send(VISCA_CAM_Focus_Stop);
-}
-
-void PTZVisca::focus_near(double speed_)
+void PTZVisca::focus(double speed_)
 {
 	// The following two lines allows the focus speed to be adjusted using
 	// the speed slide, but in practical terms this makes the focus change
 	// far too quickly. Just use the slowest speed instead.
 	//int speed = (speed_ > 1 ? 1 : (speed_ < 0 ? 0 : speed_)) * 0x7;
-	//send(VISCA_CAM_Focus_NearVar, { speed });
 
-	send(VISCA_CAM_Focus_NearVar, { 1 });
-}
-
-void PTZVisca::focus_far(double speed_)
-{
-	//int speed = (speed_ > 1 ? 1 : (speed_ < 0 ? 0 : speed_)) * 0x7;
-	//send(VISCA_CAM_Focus_FarVar, { speed });
-
-	send(VISCA_CAM_Focus_FarVar, { 1 });
+	if (speed_ < 0)
+		send(VISCA_CAM_Focus_FarVar, { 1 });
+	else if (speed_ > 0)
+		send(VISCA_CAM_Focus_NearVar, { 1 });
+	else
+		send(VISCA_CAM_Focus_Stop);
 }
 
 void PTZVisca::focus_onetouch()
 {
 	send(VISCA_CAM_Focus_OneTouch);
-}
-
-void PTZVisca::zoom_stop()
-{
-	send(VISCA_CAM_Zoom_Stop);
 }
 
 void PTZVisca::memory_reset(int i)

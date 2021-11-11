@@ -51,16 +51,11 @@ public:
 	void pantilt(double pan, double tilt);
 	void pantilt_rel(int pan, int tilt);
 	void pantilt_abs(int pan, int tilt);
-	void pantilt_stop();
 	void pantilt_home();
-	void zoom_stop();
-	void zoom_tele(double speed);
-	void zoom_wide(double speed);
+	void zoom(double speed);
 	void zoom_abs(int pos);
 	void set_autofocus(bool enabled);
-	void focus_stop();
-	void focus_near(double speed);
-	void focus_far(double speed);
+	void focus(double speed);
 	void focus_onetouch();
 	void memory_reset(int i);
 	void memory_set(int i);

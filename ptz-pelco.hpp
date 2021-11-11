@@ -59,11 +59,8 @@ public:
 
 	void pantilt(double pan, double tilt);
 	void pantilt_rel(int pan, int tilt);
-	void pantilt_stop();
 	void pantilt_home();
-	void zoom_stop();
-	void zoom_tele(double speed);
-	void zoom_wide(double speed);
+	void zoom(double speed);
 	void memory_reset(int i);
 	void memory_set(int i);
 	void memory_recall(int i);

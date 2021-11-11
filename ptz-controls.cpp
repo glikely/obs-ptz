@@ -416,43 +416,25 @@ void PTZControls::setPanTilt(double pan, double tilt)
  */
 void PTZControls::setZoom(double zoom)
 {
-	double speed = ui->speedSlider->value();
 	PTZDevice *ptz = currCamera();
 	if (!ptz)
 		return;
 
 	if (!QGuiApplication::keyboardModifiers().testFlag(Qt::ControlModifier))
-		zoom *= (speed / 100);
+		zoom *= ((double)ui->speedSlider->value()) / 100;
 
-	if (zoom < 0) {
-		ptz->zoom_wide(std::abs(zoom));
-		zoomingFlag = true;
-	} else if (zoom > 0) {
-		ptz->zoom_tele(zoom);
-		zoomingFlag = true;
-	} else {
-		ptz->zoom_stop();
-		zoomingFlag = false;
-	}
+	ptz->zoom(zoom);
+	zoomingFlag = (zoom != 0.0);
 }
 
 void PTZControls::setFocus(double focus)
 {
-	double speed = std::abs(focus) * ui->speedSlider->value() / 100;
 	PTZDevice *ptz = currCamera();
 	if (!ptz)
 		return;
 
-	if (focus < 0) {
-		ptz->focus_far(speed);
-		focusingFlag = true;
-	} else if (focus > 0) {
-		ptz->focus_near(speed);
-		focusingFlag = true;
-	} else {
-		ptz->focus_stop();
-		focusingFlag = false;
-	}
+	ptz->focus(focus * ui->speedSlider->value() / 100);
+	focusingFlag = (focus != 0.0);
 }
 
 /* The pan/tilt buttons are a large block of simple and mostly identical code.
@@ -599,11 +581,11 @@ void PTZControls::currentChanged(QModelIndex current, QModelIndex previous)
 	if (ptz) {
 		disconnect(ptz, nullptr, this, nullptr);
 		if (pantiltingFlag)
-			ptz->pantilt_stop();
+			ptz->pantilt(0,0);
 		if (zoomingFlag)
-			ptz->zoom_stop();
+			ptz->zoom(0);
 		if (focusingFlag)
-			ptz->focus_stop();
+			ptz->focus(0);
 	}
 	pantiltingFlag = false;
 	zoomingFlag = false;
