@@ -61,17 +61,17 @@ static void ptz_action_source_do_action(struct ptz_action_source_data *context)
 	switch (context->action) {
 	case PTZ_ACTION_PRESET_RECALL:
 		calldata_set_int(&cd, "preset_id", context->preset_id);
-		proc_handler_call(obs_get_proc_handler(), "ptz_preset_recall", &cd);
+		proc_handler_call(ptz_get_proc_handler(), "ptz_preset_recall", &cd);
 		break;
 	case PTZ_ACTION_PAN_TILT:
 		calldata_set_float(&cd, "pan", context->pan_speed);
 		calldata_set_float(&cd, "tilt", context->tilt_speed);
-		proc_handler_call(obs_get_proc_handler(), "ptz_pantilt", &cd);
+		proc_handler_call(ptz_get_proc_handler(), "ptz_move_continuous", &cd);
 		break;
 	case PTZ_ACTION_STOP:
 		calldata_set_float(&cd, "pan", 0.0);
 		calldata_set_float(&cd, "tilt", 0.0);
-		proc_handler_call(obs_get_proc_handler(), "ptz_pantilt", &cd);
+		proc_handler_call(ptz_get_proc_handler(), "ptz_move_continuous", &cd);
 		break;
 	default:
 		break;

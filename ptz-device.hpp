@@ -53,7 +53,7 @@ public:
 
 public slots:
 	void preset_recall(uint32_t device_id, int preset_id);
-	void pantilt(uint32_t device_id, double pan, double tilt);
+	void move_continuous(uint32_t device_id, uint32_t flags, double pan, double tilt, double zoom, double focus);
 };
 
 extern PTZListModel ptzDeviceList;

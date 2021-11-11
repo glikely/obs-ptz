@@ -26,7 +26,10 @@ bool obs_module_load()
 	return true;
 }
 
-void obs_module_unload() {}
+void obs_module_unload()
+{
+	ptz_unload_devices();
+}
 
 MODULE_EXPORT const char *obs_module_description(void)
 {

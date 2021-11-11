@@ -188,13 +188,25 @@ void PTZListModel::preset_recall(uint32_t device_id, int preset_id)
 		ptz->memory_recall(preset_id);
 }
 
-void PTZListModel::pantilt(uint32_t device_id, double pan, double tilt)
+enum {
+	MOVE_FLAG_PANTILT = 1 << 0,
+	MOVE_FLAG_ZOOM = 1 << 1,
+	MOVE_FLAG_FOCUS = 1 << 2,
+};
+
+void PTZListModel::move_continuous(uint32_t device_id, uint32_t flags, double pan, double tilt, double zoom, double focus)
 {
 	PTZDevice* ptz = ptzDeviceList.getDevice(device_id);
-	if (ptz)
-		ptz->pantilt(pan, tilt);
-}
+	if (!ptz)
+		return;
 
+	if (flags & MOVE_FLAG_PANTILT)
+		ptz->pantilt(pan, tilt);
+	if (flags & MOVE_FLAG_ZOOM)
+		ptz->zoom(zoom);
+	if (flags & MOVE_FLAG_FOCUS)
+		ptz->focus(focus);
+}
 
 PTZDevice::PTZDevice(OBSData config) : QObject()
 {
@@ -330,11 +342,18 @@ void ptz_devices_set_config(obs_data_array_t *devices)
 	}
 }
 
+static proc_handler_t *ptz_ph = NULL;
+
+proc_handler_t *ptz_get_proc_handler()
+{
+	return ptz_ph;
+}
+
 void ptz_load_devices()
 {
 	/* Register the proc handlers for issuing PTZ commands */
-	proc_handler_t *ph = obs_get_proc_handler();
-	if (!ph)
+	ptz_ph = proc_handler_create();
+	if (!ptz_ph)
 		return;
 
 	/* Preset Recall Callback */
@@ -343,16 +362,49 @@ void ptz_load_devices()
 					Q_ARG(uint32_t, calldata_int(cd, "device_id")),
 					Q_ARG(int, calldata_int(cd, "preset_id")));
 	};
-	proc_handler_add(ph, "void ptz_preset_recall(int device_id, int preset_id)",
+	proc_handler_add(ptz_ph, "void ptz_preset_recall(int device_id, int preset_id)",
 			ptz_preset_recall, NULL);
 
-	/* Pantilt Callback */
-	auto ptz_pantilt = [](void *data, calldata_t *cd) {
-		QMetaObject::invokeMethod(&ptzDeviceList, "pantilt",
-					Q_ARG(uint32_t, calldata_int(cd, "device_id")),
-					Q_ARG(double, calldata_float(cd, "pan")),
-					Q_ARG(double, calldata_float(cd, "tilt")));
+	auto ptz_move_continuous = [](void *data, calldata_t *cd) {
+		long long device_id;
+		double pan, tilt, zoom, focus;
+		if (!calldata_get_int(cd, "device_id", &device_id))
+			return;
+		int flags = 0;
+		if (calldata_get_float(cd, "pan", &pan) && calldata_get_float(cd, "tilt", &tilt))
+			flags |= MOVE_FLAG_PANTILT;
+		if (calldata_get_float(cd, "zoom", &zoom))
+			flags |= MOVE_FLAG_ZOOM;
+		if (calldata_get_float(cd, "focus", &focus))
+			flags |= MOVE_FLAG_FOCUS;
+		QMetaObject::invokeMethod(&ptzDeviceList, "move_continuous",
+						Q_ARG(uint32_t, device_id),
+						Q_ARG(uint32_t, flags),
+						Q_ARG(double, pan), Q_ARG(double, tilt),
+						Q_ARG(double, zoom),
+						Q_ARG(double, focus));
 	};
-	proc_handler_add(ph, "void ptz_pantilt(int device_id, float pan, float tilt)",
-			ptz_pantilt, NULL);
+	proc_handler_add(ptz_ph, "void ptz_move_continuous(int device_id, float pan, float tilt, float zoom, float focus)",
+			ptz_move_continuous, NULL);
+
+	/* Register the new proc hander with the main proc handler */
+	proc_handler_t *ph = obs_get_proc_handler();
+	if (!ph)
+		return;
+
+	/* Register a function for retrieving the PTZ call handler */
+	auto ptz_get_proc_handler = [](void *data, calldata_t *cd) {
+		calldata_set_ptr(cd, "return", ptz_ph);
+	};
+	proc_handler_add(ph, "void ptz_get_proc_handler(out ptr return)", ptz_get_proc_handler, NULL);
+
+	/* Deprecated pantilt callback for compatibility with existing plugins */
+	proc_handler_add(ph, "void ptz_pantilt(int device_id, float pan, float tilt, float zoom, float focus)",
+			ptz_move_continuous, NULL);
+}
+
+void ptz_unload_devices(void)
+{
+	proc_handler_destroy(ptz_ph);
+	ptz_ph = nullptr;
 }
