@@ -399,7 +399,7 @@ void ptz_load_devices()
 	proc_handler_add(ph, "ptr ptz_get_proc_handler()", ptz_get_proc_handler, NULL);
 
 	/* Deprecated pantilt callback for compatibility with existing plugins */
-	proc_handler_add(ptz_ph, "void ptz_pantilt(int device_id, float pan, float tilt, float zoom, float focus)",
+	proc_handler_add(ph, "void ptz_pantilt(int device_id, float pan, float tilt, float zoom, float focus)",
 			ptz_move_continuous, NULL);
 }
 
