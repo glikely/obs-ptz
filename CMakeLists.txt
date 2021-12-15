@@ -79,6 +79,9 @@ set(PLUGIN_SOURCES
 	settings.cpp
 	ptz-pelco.cpp
 	ptz-visca.cpp
+	ptz-visca-uart.cpp
+	ptz-visca-udp.cpp
+	ptz-visca-tcp.cpp
 	ptz-action-source.c
 	protocol-helpers.cpp
 	imported/qt-wrappers.cpp
@@ -98,6 +101,9 @@ set(PLUGIN_HEADERS
 	settings.hpp
 	ptz-pelco.hpp
 	ptz-visca.hpp
+	ptz-visca-uart.hpp
+	ptz-visca-udp.hpp
+	ptz-visca-tcp.hpp
 	protocol-helpers.hpp
 	imported/qt-wrappers.hpp
 	imported/properties-view.hpp
