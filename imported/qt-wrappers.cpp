@@ -29,11 +29,11 @@
 #include <QFileDialog>
 #include <QStandardItemModel>
 
+#if 0 // #ifdef ENABLE_WAYLAND
 #if !defined(_WIN32) && !defined(__APPLE__)
 #include <obs-nix-platform.h>
 #endif
 
-#if 0 // #ifdef ENABLE_WAYLAND
 #include <qpa/qplatformnativeinterface.h>
 #endif
 
@@ -112,6 +112,7 @@ void OBSMessageBox::critical(QWidget *parent, const QString &title,
 	mb.exec();
 }
 
+#if 0
 bool QTToGSWindow(QWindow *window, gs_window &gswindow)
 {
 	bool success = true;
@@ -127,7 +128,6 @@ bool QTToGSWindow(QWindow *window, gs_window &gswindow)
 		gswindow.id = window->winId();
 		gswindow.display = obs_get_nix_platform_display();
 		break;
-#if 0 // #ifdef ENABLE_WAYLAND
 	case OBS_NIX_PLATFORM_WAYLAND:
 		QPlatformNativeInterface *native =
 			QGuiApplication::platformNativeInterface();
@@ -135,11 +135,11 @@ bool QTToGSWindow(QWindow *window, gs_window &gswindow)
 			native->nativeResourceForWindow("surface", window);
 		success = gswindow.display != nullptr;
 		break;
-#endif
 	}
 #endif
 	return success;
 }
+#endif
 
 uint32_t TranslateQtKeyboardEventModifiers(Qt::KeyboardModifiers mods)
 {
