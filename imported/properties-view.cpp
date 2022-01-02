@@ -707,11 +707,13 @@ void OBSPropertiesView::AddColor(obs_property_t *prop, QFormLayout *layout,
 	AddColorInternal(prop, layout, label, false);
 }
 
+#if 0
 void OBSPropertiesView::AddColorAlpha(obs_property_t *prop, QFormLayout *layout,
 				      QLabel *&label)
 {
 	AddColorInternal(prop, layout, label, true);
 }
+#endif
 
 void MakeQFont(obs_data_t *font_obj, QFont &font, bool limit = false)
 {
@@ -1449,8 +1451,10 @@ void OBSPropertiesView::AddProperty(obs_property_t *property,
 	case OBS_PROPERTY_GROUP:
 		AddGroup(property, layout);
 		break;
+#if 0
 	case OBS_PROPERTY_COLOR_ALPHA:
 		AddColorAlpha(property, layout, label);
+#endif
 	}
 
 	if (widget && !obs_property_enabled(property))
@@ -1946,10 +1950,12 @@ void WidgetInfo::ControlChanged()
 	case OBS_PROPERTY_GROUP:
 		GroupChanged(setting);
 		break;
+#if 0
 	case OBS_PROPERTY_COLOR_ALPHA:
 		if (!ColorAlphaChanged(setting))
 			return;
 		break;
+#endif
 	}
 
 	if (!recently_updated) {
