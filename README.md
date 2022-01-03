@@ -47,6 +47,22 @@ make
 Copy or symlink ptz-controls.so into the OBS plugins directory.
 Typically `/usr/lib/obs-plugins`.
 
+### Debian 11 Bullseye
+
+In Debian 11 Bullseys you can use the development package libobs-dev to build
+the plugin instead of building obs-studio from source.
+Do the following on Debian to get a working build environment:
+
+```
+sudo apt build-dep obs-studio
+sudo apt install libobs-dev libqt5serialport5-dev libqt5gamepad5-dev
+git clone https://github.com/glikely/obs-ptz
+mkdir obs-ptz/build
+cd obs-ptz/build
+cmake ..
+make
+```
+
 ## Windows
 
 To simplify development it helps to include `MSBuild`, `7-Zip`, and `Inno Setup
