@@ -397,12 +397,15 @@ void PTZControls::setPanTilt(double pan, double tilt)
 	if (!ptz)
 		return;
 
-	pantiltingFlag = std::abs(pan) > 0 || std::abs(tilt) > 0;
+	bool nonzero = std::abs(pan) > 0 || std::abs(tilt) > 0;
 	if (QGuiApplication::keyboardModifiers().testFlag(Qt::ControlModifier)) {
+		pantiltingFlag = nonzero;
 		ptz->pantilt(pan, tilt);
 	} else if (QGuiApplication::keyboardModifiers().testFlag(Qt::ShiftModifier)) {
-		ptz->pantilt_rel(pan, - tilt);
+		if (nonzero)
+			ptz->pantilt_rel(pan, - tilt);
 	} else {
+		pantiltingFlag = nonzero;
 		ptz->pantilt(pan * speed / 100, tilt * speed / 100);
 	}
 }
