@@ -45,9 +45,11 @@ endif()
 
 find_package(LibObs REQUIRED)
 find_package(Qt5 REQUIRED COMPONENTS Core Widgets Svg SerialPort Network)
-find_package(Qt5Gamepad)
-if(DEFINED Qt5Gamepad_LIBRARIES)
-	set(QT_USE_GAMEPAD "#define CONFIG_USE_GAMEPAD 1")
+if(NOT WIN32)
+	find_package(Qt5Gamepad)
+	if(DEFINED Qt5Gamepad_LIBRARIES AND NOT WIN32)
+		set(QT_USE_GAMEPAD "#define CONFIG_USE_GAMEPAD 1")
+	endif()
 endif()
 
 configure_file(
