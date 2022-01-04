@@ -8,11 +8,19 @@
 
 #include <QObject>
 #include <QTimer>
-#include <QUdpSocket>
-#include <QTcpSocket>
 #include "protocol-helpers.hpp"
 #include "ptz-device.hpp"
 #include "protocol-helpers.hpp"
+
+#define VISCA_RESPONSE_ADDRESS   0x30
+#define VISCA_RESPONSE_ACK       0x40
+#define VISCA_RESPONSE_COMPLETED 0x50
+#define VISCA_RESPONSE_ERROR     0x60
+#define VISCA_PACKET_SENDER(pkt) ((unsigned)((pkt)[0] & 0x70) >> 4)
+
+extern const PTZCmd VISCA_ENUMERATE;
+extern const PTZCmd VISCA_IF_CLEAR;
+extern const PTZCmd VISCA_Clear;
 
 /*
  * VISCA Abstract base class, used for both Serial UART and UDP implementations
@@ -60,124 +68,4 @@ public:
 	void memory_reset(int i);
 	void memory_set(int i);
 	void memory_recall(int i);
-};
-
-/*
- * VISCA over Serial UART classes
- */
-class ViscaUART : public PTZUARTWrapper {
-	Q_OBJECT
-
-private:
-	/* Global lookup table of UART instances, used to eliminate duplicates */
-	static std::map<QString, ViscaUART*> interfaces;
-
-	int camera_count;
-
-public:
-	ViscaUART(QString &port_name);
-	bool open();
-	void close();
-	void receive_datagram(const QByteArray &packet);
-	void receiveBytes(const QByteArray &packet);
-
-	static ViscaUART *get_interface(QString port_name);
-};
-
-class PTZViscaSerial : public PTZVisca {
-	Q_OBJECT
-
-private:
-	ViscaUART *iface;
-	void attach_interface(ViscaUART *iface);
-
-protected:
-	void send_immediate(const QByteArray &msg);
-	void reset();
-
-public:
-	PTZViscaSerial(OBSData config);
-	~PTZViscaSerial();
-
-	void set_config(OBSData ptz_data);
-	OBSData get_config();
-	obs_properties_t *get_obs_properties();
-};
-
-/*
- * VISCA over IP classes
- */
-class ViscaUDPSocket : public QObject {
-	Q_OBJECT
-
-private:
-	/* Global lookup table of UART instances, used to eliminate duplicates */
-	static std::map<int, ViscaUDPSocket*> interfaces;
-
-	int visca_port;
-	QUdpSocket visca_socket;
-
-signals:
-	void receive(const QByteArray &packet);
-	void reset();
-
-public:
-	ViscaUDPSocket(int port = 52381);
-	void receive_datagram(QNetworkDatagram &datagram);
-	void send(QHostAddress ip_address, const QByteArray &packet);
-	int port() { return visca_port; }
-
-	static ViscaUDPSocket *get_interface(int port);
-
-public slots:
-	void poll();
-};
-
-class PTZViscaOverIP : public PTZVisca {
-	Q_OBJECT
-
-private:
-	int sequence;
-	QHostAddress ip_address;
-	ViscaUDPSocket *iface;
-	void attach_interface(ViscaUDPSocket *iface);
-
-protected:
-	void send_immediate(const QByteArray &msg);
-	void reset();
-
-public:
-	PTZViscaOverIP(OBSData config);
-	~PTZViscaOverIP();
-
-	void set_config(OBSData ptz_data);
-	OBSData get_config();
-	obs_properties_t *get_obs_properties();
-};
-
-class PTZViscaOverTCP : public PTZVisca {
-	Q_OBJECT
-
-private:
-	QTcpSocket visca_socket;
-	QByteArray rxbuffer;
-	QString host;
-	int port;
-
-protected:
-	void send_immediate(const QByteArray &msg);
-	void reset();
-	void receive_datagram(const QByteArray &packet);
-	void poll();
-
-private slots:
-	void connectSocket();
-	void on_socket_stateChanged(QAbstractSocket::SocketState);
-
-public:
-	PTZViscaOverTCP(OBSData config);
-
-	void set_config(OBSData ptz_data);
-	OBSData get_config();
-	obs_properties_t *get_obs_properties();
 };

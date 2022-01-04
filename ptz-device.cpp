@@ -8,7 +8,9 @@
 #include <obs.hpp>
 #include "imported/qt-wrappers.hpp"
 #include "ptz-device.hpp"
-#include "ptz-visca.hpp"
+#include "ptz-visca-uart.hpp"
+#include "ptz-visca-udp.hpp"
+#include "ptz-visca-tcp.hpp"
 #include "ptz-pelco.hpp"
 #include "ptz.h"
 
