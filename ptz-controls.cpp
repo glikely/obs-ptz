@@ -21,6 +21,7 @@
 #include "ptz-controls.hpp"
 #include "settings.hpp"
 #include "ptz-visca.hpp"
+#include "ptz-ipc365.hpp"
 #include "ptz-pelco.hpp"
 #include "ptz.h"
 

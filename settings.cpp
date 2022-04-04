@@ -169,6 +169,7 @@ void PTZSettings::on_addPTZ_clicked()
 	QAction *addViscaSerial = addPTZContext.addAction("VISCA Serial");
 	QAction *addViscaUDP = addPTZContext.addAction("VISCA over UDP");
 	QAction *addViscaTCP = addPTZContext.addAction("VISCA over TCP");
+	QAction *addIPC365 = addPTZContext.addAction("IPC365");
 	QAction *addPelcoD = addPTZContext.addAction("Pelco D");
 	QAction *addPelcoP = addPTZContext.addAction("Pelco P");
 	QAction *action = addPTZContext.exec(QCursor::pos());
@@ -191,6 +192,13 @@ void PTZSettings::on_addPTZ_clicked()
 		obs_data_release(cfg);
 		obs_data_set_string(cfg, "type", "visca-over-tcp");
 		obs_data_set_int(cfg, "port", 5678);
+		ptzDeviceList.make_device(cfg);
+	}
+	if (action == addIPC365) {
+		OBSData cfg = obs_data_create();
+		obs_data_release(cfg);
+		obs_data_set_string(cfg, "type", "ipc365");
+		obs_data_set_int(cfg, "port", 23456);
 		ptzDeviceList.make_device(cfg);
 	}
 	if (action == addPelcoD) {

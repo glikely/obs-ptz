@@ -11,6 +11,7 @@
 #include "ptz-visca-uart.hpp"
 #include "ptz-visca-udp.hpp"
 #include "ptz-visca-tcp.hpp"
+#include "ptz-ipc365.hpp"
 #include "ptz-pelco.hpp"
 #include "ptz.h"
 
@@ -173,6 +174,8 @@ PTZDevice *PTZListModel::make_device(OBSData config)
 		ptz = new PTZViscaOverIP(config);
 	if (type == "visca-over-tcp")
 		ptz = new PTZViscaOverTCP(config);
+	if (type == "ipc365")
+		ptz = new PTZIPC365(config);
 	return ptz;
 }
 
