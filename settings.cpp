@@ -171,6 +171,7 @@ void PTZSettings::on_addPTZ_clicked()
 	QAction *addViscaTCP = addPTZContext.addAction("VISCA over TCP");
 	QAction *addPelcoD = addPTZContext.addAction("Pelco D");
 	QAction *addPelcoP = addPTZContext.addAction("Pelco P");
+	QAction *addOnvif = addPTZContext.addAction("Onvif");
 	QAction *action = addPTZContext.exec(QCursor::pos());
 
 	if (action == addViscaSerial) {
@@ -205,6 +206,15 @@ void PTZSettings::on_addPTZ_clicked()
 		obs_data_release(cfg);
 		obs_data_set_string(cfg, "type", "pelco");
 		obs_data_set_bool(cfg, "use_pelco_d", false);
+		ptzDeviceList.make_device(cfg);
+	}
+	if (action == addOnvif) {
+		OBSData cfg = obs_data_create();
+		obs_data_release(cfg);
+		obs_data_set_string(cfg, "type", "onvif");
+		obs_data_set_int(cfg, "port", 8899);
+		obs_data_set_string(cfg, "username", "admin");
+		obs_data_set_string(cfg, "password", "");
 		ptzDeviceList.make_device(cfg);
 	}
 }

@@ -12,6 +12,7 @@
 #include "ptz-visca-udp.hpp"
 #include "ptz-visca-tcp.hpp"
 #include "ptz-pelco.hpp"
+#include "ptz-onvif.hpp"
 #include "ptz.h"
 
 int ptz_debug_level = LOG_INFO;
@@ -173,6 +174,8 @@ PTZDevice *PTZListModel::make_device(OBSData config)
 		ptz = new PTZViscaOverIP(config);
 	if (type == "visca-over-tcp")
 		ptz = new PTZViscaOverTCP(config);
+	if (type == "onvif")
+		ptz = new PTZOnvif(config);
 	return ptz;
 }
 

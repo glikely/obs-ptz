@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.10)
 
 # Change obs-plugintemplate to your plugin's name in a machine-readable format
-# (e.g.: obs-myawesomeplugin) and set 
+# (e.g.: obs-myawesomeplugin) and set
 if(EXISTS "${CMAKE_SOURCE_DIR}/.git")
 	execute_process(COMMAND git describe --always --tags --dirty=-modified
 		OUTPUT_VARIABLE PLUGIN_VERSION
@@ -84,6 +84,7 @@ set(PLUGIN_SOURCES
 	ptz-visca-uart.cpp
 	ptz-visca-udp.cpp
 	ptz-visca-tcp.cpp
+	ptz-onvif.cpp
 	ptz-action-source.c
 	protocol-helpers.cpp
 	imported/qt-wrappers.cpp

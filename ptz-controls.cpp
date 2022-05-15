@@ -22,6 +22,7 @@
 #include "settings.hpp"
 #include "ptz-visca.hpp"
 #include "ptz-pelco.hpp"
+#include "ptz-onvif.hpp"
 #include "ptz.h"
 
 void ptz_load_controls(void)
