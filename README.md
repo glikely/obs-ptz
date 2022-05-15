@@ -24,6 +24,8 @@ Features:
   - Pelco-P
   - Pelco-D
 
+ONVIF support is in the codebase, but is experimental and disabled for now.
+
 [OBS project resource page](https://obsproject.com/forum/resources/ptz-controls.1284/)
 
 [#obsptz on Twitter](https://twitter.com/hashtag/obsptz?s=09)

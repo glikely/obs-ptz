@@ -171,6 +171,9 @@ void PTZSettings::on_addPTZ_clicked()
 	QAction *addViscaTCP = addPTZContext.addAction("VISCA over TCP");
 	QAction *addPelcoD = addPTZContext.addAction("Pelco D");
 	QAction *addPelcoP = addPTZContext.addAction("Pelco P");
+#if 0 // ONVIF disabled until code is reworked
+	QAction *addOnvif = addPTZContext.addAction("ONVIF");
+#endif
 	QAction *action = addPTZContext.exec(QCursor::pos());
 
 	if (action == addViscaSerial) {
@@ -207,6 +210,14 @@ void PTZSettings::on_addPTZ_clicked()
 		obs_data_set_bool(cfg, "use_pelco_d", false);
 		ptzDeviceList.make_device(cfg);
 	}
+#if 0
+	if (action == addOnvif) {
+		OBSData cfg = obs_data_create();
+		obs_data_release(cfg);
+		obs_data_set_string(cfg, "type", "onvif");
+		ptzDeviceList.make_device(cfg);
+	}
+#endif
 }
 
 void PTZSettings::on_removePTZ_clicked()

@@ -44,7 +44,7 @@ include(external/FindLibObs.cmake)
 endif()
 
 find_package(LibObs REQUIRED)
-find_package(Qt5 REQUIRED COMPONENTS Core Widgets Svg SerialPort Network)
+find_package(Qt5 REQUIRED COMPONENTS Core Widgets Svg SerialPort Network Xml)
 if(NOT WIN32)
 	find_package(Qt5Gamepad)
 	if(DEFINED Qt5Gamepad_LIBRARIES AND NOT WIN32)
@@ -79,6 +79,7 @@ set(PLUGIN_SOURCES
 	ptz-controls.cpp
 	ptz-device.cpp
 	settings.cpp
+	ptz-onvif.cpp
 	ptz-pelco.cpp
 	ptz-visca.cpp
 	ptz-visca-uart.cpp
@@ -101,6 +102,7 @@ set(PLUGIN_HEADERS
 	ptz-controls.hpp
 	ptz-device.hpp
 	settings.hpp
+	ptz-onvif.hpp
 	ptz-pelco.hpp
 	ptz-visca.hpp
 	ptz-visca-uart.hpp
@@ -132,6 +134,7 @@ include_directories(
 	${Qt5Core_INCLUDES}
 	${Qt5Widgets_INCLUDES}
 	${Qt5Network_INCLUDES}
+	${Qt5Xml_INCLUDES}
 )
 
 target_link_libraries(${CMAKE_PROJECT_NAME}
@@ -140,6 +143,7 @@ target_link_libraries(${CMAKE_PROJECT_NAME}
 	Qt5::Widgets
 	Qt5::SerialPort
 	Qt5::Network
+	Qt5::Xml
 	${Qt5Gamepad_LIBRARIES}
 )
 
