@@ -50,7 +50,7 @@ void PTZOnvif::pantilt(double pan, double tilt)
         c.Stop(m_PTZAddress, username, password, m_selectedMedia.token);
     }
     else {
-        c.ContinuousMove(m_PTZAddress, username, password, m_selectedMedia.token, -pan, tilt, motionless);
+        c.ContinuousMove(m_PTZAddress, username, password, m_selectedMedia.token, pan, tilt, motionless);
     }
 }
 
