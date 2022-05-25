@@ -85,8 +85,8 @@ private:
 public:
     OnvifPTZService();
     bool ContinuousMove(QString host, QString username, QString password, QString profile, double x, double y, double z);
-    bool AbsoluteMove(QString host, QString username, QString password, QString profile, double x, double y, double z);
-    bool RelativeMove(QString host, QString username, QString password, QString profile, double x, double y, double z);
+    bool AbsoluteMove(QString host, QString username, QString password, QString profile, int x, int y, int z);
+    bool RelativeMove(QString host, QString username, QString password, QString profile, int x, int y, int z);
     bool Stop(QString host, QString username, QString password, QString profile);
     bool GoToHomePosition(QString host, QString username, QString password, QString profile);
 };

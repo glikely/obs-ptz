@@ -250,7 +250,7 @@ bool OnvifPTZService::ContinuousMove(QString host, QString username, QString pas
 }
 
 
-bool OnvifPTZService::AbsoluteMove(QString host, QString username, QString password, QString profile, double x, double y, double z)
+bool OnvifPTZService::AbsoluteMove(QString host, QString username, QString password, QString profile, int x, int y, int z)
 {
     SoapRequest *soapRequest = new SoapRequest();
     soapRequest->host = host;
@@ -279,7 +279,7 @@ bool OnvifPTZService::AbsoluteMove(QString host, QString username, QString passw
     return result;
 }
 
-bool OnvifPTZService::RelativeMove(QString host, QString username, QString password, QString profile, double x, double y, double z)
+bool OnvifPTZService::RelativeMove(QString host, QString username, QString password, QString profile, int x, int y, int z)
 {
     SoapRequest *soapRequest = new SoapRequest();
     soapRequest->host = host;
