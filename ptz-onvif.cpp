@@ -35,11 +35,6 @@ void PTZOnvif::connectCamera()
     qInfo() << "[PTZOnvif] Connection success ";
 }
 
-void PTZOnvif::settingsChanged()
-{
-    printf("settingsChanged\n");
-}
-
 void PTZOnvif::pantilt(double pan, double tilt)
 {
     float motionless = 0.0;
