@@ -53,6 +53,9 @@ public:
 	void pantilt_home();
 	void zoom(double speed);
 	void zoom_abs(int pos);
+	void memory_reset(int i);
+	void memory_set(int i);
+	void memory_recall(int i);
 
 };
 
@@ -87,6 +90,10 @@ public:
     bool RelativeMove(QString host, QString username, QString password, QString profile, int x, int y, int z);
     bool Stop(QString host, QString username, QString password, QString profile);
     bool GoToHomePosition(QString host, QString username, QString password, QString profile);
+    bool SetPreset(QString host, QString username, QString password, QString profile, int p);
+    bool GotoPreset(QString host, QString username, QString password, QString profile, int p);
+    bool RemovePreset(QString host, QString username, QString password, QString profile, int p);
+    bool GetPresets(QString host, QString username, QString password, QString profile);
 };
 
 class DeviceCapabilities {
