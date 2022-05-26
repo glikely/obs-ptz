@@ -95,19 +95,41 @@ void PTZOnvif::zoom_abs(int pos)
 void PTZOnvif::memory_reset(int i)
 {
 	OnvifPTZService c;
-    c.RemovePreset(m_PTZAddress, username, password, m_selectedMedia.token, i);
+
+    QMap<int, QString> presets = c.GetPresets(m_PTZAddress, username, password, m_selectedMedia.token);
+
+    if (presets.find(i) != presets.end())
+    {
+        c.RemovePreset(m_PTZAddress, username, password, m_selectedMedia.token, presets[i]);
+    }
 }
 
 void PTZOnvif::memory_set(int i)
 {
     OnvifPTZService c;
-    c.SetPreset(m_PTZAddress, username, password, m_selectedMedia.token, i);
+
+    QMap<int, QString> presets = c.GetPresets(m_PTZAddress, username, password, m_selectedMedia.token);
+    QString preset = "";
+
+    if (presets.find(i) != presets.end())
+    {
+        preset = presets[i];
+    }
+
+    c.SetPreset(m_PTZAddress, username, password, m_selectedMedia.token, preset, i);
 }
 
 void PTZOnvif::memory_recall(int i)
 {
     OnvifPTZService c;
-    c.GotoPreset(m_PTZAddress, username, password, m_selectedMedia.token, i);
+
+    QMap<int, QString> presets = c.GetPresets(m_PTZAddress, username, password, m_selectedMedia.token);
+
+    if (presets.find(i) != presets.end())
+    {
+        c.GotoPreset(m_PTZAddress, username, password, m_selectedMedia.token, presets[i]);
+    }
+
 }
 
 SoapRequest::SoapRequest() : QObject (nullptr)
@@ -130,7 +152,7 @@ bool SoapRequest::sendRequest(QString &result)
     QString headerData = "Basic " + data;
     request.setRawHeader("Authorization", headerData.toLocal8Bit());
 
-    // qInfo() << "[PTZOnvif] Request onvif " << this->createRequest();
+    qInfo() << "[PTZOnvif] Request onvif " << this->createRequest();
 
     //for digest authenticaton request
     QObject::connect(this->networkManager, SIGNAL(authenticationRequired(QNetworkReply*,QAuthenticator*)), this, SLOT(authRequired(QNetworkReply *, QAuthenticator *)));
@@ -150,7 +172,10 @@ bool SoapRequest::sendRequest(QString &result)
         timerTimeout.stop();
         if(reply->error() > 0)
         {
-            qInfo() << "[PTZOnvif] Request error " << reply->error();
+            qInfo() << "[PTZOnvif] Request error " << reply->error() <<
+                        ", Message: " << reply->errorString() <<
+                        ", Code: " << reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt() <<
+                        ", Description: " << body;
         }
         else
         {
@@ -257,7 +282,7 @@ bool OnvifPTZService::ContinuousMove(QString host, QString username, QString pas
     soapRequest->body = body;
     QString response;
     bool result = soapRequest->sendRequest(response);
-    // qInfo() << "[OnvifPTZService] ContinuousMove Response " << response;
+    qInfo() << "[OnvifPTZService] ContinuousMove Response " << response;
     delete soapRequest;
     return result;
 }
@@ -269,7 +294,7 @@ bool OnvifPTZService::AbsoluteMove(QString host, QString username, QString passw
     soapRequest->host = host;
     soapRequest->username = username;
     soapRequest->password = password;
-    soapRequest->action = "http://www.onvif.org/ver20/ptz/wsdl/ContinuousMove";
+    soapRequest->action = "http://www.onvif.org/ver20/ptz/wsdl/AbsoluteMove";
     soapRequest->XMLNs = this->ptzNameSpace;
     QString body("<AbsoluteMove xmlns=\"http://www.onvif.org/ver20/ptz/wsdl\">");
     body.push_back("<ProfileToken>");
@@ -287,7 +312,7 @@ bool OnvifPTZService::AbsoluteMove(QString host, QString username, QString passw
     soapRequest->body = body;
     QString response;
     bool result = soapRequest->sendRequest(response);
-    // qInfo() << "[OnvifPTZService] AbsoluteMove Response " << response;
+    qInfo() << "[OnvifPTZService] AbsoluteMove Response " << response;
     delete soapRequest;
     return result;
 }
@@ -298,7 +323,7 @@ bool OnvifPTZService::RelativeMove(QString host, QString username, QString passw
     soapRequest->host = host;
     soapRequest->username = username;
     soapRequest->password = password;
-    soapRequest->action = "http://www.onvif.org/ver20/ptz/wsdl/ContinuousMove";
+    soapRequest->action = "http://www.onvif.org/ver20/ptz/wsdl/RelativeMove";
     soapRequest->XMLNs = this->ptzNameSpace;
     QString body("<RelativeMove xmlns=\"http://www.onvif.org/ver20/ptz/wsdl\">");
     body.push_back("<ProfileToken>");
@@ -316,7 +341,7 @@ bool OnvifPTZService::RelativeMove(QString host, QString username, QString passw
     soapRequest->body = body;
     QString response;
     bool result = soapRequest->sendRequest(response);
-    // qInfo() << "[OnvifPTZService] RelativeMove Response " << response;
+    qInfo() << "[OnvifPTZService] RelativeMove Response " << response;
     delete soapRequest;
     return result;
 }
@@ -338,7 +363,7 @@ bool OnvifPTZService::Stop(QString host, QString username, QString password, QSt
     soapRequest->body = body;
     QString response;
     bool result = soapRequest->sendRequest(response);
-    // qInfo() << "[OnvifPTZService] Stop Response " << response;
+    qInfo() << "[OnvifPTZService] Stop Response " << response;
     delete soapRequest;
     return result;
 }
@@ -359,29 +384,31 @@ bool OnvifPTZService::GoToHomePosition(QString host, QString username, QString p
     soapRequest->body = body;
     QString response;
     bool result = soapRequest->sendRequest(response);
-    // qInfo() << "[OnvifPTZService] GoToHomePosition Response " << response;
+    qInfo() << "[OnvifPTZService] GoToHomePosition Response " << response;
     delete soapRequest;
     return result;
 }
 
-bool OnvifPTZService::SetPreset(QString host, QString username, QString password, QString profile, int p)
+bool OnvifPTZService::SetPreset(QString host, QString username, QString password, QString profile, QString preset, int p)
 {
     SoapRequest *soapRequest = new SoapRequest();
     soapRequest->host = host;
     soapRequest->username = username;
     soapRequest->password = password;
-    soapRequest->action = "http://www.onvif.org/ver20/ptz/wsdl/GotoHomePosition";
+    soapRequest->action = "http://www.onvif.org/ver20/ptz/wsdl/SetPreset";
     soapRequest->XMLNs = this->ptzNameSpace;
     QString body("<SetPreset xmlns=\"http://www.onvif.org/ver20/ptz/wsdl\">");
     body.push_back("<ProfileToken>");
     body.push_back(profile);
     body.push_back("</ProfileToken>");
     body.push_back("<PresetName>");
-    body.push_back(QString::number(p));
-    body.push_back("</PresetName>");
-    body.push_back("<PresetToken>");
     body.push_back("PRESET_" + QString::number(p));
-    body.push_back("</PresetToken>");
+    body.push_back("</PresetName>");
+    if (preset != "") {
+        body.push_back("<PresetToken>");
+        body.push_back(preset);
+        body.push_back("</PresetToken>");
+    }
     body.push_back("</SetPreset>");
     soapRequest->body = body;
     QString response;
@@ -391,20 +418,20 @@ bool OnvifPTZService::SetPreset(QString host, QString username, QString password
     return result;
 }
 
-bool OnvifPTZService::RemovePreset(QString host, QString username, QString password, QString profile, int p)
+bool OnvifPTZService::RemovePreset(QString host, QString username, QString password, QString profile, QString preset)
 {
     SoapRequest *soapRequest = new SoapRequest();
     soapRequest->host = host;
     soapRequest->username = username;
     soapRequest->password = password;
-    soapRequest->action = "http://www.onvif.org/ver20/ptz/wsdl/GotoHomePosition";
+    soapRequest->action = "http://www.onvif.org/ver20/ptz/wsdl/RemovePreset";
     soapRequest->XMLNs = this->ptzNameSpace;
     QString body("<RemovePreset xmlns=\"http://www.onvif.org/ver20/ptz/wsdl\">");
     body.push_back("<ProfileToken>");
     body.push_back(profile);
     body.push_back("</ProfileToken>");
     body.push_back("<PresetToken>");
-    body.push_back("PRESET_" + QString::number(p));
+    body.push_back(preset);
     body.push_back("</PresetToken>");
     body.push_back("</RemovePreset>");
     soapRequest->body = body;
@@ -415,20 +442,20 @@ bool OnvifPTZService::RemovePreset(QString host, QString username, QString passw
     return result;
 }
 
-bool OnvifPTZService::GotoPreset(QString host, QString username, QString password, QString profile, int p)
+bool OnvifPTZService::GotoPreset(QString host, QString username, QString password, QString profile, QString preset)
 {
     SoapRequest *soapRequest = new SoapRequest();
     soapRequest->host = host;
     soapRequest->username = username;
     soapRequest->password = password;
-    soapRequest->action = "http://www.onvif.org/ver20/ptz/wsdl/GotoHomePosition";
+    soapRequest->action = "http://www.onvif.org/ver20/ptz/wsdl/GotoPreset";
     soapRequest->XMLNs = this->ptzNameSpace;
     QString body("<GotoPreset xmlns=\"http://www.onvif.org/ver20/ptz/wsdl\">");
     body.push_back("<ProfileToken>");
     body.push_back(profile);
     body.push_back("</ProfileToken>");
     body.push_back("<PresetToken>");
-    body.push_back("PRESET_" + QString::number(p));
+    body.push_back(preset);
     body.push_back("</PresetToken>");
     body.push_back("</GotoPreset>");
     soapRequest->body = body;
@@ -439,7 +466,7 @@ bool OnvifPTZService::GotoPreset(QString host, QString username, QString passwor
     return result;
 }
 
-bool OnvifPTZService::GetPresets(QString host, QString username, QString password, QString profile)
+QMap<int, QString> OnvifPTZService::GetPresets(QString host, QString username, QString password, QString profile)
 {
     SoapRequest *soapRequest = new SoapRequest();
     soapRequest->host = host;
@@ -455,10 +482,41 @@ bool OnvifPTZService::GetPresets(QString host, QString username, QString passwor
     soapRequest->body = body;
     QString response;
     bool result = soapRequest->sendRequest(response);
+
+    QDomDocument doc;
+    doc.setContent(response);
+    QDomNodeList nodes = doc.elementsByTagName("tptz:Preset");
+
+    QMap<int, QString> final_list;
+
+    for (int i = 0; i < nodes.length(); i++)
+    {
+        QString preset_token;
+        int preset_number;
+
+        for (int a = 0; a < nodes.at(i).attributes().length(); a++)
+        {
+            if (nodes.at(i).attributes().item(a).nodeName() == "token") {
+                preset_token = nodes.at(i).attributes().item(a).nodeValue();
+            }
+        }
+
+        for (int c = 0; c < nodes.at(i).childNodes().length(); c++)
+        {
+            if (nodes.at(i).childNodes().at(c).nodeName() == "tt:Name") {
+                preset_number = nodes.at(i).childNodes().at(c).toElement().text().split("_").takeLast().toInt();
+                // qInfo() << "[OnvifPTZService] GetPresets Response " << preset_number;
+            }
+        }
+
+        if (preset_token != "" && preset_number > -1) {
+            final_list.insert(preset_number, preset_token);
+        }
+    }
+
     qInfo() << "[OnvifPTZService] GetPresets Response " << response;
-    // qInfo() << "[OnvifPTZService] GetPresets Response " << presets;
     delete soapRequest;
-    return result;
+    return final_list;
 }
 
 OnvifDeviceService::OnvifDeviceService()
