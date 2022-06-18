@@ -148,7 +148,7 @@ jobs:
       build_config: RelWithDebInfo
     steps:
       - name: 'Add msbuild to PATH'
-        uses: microsoft/setup-msbuild@v1.0.2
+        uses: microsoft/setup-msbuild@v1.1
       - name: 'Checkout OBS PTZ'
         uses: actions/checkout@v2.3.3
         with:
