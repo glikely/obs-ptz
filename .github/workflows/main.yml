@@ -16,7 +16,7 @@ on:
       - main
 
 env:
-  PLUGIN_NAME: 'obs-plugintemplate'
+  PLUGIN_NAME: 'obs-ptz'
 
 jobs:
   clang_check:
