@@ -1,7 +1,6 @@
-cmake_minimum_required(VERSION 3.10)
+cmake_minimum_required(VERSION 3.16...3.21)
 
-# Change obs-plugintemplate to your plugin's name in a machine-readable format
-# (e.g.: obs-myawesomeplugin) and set 
+# Generate a version number from the git tag
 if(EXISTS "${CMAKE_SOURCE_DIR}/.git")
 	execute_process(COMMAND git describe --always --tags --dirty=-modified
 		OUTPUT_VARIABLE PLUGIN_VERSION
@@ -13,68 +12,32 @@ endif()
 if (PLUGIN_VERSION MATCHES "^v([.0-9]*)")
 	set(PLUGIN_SIMPLE_VERSION "${CMAKE_MATCH_1}")
 endif()
-project(obs-ptz VERSION ${PLUGIN_SIMPLE_VERSION})
 
-set(PLUGIN_FULL_NAME "PTZ controller OBS Plugin")
+# Change obs-plugintemplate to your plugin's name in a machine-readable format
+# (e.g.: obs-myawesomeplugin) and set
+project(obs-ptz VERSION ${PLUGIN_SIMPLE_VERSION})
+add_library(${CMAKE_PROJECT_NAME} MODULE)
 
 # Replace `Your Name Here` with the name (yours or your organization's) you want
-# to see as the author of the plugin (in the plugin's metadata itself and in the installers)
+# to see as the author of the plugin (in the plugin's metadata itself and in the
+# installers)
 set(PLUGIN_AUTHOR "Grant Likely")
 
-# Replace `com.example.obs-plugin-template` with a unique Bundle ID for macOS releases
-# (used both in the installer and when submitting the installer for notarization)
-set(MACOS_BUNDLEID "ca.secretlab.obs-ptz")
+# Replace `com.example.obs-plugin-template` with a unique Bundle ID for macOS
+# releases (used both in the installer and when submitting the installer for
+# notarization)
+set(MACOS_BUNDLEID "ca.secretlab.${CMAKE_PROJECT_NAME}")
 
-# Replace `me@contoso.com` with the maintainer email address you want to put in Linux packages
+# Replace `me@contoso.com` with the maintainer email address you want to put in
+# Linux packages
 set(LINUX_MAINTAINER_EMAIL "grant.likely@secretlab.ca")
 
-# TAKE NOTE: No need to edit things past this point
-
-set(CMAKE_PREFIX_PATH "${QTDIR}")
-set(CMAKE_INCLUDE_CURRENT_DIR ON)
-set(CMAKE_AUTOMOC ON)
-set(CMAKE_AUTOUIC ON)
-
-# In case you need C++
-set(CMAKE_CXX_STANDARD 14)
-set(CMAKE_CXX_STANDARD_REQUIRED ON)
-
-if (WIN32 OR APPLE)
-include(external/FindLibObs.cmake)
-endif()
-
-find_package(LibObs REQUIRED)
-find_package(Qt5 REQUIRED COMPONENTS Core Widgets Svg SerialPort Network Xml)
-if(NOT WIN32)
-	find_package(Qt5Gamepad)
-	if(DEFINED Qt5Gamepad_LIBRARIES AND NOT WIN32)
-		set(QT_USE_GAMEPAD "#define CONFIG_USE_GAMEPAD 1")
-	endif()
-endif()
-
-configure_file(
-	src/config.h.in
-	src/config.generated.h
-)
-configure_file(
-    installer/installer-macOS.pkgproj.in
-    ../installer/installer-macOS.generated.pkgproj
-)
-configure_file(
-    installer/installer-Windows.iss.in
-    ../installer/installer-Windows.generated.iss
-)
-
-configure_file(
-    ci/ci_includes.sh.in
-    ../ci/ci_includes.generated.sh
-)
-configure_file(
-    ci/ci_includes.cmd.in
-    ../ci/ci_includes.generated.cmd
-)
-
-set(PLUGIN_SOURCES
+# Add your custom source files here - header files are optional and only
+# required for visibility e.g. in Xcode or Visual Studio
+target_sources(${CMAKE_PROJECT_NAME} PRIVATE
+	src/ptz-controls.ui
+	src/settings.ui
+	src/ptz-controls.qrc
 	src/ptz.c
 	src/ptz-controls.cpp
 	src/ptz-device.cpp
@@ -94,10 +57,6 @@ set(PLUGIN_SOURCES
 	src/imported/slider-ignorewheel.cpp
 	src/imported/combobox-ignorewheel.cpp
 	src/imported/spinbox-ignorewheel.cpp
-)
-
-set(PLUGIN_HEADERS
-	src/config.generated.h
 	src/ptz.h
 	src/ptz-controls.hpp
 	src/ptz-device.hpp
@@ -119,162 +78,80 @@ set(PLUGIN_HEADERS
 	src/imported/spinbox-ignorewheel.hpp
 )
 
-set(PLUGIN_QRC src/ptz-controls.qrc)
+# /!\ TAKE NOTE: No need to edit things past this point /!\
 
-qt5_wrap_ui(PLUGIN_UI_HEADERS src/ptz-controls.ui src/settings.ui)
-qt5_add_resources(PLUGIN_QRC_SOURCES ${PLUGIN_QRC})
+find_package(libobs REQUIRED)
+find_package(obs-frontend-api REQUIRED)
+include(cmake/ObsPluginHelpers.cmake)
+find_qt(VERSION ${QT_VERSION} COMPONENTS Widgets Core Svg SerialPort Network Xml)
+
+configure_file(src/plugin-macros.h.in
+               ${CMAKE_SOURCE_DIR}/src/plugin-macros.generated.h)
+
+target_sources(${CMAKE_PROJECT_NAME} PRIVATE src/plugin-macros.generated.h)
+
+configure_file(
+    ci/ci_includes.sh.in
+    ../ci/ci_includes.generated.sh
+)
+configure_file(
+    ci/ci_includes.cmd.in
+    ../ci/ci_includes.generated.cmd
+)
 
 # --- Platform-independent build settings ---
-add_library(${CMAKE_PROJECT_NAME} MODULE ${PLUGIN_SOURCES} ${PLUGIN_HEADERS}
-	${PLUGIN_UI_HEADERS}
-	${PLUGIN_QRC_SOURCES})
 
-include_directories(
-	${CMAKE_SOURCE_DIR}/src
-	${CMAKE_BINARY_DIR}/src
-	"${LIBOBS_INCLUDE_DIR}/../UI/obs-frontend-api"
-	${Qt5Core_INCLUDES}
-	${Qt5Widgets_INCLUDES}
-	${Qt5Network_INCLUDES}
-	${Qt5Xml_INCLUDES}
-)
+target_include_directories(${CMAKE_PROJECT_NAME}
+                           PRIVATE ${CMAKE_SOURCE_DIR}/src)
 
-target_link_libraries(${CMAKE_PROJECT_NAME}
-	libobs
-	Qt5::Core
-	Qt5::Widgets
-	Qt5::SerialPort
-	Qt5::Network
-	Qt5::Xml
-	${Qt5Gamepad_LIBRARIES}
-)
+target_link_libraries(
+  ${CMAKE_PROJECT_NAME} PRIVATE OBS::libobs OBS::obs-frontend-api Qt::Core
+                                Qt::Widgets Qt::SerialPort Qt::Network
+                                Qt::Xml)
+
+set_target_properties(
+  ${CMAKE_PROJECT_NAME}
+  PROPERTIES AUTOMOC ON
+             AUTOUIC ON
+             AUTORCC ON)
+
+target_compile_features(${CMAKE_PROJECT_NAME} PRIVATE cxx_std_17)
 
 # --- End of section ---
 
 # --- Windows-specific build settings and tasks ---
-if(WIN32)
-	if(NOT DEFINED OBS_FRONTEND_LIB)
-		set(OBS_FRONTEND_LIB "OBS_FRONTEND_LIB-NOTFOUND" CACHE FILEPATH "OBS frontend library")
-		message(FATAL_ERROR "Could not find OBS Frontend API\'s library !")
-	endif()
+if(OS_WINDOWS)
+  configure_file(cmake/bundle/windows/installer-Windows.iss.in
+                 ${CMAKE_BINARY_DIR}/installer-Windows.generated.iss)
 
-    # Enable Multicore Builds and disable FH4 (to not depend on VCRUNTIME140_1.DLL when building with VS2019)
-    if (MSVC)
-        add_definitions(/MP /d2FH4-)
-    endif()
+  if(MSVC)
+    target_compile_options(${CMAKE_PROJECT_NAME} PRIVATE /MP /d2FH4-)
+  endif()
+  # --- End of section ---
 
-	if(CMAKE_SIZEOF_VOID_P EQUAL 8)
-		set(ARCH_NAME "64bit")
-		set(OBS_BUILDDIR_ARCH "build64")
-	else()
-		set(ARCH_NAME "32bit")
-		set(OBS_BUILDDIR_ARCH "build32")
-	endif()
+  # -- macOS specific build settings and tasks --
+elseif(OS_MACOS)
+  configure_file(cmake/bundle/macos/installer-macOS.pkgproj.in
+                 ${CMAKE_BINARY_DIR}/installer-macOS.generated.pkgproj)
 
-	include_directories(
-		"${LIBOBS_INCLUDE_DIR}/../${OBS_BUILDDIR_ARCH}/UI"
-	)
+  set(MACOSX_PLUGIN_GUI_IDENTIFIER "${MACOS_BUNDLEID}")
+  set(MACOSX_PLUGIN_BUNDLE_VERSION "${CMAKE_PROJECT_VERSION}")
+  set(MACOSX_PLUGIN_SHORT_VERSION_STRING "1")
 
-	target_link_libraries(${CMAKE_PROJECT_NAME}
-		"${OBS_FRONTEND_LIB}"
-    )
+  target_compile_options(
+    ${CMAKE_PROJECT_NAME}
+    PRIVATE -Wall -Wextra -Werror-implicit-function-declaration -stdlib=libc++
+            -fvisibility=default)
 
-	# --- Release package helper ---
-	# The "release" folder has a structure similar OBS' one on Windows
-	set(RELEASE_DIR "${PROJECT_SOURCE_DIR}/release")
+  set_target_properties(${CMAKE_PROJECT_NAME} PROPERTIES PREFIX "")
+  # --- End of section ---
 
-    add_custom_command(TARGET ${CMAKE_PROJECT_NAME} POST_BUILD
-        # If config is Release or RelWithDebInfo, package release files
-        COMMAND if $<OR:$<CONFIG:Release>,$<CONFIG:RelWithDebInfo>>==1 (
-            "${CMAKE_COMMAND}" -E make_directory
-                "${RELEASE_DIR}/data/obs-plugins/${CMAKE_PROJECT_NAME}"
-                "${RELEASE_DIR}/obs-plugins/${ARCH_NAME}"
-        )
+  # --- Linux-specific build settings and tasks ---
+else()
+  target_compile_options(${CMAKE_PROJECT_NAME} PRIVATE -Wall -Wextra)
 
-        COMMAND if $<OR:$<CONFIG:Release>,$<CONFIG:RelWithDebInfo>>==1 (
-            "${CMAKE_COMMAND}" -E copy_directory
-                "${PROJECT_SOURCE_DIR}/data"
-                "${RELEASE_DIR}/data/obs-plugins/${CMAKE_PROJECT_NAME}"
-        )
-
-        COMMAND if $<OR:$<CONFIG:Release>,$<CONFIG:RelWithDebInfo>>==1 (
-            "${CMAKE_COMMAND}" -E copy
-                "$<TARGET_FILE:${CMAKE_PROJECT_NAME}>"
-                "${RELEASE_DIR}/obs-plugins/${ARCH_NAME}"
-        )
-
-        COMMAND if $<OR:$<CONFIG:Release>,$<CONFIG:RelWithDebInfo>>==1 (
-            "${CMAKE_COMMAND}" -E copy
-	        "$<SHELL_PATH:${QTDIR}/bin/Qt5Gamepad.dll>"
-	        "$<SHELL_PATH:${QTDIR}/bin/Qt5SerialPort.dll>"
-                "${RELEASE_DIR}/obs-plugins/${ARCH_NAME}"
-        )
-
-        # If config is RelWithDebInfo, copy the pdb file
-        COMMAND if $<CONFIG:RelWithDebInfo>==1 (
-            "${CMAKE_COMMAND}" -E copy
-                "$<TARGET_PDB_FILE:${CMAKE_PROJECT_NAME}>"
-                "${RELEASE_DIR}/obs-plugins/${ARCH_NAME}"
-        )
-
-        # Copy to obs-studio dev environment for immediate testing
-        COMMAND if $<CONFIG:Debug>==1 (
-            "${CMAKE_COMMAND}" -E copy
-                "$<TARGET_FILE:${CMAKE_PROJECT_NAME}>"
-                "${LIBOBS_INCLUDE_DIR}/../${OBS_BUILDDIR_ARCH}/rundir/$<CONFIG>/obs-plugins/${ARCH_NAME}"
-        )
-
-        COMMAND if $<CONFIG:Debug>==1 (
-            "${CMAKE_COMMAND}" -E copy
-                "$<TARGET_PDB_FILE:${CMAKE_PROJECT_NAME}>"
-                "${LIBOBS_INCLUDE_DIR}/../${OBS_BUILDDIR_ARCH}/rundir/$<CONFIG>/obs-plugins/${ARCH_NAME}"
-        )
-
-        COMMAND if $<CONFIG:Debug>==1 (
-            "${CMAKE_COMMAND}" -E copy
-	        "$<SHELL_PATH:${QTDIR}/bin/Qt5Gamepadd.dll>"
-	        "$<SHELL_PATH:${QTDIR}/bin/Qt5SerialPortd.dll>"
-                "${LIBOBS_INCLUDE_DIR}/../${OBS_BUILDDIR_ARCH}/rundir/$<CONFIG>/obs-plugins/${ARCH_NAME}"
-        )
-
-        COMMAND if $<CONFIG:Debug>==1 (
-            "${CMAKE_COMMAND}" -E make_directory
-                "${LIBOBS_INCLUDE_DIR}/../${OBS_BUILDDIR_ARCH}/rundir/$<CONFIG>/data/obs-plugins/${CMAKE_PROJECT_NAME}"
-        )
-
-        COMMAND if $<CONFIG:Debug>==1 (
-            "${CMAKE_COMMAND}" -E copy_directory
-                "${PROJECT_SOURCE_DIR}/data"
-                "${LIBOBS_INCLUDE_DIR}/../${OBS_BUILDDIR_ARCH}/rundir/$<CONFIG>/data/obs-plugins/${CMAKE_PROJECT_NAME}"
-        )
-    )
-	# --- End of sub-section ---
-
+  set_target_properties(${CMAKE_PROJECT_NAME} PROPERTIES PREFIX "")
 endif()
 # --- End of section ---
 
-# --- Linux-specific build settings and tasks ---
-if(UNIX AND NOT APPLE)
-    include(GNUInstallDirs)
-
-	set_target_properties(${CMAKE_PROJECT_NAME} PROPERTIES PREFIX "")
-	target_link_libraries(${CMAKE_PROJECT_NAME} obs-frontend-api)
-
-	file(GLOB locale_files data/locale/*.ini)
-
-	install(TARGETS ${CMAKE_PROJECT_NAME}
-		LIBRARY DESTINATION "${CMAKE_INSTALL_FULL_LIBDIR}/obs-plugins")
-
-	install(FILES ${locale_files}
-		DESTINATION "${CMAKE_INSTALL_FULL_DATAROOTDIR}/obs/obs-plugins/${CMAKE_PROJECT_NAME}/locale")
-endif()
-# --- End of section ---
-
-# -- OS X specific build settings and tasks --
-if(APPLE)
-	set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -stdlib=libc++ -fvisibility=default")
-
-	set_target_properties(${CMAKE_PROJECT_NAME} PROPERTIES PREFIX "")
-	target_link_libraries(${CMAKE_PROJECT_NAME} "${OBS_FRONTEND_LIB}")
-endif()
-# -- End of section --
+setup_plugin_target(${CMAKE_PROJECT_NAME})

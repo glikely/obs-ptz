@@ -118,8 +118,9 @@ $ brew install packages
 
 ```
 git clone https://github.com/glikely/obs-ptz
-CI/macos/build-macos.sh
-CI/macos/package-macos.sh
+cd obs-ptz
+.github/scripts/build-macos.sh
+.github/scripts/package-macos.sh
 ```
 
 # Contributing

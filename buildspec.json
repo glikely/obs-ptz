@@ -51,6 +51,6 @@
             }
         }
     },
-    "name": "obs-plugintemplate",
-    "version": "1.0.0"
+    "name": "obs-ptz",
+    "version": "0.11.0"
 }
