@@ -53,8 +53,8 @@ if(NOT WIN32)
 endif()
 
 configure_file(
-	config.h.in
-	config.generated.h
+	src/config.h.in
+	src/config.generated.h
 )
 configure_file(
     installer/installer-macOS.pkgproj.in
@@ -75,53 +75,53 @@ configure_file(
 )
 
 set(PLUGIN_SOURCES
-	ptz.c
-	ptz-controls.cpp
-	ptz-device.cpp
-	settings.cpp
-	ptz-onvif.cpp
-	ptz-pelco.cpp
-	ptz-visca.cpp
-	ptz-visca-uart.cpp
-	ptz-visca-udp.cpp
-	ptz-visca-tcp.cpp
-	ptz-action-source.c
-	protocol-helpers.cpp
-	imported/qt-wrappers.cpp
-	imported/properties-view.cpp
-	imported/vertical-scroll-area.cpp
-	imported/double-slider.cpp
-	imported/slider-ignorewheel.cpp
-	imported/combobox-ignorewheel.cpp
-	imported/spinbox-ignorewheel.cpp
+	src/ptz.c
+	src/ptz-controls.cpp
+	src/ptz-device.cpp
+	src/settings.cpp
+	src/ptz-onvif.cpp
+	src/ptz-pelco.cpp
+	src/ptz-visca.cpp
+	src/ptz-visca-uart.cpp
+	src/ptz-visca-udp.cpp
+	src/ptz-visca-tcp.cpp
+	src/ptz-action-source.c
+	src/protocol-helpers.cpp
+	src/imported/qt-wrappers.cpp
+	src/imported/properties-view.cpp
+	src/imported/vertical-scroll-area.cpp
+	src/imported/double-slider.cpp
+	src/imported/slider-ignorewheel.cpp
+	src/imported/combobox-ignorewheel.cpp
+	src/imported/spinbox-ignorewheel.cpp
 )
 
 set(PLUGIN_HEADERS
-	config.generated.h
-	ptz.h
-	ptz-controls.hpp
-	ptz-device.hpp
-	settings.hpp
-	ptz-onvif.hpp
-	ptz-pelco.hpp
-	ptz-visca.hpp
-	ptz-visca-uart.hpp
-	ptz-visca-udp.hpp
-	ptz-visca-tcp.hpp
-	protocol-helpers.hpp
-	imported/qt-wrappers.hpp
-	imported/properties-view.hpp
-	imported/properties-view.moc.hpp
-	imported/vertical-scroll-area.hpp
-	imported/double-slider.hpp
-	imported/slider-ignorewheel.hpp
-	imported/combobox-ignorewheel.hpp
-	imported/spinbox-ignorewheel.hpp
+	src/config.generated.h
+	src/ptz.h
+	src/ptz-controls.hpp
+	src/ptz-device.hpp
+	src/settings.hpp
+	src/ptz-onvif.hpp
+	src/ptz-pelco.hpp
+	src/ptz-visca.hpp
+	src/ptz-visca-uart.hpp
+	src/ptz-visca-udp.hpp
+	src/ptz-visca-tcp.hpp
+	src/protocol-helpers.hpp
+	src/imported/qt-wrappers.hpp
+	src/imported/properties-view.hpp
+	src/imported/properties-view.moc.hpp
+	src/imported/vertical-scroll-area.hpp
+	src/imported/double-slider.hpp
+	src/imported/slider-ignorewheel.hpp
+	src/imported/combobox-ignorewheel.hpp
+	src/imported/spinbox-ignorewheel.hpp
 )
 
-set(PLUGIN_QRC ptz-controls.qrc)
+set(PLUGIN_QRC src/ptz-controls.qrc)
 
-qt5_wrap_ui(PLUGIN_UI_HEADERS ptz-controls.ui settings.ui)
+qt5_wrap_ui(PLUGIN_UI_HEADERS src/ptz-controls.ui src/settings.ui)
 qt5_add_resources(PLUGIN_QRC_SOURCES ${PLUGIN_QRC})
 
 # --- Platform-independent build settings ---
@@ -130,6 +130,8 @@ add_library(${CMAKE_PROJECT_NAME} MODULE ${PLUGIN_SOURCES} ${PLUGIN_HEADERS}
 	${PLUGIN_QRC_SOURCES})
 
 include_directories(
+	${CMAKE_SOURCE_DIR}/src
+	${CMAKE_BINARY_DIR}/src
 	"${LIBOBS_INCLUDE_DIR}/../UI/obs-frontend-api"
 	${Qt5Core_INCLUDES}
 	${Qt5Widgets_INCLUDES}
