@@ -13,7 +13,7 @@ endif()
 if (PLUGIN_VERSION MATCHES "^v([.0-9]*)")
 	set(PLUGIN_SIMPLE_VERSION "${CMAKE_MATCH_1}")
 endif()
-project(ptz-controls VERSION ${PLUGIN_SIMPLE_VERSION})
+project(obs-ptz VERSION ${PLUGIN_SIMPLE_VERSION})
 
 set(PLUGIN_FULL_NAME "PTZ controller OBS Plugin")
 
@@ -23,7 +23,7 @@ set(PLUGIN_AUTHOR "Grant Likely")
 
 # Replace `com.example.obs-plugin-template` with a unique Bundle ID for macOS releases
 # (used both in the installer and when submitting the installer for notarization)
-set(MACOS_BUNDLEID "ca.secretlab.ca.ptz-controls")
+set(MACOS_BUNDLEID "ca.secretlab.obs-ptz")
 
 # Replace `me@contoso.com` with the maintainer email address you want to put in Linux packages
 set(LINUX_MAINTAINER_EMAIL "grant.likely@secretlab.ca")

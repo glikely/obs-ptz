@@ -46,7 +46,7 @@ cmake ..
 make
 ```
 
-Copy or symlink ptz-controls.so into the OBS plugins directory.
+Copy or symlink obs-ptz.so into the OBS plugins directory.
 Typically `/usr/lib/obs-plugins`.
 
 ### Debian 11 Bullseye
