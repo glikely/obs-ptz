@@ -644,13 +644,13 @@ void PTZVisca::pantilt_home()
 
 void PTZVisca::zoom(double speed_)
 {
-	int speed = std::abs(speed_) * 0x7;
-	if (speed > 0x7)
-		speed = 0x7;
+	int speed = std::abs(speed_) * 8;
+	if (speed > 8)
+		speed = 8;
 	if (speed == 0)
 		send(VISCA_CAM_Zoom_Stop);
 	else
-		send(speed_ < 0 ? VISCA_CAM_Zoom_WideVar : VISCA_CAM_Zoom_TeleVar, { speed });
+		send(speed_ < 0 ? VISCA_CAM_Zoom_WideVar : VISCA_CAM_Zoom_TeleVar, { speed-1 });
 }
 
 void PTZVisca::zoom_abs(int pos)
