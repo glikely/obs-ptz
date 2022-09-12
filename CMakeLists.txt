@@ -90,15 +90,6 @@ configure_file(src/plugin-macros.h.in
 
 target_sources(${CMAKE_PROJECT_NAME} PRIVATE src/plugin-macros.generated.h)
 
-configure_file(
-    ci/ci_includes.sh.in
-    ../ci/ci_includes.generated.sh
-)
-configure_file(
-    ci/ci_includes.cmd.in
-    ../ci/ci_includes.generated.cmd
-)
-
 # --- Platform-independent build settings ---
 
 target_include_directories(${CMAKE_PROJECT_NAME}
