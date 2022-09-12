@@ -7,8 +7,8 @@
  * Build configuration macros
  */
 
-#ifndef CONFIG_H
-#define CONFIG_H
+#ifndef PLUGINNAME_H
+#define PLUGINNAME_H
 
 #define PLUGIN_NAME "@CMAKE_PROJECT_NAME@"
 #define PLUGIN_FULL_NAME "@PLUGIN_FULL_NAME@"
@@ -18,4 +18,4 @@
 
 #define blog(level, msg, ...) blog(level, "[" PLUGIN_NAME "] " msg, ##__VA_ARGS__)
 
-#endif // PLUGING_MACROS_H
+#endif // PLUGINNAME_H

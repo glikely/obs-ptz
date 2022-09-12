@@ -11,7 +11,7 @@
 #define PTZ_H
 
 #include <obs-module.h>
-#include "config.generated.h"
+#include "plugin-macros.generated.h"
 
 #define STRINGIFY(x) #x
 #define TOSTRING(x) STRINGIFY(x)

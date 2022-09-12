@@ -53,9 +53,9 @@ if(NOT WIN32)
 endif()
 
 configure_file(
-	src/config.h.in
-	src/config.generated.h
-)
+	src/plugin-macros.h.in
+	${CMAKE_SOURCE_DIR}/src/plugin-macros.generated.h)
+
 configure_file(
     installer/installer-macOS.pkgproj.in
     ../installer/installer-macOS.generated.pkgproj
@@ -97,7 +97,7 @@ set(PLUGIN_SOURCES
 )
 
 set(PLUGIN_HEADERS
-	src/config.generated.h
+	src/plugin-macros.generated.h
 	src/ptz.h
 	src/ptz-controls.hpp
 	src/ptz-device.hpp
