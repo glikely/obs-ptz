@@ -36,7 +36,8 @@ if ! type cmake-format 2> /dev/null ; then
 fi
 
 find . -type d \( \
-    -path ./\*build -o \
+    -path ./\*build\* -o \
+    -path ./release -o \
     -path ./deps/jansson -o \
     -path ./plugins/decklink/\*/decklink-sdk -o \
     -path ./plugins/enc-amf -o \
@@ -44,7 +45,8 @@ find . -type d \( \
     -path ./plugins/obs-outputs/ftl-sdk -o \
     -path ./plugins/obs-vst -o \
     -path ./plugins/obs-browser -o \
-    -path ./plugins/win-dshow/libdshowcapture \
+    -path ./plugins/win-dshow/libdshowcapture -o \
+    -path ./plugins/obs-websocket/deps \
 \) -prune -false -type f -o \
     -name 'CMakeLists.txt' -or \
     -name '*.cmake' \
