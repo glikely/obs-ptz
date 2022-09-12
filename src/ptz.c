@@ -18,7 +18,8 @@ OBS_MODULE_USE_DEFAULT_LOCALE(PLUGIN_NAME, "en-US");
 
 bool obs_module_load()
 {
-	blog(LOG_INFO, PLUGIN_FULL_NAME TOSTRING(PLUGIN_VERSION));
+	blog(LOG_INFO, "plugin loaded successfully (version %s)",
+	     PLUGIN_VERSION);
 	ptz_load_devices();
 	ptz_load_action_source();
 	ptz_load_controls();
@@ -29,6 +30,7 @@ bool obs_module_load()
 void obs_module_unload()
 {
 	ptz_unload_devices();
+	blog(LOG_INFO, "plugin unloaded");
 }
 
 MODULE_EXPORT const char *obs_module_description(void)
