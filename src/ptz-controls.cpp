@@ -93,9 +93,9 @@ void PTZControls::OBSFrontendEvent(enum obs_frontend_event event)
 	struct active_src_cb_data {
 		PTZDevice *ptz;
 	};
-	auto active_src_cb = [](obs_source_t *parent, obs_source_t *child, void *data) {
+	auto active_src_cb = [](obs_source_t *parent, obs_source_t *child, void *context_data) {
 		Q_UNUSED(parent);
-		struct active_src_cb_data *context = static_cast<struct active_src_cb_data*>(data);
+		struct active_src_cb_data *context = static_cast<struct active_src_cb_data*>(context_data);
 		if (!context->ptz)
 			context->ptz = ptzDeviceList.getDeviceByName(obs_source_get_name(child));
 	};
@@ -167,25 +167,25 @@ PTZControls::PTZControls(QWidget *parent)
 		return res;
 	};
 	auto registerHotkey = [&](const char *name, const char *description,
-			      obs_hotkey_func func, void *data) -> obs_hotkey_id {
+			      obs_hotkey_func func, void *hotkey_data) -> obs_hotkey_id {
 		obs_hotkey_id id;
 
-		id = obs_hotkey_register_frontend(name, description, func, data);
+		id = obs_hotkey_register_frontend(name, description, func, hotkey_data);
 		obs_data_array_t *array =
 			obs_data_get_array(loadHotkeyData(name), "bindings");
 		obs_hotkey_load(id, array);
 		obs_data_array_release(array);
 		return id;
 	};
-	auto cb = [](void *data, obs_hotkey_id, obs_hotkey_t *, bool pressed) {
-		QPushButton *button = static_cast<QPushButton*>(data);
+	auto cb = [](void *button_data, obs_hotkey_id, obs_hotkey_t *, bool pressed) {
+		QPushButton *button = static_cast<QPushButton*>(button_data);
 		if (pressed)
 			button->pressed();
 		else
 			button->released();
 	};
-	auto autofocustogglecb = [](void *data, obs_hotkey_id, obs_hotkey_t *, bool pressed) {
-		PTZControls *ptzctrl = static_cast<PTZControls*>(data);
+	auto autofocustogglecb = [](void *ptz_data, obs_hotkey_id, obs_hotkey_t *, bool pressed) {
+		PTZControls *ptzctrl = static_cast<PTZControls*>(ptz_data);
 		if (pressed)
 			ptzctrl->on_focusButton_auto_clicked(!ptzctrl->ui->focusButton_auto->isChecked());
 	};
@@ -218,8 +218,8 @@ PTZControls::PTZControls(QWidget *parent)
 	hotkeys << registerHotkey("PTZ.FocusOneTouch", "PTZ One touch focus trigger",
 				cb, ui->focusButton_onetouch);
 
-	auto preset_recall_cb = [](void *data, obs_hotkey_id hotkey, obs_hotkey_t *, bool pressed) {
-		PTZControls *ptzctrl = static_cast<PTZControls*>(data);
+	auto preset_recall_cb = [](void *ptz_data, obs_hotkey_id hotkey, obs_hotkey_t *, bool pressed) {
+		PTZControls *ptzctrl = static_cast<PTZControls*>(ptz_data);
 		blog(LOG_INFO, "Recalling %i", ptzctrl->preset_hotkey_map[hotkey]);
 		if (pressed)
 			ptzctrl->presetRecall(ptzctrl->preset_hotkey_map[hotkey]);
@@ -254,33 +254,33 @@ void PTZControls::SaveConfig()
 	if (!file)
 		return;
 
-	OBSData data = obs_data_create();
-	obs_data_release(data);
+	OBSData savedata = obs_data_create();
+	obs_data_release(savedata);
 
-	obs_data_set_string(data, "splitter_state",
+	obs_data_set_string(savedata, "splitter_state",
 			ui->splitter->saveState().toBase64().constData());
 
-	obs_data_set_bool(data, "live_moves_disabled", live_moves_disabled);
-	obs_data_set_int(data, "debug_log_level", ptz_debug_level);
+	obs_data_set_bool(savedata, "live_moves_disabled", live_moves_disabled);
+	obs_data_set_int(savedata, "debug_log_level", ptz_debug_level);
 	const char *target_mode = "manual";
 	if (ui->targetButton_preview->isChecked())
 		target_mode = "preview";
 	if (ui->targetButton_program->isChecked())
 		target_mode = "program";
-	obs_data_set_string(data, "target_mode", target_mode);
+	obs_data_set_string(savedata, "target_mode", target_mode);
 
 	OBSDataArray camera_array = ptz_devices_get_config();
 	obs_data_array_release(camera_array);
-	obs_data_set_array(data, "devices", camera_array);
+	obs_data_set_array(savedata, "devices", camera_array);
 
 	/* Save data structure to json */
-	if (!obs_data_save_json_safe(data, file, "tmp", "bak")) {
+	if (!obs_data_save_json_safe(savedata, file, "tmp", "bak")) {
 		char *path = obs_module_config_path("");
 		if (path) {
 			os_mkdirs(path);
 			bfree(path);
 		}
-		obs_data_save_json_safe(data, file, "tmp", "bak");
+		obs_data_save_json_safe(savedata, file, "tmp", "bak");
 	}
 	bfree(file);
 }
@@ -294,29 +294,29 @@ void PTZControls::LoadConfig()
 	if (!file)
 		return;
 
-	OBSData data = obs_data_create_from_json_file_safe(file, "bak");
+	OBSData loaddata = obs_data_create_from_json_file_safe(file, "bak");
 	bfree(file);
-	if (!data)
+	if (!loaddata)
 		return;
-	obs_data_release(data);
-	obs_data_set_default_int(data, "debug_log_level", LOG_INFO);
-	obs_data_set_default_bool(data, "live_moves_disabled", false);
-	obs_data_set_default_string(data, "target_mode", "preview");
+	obs_data_release(loaddata);
+	obs_data_set_default_int(loaddata, "debug_log_level", LOG_INFO);
+	obs_data_set_default_bool(loaddata, "live_moves_disabled", false);
+	obs_data_set_default_string(loaddata, "target_mode", "preview");
 
-	ptz_debug_level = obs_data_get_int(data, "debug_log_level");
-	live_moves_disabled = obs_data_get_bool(data, "live_moves_disabled");
-	target_mode = obs_data_get_string(data, "target_mode");
+	ptz_debug_level = obs_data_get_int(loaddata, "debug_log_level");
+	live_moves_disabled = obs_data_get_bool(loaddata, "live_moves_disabled");
+	target_mode = obs_data_get_string(loaddata, "target_mode");
 	ui->targetButton_preview->setChecked(target_mode == "preview");
 	ui->targetButton_program->setChecked(target_mode == "program");
 	ui->targetButton_manual->setChecked(target_mode != "preview" && target_mode != "program");
 
-	const char *splitterStateStr = obs_data_get_string(data, "splitter_state");
+	const char *splitterStateStr = obs_data_get_string(loaddata, "splitter_state");
 	if (splitterStateStr) {
 		QByteArray splitterState = QByteArray::fromBase64(QByteArray(splitterStateStr));
 		ui->splitter->restoreState(splitterState);
 	}
 
-	array = obs_data_get_array(data, "devices");
+	array = obs_data_get_array(loaddata, "devices");
 	obs_data_array_release(array);
 	ptz_devices_set_config(array);
 }
@@ -616,15 +616,15 @@ void PTZControls::on_cameraList_customContextMenuRequested(const QPoint &pos)
 		wbOnetouchAction = context.addAction("Trigger One-Push White Balance");
 	QAction *action = context.exec(globalpos);
 
-	OBSData data = obs_data_create();
-	obs_data_release(data);
+	OBSData setdata = obs_data_create();
+	obs_data_release(setdata);
 
 	if (action == powerAction) {
-		obs_data_set_bool(data, "power_on", !power_on);
-		ptz->set_settings(data);
+		obs_data_set_bool(setdata, "power_on", !power_on);
+		ptz->set_settings(setdata);
 	} else if (wb_onepush && action == wbOnetouchAction) {
-		obs_data_set_bool(data, "wb_onepush_trigger", true);
-		ptz->set_settings(data);
+		obs_data_set_bool(setdata, "wb_onepush_trigger", true);
+		ptz->set_settings(setdata);
 	}
 }
 

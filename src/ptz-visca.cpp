@@ -498,10 +498,10 @@ void PTZVisca::set_settings(OBSData new_settings)
 
 obs_properties_t *PTZVisca::get_obs_properties()
 {
-	auto *props = PTZDevice::get_obs_properties();
+	auto *ptz_props = PTZDevice::get_obs_properties();
 
 	auto *wbGroup = obs_properties_create();
-	obs_properties_add_group(props, "whitebalance", "White Balance", OBS_GROUP_NORMAL, wbGroup);
+	obs_properties_add_group(ptz_props, "whitebalance", "White Balance", OBS_GROUP_NORMAL, wbGroup);
 
 	auto *list = obs_properties_add_list(wbGroup, "wb_mode", "Mode",
 					OBS_COMBO_TYPE_LIST, OBS_COMBO_FORMAT_INT);
@@ -512,15 +512,15 @@ obs_properties_t *PTZVisca::get_obs_properties()
 	obs_property_list_add_int(list, "Auto Tracing", 4);
 	obs_property_list_add_int(list, "Manual", 5);
 
-	auto clicked_cb = [](obs_properties_t *props, obs_property_t *property, void *data) {
-		Q_UNUSED(props);
+	auto clicked_cb = [](obs_properties_t *pps, obs_property_t *property, void *data) {
+		Q_UNUSED(pps);
 		Q_UNUSED(property);
 		PTZVisca *ptz = static_cast<PTZVisca*>(data);
 		ptz->send(VISCA_CAM_WB_OnePushTrigger);
 		return false;
 	};
 	obs_properties_add_button2(wbGroup, "one-push", "One Push Whitebalance", clicked_cb, this);
-	return props;
+	return ptz_props;
 }
 
 void PTZVisca::send(PTZCmd cmd)
@@ -587,10 +587,10 @@ void PTZVisca::receive(const QByteArray &msg)
 		/* Slot 0 responses are inquiries that need to be parsed */
 		if (slot == 0) {
 			timeout_timer.stop();
-			obs_data_t *props = pending_cmds.first().decode(msg);
-			obs_data_apply(settings, props);
-			emit settingsChanged(props);
-			obs_data_release(props);
+			obs_data_t *rslt_props = pending_cmds.first().decode(msg);
+			obs_data_apply(settings, rslt_props);
+			emit settingsChanged(rslt_props);
+			obs_data_release(rslt_props);
 			pending_cmds.removeFirst();
 		}
 

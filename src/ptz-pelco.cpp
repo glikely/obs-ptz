@@ -170,8 +170,8 @@ OBSData PTZPelco::get_config()
 
 obs_properties_t *PTZPelco::get_obs_properties()
 {
-	obs_properties_t *props = PTZDevice::get_obs_properties();
-	obs_property_t *p = obs_properties_get(props, "interface");
+	obs_properties_t *ptz_props = PTZDevice::get_obs_properties();
+	obs_property_t *p = obs_properties_get(ptz_props, "interface");
 	obs_properties_t *config = obs_property_group_content(p);
 	obs_property_set_description(p, "Serial Port");
 
@@ -179,7 +179,7 @@ obs_properties_t *PTZPelco::get_obs_properties()
 	obs_properties_add_int(config, "address", "Device ID", 0, 15, 1);
 	obs_properties_add_bool(config, "use_pelco_d", "Use Pelco-D");
 
-	return props;
+	return ptz_props;
 }
 
 void PTZPelco::pantilt(double pan, double tilt)

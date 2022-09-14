@@ -78,7 +78,8 @@ public:
 				val = val >> 1;
 			}
 		}
-		for (int i = size - 1, wm = mask; i >= 0; i--) {
+		wm = mask;
+		for (int i = size - 1; i >= 0; i--) {
 			msg[offset + i] = 0xff & ((~wm & msg[offset + i]) | encoded);
 			wm >>= 8;
 			encoded >>= 8;

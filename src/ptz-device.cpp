@@ -302,26 +302,26 @@ OBSData PTZDevice::get_settings()
 
 obs_properties_t *PTZDevice::get_obs_properties()
 {
-	obs_properties_t *props = obs_properties_create();
+	obs_properties_t *rtn_props = obs_properties_create();
 	obs_properties_t *config = obs_properties_create();
-	obs_properties_add_group(props, "interface", "Connection", OBS_GROUP_NORMAL, config);
+	obs_properties_add_group(rtn_props, "interface", "Connection", OBS_GROUP_NORMAL, config);
 
 	for (obs_data_item_t *item = obs_data_first(settings); item; obs_data_item_next(&item)) {
-		enum obs_data_type type = obs_data_item_gettype(item);
+		enum obs_data_type itemtype = obs_data_item_gettype(item);
 		const char *name = obs_data_item_get_name(item);
 		if (auto_settings_filter.contains(name))
 			continue;
 		obs_property_t *p = nullptr;
 
-		switch (type) {
+		switch (itemtype) {
 		case OBS_DATA_BOOLEAN:
-			p = obs_properties_add_bool(props, name, name);
+			p = obs_properties_add_bool(rtn_props, name, name);
 			break;
 		case OBS_DATA_NUMBER:
-			p = obs_properties_add_int(props, name, name, INT_MIN, INT_MAX, 1);
+			p = obs_properties_add_int(rtn_props, name, name, INT_MIN, INT_MAX, 1);
 			break;
 		case OBS_DATA_STRING:
-			p = obs_properties_add_text(props, name, name, OBS_TEXT_DEFAULT);
+			p = obs_properties_add_text(rtn_props, name, name, OBS_TEXT_DEFAULT);
 			break;
 		default:
 			break;
@@ -330,7 +330,7 @@ obs_properties_t *PTZDevice::get_obs_properties()
 			obs_property_set_enabled(p, false);
 	}
 
-	return props;
+	return rtn_props;
 }
 
 /* C interface for non-QT parts of the plugin */
