@@ -281,7 +281,7 @@ extern "C" void ptz_load_settings()
 		obs_module_text("PTZ Devices"));
 
 	auto cb = []() {
-		ptz_settings_show(-1);
+		ptz_settings_show(0);
 	};
 
 	obs_frontend_add_event_callback(obs_event, nullptr);
