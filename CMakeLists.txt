@@ -48,11 +48,11 @@ target_sources(${CMAKE_PROJECT_NAME} PRIVATE
 	src/ptz-action-source.c
 	src/protocol-helpers.cpp
 	src/imported/qt-wrappers.cpp
+	src/imported/obs-app.cpp
 	src/imported/properties-view.cpp
 	src/imported/vertical-scroll-area.cpp
 	src/imported/double-slider.cpp
 	src/imported/slider-ignorewheel.cpp
-	src/imported/combobox-ignorewheel.cpp
 	src/imported/spinbox-ignorewheel.cpp
 	src/ptz.h
 	src/ptz-controls.hpp
@@ -66,12 +66,12 @@ target_sources(${CMAKE_PROJECT_NAME} PRIVATE
 	src/ptz-visca-tcp.hpp
 	src/protocol-helpers.hpp
 	src/imported/qt-wrappers.hpp
+	src/imported/obs-app.hpp
 	src/imported/properties-view.hpp
 	src/imported/properties-view.moc.hpp
 	src/imported/vertical-scroll-area.hpp
 	src/imported/double-slider.hpp
 	src/imported/slider-ignorewheel.hpp
-	src/imported/combobox-ignorewheel.hpp
 	src/imported/spinbox-ignorewheel.hpp
 )
 
