@@ -46,9 +46,6 @@ public slots:
 	void on_addPTZ_clicked();
 	void on_removePTZ_clicked();
 	void on_applyButton_clicked();
-#ifdef CONFIG_USE_GAMEPAD
-	void on_gamepadCheckBox_stateChanged(int state);
-#endif
 	void on_livemoveCheckBox_stateChanged(int state);
 
 	void currentChanged(const QModelIndex &current, const QModelIndex &previous);

@@ -114,11 +114,6 @@ PTZSettings::PTZSettings() : QWidget(nullptr), ui(new Ui_PTZSettings)
 
 	ui->setupUi(this);
 
-#ifdef CONFIG_USE_GAMEPAD
-	ui->gamepadCheckBox->setChecked(PTZControls::getInstance()->gamepadEnabled());
-#else
-	ui->gamepadCheckBox->setVisible(false);
-#endif
 	ui->livemoveCheckBox->setChecked(PTZControls::getInstance()->liveMovesDisabled());
 
 	auto snd = new SourceNameDelegate(this);
@@ -235,13 +230,6 @@ void PTZSettings::on_removePTZ_clicked()
 		return;
 	delete ptz;
 }
-
-#ifdef CONFIG_USE_GAMEPAD
-void PTZSettings::on_gamepadCheckBox_stateChanged(int state)
-{
-	PTZControls::getInstance()->setGamepadEnabled(ui->gamepadCheckBox->isChecked());
-}
-#endif
 
 void PTZSettings::on_livemoveCheckBox_stateChanged(int state)
 {

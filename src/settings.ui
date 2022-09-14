@@ -157,13 +157,6 @@
             </widget>
            </item>
            <item>
-            <widget class="QCheckBox" name="gamepadCheckBox">
-             <property name="text">
-              <string>Enable Gamepad</string>
-             </property>
-            </widget>
-           </item>
-           <item>
             <layout class="QHBoxLayout" name="horizontalLayout">
              <item>
               <spacer name="horizontalSpacer">

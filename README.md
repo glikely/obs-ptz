@@ -57,7 +57,7 @@ Do the following on Debian to get a working build environment:
 
 ```
 sudo apt build-dep obs-studio
-sudo apt install libobs-dev libqt5serialport5-dev libqt5gamepad5-dev
+sudo apt install libobs-dev libqt5serialport5-dev
 git clone https://github.com/glikely/obs-ptz
 mkdir obs-ptz/build
 cd obs-ptz/build

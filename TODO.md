@@ -12,8 +12,6 @@ Core
 - Add generic properties infrastructure so each camera can expose
   different settings
 - Fix display of transient window on startup
-- Fix gamepad detection on Windows
-  - Ideally get QGamepad to work with DirectInput instead of XInput
 
 PTZ Backend
 -----------
@@ -31,7 +29,8 @@ User Interface
 
 - Add a virtual joystick alternative to the discrete direction buttons
 - Add focus control
-- Enhance gamepad support
+- Implement gamepad support
+  - Find replacement for QGamePad
   - Add zoom control
   - Add cycling through cameras
   - Add pan/tilt speed control
