@@ -7,6 +7,7 @@
 #pragma once
 
 #include <QObject>
+#include "uart-wrapper.hpp"
 #include "ptz-visca.hpp"
 
 class ViscaUART : public PTZUARTWrapper {

@@ -10,7 +10,6 @@
 #include <QTimer>
 #include "protocol-helpers.hpp"
 #include "ptz-device.hpp"
-#include "protocol-helpers.hpp"
 
 #define VISCA_RESPONSE_ADDRESS   0x30
 #define VISCA_RESPONSE_ACK       0x40

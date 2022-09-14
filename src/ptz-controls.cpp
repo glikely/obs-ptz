@@ -20,8 +20,6 @@
 #include "ui_ptz-controls.h"
 #include "ptz-controls.hpp"
 #include "settings.hpp"
-#include "ptz-visca.hpp"
-#include "ptz-pelco.hpp"
 #include "ptz.h"
 
 void ptz_load_controls(void)

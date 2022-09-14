@@ -40,13 +40,10 @@ target_sources(${CMAKE_PROJECT_NAME} PRIVATE
 	src/ptz-device.cpp
 	src/settings.cpp
 	src/ptz-onvif.cpp
-	src/ptz-pelco.cpp
 	src/ptz-visca.cpp
-	src/ptz-visca-uart.cpp
 	src/ptz-visca-udp.cpp
 	src/ptz-visca-tcp.cpp
 	src/ptz-action-source.c
-	src/protocol-helpers.cpp
 	src/imported/qt-wrappers.cpp
 	src/imported/obs-app.cpp
 	src/imported/properties-view.cpp
@@ -59,9 +56,7 @@ target_sources(${CMAKE_PROJECT_NAME} PRIVATE
 	src/ptz-device.hpp
 	src/settings.hpp
 	src/ptz-onvif.hpp
-	src/ptz-pelco.hpp
 	src/ptz-visca.hpp
-	src/ptz-visca-uart.hpp
 	src/ptz-visca-udp.hpp
 	src/ptz-visca-tcp.hpp
 	src/protocol-helpers.hpp
@@ -75,6 +70,17 @@ target_sources(${CMAKE_PROJECT_NAME} PRIVATE
 	src/imported/spinbox-ignorewheel.hpp
 )
 
+if(ENABLE_SERIALPORT)
+	target_sources(${CMAKE_PROJECT_NAME} PRIVATE
+		src/uart-wrapper.cpp
+		src/uart-wrapper.hpp
+		src/ptz-visca-uart.cpp
+		src/ptz-visca-uart.hpp
+		src/ptz-pelco.cpp
+		src/ptz-pelco.hpp
+	)
+endif()
+
 # Import libobs as main plugin dependency
 find_package(libobs REQUIRED)
 include(cmake/ObsPluginHelpers.cmake)
@@ -84,12 +90,14 @@ find_package(obs-frontend-api REQUIRED)
 target_link_libraries(${CMAKE_PROJECT_NAME} PRIVATE OBS::obs-frontend-api)
 
 # Uncomment those lines if you want to use Qt in your plugin
-find_qt(COMPONENTS Widgets Core)
-find_qt(COMPONENTS Widgets Svg Network Xml)
-#find_qt(COMPONENTS Widgets SerialPort)
-target_link_libraries(${CMAKE_PROJECT_NAME} PRIVATE Qt::Core Qt::Widgets)
-target_link_libraries(${CMAKE_PROJECT_NAME} PRIVATE Qt::Svg Qt::Network Qt::Xml)
-#target_link_libraries(${CMAKE_PROJECT_NAME} PRIVATE Qt::SerialPort)
+find_qt(COMPONENTS Widgets Core Svg Network Xml)
+target_link_libraries(${CMAKE_PROJECT_NAME} PRIVATE Qt::Core Qt::Widgets
+				 Qt::Svg Qt::Network Qt::Xml)
+if(ENABLE_SERIALPORT)
+  find_qt(COMPONENTS SerialPort)
+  target_link_libraries(${CMAKE_PROJECT_NAME} PRIVATE Qt::SerialPort)
+endif()
+
 set_target_properties(${CMAKE_PROJECT_NAME} PROPERTIES AUTOMOC ON AUTOUIC ON AUTORCC ON)
 
 configure_file(src/plugin-macros.h.in ${CMAKE_SOURCE_DIR}/src/plugin-macros.generated.h)

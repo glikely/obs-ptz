@@ -8,7 +8,7 @@
 #include <QSerialPortInfo>
 #include <QSerialPort>
 #include <QMetaEnum>
-#include "protocol-helpers.hpp"
+#include "uart-wrapper.hpp"
 #include "ptz-device.hpp"
 
 PTZUARTWrapper::PTZUARTWrapper(QString &port_name) :

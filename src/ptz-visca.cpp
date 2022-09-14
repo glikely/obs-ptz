@@ -7,7 +7,6 @@
 
 #include "imported/qt-wrappers.hpp"
 #include <QNetworkDatagram>
-#include <QSerialPortInfo>
 #include "ptz-visca.hpp"
 #include <util/base.h>
 

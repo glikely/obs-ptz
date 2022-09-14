@@ -166,22 +166,28 @@ void PTZSettings::on_close_clicked()
 void PTZSettings::on_addPTZ_clicked()
 {
 	QMenu addPTZContext;
+#if defined(ENABLE_SERIALPORT)
 	QAction *addViscaSerial = addPTZContext.addAction("VISCA Serial");
+#endif
 	QAction *addViscaUDP = addPTZContext.addAction("VISCA over UDP");
 	QAction *addViscaTCP = addPTZContext.addAction("VISCA over TCP");
+#if defined(ENABLE_SERIALPORT)
 	QAction *addPelcoD = addPTZContext.addAction("Pelco D");
 	QAction *addPelcoP = addPTZContext.addAction("Pelco P");
+#endif
 #if 0 // ONVIF disabled until code is reworked
 	QAction *addOnvif = addPTZContext.addAction("ONVIF");
 #endif
 	QAction *action = addPTZContext.exec(QCursor::pos());
 
+#if defined(ENABLE_SERIALPORT)
 	if (action == addViscaSerial) {
 		OBSData cfg = obs_data_create();
 		obs_data_release(cfg);
 		obs_data_set_string(cfg, "type", "visca");
 		ptzDeviceList.make_device(cfg);
 	}
+#endif
 	if (action == addViscaUDP) {
 		OBSData cfg = obs_data_create();
 		obs_data_release(cfg);
@@ -196,6 +202,7 @@ void PTZSettings::on_addPTZ_clicked()
 		obs_data_set_int(cfg, "port", 5678);
 		ptzDeviceList.make_device(cfg);
 	}
+#if defined(ENABLE_SERIALPORT)
 	if (action == addPelcoD) {
 		OBSData cfg = obs_data_create();
 		obs_data_release(cfg);
@@ -210,6 +217,7 @@ void PTZSettings::on_addPTZ_clicked()
 		obs_data_set_bool(cfg, "use_pelco_d", false);
 		ptzDeviceList.make_device(cfg);
 	}
+#endif
 #if 0
 	if (action == addOnvif) {
 		OBSData cfg = obs_data_create();

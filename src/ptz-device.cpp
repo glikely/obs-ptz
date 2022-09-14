@@ -8,12 +8,15 @@
 #include <obs.hpp>
 #include "imported/qt-wrappers.hpp"
 #include "ptz-device.hpp"
-#include "ptz-visca-uart.hpp"
 #include "ptz-visca-udp.hpp"
 #include "ptz-visca-tcp.hpp"
-#include "ptz-pelco.hpp"
 #include "ptz-onvif.hpp"
 #include "ptz.h"
+
+#if defined(ENABLE_SERIALPORT)
+#include "ptz-visca-uart.hpp"
+#include "ptz-pelco.hpp"
+#endif
 
 int ptz_debug_level = LOG_INFO;
 
@@ -166,10 +169,12 @@ PTZDevice *PTZListModel::make_device(OBSData config)
 	PTZDevice *ptz = nullptr;
 	std::string type = obs_data_get_string(config, "type");
 
+#if defined(ENABLE_SERIALPORT)
 	if (type == "pelco" || type == "pelco-p")
 		ptz = new PTZPelco(config);
 	if (type == "visca")
 		ptz = new PTZViscaSerial(config);
+#endif /* ENABLE_SERIALPORT */
 	if (type == "visca-over-ip")
 		ptz = new PTZViscaOverIP(config);
 	if (type == "visca-over-tcp")

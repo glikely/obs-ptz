@@ -14,6 +14,7 @@
 #include <QStringListModel>
 #include <QtGlobal>
 #include "protocol-helpers.hpp"
+#include "uart-wrapper.hpp"
 
 /*
  * General Serial UART class
