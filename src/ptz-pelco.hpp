@@ -23,22 +23,23 @@ class PelcoUART : public PTZUARTWrapper {
 	Q_OBJECT
 
 private:
-	static std::map<QString, PelcoUART*> interfaces;
+	static std::map<QString, PelcoUART *> interfaces;
 	const int messageLength = 8;
 
 public:
-	PelcoUART(QString& port_name) : PTZUARTWrapper(port_name) { }
-	void receive_datagram(const QByteArray& packet);
-	void receiveBytes(const QByteArray& packet);
+	PelcoUART(QString &port_name) : PTZUARTWrapper(port_name) {}
+	void receive_datagram(const QByteArray &packet);
+	void receiveBytes(const QByteArray &packet);
 
-	static PelcoUART* get_interface(QString port_name);
+	static PelcoUART *get_interface(QString port_name);
 };
 
 class PTZPelco : public PTZDevice {
 private:
-	bool use_pelco_d = false; // Flag that Pelco-D is used instead of Pelco-P
-	PelcoUART* iface;
-	void attach_interface(PelcoUART* new_iface);
+	bool use_pelco_d =
+		false; // Flag that Pelco-D is used instead of Pelco-P
+	PelcoUART *iface;
+	void attach_interface(PelcoUART *new_iface);
 	char checkSum(QByteArray &data);
 
 protected:

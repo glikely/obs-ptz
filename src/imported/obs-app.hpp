@@ -12,7 +12,8 @@ class OBSApp {
 public:
 	inline QMainWindow *GetMainWindow() const
 	{
-		return static_cast<QMainWindow *>(obs_frontend_get_main_window());
+		return static_cast<QMainWindow *>(
+			obs_frontend_get_main_window());
 	}
 
 	inline bool IsThemeDark() const { return false; }

@@ -32,7 +32,7 @@ void ptz_load_controls(void)
 	obs_frontend_pop_ui_translation();
 }
 
-PTZControls* PTZControls::instance = NULL;
+PTZControls *PTZControls::instance = NULL;
 
 /**
  * class buttonResizeFilter - Event filter to adjust button minimum height and resize icon
@@ -40,24 +40,26 @@ PTZControls* PTZControls::instance = NULL;
  * This filter will update the minimumHeight property to keep a button square
  * when possible. It will also resize the button icon to match the button size.
  */
-class buttonResizeFilter:public QObject {
+class buttonResizeFilter : public QObject {
 public:
 	buttonResizeFilter(QObject *parent) : QObject(parent) {}
-	bool eventFilter(QObject *watched, QEvent *event) override {
+	bool eventFilter(QObject *watched, QEvent *event) override
+	{
 		if (event->type() != QEvent::Resize)
 			return false;
-		auto button = static_cast<QAbstractButton*>(watched);
-		auto resEvent = static_cast<QResizeEvent*>(event);
+		auto button = static_cast<QAbstractButton *>(watched);
+		auto resEvent = static_cast<QResizeEvent *>(event);
 
 		button->setMinimumHeight(resEvent->size().width());
 
-		int size = resEvent->size().width() * 2/3;
+		int size = resEvent->size().width() * 2 / 3;
 		button->setIconSize(QSize(size, size));
 		return true;
 	}
 };
 
-void PTZControls::OBSFrontendEventWrapper(enum obs_frontend_event event, void *ptr)
+void PTZControls::OBSFrontendEventWrapper(enum obs_frontend_event event,
+					  void *ptr)
 {
 	PTZControls *controls = reinterpret_cast<PTZControls *>(ptr);
 	controls->OBSFrontendEvent(event);
@@ -93,11 +95,14 @@ void PTZControls::OBSFrontendEvent(enum obs_frontend_event event)
 	struct active_src_cb_data {
 		PTZDevice *ptz;
 	};
-	auto active_src_cb = [](obs_source_t *parent, obs_source_t *child, void *context_data) {
+	auto active_src_cb = [](obs_source_t *parent, obs_source_t *child,
+				void *context_data) {
 		Q_UNUSED(parent);
-		struct active_src_cb_data *context = static_cast<struct active_src_cb_data*>(context_data);
+		struct active_src_cb_data *context =
+			static_cast<struct active_src_cb_data *>(context_data);
 		if (!context->ptz)
-			context->ptz = ptzDeviceList.getDeviceByName(obs_source_get_name(child));
+			context->ptz = ptzDeviceList.getDeviceByName(
+				obs_source_get_name(child));
 	};
 	struct active_src_cb_data cb_data;
 	cb_data.ptz = ptzDeviceList.getDeviceByName(obs_source_get_name(scene));
@@ -118,13 +123,16 @@ PTZControls::PTZControls(QWidget *parent)
 
 	QItemSelectionModel *selectionModel = ui->cameraList->selectionModel();
 	connect(selectionModel,
-		SIGNAL(currentChanged(QModelIndex, QModelIndex)),
-		this, SLOT(currentChanged(QModelIndex, QModelIndex)));
+		SIGNAL(currentChanged(QModelIndex, QModelIndex)), this,
+		SLOT(currentChanged(QModelIndex, QModelIndex)));
 
 	// Fix the style of the autoselect buttons
-	ui->targetButton_preview->setStyleSheet("QToolButton:checked {background-color: black;}");
-	ui->targetButton_program->setStyleSheet("QToolButton:checked {background-color: black;}");
-	ui->targetButton_manual->setStyleSheet("QToolButton:checked {background-color: black;}");
+	ui->targetButton_preview->setStyleSheet(
+		"QToolButton:checked {background-color: black;}");
+	ui->targetButton_program->setStyleSheet(
+		"QToolButton:checked {background-color: black;}");
+	ui->targetButton_manual->setStyleSheet(
+		"QToolButton:checked {background-color: black;}");
 
 	LoadConfig();
 
@@ -167,69 +175,84 @@ PTZControls::PTZControls(QWidget *parent)
 		return res;
 	};
 	auto registerHotkey = [&](const char *name, const char *description,
-			      obs_hotkey_func func, void *hotkey_data) -> obs_hotkey_id {
+				  obs_hotkey_func func,
+				  void *hotkey_data) -> obs_hotkey_id {
 		obs_hotkey_id id;
 
-		id = obs_hotkey_register_frontend(name, description, func, hotkey_data);
+		id = obs_hotkey_register_frontend(name, description, func,
+						  hotkey_data);
 		obs_data_array_t *array =
 			obs_data_get_array(loadHotkeyData(name), "bindings");
 		obs_hotkey_load(id, array);
 		obs_data_array_release(array);
 		return id;
 	};
-	auto cb = [](void *button_data, obs_hotkey_id, obs_hotkey_t *, bool pressed) {
-		QPushButton *button = static_cast<QPushButton*>(button_data);
+	auto cb = [](void *button_data, obs_hotkey_id, obs_hotkey_t *,
+		     bool pressed) {
+		QPushButton *button = static_cast<QPushButton *>(button_data);
 		if (pressed)
 			button->pressed();
 		else
 			button->released();
 	};
-	auto autofocustogglecb = [](void *ptz_data, obs_hotkey_id, obs_hotkey_t *, bool pressed) {
-		PTZControls *ptzctrl = static_cast<PTZControls*>(ptz_data);
+	auto autofocustogglecb = [](void *ptz_data, obs_hotkey_id,
+				    obs_hotkey_t *, bool pressed) {
+		PTZControls *ptzctrl = static_cast<PTZControls *>(ptz_data);
 		if (pressed)
-			ptzctrl->on_focusButton_auto_clicked(!ptzctrl->ui->focusButton_auto->isChecked());
+			ptzctrl->on_focusButton_auto_clicked(
+				!ptzctrl->ui->focusButton_auto->isChecked());
 	};
-	hotkeys << registerHotkey("PTZ.PanTiltUpLeft", "PTZ Pan camera up & left",
-				cb, ui->panTiltButton_upleft);
-	hotkeys << registerHotkey("PTZ.PanTiltLeft", "PTZ Pan camera left",
-				cb, ui->panTiltButton_left);
-	hotkeys << registerHotkey("PTZ.PanTiltDownLeft", "PTZ Pan camera down & left",
-				cb, ui->panTiltButton_downleft);
-	hotkeys << registerHotkey("PTZ.PanTiltUpRight", "PTZ Pan camera up & right",
-				cb, ui->panTiltButton_upright);
+	hotkeys << registerHotkey("PTZ.PanTiltUpLeft",
+				  "PTZ Pan camera up & left", cb,
+				  ui->panTiltButton_upleft);
+	hotkeys << registerHotkey("PTZ.PanTiltLeft", "PTZ Pan camera left", cb,
+				  ui->panTiltButton_left);
+	hotkeys << registerHotkey("PTZ.PanTiltDownLeft",
+				  "PTZ Pan camera down & left", cb,
+				  ui->panTiltButton_downleft);
+	hotkeys << registerHotkey("PTZ.PanTiltUpRight",
+				  "PTZ Pan camera up & right", cb,
+				  ui->panTiltButton_upright);
 	hotkeys << registerHotkey("PTZ.PanTiltRight", "PTZ Pan camera right",
-				cb, ui->panTiltButton_right);
-	hotkeys << registerHotkey("PTZ.PanTiltDownRight", "PTZ Pan camera down & right",
-				cb, ui->panTiltButton_downright);
-	hotkeys << registerHotkey("PTZ.PanTiltUp", "PTZ Tilt camera up",
-				cb, ui->panTiltButton_up);
-	hotkeys << registerHotkey("PTZ.PanTiltDown", "PTZ Tilt camera down",
-				cb, ui->panTiltButton_down);
+				  cb, ui->panTiltButton_right);
+	hotkeys << registerHotkey("PTZ.PanTiltDownRight",
+				  "PTZ Pan camera down & right", cb,
+				  ui->panTiltButton_downright);
+	hotkeys << registerHotkey("PTZ.PanTiltUp", "PTZ Tilt camera up", cb,
+				  ui->panTiltButton_up);
+	hotkeys << registerHotkey("PTZ.PanTiltDown", "PTZ Tilt camera down", cb,
+				  ui->panTiltButton_down);
 	hotkeys << registerHotkey("PTZ.ZoomWide", "PTZ Zoom camera out (wide)",
-				cb, ui->zoomButton_wide);
-	hotkeys << registerHotkey("PTZ.ZoomTele", "PTZ Zoom camera in (telefocal)",
-				cb, ui->zoomButton_tele);
+				  cb, ui->zoomButton_wide);
+	hotkeys << registerHotkey("PTZ.ZoomTele",
+				  "PTZ Zoom camera in (telefocal)", cb,
+				  ui->zoomButton_tele);
 	hotkeys << registerHotkey("PTZ.FocusAutoFocus", "PTZ Toggle Autofocus",
-				autofocustogglecb, this);
-	hotkeys << registerHotkey("PTZ.FocusNear", "PTZ Focus far",
-				cb, ui->focusButton_far);
-	hotkeys << registerHotkey("PTZ.FocusFar", "PTZ Focus near",
-				cb, ui->focusButton_near);
-	hotkeys << registerHotkey("PTZ.FocusOneTouch", "PTZ One touch focus trigger",
-				cb, ui->focusButton_onetouch);
+				  autofocustogglecb, this);
+	hotkeys << registerHotkey("PTZ.FocusNear", "PTZ Focus far", cb,
+				  ui->focusButton_far);
+	hotkeys << registerHotkey("PTZ.FocusFar", "PTZ Focus near", cb,
+				  ui->focusButton_near);
+	hotkeys << registerHotkey("PTZ.FocusOneTouch",
+				  "PTZ One touch focus trigger", cb,
+				  ui->focusButton_onetouch);
 
-	auto preset_recall_cb = [](void *ptz_data, obs_hotkey_id hotkey, obs_hotkey_t *, bool pressed) {
-		PTZControls *ptzctrl = static_cast<PTZControls*>(ptz_data);
-		blog(LOG_INFO, "Recalling %i", ptzctrl->preset_hotkey_map[hotkey]);
+	auto preset_recall_cb = [](void *ptz_data, obs_hotkey_id hotkey,
+				   obs_hotkey_t *, bool pressed) {
+		PTZControls *ptzctrl = static_cast<PTZControls *>(ptz_data);
+		blog(LOG_INFO, "Recalling %i",
+		     ptzctrl->preset_hotkey_map[hotkey]);
 		if (pressed)
-			ptzctrl->presetRecall(ptzctrl->preset_hotkey_map[hotkey]);
+			ptzctrl->presetRecall(
+				ptzctrl->preset_hotkey_map[hotkey]);
 	};
 
 	for (int i = 0; i < 16; i++) {
-		auto name = QString("PTZ.Recall%1").arg(i+1);
-		auto description = QString("PTZ Memory Recall #%1").arg(i+1);
-		obs_hotkey_id hotkey = registerHotkey(QT_TO_UTF8(name), QT_TO_UTF8(description),
-							preset_recall_cb, this);
+		auto name = QString("PTZ.Recall%1").arg(i + 1);
+		auto description = QString("PTZ Memory Recall #%1").arg(i + 1);
+		obs_hotkey_id hotkey = registerHotkey(QT_TO_UTF8(name),
+						      QT_TO_UTF8(description),
+						      preset_recall_cb, this);
 		preset_hotkey_map[hotkey] = i;
 		hotkeys << hotkey;
 	}
@@ -258,7 +281,7 @@ void PTZControls::SaveConfig()
 	obs_data_release(savedata);
 
 	obs_data_set_string(savedata, "splitter_state",
-			ui->splitter->saveState().toBase64().constData());
+			    ui->splitter->saveState().toBase64().constData());
 
 	obs_data_set_bool(savedata, "live_moves_disabled", live_moves_disabled);
 	obs_data_set_int(savedata, "debug_log_level", ptz_debug_level);
@@ -304,15 +327,19 @@ void PTZControls::LoadConfig()
 	obs_data_set_default_string(loaddata, "target_mode", "preview");
 
 	ptz_debug_level = obs_data_get_int(loaddata, "debug_log_level");
-	live_moves_disabled = obs_data_get_bool(loaddata, "live_moves_disabled");
+	live_moves_disabled =
+		obs_data_get_bool(loaddata, "live_moves_disabled");
 	target_mode = obs_data_get_string(loaddata, "target_mode");
 	ui->targetButton_preview->setChecked(target_mode == "preview");
 	ui->targetButton_program->setChecked(target_mode == "program");
-	ui->targetButton_manual->setChecked(target_mode != "preview" && target_mode != "program");
+	ui->targetButton_manual->setChecked(target_mode != "preview" &&
+					    target_mode != "program");
 
-	const char *splitterStateStr = obs_data_get_string(loaddata, "splitter_state");
+	const char *splitterStateStr =
+		obs_data_get_string(loaddata, "splitter_state");
 	if (splitterStateStr) {
-		QByteArray splitterState = QByteArray::fromBase64(QByteArray(splitterStateStr));
+		QByteArray splitterState =
+			QByteArray::fromBase64(QByteArray(splitterStateStr));
 		ui->splitter->restoreState(splitterState);
 	}
 
@@ -327,7 +354,7 @@ void PTZControls::setDisableLiveMoves(bool disable)
 	updateMoveControls();
 }
 
-PTZDevice * PTZControls::currCamera()
+PTZDevice *PTZControls::currCamera()
 {
 	return ptzDeviceList.getDevice(ui->cameraList->currentIndex());
 }
@@ -340,12 +367,14 @@ void PTZControls::setPanTilt(double pan, double tilt)
 		return;
 
 	bool nonzero = std::abs(pan) > 0 || std::abs(tilt) > 0;
-	if (QGuiApplication::keyboardModifiers().testFlag(Qt::ControlModifier)) {
+	if (QGuiApplication::keyboardModifiers().testFlag(
+		    Qt::ControlModifier)) {
 		pantiltingFlag = nonzero;
 		ptz->pantilt(pan, tilt);
-	} else if (QGuiApplication::keyboardModifiers().testFlag(Qt::ShiftModifier)) {
+	} else if (QGuiApplication::keyboardModifiers().testFlag(
+			   Qt::ShiftModifier)) {
 		if (nonzero)
-			ptz->pantilt_rel(pan, - tilt);
+			ptz->pantilt_rel(pan, -tilt);
 	} else {
 		pantiltingFlag = nonzero;
 		ptz->pantilt(pan * speed / 100, tilt * speed / 100);
@@ -384,11 +413,15 @@ void PTZControls::setFocus(double focus)
 
 /* The pan/tilt buttons are a large block of simple and mostly identical code.
  * Use C preprocessor macro to create all the duplicate functions */
-#define button_pantilt_actions(direction, x, y) \
-	void PTZControls::on_panTiltButton_##direction##_pressed() \
-	{ setPanTilt(x, y); } \
+#define button_pantilt_actions(direction, x, y)                     \
+	void PTZControls::on_panTiltButton_##direction##_pressed()  \
+	{                                                           \
+		setPanTilt(x, y);                                   \
+	}                                                           \
 	void PTZControls::on_panTiltButton_##direction##_released() \
-	{ setPanTilt(0, 0); }
+	{                                                           \
+		setPanTilt(0, 0);                                   \
+	}
 
 button_pantilt_actions(up, 0, 1);
 button_pantilt_actions(upleft, -1, 1);
@@ -464,9 +497,11 @@ void PTZControls::on_focusButton_onetouch_clicked()
 
 void PTZControls::setCurrent(uint32_t device_id)
 {
-	if (device_id == ptzDeviceList.getDeviceId(ui->cameraList->currentIndex()))
+	if (device_id ==
+	    ptzDeviceList.getDeviceId(ui->cameraList->currentIndex()))
 		return;
-	ui->cameraList->setCurrentIndex(ptzDeviceList.indexFromDeviceId(device_id));
+	ui->cameraList->setCurrentIndex(
+		ptzDeviceList.indexFromDeviceId(device_id));
 }
 
 void PTZControls::on_targetButton_preview_clicked(bool checked)
@@ -496,11 +531,14 @@ void PTZControls::updateMoveControls()
 
 	// Check if the device's source is in the active program scene
 	// If it is then disable the pan/tilt/zoom controls
-	if (obs_frontend_preview_program_mode_active() && live_moves_disabled && ptz) {
-		auto source = obs_get_source_by_name(QT_TO_UTF8(ptz->objectName()));
+	if (obs_frontend_preview_program_mode_active() && live_moves_disabled &&
+	    ptz) {
+		auto source =
+			obs_get_source_by_name(QT_TO_UTF8(ptz->objectName()));
 		if (source) {
 			auto program = obs_frontend_get_current_scene();
-			ctrls_enabled = !ptz_scene_is_source_active(program, source);
+			ctrls_enabled =
+				!ptz_scene_is_source_active(program, source);
 			/*
 			blog(LOG_INFO, "updateMoveControls(), program:%s ptz:%s active:%s",
 					obs_source_get_name(program),
@@ -512,12 +550,14 @@ void PTZControls::updateMoveControls()
 		}
 	}
 
-	ui->lockButton->setVisible(obs_frontend_preview_program_mode_active() && live_moves_disabled);
+	ui->lockButton->setVisible(obs_frontend_preview_program_mode_active() &&
+				   live_moves_disabled);
 	ui->lockButton->setChecked(!ctrls_enabled);
 	ui->movementControlsWidget->setEnabled(ctrls_enabled);
 	ui->presetListView->setEnabled(ctrls_enabled);
 
-	ui->targetButton_preview->setVisible(obs_frontend_preview_program_mode_active());
+	ui->targetButton_preview->setVisible(
+		obs_frontend_preview_program_mode_active());
 }
 
 void PTZControls::currentChanged(QModelIndex current, QModelIndex previous)
@@ -526,7 +566,7 @@ void PTZControls::currentChanged(QModelIndex current, QModelIndex previous)
 	if (ptz) {
 		disconnect(ptz, nullptr, this, nullptr);
 		if (pantiltingFlag)
-			ptz->pantilt(0,0);
+			ptz->pantilt(0, 0);
 		if (zoomingFlag)
 			ptz->zoom(0);
 		if (focusingFlag)
@@ -539,10 +579,12 @@ void PTZControls::currentChanged(QModelIndex current, QModelIndex previous)
 	ptz = ptzDeviceList.getDevice(current);
 	if (ptz) {
 		ui->presetListView->setModel(ptz->presetModel());
-		ptz->connect(ptz, SIGNAL(settingsChanged()), this, SLOT(settingsChanged()));
+		ptz->connect(ptz, SIGNAL(settingsChanged()), this,
+			     SLOT(settingsChanged()));
 
 		auto settings = ptz->get_settings();
-		setAutofocusEnabled(obs_data_get_bool(settings, "focus_af_enabled"));
+		setAutofocusEnabled(
+			obs_data_get_bool(settings, "focus_af_enabled"));
 	}
 
 	updateMoveControls();
@@ -551,7 +593,8 @@ void PTZControls::currentChanged(QModelIndex current, QModelIndex previous)
 void PTZControls::settingsChanged(OBSData settings)
 {
 	if (obs_data_has_user_value(settings, "focus_af_enabled"))
-		setAutofocusEnabled(obs_data_get_bool(settings, "focus_af_enabled"));
+		setAutofocusEnabled(
+			obs_data_get_bool(settings, "focus_af_enabled"));
 }
 
 void PTZControls::presetRecall(int preset_id)
@@ -587,7 +630,8 @@ void PTZControls::on_presetListView_customContextMenuRequested(const QPoint &pos
 		ptz->memory_set(index.row());
 	} else if (action == resetAction) {
 		ptz->memory_reset(index.row());
-		ui->presetListView->model()->setData(index, QString("Preset %1").arg(index.row() + 1));
+		ui->presetListView->model()->setData(
+			index, QString("Preset %1").arg(index.row() + 1));
 	}
 }
 
@@ -608,12 +652,14 @@ void PTZControls::on_cameraList_customContextMenuRequested(const QPoint &pos)
 
 	QMenu context;
 	bool power_on = obs_data_get_bool(settings, "power_on");
-	QAction *powerAction = context.addAction(power_on ? "Power Off" : "Power On");
+	QAction *powerAction =
+		context.addAction(power_on ? "Power Off" : "Power On");
 
 	QAction *wbOnetouchAction = nullptr;
 	bool wb_onepush = (obs_data_get_int(settings, "wb_mode") == 3);
 	if (wb_onepush)
-		wbOnetouchAction = context.addAction("Trigger One-Push White Balance");
+		wbOnetouchAction =
+			context.addAction("Trigger One-Push White Balance");
 	QAction *action = context.exec(globalpos);
 
 	OBSData setdata = obs_data_create();
@@ -630,7 +676,8 @@ void PTZControls::on_cameraList_customContextMenuRequested(const QPoint &pos)
 
 void PTZControls::on_configButton_released()
 {
-	ptz_settings_show(ptzDeviceList.getDeviceId(ui->cameraList->currentIndex()));
+	ptz_settings_show(
+		ptzDeviceList.getDeviceId(ui->cameraList->currentIndex()));
 }
 
 void PTZControls::on_lockButton_clicked(bool checked)

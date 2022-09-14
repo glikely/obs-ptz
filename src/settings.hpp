@@ -13,17 +13,19 @@
 
 class Ui_PTZSettings;
 
-class SourceNameDelegate : public QStyledItemDelegate
-{
+class SourceNameDelegate : public QStyledItemDelegate {
 	Q_OBJECT
 
 public:
-	SourceNameDelegate(QObject *parent = nullptr) : QStyledItemDelegate(parent) {};
-	QWidget *createEditor(QWidget *parent, const QStyleOptionViewItem &option,
-			const QModelIndex &index) const override;
-	void setEditorData(QWidget *editor, const QModelIndex &index) const override;
+	SourceNameDelegate(QObject *parent = nullptr)
+		: QStyledItemDelegate(parent){};
+	QWidget *createEditor(QWidget *parent,
+			      const QStyleOptionViewItem &option,
+			      const QModelIndex &index) const override;
+	void setEditorData(QWidget *editor,
+			   const QModelIndex &index) const override;
 	void setModelData(QWidget *editor, QAbstractItemModel *model,
-			const QModelIndex &index) const override;
+			  const QModelIndex &index) const override;
 };
 
 class PTZSettings : public QWidget {
@@ -48,7 +50,8 @@ public slots:
 	void on_applyButton_clicked();
 	void on_livemoveCheckBox_stateChanged(int state);
 
-	void currentChanged(const QModelIndex &current, const QModelIndex &previous);
+	void currentChanged(const QModelIndex &current,
+			    const QModelIndex &previous);
 	obs_properties_t *getProperties(void);
 	void updateProperties(OBSData old_settings, OBSData new_settings);
 };

@@ -13,7 +13,7 @@
 #include "ptz-onvif.hpp"
 #include <QtXml/QDomDocument>
 
-SoapRequest::SoapRequest() : QObject (nullptr)
+SoapRequest::SoapRequest() : QObject(nullptr)
 {
 	networkManager = new QNetworkAccessManager();
 }
@@ -26,7 +26,8 @@ SoapRequest::~SoapRequest()
 bool SoapRequest::sendRequest(QString &result)
 {
 	QNetworkRequest request(this->host);
-	request.setHeader(QNetworkRequest::ContentTypeHeader, "application/soap+xml");
+	request.setHeader(QNetworkRequest::ContentTypeHeader,
+			  "application/soap+xml");
 
 	QString concatenated = this->username + ":" + this->password;
 	QByteArray data = concatenated.toLocal8Bit().toBase64();
@@ -36,27 +37,38 @@ bool SoapRequest::sendRequest(QString &result)
 	qInfo() << "[PTZOnvif] Request onvif " << this->createRequest();
 
 	// for digest authenticaton request
-	QObject::connect(this->networkManager, SIGNAL(authenticationRequired(QNetworkReply*,QAuthenticator*)), this, SLOT(authRequired(QNetworkReply *, QAuthenticator *)));
-	QNetworkReply * reply = this->networkManager->post(request, this->createRequest().toUtf8());
+	QObject::connect(this->networkManager,
+			 SIGNAL(authenticationRequired(QNetworkReply *,
+						       QAuthenticator *)),
+			 this,
+			 SLOT(authRequired(QNetworkReply *, QAuthenticator *)));
+	QNetworkReply *reply = this->networkManager->post(
+		request, this->createRequest().toUtf8());
 
 	QTimer timerTimeout;
 	timerTimeout.setSingleShot(true);
 	QEventLoop loop;
 	loop.connect(&timerTimeout, SIGNAL(timeout()), SLOT(quit()));
-	loop.connect(this->networkManager, SIGNAL(finished(QNetworkReply*)), SLOT(quit()));
+	loop.connect(this->networkManager, SIGNAL(finished(QNetworkReply *)),
+		     SLOT(quit()));
 
 	timerTimeout.start(3000);
 	loop.exec();
 
 	if (timerTimeout.isActive()) {
 		timerTimeout.stop();
-		if(reply->error() > 0) {
-			qInfo() << "[PTZOnvif] Request error " << reply->error() <<
-				", Message: " << reply->errorString() <<
-				", Code: " << reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt() <<
-				", Description: " << body;
+		if (reply->error() > 0) {
+			qInfo() << "[PTZOnvif] Request error " << reply->error()
+				<< ", Message: " << reply->errorString()
+				<< ", Code: "
+				<< reply->attribute(
+						QNetworkRequest::
+							HttpStatusCodeAttribute)
+					   .toInt()
+				<< ", Description: " << body;
 		} else {
-			QVariant statusCodeV = reply->attribute(QNetworkRequest::HttpStatusCodeAttribute);
+			QVariant statusCodeV = reply->attribute(
+				QNetworkRequest::HttpStatusCodeAttribute);
 			result = QString(reply->readAll());
 			if (statusCodeV.toInt() == 200) {
 				return true;
@@ -79,7 +91,8 @@ void SoapRequest::authRequired(QNetworkReply *, QAuthenticator *authenticator)
 QString SoapRequest::createRequest()
 {
 	QString request("<?xml version=\"1.0\" encoding=\"UTF-8\"?>");
-	request.push_back("<s:Envelope xmlns:s=\"http://www.w3.org/2003/05/soap-envelope\"");
+	request.push_back(
+		"<s:Envelope xmlns:s=\"http://www.w3.org/2003/05/soap-envelope\"");
 	for (int i = 0; i < this->XMLNs.size(); i++)
 		request.push_back(" " + this->XMLNs[i]);
 
@@ -87,7 +100,8 @@ QString SoapRequest::createRequest()
 	if (this->username != "" || this->action != "") {
 		request.push_back("<s:Header>");
 		if (this->action != "") {
-			request.push_back("<Action mustUnderstand=\"1\" xmlns=\"http://www.w3.org/2005/08/addressing\">");
+			request.push_back(
+				"<Action mustUnderstand=\"1\" xmlns=\"http://www.w3.org/2005/08/addressing\">");
 			request.push_back(this->action);
 			request.push_back("</Action>");
 		}
@@ -112,14 +126,18 @@ QString SoapRequest::createUserToken()
 	hash.addData(token.toUtf8());
 	QString hashTokenBase64 = hash.result().toBase64();
 
-	QString result("<Security s:mustUnderstand=\"1\" xmlns=\"http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-wssecurity-secext-1.0.xsd\">");
+	QString result(
+		"<Security s:mustUnderstand=\"1\" xmlns=\"http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-wssecurity-secext-1.0.xsd\">");
 	result.push_back("<UsernameToken><Username>");
 	result.push_back(this->username);
-	result.push_back("</Username><Password Type=\"http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-username-token-profile-1.0#PasswordDigest\">");
+	result.push_back(
+		"</Username><Password Type=\"http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-username-token-profile-1.0#PasswordDigest\">");
 	result.push_back(hashTokenBase64);
-	result.push_back("</Password><Nonce EncodingType=\"http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-soap-message-security-1.0#Base64Binary\">");
+	result.push_back(
+		"</Password><Nonce EncodingType=\"http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-soap-message-security-1.0#Base64Binary\">");
 	result.push_back(nonce64);
-	result.push_back("</Nonce><Created xmlns=\"http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-wssecurity-utility-1.0.xsd\">");
+	result.push_back(
+		"</Nonce><Created xmlns=\"http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-wssecurity-utility-1.0.xsd\">");
 	result.push_back(timestamp);
 	result.push_back("</Created></UsernameToken></Security>");
 	return result;
@@ -127,27 +145,37 @@ QString SoapRequest::createUserToken()
 
 OnvifPTZService::OnvifPTZService()
 {
-	this->ptzNameSpace.push_back("xmlns:i=\"http://www.w3.org/2001/XMLSchema-instance\"");
-	this->ptzNameSpace.push_back("xmlns:d=\"http://www.w3.org/2001/XMLSchema\"");
-	this->ptzNameSpace.push_back("xmlns:c=\"http://www.w3.org/2003/05/soap-encoding\"");
+	this->ptzNameSpace.push_back(
+		"xmlns:i=\"http://www.w3.org/2001/XMLSchema-instance\"");
+	this->ptzNameSpace.push_back(
+		"xmlns:d=\"http://www.w3.org/2001/XMLSchema\"");
+	this->ptzNameSpace.push_back(
+		"xmlns:c=\"http://www.w3.org/2003/05/soap-encoding\"");
 }
 
-
-bool OnvifPTZService::ContinuousMove(QString host, QString username, QString password, QString profile, double x, double y, double z)
+bool OnvifPTZService::ContinuousMove(QString host, QString username,
+				     QString password, QString profile,
+				     double x, double y, double z)
 {
 	SoapRequest *soapRequest = new SoapRequest();
 	soapRequest->host = host;
 	soapRequest->username = username;
 	soapRequest->password = password;
-	soapRequest->action = "http://www.onvif.org/ver20/ptz/wsdl/ContinuousMove";
+	soapRequest->action =
+		"http://www.onvif.org/ver20/ptz/wsdl/ContinuousMove";
 	soapRequest->XMLNs = this->ptzNameSpace;
-	QString body("<ContinuousMove xmlns=\"http://www.onvif.org/ver20/ptz/wsdl\">");
+	QString body(
+		"<ContinuousMove xmlns=\"http://www.onvif.org/ver20/ptz/wsdl\">");
 	body.push_back("<ProfileToken>");
 	body.push_back(profile);
 	body.push_back("</ProfileToken>");
 	body.push_back("<Velocity>");
-	body.push_back("<PanTilt xmlns=\"http://www.onvif.org/ver10/schema\" x=\"" + QString::number(x) + "\" y=\""+ QString::number(y) +"\"/>");
-	body.push_back("<Zoom xmlns=\"http://www.onvif.org/ver10/schema\" x=\"" + QString::number(z) + "\"/>");
+	body.push_back(
+		"<PanTilt xmlns=\"http://www.onvif.org/ver10/schema\" x=\"" +
+		QString::number(x) + "\" y=\"" + QString::number(y) + "\"/>");
+	body.push_back(
+		"<Zoom xmlns=\"http://www.onvif.org/ver10/schema\" x=\"" +
+		QString::number(z) + "\"/>");
 	body.push_back("</Velocity></ContinuousMove>");
 	soapRequest->body = body;
 	QString response;
@@ -157,22 +185,29 @@ bool OnvifPTZService::ContinuousMove(QString host, QString username, QString pas
 	return result;
 }
 
-
-bool OnvifPTZService::AbsoluteMove(QString host, QString username, QString password, QString profile, int x, int y, int z)
+bool OnvifPTZService::AbsoluteMove(QString host, QString username,
+				   QString password, QString profile, int x,
+				   int y, int z)
 {
 	SoapRequest *soapRequest = new SoapRequest();
 	soapRequest->host = host;
 	soapRequest->username = username;
 	soapRequest->password = password;
-	soapRequest->action = "http://www.onvif.org/ver20/ptz/wsdl/AbsoluteMove";
+	soapRequest->action =
+		"http://www.onvif.org/ver20/ptz/wsdl/AbsoluteMove";
 	soapRequest->XMLNs = this->ptzNameSpace;
-	QString body("<AbsoluteMove xmlns=\"http://www.onvif.org/ver20/ptz/wsdl\">");
+	QString body(
+		"<AbsoluteMove xmlns=\"http://www.onvif.org/ver20/ptz/wsdl\">");
 	body.push_back("<ProfileToken>");
 	body.push_back(profile);
 	body.push_back("</ProfileToken>");
 	body.push_back("<Position>");
-	body.push_back("<PanTilt xmlns=\"http://www.onvif.org/ver10/schema\" x=\"" + QString::number(x) + "\" y=\""+ QString::number(y) +"\"/>");
-	body.push_back("<Zoom xmlns=\"http://www.onvif.org/ver10/schema\" x=\"" + QString::number(z) + "\"/>");
+	body.push_back(
+		"<PanTilt xmlns=\"http://www.onvif.org/ver10/schema\" x=\"" +
+		QString::number(x) + "\" y=\"" + QString::number(y) + "\"/>");
+	body.push_back(
+		"<Zoom xmlns=\"http://www.onvif.org/ver10/schema\" x=\"" +
+		QString::number(z) + "\"/>");
 	body.push_back("</Position>");
 	// body.push_back("<Speed>");
 	// body.push_back("<PanTilt xmlns=\"http://www.onvif.org/ver10/schema\" x=\"" + QString::number(x) + "\" y=\""+ QString::number(y) +"\"/>");
@@ -187,21 +222,29 @@ bool OnvifPTZService::AbsoluteMove(QString host, QString username, QString passw
 	return result;
 }
 
-bool OnvifPTZService::RelativeMove(QString host, QString username, QString password, QString profile, int x, int y, int z)
+bool OnvifPTZService::RelativeMove(QString host, QString username,
+				   QString password, QString profile, int x,
+				   int y, int z)
 {
 	SoapRequest *soapRequest = new SoapRequest();
 	soapRequest->host = host;
 	soapRequest->username = username;
 	soapRequest->password = password;
-	soapRequest->action = "http://www.onvif.org/ver20/ptz/wsdl/RelativeMove";
+	soapRequest->action =
+		"http://www.onvif.org/ver20/ptz/wsdl/RelativeMove";
 	soapRequest->XMLNs = this->ptzNameSpace;
-	QString body("<RelativeMove xmlns=\"http://www.onvif.org/ver20/ptz/wsdl\">");
+	QString body(
+		"<RelativeMove xmlns=\"http://www.onvif.org/ver20/ptz/wsdl\">");
 	body.push_back("<ProfileToken>");
 	body.push_back(profile);
 	body.push_back("</ProfileToken>");
 	body.push_back("<Translation>");
-	body.push_back("<PanTilt xmlns=\"http://www.onvif.org/ver10/schema\" x=\"" + QString::number(x) + "\" y=\""+ QString::number(y) +"\"/>");
-	body.push_back("<Zoom xmlns=\"http://www.onvif.org/ver10/schema\" x=\"" + QString::number(z) + "\"/>");
+	body.push_back(
+		"<PanTilt xmlns=\"http://www.onvif.org/ver10/schema\" x=\"" +
+		QString::number(x) + "\" y=\"" + QString::number(y) + "\"/>");
+	body.push_back(
+		"<Zoom xmlns=\"http://www.onvif.org/ver10/schema\" x=\"" +
+		QString::number(z) + "\"/>");
 	body.push_back("</Translation>");
 	// body.push_back("<Speed>");
 	// body.push_back("<PanTilt xmlns=\"http://www.onvif.org/ver10/schema\" x=\"" + QString::number(x) + "\" y=\""+ QString::number(y) +"\"/>");
@@ -216,7 +259,8 @@ bool OnvifPTZService::RelativeMove(QString host, QString username, QString passw
 	return result;
 }
 
-bool OnvifPTZService::Stop(QString host, QString username, QString password, QString profile)
+bool OnvifPTZService::Stop(QString host, QString username, QString password,
+			   QString profile)
 {
 	SoapRequest *soapRequest = new SoapRequest();
 	soapRequest->host = host;
@@ -238,15 +282,18 @@ bool OnvifPTZService::Stop(QString host, QString username, QString password, QSt
 	return result;
 }
 
-bool OnvifPTZService::GoToHomePosition(QString host, QString username, QString password, QString profile)
+bool OnvifPTZService::GoToHomePosition(QString host, QString username,
+				       QString password, QString profile)
 {
 	SoapRequest *soapRequest = new SoapRequest();
 	soapRequest->host = host;
 	soapRequest->username = username;
 	soapRequest->password = password;
-	soapRequest->action = "http://www.onvif.org/ver20/ptz/wsdl/GotoHomePosition";
+	soapRequest->action =
+		"http://www.onvif.org/ver20/ptz/wsdl/GotoHomePosition";
 	soapRequest->XMLNs = this->ptzNameSpace;
-	QString body("<GotoHomePosition xmlns=\"http://www.onvif.org/ver20/ptz/wsdl\">");
+	QString body(
+		"<GotoHomePosition xmlns=\"http://www.onvif.org/ver20/ptz/wsdl\">");
 	body.push_back("<ProfileToken>");
 	body.push_back(profile);
 	body.push_back("</ProfileToken>");
@@ -259,7 +306,9 @@ bool OnvifPTZService::GoToHomePosition(QString host, QString username, QString p
 	return result;
 }
 
-bool OnvifPTZService::SetPreset(QString host, QString username, QString password, QString profile, QString preset, int p)
+bool OnvifPTZService::SetPreset(QString host, QString username,
+				QString password, QString profile,
+				QString preset, int p)
 {
 	SoapRequest *soapRequest = new SoapRequest();
 	soapRequest->host = host;
@@ -267,7 +316,8 @@ bool OnvifPTZService::SetPreset(QString host, QString username, QString password
 	soapRequest->password = password;
 	soapRequest->action = "http://www.onvif.org/ver20/ptz/wsdl/SetPreset";
 	soapRequest->XMLNs = this->ptzNameSpace;
-	QString body("<SetPreset xmlns=\"http://www.onvif.org/ver20/ptz/wsdl\">");
+	QString body(
+		"<SetPreset xmlns=\"http://www.onvif.org/ver20/ptz/wsdl\">");
 	body.push_back("<ProfileToken>");
 	body.push_back(profile);
 	body.push_back("</ProfileToken>");
@@ -288,15 +338,19 @@ bool OnvifPTZService::SetPreset(QString host, QString username, QString password
 	return result;
 }
 
-bool OnvifPTZService::RemovePreset(QString host, QString username, QString password, QString profile, QString preset)
+bool OnvifPTZService::RemovePreset(QString host, QString username,
+				   QString password, QString profile,
+				   QString preset)
 {
 	SoapRequest *soapRequest = new SoapRequest();
 	soapRequest->host = host;
 	soapRequest->username = username;
 	soapRequest->password = password;
-	soapRequest->action = "http://www.onvif.org/ver20/ptz/wsdl/RemovePreset";
+	soapRequest->action =
+		"http://www.onvif.org/ver20/ptz/wsdl/RemovePreset";
 	soapRequest->XMLNs = this->ptzNameSpace;
-	QString body("<RemovePreset xmlns=\"http://www.onvif.org/ver20/ptz/wsdl\">");
+	QString body(
+		"<RemovePreset xmlns=\"http://www.onvif.org/ver20/ptz/wsdl\">");
 	body.push_back("<ProfileToken>");
 	body.push_back(profile);
 	body.push_back("</ProfileToken>");
@@ -312,7 +366,9 @@ bool OnvifPTZService::RemovePreset(QString host, QString username, QString passw
 	return result;
 }
 
-bool OnvifPTZService::GotoPreset(QString host, QString username, QString password, QString profile, QString preset)
+bool OnvifPTZService::GotoPreset(QString host, QString username,
+				 QString password, QString profile,
+				 QString preset)
 {
 	SoapRequest *soapRequest = new SoapRequest();
 	soapRequest->host = host;
@@ -320,7 +376,8 @@ bool OnvifPTZService::GotoPreset(QString host, QString username, QString passwor
 	soapRequest->password = password;
 	soapRequest->action = "http://www.onvif.org/ver20/ptz/wsdl/GotoPreset";
 	soapRequest->XMLNs = this->ptzNameSpace;
-	QString body("<GotoPreset xmlns=\"http://www.onvif.org/ver20/ptz/wsdl\">");
+	QString body(
+		"<GotoPreset xmlns=\"http://www.onvif.org/ver20/ptz/wsdl\">");
 	body.push_back("<ProfileToken>");
 	body.push_back(profile);
 	body.push_back("</ProfileToken>");
@@ -336,7 +393,9 @@ bool OnvifPTZService::GotoPreset(QString host, QString username, QString passwor
 	return result;
 }
 
-QMap<int, QString> OnvifPTZService::GetPresets(QString host, QString username, QString password, QString profile)
+QMap<int, QString> OnvifPTZService::GetPresets(QString host, QString username,
+					       QString password,
+					       QString profile)
 {
 	SoapRequest *soapRequest = new SoapRequest();
 	soapRequest->host = host;
@@ -344,7 +403,8 @@ QMap<int, QString> OnvifPTZService::GetPresets(QString host, QString username, Q
 	soapRequest->password = password;
 	soapRequest->action = "http://www.onvif.org/ver20/ptz/wsdl/GetPresets";
 	soapRequest->XMLNs = this->ptzNameSpace;
-	QString body("<GetPresets xmlns=\"http://www.onvif.org/ver20/ptz/wsdl\">");
+	QString body(
+		"<GetPresets xmlns=\"http://www.onvif.org/ver20/ptz/wsdl\">");
 	body.push_back("<ProfileToken>");
 	body.push_back(profile);
 	body.push_back("</ProfileToken>");
@@ -366,13 +426,25 @@ QMap<int, QString> OnvifPTZService::GetPresets(QString host, QString username, Q
 		int preset_number = -1;
 
 		for (int a = 0; a < nodes.at(i).attributes().length(); a++) {
-			if (nodes.at(i).attributes().item(a).nodeName() == "token")
-				preset_token = nodes.at(i).attributes().item(a).nodeValue();
+			if (nodes.at(i).attributes().item(a).nodeName() ==
+			    "token")
+				preset_token = nodes.at(i)
+						       .attributes()
+						       .item(a)
+						       .nodeValue();
 		}
 
 		for (int c = 0; c < nodes.at(i).childNodes().length(); c++) {
-			if (nodes.at(i).childNodes().at(c).nodeName() == "tt:Name") {
-				preset_number = nodes.at(i).childNodes().at(c).toElement().text().split("_").takeLast().toInt();
+			if (nodes.at(i).childNodes().at(c).nodeName() ==
+			    "tt:Name") {
+				preset_number = nodes.at(i)
+							.childNodes()
+							.at(c)
+							.toElement()
+							.text()
+							.split("_")
+							.takeLast()
+							.toInt();
 				// qInfo() << "[OnvifPTZService] GetPresets Response " << preset_number;
 			}
 		}
@@ -388,18 +460,23 @@ QMap<int, QString> OnvifPTZService::GetPresets(QString host, QString username, Q
 
 OnvifDeviceService::OnvifDeviceService()
 {
-	this->deviceNameSpace.push_back("xmlns:tds=\"http://www.onvif.org/ver10/device/wsdl\"");
-	this->deviceNameSpace.push_back("xmlns:tt=\"http://www.onvif.org/ver10/schema\"");
+	this->deviceNameSpace.push_back(
+		"xmlns:tds=\"http://www.onvif.org/ver10/device/wsdl\"");
+	this->deviceNameSpace.push_back(
+		"xmlns:tt=\"http://www.onvif.org/ver10/schema\"");
 }
 
-DeviceCapabilities OnvifDeviceService::GetCapabilities(QString deviceXAddress, QString username, QString password)
+DeviceCapabilities OnvifDeviceService::GetCapabilities(QString deviceXAddress,
+						       QString username,
+						       QString password)
 {
 	SoapRequest *soapRequest = new SoapRequest();
 	soapRequest->host = deviceXAddress;
 	soapRequest->username = username;
 	soapRequest->password = password;
 	soapRequest->XMLNs = this->deviceNameSpace;
-	QString body("<tds:GetCapabilities><tds:Category>All</tds:Category></tds:GetCapabilities>");
+	QString body(
+		"<tds:GetCapabilities><tds:Category>All</tds:Category></tds:GetCapabilities>");
 	soapRequest->body = body;
 	QString response;
 	bool ok = soapRequest->sendRequest(response);
@@ -411,24 +488,62 @@ DeviceCapabilities OnvifDeviceService::GetCapabilities(QString deviceXAddress, Q
 		QDomDocument doc;
 		doc.setContent(response);
 		QDomElement rootElement = doc.documentElement();
-		for(QDomNode node = rootElement.firstChild(); !node.isNull(); node = node.nextSibling()) {
+		for (QDomNode node = rootElement.firstChild(); !node.isNull();
+		     node = node.nextSibling()) {
 			QDomElement elementBody = node.toElement();
-			for(QDomNode node1 = elementBody.firstChild(); !node1.isNull(); node1 = node1.nextSibling()) {
-				QDomElement elementGetCapabilitiesResponse = node1.toElement();
-				for(QDomNode node2 = elementGetCapabilitiesResponse.firstChild(); !node2.isNull(); node2 = node2.nextSibling()) {
-					QDomElement elementCapabilities = node2.toElement();
-					for(QDomNode node3 = elementCapabilities.firstChild(); !node3.isNull(); node3 = node3.nextSibling()) {
-						if (node3.nodeName().toLower().endsWith("ptz")) {
-							QDomElement elementPtz = node3.toElement();
-							for(QDomNode node4 = elementPtz.firstChild(); !node4.isNull(); node4 = node4.nextSibling()) {
-								if (node4.nodeName().toLower().endsWith("xaddr"))
-									result.ptzXAddr = node4.toElement().text();
+			for (QDomNode node1 = elementBody.firstChild();
+			     !node1.isNull(); node1 = node1.nextSibling()) {
+				QDomElement elementGetCapabilitiesResponse =
+					node1.toElement();
+				for (QDomNode node2 =
+					     elementGetCapabilitiesResponse
+						     .firstChild();
+				     !node2.isNull();
+				     node2 = node2.nextSibling()) {
+					QDomElement elementCapabilities =
+						node2.toElement();
+					for (QDomNode node3 =
+						     elementCapabilities
+							     .firstChild();
+					     !node3.isNull();
+					     node3 = node3.nextSibling()) {
+						if (node3.nodeName()
+							    .toLower()
+							    .endsWith("ptz")) {
+							QDomElement elementPtz =
+								node3.toElement();
+							for (QDomNode node4 =
+								     elementPtz
+									     .firstChild();
+							     !node4.isNull();
+							     node4 = node4.nextSibling()) {
+								if (node4.nodeName()
+									    .toLower()
+									    .endsWith(
+										    "xaddr"))
+									result.ptzXAddr =
+										node4.toElement()
+											.text();
 							}
-						} else if (node3.nodeName().toLower().endsWith("media")) {
-							QDomElement elementPtz = node3.toElement();
-							for(QDomNode node4 = elementPtz.firstChild(); !node4.isNull(); node4 = node4.nextSibling()) {
-								if (node4.nodeName().toLower().endsWith("xaddr"))
-									result.mediaXAddr = node4.toElement().text();
+						} else if (
+							node3.nodeName()
+								.toLower()
+								.endsWith(
+									"media")) {
+							QDomElement elementPtz =
+								node3.toElement();
+							for (QDomNode node4 =
+								     elementPtz
+									     .firstChild();
+							     !node4.isNull();
+							     node4 = node4.nextSibling()) {
+								if (node4.nodeName()
+									    .toLower()
+									    .endsWith(
+										    "xaddr"))
+									result.mediaXAddr =
+										node4.toElement()
+											.text();
 							}
 						}
 					}
@@ -441,11 +556,15 @@ DeviceCapabilities OnvifDeviceService::GetCapabilities(QString deviceXAddress, Q
 
 OnvifMediaService::OnvifMediaService()
 {
-	this->mediaNameSpace.push_back("xmlns:trt=\"http://www.onvif.org/ver10/media/wsdl\"");
-	this->mediaNameSpace.push_back("xmlns:tt=\"http://www.onvif.org/ver10/schema\"");
+	this->mediaNameSpace.push_back(
+		"xmlns:trt=\"http://www.onvif.org/ver10/media/wsdl\"");
+	this->mediaNameSpace.push_back(
+		"xmlns:tt=\"http://www.onvif.org/ver10/schema\"");
 }
 
-QList<MediaProfile> OnvifMediaService::GetProfiles(QString mediaXAddress, QString username, QString password)
+QList<MediaProfile> OnvifMediaService::GetProfiles(QString mediaXAddress,
+						   QString username,
+						   QString password)
 {
 	SoapRequest *soapRequest = new SoapRequest();
 	soapRequest->host = mediaXAddress;
@@ -464,21 +583,44 @@ QList<MediaProfile> OnvifMediaService::GetProfiles(QString mediaXAddress, QStrin
 		QDomDocument doc;
 		doc.setContent(response);
 		QDomElement rootElement = doc.documentElement();
-		for(QDomNode node = rootElement.firstChild(); !node.isNull(); node = node.nextSibling()) {
+		for (QDomNode node = rootElement.firstChild(); !node.isNull();
+		     node = node.nextSibling()) {
 			QDomElement elementBody = node.toElement();
-			for(QDomNode node1 = elementBody.firstChild(); !node1.isNull(); node1 = node1.nextSibling()) {
-				QDomElement elementGetProfilesResponse = node1.toElement();
-				for(QDomNode node2 = elementGetProfilesResponse.firstChild(); !node2.isNull(); node2 = node2.nextSibling()) {
+			for (QDomNode node1 = elementBody.firstChild();
+			     !node1.isNull(); node1 = node1.nextSibling()) {
+				QDomElement elementGetProfilesResponse =
+					node1.toElement();
+				for (QDomNode node2 = elementGetProfilesResponse
+							      .firstChild();
+				     !node2.isNull();
+				     node2 = node2.nextSibling()) {
 					MediaProfile profile;
-					QDomElement elementProfiles= node2.toElement();
-					for (int i = 0; i < node2.attributes().size(); i++) {
-						if (node2.attributes().item(i).nodeName() == "token")
-							profile.token = node2.attributes().item(i).nodeValue();
+					QDomElement elementProfiles =
+						node2.toElement();
+					for (int i = 0;
+					     i < node2.attributes().size();
+					     i++) {
+						if (node2.attributes()
+							    .item(i)
+							    .nodeName() ==
+						    "token")
+							profile.token =
+								node2.attributes()
+									.item(i)
+									.nodeValue();
 					}
 
-					for(QDomNode node3 = elementProfiles.firstChild(); !node3.isNull(); node3 = node3.nextSibling()) {
-						if (node3.nodeName().toLower().endsWith("name"))
-							profile.name = node3.toElement().text();
+					for (QDomNode node3 =
+						     elementProfiles
+							     .firstChild();
+					     !node3.isNull();
+					     node3 = node3.nextSibling()) {
+						if (node3.nodeName()
+							    .toLower()
+							    .endsWith("name"))
+							profile.name =
+								node3.toElement()
+									.text();
 					}
 					result.push_back(profile);
 				}
@@ -488,8 +630,7 @@ QList<MediaProfile> OnvifMediaService::GetProfiles(QString mediaXAddress, QStrin
 	return result;
 }
 
-PTZOnvif::PTZOnvif(OBSData config)
-	: PTZDevice(config)
+PTZOnvif::PTZOnvif(OBSData config) : PTZDevice(config)
 {
 	set_config(config);
 	auto_settings_filter += {"port", "host", "username", "password"};
@@ -498,10 +639,13 @@ PTZOnvif::PTZOnvif(OBSData config)
 void PTZOnvif::connectCamera()
 {
 	OnvifDeviceService a;
-	DeviceCapabilities deviceCapabilities = a.GetCapabilities(tr("http://%1:%2/onvif/device_service").arg(host).arg(port), username, password);
+	DeviceCapabilities deviceCapabilities = a.GetCapabilities(
+		tr("http://%1:%2/onvif/device_service").arg(host).arg(port),
+		username, password);
 
 	OnvifMediaService b;
-	QList<MediaProfile> listProfile = b.GetProfiles(deviceCapabilities.mediaXAddr,  username, password);
+	QList<MediaProfile> listProfile = b.GetProfiles(
+		deviceCapabilities.mediaXAddr, username, password);
 
 	if (listProfile.isEmpty()) {
 		qInfo() << "[PTZOnvif] Connection failed ";
@@ -520,26 +664,30 @@ void PTZOnvif::pantilt(double pan, double tilt)
 		QThread::msleep(200);
 		c.Stop(m_PTZAddress, username, password, m_selectedMedia.token);
 	} else {
-		c.ContinuousMove(m_PTZAddress, username, password, m_selectedMedia.token, pan, tilt, 0.0);
+		c.ContinuousMove(m_PTZAddress, username, password,
+				 m_selectedMedia.token, pan, tilt, 0.0);
 	}
 }
 
 void PTZOnvif::pantilt_abs(int pan, int tilt)
 {
 	OnvifPTZService c;
-	c.AbsoluteMove(m_PTZAddress, username, password, m_selectedMedia.token, pan, tilt, 0.0);
+	c.AbsoluteMove(m_PTZAddress, username, password, m_selectedMedia.token,
+		       pan, tilt, 0.0);
 }
 
 void PTZOnvif::pantilt_rel(int pan, int tilt)
 {
 	OnvifPTZService c;
-	c.RelativeMove(m_PTZAddress, username, password, m_selectedMedia.token, pan, tilt, 0.0);
+	c.RelativeMove(m_PTZAddress, username, password, m_selectedMedia.token,
+		       pan, tilt, 0.0);
 }
 
 void PTZOnvif::pantilt_home()
 {
 	OnvifPTZService c;
-	c.GoToHomePosition(m_PTZAddress, username, password, m_selectedMedia.token);
+	c.GoToHomePosition(m_PTZAddress, username, password,
+			   m_selectedMedia.token);
 }
 
 void PTZOnvif::zoom(double speed)
@@ -549,47 +697,55 @@ void PTZOnvif::zoom(double speed)
 		QThread::msleep(200);
 		c.Stop(m_PTZAddress, username, password, m_selectedMedia.token);
 	} else {
-		c.ContinuousMove(m_PTZAddress, username, password, m_selectedMedia.token, 0.0, 0.0, speed);
+		c.ContinuousMove(m_PTZAddress, username, password,
+				 m_selectedMedia.token, 0.0, 0.0, speed);
 	}
 }
 
 void PTZOnvif::zoom_abs(int pos)
 {
 	OnvifPTZService c;
-	c.AbsoluteMove(m_PTZAddress, username, password, m_selectedMedia.token, 0.0, 0.0, pos);
+	c.AbsoluteMove(m_PTZAddress, username, password, m_selectedMedia.token,
+		       0.0, 0.0, pos);
 }
 
 void PTZOnvif::memory_reset(int i)
 {
 	OnvifPTZService c;
 
-	QMap<int, QString> presets = c.GetPresets(m_PTZAddress, username, password, m_selectedMedia.token);
+	QMap<int, QString> presets = c.GetPresets(
+		m_PTZAddress, username, password, m_selectedMedia.token);
 
 	if (presets.find(i) != presets.end())
-		c.RemovePreset(m_PTZAddress, username, password, m_selectedMedia.token, presets[i]);
+		c.RemovePreset(m_PTZAddress, username, password,
+			       m_selectedMedia.token, presets[i]);
 }
 
 void PTZOnvif::memory_set(int i)
 {
 	OnvifPTZService c;
 
-	QMap<int, QString> presets = c.GetPresets(m_PTZAddress, username, password, m_selectedMedia.token);
+	QMap<int, QString> presets = c.GetPresets(
+		m_PTZAddress, username, password, m_selectedMedia.token);
 	QString preset = "";
 
 	if (presets.find(i) != presets.end())
 		preset = presets[i];
 
-	c.SetPreset(m_PTZAddress, username, password, m_selectedMedia.token, preset, i);
+	c.SetPreset(m_PTZAddress, username, password, m_selectedMedia.token,
+		    preset, i);
 }
 
 void PTZOnvif::memory_recall(int i)
 {
 	OnvifPTZService c;
 
-	QMap<int, QString> presets = c.GetPresets(m_PTZAddress, username, password, m_selectedMedia.token);
+	QMap<int, QString> presets = c.GetPresets(
+		m_PTZAddress, username, password, m_selectedMedia.token);
 
 	if (presets.find(i) != presets.end())
-		c.GotoPreset(m_PTZAddress, username, password, m_selectedMedia.token, presets[i]);
+		c.GotoPreset(m_PTZAddress, username, password,
+			     m_selectedMedia.token, presets[i]);
 }
 
 void PTZOnvif::set_config(OBSData config)
@@ -624,7 +780,9 @@ obs_properties_t *PTZOnvif::get_obs_properties()
 	obs_property_set_description(p, "Onvif Connection");
 	obs_properties_add_text(config, "host", "IP Host", OBS_TEXT_DEFAULT);
 	obs_properties_add_int(config, "port", "TCP port", 1, 65535, 1);
-	obs_properties_add_text(config, "username", "Username", OBS_TEXT_DEFAULT);
-	obs_properties_add_text(config, "password", "Password", OBS_TEXT_DEFAULT);
+	obs_properties_add_text(config, "username", "Username",
+				OBS_TEXT_DEFAULT);
+	obs_properties_add_text(config, "password", "Password",
+				OBS_TEXT_DEFAULT);
 	return ptz_props;
 }

@@ -8,10 +8,9 @@
 #include "imported/qt-wrappers.hpp"
 #include "ptz-visca-uart.hpp"
 
-std::map<QString, ViscaUART*> ViscaUART::interfaces;
+std::map<QString, ViscaUART *> ViscaUART::interfaces;
 
-ViscaUART::ViscaUART(QString &port_name) :
-	PTZUARTWrapper(port_name)
+ViscaUART::ViscaUART(QString &port_name) : PTZUARTWrapper(port_name)
 {
 	camera_count = 0;
 }
@@ -41,8 +40,8 @@ void ViscaUART::receive_datagram(const QByteArray &packet)
 		case 0:
 			camera_count = (packet[2] & 0x7) - 1;
 			blog(LOG_INFO, "VISCA Interface %s: %i camera%s found",
-				qPrintable(uart.portName()),
-				camera_count, camera_count == 1 ? "" : "s");
+			     qPrintable(uart.portName()), camera_count,
+			     camera_count == 1 ? "" : "s");
 			send(VISCA_IF_CLEAR.cmd);
 			emit reset();
 			break;
@@ -74,13 +73,14 @@ void ViscaUART::receiveBytes(const QByteArray &msg)
 	}
 }
 
-ViscaUART * ViscaUART::get_interface(QString port_name)
+ViscaUART *ViscaUART::get_interface(QString port_name)
 {
 	ViscaUART *iface;
 	ptz_debug("Looking for UART object %s", qPrintable(port_name));
 	iface = interfaces[port_name];
 	if (!iface) {
-		ptz_debug("Creating new VISCA object %s", qPrintable(port_name));
+		ptz_debug("Creating new VISCA object %s",
+			  qPrintable(port_name));
 		iface = new ViscaUART(port_name);
 		iface->open();
 		interfaces[port_name] = iface;
@@ -88,8 +88,7 @@ ViscaUART * ViscaUART::get_interface(QString port_name)
 	return iface;
 }
 
-PTZViscaSerial::PTZViscaSerial(OBSData config)
-	: PTZVisca(config), iface(NULL)
+PTZViscaSerial::PTZViscaSerial(OBSData config) : PTZVisca(config), iface(NULL)
 {
 	set_config(config);
 	auto_settings_filter += {"port", "address", "baud_rate"};
@@ -106,7 +105,8 @@ void PTZViscaSerial::attach_interface(ViscaUART *new_iface)
 		iface->disconnect(this);
 	iface = new_iface;
 	if (iface) {
-		connect(iface, &ViscaUART::receive, this, &PTZViscaSerial::receive);
+		connect(iface, &ViscaUART::receive, this,
+			&PTZViscaSerial::receive);
 		connect(iface, &ViscaUART::reset, this, &PTZViscaSerial::reset);
 	}
 }

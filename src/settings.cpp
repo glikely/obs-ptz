@@ -35,13 +35,13 @@ static PTZSettings *ptzSettingsWindow = nullptr;
 
 /* ----------------------------------------------------------------- */
 
-const char *description_text = "<html><head/><body>"
-	"<p>OBS PTZ Controls Plugin<br>"
-	PLUGIN_VERSION "<br>"
+const char *description_text =
+	"<html><head/><body>"
+	"<p>OBS PTZ Controls Plugin<br>" PLUGIN_VERSION "<br>"
 	"By Grant Likely &lt;grant.likely@secretlab.ca&gt;</p>"
 	"<p><a href=\"https://github.com/glikely/obs-ptz\">"
-		"<span style=\" text-decoration: underline; color:#7f7fff;\">"
-		"https://github.com/glikely/obs-ptz</span></a></p>"
+	"<span style=\" text-decoration: underline; color:#7f7fff;\">"
+	"https://github.com/glikely/obs-ptz</span></a></p>"
 	"<p>Contributors:<br/>"
 	"Luuk Verhagen<br/>"
 	"Norihiro Kamae<br/>"
@@ -49,16 +49,16 @@ const char *description_text = "<html><head/><body>"
 	"</body></html>";
 
 QWidget *SourceNameDelegate::createEditor(QWidget *parent,
-					const QStyleOptionViewItem &option,
-					const QModelIndex &index) const
+					  const QStyleOptionViewItem &option,
+					  const QModelIndex &index) const
 {
 	QComboBox *cb = new QComboBox(parent);
 	cb->setEditable(true);
 	Q_UNUSED(option);
 
 	// Get list of all sources
-	auto src_cb = [](void *data, obs_source_t* src) {
-		auto srcnames = static_cast<QStringList*>(data);
+	auto src_cb = [](void *data, obs_source_t *src) {
+		auto srcnames = static_cast<QStringList *>(data);
 		srcnames->append(obs_source_get_name(src));
 		return true;
 	};
@@ -77,7 +77,7 @@ QWidget *SourceNameDelegate::createEditor(QWidget *parent,
 }
 
 void SourceNameDelegate::setEditorData(QWidget *editor,
-					const QModelIndex &index) const
+				       const QModelIndex &index) const
 {
 	QComboBox *cb = qobject_cast<QComboBox *>(editor);
 	Q_ASSERT(cb);
@@ -85,8 +85,8 @@ void SourceNameDelegate::setEditorData(QWidget *editor,
 }
 
 void SourceNameDelegate::setModelData(QWidget *editor,
-					QAbstractItemModel *model,
-					const QModelIndex &index) const
+				      QAbstractItemModel *model,
+				      const QModelIndex &index) const
 {
 	QComboBox *cb = qobject_cast<QComboBox *>(editor);
 	Q_ASSERT(cb);
@@ -95,13 +95,15 @@ void SourceNameDelegate::setModelData(QWidget *editor,
 
 obs_properties_t *PTZSettings::getProperties(void)
 {
-	PTZDevice *ptz = ptzDeviceList.getDevice(ui->deviceList->currentIndex());
+	PTZDevice *ptz =
+		ptzDeviceList.getDevice(ui->deviceList->currentIndex());
 	return ptz ? ptz->get_obs_properties() : obs_properties_create();
 }
 
 void PTZSettings::updateProperties(OBSData old_settings, OBSData new_settings)
 {
-	PTZDevice *ptz = ptzDeviceList.getDevice(ui->deviceList->currentIndex());
+	PTZDevice *ptz =
+		ptzDeviceList.getDevice(ui->deviceList->currentIndex());
 	if (ptz)
 		ptz->set_settings(new_settings);
 	Q_UNUSED(old_settings);
@@ -114,24 +116,29 @@ PTZSettings::PTZSettings() : QWidget(nullptr), ui(new Ui_PTZSettings)
 
 	ui->setupUi(this);
 
-	ui->livemoveCheckBox->setChecked(PTZControls::getInstance()->liveMovesDisabled());
+	ui->livemoveCheckBox->setChecked(
+		PTZControls::getInstance()->liveMovesDisabled());
 
 	auto snd = new SourceNameDelegate(this);
 	ui->deviceList->setModel(&ptzDeviceList);
 	ui->deviceList->setItemDelegateForColumn(0, snd);
 
 	QItemSelectionModel *selectionModel = ui->deviceList->selectionModel();
-	connect(selectionModel, SIGNAL(currentChanged(QModelIndex,QModelIndex)),
-		this, SLOT(currentChanged(QModelIndex,QModelIndex)));
+	connect(selectionModel,
+		SIGNAL(currentChanged(QModelIndex, QModelIndex)), this,
+		SLOT(currentChanged(QModelIndex, QModelIndex)));
 
 	auto reload_cb = [](void *obj) {
 		return static_cast<PTZSettings *>(obj)->getProperties();
 	};
 	auto update_cb = [](void *obj, obs_data_t *oldset, obs_data_t *newset) {
-		static_cast<PTZSettings *>(obj)->updateProperties(oldset, newset);
+		static_cast<PTZSettings *>(obj)->updateProperties(oldset,
+								  newset);
 	};
-	propertiesView = new OBSPropertiesView(settings, this, reload_cb, update_cb);
-	propertiesView->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
+	propertiesView =
+		new OBSPropertiesView(settings, this, reload_cb, update_cb);
+	propertiesView->setSizePolicy(QSizePolicy::Expanding,
+				      QSizePolicy::Expanding);
 	ui->propertiesLayout->insertWidget(2, propertiesView, 1);
 	ui->versionLabel->setText(description_text);
 }
@@ -143,12 +150,14 @@ PTZSettings::~PTZSettings()
 
 void PTZSettings::set_selected(uint32_t device_id)
 {
-	ui->deviceList->setCurrentIndex(ptzDeviceList.indexFromDeviceId(device_id));
+	ui->deviceList->setCurrentIndex(
+		ptzDeviceList.indexFromDeviceId(device_id));
 }
 
 void PTZSettings::on_applyButton_clicked()
 {
-	PTZDevice *ptz = ptzDeviceList.getDevice(ui->deviceList->currentIndex());
+	PTZDevice *ptz =
+		ptzDeviceList.getDevice(ui->deviceList->currentIndex());
 	if (ptz)
 		ptz->set_config(propertiesView->GetSettings());
 }
@@ -225,7 +234,8 @@ void PTZSettings::on_addPTZ_clicked()
 
 void PTZSettings::on_removePTZ_clicked()
 {
-	PTZDevice *ptz = ptzDeviceList.getDevice(ui->deviceList->currentIndex());
+	PTZDevice *ptz =
+		ptzDeviceList.getDevice(ui->deviceList->currentIndex());
 	if (!ptz)
 		return;
 	delete ptz;
@@ -234,10 +244,12 @@ void PTZSettings::on_removePTZ_clicked()
 void PTZSettings::on_livemoveCheckBox_stateChanged(int state)
 {
 	Q_UNUSED(state);
-	PTZControls::getInstance()->setDisableLiveMoves(ui->livemoveCheckBox->isChecked());
+	PTZControls::getInstance()->setDisableLiveMoves(
+		ui->livemoveCheckBox->isChecked());
 }
 
-void PTZSettings::currentChanged(const QModelIndex &current, const QModelIndex &previous)
+void PTZSettings::currentChanged(const QModelIndex &current,
+				 const QModelIndex &previous)
 {
 	Q_UNUSED(previous);
 
@@ -280,9 +292,7 @@ extern "C" void ptz_load_settings()
 	QAction *action = (QAction *)obs_frontend_add_tools_menu_qaction(
 		obs_module_text("PTZ Devices"));
 
-	auto cb = []() {
-		ptz_settings_show(0);
-	};
+	auto cb = []() { ptz_settings_show(0); };
 
 	obs_frontend_add_event_callback(obs_event, nullptr);
 

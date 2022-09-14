@@ -15,9 +15,9 @@
 #include <obs-frontend-api.h>
 
 extern int ptz_debug_level;
-#define ptz_debug(format, ...) \
+#define ptz_debug(format, ...)                                            \
 	blog(ptz_debug_level, "%s():%i: " format, __FUNCTION__, __LINE__, \
-	##__VA_ARGS__)
+	     ##__VA_ARGS__)
 
 class PTZDevice;
 
@@ -30,22 +30,26 @@ private:
 public:
 	PTZListModel();
 	~PTZListModel();
-	int rowCount(const QModelIndex& parent = QModelIndex()) const;
+	int rowCount(const QModelIndex &parent = QModelIndex()) const;
 	QVariant data(const QModelIndex &index, int role) const;
-	void do_reset() { beginResetModel(); endResetModel(); }
+	void do_reset()
+	{
+		beginResetModel();
+		endResetModel();
+	}
 	Qt::ItemFlags flags(const QModelIndex &index) const;
 	bool setData(const QModelIndex &index, const QVariant &value, int role);
 
 	/* Data Model */
-	PTZDevice* make_device(OBSData config);
-	PTZDevice* getDevice(const QModelIndex &index);
+	PTZDevice *make_device(OBSData config);
+	PTZDevice *getDevice(const QModelIndex &index);
 	uint32_t getDeviceId(const QModelIndex &index);
-	PTZDevice* getDevice(uint32_t device_id);
-	PTZDevice* getDeviceByName(const QString &name);
+	PTZDevice *getDevice(uint32_t device_id);
+	PTZDevice *getDeviceByName(const QString &name);
 	QStringList getDeviceNames();
 	QModelIndex indexFromDeviceId(uint32_t device_id);
 	void renameDevice(QString new_name, QString prev_name);
-	obs_data_array_t* getConfigs();
+	obs_data_array_t *getConfigs();
 	void add(PTZDevice *ptz);
 	void remove(PTZDevice *ptz);
 	unsigned int device_count() { return devices.size(); }
@@ -53,14 +57,16 @@ public:
 
 public slots:
 	void preset_recall(uint32_t device_id, int preset_id);
-	void move_continuous(uint32_t device_id, uint32_t flags, double pan, double tilt, double zoom, double focus);
+	void move_continuous(uint32_t device_id, uint32_t flags, double pan,
+			     double tilt, double zoom, double focus);
 };
 
 extern PTZListModel ptzDeviceList;
 
-const QStringList default_preset_names({"Preset 1", "Preset 2", "Preset 3", "Preset 4",
-	"Preset 5",  "Preset 6",  "Preset 7",  "Preset 8",  "Preset 9",  "Preset 10",
-	"Preset 11", "Preset 12", "Preset 13", "Preset 14", "Preset 15", "Preset 16"});
+const QStringList default_preset_names(
+	{"Preset 1", "Preset 2", "Preset 3", "Preset 4", "Preset 5", "Preset 6",
+	 "Preset 7", "Preset 8", "Preset 9", "Preset 10", "Preset 11",
+	 "Preset 12", "Preset 13", "Preset 14", "Preset 15", "Preset 16"});
 
 class PTZDevice : public QObject {
 	Q_OBJECT
@@ -85,19 +91,34 @@ public:
 
 	void setObjectName(QString name);
 
-	virtual void pantilt(double pan, double tilt) { Q_UNUSED(pan); Q_UNUSED(tilt); }
-	virtual void pantilt_rel(int pan, int tilt) { Q_UNUSED(pan); Q_UNUSED(tilt); }
-	virtual void pantilt_abs(int pan, int tilt) { Q_UNUSED(pan); Q_UNUSED(tilt); }
-	virtual void pantilt_home() { }
+	virtual void pantilt(double pan, double tilt)
+	{
+		Q_UNUSED(pan);
+		Q_UNUSED(tilt);
+	}
+	virtual void pantilt_rel(int pan, int tilt)
+	{
+		Q_UNUSED(pan);
+		Q_UNUSED(tilt);
+	}
+	virtual void pantilt_abs(int pan, int tilt)
+	{
+		Q_UNUSED(pan);
+		Q_UNUSED(tilt);
+	}
+	virtual void pantilt_home() {}
 	virtual void zoom(double speed) { Q_UNUSED(speed); }
 	virtual void zoom_abs(int pos) { Q_UNUSED(pos); };
 	virtual void set_autofocus(bool enabled) { Q_UNUSED(enabled); };
 	virtual void focus(double speed) { Q_UNUSED(speed); }
-	virtual void focus_onetouch() { }
+	virtual void focus_onetouch() {}
 	virtual void memory_set(int i) { Q_UNUSED(i); }
 	virtual void memory_recall(int i) { Q_UNUSED(i); }
 	virtual void memory_reset(int i) { Q_UNUSED(i); }
-	virtual QAbstractListModel * presetModel() { return &preset_names_model; }
+	virtual QAbstractListModel *presetModel()
+	{
+		return &preset_names_model;
+	}
 
 	/* `config` is the device configuration, saved to the config file
 	 * `settings` are the dynamic state of the device which includes the

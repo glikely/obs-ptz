@@ -24,8 +24,7 @@ public:
 	QString token;
 };
 
-class SoapRequest : QObject
-{
+class SoapRequest : QObject {
 	Q_OBJECT
 public:
 	SoapRequest();
@@ -34,31 +33,42 @@ public:
 	bool sendRequest(QString &result);
 public slots:
 	void authRequired(QNetworkReply *reply, QAuthenticator *authenticator);
+
 public:
 	QString username, password, host;
 	QString body, action;
 	QList<QString> XMLNs;
 	QNetworkAccessManager *networkManager;
+
 private:
 	QString createRequest();
 	QString createUserToken();
 };
 
-class OnvifPTZService
-{
+class OnvifPTZService {
 private:
 	QList<QString> ptzNameSpace;
+
 public:
 	OnvifPTZService();
-	bool ContinuousMove(QString host, QString username, QString password, QString profile, double x, double y, double z);
-	bool AbsoluteMove(QString host, QString username, QString password, QString profile, int x, int y, int z);
-	bool RelativeMove(QString host, QString username, QString password, QString profile, int x, int y, int z);
-	bool Stop(QString host, QString username, QString password, QString profile);
-	bool GoToHomePosition(QString host, QString username, QString password, QString profile);
-	bool SetPreset(QString host, QString username, QString password, QString profile, QString preset, int p);
-	bool GotoPreset(QString host, QString username, QString password, QString profile, QString preset);
-	bool RemovePreset(QString host, QString username, QString password, QString profile, QString preset);
-	QMap<int, QString> GetPresets(QString host, QString username, QString password, QString profile);
+	bool ContinuousMove(QString host, QString username, QString password,
+			    QString profile, double x, double y, double z);
+	bool AbsoluteMove(QString host, QString username, QString password,
+			  QString profile, int x, int y, int z);
+	bool RelativeMove(QString host, QString username, QString password,
+			  QString profile, int x, int y, int z);
+	bool Stop(QString host, QString username, QString password,
+		  QString profile);
+	bool GoToHomePosition(QString host, QString username, QString password,
+			      QString profile);
+	bool SetPreset(QString host, QString username, QString password,
+		       QString profile, QString preset, int p);
+	bool GotoPreset(QString host, QString username, QString password,
+			QString profile, QString preset);
+	bool RemovePreset(QString host, QString username, QString password,
+			  QString profile, QString preset);
+	QMap<int, QString> GetPresets(QString host, QString username,
+				      QString password, QString profile);
 };
 
 class DeviceCapabilities {
@@ -67,24 +77,25 @@ public:
 	QString ptzXAddr;
 };
 
-class OnvifDeviceService
-{
+class OnvifDeviceService {
 private:
 	QList<QString> deviceNameSpace;
+
 public:
 	OnvifDeviceService();
-	DeviceCapabilities GetCapabilities(QString deviceXAddress, QString username, QString password);
-
+	DeviceCapabilities GetCapabilities(QString deviceXAddress,
+					   QString username, QString password);
 };
 
-class OnvifMediaService
-{
+class OnvifMediaService {
 private:
 	QList<QString> mediaNameSpace;
+
 public:
 	OnvifMediaService();
 
-	QList<MediaProfile> GetProfiles(QString mediaXAddress, QString username, QString password);
+	QList<MediaProfile> GetProfiles(QString mediaXAddress, QString username,
+					QString password);
 };
 
 class PTZOnvif : public PTZDevice {
@@ -119,5 +130,4 @@ public:
 	void memory_reset(int i);
 	void memory_set(int i);
 	void memory_recall(int i);
-
 };

@@ -17,7 +17,10 @@ class datagram_field {
 public:
 	const char *name;
 	int offset;
-	datagram_field(const char *name, int offset) : name(name), offset(offset) { }
+	datagram_field(const char *name, int offset)
+		: name(name), offset(offset)
+	{
+	}
 	virtual void encode(QByteArray &msg, int val) = 0;
 	virtual bool decode(OBSData data, QByteArray &msg) = 0;
 };
@@ -25,14 +28,18 @@ public:
 class bool_field : public datagram_field {
 public:
 	const unsigned int mask;
-	bool_field(const char *name, unsigned offset, unsigned int mask) :
-			datagram_field(name, offset), mask(mask) { }
-	void encode(QByteArray &msg, int val) {
+	bool_field(const char *name, unsigned offset, unsigned int mask)
+		: datagram_field(name, offset), mask(mask)
+	{
+	}
+	void encode(QByteArray &msg, int val)
+	{
 		if (msg.size() < offset + 1)
 			return;
 		msg[offset] = (msg[offset] & ~mask) | (val ? mask : 0);
 	}
-	bool decode(OBSData data, QByteArray &msg) {
+	bool decode(OBSData data, QByteArray &msg)
+	{
 		if (msg.size() < offset + 1)
 			return false;
 		obs_data_set_bool(data, name, (msg[offset] & mask) != 0);
@@ -44,8 +51,9 @@ class int_field : public datagram_field {
 public:
 	const unsigned int mask;
 	int size, extend_mask = 0;
-	int_field(const char *name, unsigned offset, unsigned int mask, bool signextend = false) :
-			datagram_field(name, offset), mask(mask)
+	int_field(const char *name, unsigned offset, unsigned int mask,
+		  bool signextend = false)
+		: datagram_field(name, offset), mask(mask)
 	{
 		// Calculate number of bytes in the value
 		unsigned int wm = mask;
@@ -66,7 +74,8 @@ public:
 			extend_mask = 1U << (bitcount - 1);
 		}
 	}
-	void encode(QByteArray &msg, int val) {
+	void encode(QByteArray &msg, int val)
+	{
 		unsigned int encoded = 0;
 		unsigned int current_bit = 0;
 		unsigned int wm;
@@ -80,20 +89,22 @@ public:
 		}
 		wm = mask;
 		for (int i = size - 1; i >= 0; i--) {
-			msg[offset + i] = 0xff & ((~wm & msg[offset + i]) | encoded);
+			msg[offset + i] = 0xff &
+					  ((~wm & msg[offset + i]) | encoded);
 			wm >>= 8;
 			encoded >>= 8;
 		}
 	}
 
-	bool decode_int(int *val_, QByteArray &msg) {
+	bool decode_int(int *val_, QByteArray &msg)
+	{
 		unsigned int encoded = 0;
 		int val = 0;
 		unsigned int current_bit = 0;
 		if (msg.size() < offset + size)
 			return false;
 		for (int i = 0; i < size; i++)
-			encoded = encoded << 8 | msg[offset+i];
+			encoded = encoded << 8 | msg[offset + i];
 		for (unsigned int wm = mask; wm; wm >>= 1, encoded >>= 1) {
 			if (wm & 1) {
 				val |= (encoded & 1) << current_bit;
@@ -104,7 +115,8 @@ public:
 		return true;
 	}
 
-	bool decode(OBSData data, QByteArray &msg) {
+	bool decode(OBSData data, QByteArray &msg)
+	{
 		int val;
 		bool rc = decode_int(&val, msg);
 		if (rc)
@@ -116,19 +128,23 @@ public:
 class string_lookup_field : public int_field {
 public:
 	const QMap<int, std::string> *lookup;
-	string_lookup_field(const char *name, const QMap<int, std::string> &lookuptable,
-			    unsigned offset, unsigned int mask, bool signextend = false) :
-		int_field(name, offset, mask, signextend)
+	string_lookup_field(const char *name,
+			    const QMap<int, std::string> &lookuptable,
+			    unsigned offset, unsigned int mask,
+			    bool signextend = false)
+		: int_field(name, offset, mask, signextend)
 	{
 		lookup = &lookuptable;
 	}
 
-	bool decode(OBSData data, QByteArray &msg) {
+	bool decode(OBSData data, QByteArray &msg)
+	{
 		int val;
 		bool rc = decode_int(&val, msg);
 		if (!rc)
 			return false;
-		obs_data_set_string(data, name, lookup->value(val, "Unknown").c_str());
+		obs_data_set_string(data, name,
+				    lookup->value(val, "Unknown").c_str());
 		return true;
 	}
 };
@@ -136,18 +152,25 @@ public:
 class PTZCmd {
 public:
 	QByteArray cmd;
-	QList<datagram_field*> args;
-	QList<datagram_field*> results;
-	PTZCmd(const char *cmd_hex) : cmd(QByteArray::fromHex(cmd_hex)) { }
-	PTZCmd(const char *cmd_hex, QList<datagram_field*> args) :
-		cmd(QByteArray::fromHex(cmd_hex)), args(args) { }
-	PTZCmd(const char *cmd_hex, QList<datagram_field*> args, QList<datagram_field*> rslts) :
-		cmd(QByteArray::fromHex(cmd_hex)), args(args), results(rslts) { }
-	void encode(QList<int> arglist) {
+	QList<datagram_field *> args;
+	QList<datagram_field *> results;
+	PTZCmd(const char *cmd_hex) : cmd(QByteArray::fromHex(cmd_hex)) {}
+	PTZCmd(const char *cmd_hex, QList<datagram_field *> args)
+		: cmd(QByteArray::fromHex(cmd_hex)), args(args)
+	{
+	}
+	PTZCmd(const char *cmd_hex, QList<datagram_field *> args,
+	       QList<datagram_field *> rslts)
+		: cmd(QByteArray::fromHex(cmd_hex)), args(args), results(rslts)
+	{
+	}
+	void encode(QList<int> arglist)
+	{
 		for (int i = 0; i < arglist.size() && i < args.size(); i++)
 			args[i]->encode(cmd, arglist[i]);
 	}
-	obs_data_t *decode(QByteArray msg) {
+	obs_data_t *decode(QByteArray msg)
+	{
 		obs_data_t *data = obs_data_create();
 		for (auto field : results)
 			field->decode(data, msg);
@@ -157,7 +180,9 @@ public:
 
 class PTZInq : public PTZCmd {
 public:
-	PTZInq(const char *cmd_hex) : PTZCmd(cmd_hex) { }
-	PTZInq(const char *cmd_hex, QList<datagram_field*> rslts) :
-		PTZCmd(cmd_hex, {}, rslts) {}
+	PTZInq(const char *cmd_hex) : PTZCmd(cmd_hex) {}
+	PTZInq(const char *cmd_hex, QList<datagram_field *> rslts)
+		: PTZCmd(cmd_hex, {}, rslts)
+	{
+	}
 };

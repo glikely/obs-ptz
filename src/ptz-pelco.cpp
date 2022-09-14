@@ -14,13 +14,13 @@ const QByteArray HOME = QByteArray::fromHex("0007002B");
 const QByteArray ZOOM_IN = QByteArray::fromHex("00200000");
 const QByteArray ZOOM_OUT = QByteArray::fromHex("00400000");
 
-std::map<QString, PelcoUART*> PelcoUART::interfaces;
+std::map<QString, PelcoUART *> PelcoUART::interfaces;
 
 /*
  * Pelco UART wrapper implementation
  */
 
-void PelcoUART::receive_datagram(const QByteArray& packet)
+void PelcoUART::receive_datagram(const QByteArray &packet)
 {
 	ptz_debug("%s <-- %s", qPrintable(port_name), packet.toHex(':').data());
 
@@ -38,14 +38,15 @@ void PelcoUART::receiveBytes(const QByteArray &data)
 	}
 }
 
-PelcoUART* PelcoUART::get_interface(QString port_name)
+PelcoUART *PelcoUART::get_interface(QString port_name)
 {
-	PelcoUART* iface;
+	PelcoUART *iface;
 	ptz_debug("Looking for UART object %s", qPrintable(port_name));
 
 	iface = interfaces[port_name];
 	if (!iface) {
-		ptz_debug("Creating new Pelco UART object %s", qPrintable(port_name));
+		ptz_debug("Creating new Pelco UART object %s",
+			  qPrintable(port_name));
 		iface = new PelcoUART(port_name);
 		iface->open();
 		interfaces[port_name] = iface;
@@ -57,7 +58,7 @@ PelcoUART* PelcoUART::get_interface(QString port_name)
  * PTZPelco class implementation with -P and -D variants
  */
 
-void PTZPelco::attach_interface(PelcoUART* new_iface)
+void PTZPelco::attach_interface(PelcoUART *new_iface)
 {
 	if (iface)
 		iface->disconnect(this);
@@ -66,7 +67,7 @@ void PTZPelco::attach_interface(PelcoUART* new_iface)
 		connect(iface, &PelcoUART::receive, this, &PTZPelco::receive);
 }
 
-char PTZPelco::checkSum(QByteArray& data)
+char PTZPelco::checkSum(QByteArray &data)
 {
 	int sum = 0x00;
 	if (use_pelco_d) {
@@ -92,7 +93,7 @@ void PTZPelco::receive(const QByteArray &msg)
 		ptz_debug("Pelco received: %s", qPrintable(msg.toHex()));
 }
 
-void PTZPelco::send(const QByteArray& msg)
+void PTZPelco::send(const QByteArray &msg)
 {
 	QByteArray result = msg;
 	if (use_pelco_d) {
@@ -111,11 +112,11 @@ void PTZPelco::send(const QByteArray& msg)
 	iface->send(result);
 
 	ptz_debug("Pelco %c command send: %s", use_pelco_d ? 'D' : 'P',
-			qPrintable(result.toHex(':')));
+		  qPrintable(result.toHex(':')));
 }
 
 void PTZPelco::send(const unsigned char data_1, const unsigned char data_2,
-		     const unsigned char data_3, const unsigned char data_4)
+		    const unsigned char data_3, const unsigned char data_4)
 {
 	QByteArray message;
 	message.resize(4);
@@ -132,8 +133,7 @@ void PTZPelco::zoom_speed_set(double speed)
 	send(0x00, 0x25, 0x00, abs(speed) * 0x33);
 }
 
-PTZPelco::PTZPelco(OBSData data)
-	: PTZDevice(data), iface(NULL)
+PTZPelco::PTZPelco(OBSData data) : PTZDevice(data), iface(NULL)
 {
 	set_config(data);
 	ptz_debug("pelco device created");
@@ -148,13 +148,13 @@ PTZPelco::~PTZPelco()
 void PTZPelco::set_config(OBSData config)
 {
 	PTZDevice::set_config(config);
-	const char* uartt = obs_data_get_string(config, "port");
+	const char *uartt = obs_data_get_string(config, "port");
 	use_pelco_d = obs_data_get_bool(config, "use_pelco_d");
 	address = obs_data_get_int(config, "address");
 	if (!uartt)
 		return;
 
-	PelcoUART* iface = PelcoUART::get_interface(uartt);
+	PelcoUART *iface = PelcoUART::get_interface(uartt);
 	iface->setConfig(config);
 	attach_interface(iface);
 }
@@ -185,10 +185,14 @@ obs_properties_t *PTZPelco::get_obs_properties()
 void PTZPelco::pantilt(double pan, double tilt)
 {
 	unsigned char panTiltData = 0x00;
-	if (tilt < -0.005) panTiltData |= (1 << 4);
-	if (tilt > 0.005) panTiltData |= (1 << 3);
-	if (pan < -0.005) panTiltData |= (1 << 2);
-	if (pan > 0.005) panTiltData |= (1 << 1);
+	if (tilt < -0.005)
+		panTiltData |= (1 << 4);
+	if (tilt > 0.005)
+		panTiltData |= (1 << 3);
+	if (pan < -0.005)
+		panTiltData |= (1 << 2);
+	if (pan > 0.005)
+		panTiltData |= (1 << 1);
 
 	send(0x00, panTiltData, abs(pan) * 0x3F, abs(tilt) * 0x3F);
 

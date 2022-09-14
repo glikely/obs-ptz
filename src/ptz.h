@@ -29,7 +29,8 @@ extern void ptz_load_settings(void);
 extern obs_data_array_t *ptz_devices_get_config(void);
 extern void ptz_devices_set_config(obs_data_array_t *devices);
 
-extern bool ptz_scene_is_source_active(obs_source_t *scene, obs_source_t *source);
+extern bool ptz_scene_is_source_active(obs_source_t *scene,
+				       obs_source_t *source);
 
 extern proc_handler_t *ptz_get_proc_handler();
 

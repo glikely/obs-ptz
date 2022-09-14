@@ -48,7 +48,8 @@ struct source_active_cb_data {
 	bool active;
 };
 
-static void source_active_cb(obs_source_t *parent, obs_source_t *child, void *data)
+static void source_active_cb(obs_source_t *parent, obs_source_t *child,
+			     void *data)
 {
 	UNUSED_PARAMETER(parent);
 	struct source_active_cb_data *cb_data = data;
@@ -58,7 +59,8 @@ static void source_active_cb(obs_source_t *parent, obs_source_t *child, void *da
 
 bool ptz_scene_is_source_active(obs_source_t *scene, obs_source_t *source)
 {
-	struct source_active_cb_data cb_data = { .source = source, .active = false };
+	struct source_active_cb_data cb_data = {.source = source,
+						.active = false};
 	if (scene == source)
 		return true;
 	obs_source_enum_active_sources(scene, source_active_cb, &cb_data);

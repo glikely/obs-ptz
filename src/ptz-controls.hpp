@@ -17,12 +17,12 @@ class PTZControls : public QDockWidget {
 	Q_OBJECT
 
 private:
-	static void OBSFrontendEventWrapper(enum obs_frontend_event event, void *ptr);
+	static void OBSFrontendEventWrapper(enum obs_frontend_event event,
+					    void *ptr);
 	static PTZControls *instance;
 	void OBSFrontendEvent(enum obs_frontend_event event);
 
 	std::unique_ptr<Ui::PTZControls> ui;
-
 
 	bool live_moves_disabled = false;
 
@@ -42,7 +42,7 @@ private:
 	void presetRecall(int id);
 	void setAutofocusEnabled(bool autofocus_on);
 
-	PTZDevice * currCamera();
+	PTZDevice *currCamera();
 
 	QList<obs_hotkey_id> hotkeys;
 	QMap<obs_hotkey_id, int> preset_hotkey_map;
@@ -97,5 +97,5 @@ public:
 	~PTZControls();
 	void setDisableLiveMoves(bool enable);
 	bool liveMovesDisabled() { return live_moves_disabled; };
-	static PTZControls* getInstance() { return instance; };
+	static PTZControls *getInstance() { return instance; };
 };

@@ -15,7 +15,7 @@ class ViscaUART : public PTZUARTWrapper {
 
 private:
 	/* Global lookup table of UART instances, used to eliminate duplicates */
-	static std::map<QString, ViscaUART*> interfaces;
+	static std::map<QString, ViscaUART *> interfaces;
 
 	int camera_count;
 
