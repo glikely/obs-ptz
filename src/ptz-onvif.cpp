@@ -362,8 +362,8 @@ QMap<int, QString> OnvifPTZService::GetPresets(QString host, QString username, Q
 	QMap<int, QString> final_list;
 
 	for (int i = 0; i < nodes.length(); i++) {
-		QString preset_token;
-		int preset_number;
+		QString preset_token = "";
+		int preset_number = -1;
 
 		for (int a = 0; a < nodes.at(i).attributes().length(); a++) {
 			if (nodes.at(i).attributes().item(a).nodeName() == "token")
