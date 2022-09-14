@@ -35,7 +35,7 @@
 #include <obs-nix-platform.h>
 #endif
 
-#ifdef ENABLE_WAYLAND
+#if 0 /* ifdef ENABLE_WAYLAND, obs-ptz doesn't need QPA */
 #include <qpa/qplatformnativeinterface.h>
 #endif
 
@@ -119,6 +119,7 @@ void OBSMessageBox::critical(QWidget *parent, const QString &title,
 	mb.exec();
 }
 
+#if 0 /* obs-ptz: QTToGSWindow() isn't used */
 bool QTToGSWindow(QWindow *window, gs_window &gswindow)
 {
 	bool success = true;
@@ -146,6 +147,7 @@ bool QTToGSWindow(QWindow *window, gs_window &gswindow)
 #endif
 	return success;
 }
+#endif
 
 uint32_t TranslateQtKeyboardEventModifiers(Qt::KeyboardModifiers mods)
 {
