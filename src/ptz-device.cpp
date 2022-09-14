@@ -90,14 +90,14 @@ PTZDevice *PTZListModel::getDevice(const QModelIndex &index)
 {
 	if (index.row() < 0)
 		return nullptr;
-	return (devices.constBegin() + index.row()).value();
+	return devices.value(devices.keys().at(index.row()));
 }
 
 uint32_t PTZListModel::getDeviceId(const QModelIndex &index)
 {
 	if (index.row() < 0)
 		return 0;
-	return (devices.constBegin() + index.row()).key();
+	return devices.keys().at(index.row());
 }
 
 PTZDevice *PTZListModel::getDevice(uint32_t device_id)
