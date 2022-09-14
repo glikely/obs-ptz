@@ -363,6 +363,7 @@ void ptz_load_devices()
 
 	/* Preset Recall Callback */
 	auto ptz_preset_recall = [](void *data, calldata_t *cd) {
+		Q_UNUSED(data);
 		QMetaObject::invokeMethod(&ptzDeviceList, "preset_recall",
 					Q_ARG(uint32_t, calldata_int(cd, "device_id")),
 					Q_ARG(int, calldata_int(cd, "preset_id")));
@@ -371,6 +372,7 @@ void ptz_load_devices()
 			ptz_preset_recall, NULL);
 
 	auto ptz_move_continuous = [](void *data, calldata_t *cd) {
+		Q_UNUSED(data);
 		long long device_id;
 		double pan, tilt, zoom, focus;
 		if (!calldata_get_int(cd, "device_id", &device_id))
@@ -399,6 +401,7 @@ void ptz_load_devices()
 
 	/* Register a function for retrieving the PTZ call handler */
 	auto ptz_get_proc_handler = [](void *data, calldata_t *cd) {
+		Q_UNUSED(data);
 		calldata_set_ptr(cd, "return", ptz_ph);
 	};
 	proc_handler_add(ph, "ptr ptz_get_proc_handler()", ptz_get_proc_handler, NULL);

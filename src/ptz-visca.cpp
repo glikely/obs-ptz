@@ -514,11 +514,13 @@ obs_properties_t *PTZVisca::get_obs_properties()
 	obs_property_list_add_int(list, "Manual", 5);
 
 	auto clicked_cb = [](obs_properties_t *props, obs_property_t *property, void *data) {
+		Q_UNUSED(props);
+		Q_UNUSED(property);
 		PTZVisca *ptz = static_cast<PTZVisca*>(data);
 		ptz->send(VISCA_CAM_WB_OnePushTrigger);
 		return false;
 	};
-	auto *button = obs_properties_add_button2(wbGroup, "one-push", "One Push Whitebalance", clicked_cb, this);
+	obs_properties_add_button2(wbGroup, "one-push", "One Push Whitebalance", clicked_cb, this);
 	return props;
 }
 

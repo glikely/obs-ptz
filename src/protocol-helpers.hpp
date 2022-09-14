@@ -29,8 +29,6 @@ public:
 	bool_field(const char *name, unsigned offset, unsigned int mask) :
 			datagram_field(name, offset), mask(mask) { }
 	void encode(QByteArray &msg, int val) {
-		unsigned int encoded = 0;
-		unsigned int current_bit = 0;
 		if (msg.size() < offset + 1)
 			return;
 		msg[offset] = (msg[offset] & ~mask) | (val ? mask : 0);

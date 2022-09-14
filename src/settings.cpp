@@ -54,7 +54,7 @@ QWidget *SourceNameDelegate::createEditor(QWidget *parent,
 {
 	QComboBox *cb = new QComboBox(parent);
 	cb->setEditable(true);
-	const int row = index.row();
+	Q_UNUSED(option);
 
 	// Get list of all sources
 	auto src_cb = [](void *data, obs_source_t* src) {
@@ -237,6 +237,7 @@ void PTZSettings::on_gamepadCheckBox_stateChanged(int state)
 
 void PTZSettings::on_livemoveCheckBox_stateChanged(int state)
 {
+	Q_UNUSED(state);
 	PTZControls::getInstance()->setDisableLiveMoves(ui->livemoveCheckBox->isChecked());
 }
 

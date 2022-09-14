@@ -351,7 +351,9 @@ QMap<int, QString> OnvifPTZService::GetPresets(QString host, QString username, Q
 	body.push_back("</GetPresets>");
 	soapRequest->body = body;
 	QString response;
-	bool result = soapRequest->sendRequest(response);
+
+	if (soapRequest->sendRequest(response))
+		blog(LOG_INFO, "SOAP failure");
 
 	QDomDocument doc;
 	doc.setContent(response);

@@ -107,7 +107,7 @@ public:
 	 * the state */
 	virtual void set_config(OBSData ptz_config);
 	virtual OBSData get_config();
-	virtual void set_settings(OBSData setting) {}
+	virtual void set_settings(OBSData setting) { Q_UNUSED(setting); }
 	virtual OBSData get_settings();
 
 	/* Properties describe how to display the settings in a GUI dialog */

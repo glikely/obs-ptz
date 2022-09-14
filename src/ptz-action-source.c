@@ -134,6 +134,7 @@ static bool ptz_action_source_device_changed_cb(obs_properties_t *props,
 {
 	obs_property_t *prop_preset = obs_properties_get(props, "preset_id");
 	obs_property_list_clear(prop_preset);
+	UNUSED_PARAMETER(prop_camera);
 
 	/* Find the camera config */
 	uint32_t id = (uint32_t) obs_data_get_int(settings, "device_id");
@@ -171,6 +172,7 @@ static bool ptz_action_source_action_changed_cb(obs_properties_t *props,
 					obs_property_t *prop, obs_data_t *settings)
 {
 	int64_t action = obs_data_get_int(settings, "action");
+	UNUSED_PARAMETER(prop);
 	property_set_visible(props, "preset_id", action == PTZ_ACTION_PRESET_RECALL);
 	property_set_visible(props, "pan_speed", action == PTZ_ACTION_PAN_TILT);
 	property_set_visible(props, "tilt_speed", action == PTZ_ACTION_PAN_TILT);
@@ -180,6 +182,8 @@ static bool ptz_action_source_action_changed_cb(obs_properties_t *props,
 static bool ptz_action_source_test_clicked_cb(obs_properties_t *props, obs_property_t *property,
 					void *data)
 {
+	UNUSED_PARAMETER(props);
+	UNUSED_PARAMETER(property);
 	ptz_action_source_do_action(data);
 	return false;
 }
@@ -187,6 +191,7 @@ static bool ptz_action_source_test_clicked_cb(obs_properties_t *props, obs_prope
 static obs_properties_t *ptz_action_source_get_properties(void *data)
 {
 	obs_properties_t *props = obs_properties_create();
+	UNUSED_PARAMETER(data);
 
 	/* List the possible trigger events */
 	obs_property_t *prop = obs_properties_add_list(props, "trigger", "Action Trigger",
