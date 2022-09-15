@@ -19,7 +19,9 @@
 #include "obs-app.hpp"
 
 #include <graphics/graphics.h>
+#if 0 /* obs-ptz: Don't need threading bits; and build fails on Windows */
 #include <util/threading.h>
+#endif
 #include <QWidget>
 #include <QLayout>
 #include <QComboBox>
@@ -246,6 +248,7 @@ QThread *CreateQThread(std::function<void()> func)
 
 volatile long insideEventLoop = 0;
 
+#if 0  /* obs-ptz: Don't need threading bits; and build fails on Windows */
 void ExecuteFuncSafeBlock(std::function<void()> func)
 {
 	QEventLoop eventLoop;
@@ -301,6 +304,7 @@ void ExecThreadedWithoutBlocking(std::function<void()> func,
 	else
 		ExecuteFuncSafeBlockMsgBox(func, title, text);
 }
+#endif /* obs-ptz */
 
 bool LineEditCanceled(QEvent *event)
 {
