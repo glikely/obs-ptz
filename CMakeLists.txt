@@ -2,15 +2,16 @@ cmake_minimum_required(VERSION 3.16...3.21)
 
 # Generate a version number from the git tag
 if(EXISTS "${CMAKE_SOURCE_DIR}/.git")
-	execute_process(COMMAND git describe --always --tags --dirty=-modified
-		OUTPUT_VARIABLE PLUGIN_VERSION
-		WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
-		OUTPUT_STRIP_TRAILING_WHITESPACE)
+  execute_process(
+    COMMAND git describe --always --tags --dirty=-modified
+    OUTPUT_VARIABLE PLUGIN_VERSION
+    WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
+    OUTPUT_STRIP_TRAILING_WHITESPACE)
 else()
-	set(PLUGIN_VERSION "v0.10.4")
+  set(PLUGIN_VERSION "v0.10.4")
 endif()
-if (PLUGIN_VERSION MATCHES "^v([.0-9]*)")
-	set(PLUGIN_SIMPLE_VERSION "${CMAKE_MATCH_1}")
+if(PLUGIN_VERSION MATCHES "^v([.0-9]*)")
+  set(PLUGIN_SIMPLE_VERSION "${CMAKE_MATCH_1}")
 endif()
 
 # Change obs-plugintemplate to your plugin's name in a machine-readable format (e.g.:
@@ -31,54 +32,49 @@ set(LINUX_MAINTAINER_EMAIL "grant.likely@secretlab.ca")
 
 # Add your custom source files here - header files are optional and only required for visibility
 # e.g. in Xcode or Visual Studio
-target_sources(${CMAKE_PROJECT_NAME} PRIVATE
-	src/ptz-controls.ui
-	src/settings.ui
-	src/ptz-controls.qrc
-	src/ptz.c
-	src/ptz-controls.cpp
-	src/ptz-device.cpp
-	src/settings.cpp
-	src/ptz-onvif.cpp
-	src/ptz-visca.cpp
-	src/ptz-visca-udp.cpp
-	src/ptz-visca-tcp.cpp
-	src/ptz-action-source.c
-	src/imported/qt-wrappers.cpp
-	src/imported/obs-app.cpp
-	src/imported/properties-view.cpp
-	src/imported/vertical-scroll-area.cpp
-	src/imported/double-slider.cpp
-	src/imported/slider-ignorewheel.cpp
-	src/imported/spinbox-ignorewheel.cpp
-	src/ptz.h
-	src/ptz-controls.hpp
-	src/ptz-device.hpp
-	src/settings.hpp
-	src/ptz-onvif.hpp
-	src/ptz-visca.hpp
-	src/ptz-visca-udp.hpp
-	src/ptz-visca-tcp.hpp
-	src/protocol-helpers.hpp
-	src/imported/qt-wrappers.hpp
-	src/imported/obs-app.hpp
-	src/imported/properties-view.hpp
-	src/imported/properties-view.moc.hpp
-	src/imported/vertical-scroll-area.hpp
-	src/imported/double-slider.hpp
-	src/imported/slider-ignorewheel.hpp
-	src/imported/spinbox-ignorewheel.hpp
-)
+target_sources(
+  ${CMAKE_PROJECT_NAME}
+  PRIVATE src/ptz-controls.ui
+          src/settings.ui
+          src/ptz-controls.qrc
+          src/ptz.c
+          src/ptz-controls.cpp
+          src/ptz-device.cpp
+          src/settings.cpp
+          src/ptz-onvif.cpp
+          src/ptz-visca.cpp
+          src/ptz-visca-udp.cpp
+          src/ptz-visca-tcp.cpp
+          src/ptz-action-source.c
+          src/imported/qt-wrappers.cpp
+          src/imported/obs-app.cpp
+          src/imported/properties-view.cpp
+          src/imported/vertical-scroll-area.cpp
+          src/imported/double-slider.cpp
+          src/imported/slider-ignorewheel.cpp
+          src/imported/spinbox-ignorewheel.cpp
+          src/ptz.h
+          src/ptz-controls.hpp
+          src/ptz-device.hpp
+          src/settings.hpp
+          src/ptz-onvif.hpp
+          src/ptz-visca.hpp
+          src/ptz-visca-udp.hpp
+          src/ptz-visca-tcp.hpp
+          src/protocol-helpers.hpp
+          src/imported/qt-wrappers.hpp
+          src/imported/obs-app.hpp
+          src/imported/properties-view.hpp
+          src/imported/properties-view.moc.hpp
+          src/imported/vertical-scroll-area.hpp
+          src/imported/double-slider.hpp
+          src/imported/slider-ignorewheel.hpp
+          src/imported/spinbox-ignorewheel.hpp)
 
 if(ENABLE_SERIALPORT)
-	target_sources(${CMAKE_PROJECT_NAME} PRIVATE
-		src/uart-wrapper.cpp
-		src/uart-wrapper.hpp
-		src/ptz-visca-uart.cpp
-		src/ptz-visca-uart.hpp
-		src/ptz-pelco.cpp
-		src/ptz-pelco.hpp
-	)
+  target_sources(
+    ${CMAKE_PROJECT_NAME} PRIVATE src/uart-wrapper.cpp src/uart-wrapper.hpp src/ptz-visca-uart.cpp
+                                  src/ptz-visca-uart.hpp src/ptz-pelco.cpp src/ptz-pelco.hpp)
 endif()
 
 # Import libobs as main plugin dependency
@@ -91,14 +87,18 @@ target_link_libraries(${CMAKE_PROJECT_NAME} PRIVATE OBS::obs-frontend-api)
 
 # Uncomment those lines if you want to use Qt in your plugin
 find_qt(COMPONENTS Widgets Core Svg Network Xml)
-target_link_libraries(${CMAKE_PROJECT_NAME} PRIVATE Qt::Core Qt::Widgets
-				 Qt::Svg Qt::Network Qt::Xml)
+target_link_libraries(${CMAKE_PROJECT_NAME} PRIVATE Qt::Core Qt::Widgets Qt::Svg Qt::Network
+                                                    Qt::Xml)
 if(ENABLE_SERIALPORT)
   find_qt(COMPONENTS SerialPort)
   target_link_libraries(${CMAKE_PROJECT_NAME} PRIVATE Qt::SerialPort)
 endif()
 
-set_target_properties(${CMAKE_PROJECT_NAME} PROPERTIES AUTOMOC ON AUTOUIC ON AUTORCC ON)
+set_target_properties(
+  ${CMAKE_PROJECT_NAME}
+  PROPERTIES AUTOMOC ON
+             AUTOUIC ON
+             AUTORCC ON)
 
 configure_file(src/plugin-macros.h.in ${CMAKE_SOURCE_DIR}/src/plugin-macros.generated.h)
 
