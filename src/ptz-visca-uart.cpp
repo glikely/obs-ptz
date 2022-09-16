@@ -119,7 +119,7 @@ void PTZViscaSerial::reset()
 void PTZViscaSerial::send_immediate(const QByteArray &msg_)
 {
 	QByteArray msg = msg_;
-	msg[0] = (char)(0x80 | address & 0x7); // Set the camera address
+	msg[0] = (char)(0x80 | (address & 0x7)); // Set the camera address
 	iface->send(msg);
 }
 
