@@ -71,12 +71,6 @@ target_sources(
           src/imported/slider-ignorewheel.hpp
           src/imported/spinbox-ignorewheel.hpp)
 
-if(ENABLE_SERIALPORT)
-  target_sources(
-    ${CMAKE_PROJECT_NAME} PRIVATE src/uart-wrapper.cpp src/uart-wrapper.hpp src/ptz-visca-uart.cpp
-                                  src/ptz-visca-uart.hpp src/ptz-pelco.cpp src/ptz-pelco.hpp)
-endif()
-
 # Import libobs as main plugin dependency
 find_package(libobs REQUIRED)
 include(cmake/ObsPluginHelpers.cmake)
@@ -89,9 +83,19 @@ target_link_libraries(${CMAKE_PROJECT_NAME} PRIVATE OBS::obs-frontend-api)
 find_qt(COMPONENTS Widgets Core Svg Network Xml)
 target_link_libraries(${CMAKE_PROJECT_NAME} PRIVATE Qt::Core Qt::Widgets Qt::Svg Qt::Network
                                                     Qt::Xml)
+
+option(ENABLE_SERIALPORT "Enable UART connected camera support" ON)
 if(ENABLE_SERIALPORT)
-  find_qt(COMPONENTS SerialPort)
-  target_link_libraries(${CMAKE_PROJECT_NAME} PRIVATE Qt::SerialPort)
+  find_package(Qt${_QT_VERSION} COMPONENTS SerialPort)
+  if(Qt${_QT_VERSION}SerialPort_FOUND)
+    target_link_libraries(${CMAKE_PROJECT_NAME} PRIVATE Qt::SerialPort)
+    target_sources(
+      ${CMAKE_PROJECT_NAME}
+      PRIVATE src/uart-wrapper.cpp src/uart-wrapper.hpp src/ptz-visca-uart.cpp
+              src/ptz-visca-uart.hpp src/ptz-pelco.cpp src/ptz-pelco.hpp)
+  else()
+    set(ENABLE_SERIALPORT OFF)
+  endif()
 endif()
 
 set_target_properties(
