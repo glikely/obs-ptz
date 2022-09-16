@@ -142,7 +142,7 @@
           </layout>
          </widget>
          <widget class="QWidget" name="widget" native="true">
-          <layout class="QVBoxLayout" name="propertiesLayout" stretch="0,0,0">
+          <layout class="QVBoxLayout" name="verticalLayout_4" stretch="0,0,0">
            <property name="sizeConstraint">
             <enum>QLayout::SetDefaultConstraint</enum>
            </property>
@@ -155,6 +155,16 @@
               <string>Lockout live PTZ moves in studio mode</string>
              </property>
             </widget>
+           </item>
+           <item>
+            <layout class="QHBoxLayout" name="propertiesLayout">
+             <property name="spacing">
+              <number>0</number>
+             </property>
+             <property name="sizeConstraint">
+              <enum>QLayout::SetNoConstraint</enum>
+             </property>
+            </layout>
            </item>
            <item>
             <layout class="QHBoxLayout" name="horizontalLayout">
