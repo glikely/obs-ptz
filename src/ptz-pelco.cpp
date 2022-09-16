@@ -86,7 +86,7 @@ char PTZPelco::checkSum(QByteArray &data)
 
 void PTZPelco::receive(const QByteArray &msg)
 {
-	int address = msg[1];
+	unsigned int address = msg[1];
 	if (!use_pelco_d)
 		address++;
 	if (address == this->address)
@@ -201,7 +201,7 @@ void PTZPelco::pantilt(double pan, double tilt)
 
 void PTZPelco::pantilt_rel(int pan, int tilt)
 {
-	ptz_debug("pantilt_rel");
+	ptz_debug("pantilt_rel(%i,%i)", pan, tilt);
 }
 
 void PTZPelco::pantilt_home()
