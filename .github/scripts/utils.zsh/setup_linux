@@ -38,6 +38,7 @@ if (( ! (${skips[(Ie)all]} + ${skips[(Ie)deps]}) )) {
     _qt_packages+=(
       qtbase5-dev
       libqt5svg5-dev
+      libqt5serialport5-dev
       qtbase5-private-dev
       libqt5x11extras5-dev
     )
@@ -45,6 +46,7 @@ if (( ! (${skips[(Ie)all]} + ${skips[(Ie)deps]}) )) {
     _qt_packages+=(
       qt6-base-dev
       libqt6svg6-dev
+      libqt6serialport6-dev
       qt6-base-private-dev
     )
   } else {
