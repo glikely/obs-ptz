@@ -29,6 +29,7 @@ void ptz_load_controls(void)
 	obs_frontend_push_ui_translation(obs_module_get_string);
 	auto *tmp = new PTZControls(main_window);
 	obs_frontend_add_dock(tmp);
+	tmp->setFloating(true); // Do after add_dock() to keep hidden at startup
 	obs_frontend_pop_ui_translation();
 }
 
