@@ -6,9 +6,9 @@
     <file>icons/focus_far.svg</file>
     <file>icons/focus_auto.svg</file>
     <file>icons/focus_near.svg</file>
-    <file>icons/pantilt_upleft.svg</file>
     <file>icons/zoom_in.svg</file>
     <file>icons/zoom_out.svg</file>
+    <file>icons/pantilt_upleft.svg</file>
     <file>icons/pantilt_upright.svg</file>
     <file>icons/pantilt_downright.svg</file>
     <file>icons/pantilt_downleft.svg</file>
@@ -17,5 +17,9 @@
     <file>icons/pantilt_up.svg</file>
     <file>icons/pantilt_left.svg</file>
     <file>icons/pantilt_right.svg</file>
+    <file>icons/followmode_live.svg</file>
+    <file>icons/followmode_live_inactive.svg</file>
+    <file>icons/followmode_preview.svg</file>
+    <file>icons/followmode_preview_inactive.svg</file>
   </qresource>
 </RCC>

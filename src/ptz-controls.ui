@@ -562,145 +562,105 @@
      </widget>
     </item>
     <item>
-     <layout class="QHBoxLayout" name="horizontalLayout_2">
-      <item>
-       <widget class="QPushButton" name="configButton">
-        <property name="maximumSize">
-         <size>
-          <width>22</width>
-          <height>22</height>
-         </size>
-        </property>
-        <property name="toolTip">
-         <string>Configure Device</string>
-        </property>
-        <property name="accessibleName">
-         <string>Configure Device</string>
-        </property>
-        <property name="text">
-         <string/>
-        </property>
-        <property name="flat">
-         <bool>true</bool>
-        </property>
-        <property name="themeID" stdset="0">
-         <string notr="true">configIconSmall</string>
-        </property>
-       </widget>
-      </item>
-      <item>
-       <widget class="QPushButton" name="lockButton">
-        <property name="maximumSize">
-         <size>
-          <width>22</width>
-          <height>22</height>
-         </size>
-        </property>
-        <property name="toolTip">
-         <string>Lock controls</string>
-        </property>
-        <property name="accessibleName">
-         <string>Lock controls</string>
-        </property>
-        <property name="text">
-         <string/>
-        </property>
-        <property name="icon">
-         <iconset resource="ptz-controls.qrc">
-          <normaloff>:/icons/icons/unlocked.svg</normaloff>
-          <normalon>:/icons/icons/locked.svg</normalon>:/icons/icons/unlocked.svg</iconset>
-        </property>
-        <property name="checkable">
-         <bool>true</bool>
-        </property>
-        <property name="flat">
-         <bool>true</bool>
-        </property>
-       </widget>
-      </item>
-      <item>
-       <spacer name="horizontalSpacer_2">
-        <property name="orientation">
-         <enum>Qt::Horizontal</enum>
-        </property>
-        <property name="sizeHint" stdset="0">
-         <size>
-          <width>40</width>
-          <height>20</height>
-         </size>
-        </property>
-       </spacer>
-      </item>
-      <item>
-       <widget class="QToolButton" name="targetButton_manual">
-        <property name="toolTip">
-         <string>Don't autoselect PTZ device when scene changes</string>
-        </property>
-        <property name="text">
-         <string>Off</string>
-        </property>
-        <property name="checkable">
-         <bool>true</bool>
-        </property>
-        <property name="checked">
-         <bool>true</bool>
-        </property>
-        <property name="autoExclusive">
-         <bool>true</bool>
-        </property>
-        <attribute name="buttonGroup">
-         <string notr="true">targetButtonGroup</string>
-        </attribute>
-       </widget>
-      </item>
-      <item>
-       <widget class="QToolButton" name="targetButton_preview">
-        <property name="toolTip">
-         <string>Autoselect a PTZ device when its source appears in the preview scene</string>
-        </property>
-        <property name="text">
-         <string>Preview</string>
-        </property>
-        <property name="checkable">
-         <bool>true</bool>
-        </property>
-        <property name="autoExclusive">
-         <bool>true</bool>
-        </property>
-        <attribute name="buttonGroup">
-         <string notr="true">targetButtonGroup</string>
-        </attribute>
-       </widget>
-      </item>
-      <item>
-       <widget class="QToolButton" name="targetButton_program">
-        <property name="toolTip">
-         <string>Autoselect a PTZ device when it becomes active in the live (program) scene</string>
-        </property>
-        <property name="text">
-         <string>Program</string>
-        </property>
-        <property name="checkable">
-         <bool>true</bool>
-        </property>
-        <property name="autoExclusive">
-         <bool>true</bool>
-        </property>
-        <attribute name="buttonGroup">
-         <string notr="true">targetButtonGroup</string>
-        </attribute>
-       </widget>
-      </item>
-     </layout>
+     <widget class="QToolBar" name="ptzToolbar">
+      <property name="iconSize">
+       <size>
+        <width>16</width>
+        <height>16</height>
+       </size>
+      </property>
+      <addaction name="actionPTZProperties"/>
+      <addaction name="actionDisableLiveMoves"/>
+      <addaction name="separator"/>
+      <addaction name="actionFollowPreview"/>
+      <addaction name="actionFollowProgram"/>
+     </widget>
     </item>
    </layout>
   </widget>
+  <action name="actionPTZProperties">
+   <property name="enabled">
+    <bool>true</bool>
+   </property>
+   <property name="icon">
+    <iconset>
+     <normaloff>:/settings/images/settings/general.svg</normaloff>:/settings/images/settings/general.svg</iconset>
+   </property>
+   <property name="text">
+    <string>PTZ Properties</string>
+   </property>
+   <property name="toolTip">
+    <string>PTZ Camera Properties</string>
+   </property>
+   <property name="themeID" stdset="0">
+    <string notr="true">propertiesIconSmall</string>
+   </property>
+  </action>
+  <action name="actionDisableLiveMoves">
+   <property name="checkable">
+    <bool>true</bool>
+   </property>
+   <property name="icon">
+    <iconset resource="ptz-controls.qrc">
+     <normaloff>:/icons/icons/unlocked.svg</normaloff>
+     <normalon>:/icons/icons/locked.svg</normalon>:/icons/icons/unlocked.svg</iconset>
+   </property>
+   <property name="text">
+    <string>BlockLiveMoves</string>
+   </property>
+   <property name="toolTip">
+    <string>Block changes to live cameras</string>
+   </property>
+   <property name="themeID" stdset="0">
+    <string notr="true">propertiesIconSmall</string>
+   </property>
+  </action>
+  <actiongroup name="actionGroupFollowMode">
+   <property name="ExclusionPolicy">
+    <enum>QActionGroup::ExclusionPolicy::ExclusiveOptional</enum>
+   </property>
+   <action name="actionFollowPreview">
+    <property name="checkable">
+     <bool>true</bool>
+    </property>
+    <property name="icon">
+     <iconset resource="ptz-controls.qrc">
+      <normalon>:/icons/icons/followmode_preview.svg</normalon>
+      <normaloff>:/icons/icons/followmode_preview_inactive.svg</normaloff>:/icons/icons/followmode_preview_inactive.svg</iconset>
+    </property>
+    <property name="text">
+     <string>Preview</string>
+    </property>
+    <property name="toolTip">
+     <string>Autoselect Preview Camera</string>
+    </property>
+    <property name="themeID" stdset="0">
+     <string notr="true">propertiesIconSmall</string>
+    </property>
+   </action>
+   <action name="actionFollowProgram">
+    <property name="checkable">
+     <bool>true</bool>
+    </property>
+    <property name="icon">
+     <iconset resource="ptz-controls.qrc">
+      <normalon>:/icons/icons/followmode_live.svg</normalon>
+      <normaloff>:/icons/icons/followmode_live_inactive.svg</normaloff>:/icons/icons/followmode_live_inactive.svg</iconset>
+    </property>
+    <property name="text">
+     <string>Program</string>
+    </property>
+    <property name="toolTip">
+     <string>Autoselect Program Camera</string>
+    </property>
+    <property name="themeID" stdset="0">
+     <string notr="true">propertiesIconSmall</string>
+    </property>
+   </action>
+  </actiongroup>
  </widget>
  <resources>
   <include location="ptz-controls.qrc"/>
  </resources>
  <connections/>
- <buttongroups>
-  <buttongroup name="targetButtonGroup"/>
- </buttongroups>
 </ui>
