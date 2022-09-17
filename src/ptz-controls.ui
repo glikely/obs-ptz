@@ -488,8 +488,8 @@
              <string/>
             </property>
             <property name="icon">
-             <iconset resource="ptz-controls.qrc">
-              <normaloff>:/icons/icons/focus_onetouch.svg</normaloff>:/icons/icons/focus_onetouch.svg</iconset>
+             <iconset>
+              <normaloff>:/res/images/interact.svg</normaloff>:/res/images/interact.svg</iconset>
             </property>
            </widget>
           </item>
@@ -601,9 +601,9 @@
     <bool>true</bool>
    </property>
    <property name="icon">
-    <iconset resource="ptz-controls.qrc">
-     <normaloff>:/icons/icons/unlocked.svg</normaloff>
-     <normalon>:/icons/icons/locked.svg</normalon>:/icons/icons/unlocked.svg</iconset>
+    <iconset>
+     <normaloff>:/res/images/unlocked.svg</normaloff>
+     <normalon>:/res/images/locked.svg</normalon>:/res/images/unlocked.svg</iconset>
    </property>
    <property name="text">
     <string>BlockLiveMoves</string>
