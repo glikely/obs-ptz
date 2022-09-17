@@ -75,14 +75,14 @@ void PTZControls::OBSFrontendEvent(enum obs_frontend_event event)
 		updateMoveControls();
 		break;
 	case OBS_FRONTEND_EVENT_SCENE_CHANGED:
-		if (ui->targetButton_program->isChecked())
+		if (ui->actionFollowProgram->isChecked())
 			scene = obs_frontend_get_current_scene();
 		updateMoveControls();
 		break;
 	case OBS_FRONTEND_EVENT_STUDIO_MODE_ENABLED:
 	case OBS_FRONTEND_EVENT_STUDIO_MODE_DISABLED:
 	case OBS_FRONTEND_EVENT_PREVIEW_SCENE_CHANGED:
-		if (ui->targetButton_preview->isChecked())
+		if (ui->actionFollowPreview->isChecked())
 			scene = obs_frontend_get_current_preview_scene();
 		updateMoveControls();
 		break;
@@ -126,14 +126,6 @@ PTZControls::PTZControls(QWidget *parent)
 	connect(selectionModel,
 		SIGNAL(currentChanged(QModelIndex, QModelIndex)), this,
 		SLOT(currentChanged(QModelIndex, QModelIndex)));
-
-	// Fix the style of the autoselect buttons
-	ui->targetButton_preview->setStyleSheet(
-		"QToolButton:checked {background-color: black;}");
-	ui->targetButton_program->setStyleSheet(
-		"QToolButton:checked {background-color: black;}");
-	ui->targetButton_manual->setStyleSheet(
-		"QToolButton:checked {background-color: black;}");
 
 	LoadConfig();
 
@@ -287,9 +279,9 @@ void PTZControls::SaveConfig()
 	obs_data_set_bool(savedata, "live_moves_disabled", live_moves_disabled);
 	obs_data_set_int(savedata, "debug_log_level", ptz_debug_level);
 	const char *target_mode = "manual";
-	if (ui->targetButton_preview->isChecked())
+	if (ui->actionFollowPreview->isChecked())
 		target_mode = "preview";
-	if (ui->targetButton_program->isChecked())
+	if (ui->actionFollowProgram->isChecked())
 		target_mode = "program";
 	obs_data_set_string(savedata, "target_mode", target_mode);
 
@@ -331,10 +323,8 @@ void PTZControls::LoadConfig()
 	live_moves_disabled =
 		obs_data_get_bool(loaddata, "live_moves_disabled");
 	target_mode = obs_data_get_string(loaddata, "target_mode");
-	ui->targetButton_preview->setChecked(target_mode == "preview");
-	ui->targetButton_program->setChecked(target_mode == "program");
-	ui->targetButton_manual->setChecked(target_mode != "preview" &&
-					    target_mode != "program");
+	ui->actionFollowPreview->setChecked(target_mode == "preview");
+	ui->actionFollowProgram->setChecked(target_mode == "program");
 
 	const char *splitterStateStr =
 		obs_data_get_string(loaddata, "splitter_state");
@@ -505,13 +495,13 @@ void PTZControls::setCurrent(uint32_t device_id)
 		ptzDeviceList.indexFromDeviceId(device_id));
 }
 
-void PTZControls::on_targetButton_preview_clicked(bool checked)
+void PTZControls::on_actionFollowPreview_clicked(bool checked)
 {
 	if (checked)
 		OBSFrontendEvent(OBS_FRONTEND_EVENT_PREVIEW_SCENE_CHANGED);
 }
 
-void PTZControls::on_targetButton_program_clicked(bool checked)
+void PTZControls::on_actionFollowProgram_clicked(bool checked)
 {
 	if (checked)
 		OBSFrontendEvent(OBS_FRONTEND_EVENT_SCENE_CHANGED);
@@ -551,13 +541,14 @@ void PTZControls::updateMoveControls()
 		}
 	}
 
-	ui->lockButton->setVisible(obs_frontend_preview_program_mode_active() &&
-				   live_moves_disabled);
-	ui->lockButton->setChecked(!ctrls_enabled);
+	ui->actionDisableLiveMoves->setVisible(
+		obs_frontend_preview_program_mode_active() &&
+		live_moves_disabled);
+	ui->actionDisableLiveMoves->setChecked(!ctrls_enabled);
 	ui->movementControlsWidget->setEnabled(ctrls_enabled);
 	ui->presetListView->setEnabled(ctrls_enabled);
 
-	ui->targetButton_preview->setVisible(
+	ui->actionFollowPreview->setVisible(
 		obs_frontend_preview_program_mode_active());
 }
 
@@ -675,13 +666,13 @@ void PTZControls::on_cameraList_customContextMenuRequested(const QPoint &pos)
 	}
 }
 
-void PTZControls::on_configButton_released()
+void PTZControls::on_actionPTZProperties_triggered()
 {
 	ptz_settings_show(
 		ptzDeviceList.getDeviceId(ui->cameraList->currentIndex()));
 }
 
-void PTZControls::on_lockButton_clicked(bool checked)
+void PTZControls::on_actionDisableLiveMoves_clicked(bool checked)
 {
 	ui->movementControlsWidget->setEnabled(!checked);
 	ui->presetListView->setEnabled(!checked);
