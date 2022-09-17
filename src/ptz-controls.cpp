@@ -324,7 +324,7 @@ void PTZControls::LoadConfig()
 		return;
 	obs_data_release(loaddata);
 	obs_data_set_default_int(loaddata, "debug_log_level", LOG_INFO);
-	obs_data_set_default_bool(loaddata, "live_moves_disabled", false);
+	obs_data_set_default_bool(loaddata, "live_moves_disabled", true);
 	obs_data_set_default_string(loaddata, "target_mode", "preview");
 
 	ptz_debug_level = obs_data_get_int(loaddata, "debug_log_level");
