@@ -55,6 +55,9 @@
         </size>
        </property>
        <layout class="QVBoxLayout" name="verticalLayout_5">
+        <property name="spacing">
+         <number>4</number>
+        </property>
         <property name="leftMargin">
          <number>0</number>
         </property>
@@ -70,6 +73,9 @@
         <item>
          <widget class="QWidget" name="movementControlsWidget" native="true">
           <layout class="QGridLayout" name="gridLayout">
+           <property name="spacing">
+            <number>4</number>
+           </property>
            <property name="leftMargin">
             <number>0</number>
            </property>
@@ -392,6 +398,9 @@
         </item>
         <item>
          <layout class="QHBoxLayout" name="focusControlsHorizontalLayout">
+          <property name="spacing">
+           <number>4</number>
+          </property>
           <item>
            <widget class="QPushButton" name="focusButton_auto">
             <property name="sizePolicy">
