@@ -620,9 +620,6 @@
    <property name="toolTip">
     <string>Block changes to live cameras</string>
    </property>
-   <property name="themeID" stdset="0">
-    <string notr="true">propertiesIconSmall</string>
-   </property>
   </action>
   <actiongroup name="actionGroupFollowMode">
    <property name="ExclusionPolicy">
@@ -643,9 +640,6 @@
     <property name="toolTip">
      <string>Autoselect Preview Camera</string>
     </property>
-    <property name="themeID" stdset="0">
-     <string notr="true">propertiesIconSmall</string>
-    </property>
    </action>
    <action name="actionFollowProgram">
     <property name="checkable">
@@ -661,9 +655,6 @@
     </property>
     <property name="toolTip">
      <string>Autoselect Program Camera</string>
-    </property>
-    <property name="themeID" stdset="0">
-     <string notr="true">propertiesIconSmall</string>
     </property>
    </action>
   </actiongroup>
