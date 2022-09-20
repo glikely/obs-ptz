@@ -8,7 +8,7 @@ if(EXISTS "${CMAKE_SOURCE_DIR}/.git")
     WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
     OUTPUT_STRIP_TRAILING_WHITESPACE)
 else()
-  set(PLUGIN_VERSION "v0.10.4")
+  set(PLUGIN_VERSION "v0.12.0-pre3")
 endif()
 if(PLUGIN_VERSION MATCHES "^v([.0-9]*)")
   set(PLUGIN_SIMPLE_VERSION "${CMAKE_MATCH_1}")
@@ -16,7 +16,7 @@ endif()
 
 # Change obs-plugintemplate to your plugin's name in a machine-readable format (e.g.:
 # obs-myawesomeplugin) and set
-project(obs-ptz VERSION 0.11.0)
+project(obs-ptz VERSION 0.12.0)
 add_library(${CMAKE_PROJECT_NAME} MODULE)
 
 # Replace `Your Name Here` with the name (yours or your organization's) you want to see as the
