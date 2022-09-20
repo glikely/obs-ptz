@@ -121,6 +121,7 @@ PTZControls::PTZControls(QWidget *parent)
 	instance = this;
 	ui->setupUi(this);
 	ui->cameraList->setModel(&ptzDeviceList);
+	copyActionsDynamicProperties();
 
 	QItemSelectionModel *selectionModel = ui->cameraList->selectionModel();
 	connect(selectionModel,
@@ -259,6 +260,18 @@ PTZControls::~PTZControls()
 	SaveConfig();
 	ptzDeviceList.delete_all();
 	deleteLater();
+}
+
+void PTZControls::copyActionsDynamicProperties()
+{
+	// Themes need the QAction dynamic properties
+	for (QAction *x : ui->ptzToolbar->actions()) {
+		QWidget *temp = ui->ptzToolbar->widgetForAction(x);
+
+		for (QByteArray &y : x->dynamicPropertyNames()) {
+			temp->setProperty(y, x->property(y));
+		}
+	}
 }
 
 /*
