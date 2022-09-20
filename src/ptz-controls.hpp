@@ -31,6 +31,7 @@ private:
 	bool zoomingFlag = false;
 	bool focusingFlag = false;
 
+	void copyActionsDynamicProperties();
 	void SaveConfig();
 	void LoadConfig();
 
