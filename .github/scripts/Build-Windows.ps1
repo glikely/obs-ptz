@@ -94,6 +94,7 @@ function Build {
     }
     Log-Information "Install ${ProductName}..."
     Invoke-External cmake --install "build_${script:Target}" --prefix "${ProjectRoot}/release" @CmakeArgs
+    cp ${ProjectRoot}/../obs-build-dependencies/${DepsPath}/bin/Qt6SerialPort* ${ProjectRoot}/release/"
 
     Pop-Location -Stack BuildTemp
 }
