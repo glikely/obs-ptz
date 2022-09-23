@@ -241,7 +241,7 @@ Usage: %B${functrace[1]%:*}%b <option> [<options>]
   local -a cmake_args=()
   if (( _loglevel > 1 )) cmake_args+=(--verbose)
   cmake --install build_${target##*-} --config ${BUILD_CONFIG:-RelWithDebInfo} --prefix "${project_root}/release" ${cmake_args}
-  mkdir ${project_root}/release/${product_name}.plugin/Contents/Frameworks
+  mkdir -p ${project_root}/release/${product_name}.plugin/Contents/Frameworks
   cp -r ${_plugin_deps}/lib/QtSerialPort.framework ${project_root}/release/${product_name}.plugin/Contents/Frameworks/
   install_name_tool -add_rpath @loader_path/../Frameworks ${project_root}/release/${product_name}.plugin/Contents/MacOS/${product_name}
   popd
