@@ -36,18 +36,16 @@
         },
         "qt6": {
             "version": "2022-08-02",
-            "baseUrl": "https://github.com/obsproject/obs-deps/releases/download",
+            "baseUrl": "https://github.com/glikely/obs-deps-qtserialport/releases/download",
             "label": "Pre-built Qt6",
             "hashes": {
-                "macos-x86_64": "a83f72a11023b03b6cb2dc365f0a66ad9df31163bbb4fe2df32d601856a9fad3",
-                "macos-arm64": "2f30af90c049670a5660656adbb440668aa1b0567f75a5f29e1def9108928403",
-                "macos-universal": "252e6684f43ab9c6f262c73af739e2296ce391b998da2c4ee04c254aaa07db18",
-                "windows-x64": "e5509b54196a3f935250cc4b9c54160c8e588fd0f92bc078a2a64f9d9e2e4e93",
-                "windows-x86": "24fc03bef153a0e027c1479e42eb08097a4ea1d70a4710825be0783d0626cb0d"
+                "macos-x86_64": "7470596958bcf28811b084897f01477e1e20b027755c4d04e363247e8f45cfd8",
+                "macos-arm64": "894323c30fca6da0958c903ebdbb687139e96cc079a68e54162b0e7a475e31a7",
+                "macos-universal": "437660339210b52309ab6997771a23511dd2ce3474b55e137490640b6bb24c59",
+                "windows-x64": "5e8bb9679547d7caeb68010ef4ee94b409f5900298f9306ab4678cd60ea22647"
             },
             "pdb-hashes": {
-                "windows-x64": "60e5b1d2bc4d7c431bc05f14e3b1e85e088788c372fa85f58717cd6c49555a46",
-                "windows-x86": "f34d1a89fc85d92913bd6c7f75ec5c28471d74db708c98161100bc8b75f8fc63"
+                "windows-x64": "512ad05c70e1ac2a43cab73b90390bc8ade7b5a364acb280ee4c50e8ef9ef95b"
             }
         }
     },
