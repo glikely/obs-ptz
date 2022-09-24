@@ -86,10 +86,10 @@ char PTZPelco::checkSum(QByteArray &data)
 
 void PTZPelco::receive(const QByteArray &msg)
 {
-	unsigned int address = msg[1];
+	unsigned int addr = msg[1];
 	if (!use_pelco_d)
-		address++;
-	if (address == this->address)
+		addr++;
+	if (addr == this->address)
 		ptz_debug("Pelco received: %s", qPrintable(msg.toHex()));
 }
 
@@ -154,9 +154,9 @@ void PTZPelco::set_config(OBSData config)
 	if (!uartt)
 		return;
 
-	PelcoUART *iface = PelcoUART::get_interface(uartt);
-	iface->setConfig(config);
-	attach_interface(iface);
+	PelcoUART *ifc = PelcoUART::get_interface(uartt);
+	ifc->setConfig(config);
+	attach_interface(ifc);
 }
 
 OBSData PTZPelco::get_config()
