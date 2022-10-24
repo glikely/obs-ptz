@@ -197,8 +197,12 @@ void PTZListModel::delete_all()
 void PTZListModel::preset_recall(uint32_t device_id, int preset_id)
 {
 	PTZDevice *ptz = ptzDeviceList.getDevice(device_id);
-	if (ptz)
+
+	if (ptz && ptz->ptz_ctrls_enabled) {
+		//blog(LOG_INFO, "preset_recall() active:%s preset_id %d",
+		//			ptz->ptz_ctrls_enabled ? "true" : "false", preset_id);
 		ptz->memory_recall(preset_id);
+	}
 }
 
 enum {
@@ -232,6 +236,7 @@ PTZDevice::PTZDevice(OBSData config) : QObject()
 	obs_data_release(settings);
 	ptzDeviceList.add(this);
 	preset_names_model.setStringList(default_preset_names);
+	ptz_ctrls_enabled = true;
 };
 
 PTZDevice::~PTZDevice()

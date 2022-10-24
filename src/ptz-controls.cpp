@@ -554,6 +554,10 @@ void PTZControls::updateMoveControls()
 		}
 	}
 
+	if(ptz) ptz->setPtzCtrlsEnabled(ctrls_enabled);
+	//blog(LOG_INFO, "updateMoveControls() active:%s",
+	//				ctrls_enabled ? "true" : "false");
+
 	ui->actionDisableLiveMoves->setVisible(
 		obs_frontend_preview_program_mode_active() &&
 		live_moves_disabled);

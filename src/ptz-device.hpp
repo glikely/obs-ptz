@@ -81,6 +81,8 @@ protected:
 	obs_properties_t *props;
 	OBSData settings;
 
+	bool ptz_ctrls_enabled;
+
 signals:
 	void settingsChanged(OBSData settings);
 
@@ -88,6 +90,8 @@ public:
 	~PTZDevice();
 	PTZDevice(OBSData config);
 	uint32_t getId() { return id; }
+
+	void setPtzCtrlsEnabled(bool enabled) { ptz_ctrls_enabled = enabled; };
 
 	void setObjectName(QString name);
 
