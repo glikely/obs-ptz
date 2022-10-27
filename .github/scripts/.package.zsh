@@ -127,8 +127,8 @@ Usage: %B${functrace[1]%:*}%b <option> [<options>]
 
   local product_name
   local product_version
-  read -r product_name product_version <<< \
-    "$(jq -r '. | {name, version} | join(" ")' ${project_root}/buildspec.json)"
+  read -r product_name <<< "$(jq -r '.name' ${project_root}/buildspec.json)"
+  read -r product_version <<< "$(git -C ${project_root} describe --dirty)"
 
   if [[ ${host_os} == 'macos' ]] {
     autoload -Uz check_packages read_codesign read_codesign_installer read_codesign_pass

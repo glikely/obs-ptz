@@ -79,6 +79,5 @@
             "qtVersion": 6
         }
     },
-    "name": "obs-ptz",
-    "version": "0.12.0"
+    "name": "obs-ptz"
 }

@@ -1,22 +1,21 @@
 cmake_minimum_required(VERSION 3.16...3.21)
 
 # Generate a version number from the git tag
-if(EXISTS "${CMAKE_SOURCE_DIR}/.git")
-  execute_process(
-    COMMAND git describe --always --tags --dirty=-modified
-    OUTPUT_VARIABLE PLUGIN_VERSION
-    WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
-    OUTPUT_STRIP_TRAILING_WHITESPACE)
+execute_process(
+  COMMAND git describe --dirty
+  OUTPUT_VARIABLE PLUGIN_VERSION
+  WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
+  OUTPUT_STRIP_TRAILING_WHITESPACE)
+
+if(PLUGIN_VERSION MATCHES "^[vV]?([0-9][.0-9]+)")
+  set(SIMPLE_VERSION ${CMAKE_MATCH_1})
 else()
-  set(PLUGIN_VERSION "v0.12.0-pre5")
-endif()
-if(PLUGIN_VERSION MATCHES "^v([.0-9]*)")
-  set(PLUGIN_SIMPLE_VERSION "${CMAKE_MATCH_1}")
+  message(FATAL_ERROR "version ${PLUGIN_VERSION} needs to be in semantic form X.Y.Z[*]")
 endif()
 
 # Change obs-plugintemplate to your plugin's name in a machine-readable format (e.g.:
 # obs-myawesomeplugin) and set
-project(obs-ptz VERSION 0.12.0)
+project(obs-ptz VERSION ${SIMPLE_VERSION})
 add_library(${CMAKE_PROJECT_NAME} MODULE)
 
 # Replace `Your Name Here` with the name (yours or your organization's) you want to see as the
@@ -137,7 +136,7 @@ elseif(OS_MACOS)
                  ${CMAKE_BINARY_DIR}/installer-macos.generated.pkgproj)
 
   set(MACOSX_PLUGIN_GUI_IDENTIFIER "${MACOS_BUNDLEID}")
-  set(MACOSX_PLUGIN_BUNDLE_VERSION "${CMAKE_PROJECT_VERSION}")
+  set(MACOSX_PLUGIN_BUNDLE_VERSION "${PLUGIN_VERSION}")
   set(MACOSX_PLUGIN_SHORT_VERSION_STRING "1")
 
   target_compile_options(${CMAKE_PROJECT_NAME} PRIVATE -Wall)
