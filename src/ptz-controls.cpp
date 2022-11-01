@@ -554,7 +554,8 @@ void PTZControls::updateMoveControls()
 		}
 	}
 
-	if(ptz) ptz->setPtzCtrlsEnabled(ctrls_enabled);
+	if (ptz)
+		ptz->setPtzCtrlsEnabled(ctrls_enabled);
 	//blog(LOG_INFO, "updateMoveControls() active:%s",
 	//				ctrls_enabled ? "true" : "false");
 
