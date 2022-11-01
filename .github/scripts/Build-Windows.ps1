@@ -44,7 +44,7 @@ function Build {
 
     $BuildSpec = Get-Content -Path ${BuildSpecFile} -Raw | ConvertFrom-Json
     $ProductName = $BuildSpec.name
-    $ProductVersion = (git -C ${ProjectRoot} describe --dirty)
+    $ProductVersion = (git -C ${ProjectRoot} describe --tags --dirty)
 
     $script:DepsVersion = ''
     $script:QtVersion = '5'

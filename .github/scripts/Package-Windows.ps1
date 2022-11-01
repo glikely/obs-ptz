@@ -38,7 +38,7 @@ function Package {
 
     $BuildSpec = Get-Content -Path ${BuildSpecFile} -Raw | ConvertFrom-Json
     $ProductName = $BuildSpec.name
-    $ProductVersion = (git -C ${ProjectRoot} describe --dirty)
+    $ProductVersion = (git -C ${ProjectRoot} describe --tags --dirty)
 
     $OutputName = "${ProductName}-${ProductVersion}-windows-${Target}"
 

@@ -170,7 +170,7 @@ Usage: %B${functrace[1]%:*}%b <option> [<options>]
   local product_name
   local product_version
   read -r product_name <<< "$(jq -r '.name' ${buildspec_file})"
-  read -r product_version <<< "$(git -C ${project_root} describe --dirty)"
+  read -r product_version <<< "$(git -C ${project_root} describe --tags --dirty)"
 
   setup_obs
 
