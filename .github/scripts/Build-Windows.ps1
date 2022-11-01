@@ -44,7 +44,7 @@ function Build {
 
     $BuildSpec = Get-Content -Path ${BuildSpecFile} -Raw | ConvertFrom-Json
     $ProductName = $BuildSpec.name
-    $ProductVersion = $BuildSpec.version
+    $ProductVersion = (git -C ${ProjectRoot} describe --dirty)
 
     $script:DepsVersion = ''
     $script:QtVersion = '5'
@@ -56,10 +56,6 @@ function Build {
     if ( $CmakeGenerator -eq '' ) {
         $CmakeGenerator = $script:VisualStudioVersion
     }
-
-    (Get-Content -Path ${ProjectRoot}/CMakeLists.txt -Raw) `
-        -replace "project\((.*) VERSION (.*)\)", "project(${ProductName} VERSION ${ProductVersion})" `
-        | Out-File -Path ${ProjectRoot}/CMakeLists.txt
 
     Setup-Obs
 

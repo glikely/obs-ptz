@@ -169,21 +169,8 @@ Usage: %B${functrace[1]%:*}%b <option> [<options>]
 
   local product_name
   local product_version
-  read -r product_name product_version <<< \
-    "$(jq -r '. | {name, version} | join(" ")' ${buildspec_file})"
-
-  case ${host_os} {
-    macos)
-      sed -i '' \
-        "s/project(\(.*\) VERSION \(.*\))/project(${product_name} VERSION ${product_version})/" \
-        "${project_root}/CMakeLists.txt"
-      ;;
-    linux)
-      sed -i'' \
-        "s/project(\(.*\) VERSION \(.*\))/project(${product_name} VERSION ${product_version})/"\
-        "${project_root}/CMakeLists.txt"
-      ;;
-  }
+  read -r product_name <<< "$(jq -r '.name' ${buildspec_file})"
+  read -r product_version <<< "$(git -C ${project_root} describe --dirty)"
 
   setup_obs
 
