@@ -147,6 +147,13 @@ Usage: %B${functrace[1]%:*}%b <option> [<options>]
 
     check_packages
 
+    log_info "Signing binaries"
+    if (( ${+CODESIGN} )) {
+      read_codesign
+      codesign --force --verify --verbose --sign "${CODESIGN_IDENT}" "${project_root}/release/${product_name}.plugin/Contents/Frameworks/QtSerialPort.framework"
+      codesign --force --verify --verbose --sign "${CODESIGN_IDENT}" "${project_root}/release/${product_name}.plugin"
+    }
+
     log_info "Packaging ${product_name}..."
     pushd ${project_root}
     packagesbuild \
