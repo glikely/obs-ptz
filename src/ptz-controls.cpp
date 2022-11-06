@@ -128,11 +128,10 @@ PTZControls::PTZControls(QWidget *parent)
 		SIGNAL(currentChanged(QModelIndex, QModelIndex)), this,
 		SLOT(currentChanged(QModelIndex, QModelIndex)));
 
-	LoadConfig();
-
-	ui->speedSlider->setValue(50);
 	ui->speedSlider->setMinimum(1);
 	ui->speedSlider->setMaximum(100);
+
+	LoadConfig();
 
 	auto filter = new buttonResizeFilter(this);
 	ui->panTiltButton_upleft->installEventFilter(filter);
@@ -291,6 +290,7 @@ void PTZControls::SaveConfig()
 
 	obs_data_set_bool(savedata, "live_moves_disabled", live_moves_disabled);
 	obs_data_set_int(savedata, "debug_log_level", ptz_debug_level);
+	obs_data_set_int(savedata, "current_speed", ui->speedSlider->value());
 	const char *target_mode = "manual";
 	if (ui->actionFollowPreview->isChecked())
 		target_mode = "preview";
@@ -328,13 +328,16 @@ void PTZControls::LoadConfig()
 	if (!loaddata)
 		return;
 	obs_data_release(loaddata);
+	obs_data_set_default_int(loaddata, "current_speed", 50);
 	obs_data_set_default_int(loaddata, "debug_log_level", LOG_INFO);
 	obs_data_set_default_bool(loaddata, "live_moves_disabled", true);
 	obs_data_set_default_string(loaddata, "target_mode", "preview");
 
-	ptz_debug_level = obs_data_get_int(loaddata, "debug_log_level");
+	ptz_debug_level = (int)obs_data_get_int(loaddata, "debug_log_level");
 	live_moves_disabled =
 		obs_data_get_bool(loaddata, "live_moves_disabled");
+	ui->speedSlider->setValue(
+		(int)obs_data_get_int(loaddata, "current_speed"));
 	target_mode = obs_data_get_string(loaddata, "target_mode");
 	ui->actionFollowPreview->setChecked(target_mode == "preview");
 	ui->actionFollowProgram->setChecked(target_mode == "program");
