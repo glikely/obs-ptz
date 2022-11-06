@@ -54,6 +54,15 @@ public:
 	}
 };
 
+/*
+ * VISCA Signed 7-bit integer
+ * The VISCA signed 7-bit encoding separates the direction and speed into
+ * separate values. The speed value is encoded in the range 0x00-0x7f, where
+ * '0' means the slowest speed. It does not mean stop. Direction is encoded in
+ * a separate byte as '1' for negative movement, '2' for positive movement, and
+ * '3' for stop. This helper encodes the speed value with 'abs(val)-1' so that
+ * the slowest valid speed can be encoded. val==0 is encoded as 'stop'.
+ */
 class visca_s7 : public datagram_field {
 public:
 	visca_s7(const char *name, int offset) : datagram_field(name, offset) {}
@@ -61,7 +70,7 @@ public:
 	{
 		if (msg.size() < offset + 3)
 			return;
-		msg[offset] = qMax(abs(val) & 0x7f, 1);
+		msg[offset] = qMax((abs(val) - 1) & 0x7f, 0);
 		msg[offset + 2] = 3;
 		if (val)
 			msg[offset + 2] = val < 0 ? 1 : 2;
@@ -70,13 +79,16 @@ public:
 	{
 		if (msg.size() < offset + 3)
 			return false;
-		int val = msg[offset] & 0x7f;
+		int val = (msg[offset] & 0x7f) + 1;
 		switch (msg[offset + 2]) {
 		case 0x01:
 			obs_data_set_int(data, name, -val);
 			break;
 		case 0x02:
 			obs_data_set_int(data, name, val);
+			break;
+		case 0x03:
+			obs_data_set_int(data, name, 0);
 			break;
 		default:
 			return false;
@@ -720,8 +732,10 @@ void PTZVisca::send_pending()
 
 void PTZVisca::pantilt(double pan_, double tilt_)
 {
-	int pan = (pan_ > 1 ? 1 : (pan_ < -1 ? -1 : pan_)) * 0x18;
-	int tilt = (tilt_ > 1 ? 1 : (tilt_ < -1 ? -1 : tilt_)) * 0x14;
+	int pan =
+		qBound(-1.0, pan_, 1.0) * 0x18 + (pan_ < 0.0 ? -1 : pan_ > 0.0);
+	int tilt = qBound(-1.0, tilt_, 1.0) * 0x14 +
+		   (tilt_ < 0.0 ? -1 : tilt_ > 0.0);
 	send(VISCA_PanTilt_drive, {pan, -tilt});
 }
 
@@ -742,15 +756,13 @@ void PTZVisca::pantilt_home()
 
 void PTZVisca::zoom(double speed_)
 {
-	int speed = std::abs(speed_) * 8;
-	if (speed > 8)
-		speed = 8;
-	if (speed == 0)
+	int speed = qMin((int)(std::abs(speed_) * 8), 7);
+	if (speed_ == 0)
 		send(VISCA_CAM_Zoom_Stop);
 	else
 		send(speed_ < 0 ? VISCA_CAM_Zoom_WideVar
 				: VISCA_CAM_Zoom_TeleVar,
-		     {speed - 1});
+		     {speed});
 }
 
 void PTZVisca::zoom_abs(int pos)

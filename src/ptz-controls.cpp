@@ -131,7 +131,7 @@ PTZControls::PTZControls(QWidget *parent)
 	LoadConfig();
 
 	ui->speedSlider->setValue(50);
-	ui->speedSlider->setMinimum(0);
+	ui->speedSlider->setMinimum(1);
 	ui->speedSlider->setMaximum(100);
 
 	auto filter = new buttonResizeFilter(this);
