@@ -43,8 +43,9 @@ const char *description_text =
 	"<span style=\" text-decoration: underline; color:#7f7fff;\">"
 	"https://github.com/glikely/obs-ptz</span></a></p>"
 	"<p>Contributors:<br/>"
-	"Luuk Verhagen<br/>"
 	"Norihiro Kamae<br/>"
+	"Luuk Verhagen<br/>"
+	"Jonata Bolzan Loss<br/>"
 	"Jim Hauxwell</p>"
 	"</body></html>";
 
