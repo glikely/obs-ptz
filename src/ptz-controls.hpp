@@ -79,8 +79,8 @@ private slots:
 	void on_focusButton_far_released();
 	void on_focusButton_onetouch_clicked();
 
-	void on_actionFollowPreview_clicked(bool checked);
-	void on_actionFollowProgram_clicked(bool checked);
+	void on_actionFollowPreview_toggled(bool checked);
+	void on_actionFollowProgram_toggled(bool checked);
 
 	void currentChanged(QModelIndex current, QModelIndex previous);
 	void settingsChanged(OBSData settings);
@@ -91,7 +91,7 @@ private slots:
 	void on_cameraList_doubleClicked(const QModelIndex &index);
 	void on_cameraList_customContextMenuRequested(const QPoint &pos);
 	void on_actionPTZProperties_triggered();
-	void on_actionDisableLiveMoves_clicked(bool checked);
+	void on_actionDisableLiveMoves_toggled(bool checked);
 
 public:
 	PTZControls(QWidget *parent = nullptr);

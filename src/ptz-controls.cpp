@@ -511,13 +511,13 @@ void PTZControls::setCurrent(uint32_t device_id)
 		ptzDeviceList.indexFromDeviceId(device_id));
 }
 
-void PTZControls::on_actionFollowPreview_clicked(bool checked)
+void PTZControls::on_actionFollowPreview_toggled(bool checked)
 {
 	if (checked)
 		OBSFrontendEvent(OBS_FRONTEND_EVENT_PREVIEW_SCENE_CHANGED);
 }
 
-void PTZControls::on_actionFollowProgram_clicked(bool checked)
+void PTZControls::on_actionFollowProgram_toggled(bool checked)
 {
 	if (checked)
 		OBSFrontendEvent(OBS_FRONTEND_EVENT_SCENE_CHANGED);
@@ -688,7 +688,7 @@ void PTZControls::on_actionPTZProperties_triggered()
 		ptzDeviceList.getDeviceId(ui->cameraList->currentIndex()));
 }
 
-void PTZControls::on_actionDisableLiveMoves_clicked(bool checked)
+void PTZControls::on_actionDisableLiveMoves_toggled(bool checked)
 {
 	ui->movementControlsWidget->setEnabled(!checked);
 	ui->presetListView->setEnabled(!checked);
