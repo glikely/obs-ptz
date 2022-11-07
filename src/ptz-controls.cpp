@@ -174,10 +174,9 @@ PTZControls::PTZControls(QWidget *parent)
 
 		id = obs_hotkey_register_frontend(name, description, func,
 						  hotkey_data);
-		obs_data_array_t *array =
+		OBSDataArrayAutoRelease array =
 			obs_data_get_array(loadHotkeyData(name), "bindings");
 		obs_hotkey_load(id, array);
-		obs_data_array_release(array);
 		return id;
 	};
 	auto cb = [](void *button_data, obs_hotkey_id, obs_hotkey_t *,
@@ -187,6 +186,28 @@ PTZControls::PTZControls(QWidget *parent)
 			button->pressed();
 		else
 			button->released();
+	};
+	auto decreasecb = [](void *action_data, obs_hotkey_id, obs_hotkey_t *,
+			     bool pressed) {
+		QAbstractSlider *slider =
+			static_cast<QAbstractSlider *>(action_data);
+		if (pressed)
+			slider->triggerAction(
+				QAbstractSlider::SliderPageStepSub);
+	};
+	auto increasecb = [](void *action_data, obs_hotkey_id, obs_hotkey_t *,
+			     bool pressed) {
+		QAbstractSlider *slider =
+			static_cast<QAbstractSlider *>(action_data);
+		if (pressed)
+			slider->triggerAction(
+				QAbstractSlider::SliderPageStepAdd);
+	};
+	auto actiontogglecb = [](void *action_data, obs_hotkey_id,
+				 obs_hotkey_t *, bool pressed) {
+		QAction *action = static_cast<QAction *>(action_data);
+		if (pressed)
+			action->activate(QAction::Trigger);
 	};
 	auto autofocustogglecb = [](void *ptz_data, obs_hotkey_id,
 				    obs_hotkey_t *, bool pressed) {
@@ -229,6 +250,21 @@ PTZControls::PTZControls(QWidget *parent)
 	hotkeys << registerHotkey("PTZ.FocusOneTouch",
 				  "PTZ One touch focus trigger", cb,
 				  ui->focusButton_onetouch);
+	hotkeys << registerHotkey("PTZ.ActionDisableLiveMovesToggle",
+				  "PTZ Toggle Control Lock", actiontogglecb,
+				  ui->actionDisableLiveMoves);
+	hotkeys << registerHotkey("PTZ.ActionFollowPreviewToggle",
+				  "PTZ Autoselect Preview Camera",
+				  actiontogglecb, ui->actionFollowPreview);
+	hotkeys << registerHotkey("PTZ.ActionFollowProgramToggle",
+				  "PTZ Autoselect Live Camera", actiontogglecb,
+				  ui->actionFollowProgram);
+	hotkeys << registerHotkey("PTZ.SpeedDecrease",
+				  "PTZ Decrease pan/tilt/zoom speed",
+				  decreasecb, ui->speedSlider);
+	hotkeys << registerHotkey("PTZ.SpeedIncrease",
+				  "PTZ Increase pan/tilt/zoom speed",
+				  increasecb, ui->speedSlider);
 
 	auto preset_recall_cb = [](void *ptz_data, obs_hotkey_id hotkey,
 				   obs_hotkey_t *, bool pressed) {
