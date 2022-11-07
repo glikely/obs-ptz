@@ -170,7 +170,7 @@ Usage: %B${functrace[1]%:*}%b <option> [<options>]
   local product_name
   local product_version
   read -r product_name <<< "$(jq -r '.name' ${buildspec_file})"
-  read -r product_version <<< "$(git -C ${project_root} describe --dirty)"
+  read -r product_version <<< "$(git -C ${project_root} describe --tags --dirty)"
 
   setup_obs
 
@@ -233,7 +233,7 @@ Usage: %B${functrace[1]%:*}%b <option> [<options>]
     macos-*)
       # Copy QtSerialPort into relese package and update executable to find it
       mkdir -p ${project_root}/release/${product_name}.plugin/Contents/Frameworks
-      cp -r ${_plugin_deps}/lib/QtSerialPort.framework ${project_root}/release/${product_name}.plugin/Contents/Frameworks/
+      cp -R ${_plugin_deps}/lib/QtSerialPort.framework ${project_root}/release/${product_name}.plugin/Contents/Frameworks/
       install_name_tool -add_rpath @loader_path/../Frameworks ${project_root}/release/${product_name}.plugin/Contents/MacOS/${product_name}
       ;;
   }

@@ -128,7 +128,7 @@ Usage: %B${functrace[1]%:*}%b <option> [<options>]
   local product_name
   local product_version
   read -r product_name <<< "$(jq -r '.name' ${project_root}/buildspec.json)"
-  read -r product_version <<< "$(git -C ${project_root} describe --dirty)"
+  read -r product_version <<< "$(git -C ${project_root} describe --tags --dirty)"
 
   if [[ ${host_os} == 'macos' ]] {
     autoload -Uz check_packages read_codesign read_codesign_installer read_codesign_pass
@@ -146,6 +146,13 @@ Usage: %B${functrace[1]%:*}%b <option> [<options>]
     }
 
     check_packages
+
+    log_info "Signing binaries"
+    if (( ${+CODESIGN} )) {
+      read_codesign
+      codesign --force --verify --verbose --sign "${CODESIGN_IDENT}" "${project_root}/release/${product_name}.plugin/Contents/Frameworks/QtSerialPort.framework"
+      codesign --force --verify --verbose --sign "${CODESIGN_IDENT}" "${project_root}/release/${product_name}.plugin"
+    }
 
     log_info "Packaging ${product_name}..."
     pushd ${project_root}

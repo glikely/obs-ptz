@@ -2,7 +2,7 @@ cmake_minimum_required(VERSION 3.16...3.21)
 
 # Generate a version number from the git tag
 execute_process(
-  COMMAND git describe --dirty
+  COMMAND git describe --tags --dirty
   OUTPUT_VARIABLE PLUGIN_VERSION
   WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
   OUTPUT_STRIP_TRAILING_WHITESPACE)
