@@ -150,7 +150,7 @@ void PTZPelco::set_config(OBSData config)
 	PTZDevice::set_config(config);
 	const char *uartt = obs_data_get_string(config, "port");
 	use_pelco_d = obs_data_get_bool(config, "use_pelco_d");
-	address = obs_data_get_int(config, "address");
+	address = (unsigned int)obs_data_get_int(config, "address");
 	if (!uartt)
 		return;
 

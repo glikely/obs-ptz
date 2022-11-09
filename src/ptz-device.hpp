@@ -52,7 +52,6 @@ public:
 	obs_data_array_t *getConfigs();
 	void add(PTZDevice *ptz);
 	void remove(PTZDevice *ptz);
-	unsigned int device_count() { return devices.size(); }
 	void delete_all();
 
 public slots:
