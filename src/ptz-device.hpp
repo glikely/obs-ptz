@@ -13,8 +13,10 @@
 #include <QtGlobal>
 #include <obs.hpp>
 #include <obs-frontend-api.h>
+#include <util/platform.h>
 
 extern int ptz_debug_level;
+#define ptz_info(format, ...) blog(LOG_INFO, format, ##__VA_ARGS__)
 #define ptz_debug(format, ...)                                            \
 	blog(ptz_debug_level, "%s():%i: " format, __FUNCTION__, __LINE__, \
 	     ##__VA_ARGS__)

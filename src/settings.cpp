@@ -119,6 +119,7 @@ PTZSettings::PTZSettings() : QWidget(nullptr), ui(new Ui_PTZSettings)
 
 	ui->livemoveCheckBox->setChecked(
 		PTZControls::getInstance()->liveMovesDisabled());
+	ui->enableDebugLogCheckBox->setChecked(ptz_debug_level <= LOG_INFO);
 
 	auto snd = new SourceNameDelegate(this);
 	ui->deviceList->setModel(&ptzDeviceList);
@@ -247,6 +248,11 @@ void PTZSettings::on_livemoveCheckBox_stateChanged(int state)
 	Q_UNUSED(state);
 	PTZControls::getInstance()->setDisableLiveMoves(
 		ui->livemoveCheckBox->isChecked());
+}
+
+void PTZSettings::on_enableDebugLogCheckBox_stateChanged(int state)
+{
+	ptz_debug_level = (state == Qt::Unchecked) ? LOG_DEBUG : LOG_INFO;
 }
 
 void PTZSettings::currentChanged(const QModelIndex &current,

@@ -49,6 +49,7 @@ public slots:
 	void on_removePTZ_clicked();
 	void on_applyButton_clicked();
 	void on_livemoveCheckBox_stateChanged(int state);
+	void on_enableDebugLogCheckBox_stateChanged(int state);
 
 	void currentChanged(const QModelIndex &current,
 			    const QModelIndex &previous);
