@@ -29,7 +29,7 @@ Source: "..\release\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs cr
 Source: "..\LICENSE"; Flags: dontcopy
 ; NOTE: Don't use "Flags: ignoreversion" on any shared system files
 
-[InstallerDelete]
+[InstallDelete]
 {app}\obs-plugins\64bit\ptz-controls.dll
 {app}\obs-plugins\64bit\ptz-controls.pen
 {app}\obs-plugins\64bit\Qt5Gamepad.dll
