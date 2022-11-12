@@ -245,9 +245,7 @@ void PTZSettings::on_removePTZ_clicked()
 
 void PTZSettings::on_livemoveCheckBox_stateChanged(int state)
 {
-	Q_UNUSED(state);
-	PTZControls::getInstance()->setDisableLiveMoves(
-		ui->livemoveCheckBox->isChecked());
+	PTZControls::getInstance()->setDisableLiveMoves(state != Qt::Unchecked);
 }
 
 void PTZSettings::on_enableDebugLogCheckBox_stateChanged(int state)
