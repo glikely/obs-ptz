@@ -29,6 +29,12 @@ Source: "..\release\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs cr
 Source: "..\LICENSE"; Flags: dontcopy
 ; NOTE: Don't use "Flags: ignoreversion" on any shared system files
 
+[InstallDelete]
+Type: files; Name: "{app}\obs-plugins\64bit\ptz-controls.dll"
+Type: files; Name: "{app}\obs-plugins\64bit\ptz-controls.pdb"
+Type: files; Name: "{app}\obs-plugins\64bit\Qt5Gamepad.dll"
+Type: files; Name: "{app}\obs-plugins\64bit\Qt5SerialPort.dll"
+
 [Icons]
 Name: "{group}\{cm:ProgramOnTheWeb,{#MyAppName}}"; Filename: "{#MyAppURL}"
 Name: "{group}\{cm:UninstallProgram,{#MyAppName}}"; Filename: "{uninstallexe}"
