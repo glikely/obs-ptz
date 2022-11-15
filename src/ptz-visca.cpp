@@ -702,12 +702,8 @@ void PTZVisca::receive(const QByteArray &msg)
 		}
 		break;
 	case VISCA_RESPONSE_COMPLETED:
-		if (msg.size() == 3 && slot == 0) {
-			/* Some devices *cough*cicso*cough* don't use slots and commands
-			 * complete immediately. If the response is empty, then assume
-			 * it was the result of a command not an enquiry */
-			break;
-		}
+		if (slot == 0)
+			timeout_timer.stop(); /* timer is only for slot 0 */
 		if (!active_cmd[slot].has_value()) {
 			ptz_debug("VISCA %s spurious reply: %s",
 				  qPrintable(objectName()),
@@ -716,8 +712,10 @@ void PTZVisca::receive(const QByteArray &msg)
 		}
 
 		/* Slot 0 responses are inquiries that need to be parsed */
-		if (slot == 0) {
-			timeout_timer.stop();
+		if (slot == 0 && msg.size() > 3) {
+			/* Some devices (e.g. cicso) don't use slots and
+			 * commands complete immediately. Only decode
+			 * response if the payload size is non-zero */
 			obs_data_t *rslt_props =
 				active_cmd[0].value().decode(msg);
 			obs_data_apply(settings, rslt_props);
@@ -780,7 +778,7 @@ void PTZVisca::send_pending()
 		stale_settings += affects;
 	timeout_retry = 0;
 	timeout_timer.setSingleShot(true);
-	timeout_timer.start(2000);
+	timeout_timer.start(500);
 }
 
 void PTZVisca::pantilt(double pan_, double tilt_)
