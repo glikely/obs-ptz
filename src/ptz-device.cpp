@@ -351,6 +351,14 @@ obs_data_array_t *ptz_devices_get_config()
 	return ptzDeviceList.getConfigs();
 }
 
+obs_source_t *ptz_device_find_source_using_ptz_name(uint32_t device_id)
+{
+	PTZDevice *ptz = ptzDeviceList.getDevice(device_id);
+	if (!ptz)
+		return NULL;
+	return obs_get_source_by_name(QT_TO_UTF8(ptz->objectName()));
+}
+
 void ptz_devices_set_config(obs_data_array_t *devices)
 {
 	if (!devices) {
