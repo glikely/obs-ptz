@@ -71,7 +71,7 @@ public:
 				      QString password, QString profile);
 };
 
-class DeviceCapabilities {
+class OnvifDeviceCapabilities {
 public:
 	QString mediaXAddr;
 	QString ptzXAddr;
@@ -83,8 +83,9 @@ private:
 
 public:
 	OnvifDeviceService();
-	DeviceCapabilities GetCapabilities(QString deviceXAddress,
-					   QString username, QString password);
+	OnvifDeviceCapabilities GetCapabilities(QString deviceXAddress,
+						QString username,
+						QString password);
 };
 
 class OnvifMediaService {

@@ -466,9 +466,9 @@ OnvifDeviceService::OnvifDeviceService()
 		"xmlns:tt=\"http://www.onvif.org/ver10/schema\"");
 }
 
-DeviceCapabilities OnvifDeviceService::GetCapabilities(QString deviceXAddress,
-						       QString username,
-						       QString password)
+OnvifDeviceCapabilities
+OnvifDeviceService::GetCapabilities(QString deviceXAddress, QString username,
+				    QString password)
 {
 	SoapRequest *soapRequest = new SoapRequest();
 	soapRequest->host = deviceXAddress;
@@ -483,7 +483,7 @@ DeviceCapabilities OnvifDeviceService::GetCapabilities(QString deviceXAddress,
 	// qInfo() << "[OnvifDeviceService] GetPTZXAddress Response " << response;
 	delete soapRequest;
 
-	DeviceCapabilities result;
+	OnvifDeviceCapabilities result;
 	if (ok) {
 		QDomDocument doc;
 		doc.setContent(response);
@@ -638,7 +638,7 @@ PTZOnvif::PTZOnvif(OBSData config) : PTZDevice(config)
 void PTZOnvif::connectCamera()
 {
 	OnvifDeviceService a;
-	DeviceCapabilities deviceCapabilities = a.GetCapabilities(
+	OnvifDeviceCapabilities deviceCapabilities = a.GetCapabilities(
 		tr("http://%1:%2/onvif/device_service").arg(host).arg(port),
 		username, password);
 
