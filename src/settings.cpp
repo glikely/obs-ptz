@@ -29,6 +29,7 @@
 #include "ptz-controls.hpp"
 #include "settings.hpp"
 #include "ui_settings.h"
+#include "ptz-gamepad.hpp"
 
 /* ----------------------------------------------------------------- */
 
@@ -153,9 +154,19 @@ PTZSettings::PTZSettings() : QWidget(nullptr), ui(new Ui_PTZSettings)
 
 	ui->setupUi(this);
 
-	ui->livemoveCheckBox->setChecked(
-		PTZControls::getInstance()->liveMovesDisabled());
+	PTZControls *controls = PTZControls::getInstance();
+	ui->livemoveCheckBox->setChecked(controls->liveMovesDisabled());
 	ui->enableDebugLogCheckBox->setChecked(ptz_debug_level <= LOG_INFO);
+	PTZGamePadBase *gamepad = controls->getGamepad();
+	if (gamepad->isGamepadSupportEnabled()) {
+		ui->gamepadCheckBox->setChecked(controls->gamepadEnabled());
+		connect(controls->getGamepad(),
+			&PTZGamePadBase::uiGamepadStatusChanged, this,
+			&PTZSettings::uiGamepadStatus);
+	} else {
+		ui->gamepadCheckBox->setDisabled(true);
+	}
+	uiGamepadStatus(gamepad->getGamepadStatus());
 
 	auto snd = new SourceNameDelegate(this);
 	ui->deviceList->setModel(&ptzDeviceList);
@@ -276,6 +287,12 @@ void PTZSettings::on_enableDebugLogCheckBox_stateChanged(int state)
 	ptz_debug_level = (state == Qt::Unchecked) ? LOG_DEBUG : LOG_INFO;
 }
 
+void PTZSettings::on_gamepadCheckBox_stateChanged(int state)
+{
+	Q_UNUSED(state);
+	PTZControls::getInstance()->setGamepadEnabled(state != Qt::Unchecked);
+}
+
 void PTZSettings::currentChanged(const QModelIndex &current,
 				 const QModelIndex &previous)
 {
@@ -317,6 +334,12 @@ void PTZSettings::settingsChanged(OBSData changed)
 		QJsonDocument::fromJson(obs_data_get_json(settings)).toJson();
 	obs_data_set_string(settings, "debug_info", json.constData());
 	propertiesView->RefreshProperties();
+}
+
+void PTZSettings::uiGamepadStatus(char status)
+{
+	QString statusString = PTZGamePadBase::getStatusString(status);
+	ui->gamepadActiveText->setText(statusString);
 }
 
 /* ----------------------------------------------------------------- */

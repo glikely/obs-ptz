@@ -47,12 +47,16 @@ public slots:
 	void on_removePTZ_clicked();
 	void on_livemoveCheckBox_stateChanged(int state);
 	void on_enableDebugLogCheckBox_stateChanged(int state);
+	void on_gamepadCheckBox_stateChanged(int state);
 
 	void currentChanged(const QModelIndex &current,
 			    const QModelIndex &previous);
 	void settingsChanged(OBSData settings);
 	obs_properties_t *getProperties(void);
 	void updateProperties(OBSData old_settings, OBSData new_settings);
+
+protected slots:
+	void uiGamepadStatus(char status);
 };
 
 void ptz_settings_show(uint32_t device_id = 0);

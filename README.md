@@ -17,6 +17,7 @@ Features:
 - Auto select active camera based on active scene
 - Control camera power
 - Whitebalance control
+- Xbox Gamepad Support (Windows)
 - Supported protocols
   - VISCA
   - VISCA over UDP (Sony protocol)
@@ -122,6 +123,30 @@ cd obs-ptz
 .github/scripts/build-macos.sh
 .github/scripts/package-macos.sh
 ```
+
+# Gamepad
+Enable gamepad support in the settings in the Gamepad tab.
+Default buttons/axis:
+* left axis - zoom
+* right axis - pan/tilt
+* dpad up - camera select up
+* dpad down - camera select down
+* dpad left - preset up
+* dpad right - preset down
+* start - activate selected preset
+* A - preset 1
+* B - preset 2
+* X - preset 3
+* Y - preset 4
+* left shoulder - preset 5
+* right shoulder - preset 6
+* back - preset 7
+* Thumb L - preset 8
+* Thumb R - preset 9
+
+Known Issue:
+It can issue many commands depending upon use which can overflow the visca over ip command buffer.
+This is not noticeable usually, but the command to stop the gamepad could be missed in rare cases.
 
 # Contributing
 

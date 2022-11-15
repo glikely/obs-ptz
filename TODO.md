@@ -29,12 +29,14 @@ User Interface
 
 - Add a virtual joystick alternative to the discrete direction buttons
 - Add focus control
-- Implement gamepad support
-  - Find replacement for QGamePad
-  - Add zoom control
-  - Add cycling through cameras
-  - Add pan/tilt speed control
-  - Add gamepad configuration (enable/disable, select gamepads)
+- Improve gamepad support
+  - Add a button mapping configuration.
+  - Add a modifier button to add more presets.
+  - Add focus controls as an option.
+  - Add deadzone support.
+  - Support multiple gamepads.
+  - Support different types of gamepads. (DirectInput)
+  - Add support for linux and mac.
 - Display current camera info in settings dialog (pan, tilt, picture, focus, etc)
 
 Wishlist

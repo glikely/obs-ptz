@@ -60,6 +60,7 @@ target_sources(
           src/ptz-visca.hpp
           src/ptz-visca-udp.hpp
           src/ptz-visca-tcp.hpp
+          src/ptz-gamepad.hpp
           src/protocol-helpers.hpp
           src/imported/qt-wrappers.hpp
           src/imported/obs-app.hpp
@@ -128,6 +129,11 @@ if(OS_WINDOWS)
   if(MSVC)
     target_compile_options(${CMAKE_PROJECT_NAME} PRIVATE /W4)
   endif()
+
+  target_compile_definitions(${CMAKE_PROJECT_NAME} PRIVATE OBS_XINPUT_GAMEPAD=1)
+  target_link_libraries(${CMAKE_PROJECT_NAME} PRIVATE xinput)
+  target_sources(${CMAKE_PROJECT_NAME} PRIVATE src/ptz-gamepad-xinput.cpp
+                                               src/ptz-gamepad-xinput.hpp)
   # --- End of section ---
 
   # -- macOS specific build settings and tasks --
@@ -140,11 +146,14 @@ elseif(OS_MACOS)
   set(MACOSX_PLUGIN_SHORT_VERSION_STRING "1")
 
   target_compile_options(${CMAKE_PROJECT_NAME} PRIVATE -Wall)
+
+  target_sources(${CMAKE_PROJECT_NAME} PRIVATE src/ptz-gamepad-disabled.hpp)
   # --- End of section ---
 
   # --- Linux-specific build settings and tasks ---
 else()
   target_compile_options(${CMAKE_PROJECT_NAME} PRIVATE -Wall)
+  target_sources(${CMAKE_PROJECT_NAME} PRIVATE src/ptz-gamepad-disabled.hpp)
 endif()
 # --- End of section ---
 
