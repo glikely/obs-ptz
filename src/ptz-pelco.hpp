@@ -59,9 +59,8 @@ public:
 	OBSData get_config();
 	obs_properties_t *get_obs_properties();
 
-	void pantilt(double pan, double tilt);
+	void do_update();
 	void pantilt_home();
-	void zoom(double speed);
 	void memory_reset(int i);
 	void memory_set(int i);
 	void memory_recall(int i);

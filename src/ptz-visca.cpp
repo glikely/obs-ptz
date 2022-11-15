@@ -702,14 +702,19 @@ obs_properties_t *PTZVisca::get_obs_properties()
 
 void PTZVisca::send(PTZCmd cmd)
 {
+#if 0
 	if (cmd.cmd[1] == (char)0x01) { // command packets get sent immediately
 		send_immediate(cmd.cmd);
 		if (cmd.affects != "")
 			stale_settings += cmd.affects;
 	} else {
-		pending_cmds.append(cmd);
-		send_pending();
+#endif
+	pending_cmds.append(cmd);
+	ptz_debug("sending cmd, queuelength=%lli", pending_cmds.count());
+	send_pending();
+#if 0
 	}
+#endif
 }
 
 void PTZVisca::send(PTZCmd cmd, QList<int> args)
@@ -728,7 +733,7 @@ void PTZVisca::timeout()
 			send_immediate(active_cmd[0].value().cmd);
 		timeout_retry++;
 		timeout_timer.setSingleShot(true);
-		timeout_timer.start(100);
+		timeout_timer.start(1000 / 3);
 	} else {
 		send_pending();
 	}
@@ -806,16 +811,49 @@ void PTZVisca::send_pending()
 	if (active_cmd[0].has_value())
 		return;
 
-	/* If nothing queued, send an inquiry on stale values */
 	if (pending_cmds.isEmpty()) {
-		ptz_debug("Stale prop list: {%s}",
-			  QT_TO_UTF8(stale_settings.values().join(',')));
-		QSetIterator<QString> i(stale_settings);
-		while (i.hasNext()) {
-			QString prop = i.next();
-			if (inquires.contains(prop)) {
-				pending_cmds += inquires[prop];
-				break;
+		if (status & STATUS_PANTILT_SPEED_CHANGED) {
+			status &= ~STATUS_PANTILT_SPEED_CHANGED;
+			int pan = qBound(-1.0, pan_speed, 1.0) * 0x18 +
+				  (pan_speed < 0.0 ? -1 : pan_speed > 0.0);
+			int tilt =
+				-(qBound(-1.0, tilt_speed, 1.0) * 0x14 +
+				  (tilt_speed < 0.0 ? -1 : tilt_speed > 0.0));
+			PTZCmd cmd = VISCA_PanTilt_drive;
+			cmd.encode({pan, tilt});
+			pending_cmds += cmd;
+		} else if (status & STATUS_ZOOM_SPEED_CHANGED) {
+			status &= ~STATUS_ZOOM_SPEED_CHANGED;
+			int speed = qBound(-1.0, zoom_speed, 1.0) * 15 +
+				    (zoom_speed < 0.0 ? -1 : zoom_speed > 0.0);
+			PTZCmd cmd = VISCA_CAM_Zoom_drive;
+			cmd.encode({speed});
+			pending_cmds += cmd;
+		} else if (status & STATUS_FOCUS_SPEED_CHANGED) {
+			status &= ~STATUS_FOCUS_SPEED_CHANGED;
+			// The following two lines allows the focus speed to be
+			// adjusted using the speed slide, but in practical
+			// terms this makes the focus change far too quickly.
+			// Just use the slowest speed instead.
+			//int speed = -(qBound(-1.0, focus_speed, 1.0) * 15 +
+			//	  (focus_speed < 0.0 ? -1 : zoom_speed > 0.0));
+			int speed = -((focus_speed < 0.0)
+					      ? -1
+					      : ((focus_speed > 0.0) ? 1 : 0));
+			PTZCmd cmd = VISCA_CAM_Focus_drive;
+			cmd.encode({speed});
+			pending_cmds += cmd;
+		} else {
+			ptz_debug(
+				"Stale prop list: {%s}",
+				QT_TO_UTF8(stale_settings.values().join(',')));
+			QSetIterator<QString> i(stale_settings);
+			while (i.hasNext()) {
+				QString prop = i.next();
+				if (inquires.contains(prop)) {
+					pending_cmds += inquires[prop];
+					break;
+				}
 			}
 		}
 	}
@@ -830,16 +868,12 @@ void PTZVisca::send_pending()
 		stale_settings += affects;
 	timeout_retry = 0;
 	timeout_timer.setSingleShot(true);
-	timeout_timer.start(500);
+	timeout_timer.start(1000 / 30);
 }
 
-void PTZVisca::pantilt(double pan_, double tilt_)
+void PTZVisca::do_update(void)
 {
-	int pan =
-		qBound(-1.0, pan_, 1.0) * 0x18 + (pan_ < 0.0 ? -1 : pan_ > 0.0);
-	int tilt = qBound(-1.0, tilt_, 1.0) * 0x14 +
-		   (tilt_ < 0.0 ? -1 : tilt_ > 0.0);
-	send(VISCA_PanTilt_drive, {pan, -tilt});
+	send_pending();
 }
 
 void PTZVisca::pantilt_rel(double pan_, double tilt_)
@@ -861,13 +895,6 @@ void PTZVisca::pantilt_home()
 	send(VISCA_PanTilt_Home);
 }
 
-void PTZVisca::zoom(double speed_)
-{
-	int speed = qBound(-1.0, speed_, 1.0) * 15 +
-		    (speed_ < 0.0 ? -1 : speed_ > 0.0);
-	send(VISCA_CAM_Zoom_drive, {speed});
-}
-
 void PTZVisca::zoom_abs(double pos_)
 {
 	int pos = qBound(0.0, pos_, 1.0) * 0x7ac0;
@@ -878,16 +905,6 @@ void PTZVisca::set_autofocus(bool enabled)
 {
 	send(enabled ? VISCA_CAM_Focus_Auto : VISCA_CAM_Focus_Manual);
 	obs_data_set_bool(settings, "focus_af_enabled", enabled);
-}
-
-void PTZVisca::focus(double speed_)
-{
-	// The following two lines allows the focus speed to be adjusted using
-	// the speed slide, but in practical terms this makes the focus change
-	// far too quickly. Just use the slowest speed instead.
-	//int speed = qBound(-1.0, speed_, 1.0) * 15 + (speed_ < 0.0 ? -1 : speed_ > 0.0);
-	int speed = -(speed_ < 0.0 ? -1 : (speed_ > 0.0 ? 1 : 0));
-	send(VISCA_CAM_Focus_drive, {speed});
 }
 
 void PTZVisca::focus_onetouch()

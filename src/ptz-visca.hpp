@@ -39,6 +39,7 @@ protected:
 	std::optional<PTZCmd> active_cmd[8];
 	QTimer timeout_timer;
 
+	bool send_pantilt();
 	virtual void send_immediate(const QByteArray &msg) = 0;
 	void send(PTZCmd cmd);
 	void send(PTZCmd cmd, QList<int> args);
@@ -57,14 +58,13 @@ public:
 	void set_settings(OBSData setting);
 
 	void cmd_get_camera_info();
-	void pantilt(double pan, double tilt);
+
+	void do_update();
 	void pantilt_rel(double pan, double tilt);
 	void pantilt_abs(double pan, double tilt);
 	void pantilt_home();
-	void zoom(double speed);
 	void zoom_abs(double pos);
 	void set_autofocus(bool enabled);
-	void focus(double speed);
 	void focus_onetouch();
 	void memory_reset(int i);
 	void memory_set(int i);

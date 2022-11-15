@@ -73,9 +73,22 @@ class PTZDevice : public QObject {
 	Q_OBJECT
 	friend class PTZListModel;
 
+public:
+	enum StatusFlags {
+		STATUS_CONNECTED = 0x1,
+		STATUS_PANTILT_SPEED_CHANGED = 0x2,
+		STATUS_ZOOM_SPEED_CHANGED = 0x4,
+		STATUS_FOCUS_SPEED_CHANGED = 0x8,
+	};
+
 protected:
 	uint32_t id = 0;
 	std::string type;
+	uint32_t status;
+	double pan_speed;
+	double tilt_speed;
+	double zoom_speed;
+	double focus_speed;
 
 	QStringListModel preset_names_model;
 	obs_properties_t *props;
@@ -92,6 +105,15 @@ public:
 	uint32_t getId() { return id; }
 
 	void setObjectName(QString name);
+
+	/**
+	 * do_update() method is to be implemented by each driver as the way
+	 * to communicate movement commands to the camera. Since movement
+	 * speed is cached in the generic model, the backend driver can
+	 * throttle how many commands are actually sent to the device by
+	 * arranging to call itself back at a later time
+	 */
+	virtual void do_update() = 0;
 
 	/** Movement Methods
 	 * All movement commands are normalized to floating point ranges of
@@ -117,10 +139,14 @@ public:
 	 * zoom: range[0.0, 1.0], 0.0 == wide angle, 1.0 == telephoto
 	 * focus: range[0.0, 1.0], 0.0 == far focus, 1.0 == near focus
 	 */
-	virtual void pantilt(double pan, double tilt)
+	void pantilt(double pan, double tilt)
 	{
-		Q_UNUSED(pan);
-		Q_UNUSED(tilt);
+		if ((pan_speed == pan) && (tilt_speed == tilt))
+			return;
+		pan_speed = pan;
+		tilt_speed = tilt;
+		status |= STATUS_PANTILT_SPEED_CHANGED;
+		do_update();
 	}
 	virtual void pantilt_rel(double pan, double tilt)
 	{
@@ -133,10 +159,24 @@ public:
 		Q_UNUSED(tilt);
 	}
 	virtual void pantilt_home() {}
-	virtual void zoom(double speed) { Q_UNUSED(speed); }
+	void zoom(double speed)
+	{
+		if (zoom_speed == speed)
+			return;
+		zoom_speed = speed;
+		status |= STATUS_ZOOM_SPEED_CHANGED;
+		do_update();
+	}
 	virtual void zoom_abs(double pos) { Q_UNUSED(pos); };
 	virtual void set_autofocus(bool enabled) { Q_UNUSED(enabled); };
-	virtual void focus(double speed) { Q_UNUSED(speed); }
+	void focus(double speed)
+	{
+		if (focus_speed == speed)
+			return;
+		focus_speed = speed;
+		status |= STATUS_FOCUS_SPEED_CHANGED;
+		do_update();
+	}
 	virtual void focus_abs(double pos) { Q_UNUSED(pos); }
 	virtual void focus_onetouch() {}
 	virtual void memory_set(int i) { Q_UNUSED(i); }

@@ -656,15 +656,23 @@ void PTZOnvif::connectCamera()
 	qInfo() << "[PTZOnvif] Connection success ";
 }
 
-void PTZOnvif::pantilt(double pan, double tilt)
+void PTZOnvif::do_update()
 {
-	OnvifPTZService c;
-	if (pan == 0.0 && tilt == 0.0) {
-		QThread::msleep(200);
-		c.Stop(m_PTZAddress, username, password, m_selectedMedia.token);
-	} else {
-		c.ContinuousMove(m_PTZAddress, username, password,
-				 m_selectedMedia.token, pan, tilt, 0.0);
+	if (status &
+	    (STATUS_PANTILT_SPEED_CHANGED | STATUS_ZOOM_SPEED_CHANGED)) {
+		status &= ~(STATUS_PANTILT_SPEED_CHANGED |
+			    STATUS_ZOOM_SPEED_CHANGED);
+		OnvifPTZService c;
+		if (pan_speed == 0.0 && tilt_speed == 0.0 &&
+		    focus_speed == 0.0) {
+			QThread::msleep(200);
+			c.Stop(m_PTZAddress, username, password,
+			       m_selectedMedia.token);
+		} else {
+			c.ContinuousMove(m_PTZAddress, username, password,
+					 m_selectedMedia.token, pan_speed,
+					 tilt_speed, focus_speed);
+		}
 	}
 }
 
@@ -687,18 +695,6 @@ void PTZOnvif::pantilt_home()
 	OnvifPTZService c;
 	c.GoToHomePosition(m_PTZAddress, username, password,
 			   m_selectedMedia.token);
-}
-
-void PTZOnvif::zoom(double speed)
-{
-	OnvifPTZService c;
-	if (speed == 0.0) {
-		QThread::msleep(200);
-		c.Stop(m_PTZAddress, username, password, m_selectedMedia.token);
-	} else {
-		c.ContinuousMove(m_PTZAddress, username, password,
-				 m_selectedMedia.token, 0.0, 0.0, speed);
-	}
 }
 
 void PTZOnvif::zoom_abs(double pos)

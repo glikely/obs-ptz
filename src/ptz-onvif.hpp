@@ -122,11 +122,10 @@ public:
 
 	obs_properties_t *get_obs_properties();
 
-	void pantilt(double pan, double tilt);
+	void do_update();
 	void pantilt_rel(double pan, double tilt);
 	void pantilt_abs(double pan, double tilt);
 	void pantilt_home();
-	void zoom(double speed);
 	void zoom_abs(double pos);
 	void memory_reset(int i);
 	void memory_set(int i);

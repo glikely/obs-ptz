@@ -181,37 +181,41 @@ obs_properties_t *PTZPelco::get_obs_properties()
 	return ptz_props;
 }
 
-void PTZPelco::pantilt(double pan, double tilt)
+void PTZPelco::do_update()
 {
-	unsigned char panTiltData = 0x00;
-	if (tilt < -0.005)
-		panTiltData |= (1 << 4);
-	if (tilt > 0.005)
-		panTiltData |= (1 << 3);
-	if (pan < -0.005)
-		panTiltData |= (1 << 2);
-	if (pan > 0.005)
-		panTiltData |= (1 << 1);
+	if (status & STATUS_PANTILT_SPEED_CHANGED) {
+		status &= ~STATUS_PANTILT_SPEED_CHANGED;
+		unsigned char panTiltData = 0x00;
+		if (tilt_speed < -0.005)
+			panTiltData |= (1 << 4);
+		if (tilt_speed > 0.005)
+			panTiltData |= (1 << 3);
+		if (pan_speed < -0.005)
+			panTiltData |= (1 << 2);
+		if (pan_speed > 0.005)
+			panTiltData |= (1 << 1);
 
-	send(0x00, panTiltData, abs(pan) * 0x3F, abs(tilt) * 0x3F);
+		send(0x00, panTiltData, abs(pan_speed) * 0x3F,
+		     abs(tilt_speed) * 0x3F);
 
-	ptz_debug("pantilt: pan %f tilt %f", pan, tilt);
+		ptz_debug("pantilt: pan %f tilt %f", pan_speed, tilt_speed);
+	}
+
+	if (status & STATUS_ZOOM_SPEED_CHANGED) {
+		status &= ~STATUS_ZOOM_SPEED_CHANGED;
+		zoom_speed_set(std::abs(zoom_speed));
+		if (std::abs(zoom_speed) < 0)
+			send(STOP);
+		else
+			send(zoom_speed < 0 ? ZOOM_OUT : ZOOM_IN);
+		ptz_debug("zoom(%f)", zoom_speed);
+	}
 }
 
 void PTZPelco::pantilt_home()
 {
 	send(HOME);
 	ptz_debug("pantilt_home");
-}
-
-void PTZPelco::zoom(double speed)
-{
-	zoom_speed_set(std::abs(speed));
-	if (std::abs(speed) < 0)
-		send(STOP);
-	else
-		send(speed < 0 ? ZOOM_OUT : ZOOM_IN);
-	ptz_debug("zoom(%f)", speed);
 }
 
 void PTZPelco::memory_reset(int i)
