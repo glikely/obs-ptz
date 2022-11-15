@@ -44,6 +44,7 @@ target_sources(
           src/ptz-visca.cpp
           src/ptz-visca-udp.cpp
           src/ptz-visca-tcp.cpp
+          src/ptz-gamepad.cpp
           src/ptz-action-source.c
           src/imported/qt-wrappers.cpp
           src/imported/obs-app.cpp
@@ -60,6 +61,7 @@ target_sources(
           src/ptz-visca.hpp
           src/ptz-visca-udp.hpp
           src/ptz-visca-tcp.hpp
+          src/ptz-gamepad.hpp
           src/protocol-helpers.hpp
           src/imported/qt-wrappers.hpp
           src/imported/obs-app.hpp
@@ -128,6 +130,9 @@ if(OS_WINDOWS)
   if(MSVC)
     target_compile_options(${CMAKE_PROJECT_NAME} PRIVATE /W4)
   endif()
+
+  target_compile_definitions(${CMAKE_PROJECT_NAME} PRIVATE OBS_PTZ_GAMEPAD=1)
+  target_link_libraries(${CMAKE_PROJECT_NAME} PRIVATE xinput)
   # --- End of section ---
 
   # -- macOS specific build settings and tasks --

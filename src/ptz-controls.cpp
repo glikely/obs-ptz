@@ -21,6 +21,9 @@
 #include "ptz-controls.hpp"
 #include "settings.hpp"
 #include "ptz.h"
+#ifdef OBS_PTZ_GAMEPAD
+#include "ptz-gamepad.hpp"
+#endif // #ifdef OBS_PTZ_GAMEPAD
 
 void ptz_load_controls(void)
 {
@@ -130,6 +133,11 @@ PTZControls::PTZControls(QWidget *parent)
 
 	ui->speedSlider->setMinimum(1);
 	ui->speedSlider->setMaximum(100);
+
+#ifdef OBS_PTZ_GAMEPAD
+	gamepad = new PTZGamePad(this);
+	gamepad->setGamepadEnabled(useGamepad, nullptr);
+#endif // #ifdef OBS_PTZ_GAMEPAD
 
 	LoadConfig();
 
@@ -325,6 +333,9 @@ void PTZControls::SaveConfig()
 			    ui->splitter->saveState().toBase64().constData());
 
 	obs_data_set_bool(savedata, "live_moves_disabled", live_moves_disabled);
+#ifdef OBS_PTZ_GAMEPAD
+	obs_data_set_bool(savedata, "use_gamepad", useGamepad);
+#endif // #ifdef OBS_PTZ_GAMEPAD
 	obs_data_set_int(savedata, "debug_log_level", ptz_debug_level);
 	obs_data_set_int(savedata, "current_speed", ui->speedSlider->value());
 	const char *target_mode = "manual";
@@ -366,6 +377,9 @@ void PTZControls::LoadConfig()
 	obs_data_release(loaddata);
 	obs_data_set_default_int(loaddata, "current_speed", 50);
 	obs_data_set_default_int(loaddata, "debug_log_level", LOG_INFO);
+#ifdef OBS_PTZ_GAMEPAD
+	obs_data_set_default_bool(loaddata, "use_gamepad", true);
+#endif // #ifdef OBS_PTZ_GAMEPAD
 	obs_data_set_default_bool(loaddata, "live_moves_disabled", true);
 	obs_data_set_default_string(loaddata, "target_mode", "preview");
 
@@ -396,6 +410,14 @@ void PTZControls::setDisableLiveMoves(bool disable)
 	live_moves_disabled = disable;
 	updateMoveControls();
 }
+
+#ifdef OBS_PTZ_GAMEPAD
+void PTZControls::setGamepadEnabled(bool enable, Ui_PTZSettings *uiSettings)
+{
+	useGamepad = enable;
+	gamepad->setGamepadEnabled(enable, uiSettings);
+}
+#endif // #ifdef OBS_PTZ_GAMEPAD
 
 PTZDevice *PTZControls::currCamera()
 {
@@ -453,6 +475,97 @@ void PTZControls::setFocus(double focus)
 	ptz->focus(focus * ui->speedSlider->value() / 100);
 	focusingFlag = (focus != 0.0);
 }
+
+#ifdef OBS_PTZ_GAMEPAD
+void PTZControls::nextCamera()
+{
+	const int numDevices = ui->cameraList->model()->rowCount();
+	if (numDevices <= 0)
+		return;
+
+	const int currentIndex = ui->cameraList->currentIndex().row();
+	const int nextIndex = currentIndex + 1 < numDevices ? currentIndex + 1 : 0;
+	QModelIndex nextIndexModel = ui->cameraList->model()->index(nextIndex, 0);
+	ui->cameraList->setCurrentIndex(nextIndexModel);
+}
+
+void PTZControls::prevCamera()
+{
+	const int numDevices = ui->cameraList->model()->rowCount();
+	if (numDevices <= 0)
+		return;
+
+	const int currentIndex = ui->cameraList->currentIndex().row();
+	const int nextIndex = currentIndex - 1 >= 0 ? currentIndex - 1 : numDevices - 1;
+	QModelIndex nextIndexModel = ui->cameraList->model()->index(nextIndex, 0);
+	ui->cameraList->setCurrentIndex(nextIndexModel);
+}
+
+void PTZControls::nextPreset()
+{
+	const int numPresets = ui->presetListView->model()->rowCount();
+	const int currentIndex = ui->presetListView->currentIndex().row();
+	const int nextIndex = currentIndex + 1 < numPresets ? currentIndex + 1 : 0;
+	QModelIndex nextIndexModel = ui->presetListView->model()->index(nextIndex, 0);
+	ui->presetListView->setCurrentIndex(nextIndexModel);
+}
+
+void PTZControls::prevPreset()
+{
+	const int numPresets = ui->presetListView->model()->rowCount();
+	const int currentIndex = ui->presetListView->currentIndex().row();
+	const int nextIndex = currentIndex - 1 >= 0 ? currentIndex - 1 : numPresets - 1;
+	QModelIndex nextIndexModel = ui->presetListView->model()->index(nextIndex, 0);
+	ui->presetListView->setCurrentIndex(nextIndexModel);
+}
+
+void PTZControls::setPreset(int index)
+{
+	const int numPresets = ui->presetListView->model()->rowCount();
+	if (index < 0 || index >= numPresets)
+		return;
+
+	QModelIndex indexModel = ui->presetListView->model()->index(index, 0);
+	ui->presetListView->setCurrentIndex(indexModel);
+}
+
+void PTZControls::activeSelectedPreset()
+{
+	const int numPresets = ui->presetListView->model()->rowCount();
+	const int currentIndex = ui->presetListView->currentIndex().row();
+	if (currentIndex < 0 || currentIndex >= numPresets)
+		return;
+
+	presetRecall(currentIndex);
+}
+
+void PTZControls::changeSpeed(int amount)
+{
+	const int max = ui->speedSlider->maximum();
+	const int value = ui->speedSlider->value();
+	const int newValue = value + amount;
+	if (value == 0 && newValue <= 0)
+	{
+		return;
+	}
+	else if (newValue <= 0)
+	{
+		ui->speedSlider->setValue(0);
+	}
+	else if (value == max && newValue >= max)
+	{
+		return;
+	}
+	else if (newValue >= max)
+	{
+		ui->speedSlider->setValue(max);
+	}
+	else
+	{
+		ui->speedSlider->setValue(newValue);
+	}
+}
+#endif // #ifdef OBS_PTZ_GAMEPAD
 
 /* The pan/tilt buttons are a large block of simple and mostly identical code.
  * Use C preprocessor macro to create all the duplicate functions */

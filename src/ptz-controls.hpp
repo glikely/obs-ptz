@@ -13,6 +13,11 @@
 #include "ptz-device.hpp"
 #include "ui_ptz-controls.h"
 
+#ifdef OBS_PTZ_GAMEPAD
+class PTZGamePad;
+class Ui_PTZSettings;
+#endif // #ifdef OBS_PTZ_GAMEPAD
+
 class PTZControls : public QDockWidget {
 	Q_OBJECT
 
@@ -31,12 +36,16 @@ private:
 	bool zoomingFlag = false;
 	bool focusingFlag = false;
 
+#ifdef OBS_PTZ_GAMEPAD
+	// Gamepad
+	bool useGamepad = false;
+	PTZGamePad *gamepad = nullptr;
+#endif // #ifdef OBS_PTZ_GAMEPAD
+
 	void copyActionsDynamicProperties();
 	void SaveConfig();
 	void LoadConfig();
 
-	void setPanTilt(double pan, double tilt);
-	void setZoom(double speed);
 	void setFocus(double speed);
 
 	void setCurrent(unsigned int index);
@@ -99,4 +108,19 @@ public:
 	void setDisableLiveMoves(bool enable);
 	bool liveMovesDisabled() { return live_moves_disabled; };
 	static PTZControls *getInstance() { return instance; };
+
+	void setPanTilt(double pan, double tilt);
+	void setZoom(double speed);
+#ifdef OBS_PTZ_GAMEPAD
+	void nextCamera();
+	void prevCamera();
+	void nextPreset();
+	void prevPreset();
+	void setPreset(int index);
+	void activeSelectedPreset();
+	void changeSpeed(int amount);
+
+	bool gamepadEnabled() { return useGamepad; };
+	void setGamepadEnabled(bool enable, Ui_PTZSettings *ui);
+#endif // #ifdef OBS_PTZ_GAMEPAD
 };

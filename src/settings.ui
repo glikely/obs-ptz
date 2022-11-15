@@ -210,6 +210,40 @@
        </item>
       </layout>
      </widget>
+     <widget class="QWidget" name="Gamepad">
+      <attribute name="title">
+       <string>Gamepad</string>
+      </attribute>
+      <widget class="QCheckBox" name="gamepadCheckBox">
+       <property name="geometry">
+        <rect>
+         <x>10</x>
+         <y>10</y>
+         <width>314</width>
+         <height>17</height>
+        </rect>
+       </property>
+       <property name="toolTip">
+        <string>Enable/Disable gamepad input for controlling cameras.</string>
+       </property>
+       <property name="text">
+        <string>Enable Gamepad</string>
+       </property>
+      </widget>
+      <widget class="QTextEdit" name="gamepadActiveText">
+       <property name="geometry">
+        <rect>
+         <x>10</x>
+         <y>40</y>
+         <width>211</width>
+         <height>31</height>
+        </rect>
+       </property>
+       <property name="readOnly">
+        <bool>true</bool>
+       </property>
+      </widget>
+     </widget>
      <widget class="QWidget" name="aboutTab">
       <attribute name="title">
        <string>About</string>

@@ -12,6 +12,9 @@
 #include <imported/properties-view.hpp>
 
 class Ui_PTZSettings;
+#ifdef OBS_PTZ_GAMEPAD
+class PTZGamepad;
+#endif // #ifdef OBS_PTZ_GAMEPAD
 
 class SourceNameDelegate : public QStyledItemDelegate {
 	Q_OBJECT
@@ -50,6 +53,9 @@ public slots:
 	void on_applyButton_clicked();
 	void on_livemoveCheckBox_stateChanged(int state);
 	void on_enableDebugLogCheckBox_stateChanged(int state);
+#ifdef OBS_PTZ_GAMEPAD
+	void on_gamepadCheckBox_stateChanged(int state);
+#endif // #ifdef OBS_PTZ_GAMEPAD
 
 	void currentChanged(const QModelIndex &current,
 			    const QModelIndex &previous);

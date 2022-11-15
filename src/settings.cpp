@@ -121,6 +121,11 @@ PTZSettings::PTZSettings() : QWidget(nullptr), ui(new Ui_PTZSettings)
 		PTZControls::getInstance()->liveMovesDisabled());
 	ui->enableDebugLogCheckBox->setChecked(ptz_debug_level <= LOG_INFO);
 
+#ifdef OBS_PTZ_GAMEPAD
+	ui->gamepadCheckBox->setChecked(
+		PTZControls::getInstance()->gamepadEnabled());
+#endif // #ifdef OBS_PTZ_GAMEPAD
+
 	auto snd = new SourceNameDelegate(this);
 	ui->deviceList->setModel(&ptzDeviceList);
 	ui->deviceList->setItemDelegateForColumn(0, snd);
@@ -252,6 +257,15 @@ void PTZSettings::on_enableDebugLogCheckBox_stateChanged(int state)
 {
 	ptz_debug_level = (state == Qt::Unchecked) ? LOG_DEBUG : LOG_INFO;
 }
+
+#ifdef OBS_PTZ_GAMEPAD
+void PTZSettings::on_gamepadCheckBox_stateChanged(int state)
+{
+	Q_UNUSED(state);
+	PTZControls::getInstance()->setGamepadEnabled(
+		ui->gamepadCheckBox->isChecked(), ui);
+}
+#endif // #ifdef OBS_PTZ_GAMEPAD
 
 void PTZSettings::currentChanged(const QModelIndex &current,
 				 const QModelIndex &previous)
