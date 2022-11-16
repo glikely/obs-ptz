@@ -187,6 +187,26 @@ PTZControls::PTZControls(QWidget *parent)
 		else
 			button->released();
 	};
+	auto prevcb = [](void *action_data, obs_hotkey_id, obs_hotkey_t *,
+			 bool pressed) {
+		QListView *list = static_cast<QListView *>(action_data);
+		if (pressed) {
+			QModelIndex cur = list->currentIndex();
+			QModelIndex sib = cur.siblingAtRow(cur.row() - 1);
+			if (sib.isValid())
+				list->setCurrentIndex(sib);
+		}
+	};
+	auto nextcb = [](void *action_data, obs_hotkey_id, obs_hotkey_t *,
+			 bool pressed) {
+		QListView *list = static_cast<QListView *>(action_data);
+		if (pressed) {
+			QModelIndex cur = list->currentIndex();
+			QModelIndex sib = cur.siblingAtRow(cur.row() + 1);
+			if (sib.isValid())
+				list->setCurrentIndex(sib);
+		}
+	};
 	auto decreasecb = [](void *action_data, obs_hotkey_id, obs_hotkey_t *,
 			     bool pressed) {
 		QAbstractSlider *slider =
@@ -250,6 +270,12 @@ PTZControls::PTZControls(QWidget *parent)
 	hotkeys << registerHotkey("PTZ.FocusOneTouch",
 				  "PTZ One touch focus trigger", cb,
 				  ui->focusButton_onetouch);
+	hotkeys << registerHotkey("PTZ.SelectPrev",
+				  "PTZ Select previous device in list", prevcb,
+				  ui->cameraList);
+	hotkeys << registerHotkey("PTZ.SelectNext",
+				  "PTZ Select next device in list", nextcb,
+				  ui->cameraList);
 	hotkeys << registerHotkey("PTZ.ActionDisableLiveMovesToggle",
 				  "PTZ Toggle Control Lock", actiontogglecb,
 				  ui->actionDisableLiveMoves);
