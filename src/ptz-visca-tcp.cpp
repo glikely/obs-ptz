@@ -105,7 +105,7 @@ void PTZViscaOverTCP::set_config(OBSData config)
 {
 	PTZDevice::set_config(config);
 	host = obs_data_get_string(config, "host");
-	port = obs_data_get_int(config, "port");
+	port = (int)obs_data_get_int(config, "port");
 	if (!port)
 		port = 5678;
 	connectSocket();

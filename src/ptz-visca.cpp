@@ -577,7 +577,7 @@ void PTZVisca::set_settings(OBSData new_settings)
 		}
 	}
 
-	int wb_mode = obs_data_get_int(new_settings, "wb_mode");
+	auto wb_mode = (int)obs_data_get_int(new_settings, "wb_mode");
 	if (wb_mode != obs_data_get_int(settings, "wb_mode")) {
 		send(VISCA_CAM_WB_Mode, {wb_mode});
 		obs_data_set_int(updates, "wb_mode", wb_mode);

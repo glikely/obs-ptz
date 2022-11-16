@@ -52,7 +52,7 @@ PTZListModel::~PTZListModel()
 int PTZListModel::rowCount(const QModelIndex &parent) const
 {
 	Q_UNUSED(parent);
-	return devices.size();
+	return (int)devices.size();
 }
 
 Qt::ItemFlags PTZListModel::flags(const QModelIndex &index) const
@@ -130,7 +130,7 @@ QStringList PTZListModel::getDeviceNames()
 
 QModelIndex PTZListModel::indexFromDeviceId(uint32_t device_id)
 {
-	int row = devices.keys().indexOf(device_id);
+	int row = (int)devices.keys().indexOf(device_id);
 	if (row < 0)
 		return QModelIndex();
 	return index(row, 0);
@@ -226,7 +226,7 @@ void PTZListModel::move_continuous(uint32_t device_id, uint32_t flags,
 PTZDevice::PTZDevice(OBSData config) : QObject()
 {
 	setObjectName(obs_data_get_string(config, "name"));
-	id = obs_data_get_int(config, "id");
+	id = (int)obs_data_get_int(config, "id");
 	type = obs_data_get_string(config, "type");
 	settings = obs_data_create();
 	obs_data_release(settings);
@@ -269,7 +269,7 @@ void PTZDevice::set_config(OBSData config)
 		     i++) {
 			OBSData preset = obs_data_array_item(preset_array, i);
 			obs_data_release(preset);
-			int preset_id = obs_data_get_int(preset, "id");
+			int preset_id = (int)obs_data_get_int(preset, "id");
 			const char *preset_name =
 				obs_data_get_string(preset, "name");
 			if ((preset_id >= 0) &&
