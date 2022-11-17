@@ -316,6 +316,18 @@ obs_properties_t *PTZDevice::get_obs_properties()
 	obs_properties_add_group(rtn_props, "interface", "Connection",
 				 OBS_GROUP_NORMAL, config);
 
+	/* Create Position (pan/tilt/zoom/focus/etc) section */
+	obs_properties_t *position = obs_properties_create();
+	obs_properties_add_group(rtn_props, "position", "Position",
+				 OBS_GROUP_NORMAL, position);
+	obs_properties_add_int_slider(position, "pan_pos", "Pan", -0x7f00,
+				      0x7f00, 1);
+	obs_properties_add_int_slider(position, "tilt_pos", "Tilt", -0x7f00,
+				      0x7f00, 1);
+	obs_properties_add_int_slider(position, "zoom_pos", "Zoom", 0, 0x7f00,
+				      1);
+	obs_properties_add_int_slider(position, "focus_pos", "Focus", 0, 0x7f00,
+				      1);
 	return rtn_props;
 }
 
