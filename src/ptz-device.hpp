@@ -81,6 +81,7 @@ protected:
 	QStringListModel preset_names_model;
 	obs_properties_t *props;
 	OBSData settings;
+	QSet<QString> stale_settings;
 
 signals:
 	void settingsChanged(OBSData settings);

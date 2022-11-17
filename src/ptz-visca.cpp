@@ -217,39 +217,43 @@ const PTZCmd VISCA_CommandCancel("8120ff", {new visca_u4("socket", 1)});
 const PTZCmd VISCA_CAM_Power("8101040000ff", {new visca_flag("power_on", 4)});
 const PTZInq VISCA_CAM_PowerInq("81090400ff", {new visca_flag("power_on", 2)});
 
-const PTZCmd VISCA_CAM_Zoom_Stop("8101040700ff");
-const PTZCmd VISCA_CAM_Zoom_Tele("8101040702ff");
-const PTZCmd VISCA_CAM_Zoom_Wide("8101040703ff");
+const PTZCmd VISCA_CAM_Zoom_Stop("8101040700ff", "zoom_pos");
+const PTZCmd VISCA_CAM_Zoom_Tele("8101040702ff", "zoom_pos");
+const PTZCmd VISCA_CAM_Zoom_Wide("8101040703ff", "zoom_pos");
 const PTZCmd VISCA_CAM_Zoom_TeleVar("8101040720ff",
 				    {
 					    new visca_u4("p", 4),
-				    });
+				    },
+				    "zoom_pos");
 const PTZCmd VISCA_CAM_Zoom_WideVar("8101040730ff",
 				    {
 					    new visca_u4("p", 4),
-				    });
+				    },
+				    "zoom_pos");
 const PTZCmd VISCA_CAM_Zoom_Direct("8101044700000000ff",
 				   {
 					   new visca_s16("zoom_pos", 4),
 				   });
 const PTZInq VISCA_CAM_ZoomPosInq("81090447ff", {new visca_s16("zoom_pos", 2)});
 
-const PTZCmd VISCA_CAM_DZoom_On("8101040602ff");
-const PTZCmd VISCA_CAM_DZoom_Off("8101040603ff");
+const PTZCmd VISCA_CAM_DZoom_On("8101040602ff", "dzoom_on");
+const PTZCmd VISCA_CAM_DZoom_Off("8101040603ff", "dzoom_on");
 const PTZInq VISCA_CAM_DZoomModeInq("81090406ff",
 				    {new visca_flag("dzoom_on", 2)});
 
-const PTZCmd VISCA_CAM_Focus_Stop("8101040800ff");
-const PTZCmd VISCA_CAM_Focus_Far("8101040802ff");
-const PTZCmd VISCA_CAM_Focus_Near("8101040803ff");
+const PTZCmd VISCA_CAM_Focus_Stop("8101040800ff", "focus_pos");
+const PTZCmd VISCA_CAM_Focus_Far("8101040802ff", "focus_pos");
+const PTZCmd VISCA_CAM_Focus_Near("8101040803ff", "focus_pos");
 const PTZCmd VISCA_CAM_Focus_FarVar("8101040820ff",
 				    {
 					    new visca_u4("p", 4),
-				    });
+				    },
+				    "focus_pos");
 const PTZCmd VISCA_CAM_Focus_NearVar("8101040830ff",
 				     {
 					     new visca_u4("p", 4),
-				     });
+				     },
+				     "focus_pos");
 
 const PTZCmd VISCA_CAM_Focus_Auto("8101043802ff");
 const PTZCmd VISCA_CAM_Focus_Manual("8101043803ff");
@@ -264,7 +268,8 @@ const PTZCmd VISCA_CAM_Focus_Infinity("8101041802ff");
 const PTZCmd VISCA_CAM_FocusPos("8101044800000000ff",
 				{
 					new visca_s16("focus_pos", 4),
-				});
+				},
+				"focus_pos");
 const PTZInq VISCA_CAM_FocusPosInq("81090448ff",
 				   {new visca_s16("focus_pos", 2)});
 
@@ -503,19 +508,22 @@ const PTZInq VISCA_PanTilt_MaxSpeedInq("81090611ff",
 
 const PTZCmd VISCA_PanTilt_drive("8101060100000303ff",
 				 {new visca_s7("pan", 4),
-				  new visca_s7("tilt", 5)});
+				  new visca_s7("tilt", 5)},
+				 "pan_pos");
 const PTZCmd VISCA_PanTilt_drive_abs("8101060200000000000000000000ff",
 				     {new visca_u7("panspeed", 4),
 				      new visca_u7("tiltspeed", 5),
 				      new visca_s16("pan_pos", 6),
-				      new visca_s16("tilt_pos", 10)});
+				      new visca_s16("tilt_pos", 10)},
+				     "pan_pos");
 const PTZCmd VISCA_PanTilt_drive_rel("8101060300000000000000000000ff",
 				     {new visca_u7("panspeed", 4),
 				      new visca_u7("tiltspeed", 5),
 				      new visca_s16("pan_pos", 6),
-				      new visca_s16("tilt_pos", 10)});
-const PTZCmd VISCA_PanTilt_Home("81010604ff");
-const PTZCmd VISCA_PanTilt_Reset("81010605ff");
+				      new visca_s16("tilt_pos", 10)},
+				     "pan_pos");
+const PTZCmd VISCA_PanTilt_Home("81010604ff", "pan_pos");
+const PTZCmd VISCA_PanTilt_Reset("81010605ff", "pan_pos");
 const PTZInq VISCA_PanTilt_PosInq("81090612ff", {new visca_s16("pan_pos", 2),
 						 new visca_s16("tilt_pos", 6)});
 
@@ -630,6 +638,8 @@ void PTZVisca::send(PTZCmd cmd)
 {
 	if (cmd.cmd[1] == (char)0x01) { // command packets get sent immediately
 		send_immediate(cmd.cmd);
+		if (cmd.affects != "")
+			stale_settings += cmd.affects;
 	} else {
 		pending_cmds.append(cmd);
 		send_pending();
@@ -695,6 +705,12 @@ void PTZVisca::receive(const QByteArray &msg)
 			obs_data_t *rslt_props =
 				pending_cmds.first().decode(msg);
 			obs_data_apply(settings, rslt_props);
+
+			/* Mark returned properties as clean */
+			for (auto item = obs_data_first(rslt_props); item;
+			     obs_data_item_next(&item))
+				stale_settings -= obs_data_item_get_name(item);
+
 			emit settingsChanged(rslt_props);
 			obs_data_release(rslt_props);
 			pending_cmds.removeFirst();
@@ -726,6 +742,9 @@ void PTZVisca::send_pending()
 		return;
 	active_cmd[0] = true;
 	send_immediate(pending_cmds.first().cmd);
+	auto affects = pending_cmds.first().affects;
+	if (affects != "")
+		stale_settings += affects;
 	timeout_timer.setSingleShot(true);
 	timeout_timer.start(2000);
 }

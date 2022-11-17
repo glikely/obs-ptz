@@ -230,6 +230,7 @@ PTZDevice::PTZDevice(OBSData config) : QObject()
 	type = obs_data_get_string(config, "type");
 	settings = obs_data_create();
 	obs_data_release(settings);
+	stale_settings = {"pan_pos", "tilt_pos", "zoom_pos", "focus_pos"};
 	ptzDeviceList.add(this);
 	preset_names_model.setStringList(default_preset_names);
 };
