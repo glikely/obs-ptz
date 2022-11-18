@@ -271,7 +271,7 @@ void PTZSettings::currentChanged(const QModelIndex &current,
 		obs_data_erase(settings, "presets");
 
 		ptz->connect(ptz, SIGNAL(settingsChanged(OBSData)), this,
-				SLOT(settingsChanged(OBSData)));
+			     SLOT(settingsChanged(OBSData)));
 	}
 
 	propertiesView->ReloadProperties();
