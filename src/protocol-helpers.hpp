@@ -187,6 +187,7 @@ public:
 
 class PTZInq : public PTZCmd {
 public:
+	PTZInq() : PTZCmd("") {}
 	PTZInq(const char *cmd_hex) : PTZCmd(cmd_hex) {}
 	PTZInq(const char *cmd_hex, QList<datagram_field *> rslts)
 		: PTZCmd(cmd_hex, {}, rslts)

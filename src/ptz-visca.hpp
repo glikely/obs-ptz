@@ -30,6 +30,7 @@ class PTZVisca : public PTZDevice {
 public:
 	static const QMap<int, std::string> viscaVendors;
 	static const QMap<int, std::string> viscaModels;
+	static const QMap<QString, PTZInq> inquires;
 
 protected:
 	unsigned int address;

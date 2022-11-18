@@ -558,6 +558,21 @@ const QMap<int, std::string> PTZVisca::viscaModels = {
 	{0x01092020, "P100"},
 };
 
+/* Mapping properties to enquires */
+const QMap<QString, PTZInq> PTZVisca::inquires = {
+	{"vendor_id", VISCA_CAM_VersionInq},
+	{"pan_pos", VISCA_PanTilt_PosInq},
+	{"tilt_pos", VISCA_PanTilt_PosInq},
+	{"focus_pos", VISCA_LensControlInq},
+	{"zoom_pos", VISCA_LensControlInq},
+	{"iris_pos", VISCA_CameraControlInq},
+	{"gain_pos", VISCA_CameraControlInq},
+	{"power", VISCA_OtherInq},
+	{"dzoom_pos", VISCA_EnlargementFunction1Inq},
+	{"defog_mode", VISCA_EnlargementFunction2Inq},
+	{"color_hue", VISCA_EnlargementFunction3Inq},
+};
+
 /*
  * PTZVisca Methods
  */
@@ -663,15 +678,8 @@ void PTZVisca::timeout()
 
 void PTZVisca::cmd_get_camera_info()
 {
-	send(VISCA_CAM_VersionInq);
-	send(VISCA_CAM_VersionInq); // hack: first inquiry doesn't always work, send twice
-	send(VISCA_PanTilt_PosInq);
-	send(VISCA_LensControlInq);
-	send(VISCA_CameraControlInq);
-	send(VISCA_OtherInq);
-	send(VISCA_EnlargementFunction1Inq);
-	send(VISCA_EnlargementFunction2Inq);
-	send(VISCA_EnlargementFunction3Inq);
+	for (auto key : inquires.keys())
+		stale_settings += key;
 }
 
 void PTZVisca::receive(const QByteArray &msg)
@@ -739,8 +747,26 @@ void PTZVisca::receive(const QByteArray &msg)
 
 void PTZVisca::send_pending()
 {
-	if (active_cmd[0] || pending_cmds.isEmpty())
+	if (active_cmd[0])
 		return;
+
+	/* If nothing queued, send an inquiry on stale values */
+	if (pending_cmds.isEmpty()) {
+		ptz_debug("Stale prop list: {%s}",
+			  QT_TO_UTF8(stale_settings.values().join(',')));
+		QSetIterator<QString> i(stale_settings);
+		while (i.hasNext()) {
+			QString prop = i.next();
+			if (inquires.contains(prop)) {
+				pending_cmds += inquires[prop];
+				break;
+			}
+		}
+	}
+
+	if (pending_cmds.isEmpty())
+		return;
+
 	active_cmd[0] = true;
 	send_immediate(pending_cmds.first().cmd);
 	auto affects = pending_cmds.first().affects;
