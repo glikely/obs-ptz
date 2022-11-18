@@ -85,6 +85,7 @@ protected:
 
 signals:
 	void settingsChanged(OBSData settings);
+	void propertiesUpdated(OBSData settings);
 
 public:
 	~PTZDevice();

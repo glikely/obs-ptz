@@ -711,6 +711,7 @@ void PTZVisca::receive(const QByteArray &msg)
 			     obs_data_item_next(&item))
 				stale_settings -= obs_data_item_get_name(item);
 
+			/* Data has been updated */
 			emit settingsChanged(rslt_props);
 			obs_data_release(rslt_props);
 			pending_cmds.removeFirst();

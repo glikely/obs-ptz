@@ -53,6 +53,7 @@ public slots:
 
 	void currentChanged(const QModelIndex &current,
 			    const QModelIndex &previous);
+	void settingsChanged(OBSData settings);
 	obs_properties_t *getProperties(void);
 	void updateProperties(OBSData old_settings, OBSData new_settings);
 };

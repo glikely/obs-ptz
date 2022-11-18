@@ -256,19 +256,31 @@ void PTZSettings::on_enableDebugLogCheckBox_stateChanged(int state)
 void PTZSettings::currentChanged(const QModelIndex &current,
 				 const QModelIndex &previous)
 {
-	Q_UNUSED(previous);
+	auto ptz = ptzDeviceList.getDevice(previous);
+	if (ptz)
+		ptz->disconnect(this);
 
 	obs_data_clear(settings);
-	PTZDevice *ptz = ptzDeviceList.getDevice(current);
+
+	ptz = ptzDeviceList.getDevice(current);
 	if (ptz) {
 		obs_data_apply(settings, ptz->get_settings());
 
 		/* The settings dialog doesn't touch presets or the device name, so remove them */
 		obs_data_erase(settings, "name");
 		obs_data_erase(settings, "presets");
+
+		ptz->connect(ptz, SIGNAL(settingsChanged(OBSData)), this,
+				SLOT(settingsChanged(OBSData)));
 	}
 
 	propertiesView->ReloadProperties();
+}
+
+void PTZSettings::settingsChanged(OBSData changed)
+{
+	obs_data_apply(settings, changed);
+	propertiesView->RefreshProperties();
 }
 
 /* ----------------------------------------------------------------- */
