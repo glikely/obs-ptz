@@ -46,6 +46,7 @@ const char *description_text =
 	"Norihiro Kamae<br/>"
 	"Luuk Verhagen<br/>"
 	"Jonata Bolzan Loss<br/>"
+	"Fabio Ferrari<br/>"
 	"Jim Hauxwell</p>"
 	"</body></html>";
 
