@@ -1,88 +1,75 @@
 /* PTZ Gamepad Windows Support
+* Copyright 2022 Eric Schmidt <ericbschmidt@gmail.com>
+* SPDX-License-Identifier: GPLv2
 */
 
 #pragma once
 
-#include <iostream>
-#include <Windows.h>
-#include <Xinput.h>
 #include <QObject>
-#include <qthread.h>
 
-#ifdef OBS_PTZ_GAMEPAD
-class Ui_PTZSettings;
-class PTZControls;
-class PTZGamepadThread;
+enum PTZGamepadStatus:char
+{
+	GAMEPAD_STATUS_BLANK = 0,
+	GAMEPAD_STATUS_NONE,
+	GAMEPAD_STATUS_FOUND,
+	GAMEPAD_STATUS_NOT_SUPPORTED,
+};
 
-static constexpr int NUM_FRAMES_CONTROLLER_CHECK = 120;
-static constexpr int INVALID_GAMEPAD_ID = -1;
-static constexpr float DEADZONE_X = 0.05f;
-static constexpr float DEADZONE_Y = 0.02f;
+enum PTZGamepadButton:char
+{
+	GAMEPAD_DPAD_UP = 0,
+	GAMEPAD_DPAD_DOWN,
+	GAMEPAD_DPAD_LEFT,
+	GAMEPAD_DPAD_RIGHT,
+	GAMEPAD_LEFT_SHOULDER,
+	GAMEPAD_RIGHT_SHOULDER,
+	GAMEPAD_START,
+	GAMEPAD_A,
+	GAMEPAD_B,
+	GAMEPAD_X,
+	GAMEPAD_Y,
+	GAMEPAD_RIGHT_THUMB,
+	GAMEPAD_LEFT_THUMB,
+	GAMEPAD_BACK,
+	GAMEPAD_BUTTON_COUNT,
+};
 
-static_assert(DEADZONE_X < 1.0f && DEADZONE_X >= 0.0f);
-static_assert(DEADZONE_Y < 1.0f && DEADZONE_Y >= 0.0f);
-
-class PTZGamePad : public QObject
+class PTZGamePadBase : public QObject
 {
 	Q_OBJECT
 
-private:
-	PTZGamepadThread *thread;
-	PTZControls *controls;
-	Ui_PTZSettings *uiSettings;
+protected:
+	PTZGamepadStatus status;
 	int gamepadID;
-	XINPUT_STATE state;
-	unsigned long lastPacketNumber;
-	int frameCount;
-	float rightStickX;
-	float rightStickY;
-	float leftStickY;
+	double rightStickX;
+	double rightStickY;
+	double leftStickX;
+	double leftStickY;
 	unsigned short buttonsDown;
-	void resetButtons();
-	void initializeGamepads();
-	void inputHandleRightStick();
-	void inputHandleLeftStick();
-	void inputHandleButtons();
 
 public:
-	PTZGamePad(PTZControls *ptzControls);
-	~PTZGamePad();
-	void setGamepadEnabled(bool enabled, Ui_PTZSettings *ui);
-	void gamepadTick();
-	void startThread();
-	void stopThread();
-	void cameraSelectUp(short actionData);
-	void cameraSelectDown(short actionData);
-	void cameraSpeedUp(short actionData);
-	void cameraSpeedDown(short actionData);
-	void presetSelectUp(short actionData);
-	void presetSelectDown(short actionData);
-	void presetSelectGo(short actionData);
-	void presetSelectSave(short actionData);
-	void presetButton(short actionData);
+	virtual bool isGamepadSupportEnabled() = 0;
+	virtual void setGamepadEnabled(bool enabled) = 0;
+	virtual PTZGamepadStatus getGamepadStatus() = 0;
+	static QString getStatusString(char status)
+	{
+		switch (status)
+		{
+		case PTZGamepadStatus::GAMEPAD_STATUS_NOT_SUPPORTED:
+			return QStringLiteral("Not Supported");
+		case PTZGamepadStatus::GAMEPAD_STATUS_FOUND:
+			return QStringLiteral("Gamepad Found");
+		case PTZGamepadStatus::GAMEPAD_STATUS_NONE:
+			return QStringLiteral("No Gamepad Found");
+		case PTZGamepadStatus::GAMEPAD_STATUS_BLANK:
+		default:
+			return QStringLiteral("");
+		}
+	}
 
 signals:
 	void rightAxisChanged(float stickX, float stickY);
-	void leftAxisChanged(float stickX);
-	void buttonDownChanged(unsigned short buttons);
-	void uiGamepadStatusChanged(byte status);
-
-private slots:
-	void setPanTilt(float stickX, float stickY);
-	void setZoom(float stickY);
-	void handleButton(unsigned short buttons);
-	void uiGamepadStatus(byte status);
+	void leftAxisChanged(float stickX, float stickY);
+	void buttonDownChanged(PTZGamepadButton button);
+	void uiGamepadStatusChanged(char status);
 };
-
-class PTZGamepadThread : public QThread {
-private:
-	PTZGamePad *gamepad;
-	QAtomicInt stop;
-
-public:
-	PTZGamepadThread(PTZGamePad *gamepadInput);
-	void run() override;
-	void reset() { stop.fetchAndStoreAcquire(0); };
-	void kill() { stop.fetchAndStoreAcquire(1); };
-};
-#endif // #ifdef OBS_PTZ_GAMEPAD

@@ -21,9 +21,12 @@
 #include "ptz-controls.hpp"
 #include "settings.hpp"
 #include "ptz.h"
-#ifdef OBS_PTZ_GAMEPAD
 #include "ptz-gamepad.hpp"
-#endif // #ifdef OBS_PTZ_GAMEPAD
+#ifdef OBS_XINPUT_GAMEPAD
+#include "ptz-gamepad-xinput.hpp"
+#else // #ifdef OBS_XINPUT_GAMEPAD
+#include "ptz-gamepad-disabled.hpp"
+#endif // #else // #ifdef OBS_XINPUT_GAMEPAD
 
 void ptz_load_controls(void)
 {
@@ -134,11 +137,7 @@ PTZControls::PTZControls(QWidget *parent)
 	ui->speedSlider->setMinimum(1);
 	ui->speedSlider->setMaximum(100);
 
-#ifdef OBS_PTZ_GAMEPAD
-	gamepad = new PTZGamePad(this);
-	gamepad->setGamepadEnabled(useGamepad, nullptr);
-#endif // #ifdef OBS_PTZ_GAMEPAD
-
+	setupGamepad();
 	LoadConfig();
 
 	auto filter = new buttonResizeFilter(this);
@@ -302,6 +301,7 @@ PTZControls::~PTZControls()
 
 	SaveConfig();
 	ptzDeviceList.delete_all();
+	delete gamepad;
 	deleteLater();
 }
 
@@ -333,9 +333,7 @@ void PTZControls::SaveConfig()
 			    ui->splitter->saveState().toBase64().constData());
 
 	obs_data_set_bool(savedata, "live_moves_disabled", live_moves_disabled);
-#ifdef OBS_PTZ_GAMEPAD
 	obs_data_set_bool(savedata, "use_gamepad", useGamepad);
-#endif // #ifdef OBS_PTZ_GAMEPAD
 	obs_data_set_int(savedata, "debug_log_level", ptz_debug_level);
 	obs_data_set_int(savedata, "current_speed", ui->speedSlider->value());
 	const char *target_mode = "manual";
@@ -377,15 +375,14 @@ void PTZControls::LoadConfig()
 	obs_data_release(loaddata);
 	obs_data_set_default_int(loaddata, "current_speed", 50);
 	obs_data_set_default_int(loaddata, "debug_log_level", LOG_INFO);
-#ifdef OBS_PTZ_GAMEPAD
 	obs_data_set_default_bool(loaddata, "use_gamepad", true);
-#endif // #ifdef OBS_PTZ_GAMEPAD
 	obs_data_set_default_bool(loaddata, "live_moves_disabled", true);
 	obs_data_set_default_string(loaddata, "target_mode", "preview");
 
 	ptz_debug_level = (int)obs_data_get_int(loaddata, "debug_log_level");
 	live_moves_disabled =
 		obs_data_get_bool(loaddata, "live_moves_disabled");
+	useGamepad = obs_data_get_bool(loaddata, "use_gamepad");
 	ui->speedSlider->setValue(
 		(int)obs_data_get_int(loaddata, "current_speed"));
 	target_mode = obs_data_get_string(loaddata, "target_mode");
@@ -410,14 +407,6 @@ void PTZControls::setDisableLiveMoves(bool disable)
 	live_moves_disabled = disable;
 	updateMoveControls();
 }
-
-#ifdef OBS_PTZ_GAMEPAD
-void PTZControls::setGamepadEnabled(bool enable, Ui_PTZSettings *uiSettings)
-{
-	useGamepad = enable;
-	gamepad->setGamepadEnabled(enable, uiSettings);
-}
-#endif // #ifdef OBS_PTZ_GAMEPAD
 
 PTZDevice *PTZControls::currCamera()
 {
@@ -476,7 +465,6 @@ void PTZControls::setFocus(double focus)
 	focusingFlag = (focus != 0.0);
 }
 
-#ifdef OBS_PTZ_GAMEPAD
 void PTZControls::nextCamera()
 {
 	const int numDevices = ui->cameraList->model()->rowCount();
@@ -538,34 +526,6 @@ void PTZControls::activeSelectedPreset()
 
 	presetRecall(currentIndex);
 }
-
-void PTZControls::changeSpeed(int amount)
-{
-	const int max = ui->speedSlider->maximum();
-	const int value = ui->speedSlider->value();
-	const int newValue = value + amount;
-	if (value == 0 && newValue <= 0)
-	{
-		return;
-	}
-	else if (newValue <= 0)
-	{
-		ui->speedSlider->setValue(0);
-	}
-	else if (value == max && newValue >= max)
-	{
-		return;
-	}
-	else if (newValue >= max)
-	{
-		ui->speedSlider->setValue(max);
-	}
-	else
-	{
-		ui->speedSlider->setValue(newValue);
-	}
-}
-#endif // #ifdef OBS_PTZ_GAMEPAD
 
 /* The pan/tilt buttons are a large block of simple and mostly identical code.
  * Use C preprocessor macro to create all the duplicate functions */
@@ -841,4 +801,96 @@ void PTZControls::on_actionDisableLiveMoves_toggled(bool checked)
 {
 	ui->movementControlsWidget->setEnabled(!checked);
 	ui->presetListView->setEnabled(!checked);
+}
+
+void PTZControls::setupGamepad()
+{
+	gamepad = new PTZGamePad();
+
+	if (!gamepad->isGamepadSupportEnabled())
+	{
+		useGamepad = false;
+		gamepad->setGamepadEnabled(false);
+		return;
+	}
+
+	gamepad->setGamepadEnabled(useGamepad);
+
+	registerLeftAxisBinding(&PTZControls::setZoomLeftStick);
+	registerRightAxisBinding(&PTZControls::setPanTilt);
+	registerButtonBinding(GAMEPAD_DPAD_UP, &PTZControls::prevPreset);
+	registerButtonBinding(GAMEPAD_DPAD_DOWN, &PTZControls::nextPreset);
+	registerButtonBinding(GAMEPAD_DPAD_LEFT, &PTZControls::prevCamera);
+	registerButtonBinding(GAMEPAD_DPAD_RIGHT, &PTZControls::nextCamera);
+	registerButtonBinding(GAMEPAD_START, &PTZControls::activeSelectedPreset);
+	registerButtonBindingData(GAMEPAD_A, &PTZControls::setPreset, 0);
+	registerButtonBindingData(GAMEPAD_B, &PTZControls::setPreset, 1);
+	registerButtonBindingData(GAMEPAD_X, &PTZControls::setPreset, 2);
+	registerButtonBindingData(GAMEPAD_Y, &PTZControls::setPreset, 3);
+	registerButtonBindingData(GAMEPAD_LEFT_SHOULDER, &PTZControls::setPreset, 4);
+	registerButtonBindingData(GAMEPAD_RIGHT_SHOULDER, &PTZControls::setPreset, 5);
+	registerButtonBindingData(GAMEPAD_BACK, &PTZControls::setPreset, 6);
+	registerButtonBindingData(GAMEPAD_LEFT_THUMB, &PTZControls::setPreset, 7);
+	registerButtonBindingData(GAMEPAD_RIGHT_THUMB, &PTZControls::setPreset, 8);
+}
+
+void PTZControls::setGamepadEnabled(bool enable)
+{
+	if (gamepad->isGamepadSupportEnabled())
+	{
+		useGamepad = enable;
+		gamepad->setGamepadEnabled(enable);
+	}
+}
+
+void PTZControls::setZoomLeftStick(double stickX, double stickY)
+{
+	Q_UNUSED(stickX);
+	setZoom(stickY);
+}
+
+void PTZControls::registerLeftAxisBinding(gamepad_axis_func_t func)
+{
+	connect(gamepad, &PTZGamePadBase::leftAxisChanged, this,
+		[=](float stickX, float stickY)
+		{
+			std::invoke(func, this, stickX, stickY);
+		}
+	);
+}
+
+void PTZControls::registerRightAxisBinding(gamepad_axis_func_t func)
+{
+	connect(gamepad, &PTZGamePadBase::rightAxisChanged, this,
+		[=](float stickX, float stickY)
+		{
+			std::invoke(func, this, stickX, stickY);
+		}
+	);
+}
+
+void PTZControls::registerButtonBinding(PTZGamepadButton button, gamepad_button_func_t func)
+{
+	connect(gamepad, &PTZGamePadBase::buttonDownChanged, this, 
+		[=](PTZGamepadButton buttonPressed)
+		{
+			if (button == buttonPressed)
+			{
+				std::invoke(func, this);
+			}
+		}
+	);
+}
+
+void PTZControls::registerButtonBindingData(PTZGamepadButton button, gamepad_button_data_func_t func, int buttonData)
+{
+	connect(gamepad, &PTZGamePadBase::buttonDownChanged, this, 
+		[=](PTZGamepadButton buttonPressed)
+		{
+			if (button == buttonPressed)
+			{
+				std::invoke(func, this, buttonData);
+			}
+		}
+	);
 }

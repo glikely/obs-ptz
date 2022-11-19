@@ -33,6 +33,7 @@ User Interface
   - Add a button mapping configuration.
   - Add a modifier button to add more presets.
   - Add focus controls as an option.
+  - Add deadzone support.
   - Support multiple gamepads.
   - Support different types of gamepads. (DirectInput)
   - Add support for linux and mac.

@@ -131,21 +131,21 @@ Default buttons/axis:
 * right axis - pan/tilt
 * dpad up - camera select up
 * dpad down - camera select down
-* dpad left - camera speed down
-* dpad right - camera speed up
-* left shoulder - preset up
-* right shoulder - preset down
+* dpad left - preset up
+* dpad right - preset down
 * start - activate selected preset
 * A - preset 1
 * B - preset 2
 * X - preset 3
 * Y - preset 4
-* Thumb L - preset 5
-* Thumb R - preset 6
+* left shoulder - preset 5
+* right shoulder - preset 6
 * back - preset 7
+* Thumb L - preset 8
+* Thumb R - preset 9
 
 Known Issue:
-It can issue too many commands depending upon use which can overflow the visca over ip command buffer.
+It can issue many commands depending upon use which can overflow the visca over ip command buffer.
 This is not noticeable usually, but the command to stop the gamepad could be missed in rare cases.
 
 # Contributing

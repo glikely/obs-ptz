@@ -28,6 +28,7 @@
 #include "ptz-controls.hpp"
 #include "settings.hpp"
 #include "ui_settings.h"
+#include "ptz-gamepad.hpp"
 
 /* ----------------------------------------------------------------- */
 
@@ -117,14 +118,20 @@ PTZSettings::PTZSettings() : QWidget(nullptr), ui(new Ui_PTZSettings)
 
 	ui->setupUi(this);
 
-	ui->livemoveCheckBox->setChecked(
-		PTZControls::getInstance()->liveMovesDisabled());
+	PTZControls* controls = PTZControls::getInstance();
+	ui->livemoveCheckBox->setChecked(controls->liveMovesDisabled());
 	ui->enableDebugLogCheckBox->setChecked(ptz_debug_level <= LOG_INFO);
-
-#ifdef OBS_PTZ_GAMEPAD
-	ui->gamepadCheckBox->setChecked(
-		PTZControls::getInstance()->gamepadEnabled());
-#endif // #ifdef OBS_PTZ_GAMEPAD
+	PTZGamePadBase *gamepad = controls->getGamepad();
+	if (gamepad->isGamepadSupportEnabled())
+	{
+		ui->gamepadCheckBox->setChecked(controls->gamepadEnabled());
+		connect(controls->getGamepad(), &PTZGamePadBase::uiGamepadStatusChanged, this, &PTZSettings::uiGamepadStatus);
+	}
+	else
+	{
+		ui->gamepadCheckBox->setDisabled(true);
+	}
+	uiGamepadStatus(gamepad->getGamepadStatus());
 
 	auto snd = new SourceNameDelegate(this);
 	ui->deviceList->setModel(&ptzDeviceList);
@@ -258,14 +265,11 @@ void PTZSettings::on_enableDebugLogCheckBox_stateChanged(int state)
 	ptz_debug_level = (state == Qt::Unchecked) ? LOG_DEBUG : LOG_INFO;
 }
 
-#ifdef OBS_PTZ_GAMEPAD
 void PTZSettings::on_gamepadCheckBox_stateChanged(int state)
 {
 	Q_UNUSED(state);
-	PTZControls::getInstance()->setGamepadEnabled(
-		ui->gamepadCheckBox->isChecked(), ui);
+	PTZControls::getInstance()->setGamepadEnabled(state != Qt::Unchecked);
 }
-#endif // #ifdef OBS_PTZ_GAMEPAD
 
 void PTZSettings::currentChanged(const QModelIndex &current,
 				 const QModelIndex &previous)
@@ -283,6 +287,12 @@ void PTZSettings::currentChanged(const QModelIndex &current,
 	}
 
 	propertiesView->ReloadProperties();
+}
+
+void PTZSettings::uiGamepadStatus(char status)
+{
+	QString statusString = PTZGamePadBase::getStatusString(status);
+	ui->gamepadActiveText->setText(statusString);
 }
 
 /* ----------------------------------------------------------------- */
