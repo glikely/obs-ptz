@@ -752,7 +752,7 @@ void PTZOnvif::set_config(OBSData config)
 {
 	PTZDevice::set_config(config);
 	host = obs_data_get_string(config, "host");
-	port = obs_data_get_int(config, "port");
+	port = (int)obs_data_get_int(config, "port");
 	username = obs_data_get_string(config, "username");
 	password = obs_data_get_string(config, "password");
 	if (username == "")

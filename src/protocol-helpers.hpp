@@ -154,9 +154,16 @@ public:
 	QByteArray cmd;
 	QList<datagram_field *> args;
 	QList<datagram_field *> results;
-	PTZCmd(const char *cmd_hex) : cmd(QByteArray::fromHex(cmd_hex)) {}
-	PTZCmd(const char *cmd_hex, QList<datagram_field *> args)
-		: cmd(QByteArray::fromHex(cmd_hex)), args(args)
+	QString affects;
+	PTZCmd(const char *cmd_hex, QString affects = "")
+		: cmd(QByteArray::fromHex(cmd_hex)), affects(affects)
+	{
+	}
+	PTZCmd(const char *cmd_hex, QList<datagram_field *> args,
+	       QString affects = "")
+		: cmd(QByteArray::fromHex(cmd_hex)),
+		  args(args),
+		  affects(affects)
 	{
 	}
 	PTZCmd(const char *cmd_hex, QList<datagram_field *> args,
@@ -180,6 +187,7 @@ public:
 
 class PTZInq : public PTZCmd {
 public:
+	PTZInq() : PTZCmd("") {}
 	PTZInq(const char *cmd_hex) : PTZCmd(cmd_hex) {}
 	PTZInq(const char *cmd_hex, QList<datagram_field *> rslts)
 		: PTZCmd(cmd_hex, {}, rslts)

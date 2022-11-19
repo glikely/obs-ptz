@@ -131,7 +131,7 @@ void PTZViscaOverIP::set_config(OBSData config)
 	const char *ip = obs_data_get_string(config, "address");
 	if (ip)
 		ip_address = QHostAddress(ip);
-	int port = obs_data_get_int(config, "port");
+	int port = (int)obs_data_get_int(config, "port");
 	if (!port)
 		port = 52381;
 	attach_interface(ViscaUDPSocket::get_interface(port));

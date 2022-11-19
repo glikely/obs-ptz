@@ -81,9 +81,11 @@ protected:
 	QStringListModel preset_names_model;
 	obs_properties_t *props;
 	OBSData settings;
+	QSet<QString> stale_settings;
 
 signals:
 	void settingsChanged(OBSData settings);
+	void propertiesUpdated(OBSData settings);
 
 public:
 	~PTZDevice();
@@ -134,4 +136,5 @@ public:
 
 	/* Properties describe how to display the settings in a GUI dialog */
 	virtual obs_properties_t *get_obs_properties();
+	virtual obs_properties_t *get_debug_obs_properties();
 };

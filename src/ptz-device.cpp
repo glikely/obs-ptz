@@ -52,7 +52,7 @@ PTZListModel::~PTZListModel()
 int PTZListModel::rowCount(const QModelIndex &parent) const
 {
 	Q_UNUSED(parent);
-	return devices.size();
+	return (int)devices.size();
 }
 
 Qt::ItemFlags PTZListModel::flags(const QModelIndex &index) const
@@ -130,7 +130,7 @@ QStringList PTZListModel::getDeviceNames()
 
 QModelIndex PTZListModel::indexFromDeviceId(uint32_t device_id)
 {
-	int row = devices.keys().indexOf(device_id);
+	int row = (int)devices.keys().indexOf(device_id);
 	if (row < 0)
 		return QModelIndex();
 	return index(row, 0);
@@ -226,10 +226,11 @@ void PTZListModel::move_continuous(uint32_t device_id, uint32_t flags,
 PTZDevice::PTZDevice(OBSData config) : QObject()
 {
 	setObjectName(obs_data_get_string(config, "name"));
-	id = obs_data_get_int(config, "id");
+	id = (int)obs_data_get_int(config, "id");
 	type = obs_data_get_string(config, "type");
 	settings = obs_data_create();
 	obs_data_release(settings);
+	stale_settings = {"pan_pos", "tilt_pos", "zoom_pos", "focus_pos"};
 	ptzDeviceList.add(this);
 	preset_names_model.setStringList(default_preset_names);
 };
@@ -269,7 +270,7 @@ void PTZDevice::set_config(OBSData config)
 		     i++) {
 			OBSData preset = obs_data_array_item(preset_array, i);
 			obs_data_release(preset);
-			int preset_id = obs_data_get_int(preset, "id");
+			int preset_id = (int)obs_data_get_int(preset, "id");
 			const char *preset_name =
 				obs_data_get_string(preset, "name");
 			if ((preset_id >= 0) &&
@@ -315,6 +316,18 @@ obs_properties_t *PTZDevice::get_obs_properties()
 	obs_properties_add_group(rtn_props, "interface", "Connection",
 				 OBS_GROUP_NORMAL, config);
 
+	/* Debug dump of anything not otherwise listed */
+	if (ptz_debug_level <= LOG_INFO) {
+		obs_properties_t *debug = get_debug_obs_properties();
+		obs_properties_add_group(rtn_props, "debug", "Debug",
+					 OBS_GROUP_NORMAL, debug);
+	}
+	return rtn_props;
+}
+
+obs_properties_t *PTZDevice::get_debug_obs_properties()
+{
+	obs_properties_t *rtn_props = obs_properties_create();
 	for (obs_data_item_t *item = obs_data_first(settings); item;
 	     obs_data_item_next(&item)) {
 		enum obs_data_type itemtype = obs_data_item_gettype(item);
@@ -341,7 +354,6 @@ obs_properties_t *PTZDevice::get_obs_properties()
 		if (p)
 			obs_property_set_enabled(p, false);
 	}
-
 	return rtn_props;
 }
 
@@ -349,6 +361,14 @@ obs_properties_t *PTZDevice::get_obs_properties()
 obs_data_array_t *ptz_devices_get_config()
 {
 	return ptzDeviceList.getConfigs();
+}
+
+obs_source_t *ptz_device_find_source_using_ptz_name(uint32_t device_id)
+{
+	PTZDevice *ptz = ptzDeviceList.getDevice(device_id);
+	if (!ptz)
+		return NULL;
+	return obs_get_source_by_name(QT_TO_UTF8(ptz->objectName()));
 }
 
 void ptz_devices_set_config(obs_data_array_t *devices)

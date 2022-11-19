@@ -15,6 +15,7 @@
 enum ptz_action_trigger_type {
 	PTZ_ACTION_TRIGGER_PROGRAM_ACTIVE = 0,
 	PTZ_ACTION_TRIGGER_PREVIEW_ACTIVE,
+	PTZ_ACTION_TRIGGER_PREVIEW_ONLY_ACTIVE,
 };
 
 enum ptz_action_type {
@@ -89,28 +90,60 @@ static void ptz_action_source_activate(void *data)
 		ptz_action_source_do_action(context);
 }
 
+static bool is_ptz_in_preview(struct ptz_action_source_data *context)
+{
+	obs_source_t *source = obs_frontend_get_current_preview_scene();
+	if (source) {
+		bool is_preview =
+			ptz_scene_is_source_active(source, context->src);
+		obs_source_release(source);
+		return is_preview;
+	}
+	return false;
+}
+
+static bool is_ptz_device_id_active_in_program(uint32_t device_id)
+{
+	obs_source_t *cam_source =
+		ptz_device_find_source_using_ptz_name(device_id);
+	if (!cam_source)
+		return false;
+
+	obs_source_t *program = obs_frontend_get_current_scene();
+	bool ptz_in_use = ptz_scene_is_source_active(program, cam_source);
+	obs_source_release(program);
+	obs_source_release(cam_source);
+	return ptz_in_use;
+}
+
 static void ptz_action_source_fe_callback(enum obs_frontend_event event,
 					  void *data)
 {
 	struct ptz_action_source_data *context = data;
-	obs_source_t *source;
+	bool is_preview;
 
 	switch (event) {
 	case OBS_FRONTEND_EVENT_STUDIO_MODE_ENABLED:
 	case OBS_FRONTEND_EVENT_STUDIO_MODE_DISABLED:
 	case OBS_FRONTEND_EVENT_PREVIEW_SCENE_CHANGED:
-		if (context->trigger != PTZ_ACTION_TRIGGER_PREVIEW_ACTIVE)
-			break;
-		source = obs_frontend_get_current_preview_scene();
-		if (source) {
-			bool is_preview = ptz_scene_is_source_active(
-				source, context->src);
-			obs_source_release(source);
-
+		switch (context->trigger) {
+		case PTZ_ACTION_TRIGGER_PREVIEW_ACTIVE:
+			is_preview = is_ptz_in_preview(context);
 			if (!context->was_preview && is_preview)
 				ptz_action_source_do_action(context);
 			context->was_preview = is_preview;
-		}
+			break;
+		case PTZ_ACTION_TRIGGER_PREVIEW_ONLY_ACTIVE:
+			is_preview = is_ptz_in_preview(context);
+			if (!context->was_preview && is_preview &&
+			    !is_ptz_device_id_active_in_program(
+				    context->device_id))
+				ptz_action_source_do_action(context);
+			context->was_preview = is_preview;
+			break;
+		default:
+			break;
+		};
 		break;
 	default:
 		return;
@@ -220,6 +253,10 @@ static obs_properties_t *ptz_action_source_get_properties(void *data)
 				  PTZ_ACTION_TRIGGER_PROGRAM_ACTIVE);
 	obs_property_list_add_int(prop, "Scene becomes active preview",
 				  PTZ_ACTION_TRIGGER_PREVIEW_ACTIVE);
+	obs_property_list_add_int(
+		prop,
+		"Scene becomes active preview only if not already active program",
+		PTZ_ACTION_TRIGGER_PREVIEW_ONLY_ACTIVE);
 
 	/* Enumerate the cameras */
 	prop = obs_properties_add_list(props, "device_id", "Camera",

@@ -49,7 +49,7 @@ int PTZUARTWrapper::baudRate()
 
 void PTZUARTWrapper::setConfig(OBSData config)
 {
-	setBaudRate(obs_data_get_int(config, "baud_rate"));
+	setBaudRate((int)obs_data_get_int(config, "baud_rate"));
 }
 
 OBSData PTZUARTWrapper::getConfig()
