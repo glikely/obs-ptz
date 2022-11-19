@@ -21,8 +21,7 @@ static constexpr float DEADZONE_Y = 0.08f;
 static_assert(DEADZONE_X < 1.0f && DEADZONE_X >= 0.0f);
 static_assert(DEADZONE_Y < 1.0f && DEADZONE_Y >= 0.0f);
 
-class PTZGamePad : public PTZGamePadBase
-{
+class PTZGamePad : public PTZGamePadBase {
 private:
 	PTZGamepadThread *thread;
 	XINPUT_STATE state;

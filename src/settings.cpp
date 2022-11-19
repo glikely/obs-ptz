@@ -119,17 +119,16 @@ PTZSettings::PTZSettings() : QWidget(nullptr), ui(new Ui_PTZSettings)
 
 	ui->setupUi(this);
 
-	PTZControls* controls = PTZControls::getInstance();
+	PTZControls *controls = PTZControls::getInstance();
 	ui->livemoveCheckBox->setChecked(controls->liveMovesDisabled());
 	ui->enableDebugLogCheckBox->setChecked(ptz_debug_level <= LOG_INFO);
 	PTZGamePadBase *gamepad = controls->getGamepad();
-	if (gamepad->isGamepadSupportEnabled())
-	{
+	if (gamepad->isGamepadSupportEnabled()) {
 		ui->gamepadCheckBox->setChecked(controls->gamepadEnabled());
-		connect(controls->getGamepad(), &PTZGamePadBase::uiGamepadStatusChanged, this, &PTZSettings::uiGamepadStatus);
-	}
-	else
-	{
+		connect(controls->getGamepad(),
+			&PTZGamePadBase::uiGamepadStatusChanged, this,
+			&PTZSettings::uiGamepadStatus);
+	} else {
 		ui->gamepadCheckBox->setDisabled(true);
 	}
 	uiGamepadStatus(gamepad->getGamepadStatus());

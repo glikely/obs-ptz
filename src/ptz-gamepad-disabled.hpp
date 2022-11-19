@@ -7,10 +7,12 @@
 
 #include "ptz-gamepad.hpp"
 
-class PTZGamePad : public PTZGamePadBase
-{
+class PTZGamePad : public PTZGamePadBase {
 public:
 	bool isGamepadSupportEnabled() { return false; };
-	void setGamepadEnabled(bool enabled){ Q_UNUSED(enabled) };
-	PTZGamepadStatus getGamepadStatus() { return GAMEPAD_STATUS_NOT_SUPPORTED; };
+	void setGamepadEnabled(bool enabled) { Q_UNUSED(enabled) };
+	PTZGamepadStatus getGamepadStatus()
+	{
+		return GAMEPAD_STATUS_NOT_SUPPORTED;
+	};
 };

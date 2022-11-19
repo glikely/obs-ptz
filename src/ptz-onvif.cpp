@@ -466,9 +466,9 @@ OnvifDeviceService::OnvifDeviceService()
 		"xmlns:tt=\"http://www.onvif.org/ver10/schema\"");
 }
 
-OnvifDeviceCapabilities OnvifDeviceService::GetCapabilities(QString deviceXAddress,
-						       QString username,
-						       QString password)
+OnvifDeviceCapabilities
+OnvifDeviceService::GetCapabilities(QString deviceXAddress, QString username,
+				    QString password)
 {
 	SoapRequest *soapRequest = new SoapRequest();
 	soapRequest->host = deviceXAddress;

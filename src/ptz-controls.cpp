@@ -498,8 +498,10 @@ void PTZControls::nextCamera()
 		return;
 
 	const int currentIndex = ui->cameraList->currentIndex().row();
-	const int nextIndex = currentIndex + 1 < numDevices ? currentIndex + 1 : 0;
-	QModelIndex nextIndexModel = ui->cameraList->model()->index(nextIndex, 0);
+	const int nextIndex = currentIndex + 1 < numDevices ? currentIndex + 1
+							    : 0;
+	QModelIndex nextIndexModel =
+		ui->cameraList->model()->index(nextIndex, 0);
 	ui->cameraList->setCurrentIndex(nextIndexModel);
 }
 
@@ -510,8 +512,10 @@ void PTZControls::prevCamera()
 		return;
 
 	const int currentIndex = ui->cameraList->currentIndex().row();
-	const int nextIndex = currentIndex - 1 >= 0 ? currentIndex - 1 : numDevices - 1;
-	QModelIndex nextIndexModel = ui->cameraList->model()->index(nextIndex, 0);
+	const int nextIndex = currentIndex - 1 >= 0 ? currentIndex - 1
+						    : numDevices - 1;
+	QModelIndex nextIndexModel =
+		ui->cameraList->model()->index(nextIndex, 0);
 	ui->cameraList->setCurrentIndex(nextIndexModel);
 }
 
@@ -519,8 +523,10 @@ void PTZControls::nextPreset()
 {
 	const int numPresets = ui->presetListView->model()->rowCount();
 	const int currentIndex = ui->presetListView->currentIndex().row();
-	const int nextIndex = currentIndex + 1 < numPresets ? currentIndex + 1 : 0;
-	QModelIndex nextIndexModel = ui->presetListView->model()->index(nextIndex, 0);
+	const int nextIndex = currentIndex + 1 < numPresets ? currentIndex + 1
+							    : 0;
+	QModelIndex nextIndexModel =
+		ui->presetListView->model()->index(nextIndex, 0);
 	ui->presetListView->setCurrentIndex(nextIndexModel);
 }
 
@@ -528,8 +534,10 @@ void PTZControls::prevPreset()
 {
 	const int numPresets = ui->presetListView->model()->rowCount();
 	const int currentIndex = ui->presetListView->currentIndex().row();
-	const int nextIndex = currentIndex - 1 >= 0 ? currentIndex - 1 : numPresets - 1;
-	QModelIndex nextIndexModel = ui->presetListView->model()->index(nextIndex, 0);
+	const int nextIndex = currentIndex - 1 >= 0 ? currentIndex - 1
+						    : numPresets - 1;
+	QModelIndex nextIndexModel =
+		ui->presetListView->model()->index(nextIndex, 0);
 	ui->presetListView->setCurrentIndex(nextIndexModel);
 }
 
@@ -833,8 +841,7 @@ void PTZControls::setupGamepad()
 {
 	gamepad = new PTZGamePad();
 
-	if (!gamepad->isGamepadSupportEnabled())
-	{
+	if (!gamepad->isGamepadSupportEnabled()) {
 		useGamepad = false;
 		gamepad->setGamepadEnabled(false);
 		return;
@@ -848,22 +855,26 @@ void PTZControls::setupGamepad()
 	registerButtonBinding(GAMEPAD_DPAD_DOWN, &PTZControls::nextPreset);
 	registerButtonBinding(GAMEPAD_DPAD_LEFT, &PTZControls::prevCamera);
 	registerButtonBinding(GAMEPAD_DPAD_RIGHT, &PTZControls::nextCamera);
-	registerButtonBinding(GAMEPAD_START, &PTZControls::activeSelectedPreset);
+	registerButtonBinding(GAMEPAD_START,
+			      &PTZControls::activeSelectedPreset);
 	registerButtonBindingData(GAMEPAD_A, &PTZControls::setPreset, 0);
 	registerButtonBindingData(GAMEPAD_B, &PTZControls::setPreset, 1);
 	registerButtonBindingData(GAMEPAD_X, &PTZControls::setPreset, 2);
 	registerButtonBindingData(GAMEPAD_Y, &PTZControls::setPreset, 3);
-	registerButtonBindingData(GAMEPAD_LEFT_SHOULDER, &PTZControls::setPreset, 4);
-	registerButtonBindingData(GAMEPAD_RIGHT_SHOULDER, &PTZControls::setPreset, 5);
+	registerButtonBindingData(GAMEPAD_LEFT_SHOULDER,
+				  &PTZControls::setPreset, 4);
+	registerButtonBindingData(GAMEPAD_RIGHT_SHOULDER,
+				  &PTZControls::setPreset, 5);
 	registerButtonBindingData(GAMEPAD_BACK, &PTZControls::setPreset, 6);
-	registerButtonBindingData(GAMEPAD_LEFT_THUMB, &PTZControls::setPreset, 7);
-	registerButtonBindingData(GAMEPAD_RIGHT_THUMB, &PTZControls::setPreset, 8);
+	registerButtonBindingData(GAMEPAD_LEFT_THUMB, &PTZControls::setPreset,
+				  7);
+	registerButtonBindingData(GAMEPAD_RIGHT_THUMB, &PTZControls::setPreset,
+				  8);
 }
 
 void PTZControls::setGamepadEnabled(bool enable)
 {
-	if (gamepad->isGamepadSupportEnabled())
-	{
+	if (gamepad->isGamepadSupportEnabled()) {
 		useGamepad = enable;
 		gamepad->setGamepadEnabled(enable);
 	}
@@ -878,45 +889,38 @@ void PTZControls::setZoomLeftStick(double stickX, double stickY)
 void PTZControls::registerLeftAxisBinding(gamepad_axis_func_t func)
 {
 	connect(gamepad, &PTZGamePadBase::leftAxisChanged, this,
-		[=](float stickX, float stickY)
-		{
+		[=](float stickX, float stickY) {
 			std::invoke(func, this, stickX, stickY);
-		}
-	);
+		});
 }
 
 void PTZControls::registerRightAxisBinding(gamepad_axis_func_t func)
 {
 	connect(gamepad, &PTZGamePadBase::rightAxisChanged, this,
-		[=](float stickX, float stickY)
-		{
+		[=](float stickX, float stickY) {
 			std::invoke(func, this, stickX, stickY);
-		}
-	);
+		});
 }
 
-void PTZControls::registerButtonBinding(PTZGamepadButton button, gamepad_button_func_t func)
+void PTZControls::registerButtonBinding(PTZGamepadButton button,
+					gamepad_button_func_t func)
 {
-	connect(gamepad, &PTZGamePadBase::buttonDownChanged, this, 
-		[=](PTZGamepadButton buttonPressed)
-		{
-			if (button == buttonPressed)
-			{
+	connect(gamepad, &PTZGamePadBase::buttonDownChanged, this,
+		[=](PTZGamepadButton buttonPressed) {
+			if (button == buttonPressed) {
 				std::invoke(func, this);
 			}
-		}
-	);
+		});
 }
 
-void PTZControls::registerButtonBindingData(PTZGamepadButton button, gamepad_button_data_func_t func, int buttonData)
+void PTZControls::registerButtonBindingData(PTZGamepadButton button,
+					    gamepad_button_data_func_t func,
+					    int buttonData)
 {
-	connect(gamepad, &PTZGamePadBase::buttonDownChanged, this, 
-		[=](PTZGamepadButton buttonPressed)
-		{
-			if (button == buttonPressed)
-			{
+	connect(gamepad, &PTZGamePadBase::buttonDownChanged, this,
+		[=](PTZGamepadButton buttonPressed) {
+			if (button == buttonPressed) {
 				std::invoke(func, this, buttonData);
 			}
-		}
-	);
+		});
 }

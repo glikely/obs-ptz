@@ -7,16 +7,14 @@
 
 #include <QObject>
 
-enum PTZGamepadStatus:char
-{
+enum PTZGamepadStatus : char {
 	GAMEPAD_STATUS_BLANK = 0,
 	GAMEPAD_STATUS_NONE,
 	GAMEPAD_STATUS_FOUND,
 	GAMEPAD_STATUS_NOT_SUPPORTED,
 };
 
-enum PTZGamepadButton:char
-{
+enum PTZGamepadButton : char {
 	GAMEPAD_DPAD_UP = 0,
 	GAMEPAD_DPAD_DOWN,
 	GAMEPAD_DPAD_LEFT,
@@ -34,8 +32,7 @@ enum PTZGamepadButton:char
 	GAMEPAD_BUTTON_COUNT,
 };
 
-class PTZGamePadBase : public QObject
-{
+class PTZGamePadBase : public QObject {
 	Q_OBJECT
 
 protected:
@@ -53,8 +50,7 @@ public:
 	virtual PTZGamepadStatus getGamepadStatus() = 0;
 	static QString getStatusString(char status)
 	{
-		switch (status)
-		{
+		switch (status) {
 		case PTZGamepadStatus::GAMEPAD_STATUS_NOT_SUPPORTED:
 			return QStringLiteral("Not Supported");
 		case PTZGamepadStatus::GAMEPAD_STATUS_FOUND:

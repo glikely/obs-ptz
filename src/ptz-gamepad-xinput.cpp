@@ -43,42 +43,41 @@ static constexpr int INVALID_GAMEPAD_ID = -1;
 
 typedef unsigned short ButtonXInput;
 
-struct ButtonXInputMap
-{
+struct ButtonXInputMap {
 	PTZGamepadButton button;
 	ButtonXInput xinputButton;
 };
 
-ButtonXInputMap buttonsXInput[] =
-{
-	{ GAMEPAD_DPAD_UP, XINPUT_GAMEPAD_DPAD_UP },
-	{ GAMEPAD_DPAD_DOWN, XINPUT_GAMEPAD_DPAD_DOWN },
-	{ GAMEPAD_DPAD_LEFT, XINPUT_GAMEPAD_DPAD_LEFT },
-	{ GAMEPAD_DPAD_RIGHT, XINPUT_GAMEPAD_DPAD_RIGHT },
-	{ GAMEPAD_LEFT_SHOULDER, XINPUT_GAMEPAD_LEFT_SHOULDER },
-	{ GAMEPAD_RIGHT_SHOULDER, XINPUT_GAMEPAD_RIGHT_SHOULDER },
-	{ GAMEPAD_START, XINPUT_GAMEPAD_START },
-	{ GAMEPAD_A, XINPUT_GAMEPAD_A },
-	{ GAMEPAD_B, XINPUT_GAMEPAD_B },
-	{ GAMEPAD_X, XINPUT_GAMEPAD_X },
-	{ GAMEPAD_Y, XINPUT_GAMEPAD_Y },
-	{ GAMEPAD_LEFT_THUMB, XINPUT_GAMEPAD_LEFT_THUMB },
-	{ GAMEPAD_RIGHT_THUMB, XINPUT_GAMEPAD_RIGHT_THUMB },
-	{ GAMEPAD_BACK, XINPUT_GAMEPAD_BACK },
+ButtonXInputMap buttonsXInput[] = {
+	{GAMEPAD_DPAD_UP, XINPUT_GAMEPAD_DPAD_UP},
+	{GAMEPAD_DPAD_DOWN, XINPUT_GAMEPAD_DPAD_DOWN},
+	{GAMEPAD_DPAD_LEFT, XINPUT_GAMEPAD_DPAD_LEFT},
+	{GAMEPAD_DPAD_RIGHT, XINPUT_GAMEPAD_DPAD_RIGHT},
+	{GAMEPAD_LEFT_SHOULDER, XINPUT_GAMEPAD_LEFT_SHOULDER},
+	{GAMEPAD_RIGHT_SHOULDER, XINPUT_GAMEPAD_RIGHT_SHOULDER},
+	{GAMEPAD_START, XINPUT_GAMEPAD_START},
+	{GAMEPAD_A, XINPUT_GAMEPAD_A},
+	{GAMEPAD_B, XINPUT_GAMEPAD_B},
+	{GAMEPAD_X, XINPUT_GAMEPAD_X},
+	{GAMEPAD_Y, XINPUT_GAMEPAD_Y},
+	{GAMEPAD_LEFT_THUMB, XINPUT_GAMEPAD_LEFT_THUMB},
+	{GAMEPAD_RIGHT_THUMB, XINPUT_GAMEPAD_RIGHT_THUMB},
+	{GAMEPAD_BACK, XINPUT_GAMEPAD_BACK},
 };
 
-static_assert((sizeof(buttonsXInput) / sizeof(ButtonXInputMap)) == PTZGamepadButton::GAMEPAD_BUTTON_COUNT, "PTZGamepadButton needs to match buttonsXInput");
+static_assert((sizeof(buttonsXInput) / sizeof(ButtonXInputMap)) ==
+		      PTZGamepadButton::GAMEPAD_BUTTON_COUNT,
+	      "PTZGamepadButton needs to match buttonsXInput");
 
-PTZGamepadThread::PTZGamepadThread(PTZGamePad* gamepadInput)
+PTZGamepadThread::PTZGamepadThread(PTZGamePad *gamepadInput)
 {
 	gamepad = gamepadInput;
 	stop = false;
 }
 
-void PTZGamepadThread::run() 
+void PTZGamepadThread::run()
 {
-	while (!stop.testAndSetAcquire(1, 0))
-	{
+	while (!stop.testAndSetAcquire(1, 0)) {
 		gamepad->gamepadTick();
 		Sleep(GAMEPAD_POLL_MS);
 	}
@@ -115,7 +114,7 @@ void PTZGamePad::startThread()
 	thread->start();
 }
 
-void PTZGamePad::stopThread() 
+void PTZGamePad::stopThread()
 {
 	thread->kill();
 	thread->wait();
@@ -124,22 +123,18 @@ void PTZGamePad::stopThread()
 void PTZGamePad::gamepadTick()
 {
 	// try to reconnect to the controller
-	if (gamepadID == INVALID_GAMEPAD_ID)
-	{
+	if (gamepadID == INVALID_GAMEPAD_ID) {
 		frameCount++;
 		if (frameCount < NUM_FRAMES_CONTROLLER_CHECK)
 			return;
 
 		initializeGamepads();
 		frameCount = 0;
-		if (gamepadID == INVALID_GAMEPAD_ID)
-		{
+		if (gamepadID == INVALID_GAMEPAD_ID) {
 			status = GAMEPAD_STATUS_NONE;
 			emit uiGamepadStatusChanged(status);
 			return;
-		}
-		else
-		{
+		} else {
 			status = GAMEPAD_STATUS_FOUND;
 			emit uiGamepadStatusChanged(status);
 		}
@@ -150,8 +145,7 @@ void PTZGamePad::gamepadTick()
 	const DWORD dwResult = XInputGetState(gamepadID, &state);
 
 	// check for controller disconnect
-	if (dwResult != ERROR_SUCCESS)
-	{
+	if (dwResult != ERROR_SUCCESS) {
 		gamepadID = INVALID_GAMEPAD_ID;
 		resetButtons();
 		emit rightAxisChanged(rightStickX, rightStickY);
@@ -170,13 +164,16 @@ void PTZGamePad::gamepadTick()
 	inputHandleButtons();
 }
 
-void PTZGamePad::convertStickInput(short thumb, double deadzone, double *outStick)
+void PTZGamePad::convertStickInput(short thumb, double deadzone,
+				   double *outStick)
 {
 	assert(outStick);
 
 	const float norm = fmaxf(-1, (float)thumb / 32767);
 
-	*outStick = (abs(norm) < deadzone ? 0 : (abs(norm) - deadzone) * (norm / abs(norm)));
+	*outStick = (abs(norm) < deadzone
+			     ? 0
+			     : (abs(norm) - deadzone) * (norm / abs(norm)));
 
 	if (deadzone > 0.0f && deadzone < 1.0f)
 		(*outStick) *= 1 / (1 - deadzone);
@@ -190,9 +187,9 @@ void PTZGamePad::inputHandleRightStick()
 	convertStickInput(state.Gamepad.sThumbRX, DEADZONE_X, &rightStickX);
 	convertStickInput(state.Gamepad.sThumbRY, DEADZONE_Y, &rightStickY);
 
-	if (lastRightStickX != rightStickX || lastRightStickY != rightStickY)
-	{
-		ptz_debug("PTZGamepad: right stick changed x=%.3f, y=%.3f", rightStickX, rightStickY);
+	if (lastRightStickX != rightStickX || lastRightStickY != rightStickY) {
+		ptz_debug("PTZGamepad: right stick changed x=%.3f, y=%.3f",
+			  rightStickX, rightStickY);
 		emit rightAxisChanged(rightStickX, rightStickY);
 	}
 }
@@ -205,23 +202,25 @@ void PTZGamePad::inputHandleLeftStick()
 	convertStickInput(state.Gamepad.sThumbLX, DEADZONE_X, &leftStickX);
 	convertStickInput(state.Gamepad.sThumbLY, DEADZONE_Y, &leftStickY);
 
-	if (lastLeftStickX != leftStickX || lastLeftStickY != leftStickY)
-	{
-		ptz_debug("PTZGamepad: left stick changed x=%.3f, y=%.3f", leftStickX, leftStickY);
+	if (lastLeftStickX != leftStickX || lastLeftStickY != leftStickY) {
+		ptz_debug("PTZGamepad: left stick changed x=%.3f, y=%.3f",
+			  leftStickX, leftStickY);
 		emit leftAxisChanged(leftStickX, leftStickY);
 	}
 }
 
 void PTZGamePad::inputHandleButtons()
 {
-	for (int buttonIndex = 0; buttonIndex < GAMEPAD_BUTTON_COUNT; ++buttonIndex)
-	{
+	for (int buttonIndex = 0; buttonIndex < GAMEPAD_BUTTON_COUNT;
+	     ++buttonIndex) {
 		const ButtonXInputMap *buttonMap = &buttonsXInput[buttonIndex];
-		const bool buttonPressedLast = ((buttonsDown & buttonMap->xinputButton) != 0);
-		const bool buttonPressedNow = ((state.Gamepad.wButtons & buttonMap->xinputButton) != 0);
-		if (!buttonPressedLast && buttonPressedNow)
-		{
-			ptz_debug("PTZGamepad: button pressed: %d", buttonMap->button);
+		const bool buttonPressedLast =
+			((buttonsDown & buttonMap->xinputButton) != 0);
+		const bool buttonPressedNow = ((state.Gamepad.wButtons &
+						buttonMap->xinputButton) != 0);
+		if (!buttonPressedLast && buttonPressedNow) {
+			ptz_debug("PTZGamepad: button pressed: %d",
+				  buttonMap->button);
 			emit buttonDownChanged(buttonMap->button);
 		}
 	}
@@ -231,24 +230,18 @@ void PTZGamePad::inputHandleButtons()
 
 void PTZGamePad::setGamepadEnabled(bool enabled)
 {
-	if (enabled) 
-	{
+	if (enabled) {
 		initializeGamepads();
-		if (gamepadID != INVALID_GAMEPAD_ID) 
-		{
+		if (gamepadID != INVALID_GAMEPAD_ID) {
 			status = GAMEPAD_STATUS_FOUND;
 			emit uiGamepadStatusChanged(status);
 			startThread();
-		}
-		else
-		{
+		} else {
 			status = GAMEPAD_STATUS_NONE;
 			emit uiGamepadStatusChanged(status);
 			stopThread();
 		}
-	} 
-	else 
-	{
+	} else {
 		gamepadID = INVALID_GAMEPAD_ID;
 		status = GAMEPAD_STATUS_BLANK;
 		emit uiGamepadStatusChanged(status);
@@ -259,8 +252,7 @@ void PTZGamePad::setGamepadEnabled(bool enabled)
 void PTZGamePad::initializeGamepads()
 {
 	gamepadID = INVALID_GAMEPAD_ID;
-	for (DWORD i = 0; i < XUSER_MAX_COUNT; i++) 
-	{
+	for (DWORD i = 0; i < XUSER_MAX_COUNT; i++) {
 		ZeroMemory(&state, sizeof(XINPUT_STATE));
 
 		const DWORD dwResult = XInputGetState(i, &state);

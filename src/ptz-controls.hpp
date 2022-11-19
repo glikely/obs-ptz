@@ -55,13 +55,17 @@ private:
 	void setAutofocusEnabled(bool autofocus_on);
 
 	void setZoomLeftStick(double stickX, double stickY);
-	typedef void (PTZControls::* gamepad_axis_func_t)(double stickX, double stickY);
+	typedef void (PTZControls::*gamepad_axis_func_t)(double stickX,
+							 double stickY);
 	void registerLeftAxisBinding(gamepad_axis_func_t func);
 	void registerRightAxisBinding(gamepad_axis_func_t func);
-	typedef void (PTZControls::* gamepad_button_func_t)();
-	void registerButtonBinding(PTZGamepadButton button, gamepad_button_func_t func);
-	typedef void (PTZControls::* gamepad_button_data_func_t)(int buttonData);
-	void registerButtonBindingData(PTZGamepadButton button, gamepad_button_data_func_t func, int buttonData = -1);
+	typedef void (PTZControls::*gamepad_button_func_t)();
+	void registerButtonBinding(PTZGamepadButton button,
+				   gamepad_button_func_t func);
+	typedef void (PTZControls::*gamepad_button_data_func_t)(int buttonData);
+	void registerButtonBindingData(PTZGamepadButton button,
+				       gamepad_button_data_func_t func,
+				       int buttonData = -1);
 
 	PTZDevice *currCamera();
 
@@ -122,6 +126,6 @@ public:
 
 	void setupGamepad();
 	void setGamepadEnabled(bool enable);
-	PTZGamePadBase* getGamepad() { return gamepad; };
+	PTZGamePadBase *getGamepad() { return gamepad; };
 	bool gamepadEnabled() { return useGamepad; };
 };

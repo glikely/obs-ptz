@@ -84,7 +84,8 @@ private:
 public:
 	OnvifDeviceService();
 	OnvifDeviceCapabilities GetCapabilities(QString deviceXAddress,
-					   QString username, QString password);
+						QString username,
+						QString password);
 };
 
 class OnvifMediaService {
