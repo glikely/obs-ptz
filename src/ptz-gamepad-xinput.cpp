@@ -70,6 +70,7 @@ static_assert((sizeof(buttonsXInput) / sizeof(ButtonXInputMap)) ==
 	      "PTZGamepadButton needs to match buttonsXInput");
 
 PTZGamepadThread::PTZGamepadThread(PTZGamePad *gamepadInput)
+	: QThread(gamepadInput)
 {
 	gamepad = gamepadInput;
 	stop = false;
@@ -96,7 +97,7 @@ PTZGamePad::PTZGamePad()
 
 PTZGamePad::~PTZGamePad()
 {
-	delete thread;
+	stopThread();
 }
 
 void PTZGamePad::resetButtons()

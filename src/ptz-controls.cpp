@@ -137,8 +137,8 @@ PTZControls::PTZControls(QWidget *parent)
 	ui->speedSlider->setMinimum(1);
 	ui->speedSlider->setMaximum(100);
 
-	setupGamepad();
 	LoadConfig();
+	setupGamepad();
 
 	auto filter = new buttonResizeFilter(this);
 	ui->panTiltButton_upleft->installEventFilter(filter);
@@ -521,6 +521,9 @@ void PTZControls::prevCamera()
 
 void PTZControls::nextPreset()
 {
+	if (!ui->presetListView->model())
+		return;
+
 	const int numPresets = ui->presetListView->model()->rowCount();
 	const int currentIndex = ui->presetListView->currentIndex().row();
 	const int nextIndex = currentIndex + 1 < numPresets ? currentIndex + 1
@@ -532,6 +535,9 @@ void PTZControls::nextPreset()
 
 void PTZControls::prevPreset()
 {
+	if (!ui->presetListView->model())
+		return;
+
 	const int numPresets = ui->presetListView->model()->rowCount();
 	const int currentIndex = ui->presetListView->currentIndex().row();
 	const int nextIndex = currentIndex - 1 >= 0 ? currentIndex - 1
@@ -543,6 +549,9 @@ void PTZControls::prevPreset()
 
 void PTZControls::setPreset(int index)
 {
+	if (!ui->presetListView->model())
+		return;
+
 	const int numPresets = ui->presetListView->model()->rowCount();
 	if (index < 0 || index >= numPresets)
 		return;
@@ -553,6 +562,9 @@ void PTZControls::setPreset(int index)
 
 void PTZControls::activeSelectedPreset()
 {
+	if (!ui->presetListView->model())
+		return;
+
 	const int numPresets = ui->presetListView->model()->rowCount();
 	const int currentIndex = ui->presetListView->currentIndex().row();
 	if (currentIndex < 0 || currentIndex >= numPresets)
