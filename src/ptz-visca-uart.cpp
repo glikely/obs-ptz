@@ -91,7 +91,6 @@ ViscaUART *ViscaUART::get_interface(QString port_name)
 PTZViscaSerial::PTZViscaSerial(OBSData config) : PTZVisca(config), iface(NULL)
 {
 	set_config(config);
-	auto_settings_filter += {"port", "address", "baud_rate"};
 }
 
 PTZViscaSerial::~PTZViscaSerial()

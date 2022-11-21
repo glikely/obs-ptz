@@ -633,7 +633,6 @@ QList<MediaProfile> OnvifMediaService::GetProfiles(QString mediaXAddress,
 PTZOnvif::PTZOnvif(OBSData config) : PTZDevice(config)
 {
 	set_config(config);
-	auto_settings_filter += {"port", "host", "username", "password"};
 }
 
 void PTZOnvif::connectCamera()

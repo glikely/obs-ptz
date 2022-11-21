@@ -76,7 +76,6 @@ class PTZDevice : public QObject {
 protected:
 	uint32_t id = 0;
 	std::string type;
-	QStringList auto_settings_filter = {"name", "type"};
 
 	QStringListModel preset_names_model;
 	obs_properties_t *props;
@@ -136,5 +135,4 @@ public:
 
 	/* Properties describe how to display the settings in a GUI dialog */
 	virtual obs_properties_t *get_obs_properties();
-	virtual obs_properties_t *get_debug_obs_properties();
 };

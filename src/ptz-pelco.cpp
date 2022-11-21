@@ -137,7 +137,6 @@ PTZPelco::PTZPelco(OBSData data) : PTZDevice(data), iface(NULL)
 {
 	set_config(data);
 	ptz_debug("pelco device created");
-	auto_settings_filter += {"port", "address", "baud_rate", "use_pelco_d"};
 }
 
 PTZPelco::~PTZPelco()

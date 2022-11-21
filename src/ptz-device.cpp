@@ -316,44 +316,6 @@ obs_properties_t *PTZDevice::get_obs_properties()
 	obs_properties_add_group(rtn_props, "interface", "Connection",
 				 OBS_GROUP_NORMAL, config);
 
-	/* Debug dump of anything not otherwise listed */
-	if (ptz_debug_level <= LOG_INFO) {
-		obs_properties_t *debug = get_debug_obs_properties();
-		obs_properties_add_group(rtn_props, "debug", "Debug",
-					 OBS_GROUP_NORMAL, debug);
-	}
-	return rtn_props;
-}
-
-obs_properties_t *PTZDevice::get_debug_obs_properties()
-{
-	obs_properties_t *rtn_props = obs_properties_create();
-	for (obs_data_item_t *item = obs_data_first(settings); item;
-	     obs_data_item_next(&item)) {
-		enum obs_data_type itemtype = obs_data_item_gettype(item);
-		const char *name = obs_data_item_get_name(item);
-		if (auto_settings_filter.contains(name))
-			continue;
-		obs_property_t *p = nullptr;
-
-		switch (itemtype) {
-		case OBS_DATA_BOOLEAN:
-			p = obs_properties_add_bool(rtn_props, name, name);
-			break;
-		case OBS_DATA_NUMBER:
-			p = obs_properties_add_int(rtn_props, name, name,
-						   INT_MIN, INT_MAX, 1);
-			break;
-		case OBS_DATA_STRING:
-			p = obs_properties_add_text(rtn_props, name, name,
-						    OBS_TEXT_DEFAULT);
-			break;
-		default:
-			break;
-		}
-		if (p)
-			obs_property_set_enabled(p, false);
-	}
 	return rtn_props;
 }
 

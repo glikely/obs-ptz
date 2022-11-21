@@ -12,7 +12,6 @@ PTZViscaOverTCP::PTZViscaOverTCP(OBSData config) : PTZVisca(config)
 {
 	address = 1;
 	set_config(config);
-	auto_settings_filter += {"port", "host"};
 	visca_socket.setSocketOption(QAbstractSocket::KeepAliveOption, 1);
 	connect(&visca_socket, &QTcpSocket::readyRead, this,
 		&PTZViscaOverTCP::poll);

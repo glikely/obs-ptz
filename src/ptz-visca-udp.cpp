@@ -81,7 +81,6 @@ PTZViscaOverIP::PTZViscaOverIP(OBSData config) : PTZVisca(config), iface(NULL)
 {
 	address = 1;
 	set_config(config);
-	auto_settings_filter += {"port", "address"};
 }
 
 PTZViscaOverIP::~PTZViscaOverIP()

@@ -581,7 +581,6 @@ PTZVisca::PTZVisca(OBSData config) : PTZDevice(config)
 	for (int i = 0; i < 8; i++)
 		active_cmd[i] = false;
 	connect(&timeout_timer, &QTimer::timeout, this, &PTZVisca::timeout);
-	auto_settings_filter.append("wb_mode");
 }
 
 void PTZVisca::set_settings(OBSData new_settings)

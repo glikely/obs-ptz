@@ -14,6 +14,7 @@
 #include <QUrl>
 #include <QDesktopServices>
 #include <QStringList>
+#include <QJsonDocument>
 
 #include <string>
 
@@ -97,9 +98,28 @@ void SourceNameDelegate::setModelData(QWidget *editor,
 
 obs_properties_t *PTZSettings::getProperties(void)
 {
+	auto cb = [](obs_properties_t *, obs_property_t *, void *data_) {
+		auto data = static_cast<obs_data_t *>(data_);
+		blog(LOG_INFO, "%s", obs_data_get_string(data, "debug_info"));
+		return true;
+	};
+
 	PTZDevice *ptz =
 		ptzDeviceList.getDevice(ui->deviceList->currentIndex());
-	return ptz ? ptz->get_obs_properties() : obs_properties_create();
+	if (!ptz)
+		return obs_properties_create();
+
+	auto props = ptz->get_obs_properties();
+	if (ptz_debug_level <= LOG_INFO) {
+		auto debug = obs_properties_create();
+		obs_properties_add_text(debug, "debug_info", NULL,
+					OBS_TEXT_INFO);
+		obs_properties_add_button2(debug, "dbgdump", "Write to OBS log",
+					   cb, settings);
+		obs_properties_add_group(props, "debug", "Debug",
+					 OBS_GROUP_NORMAL, debug);
+	}
+	return props;
 }
 
 void PTZSettings::updateProperties(OBSData old_settings, OBSData new_settings)
@@ -267,6 +287,15 @@ void PTZSettings::currentChanged(const QModelIndex &current,
 	if (ptz) {
 		obs_data_apply(settings, ptz->get_settings());
 
+		/* For debug, display all data in JSON format */
+		if (ptz_debug_level <= LOG_INFO) {
+			auto rawjson = obs_data_get_json(settings);
+			/* Use QJsonDocument for nice formatting */
+			auto json = QJsonDocument::fromJson(rawjson).toJson();
+			obs_data_set_string(settings, "debug_info",
+					    json.constData());
+		}
+
 		/* The settings dialog doesn't touch presets or the device name, so remove them */
 		obs_data_erase(settings, "name");
 		obs_data_erase(settings, "presets");
@@ -281,6 +310,10 @@ void PTZSettings::currentChanged(const QModelIndex &current,
 void PTZSettings::settingsChanged(OBSData changed)
 {
 	obs_data_apply(settings, changed);
+	obs_data_erase(settings, "debug_info");
+	auto json =
+		QJsonDocument::fromJson(obs_data_get_json(settings)).toJson();
+	obs_data_set_string(settings, "debug_info", json.constData());
 	propertiesView->RefreshProperties();
 }
 
