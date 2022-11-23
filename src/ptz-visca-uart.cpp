@@ -148,7 +148,7 @@ obs_properties_t *PTZViscaSerial::get_obs_properties()
 	obs_properties_t *ptz_props = PTZVisca::get_obs_properties();
 	obs_property_t *p = obs_properties_get(ptz_props, "interface");
 	obs_properties_t *config = obs_property_group_content(p);
-	obs_property_set_description(p, "VISCA Connection");
+	obs_property_set_description(p, "VISCA (Serial) Connection");
 
 	iface->addOBSProperties(config);
 	obs_properties_add_int(config, "address", "VISCA ID", 1, 7, 1);

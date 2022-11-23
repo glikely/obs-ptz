@@ -194,10 +194,10 @@ void PTZSettings::on_addPTZ_clicked()
 {
 	QMenu addPTZContext;
 #if defined(ENABLE_SERIALPORT)
-	QAction *addViscaSerial = addPTZContext.addAction("VISCA Serial");
+	QAction *addViscaSerial = addPTZContext.addAction("VISCA (Serial)");
 #endif
-	QAction *addViscaUDP = addPTZContext.addAction("VISCA over UDP");
-	QAction *addViscaTCP = addPTZContext.addAction("VISCA over TCP");
+	QAction *addViscaUDP = addPTZContext.addAction("VISCA (UDP)");
+	QAction *addViscaTCP = addPTZContext.addAction("VISCA (TCP)");
 #if defined(ENABLE_SERIALPORT)
 	QAction *addPelcoD = addPTZContext.addAction("Pelco D");
 	QAction *addPelcoP = addPTZContext.addAction("Pelco P");
