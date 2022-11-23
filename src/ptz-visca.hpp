@@ -57,11 +57,11 @@ public:
 
 	void cmd_get_camera_info();
 	void pantilt(double pan, double tilt);
-	void pantilt_rel(int pan, int tilt);
-	void pantilt_abs(int pan, int tilt);
+	void pantilt_rel(double pan, double tilt);
+	void pantilt_abs(double pan, double tilt);
 	void pantilt_home();
 	void zoom(double speed);
-	void zoom_abs(int pos);
+	void zoom_abs(double pos);
 	void set_autofocus(bool enabled);
 	void focus(double speed);
 	void focus_onetouch();

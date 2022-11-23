@@ -60,7 +60,6 @@ public:
 	obs_properties_t *get_obs_properties();
 
 	void pantilt(double pan, double tilt);
-	void pantilt_rel(int pan, int tilt);
 	void pantilt_home();
 	void zoom(double speed);
 	void memory_reset(int i);

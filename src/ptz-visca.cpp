@@ -784,13 +784,17 @@ void PTZVisca::pantilt(double pan_, double tilt_)
 	send(VISCA_PanTilt_drive, {pan, -tilt});
 }
 
-void PTZVisca::pantilt_rel(int pan, int tilt)
+void PTZVisca::pantilt_rel(double pan_, double tilt_)
 {
+	int pan = qBound(-1.0, pan_, 1.0) * 0x1400 * 2;
+	int tilt = qBound(-1.0, tilt_, 1.0) * 0x500 * 2;
 	send(VISCA_PanTilt_drive_rel, {0x14, 0x14, pan, -tilt});
 }
 
-void PTZVisca::pantilt_abs(int pan, int tilt)
+void PTZVisca::pantilt_abs(double pan_, double tilt_)
 {
+	int pan = qBound(-1.0, pan_, 1.0) * 0x1400;
+	int tilt = qBound(-1.0, tilt_, 1.0) * 0x500;
 	send(VISCA_PanTilt_drive_abs, {0x0f, 0x0f, pan, tilt});
 }
 
@@ -810,8 +814,9 @@ void PTZVisca::zoom(double speed_)
 		     {speed});
 }
 
-void PTZVisca::zoom_abs(int pos)
+void PTZVisca::zoom_abs(double pos_)
 {
+	int pos = qBound(0.0, pos_, 1.0) * 0x7ac0;
 	send(VISCA_CAM_Zoom_Direct, {pos});
 }
 

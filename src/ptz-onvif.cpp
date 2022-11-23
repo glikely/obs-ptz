@@ -668,14 +668,14 @@ void PTZOnvif::pantilt(double pan, double tilt)
 	}
 }
 
-void PTZOnvif::pantilt_abs(int pan, int tilt)
+void PTZOnvif::pantilt_abs(double pan, double tilt)
 {
 	OnvifPTZService c;
 	c.AbsoluteMove(m_PTZAddress, username, password, m_selectedMedia.token,
 		       pan, tilt, 0.0);
 }
 
-void PTZOnvif::pantilt_rel(int pan, int tilt)
+void PTZOnvif::pantilt_rel(double pan, double tilt)
 {
 	OnvifPTZService c;
 	c.RelativeMove(m_PTZAddress, username, password, m_selectedMedia.token,
@@ -701,7 +701,7 @@ void PTZOnvif::zoom(double speed)
 	}
 }
 
-void PTZOnvif::zoom_abs(int pos)
+void PTZOnvif::zoom_abs(double pos)
 {
 	OnvifPTZService c;
 	c.AbsoluteMove(m_PTZAddress, username, password, m_selectedMedia.token,

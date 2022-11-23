@@ -198,11 +198,6 @@ void PTZPelco::pantilt(double pan, double tilt)
 	ptz_debug("pantilt: pan %f tilt %f", pan, tilt);
 }
 
-void PTZPelco::pantilt_rel(int pan, int tilt)
-{
-	ptz_debug("pantilt_rel(%i,%i)", pan, tilt);
-}
-
 void PTZPelco::pantilt_home()
 {
 	send(HOME);

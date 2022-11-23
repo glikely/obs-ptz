@@ -93,26 +93,51 @@ public:
 
 	void setObjectName(QString name);
 
+	/** Movement Methods
+	 * All movement commands are normalized to floating point ranges of
+	 * -1.0 to 1.0, or 0.0 to 1.0, as listed below.
+	 *
+	 * Drive commands. Starts a continuous move of the camera that
+	 * continues until told to stop, or the far limit of the camera is
+	 * reached. Values passed in are the speed of movement. 1.0 means full
+	 * speed, and 0.0 means stop. (continuous movement)
+	 * pantilt: range[-1.0, 1.0], positive for clockwise, move to up/right
+	 * zoom: range[-1.0, 1.0], positive for TELE zoom
+	 * focus: range[-1.0, 1.0], positive for near-end focus
+	 *
+	 * Relative position commands. Perform a specific distance relative to
+	 * the current position of the camera. 1.0 == full range movement
+	 * pantilt: range[-1.0, 1.0], positive for clockwise, move to up/right
+	 * zoom: range[-1.0, 1.0], positive for tele zoom
+	 * focus: range[-1.0, 1.0], positive for near-end focus
+	 *
+	 * Absolute position commands. A 1.0 magnitude value means full range
+	 * of movement
+	 * pantilt: range[-1.0, 1.0], positive for clockwise, move to up/right
+	 * zoom: range[0.0, 1.0], 0.0 == wide angle, 1.0 == telephoto
+	 * focus: range[0.0, 1.0], 0.0 == far focus, 1.0 == near focus
+	 */
 	virtual void pantilt(double pan, double tilt)
 	{
 		Q_UNUSED(pan);
 		Q_UNUSED(tilt);
 	}
-	virtual void pantilt_rel(int pan, int tilt)
+	virtual void pantilt_rel(double pan, double tilt)
 	{
 		Q_UNUSED(pan);
 		Q_UNUSED(tilt);
 	}
-	virtual void pantilt_abs(int pan, int tilt)
+	virtual void pantilt_abs(double pan, double tilt)
 	{
 		Q_UNUSED(pan);
 		Q_UNUSED(tilt);
 	}
 	virtual void pantilt_home() {}
 	virtual void zoom(double speed) { Q_UNUSED(speed); }
-	virtual void zoom_abs(int pos) { Q_UNUSED(pos); };
+	virtual void zoom_abs(double pos) { Q_UNUSED(pos); };
 	virtual void set_autofocus(bool enabled) { Q_UNUSED(enabled); };
 	virtual void focus(double speed) { Q_UNUSED(speed); }
+	virtual void focus_abs(double pos) { Q_UNUSED(pos); }
 	virtual void focus_onetouch() {}
 	virtual void memory_set(int i) { Q_UNUSED(i); }
 	virtual void memory_recall(int i) { Q_UNUSED(i); }
