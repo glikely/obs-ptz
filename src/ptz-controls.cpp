@@ -443,7 +443,7 @@ void PTZControls::setPanTilt(double pan, double tilt)
 	} else if (QGuiApplication::keyboardModifiers().testFlag(
 			   Qt::ShiftModifier)) {
 		if (nonzero)
-			ptz->pantilt_rel(pan, -tilt);
+			ptz->pantilt_rel(pan, tilt);
 	} else {
 		pantiltingFlag = nonzero;
 		ptz->pantilt(pan * speed / 100, tilt * speed / 100);

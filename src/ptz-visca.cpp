@@ -788,7 +788,7 @@ void PTZVisca::pantilt_rel(double pan_, double tilt_)
 {
 	int pan = qBound(-1.0, pan_, 1.0) * 0x1400 * 2;
 	int tilt = qBound(-1.0, tilt_, 1.0) * 0x500 * 2;
-	send(VISCA_PanTilt_drive_rel, {0x14, 0x14, pan, -tilt});
+	send(VISCA_PanTilt_drive_rel, {0x14, 0x14, pan, tilt});
 }
 
 void PTZVisca::pantilt_abs(double pan_, double tilt_)
