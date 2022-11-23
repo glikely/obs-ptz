@@ -98,6 +98,14 @@ void SourceNameDelegate::setModelData(QWidget *editor,
 
 obs_properties_t *PTZSettings::getProperties(void)
 {
+	auto applycb = [](obs_properties_t *, obs_property_t *, void *data_) {
+		auto s = static_cast<PTZSettings *>(data_);
+		PTZDevice *ptz = ptzDeviceList.getDevice(
+			s->ui->deviceList->currentIndex());
+		if (ptz)
+			ptz->set_config(s->propertiesView->GetSettings());
+		return true;
+	};
 	auto cb = [](obs_properties_t *, obs_property_t *, void *data_) {
 		auto data = static_cast<obs_data_t *>(data_);
 		blog(LOG_INFO, "%s", obs_data_get_string(data, "debug_info"));
@@ -110,6 +118,13 @@ obs_properties_t *PTZSettings::getProperties(void)
 		return obs_properties_create();
 
 	auto props = ptz->get_obs_properties();
+	auto p = obs_properties_get(props, "interface");
+	if (p) {
+		auto iface = obs_property_group_content(p);
+		if (iface)
+			obs_properties_add_button2(iface, "iface_apply",
+						   "Apply", applycb, this);
+	}
 	if (ptz_debug_level <= LOG_INFO) {
 		auto debug = obs_properties_create();
 		obs_properties_add_text(debug, "debug_info", NULL,
@@ -175,19 +190,6 @@ void PTZSettings::set_selected(uint32_t device_id)
 {
 	ui->deviceList->setCurrentIndex(
 		ptzDeviceList.indexFromDeviceId(device_id));
-}
-
-void PTZSettings::on_applyButton_clicked()
-{
-	PTZDevice *ptz =
-		ptzDeviceList.getDevice(ui->deviceList->currentIndex());
-	if (ptz)
-		ptz->set_config(propertiesView->GetSettings());
-}
-
-void PTZSettings::on_close_clicked()
-{
-	close();
 }
 
 void PTZSettings::on_addPTZ_clicked()

@@ -43,11 +43,8 @@ public:
 	void set_selected(uint32_t device_id);
 
 public slots:
-	void on_close_clicked();
-
 	void on_addPTZ_clicked();
 	void on_removePTZ_clicked();
-	void on_applyButton_clicked();
 	void on_livemoveCheckBox_stateChanged(int state);
 	void on_enableDebugLogCheckBox_stateChanged(int state);
 
