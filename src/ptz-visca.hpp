@@ -33,6 +33,7 @@ public:
 	static const QMap<QString, PTZInq> inquires;
 
 protected:
+	unsigned int timeout_retry = 0;
 	unsigned int address;
 	QList<PTZCmd> pending_cmds;
 	std::optional<PTZCmd> active_cmd[8];

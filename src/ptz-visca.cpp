@@ -668,9 +668,18 @@ void PTZVisca::send(PTZCmd cmd, QList<int> args)
 
 void PTZVisca::timeout()
 {
-	ptz_debug("VISCA %s timeout", qPrintable(objectName()));
-	active_cmd[0] = std::nullopt;
-	send_pending();
+	if (active_cmd[0].has_value()) {
+		ptz_debug("VISCA %s timeout", qPrintable(objectName()));
+		if (timeout_retry > 2)
+			active_cmd[0] = std::nullopt;
+		else
+			send_immediate(active_cmd[0].value().cmd);
+		timeout_retry++;
+		timeout_timer.setSingleShot(true);
+		timeout_timer.start(100);
+	} else {
+		send_pending();
+	}
 }
 
 void PTZVisca::cmd_get_camera_info()
@@ -769,6 +778,7 @@ void PTZVisca::send_pending()
 	auto affects = active_cmd[0].value().affects;
 	if (affects != "")
 		stale_settings += affects;
+	timeout_retry = 0;
 	timeout_timer.setSingleShot(true);
 	timeout_timer.start(2000);
 }
