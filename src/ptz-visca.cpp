@@ -18,6 +18,48 @@ public:
 	}
 };
 
+/*
+ * VISCA Signed 4-bit integer
+ * The VISCA signed 4-bit encoding separates the direction and speed into
+ * separate values. The speed value is encoded in the range 0x0-0xf, where '0'
+ * means the slowest speed. It does not mean stop. Direction is encoded in the
+ * same byte as '0x30' for negative movement, '0x20' for positive movement, and
+ * '0x00' for stop. This helper encodes the speed value with 'abs(val)-1' so
+ * that the slowest valid speed can be encoded. val==0 is encoded as 'stop'.
+ */
+class visca_s4 : public datagram_field {
+public:
+	visca_s4(const char *name, int offset) : datagram_field(name, offset) {}
+	void encode(QByteArray &msg, int val)
+	{
+		if (msg.size() < offset)
+			return;
+		if (val)
+			msg[offset] = qMax((abs(val) - 1) & 0xf, 0) |
+				      (val > 0 ? 0x20 : 0x30);
+	}
+	bool decode(OBSData data, QByteArray &msg)
+	{
+		if (msg.size() < offset)
+			return false;
+		int val = (msg[offset] & 0x0f) + 1;
+		switch (msg[offset] & 0xf0) {
+		case 0x30:
+			obs_data_set_int(data, name, -val);
+			break;
+		case 0x20:
+			obs_data_set_int(data, name, val);
+			break;
+		case 0x00:
+			obs_data_set_int(data, name, 0);
+			break;
+		default:
+			return false;
+		}
+		return true;
+	}
+};
+
 class visca_flag : public datagram_field {
 public:
 	visca_flag(const char *name, int offset) : datagram_field(name, offset)
@@ -220,14 +262,19 @@ const PTZInq VISCA_CAM_PowerInq("81090400ff", {new visca_flag("power_on", 2)});
 const PTZCmd VISCA_CAM_Zoom_Stop("8101040700ff", "zoom_pos");
 const PTZCmd VISCA_CAM_Zoom_Tele("8101040702ff", "zoom_pos");
 const PTZCmd VISCA_CAM_Zoom_Wide("8101040703ff", "zoom_pos");
+const PTZCmd VISCA_CAM_Zoom_drive("8101040700ff",
+				  {
+					  new visca_s4("zoom_speed", 4),
+				  },
+				  "zoom_pos");
 const PTZCmd VISCA_CAM_Zoom_TeleVar("8101040720ff",
 				    {
-					    new visca_u4("p", 4),
+					    new visca_u4("zoom_speed", 4),
 				    },
 				    "zoom_pos");
 const PTZCmd VISCA_CAM_Zoom_WideVar("8101040730ff",
 				    {
-					    new visca_u4("p", 4),
+					    new visca_u4("zoom_speed", 4),
 				    },
 				    "zoom_pos");
 const PTZCmd VISCA_CAM_Zoom_Direct("8101044700000000ff",
@@ -244,14 +291,19 @@ const PTZInq VISCA_CAM_DZoomModeInq("81090406ff",
 const PTZCmd VISCA_CAM_Focus_Stop("8101040800ff", "focus_pos");
 const PTZCmd VISCA_CAM_Focus_Far("8101040802ff", "focus_pos");
 const PTZCmd VISCA_CAM_Focus_Near("8101040803ff", "focus_pos");
+const PTZCmd VISCA_CAM_Focus_drive("8101040800ff",
+				   {
+					   new visca_s4("focus_speed", 4),
+				   },
+				   "focus_pos");
 const PTZCmd VISCA_CAM_Focus_FarVar("8101040820ff",
 				    {
-					    new visca_u4("p", 4),
+					    new visca_u4("focus_speed", 4),
 				    },
 				    "focus_pos");
 const PTZCmd VISCA_CAM_Focus_NearVar("8101040830ff",
 				     {
-					     new visca_u4("p", 4),
+					     new visca_u4("focus_speed", 4),
 				     },
 				     "focus_pos");
 
@@ -811,13 +863,9 @@ void PTZVisca::pantilt_home()
 
 void PTZVisca::zoom(double speed_)
 {
-	int speed = qMin((int)(std::abs(speed_) * 8), 7);
-	if (speed_ == 0)
-		send(VISCA_CAM_Zoom_Stop);
-	else
-		send(speed_ < 0 ? VISCA_CAM_Zoom_WideVar
-				: VISCA_CAM_Zoom_TeleVar,
-		     {speed});
+	int speed = qBound(-1.0, speed_, 1.0) * 15 +
+		    (speed_ < 0.0 ? -1 : speed_ > 0.0);
+	send(VISCA_CAM_Zoom_drive, {speed});
 }
 
 void PTZVisca::zoom_abs(double pos_)
@@ -837,14 +885,9 @@ void PTZVisca::focus(double speed_)
 	// The following two lines allows the focus speed to be adjusted using
 	// the speed slide, but in practical terms this makes the focus change
 	// far too quickly. Just use the slowest speed instead.
-	//int speed = (speed_ > 1 ? 1 : (speed_ < 0 ? 0 : speed_)) * 0x7;
-
-	if (speed_ < 0)
-		send(VISCA_CAM_Focus_FarVar, {1});
-	else if (speed_ > 0)
-		send(VISCA_CAM_Focus_NearVar, {1});
-	else
-		send(VISCA_CAM_Focus_Stop);
+	//int speed = qBound(-1.0, speed_, 1.0) * 15 + (speed_ < 0.0 ? -1 : speed_ > 0.0);
+	int speed = -(speed_ < 0.0 ? -1 : (speed_ > 0.0 ? 1 : 0));
+	send(VISCA_CAM_Focus_drive, {speed});
 }
 
 void PTZVisca::focus_onetouch()
