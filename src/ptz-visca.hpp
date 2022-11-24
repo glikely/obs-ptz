@@ -35,7 +35,7 @@ public:
 protected:
 	unsigned int address;
 	QList<PTZCmd> pending_cmds;
-	bool active_cmd[8];
+	std::optional<PTZCmd> active_cmd[8];
 	QTimer timeout_timer;
 
 	virtual void send_immediate(const QByteArray &msg) = 0;

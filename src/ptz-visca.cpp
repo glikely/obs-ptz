@@ -579,7 +579,7 @@ const QMap<QString, PTZInq> PTZVisca::inquires = {
 PTZVisca::PTZVisca(OBSData config) : PTZDevice(config)
 {
 	for (int i = 0; i < 8; i++)
-		active_cmd[i] = false;
+		active_cmd[i] = std::nullopt;
 	connect(&timeout_timer, &QTimer::timeout, this, &PTZVisca::timeout);
 }
 
@@ -669,9 +669,7 @@ void PTZVisca::send(PTZCmd cmd, QList<int> args)
 void PTZVisca::timeout()
 {
 	ptz_debug("VISCA %s timeout", qPrintable(objectName()));
-	active_cmd[0] = false;
-	if (!pending_cmds.isEmpty())
-		pending_cmds.removeFirst();
+	active_cmd[0] = std::nullopt;
 	send_pending();
 }
 
@@ -689,7 +687,10 @@ void PTZVisca::receive(const QByteArray &msg)
 
 	switch (msg[1] & 0xf0) {
 	case VISCA_RESPONSE_ACK:
-		active_cmd[slot] = true;
+		if (slot != 0) {
+			active_cmd[slot] = active_cmd[0];
+			active_cmd[0] = std::nullopt;
+		}
 		break;
 	case VISCA_RESPONSE_COMPLETED:
 		if (msg.size() == 3 && slot == 0) {
@@ -698,19 +699,18 @@ void PTZVisca::receive(const QByteArray &msg)
 			 * it was the result of a command not an enquiry */
 			break;
 		}
-		if (!active_cmd[slot]) {
+		if (!active_cmd[slot].has_value()) {
 			ptz_debug("VISCA %s spurious reply: %s",
 				  qPrintable(objectName()),
 				  msg.toHex(':').data());
 			break;
 		}
-		active_cmd[slot] = false;
 
 		/* Slot 0 responses are inquiries that need to be parsed */
 		if (slot == 0) {
 			timeout_timer.stop();
 			obs_data_t *rslt_props =
-				pending_cmds.first().decode(msg);
+				active_cmd[0].value().decode(msg);
 			obs_data_apply(settings, rslt_props);
 
 			/* Mark returned properties as clean */
@@ -721,17 +721,15 @@ void PTZVisca::receive(const QByteArray &msg)
 			/* Data has been updated */
 			emit settingsChanged(rslt_props);
 			obs_data_release(rslt_props);
-			pending_cmds.removeFirst();
 		}
 
+		active_cmd[slot] = std::nullopt;
 		break;
 	case VISCA_RESPONSE_ERROR:
-		active_cmd[slot] = false;
+		active_cmd[slot] = std::nullopt;
 		if ((slot == 0) && (msg[2] != 3) && (msg[2] != 4) &&
 		    (msg[2] != 5)) {
 			timeout_timer.stop();
-			if (!pending_cmds.isEmpty())
-				pending_cmds.removeFirst();
 		}
 		ptz_debug("VISCA %s received error: %s",
 			  qPrintable(objectName()), msg.toHex(':').data());
@@ -746,7 +744,7 @@ void PTZVisca::receive(const QByteArray &msg)
 
 void PTZVisca::send_pending()
 {
-	if (active_cmd[0])
+	if (active_cmd[0].has_value())
 		return;
 
 	/* If nothing queued, send an inquiry on stale values */
@@ -766,9 +764,9 @@ void PTZVisca::send_pending()
 	if (pending_cmds.isEmpty())
 		return;
 
-	active_cmd[0] = true;
-	send_immediate(pending_cmds.first().cmd);
-	auto affects = pending_cmds.first().affects;
+	active_cmd[0] = pending_cmds.takeFirst();
+	send_immediate(active_cmd[0].value().cmd);
+	auto affects = active_cmd[0].value().affects;
 	if (affects != "")
 		stale_settings += affects;
 	timeout_timer.setSingleShot(true);
