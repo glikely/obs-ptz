@@ -127,9 +127,8 @@ PTZControls::PTZControls(QWidget *parent)
 	connect(selectionModel,
 		SIGNAL(currentChanged(QModelIndex, QModelIndex)), this,
 		SLOT(currentChanged(QModelIndex, QModelIndex)));
-
-	ui->speedSlider->setMinimum(1);
-	ui->speedSlider->setMaximum(100);
+	connect(&accel_timer, &QTimer::timeout, this,
+		&PTZControls::accelTimerHandler);
 
 	LoadConfig();
 
@@ -207,22 +206,6 @@ PTZControls::PTZControls(QWidget *parent)
 				list->setCurrentIndex(sib);
 		}
 	};
-	auto decreasecb = [](void *action_data, obs_hotkey_id, obs_hotkey_t *,
-			     bool pressed) {
-		QAbstractSlider *slider =
-			static_cast<QAbstractSlider *>(action_data);
-		if (pressed)
-			slider->triggerAction(
-				QAbstractSlider::SliderPageStepSub);
-	};
-	auto increasecb = [](void *action_data, obs_hotkey_id, obs_hotkey_t *,
-			     bool pressed) {
-		QAbstractSlider *slider =
-			static_cast<QAbstractSlider *>(action_data);
-		if (pressed)
-			slider->triggerAction(
-				QAbstractSlider::SliderPageStepAdd);
-	};
 	auto actiontogglecb = [](void *action_data, obs_hotkey_id,
 				 obs_hotkey_t *, bool pressed) {
 		QAction *action = static_cast<QAction *>(action_data);
@@ -285,12 +268,6 @@ PTZControls::PTZControls(QWidget *parent)
 	hotkeys << registerHotkey("PTZ.ActionFollowProgramToggle",
 				  "PTZ Autoselect Live Camera", actiontogglecb,
 				  ui->actionFollowProgram);
-	hotkeys << registerHotkey("PTZ.SpeedDecrease",
-				  "PTZ Decrease pan/tilt/zoom speed",
-				  decreasecb, ui->speedSlider);
-	hotkeys << registerHotkey("PTZ.SpeedIncrease",
-				  "PTZ Increase pan/tilt/zoom speed",
-				  increasecb, ui->speedSlider);
 
 	auto preset_recall_cb = [](void *ptz_data, obs_hotkey_id hotkey,
 				   obs_hotkey_t *, bool pressed) {
@@ -352,7 +329,6 @@ void PTZControls::SaveConfig()
 
 	obs_data_set_bool(savedata, "live_moves_disabled", live_moves_disabled);
 	obs_data_set_int(savedata, "debug_log_level", ptz_debug_level);
-	obs_data_set_int(savedata, "current_speed", ui->speedSlider->value());
 	const char *target_mode = "manual";
 	if (ui->actionFollowPreview->isChecked())
 		target_mode = "preview";
@@ -398,8 +374,6 @@ void PTZControls::LoadConfig()
 	ptz_debug_level = (int)obs_data_get_int(loaddata, "debug_log_level");
 	live_moves_disabled =
 		obs_data_get_bool(loaddata, "live_moves_disabled");
-	ui->speedSlider->setValue(
-		(int)obs_data_get_int(loaddata, "current_speed"));
 	target_mode = obs_data_get_string(loaddata, "target_mode");
 	ui->actionFollowPreview->setChecked(target_mode == "preview");
 	ui->actionFollowProgram->setChecked(target_mode == "program");
@@ -428,25 +402,47 @@ PTZDevice *PTZControls::currCamera()
 	return ptzDeviceList.getDevice(ui->cameraList->currentIndex());
 }
 
+void PTZControls::accelTimerHandler()
+{
+	PTZDevice *ptz = currCamera();
+	if (!ptz) {
+		accel_timer.stop();
+		return;
+	}
+
+	pan_speed = qBound(-1.0, pan_speed + pan_accel, 1.0);
+	if (std::abs(pan_speed) == 1.0)
+		pan_accel = 0.0;
+	tilt_speed = qBound(-1.0, tilt_speed + tilt_accel, 1.0);
+	if (std::abs(tilt_speed) == 1.0)
+		tilt_accel = 0.0;
+	ptz->pantilt(pan_speed, tilt_speed);
+	zoom_speed = qBound(-1.0, zoom_speed + zoom_accel, 1.0);
+	if (std::abs(zoom_speed) == 1.0)
+		zoom_accel = 0.0;
+	ptz->zoom(zoom_speed);
+	if (pan_accel == 0.0 && tilt_accel == 0.0 && zoom_accel == 0.0)
+		accel_timer.stop();
+}
+
 void PTZControls::setPanTilt(double pan, double tilt)
 {
-	double speed = ui->speedSlider->value();
 	PTZDevice *ptz = currCamera();
 	if (!ptz)
 		return;
 
-	bool nonzero = std::abs(pan) > 0 || std::abs(tilt) > 0;
+	pantiltingFlag = std::abs(pan) > 0 || std::abs(tilt) > 0;
 	if (QGuiApplication::keyboardModifiers().testFlag(
 		    Qt::ControlModifier)) {
-		pantiltingFlag = nonzero;
 		ptz->pantilt(pan, tilt);
 	} else if (QGuiApplication::keyboardModifiers().testFlag(
 			   Qt::ShiftModifier)) {
-		if (nonzero)
-			ptz->pantilt_rel(pan, tilt);
+		ptz->pantilt(pan / 20, tilt / 20);
 	} else {
-		pantiltingFlag = nonzero;
-		ptz->pantilt(pan * speed / 100, tilt * speed / 100);
+		pan_speed = pan_accel = pan / 20;
+		tilt_speed = tilt_accel = tilt / 20;
+		ptz->pantilt(pan_speed, tilt_speed);
+		accel_timer.start(2000 / 20);
 	}
 }
 
@@ -463,11 +459,18 @@ void PTZControls::setZoom(double zoom)
 	if (!ptz)
 		return;
 
-	if (!QGuiApplication::keyboardModifiers().testFlag(Qt::ControlModifier))
-		zoom *= ((double)ui->speedSlider->value()) / 100;
-
-	ptz->zoom(zoom);
 	zoomingFlag = (zoom != 0.0);
+	if (QGuiApplication::keyboardModifiers().testFlag(
+		    Qt::ControlModifier)) {
+		ptz->zoom(zoom);
+	} else if (QGuiApplication::keyboardModifiers().testFlag(
+			   Qt::ShiftModifier)) {
+		ptz->zoom(zoom / 20);
+	} else {
+		zoom_speed = zoom_accel = zoom / 20;
+		ptz->zoom(zoom_speed);
+		accel_timer.start(2000 / 20);
+	}
 }
 
 void PTZControls::setFocus(double focus)
@@ -476,7 +479,7 @@ void PTZControls::setFocus(double focus)
 	if (!ptz)
 		return;
 
-	ptz->focus(focus * ui->speedSlider->value() / 100);
+	ptz->focus(focus);
 	focusingFlag = (focus != 0.0);
 }
 
@@ -633,6 +636,7 @@ void PTZControls::updateMoveControls()
 void PTZControls::currentChanged(QModelIndex current, QModelIndex previous)
 {
 	PTZDevice *ptz = ptzDeviceList.getDevice(previous);
+	accel_timer.stop();
 	if (ptz) {
 		disconnect(ptz, nullptr, this, nullptr);
 		if (pantiltingFlag)
@@ -645,6 +649,9 @@ void PTZControls::currentChanged(QModelIndex current, QModelIndex previous)
 	pantiltingFlag = false;
 	zoomingFlag = false;
 	focusingFlag = false;
+	pan_speed = pan_accel = 0.0;
+	tilt_speed = tilt_accel = 0.0;
+	zoom_speed = zoom_accel = 0.0;
 
 	ptz = ptzDeviceList.getDevice(current);
 	if (ptz) {

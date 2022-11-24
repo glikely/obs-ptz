@@ -27,6 +27,14 @@ private:
 	bool live_moves_disabled = false;
 
 	// Current status
+	double pan_speed = 0.0;
+	double pan_accel = 0.0;
+	double tilt_speed = 0.0;
+	double tilt_accel = 0.0;
+	double zoom_speed = 0.0;
+	double zoom_accel = 0.0;
+	QTimer accel_timer;
+
 	bool pantiltingFlag = false;
 	bool zoomingFlag = false;
 	bool focusingFlag = false;
@@ -92,6 +100,8 @@ private slots:
 	void on_cameraList_customContextMenuRequested(const QPoint &pos);
 	void on_actionPTZProperties_triggered();
 	void on_actionDisableLiveMoves_toggled(bool checked);
+
+	void accelTimerHandler();
 
 public:
 	PTZControls(QWidget *parent = nullptr);
