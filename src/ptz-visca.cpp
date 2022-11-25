@@ -227,7 +227,7 @@ const PTZInq VISCA_CameraControlInq(
 	 new int_field("exposure_comp_pos", 14, 0x0f)});
 
 const PTZInq VISCA_OtherInq("81097e7e02ff",
-			    {new int_field("power_on", 2, 0b0001),
+			    {/*new bool_field("power_on", 2, 0b0001),*/
 			     new int_field("picture_effect_mode", 5, 0x0f),
 			     new int_field("camera_id", 8, 0x0f0f0f0f),
 			     new int_field("framerate", 12, 0b0001)});
@@ -613,13 +613,14 @@ const QMap<int, std::string> PTZVisca::viscaModels = {
 /* Mapping properties to enquires */
 const QMap<QString, PTZInq> PTZVisca::inquires = {
 	{"vendor_id", VISCA_CAM_VersionInq},
+	{"power_on", VISCA_CAM_PowerInq},
 	{"pan_pos", VISCA_PanTilt_PosInq},
 	{"tilt_pos", VISCA_PanTilt_PosInq},
 	{"focus_pos", VISCA_LensControlInq},
 	{"zoom_pos", VISCA_LensControlInq},
 	{"iris_pos", VISCA_CameraControlInq},
 	{"gain_pos", VISCA_CameraControlInq},
-	{"power_on", VISCA_OtherInq},
+	{"camera_id", VISCA_OtherInq},
 	{"dzoom_pos", VISCA_EnlargementFunction1Inq},
 	{"defog_mode", VISCA_EnlargementFunction2Inq},
 	{"color_hue", VISCA_EnlargementFunction3Inq},
