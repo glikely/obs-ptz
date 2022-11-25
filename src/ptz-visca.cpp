@@ -728,10 +728,12 @@ void PTZVisca::timeout()
 {
 	if (active_cmd[0].has_value()) {
 		ptz_debug("VISCA %s timeout", qPrintable(objectName()));
-		if (timeout_retry > 2)
+		if (timeout_retry > 2) {
 			active_cmd[0] = std::nullopt;
-		else
+			status &= ~STATUS_CONNECTED;
+		} else {
 			send_immediate(active_cmd[0].value().cmd);
+		}
 		timeout_retry++;
 		timeout_timer.setSingleShot(true);
 		timeout_timer.start(1000 / 3);
@@ -742,6 +744,7 @@ void PTZVisca::timeout()
 
 void PTZVisca::cmd_get_camera_info()
 {
+	status |= STATUS_CONNECTED;
 	for (auto key : inquires.keys())
 		stale_settings += key;
 	send_pending();
@@ -755,12 +758,14 @@ void PTZVisca::receive(const QByteArray &msg)
 
 	switch (msg[1] & 0xf0) {
 	case VISCA_RESPONSE_ACK:
+		status |= STATUS_CONNECTED;
 		if (slot != 0) {
 			active_cmd[slot] = active_cmd[0];
 			active_cmd[0] = std::nullopt;
 		}
 		break;
 	case VISCA_RESPONSE_COMPLETED:
+		status |= STATUS_CONNECTED;
 		if (slot == 0)
 			timeout_timer.stop(); /* timer is only for slot 0 */
 		if (!active_cmd[slot].has_value()) {
@@ -792,13 +797,16 @@ void PTZVisca::receive(const QByteArray &msg)
 		active_cmd[slot] = std::nullopt;
 		break;
 	case VISCA_RESPONSE_ERROR:
-		active_cmd[slot] = std::nullopt;
-		if ((slot == 0) && (msg[2] != 3) && (msg[2] != 4) &&
-		    (msg[2] != 5)) {
-			timeout_timer.stop();
+		timeout_timer.stop();
+		/* This command failed, don't generate it again */
+		if (active_cmd[0].has_value()) {
+			for (auto rslt : active_cmd[0].value().results)
+				stale_settings -= rslt->name;
 		}
 		ptz_debug("VISCA %s received error: %s",
 			  qPrintable(objectName()), msg.toHex(':').data());
+		active_cmd[0] = std::nullopt;
+		active_cmd[slot] = std::nullopt;
 		break;
 	default:
 		ptz_debug("VISCA %s received unknown: %s",
@@ -845,7 +853,7 @@ void PTZVisca::send_pending()
 			PTZCmd cmd = VISCA_CAM_Focus_drive;
 			cmd.encode({speed});
 			pending_cmds += cmd;
-		} else {
+		} else if (status & STATUS_CONNECTED) {
 			ptz_debug(
 				"Stale prop list: {%s}",
 				QT_TO_UTF8(stale_settings.values().join(',')));
