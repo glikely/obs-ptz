@@ -744,6 +744,7 @@ void PTZVisca::cmd_get_camera_info()
 {
 	for (auto key : inquires.keys())
 		stale_settings += key;
+	send_pending();
 }
 
 void PTZVisca::receive(const QByteArray &msg)
