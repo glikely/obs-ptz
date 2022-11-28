@@ -362,6 +362,12 @@ void PTZControls::LoadConfig()
 		return;
 
 	OBSData loaddata = obs_data_create_from_json_file_safe(file, "bak");
+	if (!loaddata) {
+		/* Try loading from the old configuration path */
+		auto f = QString(file).replace("obs-ptz", "ptz-controls");
+		loaddata = obs_data_create_from_json_file_safe(QT_TO_UTF8(f),
+							       "bak");
+	}
 	bfree(file);
 	if (!loaddata)
 		return;
