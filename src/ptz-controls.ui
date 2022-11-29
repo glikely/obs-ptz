@@ -484,13 +484,6 @@
          </layout>
         </item>
         <item>
-         <widget class="QLabel" name="cameraListLabel">
-          <property name="text">
-           <string>PTZ Devices</string>
-          </property>
-         </widget>
-        </item>
-        <item>
          <widget class="QListView" name="cameraList">
           <property name="sizePolicy">
            <sizepolicy hsizetype="Minimum" vsizetype="Expanding">
@@ -528,13 +521,6 @@
         <property name="bottomMargin">
          <number>0</number>
         </property>
-        <item>
-         <widget class="QLabel" name="label">
-          <property name="text">
-           <string>Presets</string>
-          </property>
-         </widget>
-        </item>
         <item>
          <widget class="QListView" name="presetListView">
           <property name="contextMenuPolicy">
