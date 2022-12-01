@@ -34,11 +34,7 @@ public:
 	~PTZListModel();
 	int rowCount(const QModelIndex &parent = QModelIndex()) const;
 	QVariant data(const QModelIndex &index, int role) const;
-	void do_reset()
-	{
-		beginResetModel();
-		endResetModel();
-	}
+	void do_reset();
 	Qt::ItemFlags flags(const QModelIndex &index) const;
 	bool setData(const QModelIndex &index, const QVariant &value, int role);
 

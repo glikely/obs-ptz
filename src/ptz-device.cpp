@@ -79,6 +79,12 @@ QVariant PTZListModel::data(const QModelIndex &index, int role) const
 	return QVariant();
 }
 
+void PTZListModel::do_reset()
+{
+	beginResetModel();
+	endResetModel();
+}
+
 bool PTZListModel::setData(const QModelIndex &index, const QVariant &value,
 			   int role)
 {
