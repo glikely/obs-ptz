@@ -58,6 +58,13 @@ PelcoUART *PelcoUART::get_interface(QString port_name)
  * PTZPelco class implementation with -P and -D variants
  */
 
+QString PTZPelco::description()
+{
+	return QString("PELCO/%1 %2 id:%3")
+		.arg(use_pelco_d ? "D" : "P", iface->portName(),
+		     QString::number(address));
+}
+
 void PTZPelco::attach_interface(PelcoUART *new_iface)
 {
 	if (iface)

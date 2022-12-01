@@ -19,6 +19,11 @@ PTZViscaOverTCP::PTZViscaOverTCP(OBSData config) : PTZVisca(config)
 		&PTZViscaOverTCP::on_socket_stateChanged);
 }
 
+QString PTZViscaOverTCP::description()
+{
+	return QString("VISCA/TCP %1:%2").arg(host, QString::number(port));
+}
+
 void PTZViscaOverTCP::reset()
 {
 	send(VISCA_Clear);

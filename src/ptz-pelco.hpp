@@ -54,6 +54,7 @@ protected:
 public:
 	PTZPelco(OBSData data);
 	~PTZPelco();
+	virtual QString description();
 
 	void set_config(OBSData ptz_data);
 	OBSData get_config();

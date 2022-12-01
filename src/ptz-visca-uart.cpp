@@ -98,6 +98,12 @@ PTZViscaSerial::~PTZViscaSerial()
 	attach_interface(nullptr);
 }
 
+QString PTZViscaSerial::description()
+{
+	return QString("VISCA %1 id:%2")
+		.arg(iface->portName(), QString::number(address));
+}
+
 void PTZViscaSerial::attach_interface(ViscaUART *new_iface)
 {
 	if (iface)

@@ -101,6 +101,7 @@ public:
 	uint32_t getId() { return id; }
 
 	void setObjectName(QString name);
+	virtual QString description();
 
 	/**
 	 * do_update() method is to be implemented by each driver as the way

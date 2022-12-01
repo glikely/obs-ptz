@@ -43,6 +43,7 @@ protected:
 public:
 	PTZViscaSerial(OBSData config);
 	~PTZViscaSerial();
+	virtual QString description();
 
 	void set_config(OBSData ptz_data);
 	OBSData get_config();

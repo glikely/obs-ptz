@@ -265,6 +265,11 @@ void PTZDevice::setObjectName(QString name)
 	ptzDeviceList.do_reset();
 }
 
+QString PTZDevice::description()
+{
+	return QString::fromStdString(type);
+}
+
 void PTZDevice::set_config(OBSData config)
 {
 	/* Update the list of preset names */

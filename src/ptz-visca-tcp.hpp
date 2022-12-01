@@ -31,6 +31,7 @@ private slots:
 
 public:
 	PTZViscaOverTCP(OBSData config);
+	virtual QString description();
 
 	void set_config(OBSData ptz_data);
 	OBSData get_config();

@@ -88,6 +88,12 @@ PTZViscaOverIP::~PTZViscaOverIP()
 	attach_interface(nullptr);
 }
 
+QString PTZViscaOverIP::description()
+{
+	return QString("VISCA/UDP %1:%2")
+		.arg(ip_address.toString(), QString::number(iface->port()));
+}
+
 void PTZViscaOverIP::attach_interface(ViscaUDPSocket *new_iface)
 {
 	if (iface)
