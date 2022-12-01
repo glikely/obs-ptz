@@ -85,6 +85,13 @@ void PTZListModel::do_reset()
 	endResetModel();
 }
 
+void PTZListModel::name_changed(PTZDevice *ptz)
+{
+	auto index = indexFromDeviceId(ptz->id);
+	if (index.isValid())
+		emit dataChanged(index, index);
+}
+
 bool PTZListModel::setData(const QModelIndex &index, const QVariant &value,
 			   int role)
 {
@@ -262,7 +269,7 @@ void PTZDevice::setObjectName(QString name)
 		ptz_debug("new name %s", qPrintable(new_name));
 	}
 	QObject::setObjectName(new_name);
-	ptzDeviceList.do_reset();
+	ptzDeviceList.name_changed(this);
 }
 
 QString PTZDevice::description()
