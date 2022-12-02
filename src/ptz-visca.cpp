@@ -641,32 +641,23 @@ void PTZVisca::set_settings(OBSData new_settings)
 	/* `updates` is the property values that should be cached */
 	OBSData updates = obs_data_create();
 	obs_data_release(updates);
-	bool changed = false;
+
+	PTZDevice::set_settings(new_settings);
 
 	if (obs_data_has_user_value(new_settings, "power_on")) {
 		bool power_on = obs_data_get_bool(new_settings, "power_on");
-		if (power_on != obs_data_get_bool(settings, "power_on")) {
+		if (power_on != obs_data_get_bool(settings, "power_on"))
 			send(VISCA_CAM_Power, {power_on});
-			obs_data_set_bool(updates, "power_on", power_on);
-			changed = true;
-		}
 	}
 
 	auto wb_mode = (int)obs_data_get_int(new_settings, "wb_mode");
 	if (wb_mode != obs_data_get_int(settings, "wb_mode")) {
 		send(VISCA_CAM_WB_Mode, {wb_mode});
-		obs_data_set_int(updates, "wb_mode", wb_mode);
-		changed = true;
 	}
 
 	if (obs_data_has_user_value(new_settings, "wb_onepush_trigger")) {
 		/* Just send command, don't change state */
 		send(VISCA_CAM_WB_OnePushTrigger);
-	}
-
-	if (changed) {
-		obs_data_apply(settings, updates);
-		emit settingsChanged(updates);
 	}
 }
 
