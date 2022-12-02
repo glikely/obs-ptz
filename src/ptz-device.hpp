@@ -37,7 +37,6 @@ public:
 	void do_reset();
 	void name_changed(PTZDevice *ptz);
 	Qt::ItemFlags flags(const QModelIndex &index) const;
-	bool setData(const QModelIndex &index, const QVariant &value, int role);
 
 	/* Data Model */
 	PTZDevice *make_device(OBSData config);

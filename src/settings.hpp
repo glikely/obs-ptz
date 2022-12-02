@@ -19,13 +19,8 @@ class SourceNameDelegate : public QStyledItemDelegate {
 public:
 	SourceNameDelegate(QObject *parent = nullptr)
 		: QStyledItemDelegate(parent){};
-	QWidget *createEditor(QWidget *parent,
-			      const QStyleOptionViewItem &option,
-			      const QModelIndex &index) const override;
-	void setEditorData(QWidget *editor,
-			   const QModelIndex &index) const override;
-	void setModelData(QWidget *editor, QAbstractItemModel *model,
-			  const QModelIndex &index) const override;
+	virtual QString displayText(const QVariant &value,
+				    const QLocale &locale) const;
 };
 
 class PTZSettings : public QWidget {

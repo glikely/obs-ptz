@@ -51,49 +51,14 @@ const char *description_text =
 	"Jim Hauxwell</p>"
 	"</body></html>";
 
-QWidget *SourceNameDelegate::createEditor(QWidget *parent,
-					  const QStyleOptionViewItem &option,
-					  const QModelIndex &index) const
+QString SourceNameDelegate::displayText(const QVariant &value,
+					const QLocale &locale) const
 {
-	QComboBox *cb = new QComboBox(parent);
-	cb->setEditable(true);
-	Q_UNUSED(option);
-
-	// Get list of all sources
-	auto src_cb = [](void *data, obs_source_t *src) {
-		auto srcnames = static_cast<QStringList *>(data);
-		srcnames->append(obs_source_get_name(src));
-		return true;
-	};
-	QStringList srcnames;
-	obs_enum_sources(src_cb, &srcnames);
-
-	// Remove the ones already assigned
-	QStringListIterator i(ptzDeviceList.getDeviceNames());
-	while (i.hasNext())
-		srcnames.removeAll(i.next());
-	cb->addItems(srcnames);
-
-	// Put the current name at the top of the list
-	cb->insertItem(0, index.data(Qt::EditRole).toString());
-	return cb;
-}
-
-void SourceNameDelegate::setEditorData(QWidget *editor,
-				       const QModelIndex &index) const
-{
-	QComboBox *cb = qobject_cast<QComboBox *>(editor);
-	Q_ASSERT(cb);
-	cb->setCurrentText(index.data(Qt::EditRole).toString());
-}
-
-void SourceNameDelegate::setModelData(QWidget *editor,
-				      QAbstractItemModel *model,
-				      const QModelIndex &index) const
-{
-	QComboBox *cb = qobject_cast<QComboBox *>(editor);
-	Q_ASSERT(cb);
-	model->setData(index, cb->currentText(), Qt::EditRole);
+	auto string = QStyledItemDelegate::displayText(value, locale);
+	auto ptz = ptzDeviceList.getDeviceByName(string);
+	if (ptz)
+		return ptz->description() + " - " + string;
+	return string;
 }
 
 obs_properties_t *PTZSettings::getProperties(void)
@@ -298,8 +263,7 @@ void PTZSettings::currentChanged(const QModelIndex &current,
 					    json.constData());
 		}
 
-		/* The settings dialog doesn't touch presets or the device name, so remove them */
-		obs_data_erase(settings, "name");
+		/* The settings dialog doesn't touch presets, so remove them */
 		obs_data_erase(settings, "presets");
 
 		ptz->connect(ptz, SIGNAL(settingsChanged(OBSData)), this,

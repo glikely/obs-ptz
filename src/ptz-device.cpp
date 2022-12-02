@@ -92,18 +92,6 @@ void PTZListModel::name_changed(PTZDevice *ptz)
 		emit dataChanged(index, index);
 }
 
-bool PTZListModel::setData(const QModelIndex &index, const QVariant &value,
-			   int role)
-{
-	if (index.isValid() && role == Qt::EditRole) {
-		PTZDevice *ptz = ptzDeviceList.getDevice(index);
-		if (ptz)
-			ptz->setObjectName(value.toString());
-		emit dataChanged(index, index);
-	}
-	return false;
-}
-
 PTZDevice *PTZListModel::getDevice(const QModelIndex &index)
 {
 	if (index.row() < 0)
@@ -335,6 +323,33 @@ OBSData PTZDevice::get_settings()
 obs_properties_t *PTZDevice::get_obs_properties()
 {
 	obs_properties_t *rtn_props = obs_properties_create();
+
+	/* Combo box list for associated OBS source */
+	auto src_cb = [](void *data, obs_source_t *src) {
+		auto srcnames = static_cast<QStringList *>(data);
+		srcnames->append(obs_source_get_name(src));
+		return true;
+	};
+	auto srcs_prop = obs_properties_add_list(rtn_props, "name", "Source",
+						 OBS_COMBO_TYPE_LIST,
+						 OBS_COMBO_FORMAT_STRING);
+	obs_property_list_add_string(srcs_prop, "---select source---", "");
+	/* Add current source to top list */
+	OBSSourceAutoRelease src =
+		obs_get_source_by_name(QT_TO_UTF8(objectName()));
+	if (src)
+		obs_property_list_add_string(srcs_prop,
+					     QT_TO_UTF8(objectName()),
+					     QT_TO_UTF8(objectName()));
+	/* Add all sources not assigned to a camera */
+	QStringList srcnames;
+	obs_enum_sources(src_cb, &srcnames);
+	for (auto n : ptzDeviceList.getDeviceNames())
+		srcnames.removeAll(n);
+	for (auto n : srcnames)
+		obs_property_list_add_string(srcs_prop, QT_TO_UTF8(n),
+					     QT_TO_UTF8(n));
+
 	obs_properties_t *config = obs_properties_create();
 	obs_properties_add_group(rtn_props, "interface", "Connection",
 				 OBS_GROUP_NORMAL, config);
