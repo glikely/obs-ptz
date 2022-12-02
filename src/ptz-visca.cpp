@@ -360,7 +360,8 @@ const PTZCmd VISCA_CAM_IRCorrection_IRLight("8101041101ff");
 const PTZInq VISCA_CAM_IRCorrectionInq("81090411ff",
 				       {new visca_flag("ircorrection", 2)});
 
-const PTZCmd VISCA_CAM_WB_Mode("8101043500ff", {new visca_u4("wb_mode", 4)});
+const PTZCmd VISCA_CAM_WB_Mode("8101043500ff", {new visca_u4("wb_mode", 4)},
+			       "wb_mode");
 const PTZCmd VISCA_CAM_WB_Auto("8101043500ff");
 const PTZCmd VISCA_CAM_WB_Indoor("8101043501ff");
 const PTZCmd VISCA_CAM_WB_Outdoor("8101043502ff");
@@ -618,6 +619,7 @@ const QMap<QString, PTZInq> PTZVisca::inquires = {
 	{"tilt_pos", VISCA_PanTilt_PosInq},
 	{"focus_pos", VISCA_LensControlInq},
 	{"zoom_pos", VISCA_LensControlInq},
+	{"wb_mode", VISCA_CameraControlInq},
 	{"iris_pos", VISCA_CameraControlInq},
 	{"gain_pos", VISCA_CameraControlInq},
 	{"camera_id", VISCA_OtherInq},
