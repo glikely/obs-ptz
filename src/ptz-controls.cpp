@@ -662,8 +662,8 @@ void PTZControls::currentChanged(QModelIndex current, QModelIndex previous)
 	ptz = ptzDeviceList.getDevice(current);
 	if (ptz) {
 		ui->presetListView->setModel(ptz->presetModel());
-		ptz->connect(ptz, SIGNAL(settingsChanged()), this,
-			     SLOT(settingsChanged()));
+		ptz->connect(ptz, SIGNAL(settingsChanged(OBSData)), this,
+			     SLOT(settingsChanged(OBSData)));
 
 		auto settings = ptz->get_settings();
 		setAutofocusEnabled(
