@@ -321,6 +321,11 @@ OBSData PTZDevice::get_config()
 	return config;
 }
 
+void PTZDevice::set_settings(OBSData config)
+{
+	setObjectName(obs_data_get_string(config, "name"));
+}
+
 OBSData PTZDevice::get_settings()
 {
 	obs_data_apply(settings, get_config());
