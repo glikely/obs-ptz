@@ -37,12 +37,10 @@ void PTZViscaOverTCP::connectSocket()
 
 void PTZViscaOverTCP::on_socket_stateChanged(QAbstractSocket::SocketState state)
 {
-	blog(LOG_INFO, "VISCA_over_TCP socket state: %s",
-	     qPrintable(QVariant::fromValue(state).toString()));
 	switch (state) {
 	case QAbstractSocket::UnconnectedState:
 		/* Attempt reconnection periodically */
-		QTimer::singleShot(900, this, SLOT(connectSocket));
+		QTimer::singleShot(1900, this, SLOT(connectSocket()));
 		break;
 	case QAbstractSocket::ConnectedState:
 		blog(LOG_INFO, "VISCA_over_TCP %s connected",
