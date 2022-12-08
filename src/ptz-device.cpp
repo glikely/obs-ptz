@@ -243,8 +243,11 @@ PTZDevice::~PTZDevice()
 void PTZDevice::setObjectName(QString name)
 {
 	name = name.simplified();
-	if (name == "")
+	if (name == "") {
+		if (objectName().startsWith("PTZ Device"))
+			return;
 		name = "PTZ Device";
+	}
 	if (name == objectName())
 		return;
 	QString new_name = name;
