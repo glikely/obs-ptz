@@ -40,11 +40,11 @@ public:
 
 	/* Data Model */
 	PTZDevice *make_device(OBSData config);
-	PTZDevice *getDevice(const QModelIndex &index);
-	uint32_t getDeviceId(const QModelIndex &index);
-	PTZDevice *getDevice(uint32_t device_id);
-	PTZDevice *getDeviceByName(const QString &name);
-	QStringList getDeviceNames();
+	PTZDevice *getDevice(const QModelIndex &index) const;
+	uint32_t getDeviceId(const QModelIndex &index) const;
+	PTZDevice *getDevice(uint32_t device_id) const;
+	PTZDevice *getDeviceByName(const QString &name) const;
+	QStringList getDeviceNames() const;
 	QModelIndex indexFromDeviceId(uint32_t device_id);
 	void renameDevice(QString new_name, QString prev_name);
 	obs_data_array_t *getConfigs();

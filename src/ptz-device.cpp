@@ -92,26 +92,26 @@ void PTZListModel::name_changed(PTZDevice *ptz)
 		emit dataChanged(index, index);
 }
 
-PTZDevice *PTZListModel::getDevice(const QModelIndex &index)
+PTZDevice *PTZListModel::getDevice(const QModelIndex &index) const
 {
 	if (index.row() < 0)
 		return nullptr;
 	return devices.value(devices.keys().at(index.row()));
 }
 
-uint32_t PTZListModel::getDeviceId(const QModelIndex &index)
+uint32_t PTZListModel::getDeviceId(const QModelIndex &index) const
 {
 	if (index.row() < 0)
 		return 0;
 	return devices.keys().at(index.row());
 }
 
-PTZDevice *PTZListModel::getDevice(uint32_t device_id)
+PTZDevice *PTZListModel::getDevice(uint32_t device_id) const
 {
 	return devices.value(device_id, nullptr);
 }
 
-PTZDevice *PTZListModel::getDeviceByName(const QString &name)
+PTZDevice *PTZListModel::getDeviceByName(const QString &name) const
 {
 	for (auto key : devices.keys()) {
 		auto ptz = devices.value(key);
@@ -121,7 +121,7 @@ PTZDevice *PTZListModel::getDeviceByName(const QString &name)
 	return NULL;
 }
 
-QStringList PTZListModel::getDeviceNames()
+QStringList PTZListModel::getDeviceNames() const
 {
 	QStringList names;
 	for (auto key : devices.keys())
