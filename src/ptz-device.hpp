@@ -7,6 +7,7 @@
 #pragma once
 
 #include "ptz.h"
+#include "imported/qt-wrappers.hpp"
 #include <memory>
 #include <QObject>
 #include <QStringListModel>
@@ -16,10 +17,11 @@
 #include <util/platform.h>
 
 extern int ptz_debug_level;
-#define ptz_info(format, ...) blog(LOG_INFO, format, ##__VA_ARGS__)
-#define ptz_debug(format, ...)                                            \
-	blog(ptz_debug_level, "%s():%i: " format, __FUNCTION__, __LINE__, \
-	     ##__VA_ARGS__)
+#define ptz_log(level, format, ...)                     \
+	blog(level, "[%s/%.12s] " format, type.c_str(), \
+	     QT_TO_UTF8(objectName()), ##__VA_ARGS__)
+#define ptz_info(format, ...) ptz_log(LOG_INFO, format, ##__VA_ARGS__)
+#define ptz_debug(format, ...) ptz_log(ptz_debug_level, format, ##__VA_ARGS__)
 
 class PTZDevice;
 

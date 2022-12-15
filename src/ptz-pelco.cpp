@@ -19,7 +19,8 @@ std::map<QString, PelcoUART *> PelcoUART::interfaces;
 
 void PelcoUART::receive_datagram(const QByteArray &packet)
 {
-	ptz_debug("%s <-- %s", qPrintable(port_name), packet.toHex(':').data());
+	blog(ptz_debug_level, "%s <-- %s", qPrintable(port_name),
+	     packet.toHex(':').data());
 
 	emit receive(packet);
 }
@@ -38,12 +39,13 @@ void PelcoUART::receiveBytes(const QByteArray &data)
 PelcoUART *PelcoUART::get_interface(QString port_name)
 {
 	PelcoUART *iface;
-	ptz_debug("Looking for UART object %s", qPrintable(port_name));
+	blog(ptz_debug_level, "Looking for UART object %s",
+	     qPrintable(port_name));
 
 	iface = interfaces[port_name];
 	if (!iface) {
-		ptz_debug("Creating new Pelco UART object %s",
-			  qPrintable(port_name));
+		blog(ptz_debug_level, "Creating new Pelco UART object %s",
+		     qPrintable(port_name));
 		iface = new PelcoUART(port_name);
 		iface->open();
 		interfaces[port_name] = iface;

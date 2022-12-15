@@ -26,15 +26,12 @@ void ViscaUDPSocket::receive_datagram(QNetworkDatagram &dg)
 	QByteArray data = dg.data();
 	int type = ((data[0] & 0xff) << 8) | (data[1] & 0xff);
 	int size = data[2] << 8 | data[3];
-	int seq = data[4] << 24 | data[5] << 16 | data[6] << 8 | data[7];
 
 	if ((data.size() != size + 8) || size < 1) {
-		ptz_debug("VISCA UDP (malformed) <-- %s",
-			  qPrintable(data.toHex(':')));
+		blog(ptz_debug_level, "VISCA UDP (malformed) <-- %s",
+		     qPrintable(data.toHex(':')));
 		return;
 	}
-	ptz_debug("VISCA UDP type=%.4x seq=%i size=%i <-- %s", type, seq, size,
-		  qPrintable(data.toHex(':')));
 
 	switch (type) {
 	case 0x0111:
@@ -46,13 +43,12 @@ void ViscaUDPSocket::receive_datagram(QNetworkDatagram &dg)
 			emit reset();
 		break;
 	default:
-		ptz_debug("VISCA UDP unrecognized type: %x", type);
+		blog(ptz_debug_level, "VISCA UDP unrecognized type: %x", type);
 	}
 }
 
 void ViscaUDPSocket::send(QHostAddress ip_address, const QByteArray &packet)
 {
-	ptz_debug("VISCA UDP --> %s", qPrintable(packet.toHex(':')));
 	visca_socket.writeDatagram(packet, ip_address, visca_port);
 }
 
@@ -67,10 +63,10 @@ void ViscaUDPSocket::poll()
 ViscaUDPSocket *ViscaUDPSocket::get_interface(int port)
 {
 	ViscaUDPSocket *iface;
-	ptz_debug("Looking for Visca UDP Socket object %i", port);
+	blog(ptz_debug_level, "Looking for Visca UDP Socket object %i", port);
 	iface = interfaces[port];
 	if (!iface) {
-		ptz_debug("Creating new VISCA object %i", port);
+		blog(ptz_debug_level, "Creating new VISCA object %i", port);
 		iface = new ViscaUDPSocket(port);
 		interfaces[port] = iface;
 	}

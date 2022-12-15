@@ -32,7 +32,6 @@ void ViscaUART::close()
 
 void ViscaUART::receive_datagram(const QByteArray &packet)
 {
-	ptz_debug("VISCA <-- %s", packet.toHex(':').data());
 	if (packet.size() < 3)
 		return;
 	if ((packet[1] & 0xf0) == VISCA_RESPONSE_ADDRESS) {
@@ -76,11 +75,12 @@ void ViscaUART::receiveBytes(const QByteArray &msg)
 ViscaUART *ViscaUART::get_interface(QString port_name)
 {
 	ViscaUART *iface;
-	ptz_debug("Looking for UART object %s", qPrintable(port_name));
+	blog(ptz_debug_level, "Looking for UART object %s",
+	     qPrintable(port_name));
 	iface = interfaces[port_name];
 	if (!iface) {
-		ptz_debug("Creating new VISCA object %s",
-			  qPrintable(port_name));
+		blog(ptz_debug_level, "Creating new VISCA object %s",
+		     qPrintable(port_name));
 		iface = new ViscaUART(port_name);
 		iface->open();
 		interfaces[port_name] = iface;

@@ -707,7 +707,7 @@ void PTZVisca::send(PTZCmd cmd, QList<int> args)
 void PTZVisca::timeout()
 {
 	if ((status & STATUS_CONNECTED) && active_cmd[0].has_value()) {
-		ptz_debug("VISCA %s timeout", qPrintable(objectName()));
+		ptz_debug("timeout");
 		if (timeout_retry > 2) {
 			active_cmd[0] = std::nullopt;
 			status &= ~STATUS_CONNECTED;
@@ -735,6 +735,7 @@ void PTZVisca::receive(const QByteArray &msg)
 {
 	if (VISCA_PACKET_SENDER(msg) != address || (msg.size() < 3))
 		return;
+	ptz_debug("<-- %s", msg.toHex(':').data());
 	int slot = msg[1] & 0x7;
 
 	switch (msg[1] & 0xf0) {
@@ -750,9 +751,7 @@ void PTZVisca::receive(const QByteArray &msg)
 		if (slot == 0)
 			timeout_timer.stop(); /* timer is only for slot 0 */
 		if (!active_cmd[slot].has_value()) {
-			ptz_debug("VISCA %s spurious reply: %s",
-				  qPrintable(objectName()),
-				  msg.toHex(':').data());
+			ptz_debug("spurious reply: %s", msg.toHex(':').data());
 			break;
 		}
 
@@ -784,14 +783,12 @@ void PTZVisca::receive(const QByteArray &msg)
 			for (auto rslt : active_cmd[0].value().results)
 				stale_settings -= rslt->name;
 		}
-		ptz_debug("VISCA %s received error: %s",
-			  qPrintable(objectName()), msg.toHex(':').data());
+		ptz_debug("rx error: %s", msg.toHex(':').data());
 		active_cmd[0] = std::nullopt;
 		active_cmd[slot] = std::nullopt;
 		break;
 	default:
-		ptz_debug("VISCA %s received unknown: %s",
-			  qPrintable(objectName()), msg.toHex(':').data());
+		ptz_debug("rx unknown: %s", msg.toHex(':').data());
 		break;
 	}
 	send_pending();

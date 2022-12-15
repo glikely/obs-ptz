@@ -56,14 +56,12 @@ void PTZViscaOverTCP::send_immediate(const QByteArray &msg)
 {
 	if (visca_socket.state() == QAbstractSocket::UnconnectedState)
 		connectSocket();
-	ptz_debug("VISCA_over_TCP --> %s", qPrintable(msg.toHex(':')));
 	visca_socket.write(msg);
 }
 
 void PTZViscaOverTCP::receive_datagram(const QByteArray &packet)
 {
 	int camera_count = 0;
-	ptz_debug("VISCA_over_TCP <-- %s", packet.toHex(':').data());
 	if (packet.size() < 3)
 		return;
 	if ((packet[1] & 0xf0) == VISCA_RESPONSE_ADDRESS) {

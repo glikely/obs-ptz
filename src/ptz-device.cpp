@@ -6,7 +6,6 @@
  */
 
 #include <obs.hpp>
-#include "imported/qt-wrappers.hpp"
 #include "ptz-device.hpp"
 #include "ptz-visca-udp.hpp"
 #include "ptz-visca-tcp.hpp"
@@ -254,7 +253,6 @@ void PTZDevice::setObjectName(QString name)
 		if (!ptz)
 			break;
 		new_name = name + " " + QString::number(i);
-		ptz_debug("new name %s", qPrintable(new_name));
 	}
 	QObject::setObjectName(new_name);
 	ptzDeviceList.name_changed(this);
