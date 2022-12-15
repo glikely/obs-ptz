@@ -704,20 +704,23 @@ void PTZVisca::send(PTZCmd cmd, QList<int> args)
 	send(cmd);
 }
 
+void PTZVisca::send_packet(const QByteArray &packet)
+{
+	ptz_debug("--> %s", packet.toHex(':').data());
+	send_immediate(packet);
+	timeout_timer.setSingleShot(true);
+	timeout_timer.start(1000 / 30);
+}
+
 void PTZVisca::timeout()
 {
-	if ((status & STATUS_CONNECTED) && active_cmd[0].has_value()) {
+	if ((status & STATUS_CONNECTED) && active_cmd[0].has_value() &&
+	    (timeout_retry < 3)) {
 		ptz_debug("timeout");
-		if (timeout_retry > 2) {
-			active_cmd[0] = std::nullopt;
-			status &= ~STATUS_CONNECTED;
-		} else {
-			send_immediate(active_cmd[0].value().cmd);
-		}
+		send_packet(active_cmd[0].value().cmd);
 		timeout_retry++;
-		timeout_timer.setSingleShot(true);
-		timeout_timer.start(1000 / 30);
 	} else {
+		status &= ~STATUS_CONNECTED;
 		active_cmd[0] = std::nullopt;
 		send_pending();
 	}
@@ -847,13 +850,11 @@ void PTZVisca::send_pending()
 		return;
 
 	active_cmd[0] = pending_cmds.takeFirst();
-	send_immediate(active_cmd[0].value().cmd);
 	auto affects = active_cmd[0].value().affects;
 	if (affects != "")
 		stale_settings += affects;
+	send_packet(active_cmd[0].value().cmd);
 	timeout_retry = 0;
-	timeout_timer.setSingleShot(true);
-	timeout_timer.start(1000 / 30);
 }
 
 void PTZVisca::do_update(void)

@@ -41,6 +41,7 @@ protected:
 
 	bool send_pantilt();
 	virtual void send_immediate(const QByteArray &msg) = 0;
+	void send_packet(const QByteArray &msg);
 	void send(PTZCmd cmd);
 	void send(PTZCmd cmd, QList<int> args);
 	void send_pending();
