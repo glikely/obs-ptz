@@ -693,19 +693,9 @@ obs_properties_t *PTZVisca::get_obs_properties()
 
 void PTZVisca::send(PTZCmd cmd)
 {
-#if 0
-	if (cmd.cmd[1] == (char)0x01) { // command packets get sent immediately
-		send_immediate(cmd.cmd);
-		if (cmd.affects != "")
-			stale_settings += cmd.affects;
-	} else {
-#endif
 	pending_cmds.append(cmd);
 	ptz_debug("sending cmd, queuelength=%lli", pending_cmds.count());
 	send_pending();
-#if 0
-	}
-#endif
 }
 
 void PTZVisca::send(PTZCmd cmd, QList<int> args)
