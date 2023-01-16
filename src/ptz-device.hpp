@@ -80,11 +80,11 @@ public:
 protected:
 	uint32_t id = 0;
 	std::string type;
-	uint32_t status;
-	double pan_speed;
-	double tilt_speed;
-	double zoom_speed;
-	double focus_speed;
+	uint32_t status = 0;
+	double pan_speed = 0;
+	double tilt_speed = 0;
+	double zoom_speed = 0;
+	double focus_speed = 0;
 
 	QStringListModel preset_names_model;
 	obs_properties_t *props;
