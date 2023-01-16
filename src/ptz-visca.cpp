@@ -34,9 +34,9 @@ public:
 	{
 		if (msg.size() < offset)
 			return;
-		if (val)
-			msg[offset] = qMax((abs(val) - 1) & 0xf, 0) |
-				      (val > 0 ? 0x20 : 0x30);
+		msg[offset] = val ? ((abs(val) - 1) & 0xf) |
+					      (val > 0 ? 0x20 : 0x30)
+				  : 0;
 	}
 	bool decode(OBSData data, QByteArray &msg)
 	{
@@ -112,10 +112,8 @@ public:
 	{
 		if (msg.size() < offset + 3)
 			return;
-		msg[offset] = qMax((abs(val) - 1) & 0x7f, 0);
-		msg[offset + 2] = 3;
-		if (val)
-			msg[offset + 2] = val < 0 ? 1 : 2;
+		msg[offset] = val ? (abs(val) - 1) & 0x7f : 0;
+		msg[offset + 2] = val ? (val < 0 ? 1 : 2) : 3;
 	}
 	bool decode(OBSData data, QByteArray &msg)
 	{
