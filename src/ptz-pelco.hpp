@@ -48,6 +48,7 @@ protected:
 	void send(const QByteArray &msg);
 	void send(const unsigned char data_1, const unsigned char data_2,
 		  const unsigned char data_3, const unsigned char data_4);
+	void focus_speed_set(double speed);
 	void zoom_speed_set(double speed);
 	void receive(const QByteArray &msg);
 

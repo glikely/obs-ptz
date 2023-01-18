@@ -132,6 +132,11 @@ void PTZPelco::send(const unsigned char data_1, const unsigned char data_2,
 	send(message);
 }
 
+void PTZPelco::focus_speed_set(double speed)
+{
+	send(0x00, 0x27, 0x00, abs(speed) * 0x33);
+}
+
 void PTZPelco::zoom_speed_set(double speed)
 {
 	send(0x00, 0x25, 0x00, abs(speed) * 0x33);
@@ -212,9 +217,21 @@ void PTZPelco::do_update()
 		send_update = true;
 	}
 
+	if (status & STATUS_FOCUS_SPEED_CHANGED) {
+		status &= ~STATUS_FOCUS_SPEED_CHANGED;
+		if (focus_speed) {
+			focus_speed_set(std::abs(focus_speed));
+			if (focus_speed > 0.0)
+				msg[0] |= 1 << 0;
+			else
+				msg[1] |= 1 << 7;
+		}
+		send_update = true;
+	}
+
 	if (send_update) {
-		ptz_debug("pan %f, tilt %f, zoom %f", pan_speed, tilt_speed,
-			  zoom_speed);
+		ptz_debug("pan %f, tilt %f, zoom %f, focus %f", pan_speed,
+			  tilt_speed, zoom_speed, focus_speed);
 		send(msg);
 	}
 }
