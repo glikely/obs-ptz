@@ -9,10 +9,7 @@
 #include <QSerialPortInfo>
 #include "ptz-pelco.hpp"
 
-const QByteArray STOP = QByteArray::fromHex("00000000");
 const QByteArray HOME = QByteArray::fromHex("0007002B");
-const QByteArray ZOOM_IN = QByteArray::fromHex("00200000");
-const QByteArray ZOOM_OUT = QByteArray::fromHex("00400000");
 
 std::map<QString, PelcoUART *> PelcoUART::interfaces;
 
@@ -190,32 +187,35 @@ obs_properties_t *PTZPelco::get_obs_properties()
 
 void PTZPelco::do_update()
 {
+	QByteArray msg = QByteArray::fromHex("00000000");
+	bool send_update = false;
+
 	if (status & STATUS_PANTILT_SPEED_CHANGED) {
 		status &= ~STATUS_PANTILT_SPEED_CHANGED;
-		unsigned char panTiltData = 0x00;
-		if (tilt_speed < -0.005)
-			panTiltData |= (1 << 4);
-		if (tilt_speed > 0.005)
-			panTiltData |= (1 << 3);
-		if (pan_speed < -0.005)
-			panTiltData |= (1 << 2);
-		if (pan_speed > 0.005)
-			panTiltData |= (1 << 1);
-
-		send(0x00, panTiltData, abs(pan_speed) * 0x3F,
-		     abs(tilt_speed) * 0x3F);
-
-		ptz_debug("pantilt: pan %f tilt %f", pan_speed, tilt_speed);
+		if (tilt_speed) {
+			msg[1] |= tilt_speed > 0.0 ? (1 << 3) : (1 << 4);
+			msg[3] = abs(tilt_speed) * 0x3f;
+		}
+		if (pan_speed) {
+			msg[1] |= pan_speed > 0.0 ? (1 << 1) : (1 << 2);
+			msg[2] = abs(pan_speed) * 0x3f;
+		}
+		send_update = true;
 	}
 
 	if (status & STATUS_ZOOM_SPEED_CHANGED) {
 		status &= ~STATUS_ZOOM_SPEED_CHANGED;
-		zoom_speed_set(std::abs(zoom_speed));
-		if (std::abs(zoom_speed) < 0)
-			send(STOP);
-		else
-			send(zoom_speed < 0 ? ZOOM_OUT : ZOOM_IN);
-		ptz_debug("zoom(%f)", zoom_speed);
+		if (zoom_speed) {
+			zoom_speed_set(std::abs(zoom_speed));
+			msg[1] |= zoom_speed > 0.0 ? (1 << 5) : (1 << 6);
+		}
+		send_update = true;
+	}
+
+	if (send_update) {
+		ptz_debug("pan %f, tilt %f, zoom %f", pan_speed, tilt_speed,
+			  zoom_speed);
+		send(msg);
 	}
 }
 
