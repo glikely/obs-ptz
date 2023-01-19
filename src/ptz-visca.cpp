@@ -717,7 +717,7 @@ void PTZVisca::send(PTZCmd cmd, QList<int> args)
 
 void PTZVisca::timeout()
 {
-	if (active_cmd[0].has_value()) {
+	if ((status & STATUS_CONNECTED) && active_cmd[0].has_value()) {
 		ptz_debug("VISCA %s timeout", qPrintable(objectName()));
 		if (timeout_retry > 2) {
 			active_cmd[0] = std::nullopt;
@@ -727,8 +727,9 @@ void PTZVisca::timeout()
 		}
 		timeout_retry++;
 		timeout_timer.setSingleShot(true);
-		timeout_timer.start(1000 / 3);
+		timeout_timer.start(1000 / 30);
 	} else {
+		active_cmd[0] = std::nullopt;
 		send_pending();
 	}
 }
