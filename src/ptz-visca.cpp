@@ -99,11 +99,10 @@ public:
 /*
  * VISCA Signed 7-bit integer
  * The VISCA signed 7-bit encoding separates the direction and speed into
- * separate values. The speed value is encoded in the range 0x00-0x7f, where
- * '0' means the slowest speed. It does not mean stop. Direction is encoded in
+ * separate values. The speed value is encoded in the range 0x01-0x7f, where
+ * '1' means the slowest speed. '0' isn't a valid speed. Direction is encoded in
  * a separate byte as '1' for negative movement, '2' for positive movement, and
- * '3' for stop. This helper encodes the speed value with 'abs(val)-1' so that
- * the slowest valid speed can be encoded. val==0 is encoded as 'stop'.
+ * '3' for stop.
  */
 class visca_s7 : public datagram_field {
 public:
@@ -112,7 +111,7 @@ public:
 	{
 		if (msg.size() < offset + 3)
 			return;
-		msg[offset] = val ? (abs(val) - 1) & 0x7f : 0;
+		msg[offset] = val ? std::clamp(abs(val), 1, 0x7f) : 0;
 		msg[offset + 2] = val ? (val < 0 ? 1 : 2) : 3;
 	}
 	bool decode(OBSData data, QByteArray &msg)
@@ -816,11 +815,8 @@ void PTZVisca::send_pending()
 	if (pending_cmds.isEmpty()) {
 		if (status & STATUS_PANTILT_SPEED_CHANGED) {
 			status &= ~STATUS_PANTILT_SPEED_CHANGED;
-			int pan = qBound(-1.0, pan_speed, 1.0) * 0x18 +
-				  (pan_speed < 0.0 ? -1 : pan_speed > 0.0);
-			int tilt =
-				-(qBound(-1.0, tilt_speed, 1.0) * 0x14 +
-				  (tilt_speed < 0.0 ? -1 : tilt_speed > 0.0));
+			int pan = qBound(-1.0, pan_speed, 1.0) * 0x18;
+			int tilt = -qBound(-1.0, tilt_speed, 1.0) * 0x14;
 			PTZCmd cmd = VISCA_PanTilt_drive;
 			cmd.encode({pan, tilt});
 			pending_cmds += cmd;
