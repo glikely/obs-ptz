@@ -34,7 +34,7 @@ public:
 	{
 		if (msg.size() < offset)
 			return;
-		msg[offset] = val ? ((abs(val) - 1) & 0xf) |
+		msg[offset] = val ? std::clamp(abs(val) - 1, 0, 0xf) |
 					      (val > 0 ? 0x20 : 0x30)
 				  : 0;
 	}
@@ -822,7 +822,7 @@ void PTZVisca::send_pending()
 			pending_cmds += cmd;
 		} else if (status & STATUS_ZOOM_SPEED_CHANGED) {
 			status &= ~STATUS_ZOOM_SPEED_CHANGED;
-			int speed = qBound(-1.0, zoom_speed, 1.0) * 15 +
+			int speed = qBound(-1.0, zoom_speed, 1.0) * 0xf +
 				    (zoom_speed < 0.0 ? -1 : zoom_speed > 0.0);
 			PTZCmd cmd = VISCA_CAM_Zoom_drive;
 			cmd.encode({speed});
@@ -833,8 +833,8 @@ void PTZVisca::send_pending()
 			// adjusted using the speed slide, but in practical
 			// terms this makes the focus change far too quickly.
 			// Just use the slowest speed instead.
-			//int speed = -(qBound(-1.0, focus_speed, 1.0) * 15 +
-			//	  (focus_speed < 0.0 ? -1 : zoom_speed > 0.0));
+			//int speed = -(qBound(-1.0, focus_speed, 1.0) * 0xf +
+			//	    (focus_speed < 0.0 ? -1 : focus_speed > 0.0);
 			int speed = -((focus_speed < 0.0)
 					      ? -1
 					      : ((focus_speed > 0.0) ? 1 : 0));
