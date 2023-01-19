@@ -39,6 +39,11 @@ protected:
 	std::optional<PTZCmd> active_cmd[8];
 	QTimer timeout_timer;
 
+	unsigned int visca_pan_speed_max = 0x18;
+	unsigned int visca_tilt_speed_max = 0x14;
+	unsigned int visca_zoom_speed_max = 7;
+	unsigned int visca_focus_speed_max = 7;
+
 	bool send_pantilt();
 	virtual void send_immediate(const QByteArray &msg) = 0;
 	void send_packet(const QByteArray &msg);

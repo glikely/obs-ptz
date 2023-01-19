@@ -643,6 +643,19 @@ void PTZVisca::set_settings(OBSData new_settings)
 
 	PTZDevice::set_settings(new_settings);
 
+	if (obs_data_has_user_value(new_settings, "visca_pan_speed_max"))
+		visca_pan_speed_max = (int)obs_data_get_int(
+			new_settings, "visca_pan_speed_max");
+	if (obs_data_has_user_value(new_settings, "visca_tilt_speed_max"))
+		visca_tilt_speed_max = (int)obs_data_get_int(
+			new_settings, "visca_tilt_speed_max");
+	if (obs_data_has_user_value(new_settings, "visca_zoom_speed_max"))
+		visca_zoom_speed_max = (int)obs_data_get_int(
+			new_settings, "visca_zoom_speed_max");
+	if (obs_data_has_user_value(new_settings, "visca_focus_speed_max"))
+		visca_focus_speed_max = (int)obs_data_get_int(
+			new_settings, "visca_focus_speed_max");
+
 	if (obs_data_has_user_value(new_settings, "power_on")) {
 		bool power_on = obs_data_get_bool(new_settings, "power_on");
 		if (power_on != obs_data_get_bool(settings, "power_on"))
@@ -660,15 +673,30 @@ void PTZVisca::set_settings(OBSData new_settings)
 	}
 }
 
-void PTZVisca::set_config(OBSData config)
+void PTZVisca::set_config(OBSData cfg)
 {
-	PTZDevice::set_config(config);
+	PTZDevice::set_config(cfg);
+	obs_data_set_default_int(cfg, "visca_pan_speed_max", 0x18);
+	obs_data_set_default_int(cfg, "visca_tilt_speed_max", 0x14);
+	obs_data_set_default_int(cfg, "visca_zoom_speed_max", 0x7);
+	obs_data_set_default_int(cfg, "visca_focus_speed_max", 0x7);
+	visca_pan_speed_max = (int)obs_data_get_int(cfg, "visca_pan_speed_max");
+	visca_tilt_speed_max =
+		(int)obs_data_get_int(cfg, "visca_tilt_speed_max");
+	visca_zoom_speed_max =
+		(int)obs_data_get_int(cfg, "visca_zoom_speed_max");
+	visca_focus_speed_max =
+		(int)obs_data_get_int(cfg, "visca_focus_speed_max");
 }
 
 OBSData PTZVisca::get_config()
 {
-	OBSData config = PTZDevice::get_config();
-	return config;
+	OBSData cfg = PTZDevice::get_config();
+	obs_data_set_int(cfg, "visca_pan_speed_max", visca_pan_speed_max);
+	obs_data_set_int(cfg, "visca_tilt_speed_max", visca_tilt_speed_max);
+	obs_data_set_int(cfg, "visca_zoom_speed_max", visca_zoom_speed_max);
+	obs_data_set_int(cfg, "visca_focus_speed_max", visca_focus_speed_max);
+	return cfg;
 }
 
 obs_properties_t *PTZVisca::get_obs_properties()
@@ -699,6 +727,23 @@ obs_properties_t *PTZVisca::get_obs_properties()
 	};
 	obs_properties_add_button2(wbGroup, "one-push", "One Push Whitebalance",
 				   clicked_cb, this);
+
+	auto visca_grp = obs_properties_create();
+	obs_properties_add_group(ptz_props, "visca_advanced",
+				 "Modify Expert VISCA Settings",
+				 OBS_GROUP_CHECKABLE, visca_grp);
+	obs_properties_add_int_slider(visca_grp, "visca_pan_speed_max",
+				      "Pan Maximum Speed (default 24)", 1, 0x7f,
+				      1);
+	obs_properties_add_int_slider(visca_grp, "visca_tilt_speed_max",
+				      "Tilt Maximum Speed (default 20)", 1,
+				      0x7f, 1);
+	obs_properties_add_int_slider(visca_grp, "visca_zoom_speed_max",
+				      "Zoom Maximum Speed (default 7)", 0, 7,
+				      1);
+	obs_properties_add_int_slider(visca_grp, "visca_focus_speed_max",
+				      "Focus Maximum Speed (default 7)", 0, 7,
+				      1);
 	return ptz_props;
 }
 
@@ -816,20 +861,22 @@ void PTZVisca::send_pending()
 	if (pending_cmds.isEmpty()) {
 		if (status & STATUS_PANTILT_SPEED_CHANGED) {
 			status &= ~STATUS_PANTILT_SPEED_CHANGED;
-			int p = scale_speed(pan_speed, 0x18);
-			int t = scale_speed(tilt_speed, 0x14);
+			int p = scale_speed(pan_speed, visca_pan_speed_max);
+			int t = scale_speed(tilt_speed, visca_tilt_speed_max);
 			PTZCmd cmd = VISCA_PanTilt_drive;
 			cmd.encode({p, t});
 			pending_cmds += cmd;
 		} else if (status & STATUS_ZOOM_SPEED_CHANGED) {
 			status &= ~STATUS_ZOOM_SPEED_CHANGED;
 			PTZCmd cmd = VISCA_CAM_Zoom_drive;
-			cmd.encode({scale_speed(zoom_speed, 0x8)});
+			cmd.encode({scale_speed(zoom_speed,
+						visca_zoom_speed_max + 1)});
 			pending_cmds += cmd;
 		} else if (status & STATUS_FOCUS_SPEED_CHANGED) {
 			status &= ~STATUS_FOCUS_SPEED_CHANGED;
 			PTZCmd cmd = VISCA_CAM_Focus_drive;
-			cmd.encode({scale_speed(focus_speed, 0x8)});
+			cmd.encode({scale_speed(focus_speed,
+						visca_focus_speed_max + 1)});
 			pending_cmds += cmd;
 		} else if (status & STATUS_CONNECTED) {
 			ptz_debug(
