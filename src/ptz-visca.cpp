@@ -21,7 +21,7 @@ public:
 /*
  * VISCA Signed 4-bit integer
  * The VISCA signed 4-bit encoding separates the direction and speed into
- * separate values. The speed value is encoded in the range 0x0-0xf, where '0'
+ * separate values. The speed value is encoded in the range 0x0-0x7, where '0'
  * means the slowest speed. It does not mean stop. Direction is encoded in the
  * same byte as '0x30' for negative movement, '0x20' for positive movement, and
  * '0x00' for stop. This helper encodes the speed value with 'abs(val)-1' so
@@ -34,7 +34,7 @@ public:
 	{
 		if (msg.size() < offset)
 			return;
-		msg[offset] = val ? std::clamp(abs(val) - 1, 0, 0xf) |
+		msg[offset] = val ? std::clamp(abs(val) - 1, 0, 0x7) |
 					      (val > 0 ? 0x20 : 0x30)
 				  : 0;
 	}
@@ -42,7 +42,7 @@ public:
 	{
 		if (msg.size() < offset)
 			return false;
-		int val = (msg[offset] & 0x0f) + 1;
+		int val = (msg[offset] & 0x07) + 1;
 		switch (msg[offset] & 0xf0) {
 		case 0x30:
 			obs_data_set_int(data, name, -val);
@@ -812,7 +812,7 @@ void PTZVisca::send_pending()
 			pending_cmds += cmd;
 		} else if (status & STATUS_ZOOM_SPEED_CHANGED) {
 			status &= ~STATUS_ZOOM_SPEED_CHANGED;
-			int speed = qBound(-1.0, zoom_speed, 1.0) * 0xf +
+			int speed = qBound(-1.0, zoom_speed, 1.0) * 0x7 +
 				    (zoom_speed < 0.0 ? -1 : zoom_speed > 0.0);
 			PTZCmd cmd = VISCA_CAM_Zoom_drive;
 			cmd.encode({speed});
@@ -823,7 +823,7 @@ void PTZVisca::send_pending()
 			// adjusted using the speed slide, but in practical
 			// terms this makes the focus change far too quickly.
 			// Just use the slowest speed instead.
-			//int speed = -(qBound(-1.0, focus_speed, 1.0) * 0xf +
+			//int speed = -(qBound(-1.0, focus_speed, 1.0) * 0x7 +
 			//	    (focus_speed < 0.0 ? -1 : focus_speed > 0.0);
 			int speed = -((focus_speed < 0.0)
 					      ? -1
