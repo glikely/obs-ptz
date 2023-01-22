@@ -79,6 +79,26 @@ class ViscaDevice(asyncio.Protocol):
         self.print_state('<--', reply.hex())
 
     # VISCA protocol encode/decode helpers
+    def decode_s4(self, val):
+        '''VISCA 4 bit signed value [SM | 0S]
+        M: magnitude, 3 bit, range 0x0-0x7
+        S: sign, 2 bits, 2 = negative, 3 = positive, 0 = stop
+        if M is omitied, then by default use the fastest magnitude
+        Returned magnitude is incremended by 1 so it can be differentiated from 0
+        '''
+        if val == 0:
+            return 0
+        m = (val & 0x7) + 1
+        s = val & 0x30
+        if not s:
+            s = val & 0x3 << 4
+            m = 0x8
+        if s == 0x20:
+            return m
+        if s == 0x30:
+            return -m
+        raise ValueError
+
     def decode_s9(self, field):
         '''VISCA 9 bit signed value [MM ** 0D]
         MM: magnitude, 8 bit
@@ -162,64 +182,38 @@ class ViscaDevice(asyncio.Protocol):
 
     def cmd010407(self, dg):
         '''CAM_Zoom-Move'''
-        try:
-            val = dg[4]
-            assert val & 0xc8 == 0
-            if val & 0x30 == 0:
-                val = val << 4 | 0x7 # With 'standard' version use fastest speed
-            if (val & 0x30) == 0:
-                self.zoomspeed = 0
-            elif (val & 0x30) == 0x20:
-                self.zoomspeed = val & 0x7
-            elif (val & 0x30) == 0x30:
-                self.zoomspeed = -(val & 0x7)
-            else:
-                raise ValueError
-        except:
-            print("decode error")
-            self.cmd_error()
-            return
+        self.zoomspeed = self.decode_s4(dg[4])
+        self.cmd_ack()
+
+    def cmd010408(self, dg):
+        '''CAM_Focus-Move'''
+        self.focusspeed = -self.decode_s4(dg[4])
         self.cmd_ack()
 
     def cmd010601(self, dg):
         '''Pan-tiltDrive-Move'''
-        try:
-            self.panspeed = self.decode_s9(dg[4:7])
-            self.tiltspeed = self.decode_s9(dg[5:8])
-        except:
-            print("decode error")
-            self.cmd_error()
-            return
+        self.panspeed = self.decode_s9(dg[4:7])
+        self.tiltspeed = self.decode_s9(dg[5:8])
         self.cmd_ack()
 
     def cmd010602(self, dg):
         '''Pan-tiltDrive-AbsolutePosition'''
-        try:
-            panspeed = dg[4] & 0x7f
-            tiltspeed = dg[5] & 0x7f
-            self.panpos = clamp(self.decode_s16(dg[6:10]),
-                                self.panpos_min, self.panpos_max)
-            self.tiltpos = clamp(self.decode_s16(dg[10:14]),
-                                 self.tiltpos_min, self.tiltpos_max)
-        except:
-            print("decode error")
-            self.cmd_error()
-            return
+        panspeed = dg[4] & 0x7f
+        tiltspeed = dg[5] & 0x7f
+        self.panpos = clamp(self.decode_s16(dg[6:10]),
+                            self.panpos_min, self.panpos_max)
+        self.tiltpos = clamp(self.decode_s16(dg[10:14]),
+                             self.tiltpos_min, self.tiltpos_max)
         self.cmd_ack()
 
     def cmd010603(self, dg):
         '''Pan-tiltDrive-AbsolutePosition'''
-        try:
-            panspeed = dg[4] & 0x7f
-            tiltspeed = dg[5] & 0x7f
-            self.panpos = clamp(self.panpos + self.decode_s16(dg[6:10]),
-                                self.panpos_min, self.panpos_max)
-            self.tiltpos = clamp(self.tiltpos + self.decode_s16(dg[10:14]),
-                                 self.tiltpos_min, self.tiltpos_max)
-        except:
-            print("decode error")
-            self.cmd_error()
-            return
+        panspeed = dg[4] & 0x7f
+        tiltspeed = dg[5] & 0x7f
+        self.panpos = clamp(self.panpos + self.decode_s16(dg[6:10]),
+                            self.panpos_min, self.panpos_max)
+        self.tiltpos = clamp(self.tiltpos + self.decode_s16(dg[10:14]),
+                             self.tiltpos_min, self.tiltpos_max)
         self.cmd_ack()
 
     def cmd010604(self, dg):
@@ -310,7 +304,12 @@ class ViscaDevice(asyncio.Protocol):
         for count in range(5, 0, -1):
             name = "cmd" + dg[1:count].hex()
             if hasattr(self, name):
-                getattr(self, name)(dg)
+                try:
+                    getattr(self, name)(dg)
+                except:
+                    print("decode error")
+                    self.cmd_error()
+                    return
                 break
 
     def data_received(self, data):
