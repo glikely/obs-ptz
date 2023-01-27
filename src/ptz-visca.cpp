@@ -805,14 +805,14 @@ void PTZVisca::send_pending()
 	if (pending_cmds.isEmpty()) {
 		if (status & STATUS_PANTILT_SPEED_CHANGED) {
 			status &= ~STATUS_PANTILT_SPEED_CHANGED;
-			int pan = qBound(-1.0, pan_speed, 1.0) * 0x18;
-			int tilt = -qBound(-1.0, tilt_speed, 1.0) * 0x14;
+			int pan = std::clamp(pan_speed, -1.0, 1.0) * 0x18;
+			int tilt = -std::clamp(tilt_speed, -1.0, 1.0) * 0x14;
 			PTZCmd cmd = VISCA_PanTilt_drive;
 			cmd.encode({pan, tilt});
 			pending_cmds += cmd;
 		} else if (status & STATUS_ZOOM_SPEED_CHANGED) {
 			status &= ~STATUS_ZOOM_SPEED_CHANGED;
-			int speed = qBound(-1.0, zoom_speed, 1.0) * 0x7 +
+			int speed = std::clamp(zoom_speed, -1.0, 1.0) * 0x7 +
 				    (zoom_speed < 0.0 ? -1 : zoom_speed > 0.0);
 			PTZCmd cmd = VISCA_CAM_Zoom_drive;
 			cmd.encode({speed});
@@ -823,7 +823,7 @@ void PTZVisca::send_pending()
 			// adjusted using the speed slide, but in practical
 			// terms this makes the focus change far too quickly.
 			// Just use the slowest speed instead.
-			//int speed = -(qBound(-1.0, focus_speed, 1.0) * 0x7 +
+			//int speed = -(std::clamp(focus_speed, -1.0, 1.0) * 0x7 +
 			//	    (focus_speed < 0.0 ? -1 : focus_speed > 0.0);
 			int speed = -((focus_speed < 0.0)
 					      ? -1
@@ -864,15 +864,15 @@ void PTZVisca::do_update(void)
 
 void PTZVisca::pantilt_rel(double pan_, double tilt_)
 {
-	int pan = qBound(-1.0, pan_, 1.0) * 0x1400 * 2;
-	int tilt = qBound(-1.0, tilt_, 1.0) * 0x500 * 2;
+	int pan = std::clamp(pan_, -1.0, 1.0) * 0x1400 * 2;
+	int tilt = std::clamp(tilt_, -1.0, 1.0) * 0x500 * 2;
 	send(VISCA_PanTilt_drive_rel, {0x14, 0x14, pan, tilt});
 }
 
 void PTZVisca::pantilt_abs(double pan_, double tilt_)
 {
-	int pan = qBound(-1.0, pan_, 1.0) * 0x1400;
-	int tilt = qBound(-1.0, tilt_, 1.0) * 0x500;
+	int pan = std::clamp(pan_, -1.0, 1.0) * 0x1400;
+	int tilt = std::clamp(tilt_, -1.0, 1.0) * 0x500;
 	send(VISCA_PanTilt_drive_abs, {0x0f, 0x0f, pan, tilt});
 }
 
@@ -883,7 +883,7 @@ void PTZVisca::pantilt_home()
 
 void PTZVisca::zoom_abs(double pos_)
 {
-	int pos = qBound(0.0, pos_, 1.0) * 0x7ac0;
+	int pos = std::clamp(pos_, 0.0, 1.0) * 0x7ac0;
 	send(VISCA_CAM_Zoom_Direct, {pos});
 }
 

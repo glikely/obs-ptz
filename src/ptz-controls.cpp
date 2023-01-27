@@ -416,14 +416,14 @@ void PTZControls::accelTimerHandler()
 		return;
 	}
 
-	pan_speed = qBound(-1.0, pan_speed + pan_accel, 1.0);
+	pan_speed = std::clamp(pan_speed + pan_accel, -1.0, 1.0);
 	if (std::abs(pan_speed) == 1.0)
 		pan_accel = 0.0;
-	tilt_speed = qBound(-1.0, tilt_speed + tilt_accel, 1.0);
+	tilt_speed = std::clamp(tilt_speed + tilt_accel, -1.0, 1.0);
 	if (std::abs(tilt_speed) == 1.0)
 		tilt_accel = 0.0;
 	ptz->pantilt(pan_speed, tilt_speed);
-	zoom_speed = qBound(-1.0, zoom_speed + zoom_accel, 1.0);
+	zoom_speed = std::clamp(zoom_speed + zoom_accel, -1.0, 1.0);
 	if (std::abs(zoom_speed) == 1.0)
 		zoom_accel = 0.0;
 	ptz->zoom(zoom_speed);
