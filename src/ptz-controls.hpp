@@ -33,6 +33,8 @@ private:
 	double tilt_accel = 0.0;
 	double zoom_speed = 0.0;
 	double zoom_accel = 0.0;
+	double focus_speed = 0.0;
+	double focus_accel = 0.0;
 	QTimer accel_timer;
 
 	bool pantiltingFlag = false;

@@ -427,7 +427,12 @@ void PTZControls::accelTimerHandler()
 	if (std::abs(zoom_speed) == 1.0)
 		zoom_accel = 0.0;
 	ptz->zoom(zoom_speed);
-	if (pan_accel == 0.0 && tilt_accel == 0.0 && zoom_accel == 0.0)
+	focus_speed = std::clamp(focus_speed + focus_accel, -1.0, 1.0);
+	if (std::abs(focus_speed) == 1.0)
+		focus_accel = 0.0;
+	ptz->focus(focus_speed);
+	if (pan_accel == 0.0 && tilt_accel == 0.0 && zoom_accel == 0.0 &&
+	    focus_accel == 0.0)
 		accel_timer.stop();
 }
 
@@ -485,8 +490,18 @@ void PTZControls::setFocus(double focus)
 	if (!ptz)
 		return;
 
-	ptz->focus(focus);
 	focusingFlag = (focus != 0.0);
+	if (QGuiApplication::keyboardModifiers().testFlag(
+		    Qt::ControlModifier)) {
+		ptz->focus(focus);
+	} else if (QGuiApplication::keyboardModifiers().testFlag(
+			   Qt::ShiftModifier)) {
+		ptz->focus(focus / 20);
+	} else {
+		focus_speed = focus_accel = focus / 20;
+		ptz->focus(focus_speed);
+		accel_timer.start(2000 / 20);
+	}
 }
 
 /* The pan/tilt buttons are a large block of simple and mostly identical code.
@@ -658,6 +673,7 @@ void PTZControls::currentChanged(QModelIndex current, QModelIndex previous)
 	pan_speed = pan_accel = 0.0;
 	tilt_speed = tilt_accel = 0.0;
 	zoom_speed = zoom_accel = 0.0;
+	focus_speed = focus_accel = 0.0;
 
 	ptz = ptzDeviceList.getDevice(current);
 	if (ptz) {
