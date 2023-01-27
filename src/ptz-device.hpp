@@ -84,9 +84,13 @@ protected:
 	std::string type;
 	uint32_t status = 0;
 	double pan_speed = 0;
+	double pan_speed_max = 1.0;
 	double tilt_speed = 0;
+	double tilt_speed_max = 1.0;
 	double zoom_speed = 0;
+	double zoom_speed_max = 1.0;
 	double focus_speed = 0;
+	double focus_speed_max = 1.0;
 
 	QStringListModel preset_names_model;
 	obs_properties_t *props;
@@ -140,6 +144,8 @@ public:
 	 */
 	void pantilt(double pan, double tilt)
 	{
+		pan = std::clamp(pan, -pan_speed_max, pan_speed_max);
+		tilt = std::clamp(tilt, -tilt_speed_max, tilt_speed_max);
 		if ((pan_speed == pan) && (tilt_speed == tilt))
 			return;
 		pan_speed = pan;
@@ -160,6 +166,7 @@ public:
 	virtual void pantilt_home() {}
 	void zoom(double speed)
 	{
+		speed = std::clamp(speed, -zoom_speed_max, zoom_speed_max);
 		if (zoom_speed == speed)
 			return;
 		zoom_speed = speed;
@@ -170,6 +177,7 @@ public:
 	virtual void set_autofocus(bool enabled) { Q_UNUSED(enabled); };
 	void focus(double speed)
 	{
+		speed = std::clamp(speed, -focus_speed_max, focus_speed_max);
 		if (focus_speed == speed)
 			return;
 		focus_speed = speed;

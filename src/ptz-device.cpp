@@ -283,6 +283,14 @@ void PTZDevice::set_config(OBSData config)
 		}
 		preset_names_model.setStringList(preset_names);
 	}
+	obs_data_set_default_double(config, "pan_speed_max", 1.0);
+	obs_data_set_default_double(config, "tilt_speed_max", 1.0);
+	obs_data_set_default_double(config, "zoom_speed_max", 1.0);
+	obs_data_set_default_double(config, "focus_speed_max", 1.0);
+	pan_speed_max = obs_data_get_double(config, "pan_speed_max");
+	tilt_speed_max = obs_data_get_double(config, "tilt_speed_max");
+	zoom_speed_max = obs_data_get_double(config, "zoom_speed_max");
+	focus_speed_max = obs_data_get_double(config, "focus_speed_max");
 }
 
 OBSData PTZDevice::get_config()
@@ -293,6 +301,10 @@ OBSData PTZDevice::get_config()
 	obs_data_set_string(config, "name", QT_TO_UTF8(objectName()));
 	obs_data_set_int(config, "id", id);
 	obs_data_set_string(config, "type", type.c_str());
+	obs_data_set_double(config, "pan_speed_max", pan_speed_max);
+	obs_data_set_double(config, "tilt_speed_max", tilt_speed_max);
+	obs_data_set_double(config, "zoom_speed_max", zoom_speed_max);
+	obs_data_set_double(config, "focus_speed_max", focus_speed_max);
 	QStringList list = preset_names_model.stringList();
 	OBSDataArray preset_array = obs_data_array_create();
 	obs_data_array_release(preset_array);
@@ -310,6 +322,15 @@ OBSData PTZDevice::get_config()
 void PTZDevice::set_settings(OBSData config)
 {
 	setObjectName(obs_data_get_string(config, "name"));
+	if (obs_data_has_user_value(config, "pan_speed_max"))
+		pan_speed_max = obs_data_get_double(config, "pan_speed_max");
+	if (obs_data_has_user_value(config, "tilt_speed_max"))
+		tilt_speed_max = obs_data_get_double(config, "tilt_speed_max");
+	if (obs_data_has_user_value(config, "zoom_speed_max"))
+		zoom_speed_max = obs_data_get_double(config, "zoom_speed_max");
+	if (obs_data_has_user_value(config, "focus_speed_max"))
+		focus_speed_max =
+			obs_data_get_double(config, "focus_speed_max");
 }
 
 OBSData PTZDevice::get_settings()
@@ -351,6 +372,23 @@ obs_properties_t *PTZDevice::get_obs_properties()
 	obs_properties_t *config = obs_properties_create();
 	obs_properties_add_group(rtn_props, "interface", "Connection",
 				 OBS_GROUP_NORMAL, config);
+
+	/* Generic camera limits and speeds properties */
+	auto speed = obs_properties_create();
+	obs_properties_add_group(rtn_props, "speed", "Speed", OBS_GROUP_NORMAL,
+				 speed);
+	obs_properties_add_float_slider(speed, "pan_speed_max",
+					"Pan Maximum Speed", 0.1, 1.0,
+					1.0 / 1024);
+	obs_properties_add_float_slider(speed, "tilt_speed_max",
+					"Tilt Maximum Speed", 0.1, 1.0,
+					1.0 / 1024);
+	obs_properties_add_float_slider(speed, "zoom_speed_max",
+					"Zoom Maximum Speed", 0.1, 1.0,
+					1.0 / 1024);
+	obs_properties_add_float_slider(speed, "focus_speed_max",
+					"Focus Maximum Speed", 0.1, 1.0,
+					1.0 / 1024);
 
 	return rtn_props;
 }
