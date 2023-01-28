@@ -103,7 +103,7 @@ void PTZViscaOverTCP::poll()
 
 void PTZViscaOverTCP::set_config(OBSData config)
 {
-	PTZDevice::set_config(config);
+	PTZVisca::set_config(config);
 	host = obs_data_get_string(config, "host");
 	port = (int)obs_data_get_int(config, "port");
 	if (!port)
@@ -113,7 +113,7 @@ void PTZViscaOverTCP::set_config(OBSData config)
 
 OBSData PTZViscaOverTCP::get_config()
 {
-	OBSData config = PTZDevice::get_config();
+	OBSData config = PTZVisca::get_config();
 	obs_data_set_string(config, "host", QT_TO_UTF8(host));
 	obs_data_set_int(config, "port", port);
 	return config;

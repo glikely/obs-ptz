@@ -54,8 +54,8 @@ public:
 	PTZVisca(OBSData config);
 	obs_properties_t *get_obs_properties();
 
-	virtual void set_config(OBSData ptz_data) = 0;
-	virtual OBSData get_config() = 0;
+	void set_config(OBSData ptz_data);
+	OBSData get_config();
 	void set_settings(OBSData setting);
 
 	void cmd_get_camera_info();

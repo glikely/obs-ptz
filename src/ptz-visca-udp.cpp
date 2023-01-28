@@ -128,7 +128,7 @@ void PTZViscaOverIP::send_immediate(const QByteArray &msg)
 
 void PTZViscaOverIP::set_config(OBSData config)
 {
-	PTZDevice::set_config(config);
+	PTZVisca::set_config(config);
 	const char *ip = obs_data_get_string(config, "address");
 	if (ip)
 		ip_address = QHostAddress(ip);
@@ -140,7 +140,7 @@ void PTZViscaOverIP::set_config(OBSData config)
 
 OBSData PTZViscaOverIP::get_config()
 {
-	OBSData config = PTZDevice::get_config();
+	OBSData config = PTZVisca::get_config();
 	obs_data_set_string(config, "address",
 			    qPrintable(ip_address.toString()));
 	obs_data_set_int(config, "port", iface->port());

@@ -130,7 +130,7 @@ void PTZViscaSerial::send_immediate(const QByteArray &msg_)
 
 void PTZViscaSerial::set_config(OBSData config)
 {
-	PTZDevice::set_config(config);
+	PTZVisca::set_config(config);
 	const char *uart = obs_data_get_string(config, "port");
 	address = std::clamp((int)obs_data_get_int(config, "address"), 1, 7);
 	if (!uart)
@@ -143,7 +143,7 @@ void PTZViscaSerial::set_config(OBSData config)
 
 OBSData PTZViscaSerial::get_config()
 {
-	OBSData config = PTZDevice::get_config();
+	OBSData config = PTZVisca::get_config();
 	obs_data_apply(config, iface->getConfig());
 	obs_data_set_int(config, "address", address);
 	return config;

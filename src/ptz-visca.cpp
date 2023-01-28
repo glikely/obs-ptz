@@ -660,6 +660,17 @@ void PTZVisca::set_settings(OBSData new_settings)
 	}
 }
 
+void PTZVisca::set_config(OBSData config)
+{
+	PTZDevice::set_config(config);
+}
+
+OBSData PTZVisca::get_config()
+{
+	OBSData config = PTZDevice::get_config();
+	return config;
+}
+
 obs_properties_t *PTZVisca::get_obs_properties()
 {
 	auto *ptz_props = PTZDevice::get_obs_properties();
