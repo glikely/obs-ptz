@@ -84,9 +84,8 @@ protected:
 	std::string type;
 	uint32_t status = 0;
 	double pan_speed = 0;
-	double pan_speed_max = 1.0;
 	double tilt_speed = 0;
-	double tilt_speed_max = 1.0;
+	double pantilt_speed_max = 1.0;
 	double zoom_speed = 0;
 	double zoom_speed_max = 1.0;
 	double focus_speed = 0;
@@ -144,8 +143,8 @@ public:
 	 */
 	void pantilt(double pan, double tilt)
 	{
-		pan = std::clamp(pan, -pan_speed_max, pan_speed_max);
-		tilt = std::clamp(tilt, -tilt_speed_max, tilt_speed_max);
+		pan = std::clamp(pan, -pantilt_speed_max, pantilt_speed_max);
+		tilt = std::clamp(tilt, -pantilt_speed_max, pantilt_speed_max);
 		if ((pan_speed == pan) && (tilt_speed == tilt))
 			return;
 		pan_speed = pan;
