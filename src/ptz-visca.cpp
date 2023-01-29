@@ -489,11 +489,11 @@ const PTZInq VISCA_CAM_PictureEffectInq("81090463ff",
 					{new visca_u4("picture_effect", 2)});
 
 const PTZCmd VISCA_CAM_Memory_Reset("8101043f0000ff",
-				    {new visca_u4("preset_num", 5)});
+				    {new visca_u7("preset_num", 5)});
 const PTZCmd VISCA_CAM_Memory_Set("8101043f0100ff",
-				  {new visca_u4("preset_num", 5)});
+				  {new visca_u7("preset_num", 5)});
 const PTZCmd VISCA_CAM_Memory_Recall("8101043f0200ff",
-				     {new visca_u4("preset_num", 5)});
+				     {new visca_u7("preset_num", 5)});
 
 const PTZCmd VISCA_CAM_IDWrite("8101042200000000ff",
 			       {

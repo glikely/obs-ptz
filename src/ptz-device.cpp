@@ -232,7 +232,7 @@ PTZDevice::PTZDevice(OBSData config) : QObject()
 	obs_data_release(settings);
 	stale_settings = {"pan_pos", "tilt_pos", "zoom_pos", "focus_pos"};
 	ptzDeviceList.add(this);
-	preset_names_model.setStringList(default_preset_names);
+	sanitize_presets();
 };
 
 PTZDevice::~PTZDevice()
@@ -266,10 +266,13 @@ QString PTZDevice::description()
 void PTZDevice::set_config(OBSData config)
 {
 	/* Update the list of preset names */
+	obs_data_set_default_double(config, "preset_max", 16);
+	preset_max = std::clamp((int)obs_data_get_int(config, "preset_max"), 1,
+				0x80);
 	OBSDataArray preset_array = obs_data_get_array(config, "presets");
 	obs_data_array_release(preset_array);
 	if (preset_array) {
-		QStringList preset_names = default_preset_names;
+		QStringList preset_names;
 		for (size_t i = 0; i < obs_data_array_count(preset_array);
 		     i++) {
 			OBSData preset = obs_data_array_item(preset_array, i);
@@ -277,11 +280,15 @@ void PTZDevice::set_config(OBSData config)
 			int preset_id = (int)obs_data_get_int(preset, "id");
 			const char *preset_name =
 				obs_data_get_string(preset, "name");
-			if ((preset_id >= 0) &&
-			    (preset_id < preset_names.size()) && preset_name)
+			if ((preset_id >= 0) && (preset_id < 0x80) &&
+			    preset_name) {
+				while (preset_names.count() <= preset_id)
+					preset_names << "";
 				preset_names[preset_id] = preset_name;
+			}
 		}
 		preset_names_model.setStringList(preset_names);
+		sanitize_presets();
 	}
 	obs_data_set_default_double(config, "pantilt_speed_max", 1.0);
 	obs_data_set_default_double(config, "zoom_speed_max", 1.0);
@@ -302,7 +309,8 @@ OBSData PTZDevice::get_config()
 	obs_data_set_double(config, "pantilt_speed_max", pantilt_speed_max);
 	obs_data_set_double(config, "zoom_speed_max", zoom_speed_max);
 	obs_data_set_double(config, "focus_speed_max", focus_speed_max);
-	QStringList list = preset_names_model.stringList();
+	obs_data_set_int(config, "preset_max", preset_max);
+	auto list = preset_names_model.stringList();
 	OBSDataArray preset_array = obs_data_array_create();
 	obs_data_array_release(preset_array);
 	for (int i = 0; i < list.size(); i++) {
@@ -316,6 +324,23 @@ OBSData PTZDevice::get_config()
 	return config;
 }
 
+void PTZDevice::sanitize_presets()
+{
+	preset_max = std::clamp(preset_max, 1, 0x80);
+	auto presets = preset_names_model.stringList();
+	while (presets.size() < preset_max)
+		presets << "";
+	for (auto i = 0; i < presets.size(); i++)
+		if (presets[i] == QString(""))
+			presets[i] = QString("Preset %1").arg(i + 1);
+	while (presets.size() > preset_max) {
+		if (presets.last() != QString("Preset %1").arg(presets.size()))
+			break; // Don't delete preset if name has been modified
+		presets.removeLast();
+	}
+	preset_names_model.setStringList(presets);
+}
+
 void PTZDevice::set_settings(OBSData config)
 {
 	setObjectName(obs_data_get_string(config, "name"));
@@ -327,6 +352,10 @@ void PTZDevice::set_settings(OBSData config)
 	if (obs_data_has_user_value(config, "focus_speed_max"))
 		focus_speed_max =
 			obs_data_get_double(config, "focus_speed_max");
+	if (obs_data_has_user_value(config, "preset_max")) {
+		preset_max = (int)obs_data_get_int(config, "preset_max");
+		sanitize_presets();
+	}
 }
 
 OBSData PTZDevice::get_settings()
@@ -371,8 +400,10 @@ obs_properties_t *PTZDevice::get_obs_properties()
 
 	/* Generic camera limits and speeds properties */
 	auto speed = obs_properties_create();
-	obs_properties_add_group(rtn_props, "speed", "Speed", OBS_GROUP_NORMAL,
-				 speed);
+	obs_properties_add_group(rtn_props, "general", "Camera Settings",
+				 OBS_GROUP_NORMAL, speed);
+	obs_properties_add_int_slider(speed, "preset_max", "Number of presets",
+				      1, 0x80, 1);
 	obs_properties_add_float_slider(speed, "pantilt_speed_max",
 					"Pan/Tilt Maximum Speed", 0.1, 1.0,
 					1.0 / 1024);

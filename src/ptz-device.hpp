@@ -62,11 +62,6 @@ public slots:
 
 extern PTZListModel ptzDeviceList;
 
-const QStringList default_preset_names(
-	{"Preset 1", "Preset 2", "Preset 3", "Preset 4", "Preset 5", "Preset 6",
-	 "Preset 7", "Preset 8", "Preset 9", "Preset 10", "Preset 11",
-	 "Preset 12", "Preset 13", "Preset 14", "Preset 15", "Preset 16"});
-
 class PTZDevice : public QObject {
 	Q_OBJECT
 	friend class PTZListModel;
@@ -83,6 +78,7 @@ protected:
 	uint32_t id = 0;
 	std::string type;
 	uint32_t status = 0;
+	int preset_max = 16;
 	double pan_speed = 0;
 	double tilt_speed = 0;
 	double pantilt_speed_max = 1.0;
@@ -192,6 +188,7 @@ public:
 	{
 		return &preset_names_model;
 	}
+	void sanitize_presets();
 
 	/* `config` is the device configuration, saved to the config file
 	 * `settings` are the dynamic state of the device which includes the
