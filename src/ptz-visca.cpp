@@ -111,14 +111,14 @@ public:
 	{
 		if (msg.size() < offset + 3)
 			return;
-		msg[offset] = val ? std::clamp(abs(val), 1, 0x7f) : 0;
+		msg[offset] = std::clamp(abs(val), 0, 0x7f);
 		msg[offset + 2] = val ? (val < 0 ? 1 : 2) : 3;
 	}
 	bool decode(OBSData data, QByteArray &msg)
 	{
 		if (msg.size() < offset + 3)
 			return false;
-		int val = (msg[offset] & 0x7f) + 1;
+		int val = (msg[offset] & 0x7f);
 		switch (msg[offset + 2]) {
 		case 0x01:
 			obs_data_set_int(data, name, -val);

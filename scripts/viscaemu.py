@@ -108,7 +108,7 @@ class ViscaDevice(asyncio.Protocol):
             raise ValueError
         s = field[2]
         # In the sign field, bit 1 is +ve, bit 2 is -ve, both set == 0
-        return (field[0] + 1) * ((s & 0x1) - ((s >> 1 & 0x1)))
+        return field[0] * ((s & 0x1) - ((s >> 1 & 0x1)))
 
     def decode_s16(self, field):
         '''VISCA 16 bit signed value [0Y 0Y 0Y 0Y]
