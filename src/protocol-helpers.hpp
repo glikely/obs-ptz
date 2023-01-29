@@ -194,3 +194,18 @@ public:
 	{
 	}
 };
+
+/**
+ * scale_speed() - Helper to translate normalized speed to VISCA int
+ * speed: normalized speed in range [-1.0, 1.0]
+ * max: Maximum integer value accepted by camera
+ *
+ * returns an integer value scaled to the range [-max, max]
+ */
+static int scale_speed(double speed, int max)
+{
+	if (speed == 0.0)
+		return 0;
+	return int(std::copysign(
+		std::clamp(abs(speed) * max + 0.5, 1.0, double(max)), speed));
+}

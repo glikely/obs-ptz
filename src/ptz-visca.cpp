@@ -816,31 +816,20 @@ void PTZVisca::send_pending()
 	if (pending_cmds.isEmpty()) {
 		if (status & STATUS_PANTILT_SPEED_CHANGED) {
 			status &= ~STATUS_PANTILT_SPEED_CHANGED;
-			int pan = std::clamp(pan_speed, -1.0, 1.0) * 0x18;
-			int tilt = -std::clamp(tilt_speed, -1.0, 1.0) * 0x14;
+			int p = scale_speed(pan_speed, 0x18);
+			int t = scale_speed(tilt_speed, 0x14);
 			PTZCmd cmd = VISCA_PanTilt_drive;
-			cmd.encode({pan, tilt});
+			cmd.encode({p, t});
 			pending_cmds += cmd;
 		} else if (status & STATUS_ZOOM_SPEED_CHANGED) {
 			status &= ~STATUS_ZOOM_SPEED_CHANGED;
-			int speed = std::clamp(zoom_speed, -1.0, 1.0) * 0x7 +
-				    (zoom_speed < 0.0 ? -1 : zoom_speed > 0.0);
 			PTZCmd cmd = VISCA_CAM_Zoom_drive;
-			cmd.encode({speed});
+			cmd.encode({scale_speed(zoom_speed, 0x8)});
 			pending_cmds += cmd;
 		} else if (status & STATUS_FOCUS_SPEED_CHANGED) {
 			status &= ~STATUS_FOCUS_SPEED_CHANGED;
-			// The following two lines allows the focus speed to be
-			// adjusted using the speed slide, but in practical
-			// terms this makes the focus change far too quickly.
-			// Just use the slowest speed instead.
-			//int speed = -(std::clamp(focus_speed, -1.0, 1.0) * 0x7 +
-			//	    (focus_speed < 0.0 ? -1 : focus_speed > 0.0);
-			int speed = -((focus_speed < 0.0)
-					      ? -1
-					      : ((focus_speed > 0.0) ? 1 : 0));
 			PTZCmd cmd = VISCA_CAM_Focus_drive;
-			cmd.encode({speed});
+			cmd.encode({scale_speed(focus_speed, 0x8)});
 			pending_cmds += cmd;
 		} else if (status & STATUS_CONNECTED) {
 			ptz_debug(
