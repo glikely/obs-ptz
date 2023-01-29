@@ -45,6 +45,7 @@ target_sources(
           src/ptz-visca.cpp
           src/ptz-visca-udp.cpp
           src/ptz-visca-tcp.cpp
+          src/protocol-helpers.cpp
           src/ptz-action-source.c
           src/imported/qt-wrappers.cpp
           src/imported/obs-app.cpp
