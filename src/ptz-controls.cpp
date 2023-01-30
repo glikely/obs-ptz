@@ -176,6 +176,7 @@ PTZControls::PTZControls(QWidget *parent)
 		OBSDataArrayAutoRelease array =
 			obs_data_get_array(loadHotkeyData(name), "bindings");
 		obs_hotkey_load(id, array);
+		hotkeys << id;
 		return id;
 	};
 	auto cb = [](void *button_data, obs_hotkey_id, obs_hotkey_t *,
@@ -219,55 +220,47 @@ PTZControls::PTZControls(QWidget *parent)
 			ptzctrl->on_focusButton_auto_clicked(
 				!ptzctrl->ui->focusButton_auto->isChecked());
 	};
-	hotkeys << registerHotkey("PTZ.PanTiltUpLeft",
-				  "PTZ Pan camera up & left", cb,
-				  ui->panTiltButton_upleft);
-	hotkeys << registerHotkey("PTZ.PanTiltLeft", "PTZ Pan camera left", cb,
-				  ui->panTiltButton_left);
-	hotkeys << registerHotkey("PTZ.PanTiltDownLeft",
-				  "PTZ Pan camera down & left", cb,
-				  ui->panTiltButton_downleft);
-	hotkeys << registerHotkey("PTZ.PanTiltUpRight",
-				  "PTZ Pan camera up & right", cb,
-				  ui->panTiltButton_upright);
-	hotkeys << registerHotkey("PTZ.PanTiltRight", "PTZ Pan camera right",
-				  cb, ui->panTiltButton_right);
-	hotkeys << registerHotkey("PTZ.PanTiltDownRight",
-				  "PTZ Pan camera down & right", cb,
-				  ui->panTiltButton_downright);
-	hotkeys << registerHotkey("PTZ.PanTiltUp", "PTZ Tilt camera up", cb,
-				  ui->panTiltButton_up);
-	hotkeys << registerHotkey("PTZ.PanTiltDown", "PTZ Tilt camera down", cb,
-				  ui->panTiltButton_down);
-	hotkeys << registerHotkey("PTZ.ZoomWide", "PTZ Zoom camera out (wide)",
-				  cb, ui->zoomButton_wide);
-	hotkeys << registerHotkey("PTZ.ZoomTele",
-				  "PTZ Zoom camera in (telefocal)", cb,
-				  ui->zoomButton_tele);
-	hotkeys << registerHotkey("PTZ.FocusAutoFocus", "PTZ Toggle Autofocus",
-				  autofocustogglecb, this);
-	hotkeys << registerHotkey("PTZ.FocusNear", "PTZ Focus far", cb,
-				  ui->focusButton_far);
-	hotkeys << registerHotkey("PTZ.FocusFar", "PTZ Focus near", cb,
-				  ui->focusButton_near);
-	hotkeys << registerHotkey("PTZ.FocusOneTouch",
-				  "PTZ One touch focus trigger", cb,
-				  ui->focusButton_onetouch);
-	hotkeys << registerHotkey("PTZ.SelectPrev",
-				  "PTZ Select previous device in list", prevcb,
-				  ui->cameraList);
-	hotkeys << registerHotkey("PTZ.SelectNext",
-				  "PTZ Select next device in list", nextcb,
-				  ui->cameraList);
-	hotkeys << registerHotkey("PTZ.ActionDisableLiveMovesToggle",
-				  "PTZ Toggle Control Lock", actiontogglecb,
-				  ui->actionDisableLiveMoves);
-	hotkeys << registerHotkey("PTZ.ActionFollowPreviewToggle",
-				  "PTZ Autoselect Preview Camera",
-				  actiontogglecb, ui->actionFollowPreview);
-	hotkeys << registerHotkey("PTZ.ActionFollowProgramToggle",
-				  "PTZ Autoselect Live Camera", actiontogglecb,
-				  ui->actionFollowProgram);
+	registerHotkey("PTZ.PanTiltUpLeft", "PTZ Pan camera up & left", cb,
+		       ui->panTiltButton_upleft);
+	registerHotkey("PTZ.PanTiltLeft", "PTZ Pan camera left", cb,
+		       ui->panTiltButton_left);
+	registerHotkey("PTZ.PanTiltDownLeft", "PTZ Pan camera down & left", cb,
+		       ui->panTiltButton_downleft);
+	registerHotkey("PTZ.PanTiltUpRight", "PTZ Pan camera up & right", cb,
+		       ui->panTiltButton_upright);
+	registerHotkey("PTZ.PanTiltRight", "PTZ Pan camera right", cb,
+		       ui->panTiltButton_right);
+	registerHotkey("PTZ.PanTiltDownRight", "PTZ Pan camera down & right",
+		       cb, ui->panTiltButton_downright);
+	registerHotkey("PTZ.PanTiltUp", "PTZ Tilt camera up", cb,
+		       ui->panTiltButton_up);
+	registerHotkey("PTZ.PanTiltDown", "PTZ Tilt camera down", cb,
+		       ui->panTiltButton_down);
+	registerHotkey("PTZ.ZoomWide", "PTZ Zoom camera out (wide)", cb,
+		       ui->zoomButton_wide);
+	registerHotkey("PTZ.ZoomTele", "PTZ Zoom camera in (telefocal)", cb,
+		       ui->zoomButton_tele);
+	registerHotkey("PTZ.FocusAutoFocus", "PTZ Toggle Autofocus",
+		       autofocustogglecb, this);
+	registerHotkey("PTZ.FocusNear", "PTZ Focus far", cb,
+		       ui->focusButton_far);
+	registerHotkey("PTZ.FocusFar", "PTZ Focus near", cb,
+		       ui->focusButton_near);
+	registerHotkey("PTZ.FocusOneTouch", "PTZ One touch focus trigger", cb,
+		       ui->focusButton_onetouch);
+	registerHotkey("PTZ.SelectPrev", "PTZ Select previous device in list",
+		       prevcb, ui->cameraList);
+	registerHotkey("PTZ.SelectNext", "PTZ Select next device in list",
+		       nextcb, ui->cameraList);
+	registerHotkey("PTZ.ActionDisableLiveMovesToggle",
+		       "PTZ Toggle Control Lock", actiontogglecb,
+		       ui->actionDisableLiveMoves);
+	registerHotkey("PTZ.ActionFollowPreviewToggle",
+		       "PTZ Autoselect Preview Camera", actiontogglecb,
+		       ui->actionFollowPreview);
+	registerHotkey("PTZ.ActionFollowProgramToggle",
+		       "PTZ Autoselect Live Camera", actiontogglecb,
+		       ui->actionFollowProgram);
 
 	auto preset_recall_cb = [](void *ptz_data, obs_hotkey_id hotkey,
 				   obs_hotkey_t *, bool pressed) {
@@ -286,7 +279,6 @@ PTZControls::PTZControls(QWidget *parent)
 						      QT_TO_UTF8(description),
 						      preset_recall_cb, this);
 		preset_hotkey_map[hotkey] = i;
-		hotkeys << hotkey;
 	}
 }
 
