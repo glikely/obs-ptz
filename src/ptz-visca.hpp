@@ -18,8 +18,6 @@
 #define VISCA_PACKET_SENDER(pkt) ((unsigned)((pkt)[0] & 0x70) >> 4)
 
 extern const PTZCmd VISCA_ENUMERATE;
-extern const PTZCmd VISCA_IF_CLEAR;
-extern const PTZCmd VISCA_Clear;
 
 /*
  * VISCA Abstract base class, used for both Serial UART and UDP implementations
