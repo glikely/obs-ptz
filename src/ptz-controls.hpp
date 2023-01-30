@@ -50,6 +50,7 @@ private:
 	void setFocus(double speed);
 
 	void setCurrent(unsigned int index);
+	void presetSet(int id);
 	void presetRecall(int id);
 	void setAutofocusEnabled(bool autofocus_on);
 

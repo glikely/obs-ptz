@@ -265,19 +265,31 @@ PTZControls::PTZControls(QWidget *parent)
 	auto preset_recall_cb = [](void *ptz_data, obs_hotkey_id hotkey,
 				   obs_hotkey_t *, bool pressed) {
 		PTZControls *ptzctrl = static_cast<PTZControls *>(ptz_data);
-		blog(LOG_INFO, "Recalling %i",
-		     ptzctrl->preset_hotkey_map[hotkey]);
+		auto id = ptzctrl->preset_hotkey_map[hotkey];
 		if (pressed)
-			ptzctrl->presetRecall(
-				ptzctrl->preset_hotkey_map[hotkey]);
+			ptzctrl->presetRecall(id);
+	};
+
+	auto preset_set_cb = [](void *ptz_data, obs_hotkey_id hotkey,
+				obs_hotkey_t *, bool pressed) {
+		PTZControls *ptzctrl = static_cast<PTZControls *>(ptz_data);
+		auto id = ptzctrl->preset_hotkey_map[hotkey];
+		if (pressed)
+			ptzctrl->presetSet(id);
 	};
 
 	for (int i = 0; i < 16; i++) {
 		auto name = QString("PTZ.Recall%1").arg(i + 1);
 		auto description = QString("PTZ Memory Recall #%1").arg(i + 1);
-		obs_hotkey_id hotkey = registerHotkey(QT_TO_UTF8(name),
-						      QT_TO_UTF8(description),
-						      preset_recall_cb, this);
+		auto hotkey = registerHotkey(QT_TO_UTF8(name),
+					     QT_TO_UTF8(description),
+					     preset_recall_cb, this);
+		preset_hotkey_map[hotkey] = i;
+		name = QString("PTZ.Save%1").arg(i + 1);
+		description = QString("PTZ Memory Save #%1").arg(i + 1);
+		hotkey = registerHotkey(QT_TO_UTF8(name),
+					QT_TO_UTF8(description), preset_set_cb,
+					this);
 		preset_hotkey_map[hotkey] = i;
 	}
 }
@@ -686,6 +698,14 @@ void PTZControls::settingsChanged(OBSData settings)
 	if (obs_data_has_user_value(settings, "focus_af_enabled"))
 		setAutofocusEnabled(
 			obs_data_get_bool(settings, "focus_af_enabled"));
+}
+
+void PTZControls::presetSet(int preset_id)
+{
+	PTZDevice *ptz = currCamera();
+	if (!ptz)
+		return;
+	ptz->memory_set(preset_id);
 }
 
 void PTZControls::presetRecall(int preset_id)
