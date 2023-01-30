@@ -72,11 +72,17 @@ class ViscaDevice(asyncio.Protocol):
         peername = transport.get_extra_info('peername')
         print('connection from', peername)
         self.transport = transport
+        self.send_broadcast(b'\x38')
 
     def send_datagram(self, dg):
-        reply = b'\x90%b\xff' % dg
-        self.transport.write(reply)
-        self.print_state('<--', reply.hex())
+        self._send_datagram(b'\x90%b\xff' % dg)
+
+    def send_broadcast(self, dg):
+        self._send_datagram(b'\x88%b\xff' % dg)
+
+    def _send_datagram(self, dg):
+        self.transport.write(dg)
+        self.print_state('<--', dg.hex())
 
     # VISCA protocol encode/decode helpers
     def decode_s4(self, val):
@@ -296,6 +302,11 @@ class ViscaDevice(asyncio.Protocol):
         if len(dg) < 2: # Ignore messages that are too short
             return
         self.print_state("-->", dg.hex())
+        if dg[0] == 0x88: # Broadcast message
+            if (dg[1] == 0x30) and len(dg) == 3:
+                self.send_broadcast(b'\x30\x02')
+                return
+
         if dg[0] != 0x81: # Ignore messages not addressed properly
             print("malformed", dg.hex(), dg[0])
             return

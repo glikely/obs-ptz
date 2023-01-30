@@ -108,7 +108,6 @@ void PTZViscaOverIP::reset()
 {
 	sequence = 1;
 	iface->send(ip_address, QByteArray::fromHex("020000010000000001"));
-	send(VISCA_Clear);
 	cmd_get_camera_info();
 }
 

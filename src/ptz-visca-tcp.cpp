@@ -26,7 +26,6 @@ QString PTZViscaOverTCP::description()
 
 void PTZViscaOverTCP::reset()
 {
-	send(VISCA_Clear);
 	cmd_get_camera_info();
 }
 
@@ -71,15 +70,11 @@ void PTZViscaOverTCP::receive_datagram(const QByteArray &packet)
 			blog(LOG_INFO,
 			     "VISCA-over-TCP Interface %i camera%s found",
 			     camera_count, camera_count == 1 ? "" : "s");
-			send_immediate(VISCA_IF_CLEAR.cmd);
 			reset();
-			break;
-		case 1:
-			// Response from IF_CLEAR message; ignore
 			break;
 		case 8:
 			/* network change, trigger a change */
-			send_immediate(VISCA_ENUMERATE.cmd);
+			send_packet(VISCA_ENUMERATE.cmd);
 			break;
 		default:
 			break;

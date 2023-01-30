@@ -184,7 +184,6 @@ public:
 };
 
 const PTZCmd VISCA_ENUMERATE("883001ff");
-const PTZCmd VISCA_IF_CLEAR("88010001ff");
 
 const PTZInq VISCA_CAM_VersionInq(
 	"81090002ff",
@@ -251,7 +250,6 @@ const PTZInq
 	VISCA_EnlargementFunction3Inq("81097e7e05ff",
 				      {new int_field("color_hue", 2, 0b1111)});
 
-const PTZCmd VISCA_Clear("81010001ff");
 const PTZCmd VISCA_CommandCancel("8120ff", {new visca_u4("socket", 1)});
 const PTZCmd VISCA_CAM_Power("8101040000ff", {new visca_flag("power_on", 4)});
 const PTZInq VISCA_CAM_PowerInq("81090400ff", {new visca_flag("power_on", 2)});

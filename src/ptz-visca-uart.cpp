@@ -10,6 +10,8 @@
 
 std::map<QString, ViscaUART *> ViscaUART::interfaces;
 
+const PTZCmd VISCA_IF_CLEAR("88010010ff");
+
 ViscaUART::ViscaUART(QString &port_name) : PTZUARTWrapper(port_name)
 {
 	camera_count = 0;
