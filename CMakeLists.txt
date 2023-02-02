@@ -47,6 +47,7 @@ target_sources(
           src/ptz-visca-tcp.cpp
           src/protocol-helpers.cpp
           src/ptz-action-source.c
+          src/touch-control.cpp
           src/imported/qt-wrappers.cpp
           src/imported/obs-app.cpp
           src/imported/properties-view.cpp
@@ -63,6 +64,7 @@ target_sources(
           src/ptz-visca-udp.hpp
           src/ptz-visca-tcp.hpp
           src/protocol-helpers.hpp
+          src/touch-control.hpp
           src/imported/qt-wrappers.hpp
           src/imported/obs-app.hpp
           src/imported/properties-view.hpp

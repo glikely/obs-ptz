@@ -17,6 +17,7 @@
 #include <QResizeEvent>
 
 #include "imported/qt-wrappers.hpp"
+#include "touch-control.hpp"
 #include "ui_ptz-controls.h"
 #include "ptz-controls.hpp"
 #include "settings.hpp"
@@ -41,20 +42,23 @@ PTZControls *PTZControls::instance = NULL;
  * This filter will update the minimumHeight property to keep a button square
  * when possible. It will also resize the button icon to match the button size.
  */
-class buttonResizeFilter : public QObject {
+class squareResizeFilter : public QObject {
 public:
-	buttonResizeFilter(QObject *parent) : QObject(parent) {}
+	squareResizeFilter(QObject *parent) : QObject(parent) {}
 	bool eventFilter(QObject *watched, QEvent *event) override
 	{
-		if (event->type() != QEvent::Resize)
+		auto obj = qobject_cast<QWidget *>(watched);
+		if (!obj || event->type() != QEvent::Resize)
 			return false;
-		auto button = static_cast<QAbstractButton *>(watched);
 		auto resEvent = static_cast<QResizeEvent *>(event);
 
-		button->setMinimumHeight(resEvent->size().width());
+		obj->setMinimumHeight(resEvent->size().width());
 
-		int size = resEvent->size().width() * 2 / 3;
-		button->setIconSize(QSize(size, size));
+		auto button = qobject_cast<QAbstractButton *>(watched);
+		if (button) {
+			int size = resEvent->size().width() * 2 / 3;
+			button->setIconSize(QSize(size, size));
+		}
 		return true;
 	}
 };
@@ -130,9 +134,12 @@ PTZControls::PTZControls(QWidget *parent)
 	connect(&accel_timer, &QTimer::timeout, this,
 		&PTZControls::accelTimerHandler);
 
+	connect(ui->panTiltTouch, SIGNAL(positionChanged(double, double)), this,
+		SLOT(setPanTilt(double, double)));
+
 	LoadConfig();
 
-	auto filter = new buttonResizeFilter(this);
+	auto filter = new squareResizeFilter(this);
 	ui->panTiltButton_upleft->installEventFilter(filter);
 	ui->panTiltButton_up->installEventFilter(filter);
 	ui->panTiltButton_upright->installEventFilter(filter);
@@ -148,6 +155,7 @@ PTZControls::PTZControls(QWidget *parent)
 	ui->focusButton_near->installEventFilter(filter);
 	ui->focusButton_far->installEventFilter(filter);
 	ui->focusButton_onetouch->installEventFilter(filter);
+	ui->panTiltTouch->installEventFilter(filter);
 
 	obs_frontend_add_event_callback(OBSFrontendEventWrapper, this);
 
@@ -796,6 +804,11 @@ void PTZControls::on_actionPTZProperties_triggered()
 {
 	ptz_settings_show(
 		ptzDeviceList.getDeviceId(ui->cameraList->currentIndex()));
+}
+
+void PTZControls::on_actionTouchControl_toggled(bool checked)
+{
+	ui->pantiltStack->setCurrentIndex(checked);
 }
 
 void PTZControls::on_actionDisableLiveMoves_toggled(bool checked)

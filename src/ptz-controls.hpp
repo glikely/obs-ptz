@@ -10,6 +10,7 @@
 #include <QTimer>
 #include <obs.hpp>
 #include <QDockWidget>
+#include "touch-control.hpp"
 #include "ptz-device.hpp"
 #include "ui_ptz-controls.h"
 
@@ -23,6 +24,7 @@ private:
 	void OBSFrontendEvent(enum obs_frontend_event event);
 
 	std::unique_ptr<Ui::PTZControls> ui;
+	TouchControl *pantilt_widget;
 
 	bool live_moves_disabled = false;
 
@@ -105,6 +107,7 @@ private slots:
 	void on_cameraList_customContextMenuRequested(const QPoint &pos);
 	void on_actionPTZProperties_triggered();
 	void on_actionDisableLiveMoves_toggled(bool checked);
+	void on_actionTouchControl_toggled(bool checked);
 
 	void accelTimerHandler();
 

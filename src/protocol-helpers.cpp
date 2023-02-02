@@ -129,7 +129,10 @@ obs_data_t *PTZCmd::decode(QByteArray msg)
  */
 int scale_speed(double speed, int max)
 {
-	if (speed == 0.0)
+	// Account for very low max value that might round below zero.
+	// If speed is small, but non-zero, it should return 1 or -1
+	// Multiplier is 128 to handle largest possible visca value
+	if (abs(speed) < 1.0 / 256)
 		return 0;
 	return int(std::copysign(
 		std::clamp(abs(speed) * max + 0.5, 1.0, double(max)), speed));
