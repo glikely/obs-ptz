@@ -860,7 +860,7 @@ void PTZVisca::send_pending()
 		if (status & STATUS_PANTILT_SPEED_CHANGED) {
 			status &= ~STATUS_PANTILT_SPEED_CHANGED;
 			int p = scale_speed(pan_speed, visca_pan_speed_max);
-			int t = scale_speed(tilt_speed, visca_tilt_speed_max);
+			int t = -scale_speed(tilt_speed, visca_tilt_speed_max);
 			PTZCmd cmd = VISCA_PanTilt_drive;
 			cmd.encode({p, t});
 			pending_cmds += cmd;
