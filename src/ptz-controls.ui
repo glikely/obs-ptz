@@ -23,7 +23,7 @@
    <property name="contextMenuPolicy">
     <enum>Qt::CustomContextMenu</enum>
    </property>
-   <layout class="QVBoxLayout" name="verticalLayout">
+   <layout class="QVBoxLayout" name="dockWidgetContentsVerticalLayout">
     <property name="spacing">
      <number>0</number>
     </property>
@@ -54,7 +54,7 @@
          <height>16777215</height>
         </size>
        </property>
-       <layout class="QVBoxLayout" name="verticalLayout_5">
+       <layout class="QVBoxLayout" name="splitterWidgetLeftVerticalLayout">
         <property name="spacing">
          <number>4</number>
         </property>
@@ -72,7 +72,7 @@
         </property>
         <item>
          <widget class="QWidget" name="movementControlsWidget" native="true">
-          <layout class="QGridLayout" name="gridLayout">
+          <layout class="QGridLayout" name="movementControlsGridLayout">
            <property name="leftMargin">
             <number>0</number>
            </property>
@@ -508,7 +508,7 @@
        </layout>
       </widget>
       <widget class="QWidget" name="splitterWidgetRight" native="true">
-       <layout class="QVBoxLayout" name="verticalLayout_3">
+       <layout class="QVBoxLayout" name="splitterWidgetRightVerticalLayout">
         <property name="leftMargin">
          <number>0</number>
         </property>
