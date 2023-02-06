@@ -45,7 +45,6 @@ private:
 	void SaveConfig();
 	void LoadConfig();
 
-	void setPanTilt(double pan, double tilt);
 	void setZoom(double speed);
 	void setFocus(double speed);
 
@@ -60,6 +59,9 @@ private:
 	QMap<obs_hotkey_id, int> preset_hotkey_map;
 
 private slots:
+	void setPanTilt(double pan, double tilt, double pan_accel = 0,
+			double tilt_accel = 0);
+	void keypressPanTilt(double pan, double tilt);
 	void on_panTiltButton_up_pressed();
 	void on_panTiltButton_up_released();
 	void on_panTiltButton_upleft_pressed();

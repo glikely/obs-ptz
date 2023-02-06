@@ -440,25 +440,32 @@ void PTZControls::accelTimerHandler()
 		accel_timer.stop();
 }
 
-void PTZControls::setPanTilt(double pan, double tilt)
+void PTZControls::setPanTilt(double pan, double tilt, double pan_accel_,
+			     double tilt_accel_)
 {
+	pan_speed = pan;
+	tilt_speed = tilt;
+	pan_accel = pan_accel_;
+	tilt_accel = tilt_accel_;
+	pantiltingFlag = pan != 0 || tilt != 0;
+
 	PTZDevice *ptz = currCamera();
 	if (!ptz)
 		return;
-
-	pantiltingFlag = std::abs(pan) > 0 || std::abs(tilt) > 0;
-	if (QGuiApplication::keyboardModifiers().testFlag(
-		    Qt::ControlModifier)) {
-		ptz->pantilt(pan, tilt);
-	} else if (QGuiApplication::keyboardModifiers().testFlag(
-			   Qt::ShiftModifier)) {
-		ptz->pantilt(pan / 20, tilt / 20);
-	} else {
-		pan_speed = pan_accel = pan / 20;
-		tilt_speed = tilt_accel = tilt / 20;
-		ptz->pantilt(pan_speed, tilt_speed);
+	ptz->pantilt(pan, tilt);
+	if (pan_accel != 0 || tilt_accel != 0)
 		accel_timer.start(2000 / 20);
-	}
+}
+
+void PTZControls::keypressPanTilt(double pan, double tilt)
+{
+	auto modifiers = QGuiApplication::keyboardModifiers();
+	if (modifiers.testFlag(Qt::ControlModifier))
+		setPanTilt(pan, tilt);
+	else if (modifiers.testFlag(Qt::ShiftModifier))
+		setPanTilt(pan / 20, tilt / 20);
+	else
+		setPanTilt(pan / 20, tilt / 20, pan / 20, tilt / 20);
 }
 
 /** setZoom(double speed)
@@ -513,11 +520,11 @@ void PTZControls::setFocus(double focus)
 #define button_pantilt_actions(direction, x, y)                     \
 	void PTZControls::on_panTiltButton_##direction##_pressed()  \
 	{                                                           \
-		setPanTilt(x, y);                                   \
+		keypressPanTilt(x, y);                              \
 	}                                                           \
 	void PTZControls::on_panTiltButton_##direction##_released() \
 	{                                                           \
-		setPanTilt(0, 0);                                   \
+		keypressPanTilt(0, 0);                              \
 	}
 
 button_pantilt_actions(up, 0, 1);
