@@ -201,6 +201,13 @@ void PTZListModel::preset_recall(uint32_t device_id, int preset_id)
 		ptz->memory_recall(preset_id);
 }
 
+void PTZListModel::preset_save(uint32_t device_id, int preset_id)
+{
+	PTZDevice *ptz = ptzDeviceList.getDevice(device_id);
+	if (ptz)
+		ptz->memory_set(preset_id);
+}
+
 enum {
 	MOVE_FLAG_PANTILT = 1 << 0,
 	MOVE_FLAG_ZOOM = 1 << 1,
@@ -463,17 +470,20 @@ void ptz_load_devices()
 	if (!ptz_ph)
 		return;
 
-	/* Preset Recall Callback */
-	auto ptz_preset_recall = [](void *data, calldata_t *cd) {
-		Q_UNUSED(data);
+	/* Preset Recall/Save Callback */
+	auto ptz_preset_cb = [](void *data, calldata_t *cd) {
+		auto function = static_cast<const char *>(data);
 		QMetaObject::invokeMethod(
-			&ptzDeviceList, "preset_recall",
+			&ptzDeviceList, function,
 			Q_ARG(uint32_t, calldata_int(cd, "device_id")),
 			Q_ARG(int, calldata_int(cd, "preset_id")));
 	};
 	proc_handler_add(ptz_ph,
 			 "void ptz_preset_recall(int device_id, int preset_id)",
-			 ptz_preset_recall, NULL);
+			 ptz_preset_cb, (void *)"preset_recall");
+	proc_handler_add(ptz_ph,
+			 "void ptz_preset_save(int device_id, int preset_id)",
+			 ptz_preset_cb, (void *)"preset_save");
 
 	auto ptz_move_continuous = [](void *data, calldata_t *cd) {
 		Q_UNUSED(data);

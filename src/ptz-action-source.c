@@ -24,6 +24,7 @@ enum ptz_action_type {
 	PTZ_ACTION_PRESET_RECALL,
 	PTZ_ACTION_PAN_TILT,
 	PTZ_ACTION_STOP,
+	PTZ_ACTION_PRESET_SAVE,
 };
 
 struct ptz_action_source_data {
@@ -63,6 +64,11 @@ static void ptz_action_source_do_action(struct ptz_action_source_data *context)
 	case PTZ_ACTION_PRESET_RECALL:
 		calldata_set_int(&cd, "preset_id", context->preset_id);
 		proc_handler_call(ptz_get_proc_handler(), "ptz_preset_recall",
+				  &cd);
+		break;
+	case PTZ_ACTION_PRESET_SAVE:
+		calldata_set_int(&cd, "preset_id", context->preset_id);
+		proc_handler_call(ptz_get_proc_handler(), "ptz_preset_save",
 				  &cd);
 		break;
 	case PTZ_ACTION_PAN_TILT:
@@ -222,7 +228,8 @@ static bool ptz_action_source_action_changed_cb(obs_properties_t *props,
 	int64_t action = obs_data_get_int(settings, "action");
 	UNUSED_PARAMETER(prop);
 	property_set_visible(props, "preset_id",
-			     action == PTZ_ACTION_PRESET_RECALL);
+			     action == PTZ_ACTION_PRESET_RECALL ||
+				     action == PTZ_ACTION_PRESET_SAVE);
 	property_set_visible(props, "pan_speed", action == PTZ_ACTION_PAN_TILT);
 	property_set_visible(props, "tilt_speed",
 			     action == PTZ_ACTION_PAN_TILT);
@@ -282,6 +289,7 @@ static obs_properties_t *ptz_action_source_get_properties(void *data)
 					   ptz_action_source_action_changed_cb);
 	obs_property_list_add_int(prop, "Preset Recall",
 				  PTZ_ACTION_PRESET_RECALL);
+	obs_property_list_add_int(prop, "Preset Save", PTZ_ACTION_PRESET_SAVE);
 	obs_property_list_add_int(prop, "Pan/Tilt", PTZ_ACTION_PAN_TILT);
 	obs_property_list_add_int(prop, "Stop", PTZ_ACTION_STOP);
 
