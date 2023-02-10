@@ -324,8 +324,6 @@ OBSData PTZDevice::get_config()
 	OBSDataArray preset_array = obs_data_array_create();
 	obs_data_array_release(preset_array);
 	for (int i = 0; i < list.size(); i++) {
-		if (list[i] == QString("Preset %1").arg(i + 1))
-			continue; // Don't save unchanged presets
 		OBSData preset = obs_data_create();
 		obs_data_release(preset);
 		obs_data_set_int(preset, "id", i);
