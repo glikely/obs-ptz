@@ -32,10 +32,22 @@ private:
 	OBSPropertiesView *propertiesView = nullptr;
 	void current_device_changed();
 
+	QStringListModel m_joystickNamesModel;
+
 public:
 	PTZSettings();
 	~PTZSettings();
 	void set_selected(uint32_t device_id);
+
+protected:
+	void joystickSetup();
+#ifdef ENABLE_JOYSTICK
+protected slots:
+	void on_joystickEnableCheckBox_toggled(bool checked);
+	void joystickUpdate();
+	void joystickCurrentChanged(QModelIndex, QModelIndex);
+	void on_joystickEnableVirtualCheckBox_toggled(bool checked);
+#endif
 
 public slots:
 	void on_addPTZ_clicked();

@@ -103,6 +103,25 @@ if(ENABLE_SERIALPORT)
   endif()
 endif()
 
+option(ENABLE_JOYSTICK "Enable Joystick support" ON)
+if(ENABLE_JOYSTICK)
+  find_package(SDL2 COMPONENTS SDL2-static)
+  if(SDL2_FOUND)
+    add_compile_definitions(ENABLE_JOYSTICK SDL_SUPPORTED)
+    target_include_directories(${CMAKE_PROJECT_NAME} PRIVATE ${SDL2_INCLUDE_DIRS})
+    target_link_libraries(${CMAKE_PROJECT_NAME} PRIVATE SDL2::SDL2-static)
+    target_sources(
+      ${CMAKE_PROJECT_NAME}
+      PRIVATE src/imported/qjoysticks/QJoysticks.cpp
+              src/imported/qjoysticks/QJoysticks.h
+              src/imported/qjoysticks/JoysticksCommon.h
+              src/imported/qjoysticks/SDL_Joysticks.cpp
+              src/imported/qjoysticks/SDL_Joysticks.h
+              src/imported/qjoysticks/VirtualJoystick.cpp
+              src/imported/qjoysticks/VirtualJoystick.h)
+  endif()
+endif()
+
 set_target_properties(
   ${CMAKE_PROJECT_NAME}
   PROPERTIES AUTOMOC ON
