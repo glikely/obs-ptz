@@ -48,6 +48,7 @@ public slots:
 	void settingsChanged(OBSData settings);
 	obs_properties_t *getProperties(void);
 	void updateProperties(OBSData old_settings, OBSData new_settings);
+	void showDevice(uint32_t device_id);
 };
 
 void ptz_settings_show(uint32_t device_id = 0);

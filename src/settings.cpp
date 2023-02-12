@@ -283,6 +283,18 @@ void PTZSettings::settingsChanged(OBSData changed)
 	propertiesView->RefreshProperties();
 }
 
+void PTZSettings::showDevice(uint32_t device_id)
+{
+	if (device_id) {
+		set_selected(device_id);
+		ui->tabWidget->setCurrentWidget(ui->camerasTab);
+	} else {
+		ui->tabWidget->setCurrentWidget(ui->generalTab);
+	}
+	show();
+	raise();
+}
+
 /* ----------------------------------------------------------------- */
 
 static void obs_event(enum obs_frontend_event event, void *)
@@ -297,9 +309,7 @@ void ptz_settings_show(uint32_t device_id)
 
 	if (!ptzSettingsWindow)
 		ptzSettingsWindow = new PTZSettings();
-	ptzSettingsWindow->set_selected(device_id);
-	ptzSettingsWindow->show();
-	ptzSettingsWindow->raise();
+	ptzSettingsWindow->showDevice(device_id);
 
 	obs_frontend_pop_ui_translation();
 }
