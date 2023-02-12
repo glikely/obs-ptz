@@ -37,6 +37,20 @@ public:
 	~PTZSettings();
 	void set_selected(uint32_t device_id);
 
+/* Joystick Support */
+#if defined(ENABLE_JOYSTICK)
+protected:
+	void joystickSetup();
+	QStringListModel m_joystickNamesModel;
+protected slots:
+	void on_joystickGroupBox_toggled(bool checked);
+	void joystickUpdate();
+	void joystickCurrentChanged(QModelIndex, QModelIndex);
+#else /* ENABLE_JOYSTICK */
+protected:
+	void joystickSetup();
+#endif /* ENABLE_JOYSTICK */
+
 public slots:
 	void on_addPTZ_clicked();
 	void on_removePTZ_clicked();

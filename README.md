@@ -18,6 +18,8 @@ Features:
 
 - Pan, Tilt, and Zoom controls
 - Auto and manual focus
+- Hotkeys control
+- Joystick control
 - Save and recall camera presets
 - Control any number of cameras
 - Auto select active camera based on active scene
@@ -112,6 +114,15 @@ Similarly, to rename a preset, right click and select `Rename Preset`,
 or select `Clear Preset` to reset the name back to default.
 
 Double click to recall a preset.
+
+### Joystick Control
+
+To enable joystick control, select the `Joystick Control` check box on the
+`general` tab of the settings dialog.
+All of the connected joysticks will be shown in the list box.
+Click on the joystick that you want to use for camera control.
+The mapping of controls to PTZ actions is shown in the settings dialog
+to the right of the joystick list.
 
 ## Advanced Features
 

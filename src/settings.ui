@@ -37,6 +37,52 @@
       </attribute>
       <layout class="QVBoxLayout" name="verticalLayout_5">
        <item>
+        <widget class="QGroupBox" name="joystickGroupBox">
+         <property name="title">
+          <string>Joystick Control</string>
+         </property>
+         <property name="checkable">
+          <bool>true</bool>
+         </property>
+         <property name="checked">
+          <bool>false</bool>
+         </property>
+         <layout class="QHBoxLayout" name="horizontalLayout">
+          <item>
+           <layout class="QVBoxLayout" name="verticalLayout_6">
+            <item>
+             <widget class="QListView" name="joystickNamesListView"/>
+            </item>
+           </layout>
+          </item>
+          <item>
+           <widget class="QLabel" name="joystickBindingsLabel">
+            <property name="text">
+             <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Joysitck Bindings:&lt;/p&gt;
+&lt;p&gt;
+&lt;table&gt;
+&lt;tr&gt;&lt;th&gt;Control&lt;/th&gt;&lt;th&gt;Action&lt;/th&gt;&lt;/tr&gt;
+&lt;tr&gt;&lt;td&gt;Left Joystick&lt;/td&gt;&lt;td&gt;Pan/Tilt&lt;/td&gt;&lt;/tr&gt;
+&lt;tr&gt;&lt;td&gt;Right Joystick&lt;/td&gt;&lt;td&gt;Zoom&lt;/td&gt;&lt;/tr&gt;
+&lt;tr&gt;&lt;td&gt;D-Pad&lt;/td&gt;&lt;td&gt;Select Preset&lt;/td&gt;&lt;/tr&gt;
+&lt;tr&gt;&lt;td&gt;Shoulder buttons&lt;/td&gt;&lt;td&gt;Change Camera&lt;/td&gt;&lt;/tr&gt;
+&lt;tr&gt;&lt;td&gt;A Button&lt;/td&gt;&lt;td&gt;Activate current preset&lt;/td&gt;&lt;/tr&gt;
+&lt;/table&gt;
+&lt;/p&gt;
+&lt;/body&gt;&lt;/html&gt;</string>
+            </property>
+            <property name="alignment">
+             <set>Qt::AlignLeading|Qt::AlignLeft|Qt::AlignTop</set>
+            </property>
+            <property name="wordWrap">
+             <bool>true</bool>
+            </property>
+           </widget>
+          </item>
+         </layout>
+        </widget>
+       </item>
+       <item>
         <widget class="QCheckBox" name="enableDebugLogCheckBox">
          <property name="text">
           <string>Enable debug logging</string>
@@ -50,6 +96,23 @@
          </property>
          <property name="text">
           <string>Lockout live PTZ moves in studio mode</string>
+         </property>
+        </widget>
+       </item>
+       <item>
+        <widget class="QCheckBox" name="gamepadCheckBox">
+         <property name="toolTip">
+          <string>Enable/Disable gamepad input for controlling cameras.</string>
+         </property>
+         <property name="text">
+          <string>Enable Gamepad (Experimental)</string>
+         </property>
+        </widget>
+       </item>
+       <item>
+        <widget class="QLineEdit" name="gamepadActiveText">
+         <property name="readOnly">
+          <bool>true</bool>
          </property>
         </widget>
        </item>

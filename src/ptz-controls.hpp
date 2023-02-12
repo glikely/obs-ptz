@@ -10,6 +10,7 @@
 #include <QTimer>
 #include <obs.hpp>
 #include <QDockWidget>
+#include "imported/qjoysticks/QJoysticks.h"
 #include "touch-control.hpp"
 #include "ptz-device.hpp"
 #include "ui_ptz-controls.h"
@@ -110,6 +111,25 @@ private slots:
 	void on_actionTouchControl_toggled(bool checked);
 
 	void accelTimerHandler();
+
+/* Joystick support */
+protected:
+	bool m_joystick_enable = false;
+	int m_joystick_id = -1;
+#if defined(ENABLE_JOYSTICK)
+public:
+	void joystickSetup();
+	bool joystickEnabled() { return m_joystick_enable; };
+	void setJoystickEnabled(bool enable) { m_joystick_enable = enable; };
+	int joystickId() { return m_joystick_id; };
+	void setJoystickId(int id) { m_joystick_id = id; };
+protected slots:
+	void joystickAxisEvent(const QJoystickAxisEvent evt);
+	void joystickButtonEvent(const QJoystickButtonEvent evt);
+	void joystickPOVEvent(const QJoystickPOVEvent evt);
+#else
+	void joystickSetup() {};
+#endif /* ENABLE_JOYSTICK */
 
 public:
 	PTZControls(QWidget *parent = nullptr);
