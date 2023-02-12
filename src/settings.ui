@@ -37,6 +37,32 @@
       </attribute>
       <layout class="QVBoxLayout" name="verticalLayout_5">
        <item>
+        <widget class="QGroupBox" name="joystickGroupBox">
+         <property name="title">
+          <string>Joystick Control</string>
+         </property>
+         <layout class="QVBoxLayout" name="verticalLayout_6">
+          <item>
+           <widget class="QCheckBox" name="joystickEnableCheckBox">
+            <property name="text">
+             <string>Enable Joystick Control</string>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QListView" name="joystickNamesListView"/>
+          </item>
+          <item>
+           <widget class="QCheckBox" name="joystickEnableVirtualCheckBox">
+            <property name="text">
+             <string>Enable Virtual Joystick (For testing)</string>
+            </property>
+           </widget>
+          </item>
+         </layout>
+        </widget>
+       </item>
+       <item>
         <widget class="QCheckBox" name="enableDebugLogCheckBox">
          <property name="text">
           <string>Enable debug logging</string>

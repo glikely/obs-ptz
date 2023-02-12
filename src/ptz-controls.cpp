@@ -17,6 +17,7 @@
 #include <QResizeEvent>
 
 #include "imported/qt-wrappers.hpp"
+#include "imported/qjoysticks/QJoysticks.h"
 #include "touch-control.hpp"
 #include "ui_ptz-controls.h"
 #include "ptz-controls.hpp"
@@ -136,6 +137,8 @@ PTZControls::PTZControls(QWidget *parent)
 
 	connect(ui->panTiltTouch, SIGNAL(positionChanged(double, double)), this,
 		SLOT(setPanTilt(double, double)));
+
+	joystickSetup();
 
 	LoadConfig();
 
@@ -304,6 +307,76 @@ PTZControls::~PTZControls()
 	deleteLater();
 }
 
+#ifdef ENABLE_JOYSTICK
+void PTZControls::joystickSetup()
+{
+	auto joysticks = QJoysticks::getInstance();
+	joysticks->setVirtualJoystickEnabled(false);
+	joysticks->updateInterfaces();
+	connect(joysticks, SIGNAL(axisEvent(const QJoystickAxisEvent)), this,
+		SLOT(joystickAxisEvent(const QJoystickAxisEvent)));
+	connect(joysticks, SIGNAL(buttonEvent(const QJoystickButtonEvent)),
+		this, SLOT(joystickButtonEvent(const QJoystickButtonEvent)));
+	connect(joysticks, SIGNAL(POVEvent(const QJoystickPOVEvent)), this,
+		SLOT(joystickPOVEvent(const QJoystickPOVEvent)));
+}
+
+void PTZControls::joystickAxisEvent(const QJoystickAxisEvent evt)
+{
+	if (!m_joystick_enable || evt.joystick->id != m_joystick_id)
+		return;
+	switch (evt.axis) {
+	case 0:
+	case 1:
+		setPanTilt(evt.joystick->axes[0], -evt.joystick->axes[1]);
+		break;
+	case 3:
+		setZoom(-evt.joystick->axes[3]);
+		break;
+	};
+}
+
+void PTZControls::joystickPOVEvent(const QJoystickPOVEvent evt)
+{
+	if (!m_joystick_enable || evt.joystick->id != m_joystick_id)
+		return;
+	blog(LOG_INFO, "POV %i changed, angle %i", evt.pov, evt.angle);
+	switch (evt.angle) {
+	case 0:
+		ui->presetListView->cursorUp();
+		break;
+	case 180:
+		ui->presetListView->cursorDown();
+		break;
+	}
+}
+
+void PTZControls::joystickButtonEvent(const QJoystickButtonEvent evt)
+{
+	QModelIndex index;
+	if (!m_joystick_enable || evt.joystick->id != m_joystick_id)
+		return;
+	if (!evt.pressed)
+		return;
+	blog(LOG_INFO, "Button %i pressed", evt.button);
+	switch (evt.button) {
+	case 0: /* A button; activate preset */
+		index = ui->presetListView->currentIndex();
+		if (index.isValid())
+			ui->presetListView->activated(index);
+		break;
+	case 4: /* left shoulder; previous camera */
+		ui->cameraList->cursorUp();
+		break;
+	case 5: /* right shoulder; next camera */
+		ui->cameraList->cursorDown();
+		break;
+	}
+}
+#else  /* ENABLE_JOYSTICK */
+void PTZControls::joystickSetup() {}
+#endif /* ENABLE_JOYSTICK */
+
 void PTZControls::copyActionsDynamicProperties()
 {
 	// Themes need the QAction dynamic properties
@@ -339,6 +412,8 @@ void PTZControls::SaveConfig()
 	if (ui->actionFollowProgram->isChecked())
 		target_mode = "program";
 	obs_data_set_string(savedata, "target_mode", target_mode);
+	obs_data_set_bool(savedata, "joystick_enable", m_joystick_enable);
+	obs_data_set_int(savedata, "joystick_id", m_joystick_id);
 
 	OBSDataArray camera_array = ptz_devices_get_config();
 	obs_data_array_release(camera_array);
@@ -380,6 +455,8 @@ void PTZControls::LoadConfig()
 	obs_data_set_default_int(loaddata, "debug_log_level", LOG_INFO);
 	obs_data_set_default_bool(loaddata, "live_moves_disabled", true);
 	obs_data_set_default_string(loaddata, "target_mode", "preview");
+	obs_data_set_default_bool(loaddata, "joystick_enable", false);
+	obs_data_set_default_int(loaddata, "joystick_id", -1);
 
 	ptz_debug_level = (int)obs_data_get_int(loaddata, "debug_log_level");
 	live_moves_disabled =
@@ -387,6 +464,8 @@ void PTZControls::LoadConfig()
 	target_mode = obs_data_get_string(loaddata, "target_mode");
 	ui->actionFollowPreview->setChecked(target_mode == "preview");
 	ui->actionFollowProgram->setChecked(target_mode == "program");
+	m_joystick_enable = obs_data_get_bool(loaddata, "joystick_enable");
+	m_joystick_id = (int)obs_data_get_int(loaddata, "joystick_id");
 
 	const char *splitterStateStr =
 		obs_data_get_string(loaddata, "splitter_state");

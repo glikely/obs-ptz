@@ -23,6 +23,7 @@
 #include <obs-frontend-api.h>
 #include <util/config-file.h>
 #include <obs-properties.h>
+#include "imported/qjoysticks/QJoysticks.h"
 
 #include "ptz.h"
 #include "ptz-device.hpp"
@@ -143,6 +144,9 @@ PTZSettings::PTZSettings() : QWidget(nullptr), ui(new Ui_PTZSettings)
 	propertiesView->setSizePolicy(QSizePolicy::Expanding,
 				      QSizePolicy::Expanding);
 	ui->propertiesLayout->insertWidget(0, propertiesView, 0);
+
+	joystickSetup();
+
 	ui->versionLabel->setText(description_text);
 }
 
@@ -150,6 +154,58 @@ PTZSettings::~PTZSettings()
 {
 	delete ui;
 }
+
+#ifdef ENABLE_JOYSTICK
+void PTZSettings::joystickSetup()
+{
+	auto joysticks = QJoysticks::getInstance();
+	auto controls = PTZControls::getInstance();
+	ui->joystickNamesListView->setModel(&m_joystickNamesModel);
+	ui->joystickEnableCheckBox->setChecked(controls->joystickEnabled());
+
+	connect(joysticks, SIGNAL(countChanged()), this,
+		SLOT(joystickUpdate()));
+
+	auto selectionModel = ui->joystickNamesListView->selectionModel();
+	connect(selectionModel,
+		SIGNAL(currentChanged(QModelIndex, QModelIndex)), this,
+		SLOT(joystickCurrentChanged(QModelIndex, QModelIndex)));
+	joystickUpdate();
+}
+
+void PTZSettings::on_joystickEnableCheckBox_toggled(bool checked)
+{
+	PTZControls::getInstance()->setJoystickEnabled(checked);
+	ui->joystickNamesListView->setEnabled(checked);
+}
+
+void PTZSettings::joystickUpdate()
+{
+	auto joysticks = QJoysticks::getInstance();
+	auto controls = PTZControls::getInstance();
+	m_joystickNamesModel.setStringList(joysticks->deviceNames());
+	auto idx = m_joystickNamesModel.index(controls->joystickId(), 0);
+	if (idx.isValid())
+		ui->joystickNamesListView->setCurrentIndex(idx);
+}
+
+void PTZSettings::joystickCurrentChanged(QModelIndex current,
+					 QModelIndex previous)
+{
+	Q_UNUSED(previous);
+	PTZControls::getInstance()->setJoystickId(current.row());
+}
+
+void PTZSettings::on_joystickEnableVirtualCheckBox_toggled(bool checked)
+{
+	QJoysticks::getInstance()->setVirtualJoystickEnabled(checked);
+}
+#else  /* ENABLE_JOYSTICK */
+void PTZSettings::joystickSetup()
+{
+	ui->joystickGroupBox->setVisible(false);
+}
+#endif /* ENABLE_JOYSTICK */
 
 void PTZSettings::set_selected(uint32_t device_id)
 {
