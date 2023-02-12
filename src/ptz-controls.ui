@@ -529,7 +529,7 @@
          </layout>
         </item>
         <item>
-         <widget class="QListView" name="cameraList">
+         <widget class="CircularListView" name="cameraList">
           <property name="sizePolicy">
            <sizepolicy hsizetype="Minimum" vsizetype="Expanding">
             <horstretch>0</horstretch>
@@ -567,7 +567,7 @@
          <number>0</number>
         </property>
         <item>
-         <widget class="QListView" name="presetListView">
+         <widget class="CircularListView" name="presetListView">
           <property name="contextMenuPolicy">
            <enum>Qt::CustomContextMenu</enum>
           </property>
@@ -691,6 +691,11 @@
    <extends>QWidget</extends>
    <header>touch-control.hpp</header>
    <container>1</container>
+  </customwidget>
+  <customwidget>
+   <class>CircularListView</class>
+   <extends>QListView</extends>
+   <header>circularlistview.hpp</header>
   </customwidget>
  </customwidgets>
  <resources>

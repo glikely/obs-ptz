@@ -197,23 +197,15 @@ PTZControls::PTZControls(QWidget *parent)
 	};
 	auto prevcb = [](void *action_data, obs_hotkey_id, obs_hotkey_t *,
 			 bool pressed) {
-		QListView *list = static_cast<QListView *>(action_data);
-		if (pressed) {
-			QModelIndex cur = list->currentIndex();
-			QModelIndex sib = cur.siblingAtRow(cur.row() - 1);
-			if (sib.isValid())
-				list->setCurrentIndex(sib);
-		}
+		auto list = static_cast<CircularListView *>(action_data);
+		if (pressed)
+			list->cursorUp();
 	};
 	auto nextcb = [](void *action_data, obs_hotkey_id, obs_hotkey_t *,
 			 bool pressed) {
-		QListView *list = static_cast<QListView *>(action_data);
-		if (pressed) {
-			QModelIndex cur = list->currentIndex();
-			QModelIndex sib = cur.siblingAtRow(cur.row() + 1);
-			if (sib.isValid())
-				list->setCurrentIndex(sib);
-		}
+		auto list = static_cast<CircularListView *>(action_data);
+		if (pressed)
+			list->cursorDown();
 	};
 	auto actiontogglecb = [](void *action_data, obs_hotkey_id,
 				 obs_hotkey_t *, bool pressed) {
