@@ -203,9 +203,6 @@
    </item>
   </layout>
  </widget>
- <tabstops>
-  <tabstop>close</tabstop>
- </tabstops>
  <resources/>
  <connections/>
 </ui>
