@@ -200,11 +200,13 @@ void PTZPelco::do_update()
 	if (status & STATUS_PANTILT_SPEED_CHANGED) {
 		status &= ~STATUS_PANTILT_SPEED_CHANGED;
 		if (tilt_speed) {
-			msg[1] |= tilt_speed > 0.0 ? (1 << 3) : (1 << 4);
+			msg[1] = msg[1] |
+				 (tilt_speed > 0.0 ? (1 << 3) : (1 << 4));
 			msg[3] = abs(tilt_speed) * 0x3f;
 		}
 		if (pan_speed) {
-			msg[1] |= pan_speed > 0.0 ? (1 << 1) : (1 << 2);
+			msg[1] = msg[1] |
+				 (pan_speed > 0.0 ? (1 << 1) : (1 << 2));
 			msg[2] = abs(pan_speed) * 0x3f;
 		}
 		send_update = true;
@@ -214,7 +216,8 @@ void PTZPelco::do_update()
 		status &= ~STATUS_ZOOM_SPEED_CHANGED;
 		if (zoom_speed) {
 			zoom_speed_set(std::abs(zoom_speed));
-			msg[1] |= zoom_speed > 0.0 ? (1 << 5) : (1 << 6);
+			msg[1] = msg[1] |
+				 (zoom_speed > 0.0 ? (1 << 5) : (1 << 6));
 		}
 		send_update = true;
 	}
@@ -224,9 +227,9 @@ void PTZPelco::do_update()
 		if (focus_speed) {
 			focus_speed_set(std::abs(focus_speed));
 			if (focus_speed > 0.0)
-				msg[0] |= 1 << 0;
+				msg[0] = msg[0] | (1 << 0);
 			else
-				msg[1] |= 1 << 7;
+				msg[1] = msg[1] | (1 << 7);
 		}
 		send_update = true;
 	}

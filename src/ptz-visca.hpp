@@ -6,6 +6,7 @@
  */
 #pragma once
 
+#include <optional>
 #include <QObject>
 #include <QTimer>
 #include "protocol-helpers.hpp"

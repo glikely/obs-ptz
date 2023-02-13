@@ -748,7 +748,7 @@ obs_properties_t *PTZVisca::get_obs_properties()
 void PTZVisca::send(PTZCmd cmd)
 {
 	pending_cmds.append(cmd);
-	ptz_debug("sending cmd, queuelength=%lli", pending_cmds.count());
+	ptz_debug("sending cmd, queuelength=%i", (int)pending_cmds.count());
 	send_pending();
 }
 

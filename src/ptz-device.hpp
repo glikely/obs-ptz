@@ -10,6 +10,7 @@
 #include "imported/qt-wrappers.hpp"
 #include <memory>
 #include <QObject>
+#include <QSet>
 #include <QStringListModel>
 #include <QtGlobal>
 #include <obs.hpp>

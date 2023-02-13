@@ -35,7 +35,8 @@ ONVIF support is in the codebase, but is experimental and disabled for now.
 ## Linux
 
 - Install OBS Studio including headers
-  - Follow instructions for your distribution: https://obsproject.com/wiki/install-instructions
+  - Follow instructions for your distribution to install the build dependencies:
+    https://obsproject.com/wiki/install-instructions
 - clone this repository and build:
 
 ```
@@ -47,7 +48,11 @@ make
 ```
 
 Copy or symlink obs-ptz.so into the OBS plugins directory.
-Typically `/usr/lib/obs-plugins`.
+Typically `/usr/lib/obs-plugins` or `/usr/lib64/obs-plugins`
+
+```
+sudo cp obs-ptz/rundir/RelWithDebugInfo/obs-plugins/64bit/obs-ptz.so /usr/lib/obs-plugins/
+```
 
 ### Debian 11 Bullseye
 
@@ -121,6 +126,32 @@ git clone https://github.com/glikely/obs-ptz
 cd obs-ptz
 .github/scripts/build-macos.sh
 .github/scripts/package-macos.sh
+```
+
+## Using Qt5 instead of Qt6
+
+obs-studio has moved on to Qt6 for official builds, but some packagers are
+still using Qt5.
+RPMFusion on Fedora 37 for example.
+obs-ptz will still happly build against Qt6, but if obs-studio is using Qt5
+then the plugin will make it crash at startup with the following cryptic error:
+
+```
+info: [obs-ptz] plugin loaded successfully (version 0.14.1)
+QWidget: Must construct a QApplication before a QWidget
+```
+
+You need to install the Qt5 development packages and tell obs-ptz to use Qt5 instead:
+
+```
+sudo yum install qt5-qtbase-devel qt5-qtbase-private-devel \
+                 qt5-qtsvg-devel qt5-qtwayland-devel       \
+		 qt5-qtx11extras-devel qt5-qtserialport-devel
+git clone https://github.com/glikely/obs-ptz
+mkdir obs-ptz/build
+cd obs-ptz/build
+cmake -DQT_VERSION=5 ..
+make
 ```
 
 # Contributing

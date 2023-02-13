@@ -98,7 +98,7 @@ void TouchControl::paintEvent(QPaintEvent *event)
 
 void TouchControl::mousePressEvent(QMouseEvent *event)
 {
-	setPosition(event->position());
+	setPosition(event->pos());
 }
 
 void TouchControl::mouseReleaseEvent(QMouseEvent *)
@@ -110,5 +110,5 @@ void TouchControl::mouseReleaseEvent(QMouseEvent *)
 
 void TouchControl::mouseMoveEvent(QMouseEvent *event)
 {
-	setPosition(event->position());
+	setPosition(event->pos());
 }
