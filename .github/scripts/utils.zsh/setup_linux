@@ -26,6 +26,7 @@ if (( ! (${skips[(Ie)all]} + ${skips[(Ie)deps]}) )) {
     libcurl4-openssl-dev \
     libavcodec-dev libavdevice-dev libavfilter-dev libavformat-dev libavutil-dev \
     libswresample-dev libswscale-dev \
+    libsdl2-dev \
     libjansson-dev \
     libx11-xcb-dev \
     libgles2-mesa-dev \
