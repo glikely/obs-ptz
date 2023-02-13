@@ -11,6 +11,7 @@
 #include <memory>
 #include <QObject>
 #include <QStringListModel>
+#include <QSet>
 #include <QtGlobal>
 #include <obs.hpp>
 #include <obs-frontend-api.h>

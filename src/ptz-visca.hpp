@@ -8,6 +8,7 @@
 
 #include <QObject>
 #include <QTimer>
+#include <optional>
 #include "protocol-helpers.hpp"
 #include "ptz-device.hpp"
 
