@@ -6,6 +6,12 @@
             "branch": "master",
             "hash": "e8dc70d0eef4503378d6ac300e680215eb5c9379"
         },
+	"sdl": {
+	    "version": "release-2.26.3",
+            "repository": "https://github.com/libsdl-org/sdl.git",
+            "branch": "release-2.26.x",
+	    "hash": "adf31f6ec0be0f9ba562889398f71172c7941023"
+	},
         "prebuilt": {
             "version": "2022-08-02",
             "baseUrl": "https://github.com/obsproject/obs-deps/releases/download",

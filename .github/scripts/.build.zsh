@@ -40,7 +40,7 @@ build() {
   trap '_trap_error' ZERR
 
   fpath=("${SCRIPT_HOME}/utils.zsh" ${fpath})
-  autoload -Uz log_info log_error log_output set_loglevel check_${host_os} setup_${host_os} setup_obs setup_ccache
+  autoload -Uz log_info log_error log_output set_loglevel check_${host_os} setup_${host_os} setup_obs setup_sdl setup_ccache
 
   if [[ ! -r ${buildspec_file} ]] {
     log_error \
@@ -173,6 +173,12 @@ Usage: %B${functrace[1]%:*}%b <option> [<options>]
   read -r product_version <<< "$(git -C ${project_root} describe --tags --dirty)"
 
   setup_obs
+
+  case ${target} {
+    macos-*)
+      setup_sdl
+      ;;
+  }
 
   pushd ${project_root}
   if (( ! (${skips[(Ie)all]} + ${skips[(Ie)build]}) )) {

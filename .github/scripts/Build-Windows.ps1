@@ -59,6 +59,8 @@ function Build {
 
     Setup-Obs
 
+    Setup-Sdl
+
     Push-Location -Stack BuildTemp
     if ( ! ( ( $SkipAll ) -or ( $SkipBuild ) ) ) {
         Ensure-Location $ProjectRoot
