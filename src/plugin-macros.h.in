@@ -13,8 +13,6 @@
 #define PLUGIN_NAME "@CMAKE_PROJECT_NAME@"
 #define PLUGIN_VERSION "@PLUGIN_VERSION@"
 
-#cmakedefine ENABLE_SERIALPORT
-
 #define blog(level, msg, ...) blog(level, "[" PLUGIN_NAME "] " msg, ##__VA_ARGS__)
 
 #endif // PLUGINNAME_H

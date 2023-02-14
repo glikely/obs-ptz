@@ -91,13 +91,12 @@ option(ENABLE_SERIALPORT "Enable UART connected camera support" ON)
 if(ENABLE_SERIALPORT)
   find_package(Qt${_QT_VERSION} COMPONENTS SerialPort)
   if(Qt${_QT_VERSION}SerialPort_FOUND)
+    add_compile_definitions(ENABLE_SERIALPORT)
     target_link_libraries(${CMAKE_PROJECT_NAME} PRIVATE Qt::SerialPort)
     target_sources(
       ${CMAKE_PROJECT_NAME}
       PRIVATE src/uart-wrapper.cpp src/uart-wrapper.hpp src/ptz-visca-uart.cpp
               src/ptz-visca-uart.hpp src/ptz-pelco.cpp src/ptz-pelco.hpp)
-  else()
-    set(ENABLE_SERIALPORT OFF)
   endif()
 endif()
 
