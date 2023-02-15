@@ -112,7 +112,7 @@ private slots:
 
 	void accelTimerHandler();
 
-/* Joystick support */
+	/* Joystick support */
 protected:
 	bool m_joystick_enable = false;
 	int m_joystick_id = -1;
@@ -128,7 +128,7 @@ protected slots:
 	void joystickButtonEvent(const QJoystickButtonEvent evt);
 	void joystickPOVEvent(const QJoystickPOVEvent evt);
 #else
-	void joystickSetup() {};
+	void joystickSetup(){};
 #endif /* ENABLE_JOYSTICK */
 
 public:

@@ -46,7 +46,7 @@ protected slots:
 	void on_joystickGroupBox_toggled(bool checked);
 	void joystickUpdate();
 	void joystickCurrentChanged(QModelIndex, QModelIndex);
-#else /* ENABLE_JOYSTICK */
+#else  /* ENABLE_JOYSTICK */
 protected:
 	void joystickSetup();
 #endif /* ENABLE_JOYSTICK */
