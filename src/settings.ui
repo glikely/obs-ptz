@@ -278,6 +278,9 @@
            <verstretch>0</verstretch>
           </sizepolicy>
          </property>
+         <property name="alignment">
+          <set>Qt::AlignLeading|Qt::AlignLeft|Qt::AlignTop</set>
+         </property>
         </widget>
        </item>
       </layout>
