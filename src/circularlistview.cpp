@@ -18,11 +18,14 @@ void CircularListView::cursorDown()
 QModelIndex CircularListView::moveCursor(QAbstractItemView::CursorAction action,
 					 Qt::KeyboardModifiers modifiers)
 {
+	auto m = model();
 	auto index = currentIndex();
-	auto bottom = model()->rowCount() - 1;
-	if (index.isValid() && (index.row() <= 0) && (action == MoveUp))
-		return model()->index(bottom, index.column(), index.parent());
-	if (index.isValid() && (index.row() >= bottom) && (action == MoveDown))
-		return model()->index(0, index.column(), index.parent());
+	if (m && m->rowCount() > 0 && index.isValid()) {
+		auto last = m->rowCount() - 1;
+		if ((index.row() <= 0) && (action == MoveUp))
+			return m->index(last, index.column(), index.parent());
+		if ((index.row() >= last) && (action == MoveDown))
+			return m->index(0, index.column(), index.parent());
+	}
 	return QListView::moveCursor(action, modifiers);
 }
