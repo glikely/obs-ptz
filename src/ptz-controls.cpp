@@ -331,7 +331,7 @@ void PTZControls::joystickAxisEvent(const QJoystickAxisEvent evt)
 		setPanTilt(evt.joystick->axes[0], -evt.joystick->axes[1]);
 		break;
 	case 3:
-		setZoom(-evt.joystick->axes[3]);
+		setZoom(-evt.value);
 		break;
 	};
 }
