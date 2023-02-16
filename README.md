@@ -282,3 +282,16 @@ You can submit changes as GitHub pull requests.
 Or email patches to me at mailto:grant.likely@secretlab.ca
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) for details.
+
+# Acknowledgements
+
+Thank you to everyone who has contributed to his project, either with filing issues,
+asking questions, or contributing to the code.
+All code and documentation contributors are listed in [AUTHORS](AUTHORS).
+
+Joystick support uses the
+[QJoystick library](https://github.com/alex-spataru/QJoysticks).
+
+And finally, thank you to everyone who contributes to the Free and Open Source
+Software that this project is built upon, including OBS Studio, Qt, Simple
+DirectMedia Layer (SDL), Linux, and countless libraries and tools.

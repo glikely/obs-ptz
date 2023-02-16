@@ -49,7 +49,8 @@ const char *description_text =
 	"Luuk Verhagen<br/>"
 	"Jonata Bolzan Loss<br/>"
 	"Fabio Ferrari<br/>"
-	"Jim Hauxwell</p>"
+	"Jim Hauxwell<br/>"
+	"Eric Schmidt</p>"
 	"</body></html>";
 
 QString SourceNameDelegate::displayText(const QVariant &value,
