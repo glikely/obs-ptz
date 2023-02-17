@@ -323,6 +323,8 @@ void PTZControls::joystickSetup()
 
 void PTZControls::joystickAxisEvent(const QJoystickAxisEvent evt)
 {
+	blog(ptz_debug_level, "joystick%i axis%i: value=%f", evt.joystick->id,
+	     evt.axis, evt.value);
 	if (!m_joystick_enable || evt.joystick->id != m_joystick_id)
 		return;
 	switch (evt.axis) {
@@ -338,6 +340,8 @@ void PTZControls::joystickAxisEvent(const QJoystickAxisEvent evt)
 
 void PTZControls::joystickPOVEvent(const QJoystickPOVEvent evt)
 {
+	blog(ptz_debug_level, "joystick%i pov%i: angle=%i", evt.joystick->id,
+	     evt.pov, evt.angle);
 	if (!m_joystick_enable || evt.joystick->id != m_joystick_id)
 		return;
 	switch (evt.angle) {
@@ -353,6 +357,8 @@ void PTZControls::joystickPOVEvent(const QJoystickPOVEvent evt)
 void PTZControls::joystickButtonEvent(const QJoystickButtonEvent evt)
 {
 	QModelIndex index;
+	blog(ptz_debug_level, "joystick%i button%i: %s", evt.joystick->id,
+	     evt.button, evt.pressed ? "pressed" : "released");
 	if (!m_joystick_enable || evt.joystick->id != m_joystick_id)
 		return;
 	if (!evt.pressed)
