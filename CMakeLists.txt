@@ -116,6 +116,7 @@ if(ENABLE_JOYSTICK)
               src/imported/qjoysticks/JoysticksCommon.h
               src/imported/qjoysticks/SDL_Joysticks.cpp
               src/imported/qjoysticks/SDL_Joysticks.h
+              src/imported/qjoysticks/qjoysticks-res.qrc
               src/imported/qjoysticks/VirtualJoystick.cpp
               src/imported/qjoysticks/VirtualJoystick.h)
   endif()
