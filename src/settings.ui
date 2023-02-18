@@ -100,23 +100,6 @@
         </widget>
        </item>
        <item>
-        <widget class="QCheckBox" name="gamepadCheckBox">
-         <property name="toolTip">
-          <string>Enable/Disable gamepad input for controlling cameras.</string>
-         </property>
-         <property name="text">
-          <string>Enable Gamepad (Experimental)</string>
-         </property>
-        </widget>
-       </item>
-       <item>
-        <widget class="QLineEdit" name="gamepadActiveText">
-         <property name="readOnly">
-          <bool>true</bool>
-         </property>
-        </widget>
-       </item>
-       <item>
         <spacer name="verticalSpacer">
          <property name="orientation">
           <enum>Qt::Vertical</enum>
