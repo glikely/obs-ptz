@@ -89,6 +89,11 @@ find_qt(COMPONENTS Widgets Core Svg Network Xml)
 target_link_libraries(${CMAKE_PROJECT_NAME} PRIVATE Qt::Core Qt::Widgets Qt::Svg Qt::Network
                                                     Qt::Xml)
 
+option(ENABLE_ONVIF "Enable ONVIF camera support" ON)
+if(ENABLE_ONVIF)
+  add_compile_definitions(ENABLE_ONVIF)
+endif()
+
 option(ENABLE_SERIALPORT "Enable UART connected camera support" ON)
 if(ENABLE_SERIALPORT)
   find_package(Qt${_QT_VERSION} COMPONENTS SerialPort)

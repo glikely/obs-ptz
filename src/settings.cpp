@@ -240,8 +240,8 @@ void PTZSettings::on_addPTZ_clicked()
 	QAction *addPelcoD = addPTZContext.addAction("Pelco D");
 	QAction *addPelcoP = addPTZContext.addAction("Pelco P");
 #endif
-#if 0 // ONVIF disabled until code is reworked
-	QAction *addOnvif = addPTZContext.addAction("ONVIF");
+#if defined(ENABLE_ONVIF) // ONVIF disabled until code is reworked
+	QAction *addOnvif = addPTZContext.addAction("ONVIF (experimental)");
 #endif
 	QAction *action = addPTZContext.exec(QCursor::pos());
 
@@ -283,7 +283,7 @@ void PTZSettings::on_addPTZ_clicked()
 		ptzDeviceList.make_device(cfg);
 	}
 #endif
-#if 0
+#if defined(ENABLE_ONVIF)
 	if (action == addOnvif) {
 		OBSData cfg = obs_data_create();
 		obs_data_release(cfg);
