@@ -166,6 +166,8 @@ void PTZSettings::joystickSetup()
 	auto controls = PTZControls::getInstance();
 	ui->joystickNamesListView->setModel(&m_joystickNamesModel);
 	ui->joystickGroupBox->setChecked(controls->joystickEnabled());
+	ui->joystickSpeedSlider->setDoubleConstraints(
+		0.25, 1.75, 0.05, controls->joystickSpeed());
 	ui->joystickDeadzoneSlider->setDoubleConstraints(
 		0.01, 0.15, 0.01, controls->joystickDeadzone());
 
@@ -179,6 +181,11 @@ void PTZSettings::joystickSetup()
 		SIGNAL(currentChanged(QModelIndex, QModelIndex)), this,
 		SLOT(joystickCurrentChanged(QModelIndex, QModelIndex)));
 	joystickUpdate();
+}
+
+void PTZSettings::on_joystickSpeedSlider_doubleValChanged(double val)
+{
+	PTZControls::getInstance()->setJoystickSpeed(val);
 }
 
 void PTZSettings::on_joystickDeadzoneSlider_doubleValChanged(double val)

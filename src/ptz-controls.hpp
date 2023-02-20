@@ -117,12 +117,15 @@ protected:
 	bool m_joystick_enable = false;
 	int m_joystick_id = -1;
 	double m_joystick_deadzone = 0.0;
+	double m_joystick_speed = 1.0;
 #if defined(ENABLE_JOYSTICK)
 public:
 	void joystickSetup();
 	bool joystickEnabled() { return m_joystick_enable; };
 	double joystickDeadzone() { return m_joystick_deadzone; };
+	double joystickSpeed() { return m_joystick_speed; };
 	void setJoystickEnabled(bool enable);
+	void setJoystickSpeed(double speed);
 	void setJoystickDeadzone(double deadzone);
 	int joystickId() { return m_joystick_id; };
 	void setJoystickId(int id) { m_joystick_id = id; };

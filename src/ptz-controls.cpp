@@ -329,6 +329,14 @@ void PTZControls::setJoystickEnabled(bool enable)
 	m_joystick_enable = enable;
 };
 
+void PTZControls::setJoystickSpeed(double speed)
+{
+	m_joystick_speed = speed;
+	/* Immediatly apply the deadzone */
+	auto jd = QJoysticks::getInstance()->getInputDevice(m_joystick_id);
+	joystickAxesChanged(jd, 0b11111111);
+};
+
 void PTZControls::setJoystickDeadzone(double deadzone)
 {
 	m_joystick_deadzone = deadzone;
@@ -343,7 +351,8 @@ void PTZControls::joystickAxesChanged(const QJoystickDevice *jd,
 	if (!m_joystick_enable || !jd || jd->id != m_joystick_id)
 		return;
 	auto filter_axis = [=](double val) -> double {
-		return abs(val) > m_joystick_deadzone ? val : 0.0;
+		val = abs(val) > m_joystick_deadzone ? val : 0.0;
+		return val * m_joystick_speed;
 	};
 
 	if (updated & 0b0011)
@@ -431,6 +440,7 @@ void PTZControls::SaveConfig()
 	obs_data_set_string(savedata, "target_mode", target_mode);
 	obs_data_set_bool(savedata, "joystick_enable", m_joystick_enable);
 	obs_data_set_int(savedata, "joystick_id", m_joystick_id);
+	obs_data_set_double(savedata, "joystick_speed", m_joystick_speed);
 	obs_data_set_double(savedata, "joystick_deadzone", m_joystick_deadzone);
 
 	OBSDataArray camera_array = ptz_devices_get_config();
@@ -475,6 +485,7 @@ void PTZControls::LoadConfig()
 	obs_data_set_default_string(loaddata, "target_mode", "preview");
 	obs_data_set_default_bool(loaddata, "joystick_enable", false);
 	obs_data_set_default_int(loaddata, "joystick_id", -1);
+	obs_data_set_default_double(loaddata, "joystick_speed", 1.0);
 	obs_data_set_default_double(loaddata, "joystick_deadzone", 0.0);
 
 	ptz_debug_level = (int)obs_data_get_int(loaddata, "debug_log_level");
@@ -485,6 +496,7 @@ void PTZControls::LoadConfig()
 	ui->actionFollowProgram->setChecked(target_mode == "program");
 	m_joystick_enable = obs_data_get_bool(loaddata, "joystick_enable");
 	m_joystick_id = (int)obs_data_get_int(loaddata, "joystick_id");
+	m_joystick_speed = obs_data_get_double(loaddata, "joystick_speed");
 	m_joystick_deadzone =
 		obs_data_get_double(loaddata, "joystick_deadzone");
 

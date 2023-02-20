@@ -45,6 +45,7 @@ protected:
 	QStringListModel m_joystickNamesModel;
 protected slots:
 	void on_joystickGroupBox_toggled(bool checked);
+	void on_joystickSpeedSlider_doubleValChanged(double val);
 	void on_joystickDeadzoneSlider_doubleValChanged(double val);
 	void joystickUpdate();
 	void joystickCurrentChanged(QModelIndex, QModelIndex);
