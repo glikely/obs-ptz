@@ -116,14 +116,18 @@ private slots:
 protected:
 	bool m_joystick_enable = false;
 	int m_joystick_id = -1;
+	double m_joystick_deadzone = 0.0;
 #if defined(ENABLE_JOYSTICK)
 public:
 	void joystickSetup();
 	bool joystickEnabled() { return m_joystick_enable; };
-	void setJoystickEnabled(bool enable) { m_joystick_enable = enable; };
+	double joystickDeadzone() { return m_joystick_deadzone; };
+	void setJoystickEnabled(bool enable);
+	void setJoystickDeadzone(double deadzone);
 	int joystickId() { return m_joystick_id; };
 	void setJoystickId(int id) { m_joystick_id = id; };
 protected slots:
+	void joystickAxesChanged(const QJoystickDevice *jd, uint32_t updated);
 	void joystickAxisEvent(const QJoystickAxisEvent evt);
 	void joystickButtonEvent(const QJoystickButtonEvent evt);
 	void joystickPOVEvent(const QJoystickPOVEvent evt);

@@ -10,6 +10,7 @@
 #include <QStyledItemDelegate>
 #include <QString>
 #include <imported/properties-view.hpp>
+#include "imported/qjoysticks/QJoysticks.h"
 
 class Ui_PTZSettings;
 
@@ -44,6 +45,7 @@ protected:
 	QStringListModel m_joystickNamesModel;
 protected slots:
 	void on_joystickGroupBox_toggled(bool checked);
+	void on_joystickDeadzoneSlider_doubleValChanged(double val);
 	void joystickUpdate();
 	void joystickCurrentChanged(QModelIndex, QModelIndex);
 #else  /* ENABLE_JOYSTICK */

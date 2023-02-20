@@ -166,15 +166,24 @@ void PTZSettings::joystickSetup()
 	auto controls = PTZControls::getInstance();
 	ui->joystickNamesListView->setModel(&m_joystickNamesModel);
 	ui->joystickGroupBox->setChecked(controls->joystickEnabled());
+	ui->joystickDeadzoneSlider->setDoubleConstraints(
+		0.01, 0.15, 0.01, controls->joystickDeadzone());
 
 	connect(joysticks, SIGNAL(countChanged()), this,
 		SLOT(joystickUpdate()));
+	connect(joysticks, SIGNAL(axisEvent(const QJoystickAxisEvent)), this,
+		SLOT(joystickAxisEvent(const QJoystickAxisEvent)));
 
 	auto selectionModel = ui->joystickNamesListView->selectionModel();
 	connect(selectionModel,
 		SIGNAL(currentChanged(QModelIndex, QModelIndex)), this,
 		SLOT(joystickCurrentChanged(QModelIndex, QModelIndex)));
 	joystickUpdate();
+}
+
+void PTZSettings::on_joystickDeadzoneSlider_doubleValChanged(double val)
+{
+	PTZControls::getInstance()->setJoystickDeadzone(val);
 }
 
 void PTZSettings::on_joystickGroupBox_toggled(bool checked)

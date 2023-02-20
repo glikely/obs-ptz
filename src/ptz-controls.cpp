@@ -321,19 +321,40 @@ void PTZControls::joystickSetup()
 		SLOT(joystickPOVEvent(const QJoystickPOVEvent)));
 }
 
+void PTZControls::setJoystickEnabled(bool enable)
+{
+	/* Stop camera on state change */
+	setPanTilt(0, 0);
+	setZoom(0);
+	m_joystick_enable = enable;
+};
+
+void PTZControls::setJoystickDeadzone(double deadzone)
+{
+	m_joystick_deadzone = deadzone;
+	/* Immediatly apply the deadzone */
+	auto jd = QJoysticks::getInstance()->getInputDevice(m_joystick_id);
+	joystickAxesChanged(jd, 0b11111111);
+};
+
+void PTZControls::joystickAxesChanged(const QJoystickDevice *jd,
+				      uint32_t updated)
+{
+	if (!m_joystick_enable || !jd || jd->id != m_joystick_id)
+		return;
+	auto filter_axis = [=](double val) -> double {
+		return abs(val) > m_joystick_deadzone ? val : 0.0;
+	};
+
+	if (updated & 0b0011)
+		setPanTilt(filter_axis(jd->axes[0]), -filter_axis(jd->axes[1]));
+	if (updated & 0b1000)
+		setZoom(-filter_axis(jd->axes[3]));
+}
+
 void PTZControls::joystickAxisEvent(const QJoystickAxisEvent evt)
 {
-	if (!m_joystick_enable || evt.joystick->id != m_joystick_id)
-		return;
-	switch (evt.axis) {
-	case 0:
-	case 1:
-		setPanTilt(evt.joystick->axes[0], -evt.joystick->axes[1]);
-		break;
-	case 3:
-		setZoom(-evt.value);
-		break;
-	};
+	joystickAxesChanged(evt.joystick, 1 << evt.axis);
 }
 
 void PTZControls::joystickPOVEvent(const QJoystickPOVEvent evt)
@@ -410,6 +431,7 @@ void PTZControls::SaveConfig()
 	obs_data_set_string(savedata, "target_mode", target_mode);
 	obs_data_set_bool(savedata, "joystick_enable", m_joystick_enable);
 	obs_data_set_int(savedata, "joystick_id", m_joystick_id);
+	obs_data_set_double(savedata, "joystick_deadzone", m_joystick_deadzone);
 
 	OBSDataArray camera_array = ptz_devices_get_config();
 	obs_data_array_release(camera_array);
@@ -453,6 +475,7 @@ void PTZControls::LoadConfig()
 	obs_data_set_default_string(loaddata, "target_mode", "preview");
 	obs_data_set_default_bool(loaddata, "joystick_enable", false);
 	obs_data_set_default_int(loaddata, "joystick_id", -1);
+	obs_data_set_default_double(loaddata, "joystick_deadzone", 0.0);
 
 	ptz_debug_level = (int)obs_data_get_int(loaddata, "debug_log_level");
 	live_moves_disabled =
@@ -462,6 +485,8 @@ void PTZControls::LoadConfig()
 	ui->actionFollowProgram->setChecked(target_mode == "program");
 	m_joystick_enable = obs_data_get_bool(loaddata, "joystick_enable");
 	m_joystick_id = (int)obs_data_get_int(loaddata, "joystick_id");
+	m_joystick_deadzone =
+		obs_data_get_double(loaddata, "joystick_deadzone");
 
 	const char *splitterStateStr =
 		obs_data_get_string(loaddata, "splitter_state");
