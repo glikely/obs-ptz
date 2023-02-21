@@ -13,7 +13,7 @@
 #include "ptz-onvif.hpp"
 #include <QtXml/QDomDocument>
 
-bool SoapRequest::sendRequest(QString &result)
+void SoapRequest::sendRequest()
 {
 	QNetworkRequest request(this->host);
 	request.setHeader(QNetworkRequest::ContentTypeHeader,
@@ -26,44 +26,7 @@ bool SoapRequest::sendRequest(QString &result)
 
 	qInfo() << "[PTZOnvif] Request onvif " << this->createRequest();
 
-	QNetworkReply *reply = this->networkManager->post(
-		request, this->createRequest().toUtf8());
-
-	QTimer timerTimeout;
-	timerTimeout.setSingleShot(true);
-	QEventLoop loop;
-	loop.connect(&timerTimeout, SIGNAL(timeout()), SLOT(quit()));
-	loop.connect(this->networkManager, SIGNAL(finished(QNetworkReply *)),
-		     SLOT(quit()));
-
-	timerTimeout.start(3000);
-	loop.exec();
-
-	if (timerTimeout.isActive()) {
-		timerTimeout.stop();
-		if (reply->error() > 0) {
-			qInfo() << "[PTZOnvif] Request error " << reply->error()
-				<< ", Message: " << reply->errorString()
-				<< ", Code: "
-				<< reply->attribute(
-						QNetworkRequest::
-							HttpStatusCodeAttribute)
-					   .toInt()
-				<< ", Description: " << body;
-		} else {
-			QVariant statusCodeV = reply->attribute(
-				QNetworkRequest::HttpStatusCodeAttribute);
-			result = QString(reply->readAll());
-			if (statusCodeV.toInt() == 200) {
-				return true;
-			}
-		}
-	} else {
-		disconnect(reply, SIGNAL(finished()), &loop, SLOT(quit()));
-		reply->abort();
-		qInfo() << "[PTZOnvif] Request timeout";
-	}
-	return false;
+	networkManager->post(request, this->createRequest().toUtf8());
 }
 
 void PTZOnvif::authRequired(QNetworkReply *, QAuthenticator *authenticator)
@@ -143,7 +106,7 @@ SoapRequest *PTZOnvif::createSoapRequest()
 	return soapRequest;
 }
 
-bool PTZOnvif::continuousMove(double x, double y, double z)
+void PTZOnvif::continuousMove(double x, double y, double z)
 {
 	SoapRequest *soapRequest = createSoapRequest();
 	soapRequest->action =
@@ -162,14 +125,11 @@ bool PTZOnvif::continuousMove(double x, double y, double z)
 		QString::number(z) + "\"/>");
 	body.push_back("</Velocity></ContinuousMove>");
 	soapRequest->body = body;
-	QString response;
-	bool result = soapRequest->sendRequest(response);
-	qInfo() << "[OnvifPTZService] ContinuousMove Response " << response;
+	soapRequest->sendRequest();
 	delete soapRequest;
-	return result;
 }
 
-bool PTZOnvif::absoluteMove(int x, int y, int z)
+void PTZOnvif::absoluteMove(int x, int y, int z)
 {
 	SoapRequest *soapRequest = createSoapRequest();
 	soapRequest->action =
@@ -189,14 +149,11 @@ bool PTZOnvif::absoluteMove(int x, int y, int z)
 	body.push_back("</Position>");
 	body.push_back("</AbsoluteMove>");
 	soapRequest->body = body;
-	QString response;
-	bool result = soapRequest->sendRequest(response);
-	qInfo() << "[OnvifPTZService] AbsoluteMove Response " << response;
+	soapRequest->sendRequest();
 	delete soapRequest;
-	return result;
 }
 
-bool PTZOnvif::relativeMove(int x, int y, int z)
+void PTZOnvif::relativeMove(int x, int y, int z)
 {
 	SoapRequest *soapRequest = createSoapRequest();
 	soapRequest->action =
@@ -216,14 +173,11 @@ bool PTZOnvif::relativeMove(int x, int y, int z)
 	body.push_back("</Translation>");
 	body.push_back("</RelativeMove>");
 	soapRequest->body = body;
-	QString response;
-	bool result = soapRequest->sendRequest(response);
-	qInfo() << "[OnvifPTZService] RelativeMove Response " << response;
+	soapRequest->sendRequest();
 	delete soapRequest;
-	return result;
 }
 
-bool PTZOnvif::stop()
+void PTZOnvif::stop()
 {
 	SoapRequest *soapRequest = createSoapRequest();
 	soapRequest->action = "http://www.onvif.org/ver20/ptz/wsdl/Stop";
@@ -234,14 +188,11 @@ bool PTZOnvif::stop()
 	body.push_back("<PanTilt>true</PanTilt><Zoom>true</Zoom>");
 	body.push_back("</Stop>");
 	soapRequest->body = body;
-	QString response;
-	bool result = soapRequest->sendRequest(response);
-	qInfo() << "[OnvifPTZService] Stop Response " << response;
+	soapRequest->sendRequest();
 	delete soapRequest;
-	return result;
 }
 
-bool PTZOnvif::goToHomePosition()
+void PTZOnvif::goToHomePosition()
 {
 	SoapRequest *soapRequest = createSoapRequest();
 	soapRequest->action =
@@ -253,14 +204,11 @@ bool PTZOnvif::goToHomePosition()
 	body.push_back("</ProfileToken>");
 	body.push_back("</GotoHomePosition>");
 	soapRequest->body = body;
-	QString response;
-	bool result = soapRequest->sendRequest(response);
-	qInfo() << "[OnvifPTZService] GoToHomePosition Response " << response;
+	soapRequest->sendRequest();
 	delete soapRequest;
-	return result;
 }
 
-bool PTZOnvif::setPreset(QString preset, int p)
+void PTZOnvif::setPreset(QString preset, int p)
 {
 	SoapRequest *soapRequest = createSoapRequest();
 	soapRequest->action = "http://www.onvif.org/ver20/ptz/wsdl/SetPreset";
@@ -279,14 +227,11 @@ bool PTZOnvif::setPreset(QString preset, int p)
 	}
 	body.push_back("</SetPreset>");
 	soapRequest->body = body;
-	QString response;
-	bool result = soapRequest->sendRequest(response);
-	qInfo() << "[OnvifPTZService] SetPreset Response " << response;
+	soapRequest->sendRequest();
 	delete soapRequest;
-	return result;
 }
 
-bool PTZOnvif::removePreset(QString preset)
+void PTZOnvif::removePreset(QString preset)
 {
 	SoapRequest *soapRequest = createSoapRequest();
 	soapRequest->action =
@@ -301,14 +246,11 @@ bool PTZOnvif::removePreset(QString preset)
 	body.push_back("</PresetToken>");
 	body.push_back("</RemovePreset>");
 	soapRequest->body = body;
-	QString response;
-	bool result = soapRequest->sendRequest(response);
-	qInfo() << "[OnvifPTZService] RemovePreset Response " << response;
+	soapRequest->sendRequest();
 	delete soapRequest;
-	return result;
 }
 
-bool PTZOnvif::gotoPreset(QString preset)
+void PTZOnvif::gotoPreset(QString preset)
 {
 	SoapRequest *soapRequest = createSoapRequest();
 	soapRequest->action = "http://www.onvif.org/ver20/ptz/wsdl/GotoPreset";
@@ -322,11 +264,8 @@ bool PTZOnvif::gotoPreset(QString preset)
 	body.push_back("</PresetToken>");
 	body.push_back("</GotoPreset>");
 	soapRequest->body = body;
-	QString response;
-	bool result = soapRequest->sendRequest(response);
-	qInfo() << "[OnvifPTZService] GotoPreset Response " << response;
+	soapRequest->sendRequest();
 	delete soapRequest;
-	return result;
 }
 
 void PTZOnvif::getPresets()
@@ -342,10 +281,8 @@ void PTZOnvif::getPresets()
 	soapRequest->body = body;
 	QString response;
 
-	bool ok = soapRequest->sendRequest(response);
+	soapRequest->sendRequest();
 	delete soapRequest;
-	if (ok)
-		handleResponse(response);
 }
 
 void PTZOnvif::handleResponse(QString response)
@@ -416,12 +353,8 @@ void PTZOnvif::getCapabilities()
 	QString body(
 		"<tds:GetCapabilities><tds:Category>All</tds:Category></tds:GetCapabilities>");
 	soapRequest->body = body;
-	QString response;
-	bool ok = soapRequest->sendRequest(response);
-	// qInfo() << "[OnvifDeviceService] GetPTZXAddress Response " << response;
+	soapRequest->sendRequest();
 	delete soapRequest;
-	if (ok)
-		handleResponse(response);
 }
 
 void PTZOnvif::handleGetCapabilitiesResponse(QDomNode node)
@@ -470,12 +403,8 @@ void PTZOnvif::getProfiles()
 	soapRequest->XMLNs = mediaNameSpace;
 	QString body("<trt:GetProfiles/>");
 	soapRequest->body = body;
-	QString response;
-	bool ok = soapRequest->sendRequest(response);
-	// qInfo() << "[OnvifMediaService] GetProfiles Response " << response;
+	soapRequest->sendRequest();
 	delete soapRequest;
-	if (ok)
-		handleResponse(response);
 }
 
 void PTZOnvif::handleGetProfilesResponse(QDomNode node)
@@ -504,14 +433,34 @@ void PTZOnvif::handleGetProfilesResponse(QDomNode node)
 	getPresets();
 }
 
+void PTZOnvif::requestFinished(QNetworkReply *reply)
+{
+	auto statusCodeV =
+		reply->attribute(QNetworkRequest::HttpStatusCodeAttribute)
+			.toInt();
+
+	qInfo() << "received ONVIF Response status: " << statusCodeV;
+	if (reply->error() > 0) {
+		qInfo() << "[PTZOnvif] Request error " << reply->error()
+			<< ", Message: " << reply->errorString()
+			<< ", Code: " << statusCodeV;
+		return;
+	}
+
+	handleResponse(reply->readAll());
+	if (statusCodeV == 200)
+		return;
+}
+
 PTZOnvif::PTZOnvif(OBSData config) : PTZDevice(config)
 {
 	// for digest authenticaton request
-	QObject::connect(&m_networkManager,
-			 SIGNAL(authenticationRequired(QNetworkReply *,
-						       QAuthenticator *)),
-			 this,
-			 SLOT(authRequired(QNetworkReply *, QAuthenticator *)));
+	connect(&m_networkManager,
+		SIGNAL(authenticationRequired(QNetworkReply *,
+					      QAuthenticator *)),
+		this, SLOT(authRequired(QNetworkReply *, QAuthenticator *)));
+	connect(&m_networkManager, SIGNAL(finished(QNetworkReply *)), this,
+		SLOT(requestFinished(QNetworkReply *)));
 	set_config(config);
 }
 

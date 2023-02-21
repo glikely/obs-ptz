@@ -28,7 +28,7 @@ public:
 class SoapRequest : QObject {
 	Q_OBJECT
 public:
-	bool sendRequest(QString &result);
+	void sendRequest();
 
 public:
 	QString username, password, host;
@@ -63,19 +63,20 @@ private:
 	void getProfiles();
 	void handleGetProfilesResponse(QDomNode node);
 	SoapRequest *createSoapRequest();
-	bool continuousMove(double x, double y, double z);
-	bool absoluteMove(int x, int y, int z);
-	bool relativeMove(int x, int y, int z);
-	bool stop();
-	bool goToHomePosition();
-	bool setPreset(QString preset, int p);
-	bool gotoPreset(QString preset);
-	bool removePreset(QString preset);
+	void continuousMove(double x, double y, double z);
+	void absoluteMove(int x, int y, int z);
+	void relativeMove(int x, int y, int z);
+	void stop();
+	void goToHomePosition();
+	void setPreset(QString preset, int p);
+	void gotoPreset(QString preset);
+	void removePreset(QString preset);
 	void getPresets();
 	void handleGetPresetsResponse(QDomDocument doc);
 private slots:
 	void connectCamera();
 	void authRequired(QNetworkReply *reply, QAuthenticator *authenticator);
+	void requestFinished(QNetworkReply *reply);
 
 public:
 	PTZOnvif(OBSData config);
