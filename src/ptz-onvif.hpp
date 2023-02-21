@@ -54,9 +54,12 @@ private:
 	QString m_mediaXAddr{""};
 	QString m_PTZAddress{""};
 	MediaProfile m_selectedMedia;
+	QMap<int, QString> m_onvifPresets;
 
 	void getCapabilities();
+	void handleGetCapabilitiesResponse(QString response);
 	void getProfiles();
+	void handleGetProfilesResponse(QString response);
 	SoapRequest *createSoapRequest();
 	bool continuousMove(double x, double y, double z);
 	bool absoluteMove(int x, int y, int z);
@@ -66,7 +69,8 @@ private:
 	bool setPreset(QString preset, int p);
 	bool gotoPreset(QString preset);
 	bool removePreset(QString preset);
-	QMap<int, QString> getPresets();
+	void getPresets();
+	void handleGetPresetsResponse(QString response);
 private slots:
 	void connectCamera();
 	void authRequired(QNetworkReply *reply, QAuthenticator *authenticator);
