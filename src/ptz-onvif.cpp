@@ -345,13 +345,25 @@ void PTZOnvif::getPresets()
 	bool ok = soapRequest->sendRequest(response);
 	delete soapRequest;
 	if (ok)
-		handleGetPresetsResponse(response);
+		handleResponse(response);
 }
 
-void PTZOnvif::handleGetPresetsResponse(QString response)
+void PTZOnvif::handleResponse(QString response)
 {
 	QDomDocument doc;
 	doc.setContent(response);
+
+	auto nl = doc.elementsByTagName("tds:GetCapabilitiesResponse");
+	for (int i = 0; i < nl.length(); i++)
+		handleGetCapabilitiesResponse(nl.at(i));
+	nl = doc.elementsByTagName("trt:GetProfilesResponse");
+	for (int i = 0; i < nl.length(); i++)
+		handleGetProfilesResponse(nl.at(i));
+	handleGetPresetsResponse(doc);
+}
+
+void PTZOnvif::handleGetPresetsResponse(QDomDocument doc)
+{
 	QDomNodeList nodes = doc.elementsByTagName("tptz:Preset");
 
 	for (int i = 0; i < nodes.length(); i++) {
@@ -386,7 +398,7 @@ void PTZOnvif::handleGetPresetsResponse(QString response)
 			m_onvifPresets.insert(preset_number, preset_token);
 	}
 
-	qInfo() << "[OnvifPTZService] GetPresets Response " << response;
+	//qInfo() << "[OnvifPTZService] GetPresets Response " << response;
 }
 
 void PTZOnvif::getCapabilities()
@@ -408,72 +420,41 @@ void PTZOnvif::getCapabilities()
 	bool ok = soapRequest->sendRequest(response);
 	// qInfo() << "[OnvifDeviceService] GetPTZXAddress Response " << response;
 	delete soapRequest;
-
 	if (ok)
-		handleGetCapabilitiesResponse(response);
+		handleResponse(response);
 }
 
-void PTZOnvif::handleGetCapabilitiesResponse(QString response)
+void PTZOnvif::handleGetCapabilitiesResponse(QDomNode node)
 {
-	QDomDocument doc;
-	doc.setContent(response);
-	QDomElement rootElement = doc.documentElement();
-	for (QDomNode node = rootElement.firstChild(); !node.isNull();
-	     node = node.nextSibling()) {
-		QDomElement elementBody = node.toElement();
-		for (QDomNode node1 = elementBody.firstChild(); !node1.isNull();
-		     node1 = node1.nextSibling()) {
-			QDomElement elementGetCapabilitiesResponse =
-				node1.toElement();
-			for (QDomNode node2 =
-				     elementGetCapabilitiesResponse.firstChild();
-			     !node2.isNull(); node2 = node2.nextSibling()) {
-				QDomElement elementCapabilities =
-					node2.toElement();
-				for (QDomNode node3 =
-					     elementCapabilities.firstChild();
-				     !node3.isNull();
-				     node3 = node3.nextSibling()) {
-					if (node3.nodeName().toLower().endsWith(
-						    "ptz")) {
-						QDomElement elementPtz =
-							node3.toElement();
-						for (QDomNode node4 =
-							     elementPtz
-								     .firstChild();
-						     !node4.isNull();
-						     node4 = node4.nextSibling()) {
-							if (node4.nodeName()
-								    .toLower()
-								    .endsWith(
-									    "xaddr"))
-								m_PTZAddress =
-									node4.toElement()
-										.text();
-						}
-					} else if (node3.nodeName()
-							   .toLower()
-							   .endsWith("media")) {
-						QDomElement elementPtz =
-							node3.toElement();
-						for (QDomNode node4 =
-							     elementPtz
-								     .firstChild();
-						     !node4.isNull();
-						     node4 = node4.nextSibling()) {
-							if (node4.nodeName()
-								    .toLower()
-								    .endsWith(
-									    "xaddr"))
-								m_mediaXAddr =
-									node4.toElement()
-										.text();
-						}
-					}
+	auto responseElement = node.toElement();
+	for (auto n2 = responseElement.firstChild(); !n2.isNull();
+	     n2 = n2.nextSibling()) {
+		QDomElement elementCapabilities = n2.toElement();
+		for (QDomNode n3 = elementCapabilities.firstChild();
+		     !n3.isNull(); n3 = n3.nextSibling()) {
+			if (n3.nodeName().toLower().endsWith("ptz")) {
+				QDomElement elementPtz = n3.toElement();
+				for (QDomNode n4 = elementPtz.firstChild();
+				     !n4.isNull(); n4 = n4.nextSibling()) {
+					if (n4.nodeName().toLower().endsWith(
+						    "xaddr"))
+						m_PTZAddress =
+							n4.toElement().text();
+				}
+			}
+			if (n3.nodeName().toLower().endsWith("media")) {
+				QDomElement elementPtz = n3.toElement();
+				for (QDomNode n4 = elementPtz.firstChild();
+				     !n4.isNull(); n4 = n4.nextSibling()) {
+					if (n4.nodeName().toLower().endsWith(
+						    "xaddr"))
+						m_mediaXAddr =
+							n4.toElement().text();
 				}
 			}
 		}
 	}
+	getProfiles();
 }
 
 void PTZOnvif::getProfiles()
@@ -494,53 +475,33 @@ void PTZOnvif::getProfiles()
 	// qInfo() << "[OnvifMediaService] GetProfiles Response " << response;
 	delete soapRequest;
 	if (ok)
-		handleGetProfilesResponse(response);
+		handleResponse(response);
 }
 
-void PTZOnvif::handleGetProfilesResponse(QString response)
+void PTZOnvif::handleGetProfilesResponse(QDomNode node)
 {
 	QList<MediaProfile> result;
-	QDomDocument doc;
-	doc.setContent(response);
-	QDomElement rootElement = doc.documentElement();
-	for (QDomNode node = rootElement.firstChild(); !node.isNull();
-	     node = node.nextSibling()) {
-		QDomElement elementBody = node.toElement();
-		for (QDomNode node1 = elementBody.firstChild(); !node1.isNull();
-		     node1 = node1.nextSibling()) {
-			QDomElement elementGetProfilesResponse =
-				node1.toElement();
-			for (QDomNode node2 =
-				     elementGetProfilesResponse.firstChild();
-			     !node2.isNull(); node2 = node2.nextSibling()) {
-				MediaProfile profile;
-				QDomElement elementProfiles = node2.toElement();
-				for (int i = 0; i < node2.attributes().size();
-				     i++) {
-					if (node2.attributes()
-						    .item(i)
-						    .nodeName() == "token")
-						profile.token =
-							node2.attributes()
-								.item(i)
-								.nodeValue();
-				}
-
-				for (QDomNode node3 =
-					     elementProfiles.firstChild();
-				     !node3.isNull();
-				     node3 = node3.nextSibling()) {
-					if (node3.nodeName().toLower().endsWith(
-						    "name"))
-						profile.name =
-							node3.toElement().text();
-				}
-				result.push_back(profile);
-			}
+	QDomElement elementGetProfilesResponse = node.toElement();
+	for (QDomNode node2 = elementGetProfilesResponse.firstChild();
+	     !node2.isNull(); node2 = node2.nextSibling()) {
+		MediaProfile profile;
+		QDomElement elementProfiles = node2.toElement();
+		for (int i = 0; i < node2.attributes().size(); i++) {
+			if (node2.attributes().item(i).nodeName() == "token")
+				profile.token =
+					node2.attributes().item(i).nodeValue();
 		}
+
+		for (QDomNode node3 = elementProfiles.firstChild();
+		     !node3.isNull(); node3 = node3.nextSibling()) {
+			if (node3.nodeName().toLower().endsWith("name"))
+				profile.name = node3.toElement().text();
+		}
+		result.push_back(profile);
 	}
 	if (!result.isEmpty())
 		m_selectedMedia = result[0];
+	getPresets();
 }
 
 PTZOnvif::PTZOnvif(OBSData config) : PTZDevice(config)
@@ -563,7 +524,6 @@ QString PTZOnvif::description()
 void PTZOnvif::connectCamera()
 {
 	getCapabilities();
-	getProfiles();
 }
 
 void PTZOnvif::do_update()
@@ -604,14 +564,12 @@ void PTZOnvif::zoom_abs(double pos)
 
 void PTZOnvif::memory_reset(int i)
 {
-	getPresets();
 	if (m_onvifPresets.find(i) != m_onvifPresets.end())
 		removePreset(m_onvifPresets[i]);
 }
 
 void PTZOnvif::memory_set(int i)
 {
-	getPresets();
 	QString preset = "";
 	if (m_onvifPresets.find(i) != m_onvifPresets.end())
 		preset = m_onvifPresets[i];
@@ -621,7 +579,6 @@ void PTZOnvif::memory_set(int i)
 
 void PTZOnvif::memory_recall(int i)
 {
-	getPresets();
 	if (m_onvifPresets.find(i) != m_onvifPresets.end())
 		gotoPreset(m_onvifPresets[i]);
 }

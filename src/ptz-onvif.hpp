@@ -10,6 +10,7 @@
 #include "ptz-device.hpp"
 #include <QNetworkAccessManager>
 #include <QNetworkReply>
+#include <QtXml/QDomDocument>
 #include <QObject>
 #include <QUuid>
 #include <QAuthenticator>
@@ -56,10 +57,11 @@ private:
 	MediaProfile m_selectedMedia;
 	QMap<int, QString> m_onvifPresets;
 
+	void handleResponse(QString response);
 	void getCapabilities();
-	void handleGetCapabilitiesResponse(QString response);
+	void handleGetCapabilitiesResponse(QDomNode node);
 	void getProfiles();
-	void handleGetProfilesResponse(QString response);
+	void handleGetProfilesResponse(QDomNode node);
 	SoapRequest *createSoapRequest();
 	bool continuousMove(double x, double y, double z);
 	bool absoluteMove(int x, int y, int z);
@@ -70,7 +72,7 @@ private:
 	bool gotoPreset(QString preset);
 	bool removePreset(QString preset);
 	void getPresets();
-	void handleGetPresetsResponse(QString response);
+	void handleGetPresetsResponse(QDomDocument doc);
 private slots:
 	void connectCamera();
 	void authRequired(QNetworkReply *reply, QAuthenticator *authenticator);
