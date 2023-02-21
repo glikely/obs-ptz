@@ -45,60 +45,6 @@ private:
 	QString createUserToken();
 };
 
-class OnvifPTZService {
-private:
-	QList<QString> ptzNameSpace;
-
-public:
-	OnvifPTZService();
-	bool ContinuousMove(QString host, QString username, QString password,
-			    QString profile, double x, double y, double z);
-	bool AbsoluteMove(QString host, QString username, QString password,
-			  QString profile, int x, int y, int z);
-	bool RelativeMove(QString host, QString username, QString password,
-			  QString profile, int x, int y, int z);
-	bool Stop(QString host, QString username, QString password,
-		  QString profile);
-	bool GoToHomePosition(QString host, QString username, QString password,
-			      QString profile);
-	bool SetPreset(QString host, QString username, QString password,
-		       QString profile, QString preset, int p);
-	bool GotoPreset(QString host, QString username, QString password,
-			QString profile, QString preset);
-	bool RemovePreset(QString host, QString username, QString password,
-			  QString profile, QString preset);
-	QMap<int, QString> GetPresets(QString host, QString username,
-				      QString password, QString profile);
-};
-
-class OnvifDeviceCapabilities {
-public:
-	QString mediaXAddr;
-	QString ptzXAddr;
-};
-
-class OnvifDeviceService {
-private:
-	QList<QString> deviceNameSpace;
-
-public:
-	OnvifDeviceService();
-	OnvifDeviceCapabilities GetCapabilities(QString deviceXAddress,
-						QString username,
-						QString password);
-};
-
-class OnvifMediaService {
-private:
-	QList<QString> mediaNameSpace;
-
-public:
-	OnvifMediaService();
-
-	QList<MediaProfile> GetProfiles(QString mediaXAddress, QString username,
-					QString password);
-};
-
 class PTZOnvif : public PTZDevice {
 	Q_OBJECT
 
@@ -108,9 +54,22 @@ private:
 	QString username;
 	QString password;
 
+	static const QList<QString> ptzNameSpace;
+	QString m_mediaXAddr{""};
 	QString m_PTZAddress{""};
 	MediaProfile m_selectedMedia;
 
+	void getCapabilities();
+	void getProfiles();
+	bool continuousMove(double x, double y, double z);
+	bool absoluteMove(int x, int y, int z);
+	bool relativeMove(int x, int y, int z);
+	bool stop();
+	bool goToHomePosition();
+	bool setPreset(QString preset, int p);
+	bool gotoPreset(QString preset);
+	bool removePreset(QString preset);
+	QMap<int, QString> getPresets();
 private slots:
 	void connectCamera();
 
