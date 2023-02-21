@@ -27,12 +27,7 @@ public:
 class SoapRequest : QObject {
 	Q_OBJECT
 public:
-	SoapRequest();
-	~SoapRequest();
-
 	bool sendRequest(QString &result);
-public slots:
-	void authRequired(QNetworkReply *reply, QAuthenticator *authenticator);
 
 public:
 	QString username, password, host;
@@ -53,6 +48,7 @@ private:
 	int port;
 	QString username;
 	QString password;
+	QNetworkAccessManager m_networkManager;
 
 	static const QList<QString> ptzNameSpace;
 	QString m_mediaXAddr{""};
@@ -73,6 +69,7 @@ private:
 	QMap<int, QString> getPresets();
 private slots:
 	void connectCamera();
+	void authRequired(QNetworkReply *reply, QAuthenticator *authenticator);
 
 public:
 	PTZOnvif(OBSData config);

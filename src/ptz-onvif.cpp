@@ -13,16 +13,6 @@
 #include "ptz-onvif.hpp"
 #include <QtXml/QDomDocument>
 
-SoapRequest::SoapRequest() : QObject(nullptr)
-{
-	networkManager = new QNetworkAccessManager();
-}
-
-SoapRequest::~SoapRequest()
-{
-	delete networkManager;
-}
-
 bool SoapRequest::sendRequest(QString &result)
 {
 	QNetworkRequest request(this->host);
@@ -36,12 +26,6 @@ bool SoapRequest::sendRequest(QString &result)
 
 	qInfo() << "[PTZOnvif] Request onvif " << this->createRequest();
 
-	// for digest authenticaton request
-	QObject::connect(this->networkManager,
-			 SIGNAL(authenticationRequired(QNetworkReply *,
-						       QAuthenticator *)),
-			 this,
-			 SLOT(authRequired(QNetworkReply *, QAuthenticator *)));
 	QNetworkReply *reply = this->networkManager->post(
 		request, this->createRequest().toUtf8());
 
@@ -82,10 +66,10 @@ bool SoapRequest::sendRequest(QString &result)
 	return false;
 }
 
-void SoapRequest::authRequired(QNetworkReply *, QAuthenticator *authenticator)
+void PTZOnvif::authRequired(QNetworkReply *, QAuthenticator *authenticator)
 {
-	authenticator->setUser(this->username);
-	authenticator->setPassword(this->password);
+	authenticator->setUser(username);
+	authenticator->setPassword(password);
 }
 
 QString SoapRequest::createRequest()
@@ -151,6 +135,7 @@ const QList<QString> PTZOnvif::ptzNameSpace = {
 SoapRequest *PTZOnvif::createSoapRequest()
 {
 	auto soapRequest = new SoapRequest();
+	soapRequest->networkManager = &m_networkManager;
 	soapRequest->host = m_PTZAddress;
 	soapRequest->username = username;
 	soapRequest->password = password;
@@ -417,6 +402,7 @@ void PTZOnvif::getCapabilities()
 		"xmlns:tds=\"http://www.onvif.org/ver10/device/wsdl\"",
 		"xmlns:tt=\"http://www.onvif.org/ver10/schema\""};
 	SoapRequest *soapRequest = new SoapRequest();
+	soapRequest->networkManager = &m_networkManager;
 	soapRequest->host =
 		tr("http://%1:%2/onvif/device_service").arg(host).arg(port);
 	soapRequest->username = username;
@@ -505,6 +491,7 @@ void PTZOnvif::getProfiles()
 		"xmlns:trt=\"http://www.onvif.org/ver10/media/wsdl\"",
 		"xmlns:tt=\"http://www.onvif.org/ver10/schema\""};
 	SoapRequest *soapRequest = new SoapRequest();
+	soapRequest->networkManager = &m_networkManager;
 	soapRequest->host = m_mediaXAddr;
 	soapRequest->username = username;
 	soapRequest->password = password;
@@ -571,6 +558,12 @@ void PTZOnvif::getProfiles()
 
 PTZOnvif::PTZOnvif(OBSData config) : PTZDevice(config)
 {
+	// for digest authenticaton request
+	QObject::connect(&m_networkManager,
+			 SIGNAL(authenticationRequired(QNetworkReply *,
+						       QAuthenticator *)),
+			 this,
+			 SLOT(authRequired(QNetworkReply *, QAuthenticator *)));
 	set_config(config);
 }
 
