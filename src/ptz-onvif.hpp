@@ -61,6 +61,7 @@ private:
 
 	void getCapabilities();
 	void getProfiles();
+	SoapRequest *createSoapRequest();
 	bool continuousMove(double x, double y, double z);
 	bool absoluteMove(int x, int y, int z);
 	bool relativeMove(int x, int y, int z);
