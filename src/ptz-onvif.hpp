@@ -28,16 +28,12 @@ public:
 class SoapRequest : QObject {
 	Q_OBJECT
 public:
-	void sendRequest();
-
-public:
 	QString username, password, host;
 	QString body, action;
 	QList<QString> XMLNs;
-	QNetworkAccessManager *networkManager;
+	QString createRequest();
 
 private:
-	QString createRequest();
 	QString createUserToken();
 };
 
@@ -58,6 +54,7 @@ private:
 	MediaProfile m_selectedMedia;
 	QMap<int, QString> m_onvifPresets;
 
+	void sendRequest(SoapRequest *soap_req);
 	void handleResponse(QString response);
 	void getCapabilities();
 	void handleGetCapabilitiesResponse(QDomNode node);
