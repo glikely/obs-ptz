@@ -480,7 +480,7 @@ void PTZOnvif::do_update()
 	if (status &
 	    (STATUS_PANTILT_SPEED_CHANGED | STATUS_ZOOM_SPEED_CHANGED)) {
 		if (pan_speed == 0.0 && tilt_speed == 0.0 &&
-		    focus_speed == 0.0) {
+		    zoom_speed == 0.0) {
 			status &= ~(STATUS_PANTILT_SPEED_CHANGED |
 				    STATUS_ZOOM_SPEED_CHANGED);
 			stop();
@@ -488,7 +488,7 @@ void PTZOnvif::do_update()
 			m_isBusy = true;
 			status &= ~(STATUS_PANTILT_SPEED_CHANGED |
 				    STATUS_ZOOM_SPEED_CHANGED);
-			continuousMove(pan_speed, tilt_speed, focus_speed);
+			continuousMove(pan_speed, tilt_speed, zoom_speed);
 		}
 	}
 }
