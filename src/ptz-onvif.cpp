@@ -324,15 +324,12 @@ void PTZOnvif::handleGetPresetsResponse(QDomDocument doc)
 							.split("_")
 							.takeLast()
 							.toInt();
-				// qInfo() << "[OnvifPTZService] GetPresets Response " << preset_number;
 			}
 		}
 
 		if (preset_token != "" && preset_number > -1)
 			m_onvifPresets.insert(preset_number, preset_token);
 	}
-
-	//qInfo() << "[OnvifPTZService] GetPresets Response " << response;
 }
 
 void PTZOnvif::getCapabilities()
@@ -431,12 +428,9 @@ void PTZOnvif::requestFinished(QNetworkReply *reply)
 			.toInt();
 
 	m_isBusy = false;
-	qInfo() << "received ONVIF Response status: " << statusCodeV;
 	if (reply->error() > 0) {
-		qInfo() << "[PTZOnvif] Request error " << reply->error()
-			<< ", Message: " << reply->errorString()
-			<< ", Code: " << statusCodeV;
-		return;
+		ptz_info("request error; message: %s, code: %i",
+			 QT_TO_UTF8(reply->errorString()), statusCodeV);
 	} else {
 		handleResponse(reply->readAll());
 	}
