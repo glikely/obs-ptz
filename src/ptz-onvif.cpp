@@ -439,17 +439,17 @@ void PTZOnvif::requestFinished(QNetworkReply *reply)
 		reply->attribute(QNetworkRequest::HttpStatusCodeAttribute)
 			.toInt();
 
+	m_isBusy = false;
 	qInfo() << "received ONVIF Response status: " << statusCodeV;
 	if (reply->error() > 0) {
 		qInfo() << "[PTZOnvif] Request error " << reply->error()
 			<< ", Message: " << reply->errorString()
 			<< ", Code: " << statusCodeV;
 		return;
+	} else {
+		handleResponse(reply->readAll());
 	}
-
-	handleResponse(reply->readAll());
-	if (statusCodeV == 200)
-		return;
+	do_update();
 }
 
 PTZOnvif::PTZOnvif(OBSData config) : PTZDevice(config)
@@ -479,13 +479,15 @@ void PTZOnvif::do_update()
 {
 	if (status &
 	    (STATUS_PANTILT_SPEED_CHANGED | STATUS_ZOOM_SPEED_CHANGED)) {
-		status &= ~(STATUS_PANTILT_SPEED_CHANGED |
-			    STATUS_ZOOM_SPEED_CHANGED);
 		if (pan_speed == 0.0 && tilt_speed == 0.0 &&
 		    focus_speed == 0.0) {
-			QThread::msleep(200);
+			status &= ~(STATUS_PANTILT_SPEED_CHANGED |
+				    STATUS_ZOOM_SPEED_CHANGED);
 			stop();
-		} else {
+		} else if (!m_isBusy) {
+			m_isBusy = true;
+			status &= ~(STATUS_PANTILT_SPEED_CHANGED |
+				    STATUS_ZOOM_SPEED_CHANGED);
 			continuousMove(pan_speed, tilt_speed, focus_speed);
 		}
 	}

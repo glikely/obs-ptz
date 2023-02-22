@@ -45,6 +45,7 @@ class PTZOnvif : public PTZDevice {
 	Q_OBJECT
 
 private:
+	bool m_isBusy = false;
 	QString host;
 	int port;
 	QString username;
