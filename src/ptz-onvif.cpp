@@ -301,25 +301,20 @@ void PTZOnvif::handleGetPresetsResponse(QDomDocument doc)
 	QDomNodeList nodes = doc.elementsByTagName("tptz:Preset");
 
 	for (int i = 0; i < nodes.length(); i++) {
+		auto node = nodes.at(i);
 		QString preset_token = "";
 		int preset_number = -1;
 
-		for (int a = 0; a < nodes.at(i).attributes().length(); a++) {
-			if (nodes.at(i).attributes().item(a).nodeName() ==
-			    "token")
-				preset_token = nodes.at(i)
-						       .attributes()
-						       .item(a)
-						       .nodeValue();
+		for (int a = 0; a < node.attributes().length(); a++) {
+			auto item = node.attributes().item(a);
+			if (item.nodeName() == "token")
+				preset_token = item.nodeValue();
 		}
 
-		for (int c = 0; c < nodes.at(i).childNodes().length(); c++) {
-			if (nodes.at(i).childNodes().at(c).nodeName() ==
-			    "tt:Name") {
-				preset_number = nodes.at(i)
-							.childNodes()
-							.at(c)
-							.toElement()
+		for (int c = 0; c < node.childNodes().length(); c++) {
+			auto child = node.childNodes().at(c);
+			if (child.nodeName() == "tt:Name") {
+				preset_number = child.toElement()
 							.text()
 							.split("_")
 							.takeLast()
