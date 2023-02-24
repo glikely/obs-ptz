@@ -240,12 +240,12 @@ PTZDevice::PTZDevice(OBSData config) : QObject()
 	stale_settings = {"pan_pos", "tilt_pos", "zoom_pos", "focus_pos"};
 	ptzDeviceList.add(this);
 	sanitize_presets();
-};
+}
 
 PTZDevice::~PTZDevice()
 {
 	ptzDeviceList.remove(this);
-};
+}
 
 void PTZDevice::setObjectName(QString name)
 {

@@ -327,7 +327,7 @@ void PTZControls::setJoystickEnabled(bool enable)
 	setPanTilt(0, 0);
 	setZoom(0);
 	m_joystick_enable = enable;
-};
+}
 
 void PTZControls::setJoystickSpeed(double speed)
 {
@@ -335,7 +335,7 @@ void PTZControls::setJoystickSpeed(double speed)
 	/* Immediatly apply the deadzone */
 	auto jd = QJoysticks::getInstance()->getInputDevice(m_joystick_id);
 	joystickAxesChanged(jd, 0b11111111);
-};
+}
 
 void PTZControls::setJoystickDeadzone(double deadzone)
 {
@@ -343,7 +343,7 @@ void PTZControls::setJoystickDeadzone(double deadzone)
 	/* Immediatly apply the deadzone */
 	auto jd = QJoysticks::getInstance()->getInputDevice(m_joystick_id);
 	joystickAxesChanged(jd, 0b11111111);
-};
+}
 
 void PTZControls::joystickAxesChanged(const QJoystickDevice *jd,
 				      uint32_t updated)
