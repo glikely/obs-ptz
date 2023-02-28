@@ -6,7 +6,74 @@
  */
 
 #include <QMap>
+#include <QVariant>
+#include <obs.hpp>
+#include "imported/qt-wrappers.hpp"
 #include "protocol-helpers.hpp"
+
+OBSData variantMapToOBSData(const QVariantMap &map)
+{
+	OBSDataAutoRelease data = obs_data_create();
+	QMapIterator<QString, QVariant> iter(map);
+	while (iter.hasNext()) {
+		iter.next();
+		switch (iter.value().typeId()) {
+		case QMetaType::Int:
+		case QMetaType::UInt:
+		case QMetaType::Long:
+		case QMetaType::LongLong:
+		case QMetaType::Short:
+		case QMetaType::ULong:
+		case QMetaType::ULongLong:
+		case QMetaType::UShort:
+			obs_data_set_int(data, QT_TO_UTF8(iter.key()),
+					 iter.value().toLongLong());
+			break;
+		case QMetaType::Float:
+			obs_data_set_double(data, QT_TO_UTF8(iter.key()),
+					    iter.value().toFloat());
+			break;
+		case QMetaType::QString:
+			obs_data_set_string(
+				data, QT_TO_UTF8(iter.key()),
+				QT_TO_UTF8(iter.value().toString()));
+			break;
+		}
+	}
+	return data.Get();
+}
+
+QVariantMap OBSDataToVariantMap(const OBSData data)
+{
+	QVariantMap map;
+	obs_data_item_t *item = NULL;
+
+	for (item = obs_data_first(data); item; obs_data_item_next(&item)) {
+		QString name = obs_data_item_get_name(item);
+		if (!obs_data_item_has_user_value(item))
+			continue;
+		switch (obs_data_item_gettype(item)) {
+		case OBS_DATA_STRING:
+			map[name] = QString(obs_data_item_get_string(item));
+			break;
+		case OBS_DATA_NUMBER:
+			if (obs_data_item_numtype(item) == OBS_DATA_NUM_INT)
+				map[name] = obs_data_item_get_int(item);
+			else
+				map[name] = obs_data_item_get_double(item);
+			break;
+		case OBS_DATA_BOOLEAN:
+			map[name] = obs_data_item_get_bool(item);
+			break;
+		default:
+			/* OBS_DATA_NULL */
+			/* OBS_DATA_OBJECT */
+			/* OBS_DATA_ARRAY */
+			break;
+		}
+	}
+	return map;
+}
 
 void bool_field::encode(QByteArray &msg, int val)
 {

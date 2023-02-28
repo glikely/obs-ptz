@@ -64,6 +64,39 @@ public slots:
 
 extern PTZListModel ptzDeviceList;
 
+class PTZPresetListModel : public QAbstractListModel {
+	Q_OBJECT
+
+protected:
+	/* Collection of all presets, keyed by unique integer id.
+	 * On cameras that use preset numbers, the id is mapped 1:1 with the
+	 * preset number.  */
+	size_t m_maxPresets = 16;
+	QMap<size_t, QVariantMap> m_presets;
+	QList<size_t> m_displayOrder;
+	void sanitize(size_t id);
+
+public:
+	size_t maxPresets() const { return m_maxPresets; };
+	void setMaxPresets(size_t max) { m_maxPresets = max; };
+	bool insertRows(int row, int count,
+			const QModelIndex &parent = QModelIndex());
+	bool removeRows(int row, int count,
+			const QModelIndex &parent = QModelIndex());
+	bool moveRows(const QModelIndex &srcParent, int srcRow, int count,
+		      const QModelIndex &destParent, int destChild);
+	int rowCount(const QModelIndex &parent = QModelIndex()) const;
+	int getPresetId(const QModelIndex &index) const;
+	QVariant data(const QModelIndex &index, int role) const;
+	bool setData(const QModelIndex &index, const QVariant &value,
+		     int role = Qt::EditRole);
+	Qt::ItemFlags flags(const QModelIndex &index) const;
+	void add(QString token, QString name = "");
+	void rename(QString token);
+	void loadPresets(OBSDataArray preset_array);
+	OBSDataArray savePresets();
+};
+
 class PTZDevice : public QObject {
 	Q_OBJECT
 	friend class PTZListModel;
@@ -80,7 +113,6 @@ protected:
 	uint32_t id = 0;
 	std::string type;
 	uint32_t status = 0;
-	int preset_max = 16;
 	double pan_speed = 0;
 	double tilt_speed = 0;
 	double pantilt_speed_max = 1.0;
@@ -89,7 +121,7 @@ protected:
 	double focus_speed = 0;
 	double focus_speed_max = 1.0;
 
-	QStringListModel preset_names_model;
+	PTZPresetListModel m_presetsModel;
 	obs_properties_t *props;
 	OBSData settings;
 	QSet<QString> stale_settings;
@@ -105,6 +137,8 @@ public:
 
 	void setObjectName(QString name);
 	virtual QString description();
+	QString presetName(size_t id);
+	void setPresetName(size_t id, QString name);
 
 	/**
 	 * do_update() method is to be implemented by each driver as the way
@@ -186,11 +220,7 @@ public:
 	virtual void memory_set(int i) { Q_UNUSED(i); }
 	virtual void memory_recall(int i) { Q_UNUSED(i); }
 	virtual void memory_reset(int i) { Q_UNUSED(i); }
-	virtual QAbstractListModel *presetModel()
-	{
-		return &preset_names_model;
-	}
-	void sanitize_presets();
+	virtual QAbstractListModel *presetModel() { return &m_presetsModel; }
 
 	/* `config` is the device configuration, saved to the config file
 	 * `settings` are the dynamic state of the device which includes the

@@ -591,9 +591,11 @@
       <addaction name="actionPTZProperties"/>
       <addaction name="actionDisableLiveMoves"/>
       <addaction name="actionTouchControl"/>
-      <addaction name="separator"/>
       <addaction name="actionFollowPreview"/>
       <addaction name="actionFollowProgram"/>
+      <addaction name="actionPresetAdd"/>
+      <addaction name="actionPresetMoveUp"/>
+      <addaction name="actionPresetMoveDown"/>
      </widget>
     </item>
    </layout>
@@ -647,10 +649,67 @@
     <string>Toggle between direction buttons and 'TouchPad' pan/tilt controls</string>
    </property>
   </action>
-  <actiongroup name="actionGroupFollowMode">
-   <property name="ExclusionPolicy">
-    <enum>QActionGroup::ExclusionPolicy::ExclusiveOptional</enum>
+  <action name="actionPresetAdd">
+   <property name="icon">
+    <iconset>
+     <normaloff>:/res/images/plus.svg</normaloff>:/res/images/plus.svg</iconset>
    </property>
+   <property name="text">
+    <string>Add Preset</string>
+   </property>
+   <property name="toolTip">
+    <string>Add preset</string>
+   </property>
+   <property name="themeID" stdset="0">
+    <string notr="true">addIconSmall</string>
+   </property>
+  </action>
+  <action name="actionPresetRemove">
+   <property name="icon">
+    <iconset>
+     <normaloff>:/res/images/minus.svg</normaloff>:/res/images/minus.svg</iconset>
+   </property>
+   <property name="text">
+    <string>Remove Preset</string>
+   </property>
+   <property name="toolTip">
+    <string>Delete selected preset</string>
+   </property>
+   <property name="themeID" stdset="0">
+    <string notr="true">removeIconSmall</string>
+   </property>
+  </action>
+  <action name="actionPresetMoveUp">
+   <property name="icon">
+    <iconset>
+     <normaloff>:/res/images/up.svg</normaloff>:/res/images/up.svg</iconset>
+   </property>
+   <property name="text">
+    <string>Move Preset Up</string>
+   </property>
+   <property name="toolTip">
+    <string>Move selected preset up</string>
+   </property>
+   <property name="themeID" stdset="0">
+    <string notr="true">upArrowIconSmall</string>
+   </property>
+  </action>
+  <action name="actionPresetMoveDown">
+   <property name="icon">
+    <iconset>
+     <normaloff>:/res/images/down.svg</normaloff>:/res/images/down.svg</iconset>
+   </property>
+   <property name="text">
+    <string>Move Preset Down</string>
+   </property>
+   <property name="toolTip">
+    <string>Move selected preset down</string>
+   </property>
+   <property name="themeID" stdset="0">
+    <string notr="true">downArrowIconSmall</string>
+   </property>
+  </action>
+  <actiongroup name="actionGroupFollowMode">
    <action name="actionFollowPreview">
     <property name="checkable">
      <bool>true</bool>

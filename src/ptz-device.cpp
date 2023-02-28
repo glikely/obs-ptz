@@ -11,6 +11,7 @@
 #include "ptz-visca-tcp.hpp"
 #include "ptz-onvif.hpp"
 #include "ptz.h"
+#include "protocol-helpers.hpp"
 
 #if defined(ENABLE_SERIALPORT)
 #include "ptz-visca-uart.hpp"
@@ -167,6 +168,63 @@ void PTZListModel::remove(PTZDevice *ptz)
 	}
 }
 
+bool PTZPresetListModel::insertRows(int row, int count,
+				    const QModelIndex &parent)
+{
+	if (row < 0 || row > rowCount())
+		return false;
+	beginInsertRows(parent, row, count);
+	size_t id = 0;
+	bool rc = false;
+	for (int i = 0; i < count; i++) {
+		while (m_presets.contains(id))
+			id++;
+		if (id >= m_maxPresets)
+			break;
+		QVariantMap map;
+		map["id"] = (uint)id;
+		m_presets[id] = map;
+		m_displayOrder.insert(row + i, id);
+		rc = true;
+	}
+	endInsertRows();
+	return rc;
+}
+
+bool PTZPresetListModel::removeRows(int row, int count,
+				    const QModelIndex &parent)
+{
+	if (row < 0 || row >= rowCount())
+		return false;
+	beginRemoveRows(parent, row, count);
+	QList<size_t> ids = m_displayOrder.mid(row, count);
+	;
+	for (auto id : ids) {
+		m_displayOrder.removeAt(row);
+		m_presets.remove(id);
+	}
+	endRemoveRows();
+	return true;
+}
+
+bool PTZPresetListModel::moveRows(const QModelIndex &srcParent, int srcRow,
+				  int count, const QModelIndex &destParent,
+				  int destChild)
+{
+	if (srcRow < 0 || srcRow >= rowCount() || destChild < 0 ||
+	    destChild > rowCount() || count != 1)
+		return false;
+
+	if (!beginMoveRows(srcParent, srcRow, srcRow + count - 1, destParent,
+			   destChild))
+		return false;
+	if (srcRow < destChild)
+		destChild--;
+	m_displayOrder.move(srcRow, destChild);
+	endMoveRows();
+	return true;
+}
+
 PTZDevice *PTZListModel::make_device(OBSData config)
 {
 	PTZDevice *ptz = nullptr;
@@ -230,6 +288,112 @@ void PTZListModel::move_continuous(uint32_t device_id, uint32_t flags,
 		ptz->focus(focus);
 }
 
+int PTZPresetListModel::rowCount(const QModelIndex &parent) const
+{
+	Q_UNUSED(parent);
+	return (int)m_displayOrder.size();
+}
+
+int PTZPresetListModel::getPresetId(const QModelIndex &index) const
+{
+	if (!index.isValid())
+		return -1;
+
+	if (index.row() >= m_displayOrder.size()) {
+		blog(LOG_ERROR, "ERROR: Preset Row %i is not valid",
+		     index.row());
+		return -1;
+	}
+	return (int)m_displayOrder[index.row()];
+}
+
+QVariant PTZPresetListModel::data(const QModelIndex &index, int role) const
+{
+	auto id = getPresetId(index);
+	if (id < 0)
+		return QVariant();
+	auto preset = m_presets[id];
+	QString name = preset["name"].toString();
+	if (role == Qt::DisplayRole) {
+		if (name == "")
+			name = QString("Preset %1").arg(id + 1);
+		return name + QString(" (%1)").arg(id);
+	}
+	if (role == Qt::EditRole)
+		return name;
+	if (role == Qt::UserRole)
+		return id;
+
+	return QVariant();
+}
+
+Qt::ItemFlags PTZPresetListModel::flags(const QModelIndex &index) const
+{
+	auto f = QAbstractListModel::flags(index);
+	if (index.column() == 0)
+		f |= Qt::ItemIsEditable;
+	return f;
+}
+
+void PTZPresetListModel::sanitize(size_t id)
+{
+	if (!m_presets.contains(id))
+		return;
+	if (!m_displayOrder.contains(id))
+		m_displayOrder.append(id);
+	QVariantMap &preset = m_presets[id];
+	QString name = preset["name"].toString();
+	if (name == "" || name == QString("Preset %1").arg(id))
+		preset.remove("name");
+}
+
+bool PTZPresetListModel::setData(const QModelIndex &index,
+				 const QVariant &value, int role)
+{
+	auto id = getPresetId(index);
+	if (id < 0)
+		return false;
+
+	if (role == Qt::EditRole) {
+		QVariantMap &preset = m_presets[id];
+		preset["name"] = value.toString();
+		sanitize(id);
+		emit dataChanged(index, index);
+		return true;
+	}
+	return false;
+}
+
+void PTZPresetListModel::loadPresets(OBSDataArray preset_array)
+{
+	if (!preset_array)
+		return;
+	beginResetModel();
+	m_presets.clear();
+	m_displayOrder.clear();
+	for (size_t i = 0; i < obs_data_array_count(preset_array); i++) {
+		OBSDataAutoRelease item = obs_data_array_item(preset_array, i);
+		auto id = obs_data_get_int(item, "id");
+		if (m_displayOrder.contains(id))
+			continue;
+		QVariantMap preset = OBSDataToVariantMap(item.Get());
+		m_presets[id] = preset;
+		sanitize(id);
+	}
+	endResetModel();
+}
+
+OBSDataArray PTZPresetListModel::savePresets()
+{
+	OBSDataArrayAutoRelease preset_array = obs_data_array_create();
+	for (auto id : m_displayOrder) {
+		OBSDataAutoRelease data = variantMapToOBSData(m_presets[id]);
+		obs_data_set_int(data, "id", id);
+		obs_data_array_push_back(preset_array, data);
+	}
+	return preset_array.Get();
+}
+
 PTZDevice::PTZDevice(OBSData config) : QObject()
 {
 	setObjectName(obs_data_get_string(config, "name"));
@@ -239,7 +403,6 @@ PTZDevice::PTZDevice(OBSData config) : QObject()
 	obs_data_release(settings);
 	stale_settings = {"pan_pos", "tilt_pos", "zoom_pos", "focus_pos"};
 	ptzDeviceList.add(this);
-	sanitize_presets();
 }
 
 PTZDevice::~PTZDevice()
@@ -277,29 +440,12 @@ void PTZDevice::set_config(OBSData config)
 {
 	/* Update the list of preset names */
 	obs_data_set_default_double(config, "preset_max", 16);
-	preset_max = std::clamp((int)obs_data_get_int(config, "preset_max"), 1,
-				0x80);
-	OBSDataArray preset_array = obs_data_get_array(config, "presets");
-	obs_data_array_release(preset_array);
-	if (preset_array) {
-		QStringList preset_names;
-		for (size_t i = 0; i < obs_data_array_count(preset_array);
-		     i++) {
-			OBSData preset = obs_data_array_item(preset_array, i);
-			obs_data_release(preset);
-			int preset_id = (int)obs_data_get_int(preset, "id");
-			const char *preset_name =
-				obs_data_get_string(preset, "name");
-			if ((preset_id >= 0) && (preset_id < 0x80) &&
-			    preset_name) {
-				while (preset_names.count() <= preset_id)
-					preset_names << "";
-				preset_names[preset_id] = preset_name;
-			}
-		}
-		preset_names_model.setStringList(preset_names);
-		sanitize_presets();
-	}
+	m_presetsModel.setMaxPresets(
+		(size_t)obs_data_get_int(config, "preset_max"));
+	OBSDataArrayAutoRelease preset_array =
+		obs_data_get_array(config, "presets");
+	m_presetsModel.loadPresets(preset_array.Get());
+
 	obs_data_set_default_double(config, "pantilt_speed_max", 1.0);
 	obs_data_set_default_double(config, "zoom_speed_max", 1.0);
 	obs_data_set_default_double(config, "focus_speed_max", 1.0);
@@ -319,36 +465,11 @@ OBSData PTZDevice::get_config()
 	obs_data_set_double(config, "pantilt_speed_max", pantilt_speed_max);
 	obs_data_set_double(config, "zoom_speed_max", zoom_speed_max);
 	obs_data_set_double(config, "focus_speed_max", focus_speed_max);
-	obs_data_set_int(config, "preset_max", preset_max);
-	auto list = preset_names_model.stringList();
-	OBSDataArray preset_array = obs_data_array_create();
-	obs_data_array_release(preset_array);
-	for (int i = 0; i < list.size(); i++) {
-		OBSData preset = obs_data_create();
-		obs_data_release(preset);
-		obs_data_set_int(preset, "id", i);
-		obs_data_set_string(preset, "name", QT_TO_UTF8(list[i]));
-		obs_data_array_push_back(preset_array, preset);
-	}
+	obs_data_set_int(config, "preset_max", m_presetsModel.maxPresets());
+
+	OBSDataArrayAutoRelease preset_array = m_presetsModel.savePresets();
 	obs_data_set_array(config, "presets", preset_array);
 	return config;
-}
-
-void PTZDevice::sanitize_presets()
-{
-	preset_max = std::clamp(preset_max, 1, 0x80);
-	auto presets = preset_names_model.stringList();
-	while (presets.size() < preset_max)
-		presets << "";
-	for (auto i = 0; i < presets.size(); i++)
-		if (presets[i] == QString(""))
-			presets[i] = QString("Preset %1").arg(i + 1);
-	while (presets.size() > preset_max) {
-		if (presets.last() != QString("Preset %1").arg(presets.size()))
-			break; // Don't delete preset if name has been modified
-		presets.removeLast();
-	}
-	preset_names_model.setStringList(presets);
 }
 
 void PTZDevice::set_settings(OBSData config)
@@ -363,10 +484,9 @@ void PTZDevice::set_settings(OBSData config)
 	if (obs_data_has_user_value(config, "focus_speed_max"))
 		focus_speed_max =
 			obs_data_get_double(config, "focus_speed_max");
-	if (obs_data_has_user_value(config, "preset_max")) {
-		preset_max = (int)obs_data_get_int(config, "preset_max");
-		sanitize_presets();
-	}
+	if (obs_data_has_user_value(config, "preset_max"))
+		m_presetsModel.setMaxPresets(
+			(int)obs_data_get_int(config, "preset_max"));
 }
 
 OBSData PTZDevice::get_settings()

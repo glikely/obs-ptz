@@ -52,6 +52,7 @@ private:
 	void setFocus(double speed);
 
 	void setCurrent(unsigned int index);
+	int presetIndexToId(QModelIndex index);
 	void presetSet(int id);
 	void presetRecall(int id);
 	void setAutofocusEnabled(bool autofocus_on);
@@ -102,6 +103,7 @@ private slots:
 	void settingsChanged(OBSData settings);
 	void updateMoveControls();
 
+	void presetUpdateActions();
 	void on_presetListView_activated(QModelIndex index);
 	void on_presetListView_customContextMenuRequested(const QPoint &pos);
 	void on_cameraList_doubleClicked(const QModelIndex &index);
@@ -109,6 +111,10 @@ private slots:
 	void on_actionPTZProperties_triggered();
 	void on_actionDisableLiveMoves_toggled(bool checked);
 	void on_actionTouchControl_toggled(bool checked);
+	void on_actionPresetAdd_triggered();
+	void on_actionPresetRemove_triggered();
+	void on_actionPresetMoveUp_triggered();
+	void on_actionPresetMoveDown_triggered();
 
 	void accelTimerHandler();
 

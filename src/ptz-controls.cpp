@@ -801,6 +801,13 @@ void PTZControls::currentChanged(QModelIndex current, QModelIndex previous)
 	ptz = ptzDeviceList.getDevice(current);
 	if (ptz) {
 		ui->presetListView->setModel(ptz->presetModel());
+		presetUpdateActions();
+		auto *selectionModel = ui->presetListView->selectionModel();
+		if (selectionModel)
+			connect(selectionModel,
+				SIGNAL(currentChanged(QModelIndex,
+						      QModelIndex)),
+				this, SLOT(presetUpdateActions()));
 		ptz->connect(ptz, SIGNAL(settingsChanged(OBSData)), this,
 			     SLOT(settingsChanged(OBSData)));
 
@@ -835,9 +842,30 @@ void PTZControls::presetRecall(int preset_id)
 	ptz->memory_recall(preset_id);
 }
 
+int PTZControls::presetIndexToId(QModelIndex index)
+{
+	auto model = ui->presetListView->model();
+	if (model && index.isValid())
+		return model->data(index, Qt::UserRole).toInt();
+	return -1;
+}
+
+void PTZControls::presetUpdateActions()
+{
+	auto index = ui->presetListView->currentIndex();
+	auto model = ui->presetListView->model();
+	int count = model ? model->rowCount() : 0;
+	ui->actionPresetAdd->setEnabled(model != nullptr);
+	ui->actionPresetRemove->setEnabled(index.isValid());
+	ui->actionPresetMoveUp->setEnabled(index.isValid() && count > 1 &&
+					   index.row() > 0);
+	ui->actionPresetMoveDown->setEnabled(index.isValid() && count > 1 &&
+					     index.row() < count - 1);
+}
+
 void PTZControls::on_presetListView_activated(QModelIndex index)
 {
-	presetRecall(index.row());
+	presetRecall(presetIndexToId(index));
 }
 
 void PTZControls::on_presetListView_customContextMenuRequested(const QPoint &pos)
@@ -852,16 +880,18 @@ void PTZControls::on_presetListView_customContextMenuRequested(const QPoint &pos
 	QAction *renameAction = presetContext.addAction("Rename");
 	QAction *setAction = presetContext.addAction("Save Preset");
 	QAction *resetAction = presetContext.addAction("Clear Preset");
+	presetContext.addAction(ui->actionPresetAdd);
+	if (index.isValid())
+		presetContext.addAction(ui->actionPresetRemove);
 	QAction *action = presetContext.exec(globalpos);
 
 	if (action == renameAction) {
 		ui->presetListView->edit(index);
 	} else if (action == setAction) {
-		ptz->memory_set(index.row());
+		ptz->memory_set(presetIndexToId(index));
 	} else if (action == resetAction) {
-		ptz->memory_reset(index.row());
-		ui->presetListView->model()->setData(
-			index, QString("Preset %1").arg(index.row() + 1));
+		ptz->memory_reset(presetIndexToId(index));
+		ui->presetListView->model()->setData(index, "");
 	}
 }
 
@@ -919,4 +949,43 @@ void PTZControls::on_actionDisableLiveMoves_toggled(bool checked)
 {
 	ui->movementControlsWidget->setEnabled(!checked);
 	ui->presetListView->setEnabled(!checked);
+}
+
+void PTZControls::on_actionPresetAdd_triggered()
+{
+	auto model = ui->presetListView->model();
+	auto row = model->rowCount();
+	model->insertRows(row, 1);
+	QModelIndex index = model->index(row, 0);
+	if (index.isValid()) {
+		ui->presetListView->setCurrentIndex(index);
+		ui->presetListView->edit(index);
+	}
+	presetUpdateActions();
+}
+
+void PTZControls::on_actionPresetRemove_triggered()
+{
+	auto model = ui->presetListView->model();
+	auto index = ui->presetListView->currentIndex();
+	model->removeRows(index.row(), 1);
+	presetUpdateActions();
+}
+
+void PTZControls::on_actionPresetMoveUp_triggered()
+{
+	auto model = ui->presetListView->model();
+	auto index = ui->presetListView->currentIndex();
+	model->moveRow(QModelIndex(), index.row(), QModelIndex(),
+		       index.row() - 1);
+	presetUpdateActions();
+}
+
+void PTZControls::on_actionPresetMoveDown_triggered()
+{
+	auto model = ui->presetListView->model();
+	auto index = ui->presetListView->currentIndex();
+	model->moveRow(QModelIndex(), index.row(), QModelIndex(),
+		       index.row() + 2);
+	presetUpdateActions();
 }

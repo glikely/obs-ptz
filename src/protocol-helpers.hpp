@@ -11,6 +11,12 @@
 #include <obs.hpp>
 
 /*
+ * Data Helpers
+ */
+OBSData variantMapToOBSData(const QVariantMap &map);
+QVariantMap OBSDataToVariantMap(const OBSData data);
+
+/*
  * Datagram field encoding helpers
  */
 class datagram_field {
