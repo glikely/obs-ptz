@@ -355,9 +355,9 @@ void PTZControls::joystickAxesChanged(const QJoystickDevice *jd,
 		return val * m_joystick_speed;
 	};
 
-	if (updated & 0b0011)
+	if (updated & 0b0011 && jd->axes.size() > 1)
 		setPanTilt(filter_axis(jd->axes[0]), -filter_axis(jd->axes[1]));
-	if (updated & 0b1000)
+	if (updated & 0b1000 && jd->axes.size() > 3)
 		setZoom(-filter_axis(jd->axes[3]));
 }
 
