@@ -626,7 +626,7 @@
      <normalon>:/res/images/locked.svg</normalon>:/res/images/unlocked.svg</iconset>
    </property>
    <property name="text">
-    <string>BlockLiveMoves</string>
+    <string>Unlock Controls</string>
    </property>
    <property name="toolTip">
     <string>Block changes to live cameras</string>
@@ -641,10 +641,10 @@
      <normaloff>:/res/images/interact.svg</normaloff>:/res/images/interact.svg</iconset>
    </property>
    <property name="text">
-    <string>TouchPad</string>
+    <string>Toggle TouchPad Control</string>
    </property>
    <property name="toolTip">
-    <string>Toggle Direction Pad Control</string>
+    <string>Toggle between direction buttons and 'TouchPad' pan/tilt controls</string>
    </property>
   </action>
   <actiongroup name="actionGroupFollowMode">
@@ -661,7 +661,7 @@
       <normalon>:/icons/icons/followmode_preview.svg</normalon>:/icons/icons/followmode_preview_inactive.svg</iconset>
     </property>
     <property name="text">
-     <string>Preview</string>
+     <string>Autoselect Preview</string>
     </property>
     <property name="toolTip">
      <string>Autoselect Preview Camera</string>
@@ -677,7 +677,7 @@
       <normalon>:/icons/icons/followmode_live.svg</normalon>:/icons/icons/followmode_live_inactive.svg</iconset>
     </property>
     <property name="text">
-     <string>Program</string>
+     <string>Autoselect Program</string>
     </property>
     <property name="toolTip">
      <string>Autoselect Program Camera</string>
