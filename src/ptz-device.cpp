@@ -383,7 +383,7 @@ void PTZPresetListModel::loadPresets(OBSDataArray preset_array)
 	endResetModel();
 }
 
-OBSDataArray PTZPresetListModel::savePresets()
+OBSDataArray PTZPresetListModel::savePresets() const
 {
 	OBSDataArrayAutoRelease preset_array = obs_data_array_create();
 	for (auto id : m_displayOrder) {

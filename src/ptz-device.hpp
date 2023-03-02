@@ -77,8 +77,7 @@ protected:
 	void sanitize(size_t id);
 
 public:
-	size_t maxPresets() const { return m_maxPresets; };
-	void setMaxPresets(size_t max) { m_maxPresets = max; };
+	/* QAbstractListModel overrides */
 	bool insertRows(int row, int count,
 			const QModelIndex &parent = QModelIndex());
 	bool removeRows(int row, int count,
@@ -86,13 +85,17 @@ public:
 	bool moveRows(const QModelIndex &srcParent, int srcRow, int count,
 		      const QModelIndex &destParent, int destChild);
 	int rowCount(const QModelIndex &parent = QModelIndex()) const;
-	int getPresetId(const QModelIndex &index) const;
 	QVariant data(const QModelIndex &index, int role) const;
 	bool setData(const QModelIndex &index, const QVariant &value,
 		     int role = Qt::EditRole);
 	Qt::ItemFlags flags(const QModelIndex &index) const;
+
+	/* PTZ Preset API */
+	int getPresetId(const QModelIndex &index) const;
+	size_t maxPresets() const { return m_maxPresets; };
+	void setMaxPresets(size_t max) { m_maxPresets = max; };
 	void loadPresets(OBSDataArray preset_array);
-	OBSDataArray savePresets();
+	OBSDataArray savePresets() const;
 };
 
 class PTZDevice : public QObject {
