@@ -173,22 +173,25 @@ bool PTZPresetListModel::insertRows(int row, int count,
 {
 	if (row < 0 || row > rowCount())
 		return false;
-	beginInsertRows(parent, row, count);
-	size_t id = 0;
-	bool rc = false;
+	size_t curr_id = 0;
+	QList<size_t> ids;
 	for (int i = 0; i < count; i++) {
-		while (m_presets.contains(id))
-			id++;
-		if (id >= m_maxPresets)
-			break;
+		while (m_presets.contains(curr_id))
+			curr_id++;
+		if (curr_id >= m_maxPresets)
+			return false;
+		ids.append(curr_id);
+	}
+
+	beginInsertRows(parent, row, count);
+	for (auto id : ids) {
 		QVariantMap map;
 		map["id"] = (uint)id;
 		m_presets[id] = map;
-		m_displayOrder.insert(row + i, id);
-		rc = true;
+		m_displayOrder.insert(row++, id);
 	}
 	endInsertRows();
-	return rc;
+	return true;
 }
 
 bool PTZPresetListModel::removeRows(int row, int count,
