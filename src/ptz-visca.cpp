@@ -251,7 +251,8 @@ const PTZInq
 				      {new int_field("color_hue", 2, 0b1111)});
 
 const PTZCmd VISCA_CommandCancel("8120ff", {new visca_u4("socket", 1)});
-const PTZCmd VISCA_CAM_Power("8101040000ff", {new visca_flag("power_on", 4)});
+const PTZCmd VISCA_CAM_Power("8101040000ff", {new visca_flag("power_on", 4)},
+			     "power_on");
 const PTZInq VISCA_CAM_PowerInq("81090400ff", {new visca_flag("power_on", 2)});
 
 const PTZCmd VISCA_CAM_Zoom_Stop("8101040700ff", "zoom_pos");
