@@ -91,8 +91,6 @@ public:
 	bool setData(const QModelIndex &index, const QVariant &value,
 		     int role = Qt::EditRole);
 	Qt::ItemFlags flags(const QModelIndex &index) const;
-	void add(QString token, QString name = "");
-	void rename(QString token);
 	void loadPresets(OBSDataArray preset_array);
 	OBSDataArray savePresets();
 };
