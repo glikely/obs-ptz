@@ -94,6 +94,11 @@ public:
 	int getPresetId(const QModelIndex &index) const;
 	size_t maxPresets() const { return m_maxPresets; };
 	void setMaxPresets(size_t max) { m_maxPresets = max; };
+	int newPreset();
+	QVariant presetProperty(size_t id, QString key);
+	bool updatePreset(size_t id, const QVariantMap &map);
+	int find(QString key, QVariant value);
+
 	void loadPresets(OBSDataArray preset_array);
 	OBSDataArray savePresets() const;
 };

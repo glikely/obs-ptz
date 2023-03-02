@@ -52,7 +52,6 @@ private:
 	QString m_mediaXAddr{""};
 	QString m_PTZAddress{""};
 	MediaProfile m_selectedMedia;
-	QMap<int, QString> m_onvifPresets;
 
 	void sendRequest(SoapRequest *soap_req);
 	void handleResponse(QString response);
@@ -66,11 +65,9 @@ private:
 	void relativeMove(int x, int y, int z);
 	void stop();
 	void goToHomePosition();
-	void setPreset(QString preset, int p);
-	void gotoPreset(QString preset);
-	void removePreset(QString preset);
 	void getPresets();
 	void handleGetPresetsResponse(QDomDocument doc);
+
 private slots:
 	void connectCamera();
 	void authRequired(QNetworkReply *reply, QAuthenticator *authenticator);

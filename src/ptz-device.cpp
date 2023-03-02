@@ -367,6 +367,51 @@ bool PTZPresetListModel::setData(const QModelIndex &index,
 	return false;
 }
 
+/* Insert a new preset and return the ID */
+int PTZPresetListModel::newPreset()
+{
+	size_t id = 0;
+	while (m_presets.contains(id))
+		id++;
+	if (id >= m_maxPresets)
+		return -1;
+
+	QVariantMap map;
+	map["id"] = (uint)id;
+	beginInsertRows(QModelIndex(), rowCount(), 1);
+	m_presets[id] = map;
+	m_displayOrder.append(id);
+	endInsertRows();
+	return (int)id;
+}
+
+QVariant PTZPresetListModel::presetProperty(size_t id, QString key)
+{
+	/* Safe to derefernce unconditionally here. Both levels will return
+	 * default empty values without segfaulting */
+	return m_presets[id][key];
+}
+
+bool PTZPresetListModel::updatePreset(size_t id, const QVariantMap &map)
+{
+	if (!m_presets.contains(id))
+		return false;
+	m_presets[id].insert(map);
+	return true;
+}
+
+int PTZPresetListModel::find(QString key, QVariant value)
+{
+	/* Search for the matching key/value pair in all presets.
+	 * This is an O(N) operation */
+	auto end = m_presets.cend();
+	for (auto i = m_presets.cbegin(); i != end; i++) {
+		if (i.value()[key] == value)
+			return (int)i.key();
+	}
+	return -1;
+}
+
 void PTZPresetListModel::loadPresets(OBSDataArray preset_array)
 {
 	if (!preset_array)

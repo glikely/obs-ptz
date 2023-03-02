@@ -205,8 +205,10 @@ void PTZOnvif::goToHomePosition()
 	delete soapRequest;
 }
 
-void PTZOnvif::setPreset(QString preset, int p)
+void PTZOnvif::memory_set(int i)
 {
+	QString preset = m_presetsModel.presetProperty(i, "token").toString();
+	QString name = m_presetsModel.presetProperty(i, "name").toString();
 	SoapRequest *soapRequest = createSoapRequest();
 	soapRequest->action = "http://www.onvif.org/ver20/ptz/wsdl/SetPreset";
 	QString body(
@@ -214,9 +216,11 @@ void PTZOnvif::setPreset(QString preset, int p)
 	body.push_back("<ProfileToken>");
 	body.push_back(m_selectedMedia.token);
 	body.push_back("</ProfileToken>");
-	body.push_back("<PresetName>");
-	body.push_back("PRESET_" + QString::number(p));
-	body.push_back("</PresetName>");
+	if (name != "") {
+		body.push_back("<PresetName>");
+		body.push_back(name);
+		body.push_back("</PresetName>");
+	}
 	if (preset != "") {
 		body.push_back("<PresetToken>");
 		body.push_back(preset);
@@ -228,8 +232,11 @@ void PTZOnvif::setPreset(QString preset, int p)
 	delete soapRequest;
 }
 
-void PTZOnvif::removePreset(QString preset)
+void PTZOnvif::memory_reset(int i)
 {
+	QString preset = m_presetsModel.presetProperty(i, "token").toString();
+	if (preset == "")
+		return;
 	SoapRequest *soapRequest = createSoapRequest();
 	soapRequest->action =
 		"http://www.onvif.org/ver20/ptz/wsdl/RemovePreset";
@@ -247,8 +254,11 @@ void PTZOnvif::removePreset(QString preset)
 	delete soapRequest;
 }
 
-void PTZOnvif::gotoPreset(QString preset)
+void PTZOnvif::memory_recall(int i)
 {
+	QString preset = m_presetsModel.presetProperty(i, "token").toString();
+	if (preset == "")
+		return;
 	SoapRequest *soapRequest = createSoapRequest();
 	soapRequest->action = "http://www.onvif.org/ver20/ptz/wsdl/GotoPreset";
 	QString body(
@@ -302,28 +312,34 @@ void PTZOnvif::handleGetPresetsResponse(QDomDocument doc)
 
 	for (int i = 0; i < nodes.length(); i++) {
 		auto node = nodes.at(i);
-		QString preset_token = "";
-		int preset_number = -1;
+		QString token;
+		QString name;
 
 		for (int a = 0; a < node.attributes().length(); a++) {
 			auto item = node.attributes().item(a);
 			if (item.nodeName() == "token")
-				preset_token = item.nodeValue();
+				token = item.nodeValue();
 		}
 
 		for (int c = 0; c < node.childNodes().length(); c++) {
 			auto child = node.childNodes().at(c);
-			if (child.nodeName() == "tt:Name") {
-				preset_number = child.toElement()
-							.text()
-							.split("_")
-							.takeLast()
-							.toInt();
-			}
+			if (child.nodeName() == "tt:Name")
+				name = child.toElement().text();
 		}
 
-		if (preset_token != "" && preset_number > -1)
-			m_onvifPresets.insert(preset_number, preset_token);
+		if (token == "")
+			continue;
+		QVariantMap map;
+		auto psid = m_presetsModel.find("token", token);
+		if (psid < 0) {
+			psid = m_presetsModel.newPreset();
+			map["token"] = token;
+		}
+		if (psid < 0)
+			continue;
+		if (name != "")
+			map["name"] = name;
+		m_presetsModel.updatePreset(psid, map);
 	}
 }
 
@@ -491,27 +507,6 @@ void PTZOnvif::pantilt_home()
 void PTZOnvif::zoom_abs(double pos)
 {
 	absoluteMove(0.0, 0.0, pos);
-}
-
-void PTZOnvif::memory_reset(int i)
-{
-	if (m_onvifPresets.find(i) != m_onvifPresets.end())
-		removePreset(m_onvifPresets[i]);
-}
-
-void PTZOnvif::memory_set(int i)
-{
-	QString preset = "";
-	if (m_onvifPresets.find(i) != m_onvifPresets.end())
-		preset = m_onvifPresets[i];
-
-	setPreset(preset, i);
-}
-
-void PTZOnvif::memory_recall(int i)
-{
-	if (m_onvifPresets.find(i) != m_onvifPresets.end())
-		gotoPreset(m_onvifPresets[i]);
 }
 
 void PTZOnvif::set_config(OBSData config)
