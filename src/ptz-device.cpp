@@ -353,7 +353,8 @@ void PTZDevice::sanitize_presets()
 
 void PTZDevice::set_settings(OBSData config)
 {
-	setObjectName(obs_data_get_string(config, "name"));
+	if (obs_data_has_user_value(config, "name"))
+		setObjectName(obs_data_get_string(config, "name"));
 	if (obs_data_has_user_value(config, "pantilt_speed_max"))
 		pantilt_speed_max =
 			obs_data_get_double(config, "pantilt_speed_max");
