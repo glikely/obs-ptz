@@ -11,6 +11,7 @@
 #include <QNetworkAccessManager>
 #include <QNetworkReply>
 #include <QtXml/QDomDocument>
+#include <QXmlStreamWriter>
 #include <QObject>
 #include <QUuid>
 #include <QAuthenticator>
@@ -23,18 +24,6 @@ class MediaProfile {
 public:
 	QString name;
 	QString token;
-};
-
-class SoapRequest : QObject {
-	Q_OBJECT
-public:
-	QString username, password, host;
-	QString body, action;
-	QList<QString> XMLNs;
-	QString createRequest();
-
-private:
-	QString createUserToken();
 };
 
 class PTZOnvif : public PTZDevice {
@@ -53,20 +42,25 @@ private:
 	QString m_PTZAddress{""};
 	MediaProfile m_selectedMedia;
 
-	void sendRequest(SoapRequest *soap_req);
-	void handleResponse(QString response);
+	// SOAP/XML helpers
+	void writeHeader(QXmlStreamWriter &s, const QString action);
+
+	void sendRequest(QString host, QString req);
 	void getCapabilities();
-	void handleGetCapabilitiesResponse(QDomNode node);
 	void getProfiles();
+	void getPresets();
+	void handleResponse(QString response);
+	void handleGetPresetsResponse(QDomDocument &doc);
+	void handleGetCapabilitiesResponse(QDomNode node);
 	void handleGetProfilesResponse(QDomNode node);
-	SoapRequest *createSoapRequest();
+
+	void genericMove(QString movetype, QString property, double pan,
+			 double tilt, double zoom);
 	void continuousMove(double x, double y, double z);
 	void absoluteMove(int x, int y, int z);
 	void relativeMove(int x, int y, int z);
 	void stop();
 	void goToHomePosition();
-	void getPresets();
-	void handleGetPresetsResponse(QDomDocument doc);
 
 private slots:
 	void connectCamera();
