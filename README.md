@@ -123,26 +123,6 @@ Click on the joystick that you want to use for camera control.
 The mapping of controls to PTZ actions is shown in the settings dialog
 to the right of the joystick list.
 
-### ONVIF generally not recommended
-
-This plugin supports ONVIF cameras, but in general ONVIF cameras are not
-recommended.
-There is nothing wrong with the protocol itself,
-but the cameras that implement ONVIF are typically CCTV cameras that are not
-designed for broadcast.
-Often the problem with CCTV cameras is that they have high latency both
-on the video feed, and on the control commands sent to them.
-That means that it could take half a second for it to respond to a movement
-command, and then another half second before the change is seen in the video
-feed.
-One second doesn't sound like a lot, but when adjusting video cameras it makes
-them very difficult to use.
-
-If you're in the market for video cameras, look for broadcast quality cameras
-that output NDI, SDI or HDMI, and support VISCA control.
-ONVIF cameras are tempting because they are cheap, but you'll most likely
-not be happy with the result.
-
 ## Advanced Features
 
 ### Block Moves on Live Camera
