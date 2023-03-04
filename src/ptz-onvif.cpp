@@ -23,6 +23,7 @@ void PTZOnvif::sendRequest(QString url, QString req)
 	QByteArray data = concatenated.toLocal8Bit().toBase64();
 	QString headerData = "Basic " + data;
 	request.setRawHeader("Authorization", headerData.toLocal8Bit());
+	ptz_debug("%s", QT_TO_UTF8(req));
 	m_networkManager.post(request, req.toUtf8());
 }
 
@@ -283,6 +284,8 @@ void PTZOnvif::handleResponse(QString response)
 {
 	QDomDocument doc;
 	QDomNodeList nl;
+	doc.setContent(response, false);
+	ptz_debug("Response: %s", QT_TO_UTF8(doc.toString()));
 	doc.setContent(response, true);
 
 	nl = doc.elementsByTagNameNS(nsOnvifDevice, "GetCapabilitiesResponse");
