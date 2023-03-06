@@ -37,7 +37,6 @@ private:
 	QString password;
 	QNetworkAccessManager m_networkManager;
 
-	static const QList<QString> ptzNameSpace;
 	QString m_mediaXAddr{""};
 	QString m_PTZAddress{""};
 	MediaProfile m_selectedMedia;
