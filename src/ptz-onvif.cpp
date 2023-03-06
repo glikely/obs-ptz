@@ -59,7 +59,7 @@ static void writeStartOnvifDocument(QXmlStreamWriter &s)
 	s.writeNamespace(nsSoapEnvelope, "SOAP-ENV");
 	s.writeNamespace(nsSoapEncoding, "SOAP-ENC");
 	s.writeNamespace(nsAddressing, "wsa5");
-	s.writeNamespace(nsXmlSchemaInstance, "i");
+	s.writeNamespace(nsXmlSchemaInstance, "xsi");
 	s.writeNamespace(nsXmlSchema, "xsd");
 	s.writeNamespace(nsOnvifSchema, "tt");
 	s.writeNamespace(nsOnvifDevice, "tds");
@@ -81,22 +81,20 @@ void PTZOnvif::writeHeader(QXmlStreamWriter &s, const QString action = "")
 
 	s.writeStartElement(nsSoapEnvelope, "Header");
 	if (action != "") {
-		s.writeStartElement("Action");
-		s.writeAttribute("mustUnderstand", "1");
-		s.writeDefaultNamespace(nsAddressing);
+		s.writeStartElement(nsAddressing, "Action");
+		s.writeAttribute(nsSoapEnvelope, "mustUnderstand", "1");
 		s.writeCharacters(action);
 		s.writeEndElement(); // Action
 	}
-	s.writeStartElement("Security");
+	s.writeStartElement(nsWssSecext, "Security");
 	s.writeAttribute(nsSoapEnvelope, "mustUnderstand", "1");
-	s.writeDefaultNamespace(nsWssSecext);
-	s.writeStartElement("UsernameToken");
-	s.writeTextElement("Username", username);
-	s.writeStartElement("Password");
+	s.writeStartElement(nsWssSecext, "UsernameToken");
+	s.writeTextElement(nsWssSecext, "Username", username);
+	s.writeStartElement(nsWssSecext, "Password");
 	s.writeAttribute("Type", nsWssPasswordDigest);
 	s.writeCharacters(hashTokenBase64);
 	s.writeEndElement(); // Password
-	s.writeStartElement("Nonce");
+	s.writeStartElement(nsWssSecext, "Nonce");
 	s.writeAttribute("EncodingType", nsWssPasswordDigest);
 	s.writeCharacters(nonce64);
 	s.writeEndElement(); // Nonce
@@ -116,7 +114,6 @@ static void writePanTilt(QXmlStreamWriter &s, double pan, double tilt)
 static void writeZoom(QXmlStreamWriter &s, double zoom)
 {
 	s.writeEmptyElement(nsOnvifSchema, "Zoom");
-	s.writeDefaultNamespace(nsOnvifSchema);
 	s.writeAttribute("x", QString::number(zoom));
 }
 
@@ -129,10 +126,9 @@ void PTZOnvif::genericMove(QString movetype, QString property, double x,
 	s.writeStartElement(nsSoapEnvelope, "Envelope");
 	writeHeader(s, nsOnvifPtz + "/" + movetype);
 	s.writeStartElement(nsSoapEnvelope, "Body");
-	s.writeStartElement(movetype);
-	s.writeDefaultNamespace(nsOnvifPtz);
-	s.writeTextElement("ProfileToken", m_selectedMedia.token);
-	s.writeStartElement(property);
+	s.writeStartElement(nsOnvifPtz, movetype);
+	s.writeTextElement(nsOnvifPtz, "ProfileToken", m_selectedMedia.token);
+	s.writeStartElement(nsOnvifPtz, property);
 	writePanTilt(s, x, y);
 	writeZoom(s, z);
 	s.writeEndElement(); // property
@@ -166,11 +162,10 @@ void PTZOnvif::stop()
 	s.writeStartElement(nsSoapEnvelope, "Envelope");
 	writeHeader(s, nsOnvifPtz + "/" + "Stop");
 	s.writeStartElement(nsSoapEnvelope, "Body");
-	s.writeStartElement("Stop");
-	s.writeDefaultNamespace(nsOnvifPtz);
-	s.writeTextElement("ProfileToken", m_selectedMedia.token);
-	s.writeTextElement("PanTilt", "true");
-	s.writeTextElement("Zoom", "true");
+	s.writeStartElement(nsOnvifPtz, "Stop");
+	s.writeTextElement(nsOnvifPtz, "ProfileToken", m_selectedMedia.token);
+	s.writeTextElement(nsOnvifPtz, "PanTilt", "true");
+	s.writeTextElement(nsOnvifPtz, "Zoom", "true");
 	s.writeEndElement(); // movetype
 	s.writeEndElement(); // Body
 	s.writeEndElement(); // Envelope
@@ -186,9 +181,8 @@ void PTZOnvif::goToHomePosition()
 	s.writeStartElement(nsSoapEnvelope, "Envelope");
 	writeHeader(s, nsOnvifPtz + "/" + "GotoHomePosition");
 	s.writeStartElement(nsSoapEnvelope, "Body");
-	s.writeStartElement("GotoHomePosition");
-	s.writeDefaultNamespace(nsOnvifPtz);
-	s.writeTextElement("ProfileToken", m_selectedMedia.token);
+	s.writeStartElement(nsOnvifPtz, "GotoHomePosition");
+	s.writeTextElement(nsOnvifPtz, "ProfileToken", m_selectedMedia.token);
 	s.writeEndElement(); // GotoHomePosition
 	s.writeEndElement(); // Body
 	s.writeEndElement(); // Envelope
@@ -206,13 +200,12 @@ void PTZOnvif::memory_set(int i)
 	s.writeStartElement(nsSoapEnvelope, "Envelope");
 	writeHeader(s, nsOnvifPtz + "/" + "SetPreset");
 	s.writeStartElement(nsSoapEnvelope, "Body");
-	s.writeStartElement("SetPreset");
-	s.writeDefaultNamespace(nsOnvifPtz);
-	s.writeTextElement("ProfileToken", m_selectedMedia.token);
+	s.writeStartElement(nsOnvifPtz, "SetPreset");
+	s.writeTextElement(nsOnvifPtz, "ProfileToken", m_selectedMedia.token);
 	if (name != "")
-		s.writeTextElement("PresetName", name);
+		s.writeTextElement(nsOnvifPtz, "PresetName", name);
 	if (token != "")
-		s.writeTextElement("PresetToken", token);
+		s.writeTextElement(nsOnvifPtz, "PresetToken", token);
 	s.writeEndElement(); // movetype
 	s.writeEndElement(); // Body
 	s.writeEndElement(); // Envelope
@@ -231,10 +224,9 @@ void PTZOnvif::memory_reset(int i)
 	s.writeStartElement(nsSoapEnvelope, "Envelope");
 	writeHeader(s, nsOnvifPtz + "/" + "RemovePreset");
 	s.writeStartElement(nsSoapEnvelope, "Body");
-	s.writeStartElement("RemovePreset");
-	s.writeDefaultNamespace(nsOnvifPtz);
-	s.writeTextElement("ProfileToken", m_selectedMedia.token);
-	s.writeTextElement("PresetToken", token);
+	s.writeStartElement(nsOnvifPtz, "RemovePreset");
+	s.writeTextElement(nsOnvifPtz, "ProfileToken", m_selectedMedia.token);
+	s.writeTextElement(nsOnvifPtz, "PresetToken", token);
 	s.writeEndElement(); // movetype
 	s.writeEndElement(); // Body
 	s.writeEndElement(); // Envelope
@@ -253,10 +245,9 @@ void PTZOnvif::memory_recall(int i)
 	s.writeStartElement(nsSoapEnvelope, "Envelope");
 	writeHeader(s, nsOnvifPtz + "/" + "GotoPreset");
 	s.writeStartElement(nsSoapEnvelope, "Body");
-	s.writeStartElement("GotoPreset");
-	s.writeDefaultNamespace(nsOnvifPtz);
-	s.writeTextElement("ProfileToken", m_selectedMedia.token);
-	s.writeTextElement("PresetToken", token);
+	s.writeStartElement(nsOnvifPtz, "GotoPreset");
+	s.writeTextElement(nsOnvifPtz, "ProfileToken", m_selectedMedia.token);
+	s.writeTextElement(nsOnvifPtz, "PresetToken", token);
 	s.writeEndElement(); // movetype
 	s.writeEndElement(); // Body
 	s.writeEndElement(); // Envelope
@@ -272,9 +263,8 @@ void PTZOnvif::getPresets()
 	s.writeStartElement(nsSoapEnvelope, "Envelope");
 	writeHeader(s, nsOnvifPtz + "/" + "GetPresets");
 	s.writeStartElement(nsSoapEnvelope, "Body");
-	s.writeStartElement("GetPresets");
-	s.writeDefaultNamespace(nsOnvifPtz);
-	s.writeTextElement("ProfileToken", m_selectedMedia.token);
+	s.writeStartElement(nsOnvifPtz, "GetPresets");
+	s.writeTextElement(nsOnvifPtz, "ProfileToken", m_selectedMedia.token);
 	s.writeEndElement(); // movetype
 	s.writeEndElement(); // Body
 	s.writeEndElement(); // Envelope
