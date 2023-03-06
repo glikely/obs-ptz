@@ -32,19 +32,22 @@ void PTZOnvif::authRequired(QNetworkReply *, QAuthenticator *authenticator)
 	authenticator->setPassword(password);
 }
 
-const QString nsXmlSchema("http://www.w3.org/2001/XMLSchema"); //SOAP-ENV
-const QString nsXmlSchemaInstance("http://www.w3.org/2001/XMLSchema-instance");
-const QString nsSoapEnvelope("http://www.w3.org/2003/05/soap-envelope");
-const QString nsSoapEncoding("http://www.w3.org/2003/05/soap-encoding");
-const QString nsAddressing("http://www.w3.org/2005/08/addressing");
-const QString nsOnvifSchema("http://www.onvif.org/ver10/schema");      //tt
+const QString nsXmlSchema("http://www.w3.org/2001/XMLSchema"); //xsd
+const QString
+	nsXmlSchemaInstance("http://www.w3.org/2001/XMLSchema-instance"); //xsi
+const QString
+	nsSoapEnvelope("http://www.w3.org/2003/05/soap-envelope"); //SOAP-ENV
+const QString
+	nsSoapEncoding("http://www.w3.org/2003/05/soap-encoding");  //SOAP-ENC
+const QString nsAddressing("http://www.w3.org/2005/08/addressing"); //wsa5
+const QString nsOnvifSchema("http://www.onvif.org/ver10/schema");   //tt
 const QString nsOnvifDevice("http://www.onvif.org/ver10/device/wsdl"); //tds
 const QString nsOnvifMedia("http://www.onvif.org/ver10/media/wsdl");   //trt
-const QString nsOnvifPtz("http://www.onvif.org/ver20/ptz/wsdl");       //ptz
+const QString nsOnvifPtz("http://www.onvif.org/ver20/ptz/wsdl");       //tptz
 const QString nsWssSecext(
-	"http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-wssecurity-secext-1.0.xsd");
+	"http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-wssecurity-secext-1.0.xsd"); //wsse
 const QString nsWssUtility(
-	"http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-wssecurity-utility-1.0.xsd");
+	"http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-wssecurity-utility-1.0.xsd"); //wsu
 const QString nsWssPasswordDigest(
 	"http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-username-token-profile-1.0#PasswordDigest");
 
@@ -53,17 +56,17 @@ static void writeStartOnvifDocument(QXmlStreamWriter &s)
 	s.setAutoFormatting(true);
 	s.setAutoFormattingIndent(1);
 	s.writeStartDocument();
-	s.writeNamespace(nsSoapEnvelope, "s");
-	s.writeNamespace(nsSoapEncoding, "c");
+	s.writeNamespace(nsSoapEnvelope, "SOAP-ENV");
+	s.writeNamespace(nsSoapEncoding, "SOAP-ENC");
+	s.writeNamespace(nsAddressing, "wsa5");
 	s.writeNamespace(nsXmlSchemaInstance, "i");
-	s.writeNamespace(nsXmlSchema, "d");
+	s.writeNamespace(nsXmlSchema, "xsd");
 	s.writeNamespace(nsOnvifSchema, "tt");
 	s.writeNamespace(nsOnvifDevice, "tds");
 	s.writeNamespace(nsOnvifMedia, "trt");
 	s.writeNamespace(nsOnvifPtz, "tptz");
-	s.writeNamespace(nsWssSecext);
-	s.writeNamespace(nsWssUtility);
-	s.writeNamespace(nsWssPasswordDigest);
+	s.writeNamespace(nsWssSecext, "wsse");
+	s.writeNamespace(nsWssUtility, "wsu");
 }
 
 void PTZOnvif::writeHeader(QXmlStreamWriter &s, const QString action = "")
