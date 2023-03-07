@@ -195,6 +195,7 @@ Usage: %B${functrace[1]%:*}%b <option> [<options>]
     if (( _loglevel > 2 )) cmake_args+=(--debug-output)
 
     local num_procs
+    local cmake_filter=cat
 
     case ${target} {
       macos-*)
@@ -202,7 +203,10 @@ Usage: %B${functrace[1]%:*}%b <option> [<options>]
         if (( ${+CODESIGN} )) {
           read_codesign
         }
-
+        if [[ ${generator} == 'Xcode' ]] && (( ${+commands[xcbeautify]} )) {
+          cmake_filter=(xcbeautify)
+          if (( _loglevel > 1 )) cmake_filter+=(--preserve-unbeautified)
+        }
         cmake_args+=(
           -DCMAKE_FRAMEWORK_PATH="${_plugin_deps}/Frameworks"
           -DCMAKE_OSX_ARCHITECTURES=${${target##*-}//universal/x86_64;arm64}
@@ -227,7 +231,7 @@ Usage: %B${functrace[1]%:*}%b <option> [<options>]
     local -a cmake_args=()
     if (( _loglevel > 1 )) cmake_args+=(--verbose)
     if [[ ${generator} == 'Unix Makefiles' ]] cmake_args+=(--parallel ${num_procs})
-    cmake --build build_${target##*-} --config ${BUILD_CONFIG:-RelWithDebInfo} ${cmake_args}
+    cmake --build build_${target##*-} --config ${BUILD_CONFIG:-RelWithDebInfo} ${cmake_args} | ${cmake_filter}
   }
 
   log_info "Installing ${product_name}..."
