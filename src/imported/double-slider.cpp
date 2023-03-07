@@ -31,5 +31,5 @@ void DoubleSlider::intValChanged(int val)
 
 void DoubleSlider::setDoubleVal(double val)
 {
-	setValue(lround((val - minVal) / minStep));
+	setValue((int)lround((val - minVal) / minStep));
 }

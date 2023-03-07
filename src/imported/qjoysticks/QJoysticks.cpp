@@ -89,7 +89,7 @@ QJoysticks *QJoysticks::getInstance()
  */
 int QJoysticks::count() const
 {
-	return inputDevices().count();
+	return (int)inputDevices().count();
 }
 
 /**
@@ -162,7 +162,7 @@ bool QJoysticks::getButton(const int index, const int button)
 int QJoysticks::getNumAxes(const int index)
 {
 	if (joystickExists(index))
-		return getInputDevice(index)->axes.count();
+		return (int)getInputDevice(index)->axes.count();
 
 	return -1;
 }
@@ -173,7 +173,7 @@ int QJoysticks::getNumAxes(const int index)
 int QJoysticks::getNumPOVs(const int index)
 {
 	if (joystickExists(index))
-		return getInputDevice(index)->povs.count();
+		return (int)getInputDevice(index)->povs.count();
 
 	return -1;
 }
@@ -184,7 +184,7 @@ int QJoysticks::getNumPOVs(const int index)
 int QJoysticks::getNumButtons(const int index)
 {
 	if (joystickExists(index))
-		return getInputDevice(index)->buttons.count();
+		return (int)getInputDevice(index)->buttons.count();
 
 	return -1;
 }
@@ -340,7 +340,7 @@ void QJoysticks::updateInterfaces()
 			if (!joystick->blacklisted) {
 				addInputDevice(joystick);
 				virtualJoystick()->setJoystickID(
-					inputDevices().count() - 1);
+					(int)inputDevices().count() - 1);
 			}
 		}
 
@@ -365,7 +365,7 @@ void QJoysticks::updateInterfaces()
 			if (joystick->blacklisted) {
 				addInputDevice(joystick);
 				virtualJoystick()->setJoystickID(
-					inputDevices().count() - 1);
+					(int)inputDevices().count() - 1);
 			}
 		}
 	}
@@ -391,7 +391,7 @@ void QJoysticks::updateInterfaces()
 
 			addInputDevice(joystick);
 			virtualJoystick()->setJoystickID(
-				inputDevices().count() - 1);
+				(int)inputDevices().count() - 1);
 		}
 	}
 
