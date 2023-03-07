@@ -25,89 +25,91 @@ if (( ! ${+target} )) {
   return 2
 }
 
-log_info 'Setting up libsdl2...'
+if (( ! (${skips[(Ie)all]} + ${skips[(Ie)deps]}) )) {
+  log_info 'Setting up libsdl2...'
 
-local sdl_version
-local sdl_repo
-local sdl_branch
-local sdl_hash
+  local sdl_version
+  local sdl_repo
+  local sdl_branch
+  local sdl_hash
 
-read -r sdl_version sdl_repo sdl_branch sdl_hash <<< \
-  "$(jq -r --arg key "sdl" \
-     '.dependencies[$key] | {version, repository, branch, hash} | join(" ")' \
-     ${buildspec_file})"
+  read -r sdl_version sdl_repo sdl_branch sdl_hash <<< \
+    "$(jq -r --arg key "sdl" \
+       '.dependencies[$key] | {version, repository, branch, hash} | join(" ")' \
+       ${buildspec_file})"
 
-if [[ -z ${sdl_version} ]] {
-  log_error "No libsdl2 version found in buildspec.json"
-  return 2
-}
-
-pushd
-mkcd ${project_root:h}/sdl
-
-if (( ! (${skips[(Ie)all]} + ${skips[(Ie)unpack]}) )) {
-  if [[ -d .git ]] {
-    git config advice.detachedHead false
-    git config remote.pluginbuild.url "${sdl_repo:-https://github.com/libsdl-org/sdl.git}"
-    git config remote.pluginbuild.fetch "+refs/heads/${sdl_branch:-master}:refs/remotes/origin/${sdl_branch:-master}"
-
-    git rev-parse -q --verify "${sdl_hash}^{commit}" > /dev/null || git fetch pluginbuild
-    git checkout ${sdl_version} -B ${product_name}
-    git reset --hard "${sdl_hash}"
-    log_status 'Found existing libsdl2 repository.'
-  } else {
-    git clone "${sdl_repo:-https://github.com/libsdl-org/sdl.git}" "${PWD}"
-    git config advice.detachedHead false
-    git checkout -f "${sdl_hash}" --
-    git checkout ${sdl_version} -b ${product_name}
-    log_status 'libsdl2 checked out.'
+  if [[ -z ${sdl_version} ]] {
+    log_error "No libsdl2 version found in buildspec.json"
+    return 2
   }
 
-  git submodule foreach --recursive git submodule sync
-  git submodule update --init --recursive
-}
+  pushd
+  mkcd ${project_root:h}/sdl
 
-if (( ! (${skips[(Ie)all]} + ${skips[(Ie)build]}) )) {
-  log_info 'Configuring libsdl2...'
+  if (( ! (${skips[(Ie)all]} + ${skips[(Ie)unpack]}) )) {
+    if [[ -d .git ]] {
+      git config advice.detachedHead false
+      git config remote.pluginbuild.url "${sdl_repo:-https://github.com/libsdl-org/sdl.git}"
+      git config remote.pluginbuild.fetch "+refs/heads/${sdl_branch:-master}:refs/remotes/origin/${sdl_branch:-master}"
 
-  local -a cmake_args=(
-    -DCMAKE_BUILD_TYPE=${BUILD_CONFIG:-Release}
-    -DCMAKE_INSTALL_PREFIX="${project_root:h}/obs-build-dependencies/plugin-deps-${OBS_DEPS_VERSION}-qt${QT_VERSION}-${target##*-}"
-    -DCMAKE_PREFIX_PATH="${project_root:h}/obs-build-dependencies/plugin-deps-${OBS_DEPS_VERSION}-qt${QT_VERSION}-${target##*-}"
-  )
+      git rev-parse -q --verify "${sdl_hash}^{commit}" > /dev/null || git fetch pluginbuild
+      git checkout ${sdl_version} -B ${product_name}
+      git reset --hard "${sdl_hash}"
+      log_status 'Found existing libsdl2 repository.'
+    } else {
+      git clone "${sdl_repo:-https://github.com/libsdl-org/sdl.git}" "${PWD}"
+      git config advice.detachedHead false
+      git checkout -f "${sdl_hash}" --
+      git checkout ${sdl_version} -b ${product_name}
+      log_status 'libsdl2 checked out.'
+    }
 
-  if (( _loglevel == 0 )) cmake_args+=(-Wno_deprecated -Wno-dev --log-level=ERROR)
-  if (( _loglevel > 2 )) cmake_args+=(--debug-output)
-
-  local num_procs
-
-  case ${target} {
-    macos-*)
-      autoload -Uz read_codesign
-      if (( ${+CODESIGN} )) {
-        read_codesign
-      }
-
-      cmake_args+=(
-        -DCMAKE_OSX_ARCHITECTURES=${${target##*-}//universal/x86_64;arm64}
-        -DCMAKE_OSX_DEPLOYMENT_TARGET=${DEPLOYMENT_TARGET:-10.15}
-      )
-      num_procs=$(( $(sysctl -n hw.ncpu) + 1 ))
-      ;;
-    linux-*)
-      num_procs=$(( $(nproc) + 1 ))
-      ;;
+    git submodule foreach --recursive git submodule sync
+    git submodule update --init --recursive
   }
 
-  log_debug "Attempting to configure libsdl2 with CMake arguments: ${cmake_args}"
-  cmake -S . -B plugin_build_${target##*-} -G ${generator} ${cmake_args}
+  if (( ! (${skips[(Ie)all]} + ${skips[(Ie)build]}) )) {
+    log_info 'Configuring libsdl2...'
 
-  log_info 'Building libsdl2...'
-  local -a cmake_args=()
-  if (( _loglevel > 1 )) cmake_args+=(--verbose)
-  if [[ ${generator} == 'Unix Makefiles' ]] cmake_args+=(--parallel ${num_procs})
-  cmake --build plugin_build_${target##*-} --config ${BUILD_CONFIG:-Release} ${cmake_args}
-  cmake --install plugin_build_${target##*-} --config ${BUILD_CONFIG:-Release} ${cmake_args}
+    local -a cmake_args=(
+      -DCMAKE_BUILD_TYPE=${BUILD_CONFIG:-Release}
+      -DCMAKE_INSTALL_PREFIX="${project_root:h}/obs-build-dependencies/plugin-deps-${OBS_DEPS_VERSION}-qt${QT_VERSION}-${target##*-}"
+      -DCMAKE_PREFIX_PATH="${project_root:h}/obs-build-dependencies/plugin-deps-${OBS_DEPS_VERSION}-qt${QT_VERSION}-${target##*-}"
+    )
+
+    if (( _loglevel == 0 )) cmake_args+=(-Wno_deprecated -Wno-dev --log-level=ERROR)
+    if (( _loglevel > 2 )) cmake_args+=(--debug-output)
+
+    local num_procs
+
+    case ${target} {
+      macos-*)
+        autoload -Uz read_codesign
+        if (( ${+CODESIGN} )) {
+          read_codesign
+        }
+
+        cmake_args+=(
+          -DCMAKE_OSX_ARCHITECTURES=${${target##*-}//universal/x86_64;arm64}
+          -DCMAKE_OSX_DEPLOYMENT_TARGET=${DEPLOYMENT_TARGET:-10.15}
+        )
+        num_procs=$(( $(sysctl -n hw.ncpu) + 1 ))
+        ;;
+      linux-*)
+        num_procs=$(( $(nproc) + 1 ))
+        ;;
+    }
+
+    log_debug "Attempting to configure libsdl2 with CMake arguments: ${cmake_args}"
+    cmake -S . -B plugin_build_${target##*-} -G ${generator} ${cmake_args}
+
+    log_info 'Building libsdl2...'
+    local -a cmake_args=()
+    if (( _loglevel > 1 )) cmake_args+=(--verbose)
+    if [[ ${generator} == 'Unix Makefiles' ]] cmake_args+=(--parallel ${num_procs})
+    cmake --build plugin_build_${target##*-} --config ${BUILD_CONFIG:-Release} ${cmake_args}
+    cmake --install plugin_build_${target##*-} --config ${BUILD_CONFIG:-Release} ${cmake_args}
+  }
+
+  popd
 }
-
-popd

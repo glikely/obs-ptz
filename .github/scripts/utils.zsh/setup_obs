@@ -67,7 +67,7 @@ if (( ! (${skips[(Ie)all]} + ${skips[(Ie)unpack]}) )) {
   git submodule update --init --recursive
 }
 
-if (( ! (${skips[(Ie)all]} + ${skips[(Ie)build]}) )) {
+if (( ! (${skips[(Ie)all]} + ${skips[(Ie)deps]}) )) {
   log_info 'Configuring obs-studio...'
 
   local -a cmake_args=(
