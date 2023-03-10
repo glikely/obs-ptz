@@ -550,7 +550,8 @@ obs_properties_t *PTZDevice::get_obs_properties()
 	/* Combo box list for associated OBS source */
 	auto src_cb = [](void *data, obs_source_t *src) {
 		auto srcnames = static_cast<QStringList *>(data);
-		srcnames->append(obs_source_get_name(src));
+		if (obs_source_get_type(src) != OBS_SOURCE_TYPE_SCENE)
+			srcnames->append(obs_source_get_name(src));
 		return true;
 	};
 	auto srcs_prop = obs_properties_add_list(rtn_props, "name", "Source",
