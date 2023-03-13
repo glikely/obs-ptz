@@ -13,6 +13,7 @@ if(PLUGIN_VERSION MATCHES "^[vV]?([0-9][.0-9]+)")
 else()
   message(FATAL_ERROR "version ${PLUGIN_VERSION} needs to be in semantic form X.Y.Z[*]")
 endif()
+add_compile_definitions(PLUGIN_NAME="${CMAKE_PROJECT_NAME}" PLUGIN_VERSION="${PLUGIN_VERSION}")
 
 # Change obs-plugintemplate to your plugin's name in a machine-readable format (e.g.:
 # obs-myawesomeplugin) and set
@@ -132,10 +133,6 @@ set_target_properties(
   PROPERTIES AUTOMOC ON
              AUTOUIC ON
              AUTORCC ON)
-
-configure_file(src/plugin-macros.h.in ${CMAKE_SOURCE_DIR}/src/plugin-macros.generated.h)
-
-target_sources(${CMAKE_PROJECT_NAME} PRIVATE src/plugin-macros.generated.h)
 
 # /!\ TAKE NOTE: No need to edit things past this point /!\
 
