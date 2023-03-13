@@ -1,7 +1,7 @@
 #define MyAppName "@CMAKE_PROJECT_NAME@"
 #define MyAppVersion "@PLUGIN_VERSION@"
 #define MyAppPublisher "@PLUGIN_AUTHOR@"
-#define MyAppURL "http://www.mywebsite.com"
+#define MyAppURL "https://obsproject.com/forum/resources/ptz-controls.1284/"
 
 [Setup]
 ; NOTE: The value of AppId uniquely identifies this application.
