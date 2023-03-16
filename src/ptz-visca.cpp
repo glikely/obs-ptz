@@ -878,6 +878,12 @@ void PTZVisca::send_pending()
 						visca_focus_speed_max + 1)});
 			pending_cmds += cmd;
 		} else if (status & STATUS_CONNECTED) {
+			if (pan_speed || tilt_speed)
+				stale_settings += "pan_pos";
+			if (zoom_speed)
+				stale_settings += "zoom_pos";
+			if (focus_speed)
+				stale_settings += "focus_pos";
 			ptz_debug(
 				"Stale prop list: {%s}",
 				QT_TO_UTF8(stale_settings.values().join(',')));
