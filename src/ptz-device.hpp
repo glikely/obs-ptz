@@ -179,17 +179,7 @@ public:
 	 * zoom: range[0.0, 1.0], 0.0 == wide angle, 1.0 == telephoto
 	 * focus: range[0.0, 1.0], 0.0 == far focus, 1.0 == near focus
 	 */
-	void pantilt(double pan, double tilt)
-	{
-		pan = std::clamp(pan, -pantilt_speed_max, pantilt_speed_max);
-		tilt = std::clamp(tilt, -pantilt_speed_max, pantilt_speed_max);
-		if ((pan_speed == pan) && (tilt_speed == tilt))
-			return;
-		pan_speed = pan;
-		tilt_speed = tilt;
-		status |= STATUS_PANTILT_SPEED_CHANGED;
-		do_update();
-	}
+	void pantilt(double pan, double tilt);
 	virtual void pantilt_rel(double pan, double tilt)
 	{
 		Q_UNUSED(pan);
@@ -201,26 +191,10 @@ public:
 		Q_UNUSED(tilt);
 	}
 	virtual void pantilt_home() {}
-	void zoom(double speed)
-	{
-		speed = std::clamp(speed, -zoom_speed_max, zoom_speed_max);
-		if (zoom_speed == speed)
-			return;
-		zoom_speed = speed;
-		status |= STATUS_ZOOM_SPEED_CHANGED;
-		do_update();
-	}
+	void zoom(double speed);
 	virtual void zoom_abs(double pos) { Q_UNUSED(pos); };
 	virtual void set_autofocus(bool enabled) { Q_UNUSED(enabled); };
-	void focus(double speed)
-	{
-		speed = std::clamp(speed, -focus_speed_max, focus_speed_max);
-		if (focus_speed == speed)
-			return;
-		focus_speed = speed;
-		status |= STATUS_FOCUS_SPEED_CHANGED;
-		do_update();
-	}
+	void focus(double speed);
 	virtual void focus_abs(double pos) { Q_UNUSED(pos); }
 	virtual void focus_onetouch() {}
 	virtual void memory_set(int i) { Q_UNUSED(i); }

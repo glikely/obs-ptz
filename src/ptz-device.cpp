@@ -484,6 +484,38 @@ QString PTZDevice::description()
 	return QString::fromStdString(type);
 }
 
+void PTZDevice::pantilt(double pan, double tilt)
+{
+	pan = std::clamp(pan, -pantilt_speed_max, pantilt_speed_max);
+	tilt = std::clamp(tilt, -pantilt_speed_max, pantilt_speed_max);
+	if ((pan_speed == pan) && (tilt_speed == tilt))
+		return;
+	pan_speed = pan;
+	tilt_speed = tilt;
+	status |= STATUS_PANTILT_SPEED_CHANGED;
+	do_update();
+}
+
+void PTZDevice::zoom(double speed)
+{
+	speed = std::clamp(speed, -zoom_speed_max, zoom_speed_max);
+	if (zoom_speed == speed)
+		return;
+	zoom_speed = speed;
+	status |= STATUS_ZOOM_SPEED_CHANGED;
+	do_update();
+}
+
+void PTZDevice::focus(double speed)
+{
+	speed = std::clamp(speed, -focus_speed_max, focus_speed_max);
+	if (focus_speed == speed)
+		return;
+	focus_speed = speed;
+	status |= STATUS_FOCUS_SPEED_CHANGED;
+	do_update();
+}
+
 void PTZDevice::set_config(OBSData config)
 {
 	/* Update the list of preset names */
