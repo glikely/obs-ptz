@@ -661,9 +661,11 @@ void PTZVisca::set_settings(OBSData new_settings)
 			send(VISCA_CAM_Power, {power_on});
 	}
 
-	auto wb_mode = (int)obs_data_get_int(new_settings, "wb_mode");
-	if (wb_mode != obs_data_get_int(settings, "wb_mode")) {
-		send(VISCA_CAM_WB_Mode, {wb_mode});
+	if (obs_data_has_user_value(new_settings, "wb_mode")) {
+		auto wb_mode = (int)obs_data_get_int(new_settings, "wb_mode");
+		if (wb_mode != obs_data_get_int(settings, "wb_mode")) {
+			send(VISCA_CAM_WB_Mode, {wb_mode});
+		}
 	}
 
 	if (obs_data_has_user_value(new_settings, "wb_onepush_trigger")) {
