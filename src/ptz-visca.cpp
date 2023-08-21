@@ -974,3 +974,8 @@ void PTZVisca::memory_recall(int i)
 {
 	send(VISCA_CAM_Memory_Recall, {i});
 }
+
+void PTZVisca::power(bool on)
+{
+	send(VISCA_CAM_Power, {(int)on});
+}

@@ -83,6 +83,12 @@ static void ptz_action_source_do_action(struct ptz_action_source_data *context)
 		proc_handler_call(ptz_get_proc_handler(), "ptz_move_continuous",
 				  &cd);
 		break;
+	case PTZ_ACTION_POWER_ON:
+		proc_handler_call(ptz_get_proc_handler(), "ptz_power_on", &cd);
+		break;
+	case PTZ_ACTION_POWER_OFF:
+		proc_handler_call(ptz_get_proc_handler(), "ptz_power_off", &cd);
+		break;
 	default:
 		break;
 	}
@@ -292,6 +298,8 @@ static obs_properties_t *ptz_action_source_get_properties(void *data)
 	obs_property_list_add_int(prop, "Preset Save", PTZ_ACTION_PRESET_SAVE);
 	obs_property_list_add_int(prop, "Pan/Tilt", PTZ_ACTION_PAN_TILT);
 	obs_property_list_add_int(prop, "Stop", PTZ_ACTION_STOP);
+	obs_property_list_add_int(prop, "Power On", PTZ_ACTION_POWER_ON);
+	obs_property_list_add_int(prop, "Power Off", PTZ_ACTION_POWER_OFF);
 
 	obs_properties_add_list(props, "preset_id", "Preset",
 				OBS_COMBO_TYPE_LIST, OBS_COMBO_FORMAT_INT);

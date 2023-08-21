@@ -74,4 +74,5 @@ public:
 	void memory_reset(int i);
 	void memory_set(int i);
 	void memory_recall(int i);
+	void power(bool on);
 };

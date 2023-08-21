@@ -60,6 +60,8 @@ public slots:
 	void preset_save(uint32_t device_id, int preset_id);
 	void move_continuous(uint32_t device_id, uint32_t flags, double pan,
 			     double tilt, double zoom, double focus);
+	void power_on(uint32_t device_id);
+	void power_off(uint32_t device_id);
 };
 
 extern PTZListModel ptzDeviceList;
@@ -200,6 +202,7 @@ public:
 	virtual void memory_set(int i) { Q_UNUSED(i); }
 	virtual void memory_recall(int i) { Q_UNUSED(i); }
 	virtual void memory_reset(int i) { Q_UNUSED(i); }
+	virtual void power(bool on) { Q_UNUSED(on); }
 	virtual QAbstractListModel *presetModel() { return &m_presetsModel; }
 
 	/* `config` is the device configuration, saved to the config file
