@@ -831,6 +831,13 @@ void PTZVisca::receive(const QByteArray &msg)
 			emit settingsChanged(rslt_props);
 			obs_data_release(rslt_props);
 		}
+		
+		/* Add affects to stale_settings after Completion response */
+		if (true){
+			auto affects = active_cmd[slot].value().affects;
+			if (affects != "")
+				stale_settings += affects;
+		}
 
 		active_cmd[slot] = std::nullopt;
 		break;
@@ -849,7 +856,7 @@ void PTZVisca::receive(const QByteArray &msg)
 		ptz_debug("rx unknown: %s", msg.toHex(':').data());
 		break;
 	}
-	send_pending();
+	QTimer::singleShot(500, [this](){send_pending();});
 }
 
 void PTZVisca::send_pending()
@@ -902,9 +909,10 @@ void PTZVisca::send_pending()
 		return;
 
 	active_cmd[0] = pending_cmds.takeFirst();
-	auto affects = active_cmd[0].value().affects;
-	if (affects != "")
-		stale_settings += affects;
+	// affects should not be added to stale_settings until after the
+	// command has been completed/error, otherwise the inquiry
+	// might return an existing or otherwise inaccurate value
+	
 	send_packet(active_cmd[0].value().cmd);
 	timeout_retry = 0;
 }
