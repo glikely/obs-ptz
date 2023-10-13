@@ -16,9 +16,9 @@ class ViscaUDPSocket : public QObject {
 private:
 	/* Global lookup table of UART instances, used to eliminate duplicates */
 	static std::map<int, ViscaUDPSocket *> interfaces;
-
 	int visca_port;
 	QUdpSocket visca_socket;
+	
 
 signals:
 	void receive(const QByteArray &packet);
@@ -29,6 +29,7 @@ public:
 	void receive_datagram(QNetworkDatagram &datagram);
 	void send(QHostAddress ip_address, const QByteArray &packet);
 	int port() { return visca_port; }
+	bool disable_sequence;
 
 	static ViscaUDPSocket *get_interface(int port);
 
@@ -40,6 +41,7 @@ class PTZViscaOverIP : public PTZVisca {
 	Q_OBJECT
 
 private:
+
 	int sequence;
 	QHostAddress ip_address;
 	ViscaUDPSocket *iface;

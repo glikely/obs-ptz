@@ -24,9 +24,17 @@ ViscaUDPSocket::ViscaUDPSocket(int port) : visca_port(port)
 void ViscaUDPSocket::receive_datagram(QNetworkDatagram &dg)
 {
 	QByteArray data = dg.data();
+	if (disable_sequence) {
+	    // devices which don't work with udp sequence most likely don't reply properly either
+		// but we'll try anyway...
+		int s = data.size();
+		data = QByteArray::fromHex("0111000000000000") + dg.data();
+		data[3] = s;
+	
+	}
 	int type = ((data[0] & 0xff) << 8) | (data[1] & 0xff);
 	int size = data[2] << 8 | data[3];
-
+	
 	if ((data.size() != size + 8) || size < 1) {
 		blog(ptz_debug_level, "VISCA UDP (malformed) <-- %s",
 		     qPrintable(data.toHex(':')));
@@ -113,6 +121,12 @@ void PTZViscaOverIP::reset()
 
 void PTZViscaOverIP::send_immediate(const QByteArray &msg)
 {
+
+	if (iface->disable_sequence) {
+		iface->send(ip_address, msg);
+		return;
+	}
+
 	QByteArray p = QByteArray::fromHex("0100000000000000") + msg;
 	p[1] = (0x9 == msg[1]) ? 0x10 : 0x00;
 	p[3] = msg.size();
@@ -134,7 +148,9 @@ void PTZViscaOverIP::set_config(OBSData config)
 	int port = (int)obs_data_get_int(config, "port");
 	if (!port)
 		port = 52381;
+
 	attach_interface(ViscaUDPSocket::get_interface(port));
+	iface->disable_sequence = obs_data_get_bool(config, "disable_sequence");
 }
 
 OBSData PTZViscaOverIP::get_config()
@@ -143,6 +159,7 @@ OBSData PTZViscaOverIP::get_config()
 	obs_data_set_string(config, "address",
 			    qPrintable(ip_address.toString()));
 	obs_data_set_int(config, "port", iface->port());
+	obs_data_set_bool(config, "disable_sequence", iface->disable_sequence);
 	return config;
 }
 
@@ -155,5 +172,7 @@ obs_properties_t *PTZViscaOverIP::get_obs_properties()
 	obs_properties_add_text(config, "address", "IP Address",
 				OBS_TEXT_DEFAULT);
 	obs_properties_add_int(config, "port", "UDP port", 1, 65535, 1);
+	obs_properties_add_bool(config, "disable_sequence",
+				"Disable Sequence" );
 	return ptz_props;
 }

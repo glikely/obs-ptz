@@ -258,6 +258,7 @@ void PTZSettings::on_addPTZ_clicked()
 		obs_data_release(cfg);
 		obs_data_set_string(cfg, "type", "visca-over-ip");
 		obs_data_set_int(cfg, "port", 52381);
+		obs_data_set_bool(cfg, "disable_sequence", false);
 		ptzDeviceList.make_device(cfg);
 	}
 	if (action == addViscaTCP) {
