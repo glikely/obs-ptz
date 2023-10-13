@@ -29,6 +29,7 @@ public:
 	void receive_datagram(QNetworkDatagram &datagram);
 	void send(QHostAddress ip_address, const QByteArray &packet);
 	int port() { return visca_port; }
+	bool quirk_visca_udp_no_seq;
 
 	static ViscaUDPSocket *get_interface(int port);
 

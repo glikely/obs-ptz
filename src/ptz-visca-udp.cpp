@@ -22,6 +22,12 @@ ViscaUDPSocket::ViscaUDPSocket(int port) : visca_port(port)
 void ViscaUDPSocket::receive_datagram(QNetworkDatagram &dg)
 {
 	QByteArray data = dg.data();
+	if (quirk_visca_udp_no_seq) {
+		// Prepend an empty sequence field
+		int s = data.size();
+		data = QByteArray::fromHex("0111000000000000") + dg.data();
+		data[3] = s;
+	}
 	int type = ((data[0] & 0xff) << 8) | (data[1] & 0xff);
 	int size = data[2] << 8 | data[3];
 
@@ -107,6 +113,11 @@ void PTZViscaOverIP::reset()
 
 void PTZViscaOverIP::send_immediate(const QByteArray &msg)
 {
+	if (iface->quirk_visca_udp_no_seq) {
+		// Don't prepend the sequence field
+		iface->send(ip_address, msg);
+		return;
+	}
 	QByteArray p = QByteArray::fromHex("0100000000000000") + msg;
 	p[1] = (0x9 == msg[1]) ? 0x10 : 0x00;
 	p[3] = msg.size();
@@ -129,6 +140,7 @@ void PTZViscaOverIP::set_config(OBSData config)
 	if (!port)
 		port = 52381;
 	attach_interface(ViscaUDPSocket::get_interface(port));
+	iface->quirk_visca_udp_no_seq = obs_data_get_bool(config, "quirk_visca_udp_no_seq");
 }
 
 OBSData PTZViscaOverIP::get_config()
@@ -136,6 +148,7 @@ OBSData PTZViscaOverIP::get_config()
 	OBSData config = PTZVisca::get_config();
 	obs_data_set_string(config, "address", qPrintable(ip_address.toString()));
 	obs_data_set_int(config, "port", iface->port());
+	obs_data_set_bool(config, "quirk_visca_udp_no_seq", iface->quirk_visca_udp_no_seq);
 	return config;
 }
 
@@ -147,5 +160,6 @@ obs_properties_t *PTZViscaOverIP::get_obs_properties()
 	obs_property_set_description(p, "VISCA (UDP) Connection");
 	obs_properties_add_text(config, "address", "IP Address", OBS_TEXT_DEFAULT);
 	obs_properties_add_int(config, "port", "UDP port", 1, 65535, 1);
+	obs_properties_add_bool(config, "quirk_visca_udp_no_seq", "Don't use sequence numbers");
 	return ptz_props;
 }
