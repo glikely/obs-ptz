@@ -923,7 +923,6 @@ void PTZControls::on_cameraList_customContextMenuRequested(const QPoint &pos)
 	QAction *action = context.exec(globalpos);
 
 	OBSData setdata = obs_data_create();
-	obs_data_release(setdata);
 
 	if (action == powerAction) {
 		obs_data_set_bool(setdata, "power_on", !power_on);
@@ -932,6 +931,8 @@ void PTZControls::on_cameraList_customContextMenuRequested(const QPoint &pos)
 		obs_data_set_bool(setdata, "wb_onepush_trigger", true);
 		ptz->set_settings(setdata);
 	}
+	
+	obs_data_release(setdata);
 }
 
 void PTZControls::on_actionPTZProperties_triggered()

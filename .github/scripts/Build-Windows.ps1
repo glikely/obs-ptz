@@ -47,7 +47,7 @@ function Build {
     $ProductVersion = (git -C ${ProjectRoot} describe --tags --dirty)
 
     $script:DepsVersion = ''
-    $script:QtVersion = '5'
+    $script:QtVersion = '6'
     $script:VisualStudioVersion = ''
     $script:PlatformSDK = '10.0.18363.657'
 
@@ -71,7 +71,7 @@ function Build {
             "-DCMAKE_SYSTEM_VERSION=${script:PlatformSDK}"
             "-DCMAKE_GENERATOR_PLATFORM=$(if (${script:Target} -eq "x86") { "Win32" } else { "x64" })"
             "-DCMAKE_BUILD_TYPE=${Configuration}"
-            "-DCMAKE_PREFIX_PATH:PATH=$(Resolve-Path -Path "${ProjectRoot}/../obs-build-dependencies/${DepsPath}")"
+            "-DCMAKE_PREFIX_PATH:PATH=$(Resolve-Path -Path "${ProjectRoot}/../obs-build-dependencies/${DepsPath}/lib/cmake")"
             "-DQT_VERSION=${script:QtVersion}"
         )
 

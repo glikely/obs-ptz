@@ -5,6 +5,7 @@
 *.so
 
 #cmake
+/cmakefiles/
 /cmbuild/
 /build/
 /build32/
@@ -16,11 +17,13 @@
 /debug32/
 /debug64/
 /builds/
+build_*
 .vs/
 *.o.d
 *.ninja
 .ninja*
 .dirstamp
+cmakecache.txt
 
 #xcode
 *.xcodeproj/

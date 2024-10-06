@@ -740,6 +740,21 @@ void ptz_load_devices()
 			&ptzDeviceList, "power_on",
 			Q_ARG(uint32_t, device_id));
 		
+		
+		/*
+		BSData setdata = obs_data_create();		
+		
+		PTZDevice *ptz = ptzDeviceList.getDevice(device_id);
+		obs_data_set_bool(setdata, "power_on", true);
+		ptz->set_settings(setdata);
+		
+		obs_data_release(setdata);
+		*/
+		/*
+		PTZDevice *ptz = ptzDeviceList.getDevice(device_id);
+		ptz->power(true);
+		*/
+		
 	};
 
 	proc_handler_add(
@@ -757,6 +772,20 @@ void ptz_load_devices()
 			&ptzDeviceList, "power_off",
 			Q_ARG(uint32_t, device_id));
 		
+		
+		/*
+		OBSData setdata = obs_data_create();		
+		
+		PTZDevice *ptz = ptzDeviceList.getDevice(device_id);
+		obs_data_set_bool(setdata, "power_on", false);
+		ptz->set_settings(setdata);
+		
+		obs_data_release(setdata);
+		*/
+		/*
+		PTZDevice *ptz = ptzDeviceList.getDevice(device_id);
+		ptz->power(false);
+		*/
 	};
 
 	proc_handler_add(
