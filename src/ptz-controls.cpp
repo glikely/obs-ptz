@@ -15,6 +15,7 @@
 #include <QToolTip>
 #include <QWindow>
 #include <QResizeEvent>
+#include <QDockWidget>
 
 #include "imported/qt-wrappers.hpp"
 #include "imported/qjoysticks/QJoysticks.h"
@@ -29,9 +30,23 @@ void ptz_load_controls(void)
 	const auto main_window =
 		static_cast<QMainWindow *>(obs_frontend_get_main_window());
 	obs_frontend_push_ui_translation(obs_module_get_string);
-	auto *tmp = new PTZControls(main_window);
-	obs_frontend_add_dock(tmp);
-	tmp->setFloating(true); // Do after add_dock() to keep hidden at startup
+	auto *ctrls = new PTZControls(main_window);
+
+#if LIBOBS_API_VER >= MAKE_SEMANTIC_VERSION(30, 0, 0)
+	if (!obs_frontend_add_dock_by_id("ptz-dock", "PTZ Controls", ctrls))
+		blog(LOG_ERROR, "failed to add PTZ controls dock");
+#else
+	auto dock = new QDockWidget(main_window);
+	dock->setObjectName("ptz-dock");
+	dock->setWindowTitle("PTZ Controls");
+	dock->setWidget(ctrls);
+	dock->setFeatures(QDockWidget::DockWidgetMovable |
+			  QDockWidget::DockWidgetFloatable);
+	dock->setFloating(true);
+	dock->hide();
+	obs_frontend_add_dock(dock);
+#endif
+
 	obs_frontend_pop_ui_translation();
 }
 
@@ -121,7 +136,7 @@ void PTZControls::OBSFrontendEvent(enum obs_frontend_event event)
 }
 
 PTZControls::PTZControls(QWidget *parent)
-	: QDockWidget(parent), ui(new Ui::PTZControls)
+	: QWidget(parent), ui(new Ui::PTZControls)
 {
 	instance = this;
 	ui->setupUi(this);
