@@ -9,13 +9,12 @@
 #include "ptz.h"
 #include <QTimer>
 #include <obs.hpp>
-#include <QDockWidget>
 #include "imported/qjoysticks/QJoysticks.h"
 #include "touch-control.hpp"
 #include "ptz-device.hpp"
 #include "ui_ptz-controls.h"
 
-class PTZControls : public QDockWidget {
+class PTZControls : public QWidget {
 	Q_OBJECT
 
 private:
