@@ -276,7 +276,13 @@ void PTZOnvif::handleResponse(QString response)
 {
 	QDomDocument doc;
 	QDomNodeList nl;
+
+#if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
+    QDomDocument::ParseOptions options = QDomDocument::ParseOption::UseNamespaceProcessing;
+    doc.setContent(QAnyStringView(response), options);
+#else
 	doc.setContent(response, true);
+#endif
 
 	nl = doc.elementsByTagNameNS(nsOnvifDevice, "GetCapabilitiesResponse");
 	for (int i = 0; i < nl.length(); i++)
