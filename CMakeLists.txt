@@ -43,6 +43,7 @@ target_sources(
           src/ptz-device.cpp
           src/settings.cpp
           src/ptz-onvif.cpp
+          src/ptz-usb-cam.cpp
           src/ptz-visca.cpp
           src/ptz-visca-udp.cpp
           src/ptz-visca-tcp.cpp
@@ -61,6 +62,7 @@ target_sources(
           src/ptz-controls.hpp
           src/ptz-device.hpp
           src/settings.hpp
+          src/ptz-usb-cam.hpp
           src/ptz-onvif.hpp
           src/ptz-visca.hpp
           src/ptz-visca-udp.hpp
