@@ -106,7 +106,7 @@ QMap<int, QJoystickDevice *> SDL_Joysticks::joysticks()
 
 	return joysticks;
 #endif
-	return QMap<int, QJoystickDevice *>();
+	//return QMap<int, QJoystickDevice *>();
 }
 
 /**

@@ -1,10 +1,18 @@
 {
     "dependencies": {
         "obs-studio": {
-            "version": "28.0.1",
+            "version": "30.2.3",
             "repository": "https://github.com/obsproject/obs-studio.git",
-            "branch": "master",
-            "hash": "e8dc70d0eef4503378d6ac300e680215eb5c9379"
+            "branch": "release/30.2",
+            "hash": "ca51d330eafd36f84f159e524aa87d11ac39197f"
+        },
+				"obs-studio-not-working": {
+            "version": "30.2.3",
+            "baseUrl": "https://github.com/obsproject/obs-studio/archive/refs/tags",
+            "label": "OBS sources",
+            "hashes": {
+                "windows-x64": "c2dd03fa7fd01fad5beafce8f7156da11f9ed9a588373fd40b44a06f4c03b867"
+            }
         },
 	"sdl": {
 	    "version": "release-2.26.3",
@@ -13,14 +21,14 @@
 	    "hash": "adf31f6ec0be0f9ba562889398f71172c7941023"
 	},
         "prebuilt": {
-            "version": "2022-08-02",
+            "version": "2024-03-19",
             "baseUrl": "https://github.com/obsproject/obs-deps/releases/download",
             "label": "Pre-built obs-deps",
             "hashes": {
                 "macos-x86_64": "7637e52305e6fc53014b5aabd583f1a4490b1d97450420e977cae9a336a29525",
                 "macos-arm64": "755e0fa69b17a3ae444e1befa9d91d77e3cafe628fbd1c6333686091826595cd",
                 "macos-universal": "de057e73e6fe0825664c258ca2dd6798c41ae580bf4d896e1647676a4941934a",
-                "windows-x64": "2192d8ce780c4281b807cd457994963669e5202659ecd92f19b54c3e7d0c1915",
+                "windows-x64": "6e86068371526a967e805f6f9903f9407adb683c21820db5f07da8f30d11e998",
                 "windows-x86": "9f8582ab5891b000869d6484ea591add9fbac9f1c91b56c7b85fdfd56a261c1b"
             }
         },
@@ -41,17 +49,11 @@
             }
         },
         "qt6": {
-            "version": "2022-08-02",
-            "baseUrl": "https://github.com/glikely/obs-deps-qtserialport/releases/download",
+            "version": "2024-10-05",
+            "baseUrl": "https://github.com/gentoogeek/obs-deps/releases/download",
             "label": "Pre-built Qt6",
             "hashes": {
-                "macos-x86_64": "7470596958bcf28811b084897f01477e1e20b027755c4d04e363247e8f45cfd8",
-                "macos-arm64": "894323c30fca6da0958c903ebdbb687139e96cc079a68e54162b0e7a475e31a7",
-                "macos-universal": "437660339210b52309ab6997771a23511dd2ce3474b55e137490640b6bb24c59",
-                "windows-x64": "5e8bb9679547d7caeb68010ef4ee94b409f5900298f9306ab4678cd60ea22647"
-            },
-            "pdb-hashes": {
-                "windows-x64": "512ad05c70e1ac2a43cab73b90390bc8ade7b5a364acb280ee4c50e8ef9ef95b"
+                "windows-x64": "8AEE1F11F8E16EE3EBD4C5BF7E2BAF73414A34AB7CBA2E64B7DC6539226C09F9"
             }
         }
     },

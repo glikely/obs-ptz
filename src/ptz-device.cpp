@@ -294,6 +294,25 @@ void PTZListModel::move_continuous(uint32_t device_id, uint32_t flags,
 		ptz->focus(focus);
 }
 
+
+void PTZListModel::power_on(uint32_t device_id)
+{
+	PTZDevice *ptz = ptzDeviceList.getDevice(device_id);
+	if (!ptz)
+		return;
+
+	ptz->power(true);
+}
+
+void PTZListModel::power_off(uint32_t device_id)
+{
+	PTZDevice *ptz = ptzDeviceList.getDevice(device_id);
+	if (!ptz)
+		return;
+
+	ptz->power(false);
+}
+
 int PTZPresetListModel::rowCount(const QModelIndex &parent) const
 {
 	Q_UNUSED(parent);
@@ -712,6 +731,71 @@ void ptz_load_devices()
 		ptz_ph,
 		"void ptz_move_continuous(int device_id, float pan, float tilt, float zoom, float focus)",
 		ptz_move_continuous, NULL);
+
+	auto ptz_power_on = [](void *data, calldata_t *cd){
+		Q_UNUSED(data);
+		long long device_id;
+		if (!calldata_get_int(cd, "device_id", &device_id))
+			return;
+	
+		
+		 QMetaObject::invokeMethod(
+			&ptzDeviceList, "power_on",
+			Q_ARG(uint32_t, device_id));
+		
+		
+		/*
+		BSData setdata = obs_data_create();		
+		
+		PTZDevice *ptz = ptzDeviceList.getDevice(device_id);
+		obs_data_set_bool(setdata, "power_on", true);
+		ptz->set_settings(setdata);
+		
+		obs_data_release(setdata);
+		*/
+		/*
+		PTZDevice *ptz = ptzDeviceList.getDevice(device_id);
+		ptz->power(true);
+		*/
+		
+	};
+
+	proc_handler_add(
+		ptz_ph,
+		"void ptz_power_on(int device_id)",
+		ptz_power_on, NULL);
+		
+	auto ptz_power_off = [](void *data, calldata_t *cd){
+		Q_UNUSED(data);
+		long long device_id;
+		if (!calldata_get_int(cd, "device_id", &device_id))
+			return;
+		
+		QMetaObject::invokeMethod(
+			&ptzDeviceList, "power_off",
+			Q_ARG(uint32_t, device_id));
+		
+		
+		/*
+		OBSData setdata = obs_data_create();		
+		
+		PTZDevice *ptz = ptzDeviceList.getDevice(device_id);
+		obs_data_set_bool(setdata, "power_on", false);
+		ptz->set_settings(setdata);
+		
+		obs_data_release(setdata);
+		*/
+		/*
+		PTZDevice *ptz = ptzDeviceList.getDevice(device_id);
+		ptz->power(false);
+		*/
+	};
+
+	proc_handler_add(
+		ptz_ph,
+		"void ptz_power_off(int device_id)",
+		ptz_power_off, NULL);
+
 
 	/* Register the new proc hander with the main proc handler */
 	proc_handler_t *ph = obs_get_proc_handler();
