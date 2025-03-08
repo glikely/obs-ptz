@@ -19,7 +19,15 @@ PTZUARTWrapper::PTZUARTWrapper(QString &port_name) : port_name(port_name)
 
 bool PTZUARTWrapper::open()
 {
-	bool rc = uart.open(QIODevice::ReadWrite);
+	bool rc;
+	try {
+        rc = uart.open(QIODevice::ReadWrite);
+    } 
+    catch(const std::exception& e) {
+       blog(LOG_INFO, "Qt6 error when trying to open UART for VISCA (uart.open(QIODevice::ReadWrite))- Exception is %s",
+		     qPrintable(e.what()));
+        throw; 
+    } 
 	if (!rc)
 		blog(LOG_INFO, "VISCA Unable to open UART %s",
 		     qPrintable(port_name));
