@@ -43,6 +43,7 @@ target_sources(
           src/ptz-device.cpp
           src/settings.cpp
           src/ptz-onvif.cpp
+          src/ptz-usb-cam.cpp
           src/ptz-visca.cpp
           src/ptz-visca-udp.cpp
           src/ptz-visca-tcp.cpp
@@ -61,6 +62,7 @@ target_sources(
           src/ptz-controls.hpp
           src/ptz-device.hpp
           src/settings.hpp
+          src/ptz-usb-cam.hpp
           src/ptz-onvif.hpp
           src/ptz-visca.hpp
           src/ptz-visca-udp.hpp
@@ -108,13 +110,20 @@ if(ENABLE_SERIALPORT)
   endif()
 endif()
 
+option(USE_SDL2_STATIC "Use SDL2 static library" ON)
 option(ENABLE_JOYSTICK "Enable Joystick support" ON)
 if(ENABLE_JOYSTICK)
-  find_package(SDL2 COMPONENTS SDL2-static)
+  if(USE_SDL2_STATIC)
+    find_package(SDL2 COMPONENTS SDL2-static REQUIRED)
+    set(SDL2_TARGET SDL2::SDL2-static)
+  else()
+    find_package(SDL2 REQUIRED)
+    set(SDL2_TARGET SDL2::SDL2)
+  endif()
   if(SDL2_FOUND)
     add_compile_definitions(ENABLE_JOYSTICK SDL_SUPPORTED)
     target_include_directories(${CMAKE_PROJECT_NAME} PRIVATE ${SDL2_INCLUDE_DIRS})
-    target_link_libraries(${CMAKE_PROJECT_NAME} PRIVATE SDL2::SDL2-static)
+    target_link_libraries(${CMAKE_PROJECT_NAME} PRIVATE ${SDL2_TARGET})
     target_sources(
       ${CMAKE_PROJECT_NAME}
       PRIVATE src/imported/qjoysticks/QJoysticks.cpp
