@@ -101,9 +101,8 @@ public:
 
 class DirectShowControl : public PTZControl {
 private:
-    IBaseFilter *filter_;
-    IAMCameraControl *cam_control_;
-    std::string device_path;
+    IBaseFilter *filter_ = nullptr;
+    IAMCameraControl *cam_control_ = nullptr;
     long last_focus = 0;
 
 public:
@@ -379,11 +378,14 @@ void PTZUSBCam::initialize_and_check_ptz_control()
     }
 
     // already have the device, and it didn't change: nothing to do
-    if(ptz_control_ != NULL && ptz_control_->isValid() &&
+    if(ptz_control_ != nullptr && ptz_control_->isValid() &&
        ptz_control_->getDevicePath() == video_device_id) {
         return;
     }
-    if(ptz_control_ != NULL) {
+    blog(LOG_INFO, "Switching PTZ USBUVC device from %s to %s",
+        ptz_control_ == nullptr ? "null" : ptz_control_->getDevicePath().c_str(),
+        video_device_id.empty() ? "null" : video_device_id.c_str());
+    if(ptz_control_ != nullptr) {
         delete ptz_control_;
         ptz_control_ = nullptr;
     }
@@ -404,7 +406,7 @@ void PTZUSBCam::pantilt_abs(double pan, double tilt)
     now_pos.pan = std::clamp(pan, -1.0, 1.0);
     now_pos.tilt = std::clamp(tilt, -1.0, 1.0);
 
-    if(ptz_control_ != NULL && ptz_control_->isValid()) {
+    if(ptz_control_ != nullptr && ptz_control_->isValid()) {
         ptz_control_->pan(now_pos.pan);
         ptz_control_->tilt(now_pos.tilt);
     }
@@ -424,7 +426,7 @@ void PTZUSBCam::zoom_abs(double pos)
 {
     initialize_and_check_ptz_control();
     now_pos.zoom = std::clamp(pos, 0.0, 1.0);
-    if(ptz_control_ != NULL && ptz_control_->isValid()) {
+    if(ptz_control_ != nullptr && ptz_control_->isValid()) {
         ptz_control_->zoom(now_pos.zoom);
     }
 }
@@ -433,7 +435,7 @@ void PTZUSBCam::focus_abs(double pos)
 {
     initialize_and_check_ptz_control();
     now_pos.focus = std::clamp(pos, 0.0, 1.0);
-    if(ptz_control_ != NULL && ptz_control_->isValid()) {
+    if(ptz_control_ != nullptr && ptz_control_->isValid()) {
         ptz_control_->focus(now_pos.focus);
     }
     return;
@@ -443,7 +445,7 @@ void PTZUSBCam::set_autofocus(bool enabled)
 {
     initialize_and_check_ptz_control();
     now_pos.focusAuto = enabled;
-    if(ptz_control_ != NULL && ptz_control_->isValid()) {
+    if(ptz_control_ != nullptr && ptz_control_->isValid()) {
         ptz_control_->setAutoFocus(enabled);
     }
 }
