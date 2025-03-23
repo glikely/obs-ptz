@@ -278,8 +278,9 @@ void PTZOnvif::handleResponse(QString response)
 	QDomNodeList nl;
 
 #if QT_VERSION >= QT_VERSION_CHECK(6, 8, 0)
-    QDomDocument::ParseOptions options = QDomDocument::ParseOption::UseNamespaceProcessing;
-    doc.setContent(QAnyStringView(response), options);
+	QDomDocument::ParseOptions options =
+		QDomDocument::ParseOption::UseNamespaceProcessing;
+	doc.setContent(QAnyStringView(response), options);
 #else
 	doc.setContent(response, true);
 #endif

@@ -247,7 +247,7 @@ PTZDevice *PTZListModel::make_device(OBSData config)
 	if (type == "onvif")
 		ptz = new PTZOnvif(config);
 	if (type == "usb-cam")
-        ptz = new PTZUSBCam(config);
+		ptz = new PTZUSBCam(config);
 	return ptz;
 }
 
