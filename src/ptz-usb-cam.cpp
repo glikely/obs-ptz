@@ -21,10 +21,6 @@
 #include <fcntl.h>
 #include <unistd.h>
 
-const std::array<unsigned int, 5> axis_ids = {
-	V4L2_CID_PAN_ABSOLUTE, V4L2_CID_TILT_ABSOLUTE, V4L2_CID_ZOOM_ABSOLUTE,
-	V4L2_CID_FOCUS_ABSOLUTE, V4L2_CID_FOCUS_AUTO};
-
 class V4L2Control : public PTZControl {
 private:
 	int fd;
@@ -32,9 +28,8 @@ private:
 	{
 		if (fd == -1)
 			return false;
-		struct v4l2_queryctrl queryctrl;
-		memset(&queryctrl, 0, sizeof(queryctrl));
-		queryctrl.id = axis_ids[i];
+		struct v4l2_queryctrl queryctrl = {};
+		queryctrl.id = i;
 		if (ioctl(fd, VIDIOC_QUERYCTRL, &queryctrl) == -1) {
 			blog(LOG_ERROR, "VIDIOC_QUERYCTRL failed for axis %d",
 			     i);
@@ -48,15 +43,26 @@ private:
 	{
 		if (fd == -1)
 			return false;
-		struct v4l2_control control;
-		memset(&control, 0, sizeof(control));
-		control.id = axis_ids[i];
+		struct v4l2_control control = {};
+		control.id = i;
 		control.value = value;
 		if (ioctl(fd, VIDIOC_S_CTRL, &control) == -1) {
 			blog(LOG_ERROR, "Failed to set PTZ %d value", i);
 			return false;
 		}
 		return true;
+	}
+	int get_ctrl(unsigned int i)
+	{
+		if (fd == -1)
+			return 0;
+		struct v4l2_control control = {};
+		control.id = i;
+		if (ioctl(fd, VIDIOC_G_CTRL, &control) == -1) {
+			blog(LOG_ERROR, "VIDIOC_G_CTRL failed for axis %d", i);
+			return 0;
+		}
+		return control.value;
 	}
 
 public:
@@ -69,32 +75,46 @@ public:
 			     device_path.c_str());
 			return;
 		}
-		query_ctrl(PTZ_PAN, &min[PTZ_PAN], &max[PTZ_PAN]);
-		query_ctrl(PTZ_TILT, &min[PTZ_TILT], &max[PTZ_TILT]);
-		query_ctrl(PTZ_ZOOM, &min[PTZ_ZOOM], &max[PTZ_ZOOM]);
-		query_ctrl(PTZ_FOCUS, &min[PTZ_FOCUS], &max[PTZ_FOCUS]);
+		query_ctrl(V4L2_CID_PAN_ABSOLUTE, &min.pan, &max.pan);
+		query_ctrl(V4L2_CID_TILT_ABSOLUTE, &min.tilt, &max.tilt);
+		query_ctrl(V4L2_CID_ZOOM_ABSOLUTE, &min.zoom, &max.zoom);
+		query_ctrl(V4L2_CID_FOCUS_ABSOLUTE, &min.focus, &max.focus);
+		now_pos.pan =
+			static_cast<double>(get_ctrl(V4L2_CID_PAN_ABSOLUTE)) /
+			max.pan;
+		now_pos.tilt =
+			static_cast<double>(get_ctrl(V4L2_CID_TILT_ABSOLUTE)) /
+			max.tilt;
+		now_pos.zoom =
+			static_cast<double>(get_ctrl(V4L2_CID_ZOOM_ABSOLUTE)) /
+			max.zoom;
+		now_pos.focus =
+			static_cast<double>(get_ctrl(V4L2_CID_FOCUS_ABSOLUTE)) /
+			max.focus;
+		now_pos.focusAuto = get_ctrl(V4L2_CID_FOCUS_AUTO);
 	}
 	bool internal_pan(long value) override
 	{
-		return set_ctrl(PTZ_PAN, value);
+		return set_ctrl(V4L2_CID_PAN_ABSOLUTE, value);
 	}
 	bool internal_tilt(long value) override
 	{
-		return set_ctrl(PTZ_TILT, value);
+		return set_ctrl(V4L2_CID_TILT_ABSOLUTE, value);
 	}
 	bool internal_zoom(long value) override
 	{
-		return set_ctrl(PTZ_ZOOM, value);
+		return set_ctrl(V4L2_CID_ZOOM_ABSOLUTE, value);
 	}
-	bool internal_focus(long value) override
+	bool internal_focus(bool auto_focus, long value) override
 	{
-		return set_ctrl(PTZ_FOCUS, value);
-	}
-	bool setAutoFocus(bool enabled) override
-	{
-		if (fd == -1)
-			return false;
-		return set_ctrl(PTZ_FOCUS_AUTO, enabled ? 1 : 0);
+		if (auto_focus) {
+			return set_ctrl(V4L2_CID_FOCUS_AUTO, 1);
+		} else {
+			if (get_ctrl(V4L2_CID_FOCUS_AUTO) != 0) {
+				set_ctrl(V4L2_CID_FOCUS_AUTO, 0);
+			}
+			return set_ctrl(V4L2_CID_FOCUS_ABSOLUTE, value);
+		}
 	}
 	~V4L2Control() override
 	{
@@ -208,31 +228,39 @@ public:
 		}
 		// blog(LOG_INFO, "Obtained DirectShow filter for device: %s", device_name.c_str());
 		long step, default_value, flags;
-		hr = cam_control_->GetRange(CameraControl_Pan, &min[PTZ_PAN],
-					    &max[PTZ_PAN], &step,
-					    &default_value, &flags);
+		hr = cam_control_->GetRange(CameraControl_Pan, &min.pan,
+					    &max.pan, &step, &default_value,
+					    &flags);
 		if (!FAILED(hr)) {
 			hr = cam_control_->GetRange(CameraControl_Tilt,
-						    &min[PTZ_TILT],
-						    &max[PTZ_TILT], &step,
+						    &min.tilt, &max.tilt, &step,
 						    &default_value, &flags);
 		}
 		if (!FAILED(hr)) {
 			hr = cam_control_->GetRange(CameraControl_Zoom,
-						    &min[PTZ_ZOOM],
-						    &max[PTZ_ZOOM], &step,
+						    &min.zoom, &max.zoom, &step,
 						    &default_value, &flags);
 		}
 		if (!FAILED(hr)) {
 			hr = cam_control_->GetRange(CameraControl_Focus,
-						    &min[PTZ_FOCUS],
-						    &max[PTZ_FOCUS], &step,
-						    &default_value, &flags);
+						    &min.focus, &max.focus,
+						    &step, &default_value,
+						    &flags);
 		}
 		if (FAILED(hr)) {
 			blog(LOG_ERROR, "Failed to get ranges: %ld", hr);
 			return;
 		}
+		long pan, tilt, zoom, focus;
+		cam_control_->Get(CameraControl_Pan, &pan, &flags);
+		now_pos.pan = static_cast<double>(pan) / max.pan;
+		cam_control_->Get(CameraControl_Tilt, &tilt, &flags);
+		now_pos.tilt = static_cast<double>(tilt) / max.tilt;
+		cam_control_->Get(CameraControl_Zoom, &zoom, &flags);
+		now_pos.zoom = static_cast<double>(zoom) / max.zoom;
+		cam_control_->Get(CameraControl_Focus, &focus, &flags);
+		now_pos.focus = static_cast<double>(focus) / max.focus;
+		now_pos.focusAuto = (flags & CameraControl_Flags_Auto) != 0;
 	}
 	bool internal_pan(long value) override
 	{
@@ -276,33 +304,14 @@ public:
 		}
 		return true;
 	}
-	bool internal_focus(long value) override
+	bool internal_focus(bool auto_focus, long focus) override
 	{
 		if (!cam_control_)
 			return false;
-		last_focus = value;
-		HRESULT hr = cam_control_->Set(CameraControl_Focus, value,
-					       CameraControl_Flags_Manual);
-		if (FAILED(hr)) {
-			blog(LOG_ERROR,
-			     "Failed to set Focus: %ld (mapped value: %ld)", hr,
-			     value);
-			return false;
-		}
-		return true;
-	}
-	bool setAutoFocus(bool enabled) override
-	{
-		if (!cam_control_)
-			return false;
+		auto focus_flag = auto_focus ? CameraControl_Flags_Auto
+					     : CameraControl_Flags_Manual;
 		HRESULT hr;
-		if (!enabled) {
-			hr = cam_control_->Set(CameraControl_Focus, last_focus,
-					       CameraControl_Flags_Manual);
-		} else {
-			hr = cam_control_->Set(CameraControl_Focus, 0,
-					       CameraControl_Flags_Auto);
-		}
+		hr = cam_control_->Set(CameraControl_Focus, focus, focus_flag);
 		if (FAILED(hr)) {
 			blog(LOG_ERROR, "Failed to set AutoFocus: %ld", hr);
 			return false;
@@ -331,9 +340,6 @@ void PTZUSBCam::ptz_tick_callback(void *param, float seconds)
 PTZUSBCam::PTZUSBCam(OBSData config) : PTZDevice(config)
 {
 	set_config(config);
-	pantilt_abs(0, 0);
-	zoom_abs(0);
-	set_autofocus(true);
 	obs_add_tick_callback(ptz_tick_callback, this);
 }
 
@@ -404,25 +410,7 @@ void PTZUSBCam::do_update()
 		    STATUS_FOCUS_SPEED_CHANGED);
 }
 
-void PTZUSBCam::ptz_tick(float seconds)
-{
-	tick_elapsed += seconds;
-	if (tick_elapsed < 0.05f) // Atualiza a cada 50 ms
-		return;
-	if (pan_speed != 0.0 || tilt_speed != 0.0) {
-		pantilt_rel(pan_speed * tick_elapsed,
-			    tilt_speed * tick_elapsed);
-	}
-	if (zoom_speed != 0.0) {
-		zoom_abs(now_pos.zoom + zoom_speed * tick_elapsed);
-	}
-	if (focus_speed != 0.0) {
-		focus_abs(now_pos.focus + focus_speed * tick_elapsed);
-	}
-	tick_elapsed = 0.0f; // Reseta após a atualização
-}
-
-void PTZUSBCam::initialize_and_check_ptz_control()
+PTZControl *PTZUSBCam::get_ptz_control()
 {
 	std::string video_device_id = "";
 	OBSSourceAutoRelease src =
@@ -443,7 +431,7 @@ void PTZUSBCam::initialize_and_check_ptz_control()
 	// already have the device, and it didn't change: nothing to do
 	if (ptz_control_ != nullptr && ptz_control_->isValid() &&
 	    ptz_control_->getDevicePath() == video_device_id) {
-		return;
+		return ptz_control_;
 	}
 	blog(LOG_INFO, "Switching PTZ USBUVC device from %s to %s",
 	     ptz_control_ == nullptr ? "null"
@@ -454,7 +442,7 @@ void PTZUSBCam::initialize_and_check_ptz_control()
 		ptz_control_ = nullptr;
 	}
 	if (video_device_id.empty()) {
-		return;
+		return nullptr;
 	}
 #ifdef __linux__
 	ptz_control_ = new V4L2Control(video_device_id);
@@ -462,23 +450,53 @@ void PTZUSBCam::initialize_and_check_ptz_control()
 #ifdef _WIN32
 	ptz_control_ = new DirectShowControl(video_device_id);
 #endif
+	if (ptz_control_ == nullptr || !ptz_control_->isValid()) {
+		return nullptr;
+	}
+	return ptz_control_;
+}
+
+void PTZUSBCam::ptz_tick(float seconds)
+{
+	tick_elapsed += seconds;
+	if (tick_elapsed < 0.03f)
+		return;
+	if (pan_speed != 0.0 || tilt_speed != 0.0) {
+		pantilt_rel(pan_speed * tick_elapsed,
+			    tilt_speed * tick_elapsed);
+	}
+	if (zoom_speed != 0.0) {
+		auto ptzctrl = get_ptz_control();
+		if (ptzctrl) {
+			zoom_abs(ptzctrl->getZoom() +
+				 zoom_speed * tick_elapsed);
+		}
+	}
+	if (focus_speed != 0.0) {
+		auto ptzctrl = get_ptz_control();
+		if (ptzctrl) {
+			focus_abs(ptzctrl->getFocus() +
+				  focus_speed * tick_elapsed);
+		}
+	}
+	tick_elapsed = 0.0f;
 }
 
 void PTZUSBCam::pantilt_abs(double pan, double tilt)
 {
-	initialize_and_check_ptz_control();
-	now_pos.pan = std::clamp(pan, -1.0, 1.0);
-	now_pos.tilt = std::clamp(tilt, -1.0, 1.0);
-
-	if (ptz_control_ != nullptr && ptz_control_->isValid()) {
-		ptz_control_->pan(now_pos.pan);
-		ptz_control_->tilt(now_pos.tilt);
-	}
+	auto ptzctrl = get_ptz_control();
+	if (!ptzctrl)
+		return;
+	ptzctrl->pan(pan);
+	ptzctrl->tilt(tilt);
 }
 
 void PTZUSBCam::pantilt_rel(double pan, double tilt)
 {
-	pantilt_abs(now_pos.pan + pan, now_pos.tilt + tilt);
+	auto ptzctrl = get_ptz_control();
+	if (!ptzctrl)
+		return;
+	pantilt_abs(ptzctrl->getPan() + pan, ptzctrl->getTilt() + tilt);
 }
 
 void PTZUSBCam::pantilt_home()
@@ -488,30 +506,26 @@ void PTZUSBCam::pantilt_home()
 
 void PTZUSBCam::zoom_abs(double pos)
 {
-	initialize_and_check_ptz_control();
-	now_pos.zoom = std::clamp(pos, 0.0, 1.0);
-	if (ptz_control_ != nullptr && ptz_control_->isValid()) {
-		ptz_control_->zoom(now_pos.zoom);
-	}
+	auto ptzctrl = get_ptz_control();
+	if (!ptzctrl)
+		return;
+	ptzctrl->zoom(pos);
 }
 
 void PTZUSBCam::focus_abs(double pos)
 {
-	initialize_and_check_ptz_control();
-	now_pos.focus = std::clamp(pos, 0.0, 1.0);
-	if (ptz_control_ != nullptr && ptz_control_->isValid()) {
-		ptz_control_->focus(now_pos.focus);
-	}
-	return;
+	auto ptzctrl = get_ptz_control();
+	if (!ptzctrl)
+		return;
+	ptzctrl->focus(pos);
 }
 
 void PTZUSBCam::set_autofocus(bool enabled)
 {
-	initialize_and_check_ptz_control();
-	now_pos.focusAuto = enabled;
-	if (ptz_control_ != nullptr && ptz_control_->isValid()) {
-		ptz_control_->setAutoFocus(enabled);
-	}
+	auto ptzctrl = get_ptz_control();
+	if (!ptzctrl)
+		return;
+	ptzctrl->setAutoFocus(enabled);
 }
 
 void PTZUSBCam::memory_reset(int i)
@@ -523,15 +537,17 @@ void PTZUSBCam::memory_reset(int i)
 
 void PTZUSBCam::memory_set(int i)
 {
-	presets[i] = now_pos;
+	auto ptzctrl = get_ptz_control();
+	if (!ptzctrl)
+		return;
+	presets[i] = ptzctrl->getPosition();
 }
 
 void PTZUSBCam::memory_recall(int i)
 {
 	if (!presets.contains(i))
 		return;
-
-	now_pos = presets[i];
+	auto now_pos = presets[i];
 	pantilt_abs(now_pos.pan, now_pos.tilt);
 	zoom_abs(now_pos.zoom);
 	set_autofocus(now_pos.focusAuto);
