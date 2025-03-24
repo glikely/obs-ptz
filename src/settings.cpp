@@ -243,7 +243,7 @@ void PTZSettings::on_addPTZ_clicked()
 #if defined(ENABLE_ONVIF) // ONVIF disabled until code is reworked
 	QAction *addOnvif = addPTZContext.addAction("ONVIF (experimental)");
 #endif
-    QAction *addUsbCam = addPTZContext.addAction("USB Camera (UVC)");
+	QAction *addUsbCam = addPTZContext.addAction("USB Camera (UVC)");
 	QAction *action = addPTZContext.exec(QCursor::pos());
 
 #if defined(ENABLE_SERIALPORT)
@@ -292,7 +292,7 @@ void PTZSettings::on_addPTZ_clicked()
 		ptzDeviceList.make_device(cfg);
 	}
 #endif
-if (action == addUsbCam) {
+	if (action == addUsbCam) {
 		OBSData cfg = obs_data_create();
 		obs_data_release(cfg);
 		obs_data_set_string(cfg, "type", "usb-cam");

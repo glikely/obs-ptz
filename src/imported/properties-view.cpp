@@ -1795,8 +1795,7 @@ void WidgetInfo::ListChanged(const char *setting)
 		break;
 #if LIBOBS_API_MAJOR_VER >= 31
 	case OBS_COMBO_FORMAT_BOOL:
-		obs_data_set_bool(view->settings, setting,
-						data.value<bool>());
+		obs_data_set_bool(view->settings, setting, data.value<bool>());
 		break;
 #endif
 	}
