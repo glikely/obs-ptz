@@ -144,8 +144,10 @@ ${_usage_host:-}"
 
   local product_name
   local product_version
-  read -r product_name product_version <<< \
-    "$(jq -r '. | {name, version} | join(" ")' ${buildspec_file})"
+  #read -r product_name product_version <<< \
+  #  "$(jq -r '. | {name, version} | join(" ")' ${buildspec_file})"
+  read -r product_name <<< "$(jq -r '.name' ${buildspec_file})"
+  read -r product_version <<< "$(git -C ${project_root} describe --tags --dirty)"
 
   local -a cmake_args=()
   if (( _loglevel > 1 )) cmake_args+=(--verbose)

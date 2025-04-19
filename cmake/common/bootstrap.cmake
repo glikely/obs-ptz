@@ -49,13 +49,19 @@ string(JSON _name GET ${buildspec} name)
 string(JSON _website GET ${buildspec} website)
 string(JSON _author GET ${buildspec} author)
 string(JSON _email GET ${buildspec} email)
-string(JSON _version GET ${buildspec} version)
+#string(JSON _version GET ${buildspec} version)
 string(JSON _bundleId GET ${buildspec} platformConfig macos bundleId)
+execute_process(
+  COMMAND git describe --tags --dirty
+  OUTPUT_VARIABLE _git_version
+  WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
+  OUTPUT_STRIP_TRAILING_WHITESPACE)
+string(REGEX MATCH "[0-9][.0-9]+" _version ${_git_version})
 
 set(PLUGIN_AUTHOR ${_author})
 set(PLUGIN_WEBSITE ${_website})
 set(PLUGIN_EMAIL ${_email})
-set(PLUGIN_VERSION ${_version})
+set(PLUGIN_VERSION ${_git_version})
 set(MACOS_BUNDLEID ${_bundleId})
 
 string(REPLACE "." ";" _version_canonical "${_version}")

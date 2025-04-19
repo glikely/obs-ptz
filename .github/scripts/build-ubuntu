@@ -171,8 +171,10 @@ ${_usage_host:-}"
 
   local product_name
   local product_version
-  read -r product_name product_version <<< \
-    "$(jq -r '. | {name, version} | join(" ")' ${buildspec_file})"
+  #read -r product_name product_version <<< \
+  #  "$(jq -r '. | {name, version} | join(" ")' ${buildspec_file})"
+  read -r product_name <<< "$(jq -r '.name' ${buildspec_file})"
+  read -r product_version <<< "$(git -C ${project_root} describe --tags --dirty)"
 
   pushd ${project_root}
   if (( ! (${skips[(Ie)all]} + ${skips[(Ie)build]}) )) {
