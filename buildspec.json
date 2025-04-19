@@ -33,12 +33,12 @@
     },
     "platformConfig": {
         "macos": {
-            "bundleId": "com.example.plugintemplate-for-obs"
+            "bundleId": "ca.secretlab.obs-ptz"
         }
     },
-    "name": "plugintemplate-for-obs",
-    "displayName": "Plugin Template for OBS",
-    "author": "Your Name Here",
-    "website": "https://example.com",
-    "email": "me@example.com"
+    "name": "obs-ptz",
+    "displayName": "PTZ Camera Control for OBS",
+    "author": "Grant Likely",
+    "website": "https://obsproject.com/forum/resources/ptz-controls.1284",
+    "email": "grant.likely@secretlab.ca"
 }
