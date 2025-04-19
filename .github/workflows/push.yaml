@@ -6,6 +6,7 @@ on:
       - master
       - main
       - 'release/**'
+      - ci-test
     tags:
       - '*'
 permissions:
@@ -13,7 +14,7 @@ permissions:
 jobs:
   check-format:
     name: Check Formatting 🔍
-    if: github.ref_name == 'master' || github.ref_name == 'main'
+    if: github.ref_name == 'master' || github.ref_name == 'main' || github.ref_name == 'ci-test'
     uses: ./.github/workflows/check-format.yaml
     permissions:
       contents: read
