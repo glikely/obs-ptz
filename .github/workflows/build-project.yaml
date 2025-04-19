@@ -106,8 +106,10 @@ jobs:
 
           local product_name
           local product_version
-          read -r product_name product_version <<< \
-            "$(jq -r '. | {name, version} | join(" ")' buildspec.json)"
+          #read -r product_name product_version <<< \
+          #  "$(jq -r '. | {name, version} | join(" ")' buildspec.json)"
+          read -r product_name <<< "$(jq -r '.name' buildspec.json)"
+          read -r product_version <<< "$(git describe --tags --dirty)"
 
           print "pluginName=${product_name}" >> $GITHUB_OUTPUT
           print "pluginVersion=${product_version}" >> $GITHUB_OUTPUT
@@ -197,8 +199,10 @@ jobs:
           : Set Up Environment 🔧
           if [[ "${RUNNER_DEBUG}" ]]; then set -x; fi
 
-          read -r product_name product_version <<< \
-            "$(jq -r '. | {name, version} | join(" ")' buildspec.json)"
+          #read -r product_name product_version <<< \
+          #  "$(jq -r '. | {name, version} | join(" ")' buildspec.json)"
+          read -r product_name <<< "$(jq -r '.name' buildspec.json)"
+          read -r product_version <<< "$(git describe --tags --dirty)"
 
           echo "pluginName=${product_name}" >> $GITHUB_OUTPUT
           echo "pluginVersion=${product_version}" >> $GITHUB_OUTPUT
