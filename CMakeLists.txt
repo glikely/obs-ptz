@@ -104,7 +104,7 @@ if(ENABLE_SERIALPORT)
 endif()
 
 option(USE_SDL2_STATIC "Use SDL2 static library" ON)
-option(ENABLE_JOYSTICK "Enable Joystick support" ON)
+option(ENABLE_JOYSTICK "Enable Joystick support" OFF)
 if(ENABLE_JOYSTICK)
   if(USE_SDL2_STATIC)
     find_package(SDL2 COMPONENTS SDL2-static REQUIRED)
