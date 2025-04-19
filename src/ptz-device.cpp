@@ -244,10 +244,14 @@ PTZDevice *PTZListModel::make_device(OBSData config)
 		ptz = new PTZViscaOverIP(config);
 	if (type == "visca-over-tcp")
 		ptz = new PTZViscaOverTCP(config);
+#if defined(ENABLE_ONVIF)
 	if (type == "onvif")
 		ptz = new PTZOnvif(config);
+#endif /* ENABLE_ONVIF */
+#if defined(ENABLE_USB_CAM)
 	if (type == "usb-cam")
 		ptz = new PTZUSBCam(config);
+#endif /* ENABLE_USB_CAM */
 	return ptz;
 }
 

@@ -42,8 +42,6 @@ target_sources(
           src/ptz-controls.cpp
           src/ptz-device.cpp
           src/settings.cpp
-          src/ptz-onvif.cpp
-          src/ptz-usb-cam.cpp
           src/ptz-visca.cpp
           src/ptz-visca-udp.cpp
           src/ptz-visca-tcp.cpp
@@ -62,8 +60,6 @@ target_sources(
           src/ptz-controls.hpp
           src/ptz-device.hpp
           src/settings.hpp
-          src/ptz-usb-cam.hpp
-          src/ptz-onvif.hpp
           src/ptz-visca.hpp
           src/ptz-visca-udp.hpp
           src/ptz-visca-tcp.hpp
@@ -92,9 +88,16 @@ find_qt(COMPONENTS Widgets Core Svg Network Xml)
 target_link_libraries(${CMAKE_PROJECT_NAME} PRIVATE Qt::Core Qt::Widgets Qt::Svg Qt::Network
                                                     Qt::Xml)
 
+option(ENABLE_USB_CAM "Enable USB camera support" ON)
+if(ENABLE_USB_CAM)
+  add_compile_definitions(ENABLE_USB_CAM)
+  target_sources(${CMAKE_PROJECT_NAME} PRIVATE src/ptz-usb-cam.cpp src/ptz-usb-cam.hpp)
+endif()
+
 option(ENABLE_ONVIF "Enable ONVIF camera support" ON)
 if(ENABLE_ONVIF)
   add_compile_definitions(ENABLE_ONVIF)
+  target_sources(${CMAKE_PROJECT_NAME} PRIVATE src/ptz-onvif.cpp src/ptz-onvif.hpp)
 endif()
 
 option(ENABLE_SERIALPORT "Enable UART connected camera support" ON)
