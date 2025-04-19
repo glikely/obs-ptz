@@ -1,89 +1,45 @@
 {
     "dependencies": {
         "obs-studio": {
-            "version": "28.0.1",
-            "repository": "https://github.com/obsproject/obs-studio.git",
-            "branch": "master",
-            "hash": "e8dc70d0eef4503378d6ac300e680215eb5c9379"
-        },
-	"sdl": {
-	    "version": "release-2.26.3",
-            "repository": "https://github.com/libsdl-org/sdl.git",
-            "branch": "release-2.26.x",
-	    "hash": "adf31f6ec0be0f9ba562889398f71172c7941023"
-	},
-        "prebuilt": {
-            "version": "2022-08-02",
-            "baseUrl": "https://github.com/obsproject/obs-deps/releases/download",
-            "label": "Pre-built obs-deps",
+            "version": "31.0.0",
+            "baseUrl": "https://github.com/obsproject/obs-studio/archive/refs/tags",
+            "label": "OBS sources",
             "hashes": {
-                "macos-x86_64": "7637e52305e6fc53014b5aabd583f1a4490b1d97450420e977cae9a336a29525",
-                "macos-arm64": "755e0fa69b17a3ae444e1befa9d91d77e3cafe628fbd1c6333686091826595cd",
-                "macos-universal": "de057e73e6fe0825664c258ca2dd6798c41ae580bf4d896e1647676a4941934a",
-                "windows-x64": "2192d8ce780c4281b807cd457994963669e5202659ecd92f19b54c3e7d0c1915",
-                "windows-x86": "9f8582ab5891b000869d6484ea591add9fbac9f1c91b56c7b85fdfd56a261c1b"
+                "macos": "a22966ff07aba38833ba57c36c9e0d190d083be5dec5048d0a60cd9e6b997242",
+                "windows-x64": "e8434dcee06f1702f0a0bbd1489296c77116fc51356835c3af4a6ed21b1e1c74"
             }
         },
-        "qt5": {
-            "version": "2022-08-02",
+        "prebuilt": {
+            "version": "2024-09-12",
             "baseUrl": "https://github.com/obsproject/obs-deps/releases/download",
-            "label": "Pre-built Qt5",
+            "label": "Pre-Built obs-deps",
             "hashes": {
-                "macos-x86_64": "3d0381a52b0e4d49967936c4357f79ac711f43564329304a6db5c90edadd2697",
-                "macos-arm64": "f4b32548c0530f121956bf0a9a70c36ecbbfca81073d39c396a1759baf2a05c3",
-                "macos-universal": "9a6cf3b9a6c9efee6ba10df649202e8075e99f3c54ae88dc9a36dbc9d7471c1e",
-                "windows-x64": "6488a33a474f750d5a4a268a5e20c78bb40799d99136a1b7ce3365a843cb2fd7",
-                "windows-x86": "a916e09b0a874036801deab2c8a7ec14fdf5d268aa5511eac5bf40727e0c4e33"
-            },
-            "pdb-hashes": {
-                "windows-x64": "e0e5070143fcad9311a68ce5685d8ba8f34f581ed6942b7a92d360f94ca1ba11",
-                "windows-x86": "36642d1052aa461964f46c17610477b0d9b9defbe2d745ccaacb85f805c1bec2"
+                "macos": "c857b211ee378772994b632036e1e5befe66b37e85286cb8e3cefc1435d5220a",
+                "windows-x64": "d4a4f194591766891ad3c0b267deec3c4b85239c8fe557273559927456aeedbb"
             }
         },
         "qt6": {
-            "version": "2022-08-02",
-            "baseUrl": "https://github.com/glikely/obs-deps-qtserialport/releases/download",
-            "label": "Pre-built Qt6",
+            "version": "2024-09-12",
+            "baseUrl": "https://github.com/obsproject/obs-deps/releases/download",
+            "label": "Pre-Built Qt6",
             "hashes": {
-                "macos-x86_64": "7470596958bcf28811b084897f01477e1e20b027755c4d04e363247e8f45cfd8",
-                "macos-arm64": "894323c30fca6da0958c903ebdbb687139e96cc079a68e54162b0e7a475e31a7",
-                "macos-universal": "437660339210b52309ab6997771a23511dd2ce3474b55e137490640b6bb24c59",
-                "windows-x64": "5e8bb9679547d7caeb68010ef4ee94b409f5900298f9306ab4678cd60ea22647"
+                "macos": "34a2de6b7f4d4d58fc5a15a4dba49a61d81a4045d0cedfc1a1f08c0dfb8047cf",
+                "windows-x64": "4d15ce13dbb0a8a2cabcce5ae0da5e80ee589b482a61b2025378465c1da32c4f"
             },
-            "pdb-hashes": {
-                "windows-x64": "512ad05c70e1ac2a43cab73b90390bc8ade7b5a364acb280ee4c50e8ef9ef95b"
+            "debugSymbols": {
+                "windows-x64": "dad2351a5c9cd438168e1ed8fb453a2534532252edb555f1001a5e8eb3f1bbd4"
             }
         }
     },
     "platformConfig": {
-        "macos-x86_64": {
-            "qtVersion": 6,
-            "deploymentTarget": "10.15"
-        },
-        "macos-arm64": {
-            "qtVersion": 6,
-            "deploymentTarget": "11.0"
-        },
-        "macos-universal": {
-            "qtVersion": 6,
-            "deploymentTarget": "10.15"
-        },
-        "windows-x64": {
-            "qtVersion": 6,
-            "visualStudio": "Visual Studio 17 2022",
-            "platformSDK": "10.0.20348.0"
-        },
-        "windows-x86": {
-            "qtVersion": 6,
-            "visualStudio": "Visual Studio 17 2022",
-            "platformSDK": "10.0.20348.0"
-        },
-        "linux-x86_64": {
-            "qtVersion": 6
-        },
-        "linux-aarch64": {
-            "qtVersion": 6
+        "macos": {
+            "bundleId": "ca.secretlab.obs-ptz"
         }
     },
-    "name": "obs-ptz"
+    "name": "obs-ptz",
+    "displayName": "PTZ Camera Control for OBS",
+    "version": "0.16.0",
+    "author": "Grant Likely",
+    "website": "https://obsproject.com/forum/resources/ptz-controls.1284",
+    "email": "grant.likely@secretlab.ca"
 }
