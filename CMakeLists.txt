@@ -1,38 +1,48 @@
-cmake_minimum_required(VERSION 3.16...3.21)
+cmake_minimum_required(VERSION 3.28...3.30)
 
-# Generate a version number from the git tag
+include("${CMAKE_CURRENT_SOURCE_DIR}/cmake/common/bootstrap.cmake" NO_POLICY_SCOPE)
+
+project(${_name} VERSION ${_version})
+
+# Generate a version number from the git tag that can be embedded in the binary
 execute_process(
   COMMAND git describe --tags --dirty
-  OUTPUT_VARIABLE PLUGIN_VERSION
+  OUTPUT_VARIABLE _git_version
   WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
   OUTPUT_STRIP_TRAILING_WHITESPACE)
-string(REGEX REPLACE "^v" "" PLUGIN_VERSION ${PLUGIN_VERSION})
+add_compile_definitions(PLUGIN_NAME="${_name}" PLUGIN_VERSION="${_git_version}")
 
-if(PLUGIN_VERSION MATCHES "^[vV]?([0-9][.0-9]+)")
-  set(SIMPLE_VERSION ${CMAKE_MATCH_1})
-else()
-  message(FATAL_ERROR "version ${PLUGIN_VERSION} needs to be in semantic form X.Y.Z[*]")
-endif()
-add_compile_definitions(PLUGIN_NAME="${CMAKE_PROJECT_NAME}" PLUGIN_VERSION="${PLUGIN_VERSION}")
+option(ENABLE_FRONTEND_API "Use obs-frontend-api for UI functionality" ON)
+option(ENABLE_QT "Use Qt functionality" ON)
 
-# Change obs-plugintemplate to your plugin's name in a machine-readable format (e.g.:
-# obs-myawesomeplugin) and set
-project(obs-ptz VERSION ${SIMPLE_VERSION})
+include(compilerconfig)
+include(defaults)
+include(helpers)
+
 add_library(${CMAKE_PROJECT_NAME} MODULE)
 
-# Replace `Your Name Here` with the name (yours or your organization's) you want to see as the
-# author of the plugin (in the plugin's metadata itself and in the installers)
-set(PLUGIN_AUTHOR "Grant Likely")
+find_package(libobs REQUIRED)
+target_link_libraries(${CMAKE_PROJECT_NAME} PRIVATE OBS::libobs)
 
-# Replace `com.example.obs-plugin-template` with a unique Bundle ID for macOS releases (used both in
-# the installer and when submitting the installer for notarization)
-set(MACOS_BUNDLEID "ca.secretlab.${CMAKE_PROJECT_NAME}")
+if(ENABLE_FRONTEND_API)
+  find_package(obs-frontend-api REQUIRED)
+  target_link_libraries(${CMAKE_PROJECT_NAME} PRIVATE OBS::obs-frontend-api)
+endif()
 
-# Replace `me@contoso.com` with the maintainer email address you want to put in Linux packages
-set(LINUX_MAINTAINER_EMAIL "grant.likely@secretlab.ca")
+if(ENABLE_QT)
+  find_package(Qt6 COMPONENTS Widgets Core Svg Network Xml)
+  target_link_libraries(${CMAKE_PROJECT_NAME} PRIVATE Qt6::Core Qt6::Widgets Qt6::Svg Qt6::Network Qt6::Xml)
+  target_compile_options(
+    ${CMAKE_PROJECT_NAME}
+    PRIVATE $<$<C_COMPILER_ID:Clang,AppleClang>:-Wno-quoted-include-in-framework-header -Wno-comma>
+  )
+  set_target_properties(
+    ${CMAKE_PROJECT_NAME}
+    PROPERTIES AUTOMOC ON AUTOUIC ON AUTORCC ON
+  )
+endif()
 
-# Add your custom source files here - header files are optional and only required for visibility
-# e.g. in Xcode or Visual Studio
+target_include_directories(${CMAKE_PROJECT_NAME} PRIVATE ${CMAKE_SOURCE_DIR}/src)
 target_sources(
   ${CMAKE_PROJECT_NAME}
   PRIVATE src/ptz-controls.ui
@@ -75,20 +85,7 @@ target_sources(
           src/imported/slider-ignorewheel.hpp
           src/imported/spinbox-ignorewheel.hpp)
 
-# Import libobs as main plugin dependency
-find_package(libobs REQUIRED)
-include(cmake/ObsPluginHelpers.cmake)
-
-# Uncomment these lines if you want to use the OBS Frontend API in your plugin
-find_package(obs-frontend-api REQUIRED)
-target_link_libraries(${CMAKE_PROJECT_NAME} PRIVATE OBS::obs-frontend-api)
-
-# Uncomment those lines if you want to use Qt in your plugin
-find_qt(COMPONENTS Widgets Core Svg Network Xml)
-target_link_libraries(${CMAKE_PROJECT_NAME} PRIVATE Qt::Core Qt::Widgets Qt::Svg Qt::Network
-                                                    Qt::Xml)
-
-option(ENABLE_USB_CAM "Enable USB camera support" ON)
+option(ENABLE_USB_CAM "Enable USB camera support" OFF)
 if(ENABLE_USB_CAM)
   add_compile_definitions(ENABLE_USB_CAM)
   target_sources(${CMAKE_PROJECT_NAME} PRIVATE src/ptz-usb-cam.cpp src/ptz-usb-cam.hpp)
@@ -100,7 +97,7 @@ if(ENABLE_ONVIF)
   target_sources(${CMAKE_PROJECT_NAME} PRIVATE src/ptz-onvif.cpp src/ptz-onvif.hpp)
 endif()
 
-option(ENABLE_SERIALPORT "Enable UART connected camera support" ON)
+option(ENABLE_SERIALPORT "Enable UART connected camera support" OFF)
 if(ENABLE_SERIALPORT)
   find_package(Qt${_QT_VERSION} COMPONENTS SerialPort)
   if(Qt${_QT_VERSION}SerialPort_FOUND)
@@ -114,7 +111,7 @@ if(ENABLE_SERIALPORT)
 endif()
 
 option(USE_SDL2_STATIC "Use SDL2 static library" ON)
-option(ENABLE_JOYSTICK "Enable Joystick support" ON)
+option(ENABLE_JOYSTICK "Enable Joystick support" OFF)
 if(ENABLE_JOYSTICK)
   if(USE_SDL2_STATIC)
     find_package(SDL2 COMPONENTS SDL2-static REQUIRED)
@@ -140,51 +137,4 @@ if(ENABLE_JOYSTICK)
   endif()
 endif()
 
-set_target_properties(
-  ${CMAKE_PROJECT_NAME}
-  PROPERTIES AUTOMOC ON
-             AUTOUIC ON
-             AUTORCC ON)
-
-# /!\ TAKE NOTE: No need to edit things past this point /!\
-
-# --- Platform-independent build settings ---
-
-target_include_directories(${CMAKE_PROJECT_NAME} PRIVATE ${CMAKE_SOURCE_DIR}/src)
-
-target_link_libraries(${CMAKE_PROJECT_NAME} PRIVATE OBS::libobs)
-
-# --- End of section ---
-
-# --- Windows-specific build settings and tasks ---
-if(OS_WINDOWS)
-  configure_file(cmake/bundle/windows/installer-Windows.iss.in
-                 ${CMAKE_BINARY_DIR}/installer-Windows.generated.iss)
-
-  configure_file(cmake/bundle/windows/resource.rc.in ${CMAKE_BINARY_DIR}/${CMAKE_PROJECT_NAME}.rc)
-  target_sources(${CMAKE_PROJECT_NAME} PRIVATE ${CMAKE_BINARY_DIR}/${CMAKE_PROJECT_NAME}.rc)
-
-  if(MSVC)
-    target_compile_options(${CMAKE_PROJECT_NAME} PRIVATE /W4)
-  endif()
-  # --- End of section ---
-
-  # -- macOS specific build settings and tasks --
-elseif(OS_MACOS)
-  configure_file(cmake/bundle/macos/installer-macos.pkgproj.in
-                 ${CMAKE_BINARY_DIR}/installer-macos.generated.pkgproj)
-
-  set(MACOSX_PLUGIN_GUI_IDENTIFIER "${MACOS_BUNDLEID}")
-  set(MACOSX_PLUGIN_BUNDLE_VERSION "${PLUGIN_VERSION}")
-  set(MACOSX_PLUGIN_SHORT_VERSION_STRING "1")
-
-  target_compile_options(${CMAKE_PROJECT_NAME} PRIVATE -Wall)
-  # --- End of section ---
-
-  # --- Linux-specific build settings and tasks ---
-else()
-  target_compile_options(${CMAKE_PROJECT_NAME} PRIVATE -Wall)
-endif()
-# --- End of section ---
-
-setup_plugin_target(${CMAKE_PROJECT_NAME})
+set_target_properties_plugin(${CMAKE_PROJECT_NAME} PROPERTIES OUTPUT_NAME ${_name})

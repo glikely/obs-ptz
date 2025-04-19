@@ -152,127 +152,10 @@ dialog.
 
 # Build Instructions
 
-## Linux
-
-- Install OBS Studio including headers
-  - Follow instructions for your distribution to install the build dependencies:
-    https://obsproject.com/wiki/install-instructions
-- clone this repository and build:
-
-```
-git clone https://github.com/glikely/obs-ptz
-mkdir obs-ptz/build
-cd obs-ptz/build
-cmake ..
-make
-```
-
-Copy or symlink obs-ptz.so into the OBS plugins directory.
-Typically `/usr/lib/obs-plugins` or `/usr/lib64/obs-plugins`
-
-```
-sudo cp obs-ptz/rundir/RelWithDebugInfo/obs-plugins/64bit/obs-ptz.so /usr/lib/obs-plugins/
-```
-
-### Debian 11 Bullseye
-
-In Debian 11 Bullseys you can use the development package libobs-dev to build
-the plugin instead of building obs-studio from source.
-Do the following on Debian to get a working build environment:
-
-```
-sudo apt build-dep obs-studio
-sudo apt install libobs-dev libqt5serialport5-dev
-git clone https://github.com/glikely/obs-ptz
-mkdir obs-ptz/build
-cd obs-ptz/build
-cmake ..
-make
-```
-
-## Windows
-
-To simplify development it helps to include `MSBuild`, `7-Zip`, and `Inno Setup
-Compiler` in your default path (Search for 'Edit the System Environment
-Variables' in the Windows search bar).
-
-This project contains a helper script for building the plugin that assumes that
-`obs-studio` and `obs-ptz` share the same top level directory.
-It also assumes that Qt5 is installed under `c:\Qt\`.
-If you have Qt5 installed or obs-studio checked out somewhere else then you'll
-need to modify the `winbuild` and `winrun` scripts.
-
-Both 32 and 64 bit versions of the plugin will be built if you've built both
-version of OBS Studio.
-Edit the script if you only want to build one version.
-
-- Build OBS Studio using instructions on OBS-Studio Wiki:
-  https://obsproject.com/wiki/Install-Instructions
-- Clone this repository into a working directory
-- Run `scripts\winbuild.cmd` to build the plugin
-- Run `scripts\winrun32.cmd` or `scripts\winrun64.cmd` to run OBS either the
-  32bit or 64bit version of the plugin
-
-From Powershell:
-
-```
-git clone https://github.com/glikely/obs-ptz
-cd obs-ptz
-.\scripts\winbuild.cmd
-.\scripts\winrun64.cmd
-```
-
-Use the `scripts\winbuild-rel.cmd` script to build the release version of the
-plugin as a zip file and installer.
-You'll first need to build a `RelWithDebInfo` version of OBS Studio before
-building the release plugin.
-
-## MacOS
-
-- Install Homebrew
-- Install Packages
-
-```
-$ brew install packages
-```
-
-- Install and build OBS Studio from source using instructions from OBS wiki:
-  https://obsproject.com/wiki/install-instructions
-
-- clone this repository and build:
-
-```
-git clone https://github.com/glikely/obs-ptz
-cd obs-ptz
-.github/scripts/build-macos.sh
-.github/scripts/package-macos.sh
-```
-
-## Using Qt5 instead of Qt6
-
-obs-studio has moved on to Qt6 for official builds, but some packagers are
-still using Qt5.
-RPMFusion on Fedora 37 for example.
-obs-ptz will still happly build against Qt6, but if obs-studio is using Qt5
-then the plugin will make it crash at startup with the following cryptic error:
-
-```
-info: [obs-ptz] plugin loaded successfully (version 0.14.1)
-QWidget: Must construct a QApplication before a QWidget
-```
-
-You need to install the Qt5 development packages and tell obs-ptz to use Qt5 instead:
-
-```
-sudo yum install qt5-qtbase-devel qt5-qtbase-private-devel \
-                 qt5-qtsvg-devel qt5-qtwayland-devel       \
-		 qt5-qtx11extras-devel qt5-qtserialport-devel
-git clone https://github.com/glikely/obs-ptz
-mkdir obs-ptz/build
-cd obs-ptz/build
-cmake -DQT_VERSION=5 ..
-make
-```
+The build infrastructure for this project comes from the
+[OBS Plugin Template](https://https://github.com/obsproject/obs-plugintemplate]
+repo. To build this plugin, follow the instructions in the plugin template
+[README.md](doc/plugin-template-README.md)
 
 # Contributing
 
@@ -287,6 +170,10 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for details.
 Thank you to everyone who has contributed to his project, either with filing issues,
 asking questions, or contributing to the code.
 All code and documentation contributors are listed in [AUTHORS](AUTHORS).
+
+Thank you also to the OBS Project developers, and the
+[OBS Plugin Template](https://https://github.com/obsproject/obs-plugintemplate]
+repo that they maintain. This plugin leans heavily on that project.
 
 Joystick support uses the
 [QJoystick library](https://github.com/alex-spataru/QJoysticks).
