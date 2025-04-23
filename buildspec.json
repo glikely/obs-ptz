@@ -1,12 +1,12 @@
 {
     "dependencies": {
         "obs-studio": {
-            "version": "31.0.0",
-            "baseUrl": "https://github.com/obsproject/obs-studio/archive/refs/tags",
+            "version": "31.0.0-cmake-fix",
+            "baseUrl": "https://github.com/glikely/obs-studio/archive/refs/tags",
             "label": "OBS sources",
             "hashes": {
-                "macos": "a22966ff07aba38833ba57c36c9e0d190d083be5dec5048d0a60cd9e6b997242",
-                "windows-x64": "e8434dcee06f1702f0a0bbd1489296c77116fc51356835c3af4a6ed21b1e1c74"
+                "macos": "d59f6e3530fe455ae302c22cb487a65ee89ac9e8926f1ccbd64a64e3fe65295f",
+                "windows-x64": "f6285c903f66e99c9757fc35a2f504613fd4b57091cbaac5757ea295074a7b4b"
             }
         },
         "prebuilt": {
