@@ -8,8 +8,8 @@ AlignConsecutiveDeclarations: false
 AlignEscapedNewlines: Left
 AlignOperands: true
 AlignTrailingComments: true
-AllowAllArgumentsOnNextLine: false
-AllowAllConstructorInitializersOnNextLine: false
+#AllowAllArgumentsOnNextLine: false  # relaxed for obs-ptz
+#AllowAllConstructorInitializersOnNextLine: false  # relaxed for obs-ptz
 AllowAllParametersOfDeclarationOnNextLine: false
 AllowShortBlocksOnASingleLine: false
 AllowShortCaseLabelsOnASingleLine: false
@@ -44,7 +44,7 @@ BreakBeforeBraces: Custom
 BreakBeforeTernaryOperators: true
 BreakConstructorInitializers: BeforeColon
 BreakStringLiterals: false  # apparently unpredictable
-ColumnLimit: 120
+ColumnLimit: 80  # shortened for obs-ptz
 CompactNamespaces: false
 ConstructorInitializerAllOnOneLineOrOnePerLine: true
 ConstructorInitializerIndentWidth: 8
@@ -119,7 +119,7 @@ AllowShortBlocksOnASingleLine: Never
 AllowShortEnumsOnASingleLine: false
 AllowShortFunctionsOnASingleLine: Empty
 AllowShortIfStatementsOnASingleLine: Never
-AllowShortLambdasOnASingleLine: None
+#AllowShortLambdasOnASingleLine: None  # relaxed for obs-ptz
 AttributeMacros: ['__unused', '__autoreleasing', '_Nonnull', '__bridge']
 BitFieldColonSpacing: Both
 #BreakBeforeBraces: Webkit

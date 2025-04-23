@@ -81,7 +81,7 @@ struct common_frame_rate {
 	media_frames_per_second fps;
 };
 
-}
+} // namespace
 
 Q_DECLARE_METATYPE(frame_rate_tag);
 Q_DECLARE_METATYPE(media_frames_per_second);
@@ -862,7 +862,7 @@ template<> struct default_delete<obs_data_item_t> {
 	void operator()(obs_data_item_t *item) { obs_data_item_release(&item); }
 };
 
-}
+} // namespace std
 
 template<typename T> static double make_epsilon(T val)
 {
@@ -1652,7 +1652,9 @@ static bool FrameRateChanged(QWidget *widget, const char *name,
 	if (!variant.canConvert<frame_rate_tag>())
 		return false;
 
-	auto StopUpdating = [&](void *) { w->updating = false; };
+	auto StopUpdating = [&](void *) {
+		w->updating = false;
+	};
 	unique_ptr<void, decltype(StopUpdating)> signalGuard(
 		static_cast<void *>(w), StopUpdating);
 	w->updating = true;

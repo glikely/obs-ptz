@@ -397,7 +397,9 @@ extern "C" void ptz_load_settings()
 	QAction *action = (QAction *)obs_frontend_add_tools_menu_qaction(
 		obs_module_text("PTZ Devices"));
 
-	auto cb = []() { ptz_settings_show(0); };
+	auto cb = []() {
+		ptz_settings_show(0);
+	};
 
 	obs_frontend_add_event_callback(obs_event, nullptr);
 
