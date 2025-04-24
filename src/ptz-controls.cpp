@@ -18,7 +18,6 @@
 #include <QDockWidget>
 
 #include <qt-wrappers.hpp>
-#include "imported/qjoysticks/QJoysticks.h"
 #include "touch-control.hpp"
 #include "ui_ptz-controls.h"
 #include "ptz-controls.hpp"
@@ -322,7 +321,7 @@ PTZControls::~PTZControls()
 	deleteLater();
 }
 
-#ifdef ENABLE_JOYSTICK
+#if defined(ENABLE_JOYSTICK)
 void PTZControls::joystickSetup()
 {
 	auto joysticks = QJoysticks::getInstance();

@@ -23,7 +23,6 @@
 #include <obs-frontend-api.h>
 #include <util/config-file.h>
 #include <obs-properties.h>
-#include "imported/qjoysticks/QJoysticks.h"
 
 #include "ptz.h"
 #include "ptz-device.hpp"
@@ -159,7 +158,7 @@ PTZSettings::~PTZSettings()
 	delete ui;
 }
 
-#ifdef ENABLE_JOYSTICK
+#if defined(ENABLE_JOYSTICK)
 void PTZSettings::joystickSetup()
 {
 	auto joysticks = QJoysticks::getInstance();

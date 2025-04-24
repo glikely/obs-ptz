@@ -9,7 +9,9 @@
 #include "ptz.h"
 #include <QTimer>
 #include <obs.hpp>
-#include "imported/qjoysticks/QJoysticks.h"
+#if defined(ENABLE_JOYSTICK)
+#include <QJoysticks.h>
+#endif
 #include "touch-control.hpp"
 #include "ptz-device.hpp"
 #include "ui_ptz-controls.h"

@@ -10,7 +10,9 @@
 #include <QStyledItemDelegate>
 #include <QString>
 #include <properties-view.hpp>
-#include "imported/qjoysticks/QJoysticks.h"
+#if defined(ENABLE_JOYSTICK)
+#include <QJoysticks.h>
+#endif
 
 class Ui_PTZSettings;
 

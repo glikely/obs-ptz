@@ -98,31 +98,11 @@ if(ENABLE_SERIALPORT)
   endif()
 endif()
 
-option(USE_SDL2_STATIC "Use SDL2 static library" ON)
 option(ENABLE_JOYSTICK "Enable Joystick support" OFF)
 if(ENABLE_JOYSTICK)
-  if(USE_SDL2_STATIC)
-    find_package(SDL2 COMPONENTS SDL2-static REQUIRED)
-    set(SDL2_TARGET SDL2::SDL2-static)
-  else()
-    find_package(SDL2 REQUIRED)
-    set(SDL2_TARGET SDL2::SDL2)
-  endif()
-  if(SDL2_FOUND)
-    add_compile_definitions(ENABLE_JOYSTICK SDL_SUPPORTED)
-    target_include_directories(${CMAKE_PROJECT_NAME} PRIVATE ${SDL2_INCLUDE_DIRS})
-    target_link_libraries(${CMAKE_PROJECT_NAME} PRIVATE ${SDL2_TARGET})
-    target_sources(
-      ${CMAKE_PROJECT_NAME}
-      PRIVATE src/imported/qjoysticks/QJoysticks.cpp
-              src/imported/qjoysticks/QJoysticks.h
-              src/imported/qjoysticks/JoysticksCommon.h
-              src/imported/qjoysticks/SDL_Joysticks.cpp
-              src/imported/qjoysticks/SDL_Joysticks.h
-              src/imported/qjoysticks/qjoysticks-res.qrc
-              src/imported/qjoysticks/VirtualJoystick.cpp
-              src/imported/qjoysticks/VirtualJoystick.h)
-  endif()
+  add_subdirectory("${CMAKE_SOURCE_DIR}/shared/qjoysticks" "${CMAKE_BINARY_DIR}/shared/qjoysticks")
+  target_link_libraries(${CMAKE_PROJECT_NAME} PRIVATE qjoysticks)
+  add_compile_definitions(ENABLE_JOYSTICK SDL_SUPPORTED)
 endif()
 
 set_target_properties_plugin(${CMAKE_PROJECT_NAME} PROPERTIES OUTPUT_NAME ${_name})

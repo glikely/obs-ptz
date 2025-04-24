@@ -41,7 +41,8 @@ if (( ! (${skips[(Ie)all]} + ${skips[(Ie)deps]}) )) {
   sudo apt-get install ${apt_args} \
     build-essential \
     libgles2-mesa-dev \
-    obs-studio
+    obs-studio \
+    libsdl2-dev
 
   local -a _qt_packages=()
 
