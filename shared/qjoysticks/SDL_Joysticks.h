@@ -40,35 +40,36 @@
  * \note The joystick values are refreshed every 20 milliseconds through a
  *       simple event loop.
  */
-class SDL_Joysticks : public QObject {
-	Q_OBJECT
+class SDL_Joysticks : public QObject
+{
+   Q_OBJECT
 
 signals:
-	void countChanged();
-	void POVEvent(const QJoystickPOVEvent &event);
-	void axisEvent(const QJoystickAxisEvent &event);
-	void buttonEvent(const QJoystickButtonEvent &event);
+   void countChanged();
+   void POVEvent(const QJoystickPOVEvent &event);
+   void axisEvent(const QJoystickAxisEvent &event);
+   void buttonEvent(const QJoystickButtonEvent &event);
 
 public:
-	SDL_Joysticks(QObject *parent = Q_NULLPTR);
-	~SDL_Joysticks();
+   SDL_Joysticks(QObject *parent = Q_NULLPTR);
+   ~SDL_Joysticks();
 
-	QMap<int, QJoystickDevice *> joysticks();
+   QMap<int, QJoystickDevice *> joysticks();
 
 public slots:
-	void rumble(const QJoystickRumble &request);
+   void rumble(const QJoystickRumble &request);
 
 private slots:
-	void update();
-	void configureJoystick(const SDL_Event *event);
+   void update();
+   void configureJoystick(const SDL_Event *event);
 
 private:
-	QJoystickDevice *getJoystick(int id);
-	QJoystickPOVEvent getPOVEvent(const SDL_Event *sdl_event);
-	QJoystickAxisEvent getAxisEvent(const SDL_Event *sdl_event);
-	QJoystickButtonEvent getButtonEvent(const SDL_Event *sdl_event);
+   QJoystickDevice *getJoystick(int id);
+   QJoystickPOVEvent getPOVEvent(const SDL_Event *sdl_event);
+   QJoystickAxisEvent getAxisEvent(const SDL_Event *sdl_event);
+   QJoystickButtonEvent getButtonEvent(const SDL_Event *sdl_event);
 
-	QMap<int, QJoystickDevice *> m_joysticks;
+   QMap<int, QJoystickDevice *> m_joysticks;
 };
 
 #endif

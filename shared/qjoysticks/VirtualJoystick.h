@@ -38,19 +38,20 @@
 #define AXIS_JL 4
 #define AXIS_KI 5
 
-enum AxisState : qint8 {
+enum AxisState : qint8
+{
 
-	INCREASE = -1,
-	STILL = 0,
-	DECREASE = 1
+   INCREASE = -1,
+   STILL = 0,
+   DECREASE = 1
 
 };
 
-const qint16 AXIS_MINIMUM_VIRTUAL_JOYSTICK{-32767};
-const qint16 AXIS_MAXIMUM_VIRTUAL_JOYSTICK{32767};
+const qint16 AXIS_MINIMUM_VIRTUAL_JOYSTICK { -32767 };
+const qint16 AXIS_MAXIMUM_VIRTUAL_JOYSTICK { 32767 };
 
-const int NUMBER_OF_AXES{6};
-const int NUMBER_OF_BUTTONS{10};
+const int NUMBER_OF_AXES { 6 };
+const int NUMBER_OF_BUTTONS { 10 };
 
 /**
  * \brief Translates keyboard input to joystick input
@@ -58,53 +59,54 @@ const int NUMBER_OF_BUTTONS{10};
  * This class implements a virtual joystick device that uses the computer's
  * keyboard as means to get the axis, button and POV values of the joystick.
  */
-class VirtualJoystick : public QObject {
-	Q_OBJECT
+class VirtualJoystick : public QObject
+{
+   Q_OBJECT
 
 signals:
-	void enabledChanged();
-	void povEvent(const QJoystickPOVEvent &event);
-	void axisEvent(const QJoystickAxisEvent &event);
-	void buttonEvent(const QJoystickButtonEvent &event);
+   void enabledChanged();
+   void povEvent(const QJoystickPOVEvent &event);
+   void axisEvent(const QJoystickAxisEvent &event);
+   void buttonEvent(const QJoystickButtonEvent &event);
 
 public:
-	VirtualJoystick(QObject *parent = Q_NULLPTR);
+   VirtualJoystick(QObject *parent = Q_NULLPTR);
 
-	qreal axisRange() const;
-	bool joystickEnabled() const;
-	QJoystickDevice *joystick();
+   qreal axisRange() const;
+   bool joystickEnabled() const;
+   QJoystickDevice *joystick();
 
 public slots:
-	void setJoystickID(int id);
-	void setAxisRange(qreal range);
-	void setJoystickEnabled(bool enabled);
+   void setJoystickID(int id);
+   void setAxisRange(qreal range);
+   void setJoystickEnabled(bool enabled);
 
-	void setAxisSensibility(qreal sensibility);
+   void setAxisSensibility(qreal sensibility);
 
 private slots:
-	void readAxes(int key, bool pressed);
-	void updateAxis();
-	void readPOVs(int key, bool pressed);
-	void readButtons(int key, bool pressed);
-	void processKeyEvent(QKeyEvent *event, bool pressed);
+   void readAxes(int key, bool pressed);
+   void updateAxis();
+   void readPOVs(int key, bool pressed);
+   void readButtons(int key, bool pressed);
+   void processKeyEvent(QKeyEvent *event, bool pressed);
 
 protected:
-	bool eventFilter(QObject *object, QEvent *event);
+   bool eventFilter(QObject *object, QEvent *event);
 
 private:
-	qreal m_axisRange;
-	bool m_joystickEnabled;
-	QJoystickDevice m_joystick;
+   qreal m_axisRange;
+   bool m_joystickEnabled;
+   QJoystickDevice m_joystick;
 
-	qint16 m_axisStep;
+   qint16 m_axisStep;
 
-	QVector<AxisState> m_axisStatus;
-	QVector<qint16> m_axisValue;
+   QVector<AxisState> m_axisStatus;
+   QVector<qint16> m_axisValue;
 
-	QScopedPointer<QTimer> m_timerUpdateAxis;
+   QScopedPointer<QTimer> m_timerUpdateAxis;
 
-	void changeAxisValue(quint8 axis);
-	void resetAllAxes();
+   void changeAxisValue(quint8 axis);
+   void resetAllAxes();
 };
 
 #endif

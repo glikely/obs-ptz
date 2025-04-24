@@ -23,30 +23,31 @@
 #include <math.h>
 #include "VirtualJoystick.h"
 
-VirtualJoystick::VirtualJoystick(QObject *parent) : QObject(parent)
+VirtualJoystick::VirtualJoystick(QObject *parent)
+   : QObject(parent)
 {
-	m_axisRange = 1;
-	m_joystickEnabled = false;
-	m_joystick.blacklisted = false;
-	m_joystick.name = tr("Virtual Joystick");
+   m_axisRange = 1;
+   m_joystickEnabled = false;
+   m_joystick.blacklisted = false;
+   m_joystick.name = tr("Virtual Joystick");
 
-	/* Initialize POVs */
-	m_joystick.povs.append(0);
+   /* Initialize POVs */
+   m_joystick.povs.append(0);
 
-	/* Initialize axes */
-	m_axisStatus = QVector<AxisState>(NUMBER_OF_AXES, AxisState::STILL);
-	m_axisValue = QVector<qint16>(NUMBER_OF_AXES, 0);
-	for (int i = 0; i < NUMBER_OF_AXES; ++i) {
-		m_joystick.axes.append(0);
-	}
+   /* Initialize axes */
+   m_axisStatus = QVector<AxisState>(NUMBER_OF_AXES, AxisState::STILL);
+   m_axisValue = QVector<qint16>(NUMBER_OF_AXES, 0);
+   for (int i = 0; i < NUMBER_OF_AXES; ++i)
+   {
+      m_joystick.axes.append(0);
+   }
 
-	/* Initialize buttons */
-	for (int i = 0; i < NUMBER_OF_BUTTONS; ++i)
-		m_joystick.buttons.append(false);
+   /* Initialize buttons */
+   for (int i = 0; i < NUMBER_OF_BUTTONS; ++i)
+      m_joystick.buttons.append(false);
 
-	m_timerUpdateAxis.reset(new QTimer());
-	connect(m_timerUpdateAxis.get(), &QTimer::timeout, this,
-		&VirtualJoystick::updateAxis);
+   m_timerUpdateAxis.reset(new QTimer());
+   connect(m_timerUpdateAxis.get(), &QTimer::timeout, this, &VirtualJoystick::updateAxis);
 }
 
 /**
@@ -60,7 +61,7 @@ VirtualJoystick::VirtualJoystick(QObject *parent) : QObject(parent)
  */
 qreal VirtualJoystick::axisRange() const
 {
-	return m_axisRange;
+   return m_axisRange;
 }
 
 /**
@@ -68,7 +69,7 @@ qreal VirtualJoystick::axisRange() const
  */
 bool VirtualJoystick::joystickEnabled() const
 {
-	return m_joystickEnabled;
+   return m_joystickEnabled;
 }
 
 /**
@@ -77,7 +78,7 @@ bool VirtualJoystick::joystickEnabled() const
  */
 QJoystickDevice *VirtualJoystick::joystick()
 {
-	return &m_joystick;
+   return &m_joystick;
 }
 
 /**
@@ -89,7 +90,7 @@ QJoystickDevice *VirtualJoystick::joystick()
  */
 void VirtualJoystick::setJoystickID(int id)
 {
-	m_joystick.id = id;
+   m_joystick.id = id;
 }
 
 /**
@@ -101,12 +102,12 @@ void VirtualJoystick::setJoystickID(int id)
  */
 void VirtualJoystick::setAxisRange(qreal range)
 {
-	range = fabs(range);
+   range = fabs(range);
 
-	if (range > 1)
-		range = 1;
+   if (range > 1)
+      range = 1;
 
-	m_axisRange = range;
+   m_axisRange = range;
 }
 
 /**
@@ -114,34 +115,35 @@ void VirtualJoystick::setAxisRange(qreal range)
  */
 void VirtualJoystick::setJoystickEnabled(bool enabled)
 {
-	if (enabled) {
-		// That means that the axes will be updated each 10 ms
-		m_timerUpdateAxis->start(10);
-		qApp->installEventFilter(this);
-	}
+   if (enabled)
+   {
+      // That means that the axes will be updated each 10 ms
+      m_timerUpdateAxis->start(10);
+      qApp->installEventFilter(this);
+   }
 
-	else {
-		m_timerUpdateAxis->stop();
-		// Removing the event filter since the joystick is no longer active
-		qApp->removeEventFilter(this);
-	}
+   else
+   {
+      m_timerUpdateAxis->stop();
+      // Removing the event filter since the joystick is no longer active
+      qApp->removeEventFilter(this);
+   }
 
-	m_joystickEnabled = enabled;
-	emit enabledChanged();
+   m_joystickEnabled = enabled;
+   emit enabledChanged();
 }
 
 void VirtualJoystick::setAxisSensibility(qreal sensibility)
 {
-	if (sensibility > 1 || sensibility < 0) {
-		qFatal("Fatal: VirtualJoystick Axis sensibility must be a value between 0 and 1");
-	}
+   if (sensibility > 1 || sensibility < 0)
+   {
+      qFatal("Fatal: VirtualJoystick Axis sensibility must be a value between 0 and 1");
+   }
 
-	const qint16 stepMinimum = 50;
-	const qint16 stepMaximum = 1000;
+   const qint16 stepMinimum = 50;
+   const qint16 stepMaximum = 1000;
 
-	m_axisStep = static_cast<qint16>((-stepMaximum + stepMinimum) *
-					 sensibility) +
-		     stepMaximum;
+   m_axisStep = static_cast<qint16>((-stepMaximum + stepMinimum) * sensibility) + stepMaximum;
 }
 
 /**
@@ -151,90 +153,109 @@ void VirtualJoystick::setAxisSensibility(qreal sensibility)
 void VirtualJoystick::readAxes(int key, bool pressed)
 {
 
-	/* Horizontal axis on thumb 1 */
-	if (key == Qt::Key_A) {
-		if (pressed)
-			m_axisStatus[AXIS_AD] = DECREASE;
-		else
-			m_axisStatus[AXIS_AD] = STILL;
-	} else if (key == Qt::Key_D) {
-		if (pressed)
-			m_axisStatus[AXIS_AD] = INCREASE;
-		else
-			m_axisStatus[AXIS_AD] = STILL;
-	}
+   /* Horizontal axis on thumb 1 */
+   if (key == Qt::Key_A)
+   {
+      if (pressed)
+         m_axisStatus[AXIS_AD] = DECREASE;
+      else
+         m_axisStatus[AXIS_AD] = STILL;
+   }
+   else if (key == Qt::Key_D)
+   {
+      if (pressed)
+         m_axisStatus[AXIS_AD] = INCREASE;
+      else
+         m_axisStatus[AXIS_AD] = STILL;
+   }
 
-	/* Vertical axis on thumb 1 */
-	if (key == Qt::Key_S) {
-		if (pressed)
-			m_axisStatus[AXIS_SW] = DECREASE;
-		else
-			m_axisStatus[AXIS_SW] = STILL;
-	} else if (key == Qt::Key_W) {
-		if (pressed)
-			m_axisStatus[AXIS_SW] = INCREASE;
-		else
-			m_axisStatus[AXIS_SW] = STILL;
-	}
+   /* Vertical axis on thumb 1 */
+   if (key == Qt::Key_S)
+   {
+      if (pressed)
+         m_axisStatus[AXIS_SW] = DECREASE;
+      else
+         m_axisStatus[AXIS_SW] = STILL;
+   }
+   else if (key == Qt::Key_W)
+   {
+      if (pressed)
+         m_axisStatus[AXIS_SW] = INCREASE;
+      else
+         m_axisStatus[AXIS_SW] = STILL;
+   }
 
-	/* Trigger 1 */
-	if (key == Qt::Key_Q) {
-		if (pressed)
-			m_axisStatus[AXIS_QE] = DECREASE;
-		else
-			m_axisStatus[AXIS_QE] = STILL;
-	} else if (key == Qt::Key_E) {
-		if (pressed)
-			m_axisStatus[AXIS_QE] = INCREASE;
-		else
-			m_axisStatus[AXIS_QE] = STILL;
-	}
+   /* Trigger 1 */
+   if (key == Qt::Key_Q)
+   {
+      if (pressed)
+         m_axisStatus[AXIS_QE] = DECREASE;
+      else
+         m_axisStatus[AXIS_QE] = STILL;
+   }
+   else if (key == Qt::Key_E)
+   {
+      if (pressed)
+         m_axisStatus[AXIS_QE] = INCREASE;
+      else
+         m_axisStatus[AXIS_QE] = STILL;
+   }
 
-	/* Trigger 2 */
-	if (key == Qt::Key_U) {
-		if (pressed)
-			m_axisStatus[AXIS_UO] = DECREASE;
-		else
-			m_axisStatus[AXIS_UO] = STILL;
-	} else if (key == Qt::Key_O) {
-		if (pressed)
-			m_axisStatus[AXIS_UO] = INCREASE;
-		else
-			m_axisStatus[AXIS_UO] = STILL;
-	}
+   /* Trigger 2 */
+   if (key == Qt::Key_U)
+   {
+      if (pressed)
+         m_axisStatus[AXIS_UO] = DECREASE;
+      else
+         m_axisStatus[AXIS_UO] = STILL;
+   }
+   else if (key == Qt::Key_O)
+   {
+      if (pressed)
+         m_axisStatus[AXIS_UO] = INCREASE;
+      else
+         m_axisStatus[AXIS_UO] = STILL;
+   }
 
-	/* Horizontal axis on thumb 2 */
-	if (key == Qt::Key_J) {
-		if (pressed)
-			m_axisStatus[AXIS_JL] = DECREASE;
-		else
-			m_axisStatus[AXIS_JL] = STILL;
-	} else if (key == Qt::Key_L) {
-		if (pressed)
-			m_axisStatus[AXIS_JL] = INCREASE;
-		else
-			m_axisStatus[AXIS_JL] = STILL;
-	}
+   /* Horizontal axis on thumb 2 */
+   if (key == Qt::Key_J)
+   {
+      if (pressed)
+         m_axisStatus[AXIS_JL] = DECREASE;
+      else
+         m_axisStatus[AXIS_JL] = STILL;
+   }
+   else if (key == Qt::Key_L)
+   {
+      if (pressed)
+         m_axisStatus[AXIS_JL] = INCREASE;
+      else
+         m_axisStatus[AXIS_JL] = STILL;
+   }
 
-	/* Vertical axis on thumb 2 */
-	if (key == Qt::Key_K) {
-		if (pressed)
-			m_axisStatus[AXIS_KI] = DECREASE;
-		else
-			m_axisStatus[AXIS_KI] = STILL;
-	} else if (key == Qt::Key_I) {
-		if (pressed)
-			m_axisStatus[AXIS_KI] = INCREASE;
-		else
-			m_axisStatus[AXIS_KI] = STILL;
-	}
+   /* Vertical axis on thumb 2 */
+   if (key == Qt::Key_K)
+   {
+      if (pressed)
+         m_axisStatus[AXIS_KI] = DECREASE;
+      else
+         m_axisStatus[AXIS_KI] = STILL;
+   }
+   else if (key == Qt::Key_I)
+   {
+      if (pressed)
+         m_axisStatus[AXIS_KI] = INCREASE;
+      else
+         m_axisStatus[AXIS_KI] = STILL;
+   }
 }
 
 void VirtualJoystick::updateAxis()
 {
-	for (quint8 i = 0; i < NUMBER_OF_AXES; i++) {
-		changeAxisValue(i);
-	}
+   for (quint8 i = 0; i < NUMBER_OF_AXES; i++)
+   {
+      changeAxisValue(i);
+   }
 }
 
 /**
@@ -243,28 +264,29 @@ void VirtualJoystick::updateAxis()
  */
 void VirtualJoystick::readPOVs(int key, bool pressed)
 {
-	int angle = 0;
+   int angle = 0;
 
-	if (key == Qt::Key_Up)
-		angle = 360;
-	else if (key == Qt::Key_Right)
-		angle = 90;
-	else if (key == Qt::Key_Left)
-		angle = 270;
-	else if (key == Qt::Key_Down)
-		angle = 180;
+   if (key == Qt::Key_Up)
+      angle = 360;
+   else if (key == Qt::Key_Right)
+      angle = 90;
+   else if (key == Qt::Key_Left)
+      angle = 270;
+   else if (key == Qt::Key_Down)
+      angle = 180;
 
-	if (!pressed)
-		angle = 0;
+   if (!pressed)
+      angle = 0;
 
-	if (joystickEnabled()) {
-		QJoystickPOVEvent event;
-		event.pov = 0;
-		event.angle = angle;
-		event.joystick = joystick();
+   if (joystickEnabled())
+   {
+      QJoystickPOVEvent event;
+      event.pov = 0;
+      event.angle = angle;
+      event.joystick = joystick();
 
-		emit povEvent(event);
-	}
+      emit povEvent(event);
+   }
 }
 
 /**
@@ -273,38 +295,41 @@ void VirtualJoystick::readPOVs(int key, bool pressed)
  */
 void VirtualJoystick::readButtons(int key, bool pressed)
 {
-	int button = -1;
+   int button = -1;
 
-	if (key == Qt::Key_0) { // Special key that reset all axes
-		button = 0;
-		resetAllAxes();
-	} else if (key == Qt::Key_1)
-		button = 1;
-	else if (key == Qt::Key_2)
-		button = 2;
-	else if (key == Qt::Key_3)
-		button = 3;
-	else if (key == Qt::Key_4)
-		button = 4;
-	else if (key == Qt::Key_5)
-		button = 5;
-	else if (key == Qt::Key_6)
-		button = 6;
-	else if (key == Qt::Key_7)
-		button = 7;
-	else if (key == Qt::Key_8)
-		button = 8;
-	else if (key == Qt::Key_9)
-		button = 9;
+   if (key == Qt::Key_0)
+   { // Special key that reset all axes
+      button = 0;
+      resetAllAxes();
+   }
+   else if (key == Qt::Key_1)
+      button = 1;
+   else if (key == Qt::Key_2)
+      button = 2;
+   else if (key == Qt::Key_3)
+      button = 3;
+   else if (key == Qt::Key_4)
+      button = 4;
+   else if (key == Qt::Key_5)
+      button = 5;
+   else if (key == Qt::Key_6)
+      button = 6;
+   else if (key == Qt::Key_7)
+      button = 7;
+   else if (key == Qt::Key_8)
+      button = 8;
+   else if (key == Qt::Key_9)
+      button = 9;
 
-	if (button != -1 && joystickEnabled()) {
-		QJoystickButtonEvent event;
-		event.button = button;
-		event.pressed = pressed;
-		event.joystick = joystick();
+   if (button != -1 && joystickEnabled())
+   {
+      QJoystickButtonEvent event;
+      event.button = button;
+      event.pressed = pressed;
+      event.joystick = joystick();
 
-		emit buttonEvent(event);
-	}
+      emit buttonEvent(event);
+   }
 }
 
 /**
@@ -315,11 +340,12 @@ void VirtualJoystick::readButtons(int key, bool pressed)
  */
 void VirtualJoystick::processKeyEvent(QKeyEvent *event, bool pressed)
 {
-	if (joystickEnabled()) {
-		readPOVs(event->key(), pressed);
-		readAxes(event->key(), pressed);
-		readButtons(event->key(), pressed);
-	}
+   if (joystickEnabled())
+   {
+      readPOVs(event->key(), pressed);
+      readAxes(event->key(), pressed);
+      readButtons(event->key(), pressed);
+   }
 }
 
 /**
@@ -332,66 +358,66 @@ void VirtualJoystick::processKeyEvent(QKeyEvent *event, bool pressed)
  */
 bool VirtualJoystick::eventFilter(QObject *object, QEvent *event)
 {
-	Q_UNUSED(object);
+   Q_UNUSED(object);
 
-	switch (event->type()) {
-	case QEvent::KeyPress:
-		processKeyEvent(static_cast<QKeyEvent *>(event), true);
-		break;
-	case QEvent::KeyRelease:
-		processKeyEvent(static_cast<QKeyEvent *>(event), false);
-		break;
-	default:
-		break;
-	}
+   switch (event->type())
+   {
+      case QEvent::KeyPress:
+         processKeyEvent(static_cast<QKeyEvent *>(event), true);
+         break;
+      case QEvent::KeyRelease:
+         processKeyEvent(static_cast<QKeyEvent *>(event), false);
+         break;
+      default:
+         break;
+   }
 
-	return false;
+   return false;
 }
 
 void VirtualJoystick::changeAxisValue(quint8 axis)
 {
-	switch (m_axisStatus[axis]) {
-	case STILL:
-		return;
+   switch (m_axisStatus[axis])
+   {
+      case STILL:
+         return;
 
-	case INCREASE:
-		if (m_axisValue[axis] >
-		    AXIS_MAXIMUM_VIRTUAL_JOYSTICK - m_axisStep)
-			m_axisValue[axis] = AXIS_MAXIMUM_VIRTUAL_JOYSTICK;
-		else
-			m_axisValue[axis] += m_axisStep;
-		break;
+      case INCREASE:
+         if (m_axisValue[axis] > AXIS_MAXIMUM_VIRTUAL_JOYSTICK - m_axisStep)
+            m_axisValue[axis] = AXIS_MAXIMUM_VIRTUAL_JOYSTICK;
+         else
+            m_axisValue[axis] += m_axisStep;
+         break;
 
-	case DECREASE:
-		if (m_axisValue[axis] <
-		    AXIS_MINIMUM_VIRTUAL_JOYSTICK + m_axisStep)
-			m_axisValue[axis] = AXIS_MINIMUM_VIRTUAL_JOYSTICK;
-		else
-			m_axisValue[axis] -= m_axisStep;
-		break;
-	}
+      case DECREASE:
+         if (m_axisValue[axis] < AXIS_MINIMUM_VIRTUAL_JOYSTICK + m_axisStep)
+            m_axisValue[axis] = AXIS_MINIMUM_VIRTUAL_JOYSTICK;
+         else
+            m_axisValue[axis] -= m_axisStep;
+         break;
+   }
 
-	QJoystickAxisEvent event;
+   QJoystickAxisEvent event;
 
-	event.axis = axis;
-	event.value = m_axisRange * static_cast<qreal>(m_axisValue[axis]) /
-		      AXIS_MAXIMUM_VIRTUAL_JOYSTICK;
-	event.joystick = joystick();
+   event.axis = axis;
+   event.value = m_axisRange * static_cast<qreal>(m_axisValue[axis]) / AXIS_MAXIMUM_VIRTUAL_JOYSTICK;
+   event.joystick = joystick();
 
-	emit axisEvent(event);
+   emit axisEvent(event);
 }
 
 void VirtualJoystick::resetAllAxes()
 {
-	for (quint8 i = 0; i < NUMBER_OF_AXES; i++) {
-		m_axisValue[i] = 0;
+   for (quint8 i = 0; i < NUMBER_OF_AXES; i++)
+   {
+      m_axisValue[i] = 0;
 
-		QJoystickAxisEvent event;
+      QJoystickAxisEvent event;
 
-		event.axis = i;
-		event.value = 0;
-		event.joystick = joystick();
+      event.axis = i;
+      event.value = 0;
+      event.joystick = joystick();
 
-		emit axisEvent(event);
-	}
+      emit axisEvent(event);
+   }
 }
