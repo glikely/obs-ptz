@@ -11,7 +11,8 @@
       "hidden": true,
       "cacheVariables": {
         "ENABLE_FRONTEND_API": true,
-        "ENABLE_QT": true
+        "ENABLE_QT": true,
+        "ENABLE_JOYSTICK": false
       }
     },
     {
@@ -86,7 +87,7 @@
         "CMAKE_BUILD_TYPE": "RelWithDebInfo",
         "CMAKE_INSTALL_LIBDIR": "lib/CMAKE_SYSTEM_PROCESSOR-linux-gnu",
         "ENABLE_SERIALPORT": true,
-        "ENABLE_JOYSTICK": true
+        "ENABLE_JOYSTICK": false
       }
     },
     {
