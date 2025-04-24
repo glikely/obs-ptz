@@ -51,12 +51,14 @@ if (( ! (${skips[(Ie)all]} + ${skips[(Ie)deps]}) )) {
       libqt5svg5-dev${suffix}
       qtbase5-private-dev${suffix}
       libqt5x11extras5-dev${suffix}
+      libqt5serialport5-dev${suffix}
     )
   } else {
     _qt_packages+=(
       qt6-base-dev${suffix}
       libqt6svg6-dev${suffix}
       qt6-base-private-dev${suffix}
+      qt6-serialport-dev${suffix}
     )
   }
 

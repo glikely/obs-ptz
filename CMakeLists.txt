@@ -87,8 +87,8 @@ endif()
 
 option(ENABLE_SERIALPORT "Enable UART connected camera support" OFF)
 if(ENABLE_SERIALPORT)
-  find_package(Qt${_QT_VERSION} COMPONENTS SerialPort)
-  if(Qt${_QT_VERSION}SerialPort_FOUND)
+  find_package(Qt6 COMPONENTS SerialPort)
+  if(Qt6SerialPort_FOUND)
     add_compile_definitions(ENABLE_SERIALPORT)
     target_link_libraries(${CMAKE_PROJECT_NAME} PRIVATE Qt::SerialPort)
     target_sources(
