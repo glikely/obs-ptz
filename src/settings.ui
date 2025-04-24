@@ -307,7 +307,7 @@
   <customwidget>
    <class>DoubleSlider</class>
    <extends>QSlider</extends>
-   <header>imported/double-slider.hpp</header>
+   <header>double-slider.hpp</header>
   </customwidget>
  </customwidgets>
  <resources/>

@@ -1,6 +1,6 @@
 #pragma once
 
-#include "vertical-scroll-area.hpp"
+#include <vertical-scroll-area.hpp>
 #include <obs-data.h>
 #include <obs.hpp>
 #include <qtimer.h>
@@ -13,8 +13,7 @@ class OBSPropertiesView;
 class QLabel;
 
 typedef obs_properties_t *(*PropertiesReloadCallback)(void *obj);
-typedef void (*PropertiesUpdateCallback)(void *obj, obs_data_t *old_settings,
-					 obs_data_t *new_settings);
+typedef void (*PropertiesUpdateCallback)(void *obj, obs_data_t *old_settings, obs_data_t *new_settings);
 typedef void (*PropertiesVisualUpdateCb)(void *obj, obs_data_t *settings);
 
 /* ------------------------------------------------------------------------- */
@@ -49,9 +48,10 @@ private:
 	void TogglePasswordText(bool checked);
 
 public:
-	inline WidgetInfo(OBSPropertiesView *view_, obs_property_t *prop,
-			  QWidget *widget_)
-		: view(view_), property(prop), widget(widget_)
+	inline WidgetInfo(OBSPropertiesView *view_, obs_property_t *prop, QWidget *widget_)
+		: view(view_),
+		  property(prop),
+		  widget(widget_)
 	{
 	}
 
@@ -61,7 +61,6 @@ public:
 			update_timer->stop();
 			QMetaObject::invokeMethod(update_timer, "timeout");
 			update_timer->deleteLater();
-			obs_data_release(old_settings_cache);
 		}
 	}
 
@@ -78,8 +77,6 @@ public slots:
 	void EditListEdit();
 	void EditListUp();
 	void EditListDown();
-	void EditListReordered(const QModelIndex &parent, int start, int end,
-			       const QModelIndex &destination, int row);
 };
 
 /* ------------------------------------------------------------------------- */
@@ -90,8 +87,7 @@ class OBSPropertiesView : public VScrollArea {
 	friend class WidgetInfo;
 
 	using properties_delete_t = decltype(&obs_properties_destroy);
-	using properties_t =
-		std::unique_ptr<obs_properties_t, properties_delete_t>;
+	using properties_t = std::unique_ptr<obs_properties_t, properties_delete_t>;
 
 private:
 	QWidget *widget = nullptr;
@@ -108,30 +104,25 @@ private:
 	std::string lastFocused;
 	QWidget *lastWidget = nullptr;
 	bool deferUpdate;
+	bool enableDefer = true;
+	bool disableScrolling = false;
 
-	QWidget *NewWidget(obs_property_t *prop, QWidget *widget,
-			   const char *signal);
+	template<typename Sender, typename SenderParent, typename... Args>
+	QWidget *NewWidget(obs_property_t *prop, Sender *widget, void (SenderParent::*signal)(Args...));
 
 	QWidget *AddCheckbox(obs_property_t *prop);
-	QWidget *AddText(obs_property_t *prop, QFormLayout *layout,
-			 QLabel *&label);
+	QWidget *AddText(obs_property_t *prop, QFormLayout *layout, QLabel *&label);
 	void AddPath(obs_property_t *prop, QFormLayout *layout, QLabel **label);
 	void AddInt(obs_property_t *prop, QFormLayout *layout, QLabel **label);
-	void AddFloat(obs_property_t *prop, QFormLayout *layout,
-		      QLabel **label);
+	void AddFloat(obs_property_t *prop, QFormLayout *layout, QLabel **label);
 	QWidget *AddList(obs_property_t *prop, bool &warning);
-	void AddEditableList(obs_property_t *prop, QFormLayout *layout,
-			     QLabel *&label);
+	void AddEditableList(obs_property_t *prop, QFormLayout *layout, QLabel *&label);
 	QWidget *AddButton(obs_property_t *prop);
-	void AddColorInternal(obs_property_t *prop, QFormLayout *layout,
-			      QLabel *&label, bool supportAlpha);
-	void AddColor(obs_property_t *prop, QFormLayout *layout,
-		      QLabel *&label);
-	void AddColorAlpha(obs_property_t *prop, QFormLayout *layout,
-			   QLabel *&label);
+	void AddColorInternal(obs_property_t *prop, QFormLayout *layout, QLabel *&label, bool supportAlpha);
+	void AddColor(obs_property_t *prop, QFormLayout *layout, QLabel *&label);
+	void AddColorAlpha(obs_property_t *prop, QFormLayout *layout, QLabel *&label);
 	void AddFont(obs_property_t *prop, QFormLayout *layout, QLabel *&label);
-	void AddFrameRate(obs_property_t *prop, bool &warning,
-			  QFormLayout *layout, QLabel *&label);
+	void AddFrameRate(obs_property_t *prop, bool &warning, QFormLayout *layout, QLabel *&label);
 
 	void AddGroup(obs_property_t *prop, QFormLayout *layout);
 
@@ -139,12 +130,14 @@ private:
 
 	void resizeEvent(QResizeEvent *event) override;
 
-	void GetScrollPos(int &h, int &v);
-	void SetScrollPos(int h, int v);
+	void GetScrollPos(int &h, int &v, int &hend, int &vend);
+	void SetScrollPos(int h, int v, int old_hend, int old_vend);
+
+private slots:
+	void RefreshProperties();
 
 public slots:
 	void ReloadProperties();
-	void RefreshProperties();
 	void SignalChanged();
 
 signals:
@@ -153,29 +146,18 @@ signals:
 	void PropertiesRefreshed();
 
 public:
-	OBSPropertiesView(OBSData settings, obs_object_t *obj,
-			  PropertiesReloadCallback reloadCallback,
-			  PropertiesUpdateCallback callback,
-			  PropertiesVisualUpdateCb cb = nullptr,
-			  int minSize = 0);
-	OBSPropertiesView(OBSData settings, void *obj,
-			  PropertiesReloadCallback reloadCallback,
-			  PropertiesUpdateCallback callback,
-			  PropertiesVisualUpdateCb cb = nullptr,
-			  int minSize = 0);
-	OBSPropertiesView(OBSData settings, const char *type,
-			  PropertiesReloadCallback reloadCallback,
-			  int minSize = 0);
+	OBSPropertiesView(OBSData settings, obs_object_t *obj, PropertiesReloadCallback reloadCallback,
+			  PropertiesUpdateCallback callback, PropertiesVisualUpdateCb cb = nullptr, int minSize = 0);
+	OBSPropertiesView(OBSData settings, void *obj, PropertiesReloadCallback reloadCallback,
+			  PropertiesUpdateCallback callback, PropertiesVisualUpdateCb cb = nullptr, int minSize = 0);
+	OBSPropertiesView(OBSData settings, const char *type, PropertiesReloadCallback reloadCallback, int minSize = 0);
 
-#define obj_constructor(type)                                              \
-	inline OBSPropertiesView(OBSData settings, obs_##type##_t *type,   \
-				 PropertiesReloadCallback reloadCallback,  \
-				 PropertiesUpdateCallback callback,        \
-				 PropertiesVisualUpdateCb cb = nullptr,    \
-				 int minSize = 0)                          \
-		: OBSPropertiesView(settings, (obs_object_t *)type,        \
-				    reloadCallback, callback, cb, minSize) \
-	{                                                                  \
+#define obj_constructor(type)                                                                                     \
+	inline OBSPropertiesView(OBSData settings, obs_##type##_t *type, PropertiesReloadCallback reloadCallback, \
+				 PropertiesUpdateCallback callback, PropertiesVisualUpdateCb cb = nullptr,        \
+				 int minSize = 0)                                                                 \
+		: OBSPropertiesView(settings, (obs_object_t *)type, reloadCallback, callback, cb, minSize)        \
+	{                                                                                                         \
 	}
 
 	obj_constructor(source);
@@ -194,8 +176,17 @@ public:
 			visUpdateCb(OBSGetStrongRef(weakObj), settings);
 	}
 	inline bool DeferUpdate() const { return deferUpdate; }
+	inline void SetDeferrable(bool deferrable) { enableDefer = deferrable; }
 
 	inline OBSObject GetObject() const { return OBSGetStrongRef(weakObj); }
+
+	void setScrolling(bool enabled)
+	{
+		disableScrolling = !enabled;
+		RefreshProperties();
+	}
+
+	void SetDisabled(bool disabled);
 
 #define Def_IsObject(type)                                \
 	inline bool IsObject(obs_##type##_t *type) const  \

@@ -9,7 +9,7 @@
 #include <QWidget>
 #include <QStyledItemDelegate>
 #include <QString>
-#include <imported/properties-view.hpp>
+#include <properties-view.hpp>
 #include "imported/qjoysticks/QJoysticks.h"
 
 class Ui_PTZSettings;

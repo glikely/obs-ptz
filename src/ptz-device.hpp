@@ -7,7 +7,7 @@
 #pragma once
 
 #include "ptz.h"
-#include "imported/qt-wrappers.hpp"
+#include <qt-wrappers.hpp>
 #include <memory>
 #include <QObject>
 #include <QSet>

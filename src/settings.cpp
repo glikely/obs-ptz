@@ -358,7 +358,7 @@ void PTZSettings::settingsChanged(OBSData changed)
 	auto json =
 		QJsonDocument::fromJson(obs_data_get_json(settings)).toJson();
 	obs_data_set_string(settings, "debug_info", json.constData());
-	propertiesView->RefreshProperties();
+	propertiesView->ReloadProperties();
 }
 
 void PTZSettings::showDevice(uint32_t device_id)

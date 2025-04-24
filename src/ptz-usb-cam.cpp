@@ -5,7 +5,7 @@
 	* SPDX-License-Identifier: GPLv2
 	*/
 
-#include "imported/qt-wrappers.hpp"
+#include <qt-wrappers.hpp>
 #include "ptz-device.hpp"
 #include <cstddef>
 #include <obs-data.h>

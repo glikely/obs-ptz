@@ -17,7 +17,7 @@
 #include <QResizeEvent>
 #include <QDockWidget>
 
-#include "imported/qt-wrappers.hpp"
+#include <qt-wrappers.hpp>
 #include "imported/qjoysticks/QJoysticks.h"
 #include "touch-control.hpp"
 #include "ui_ptz-controls.h"

@@ -29,6 +29,9 @@ if(ENABLE_FRONTEND_API)
   target_link_libraries(${CMAKE_PROJECT_NAME} PRIVATE OBS::obs-frontend-api)
 endif()
 
+add_subdirectory("${CMAKE_SOURCE_DIR}/shared/properties-view" "${CMAKE_BINARY_DIR}/shared/properties-view")
+target_link_libraries(${CMAKE_PROJECT_NAME} PRIVATE OBS::properties-view)
+
 if(ENABLE_QT)
   find_package(Qt6 COMPONENTS Widgets Core Svg Network Xml)
   target_link_libraries(${CMAKE_PROJECT_NAME} PRIVATE Qt6::Core Qt6::Widgets Qt6::Svg Qt6::Network Qt6::Xml)
@@ -59,13 +62,6 @@ target_sources(
           src/ptz-action-source.c
           src/circularlistview.cpp
           src/touch-control.cpp
-          src/imported/qt-wrappers.cpp
-          src/imported/obs-app.cpp
-          src/imported/properties-view.cpp
-          src/imported/vertical-scroll-area.cpp
-          src/imported/double-slider.cpp
-          src/imported/slider-ignorewheel.cpp
-          src/imported/spinbox-ignorewheel.cpp
           src/ptz.h
           src/ptz-controls.hpp
           src/ptz-device.hpp
@@ -75,15 +71,7 @@ target_sources(
           src/ptz-visca-tcp.hpp
           src/protocol-helpers.hpp
           src/circularlistview.hpp
-          src/touch-control.hpp
-          src/imported/qt-wrappers.hpp
-          src/imported/obs-app.hpp
-          src/imported/properties-view.hpp
-          src/imported/properties-view.moc.hpp
-          src/imported/vertical-scroll-area.hpp
-          src/imported/double-slider.hpp
-          src/imported/slider-ignorewheel.hpp
-          src/imported/spinbox-ignorewheel.hpp)
+          src/touch-control.hpp)
 
 option(ENABLE_USB_CAM "Enable USB camera support" OFF)
 if(ENABLE_USB_CAM)

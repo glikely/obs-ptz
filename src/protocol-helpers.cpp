@@ -8,7 +8,7 @@
 #include <QMap>
 #include <QVariant>
 #include <obs.hpp>
-#include "imported/qt-wrappers.hpp"
+#include <qt-wrappers.hpp>
 #include "protocol-helpers.hpp"
 
 OBSData variantMapToOBSData(const QVariantMap &map)

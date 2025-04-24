@@ -1,5 +1,5 @@
 /******************************************************************************
-    Copyright (C) 2013 by Hugh Bailey <obs.jim@gmail.com>
+    Copyright (C) 2023 by Lain Bailey <lain@obsproject.com>
 
     This program is free software: you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
@@ -15,13 +15,9 @@
     along with this program.  If not, see <http://www.gnu.org/licenses/>.
 ******************************************************************************/
 
-#include "qt-wrappers.hpp"
-#include "obs-app.hpp"
+#include "moc_qt-wrappers.cpp"
 
-#include <graphics/graphics.h>
-#if 0 /* obs-ptz: Don't need threading bits; and build fails on Windows */
 #include <util/threading.h>
-#endif
 #include <QWidget>
 #include <QLayout>
 #include <QComboBox>
@@ -32,19 +28,12 @@
 #include <QStandardItemModel>
 #include <QLabel>
 #include <QPushButton>
-
-#if !defined(_WIN32) && !defined(__APPLE__)
-#include <obs-nix-platform.h>
-#endif
-
-#if 0 /* ifdef ENABLE_WAYLAND, obs-ptz doesn't need QPA */
-#include <qpa/qplatformnativeinterface.h>
-#endif
+#include <QToolBar>
 
 static inline void OBSErrorBoxva(QWidget *parent, const char *msg, va_list args)
 {
-	char full_message[4096];
-	vsnprintf(full_message, 4095, msg, args);
+	char full_message[8192];
+	vsnprintf(full_message, sizeof(full_message), msg, args);
 
 	QMessageBox::critical(parent, "Error", full_message);
 }
@@ -57,24 +46,21 @@ void OBSErrorBox(QWidget *parent, const char *msg, ...)
 	va_end(args);
 }
 
-QMessageBox::StandardButton
-OBSMessageBox::question(QWidget *parent, const QString &title,
-			const QString &text,
-			QMessageBox::StandardButtons buttons,
-			QMessageBox::StandardButton defaultButton)
+QMessageBox::StandardButton OBSMessageBox::question(QWidget *parent, const QString &title, const QString &text,
+						    QMessageBox::StandardButtons buttons,
+						    QMessageBox::StandardButton defaultButton)
 {
-	QMessageBox mb(QMessageBox::Question, title, text,
-		       QMessageBox::NoButton, parent);
+	QMessageBox mb(QMessageBox::Question, title, text, QMessageBox::NoButton, parent);
 	mb.setDefaultButton(defaultButton);
 
 	if (buttons & QMessageBox::Ok) {
 		QPushButton *button = mb.addButton(QMessageBox::Ok);
-		button->setText(QTStr("OK"));
+		button->setText(tr("OK"));
 	}
 #define add_button(x)                                               \
 	if (buttons & QMessageBox::x) {                             \
 		QPushButton *button = mb.addButton(QMessageBox::x); \
-		button->setText(QTStr(#x));                         \
+		button->setText(tr(#x));                            \
 	}
 	add_button(Open);
 	add_button(Save);
@@ -92,64 +78,28 @@ OBSMessageBox::question(QWidget *parent, const QString &title,
 	return (QMessageBox::StandardButton)mb.exec();
 }
 
-void OBSMessageBox::information(QWidget *parent, const QString &title,
-				const QString &text)
+void OBSMessageBox::information(QWidget *parent, const QString &title, const QString &text)
 {
-	QMessageBox mb(QMessageBox::Information, title, text,
-		       QMessageBox::NoButton, parent);
-	mb.addButton(QTStr("OK"), QMessageBox::AcceptRole);
+	QMessageBox mb(QMessageBox::Information, title, text, QMessageBox::NoButton, parent);
+	mb.addButton(tr("OK"), QMessageBox::AcceptRole);
 	mb.exec();
 }
 
-void OBSMessageBox::warning(QWidget *parent, const QString &title,
-			    const QString &text, bool enableRichText)
+void OBSMessageBox::warning(QWidget *parent, const QString &title, const QString &text, bool enableRichText)
 {
-	QMessageBox mb(QMessageBox::Warning, title, text, QMessageBox::NoButton,
-		       parent);
+	QMessageBox mb(QMessageBox::Warning, title, text, QMessageBox::NoButton, parent);
 	if (enableRichText)
 		mb.setTextFormat(Qt::RichText);
-	mb.addButton(QTStr("OK"), QMessageBox::AcceptRole);
+	mb.addButton(tr("OK"), QMessageBox::AcceptRole);
 	mb.exec();
 }
 
-void OBSMessageBox::critical(QWidget *parent, const QString &title,
-			     const QString &text)
+void OBSMessageBox::critical(QWidget *parent, const QString &title, const QString &text)
 {
-	QMessageBox mb(QMessageBox::Critical, title, text,
-		       QMessageBox::NoButton, parent);
-	mb.addButton(QTStr("OK"), QMessageBox::AcceptRole);
+	QMessageBox mb(QMessageBox::Critical, title, text, QMessageBox::NoButton, parent);
+	mb.addButton(tr("OK"), QMessageBox::AcceptRole);
 	mb.exec();
 }
-
-#if 0 /* obs-ptz: QTToGSWindow() isn't used */
-bool QTToGSWindow(QWindow *window, gs_window &gswindow)
-{
-	bool success = true;
-
-#ifdef _WIN32
-	gswindow.hwnd = (HWND)window->winId();
-#elif __APPLE__
-	gswindow.view = (id)window->winId();
-#else
-	switch (obs_get_nix_platform()) {
-	case OBS_NIX_PLATFORM_X11_EGL:
-		gswindow.id = window->winId();
-		gswindow.display = obs_get_nix_platform_display();
-		break;
-#ifdef ENABLE_WAYLAND
-	case OBS_NIX_PLATFORM_WAYLAND:
-		QPlatformNativeInterface *native =
-			QGuiApplication::platformNativeInterface();
-		gswindow.display =
-			native->nativeResourceForWindow("surface", window);
-		success = gswindow.display != nullptr;
-		break;
-#endif
-	}
-#endif
-	return success;
-}
-#endif
 
 uint32_t TranslateQtKeyboardEventModifiers(Qt::KeyboardModifiers mods)
 {
@@ -177,32 +127,46 @@ uint32_t TranslateQtKeyboardEventModifiers(Qt::KeyboardModifiers mods)
 	return obsModifiers;
 }
 
-QDataStream &operator<<(QDataStream &out,
-			const std::vector<std::shared_ptr<OBSSignal>> &)
+QDataStream &operator<<(QDataStream &out, const std::vector<std::shared_ptr<OBSSignal>> &)
 {
 	return out;
 }
 
-QDataStream &operator>>(QDataStream &in,
-			std::vector<std::shared_ptr<OBSSignal>> &)
+QDataStream &operator>>(QDataStream &in, std::vector<std::shared_ptr<OBSSignal>> &)
 {
 	return in;
 }
 
 QDataStream &operator<<(QDataStream &out, const OBSScene &scene)
 {
-	return out << QString(obs_source_get_name(obs_scene_get_source(scene)));
+	return out << QString(obs_source_get_uuid(obs_scene_get_source(scene)));
 }
 
 QDataStream &operator>>(QDataStream &in, OBSScene &scene)
 {
-	QString sceneName;
+	QString uuid;
 
-	in >> sceneName;
+	in >> uuid;
 
-	OBSSourceAutoRelease source =
-		obs_get_source_by_name(QT_TO_UTF8(sceneName));
+	OBSSourceAutoRelease source = obs_get_source_by_uuid(QT_TO_UTF8(uuid));
 	scene = obs_scene_from_source(source);
+
+	return in;
+}
+
+QDataStream &operator<<(QDataStream &out, const OBSSource &source)
+{
+	return out << QString(obs_source_get_uuid(source));
+}
+
+QDataStream &operator>>(QDataStream &in, OBSSource &source)
+{
+	QString uuid;
+
+	in >> uuid;
+
+	OBSSourceAutoRelease source_ = obs_get_source_by_uuid(QT_TO_UTF8(uuid));
+	source = source_;
 
 	return in;
 }
@@ -231,9 +195,7 @@ void DeleteLayout(QLayout *layout)
 
 class QuickThread : public QThread {
 public:
-	explicit inline QuickThread(std::function<void()> func_) : func(func_)
-	{
-	}
+	explicit inline QuickThread(std::function<void()> func_) : func(func_) {}
 
 private:
 	virtual void run() override { func(); }
@@ -248,15 +210,13 @@ QThread *CreateQThread(std::function<void()> func)
 
 volatile long insideEventLoop = 0;
 
-#if 0  /* obs-ptz: Don't need threading bits; and build fails on Windows */
 void ExecuteFuncSafeBlock(std::function<void()> func)
 {
 	QEventLoop eventLoop;
 
 	auto wait = [&]() {
 		func();
-		QMetaObject::invokeMethod(&eventLoop, "quit",
-					  Qt::QueuedConnection);
+		QMetaObject::invokeMethod(&eventLoop, "quit", Qt::QueuedConnection);
 	};
 
 	os_atomic_inc_long(&insideEventLoop);
@@ -267,8 +227,7 @@ void ExecuteFuncSafeBlock(std::function<void()> func)
 	os_atomic_dec_long(&insideEventLoop);
 }
 
-void ExecuteFuncSafeBlockMsgBox(std::function<void()> func,
-				const QString &title, const QString &text)
+void ExecuteFuncSafeBlockMsgBox(std::function<void()> func, const QString &title, const QString &text)
 {
 	QMessageBox dlg;
 	dlg.setWindowFlags(dlg.windowFlags() & ~Qt::WindowCloseButtonHint);
@@ -296,15 +255,13 @@ void EnableThreadedMessageBoxes(bool enable)
 	enable_message_boxes = enable;
 }
 
-void ExecThreadedWithoutBlocking(std::function<void()> func,
-				 const QString &title, const QString &text)
+void ExecThreadedWithoutBlocking(std::function<void()> func, const QString &title, const QString &text)
 {
 	if (!enable_message_boxes)
 		ExecuteFuncSafeBlock(func);
 	else
 		ExecuteFuncSafeBlockMsgBox(func, title, text);
 }
-#endif /* obs-ptz */
 
 bool LineEditCanceled(QEvent *event)
 {
@@ -337,17 +294,15 @@ bool LineEditChanged(QEvent *event)
 
 void SetComboItemEnabled(QComboBox *c, int idx, bool enabled)
 {
-	QStandardItemModel *model =
-		dynamic_cast<QStandardItemModel *>(c->model());
+	QStandardItemModel *model = dynamic_cast<QStandardItemModel *>(c->model());
 	QStandardItem *item = model->item(idx);
-	item->setFlags(enabled ? Qt::ItemIsSelectable | Qt::ItemIsEnabled
-			       : Qt::NoItemFlags);
+	item->setFlags(enabled ? Qt::ItemIsSelectable | Qt::ItemIsEnabled : Qt::NoItemFlags);
 }
 
-void setThemeID(QWidget *widget, const QString &themeID)
+void setClasses(QWidget *widget, const QString &newClasses)
 {
-	if (widget->property("themeID").toString() != themeID) {
-		widget->setProperty("themeID", themeID);
+	if (widget->property("class").toString() != newClasses) {
+		widget->setProperty("class", newClasses);
 
 		/* force style sheet recalculation */
 		QString qss = widget->styleSheet();
@@ -358,36 +313,29 @@ void setThemeID(QWidget *widget, const QString &themeID)
 
 QString SelectDirectory(QWidget *parent, QString title, QString path)
 {
-	QString dir = QFileDialog::getExistingDirectory(
-		parent, title, path,
-		QFileDialog::ShowDirsOnly | QFileDialog::DontResolveSymlinks);
+	QString dir = QFileDialog::getExistingDirectory(parent, title, path,
+							QFileDialog::ShowDirsOnly | QFileDialog::DontResolveSymlinks);
 
 	return dir;
 }
 
-QString SaveFile(QWidget *parent, QString title, QString path,
-		 QString extensions)
+QString SaveFile(QWidget *parent, QString title, QString path, QString extensions)
 {
-	QString file =
-		QFileDialog::getSaveFileName(parent, title, path, extensions);
+	QString file = QFileDialog::getSaveFileName(parent, title, path, extensions);
 
 	return file;
 }
 
-QString OpenFile(QWidget *parent, QString title, QString path,
-		 QString extensions)
+QString OpenFile(QWidget *parent, QString title, QString path, QString extensions)
 {
-	QString file =
-		QFileDialog::getOpenFileName(parent, title, path, extensions);
+	QString file = QFileDialog::getOpenFileName(parent, title, path, extensions);
 
 	return file;
 }
 
-QStringList OpenFiles(QWidget *parent, QString title, QString path,
-		      QString extensions)
+QStringList OpenFiles(QWidget *parent, QString title, QString path, QString extensions)
 {
-	QStringList files =
-		QFileDialog::getOpenFileNames(parent, title, path, extensions);
+	QStringList files = QFileDialog::getOpenFileNames(parent, title, path, extensions);
 
 	return files;
 }
@@ -411,4 +359,17 @@ void TruncateLabel(QLabel *label, QString newText, int length)
 	newText += "...";
 
 	SetLabelText(label, newText);
+}
+
+void RefreshToolBarStyling(QToolBar *toolBar)
+{
+	for (QAction *action : toolBar->actions()) {
+		QWidget *widget = toolBar->widgetForAction(action);
+
+		if (!widget)
+			continue;
+
+		widget->style()->unpolish(widget);
+		widget->style()->polish(widget);
+	}
 }

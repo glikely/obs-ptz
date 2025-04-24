@@ -9,7 +9,7 @@
  * requires manually adding an ONVIF entry to the config file.
  */
 
-#include "imported/qt-wrappers.hpp"
+#include <qt-wrappers.hpp>
 #include "ptz-onvif.hpp"
 #include <QtXml/QDomDocument>
 #include <QXmlStreamWriter>
