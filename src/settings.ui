@@ -211,8 +211,8 @@
                <property name="flat">
                 <bool>true</bool>
                </property>
-               <property name="themeID" stdset="0">
-                <string notr="true">addIconSmall</string>
+               <property name="class" stdset="0">
+                <string>icon-plus</string>
                </property>
               </widget>
              </item>
@@ -236,8 +236,8 @@
                <property name="flat">
                 <bool>true</bool>
                </property>
-               <property name="themeID" stdset="0">
-                <string notr="true">removeIconSmall</string>
+               <property name="class" stdset="0">
+                <string>icon-trash</string>
                </property>
               </widget>
              </item>

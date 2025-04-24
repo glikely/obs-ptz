@@ -603,8 +603,8 @@
    <property name="toolTip">
     <string>PTZ Camera Properties</string>
    </property>
-   <property name="themeID" stdset="0">
-    <string notr="true">propertiesIconSmall</string>
+   <property name="class" stdset="0">
+    <string notr="true">icon-gear</string>
    </property>
   </action>
   <action name="actionDisableLiveMoves">
@@ -622,6 +622,9 @@
    <property name="toolTip">
     <string>Block changes to live cameras</string>
    </property>
+   <property name="class" stdset="0">
+    <string notr="true">indicator-lock</string>
+   </property>
   </action>
   <action name="actionTouchControl">
    <property name="checkable">
@@ -637,6 +640,9 @@
    <property name="toolTip">
     <string>Toggle between direction buttons and 'TouchPad' pan/tilt controls</string>
    </property>
+   <property name="class" stdset="0">
+    <string notr="true">icon-touch</string>
+   </property>
   </action>
   <action name="actionPresetAdd">
    <property name="icon">
@@ -649,8 +655,8 @@
    <property name="toolTip">
     <string>Add preset</string>
    </property>
-   <property name="themeID" stdset="0">
-    <string notr="true">addIconSmall</string>
+   <property name="class" stdset="0">
+    <string notr="true">icon-plus</string>
    </property>
   </action>
   <action name="actionPresetRemove">
@@ -664,8 +670,8 @@
    <property name="toolTip">
     <string>Delete selected preset</string>
    </property>
-   <property name="themeID" stdset="0">
-    <string notr="true">removeIconSmall</string>
+   <property name="class" stdset="0">
+    <string notr="true">icon-trash</string>
    </property>
   </action>
   <action name="actionPresetMoveUp">
@@ -679,8 +685,8 @@
    <property name="toolTip">
     <string>Move selected preset up</string>
    </property>
-   <property name="themeID" stdset="0">
-    <string notr="true">upArrowIconSmall</string>
+   <property name="class" stdset="0">
+    <string notr="true">icon-up</string>
    </property>
   </action>
   <action name="actionPresetMoveDown">
@@ -694,8 +700,8 @@
    <property name="toolTip">
     <string>Move selected preset down</string>
    </property>
-   <property name="themeID" stdset="0">
-    <string notr="true">downArrowIconSmall</string>
+   <property name="class" stdset="0">
+    <string notr="true">icon-down</string>
    </property>
   </action>
   <actiongroup name="actionGroupFollowMode">
