@@ -53,7 +53,7 @@ build() {
   local -i verbosity=1
   local -r _version='2.0.0'
   local -r -a _valid_targets=(
-    ubuntu-x86_64
+    ubuntu-x86_64 ubuntu-aarch64
   )
   local target
   local config='RelWithDebInfo'

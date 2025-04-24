@@ -97,6 +97,35 @@
         "CMAKE_COMPILE_WARNING_AS_ERROR": true,
         "ENABLE_CCACHE": true
       }
+    },
+    {
+      "name": "ubuntu-aarch64",
+      "displayName": "Ubuntu aarch64",
+      "description": "Build for Ubuntu aarch64",
+      "inherits": ["template"],
+      "binaryDir": "${sourceDir}/build_aarch64",
+      "condition": {
+        "type": "equals",
+        "lhs": "${hostSystemName}",
+        "rhs": "Linux"
+      },
+      "generator": "Ninja",
+      "warnings": {"dev": true, "deprecated": true},
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "RelWithDebInfo",
+        "CMAKE_INSTALL_LIBDIR": "lib/CMAKE_SYSTEM_PROCESSOR-linux-gnu"
+      }
+    },
+    {
+      "name": "ubuntu-ci-aarch64",
+      "inherits": ["ubuntu-aarch64"],
+      "displayName": "Ubuntu aarch64 CI build",
+      "description": "Build for Ubuntu aarch64 on CI",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "RelWithDebInfo",
+        "CMAKE_COMPILE_WARNING_AS_ERROR": true,
+        "ENABLE_CCACHE": true
+      }
     }
   ],
   "buildPresets": [
@@ -140,6 +169,20 @@
       "configurePreset": "ubuntu-ci-x86_64",
       "displayName": "Ubuntu x86_64 CI",
       "description": "Ubuntu CI build for x86_64",
+      "configuration": "RelWithDebInfo"
+    },
+    {
+      "name": "ubuntu-aarch64",
+      "configurePreset": "ubuntu-aarch64",
+      "displayName": "Ubuntu aarch64",
+      "description": "Ubuntu build for aarch64",
+      "configuration": "RelWithDebInfo"
+    },
+    {
+      "name": "ubuntu-ci-aarch64",
+      "configurePreset": "ubuntu-ci-aarch64",
+      "displayName": "Ubuntu aarch64 CI",
+      "description": "Ubuntu CI build for aarch64",
       "configuration": "RelWithDebInfo"
     }
   ]
