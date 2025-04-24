@@ -2,8 +2,16 @@
 <ui version="4.0">
  <class>PTZControls</class>
  <widget class="QWidget" name="PTZControls">
+  <property name="geometry">
+   <rect>
+    <x>0</x>
+    <y>0</y>
+    <width>200</width>
+    <height>300</height>
+   </rect>
+  </property>
   <property name="contextMenuPolicy">
-   <enum>Qt::CustomContextMenu</enum>
+   <enum>Qt::ContextMenuPolicy::CustomContextMenu</enum>
   </property>
   <layout class="QVBoxLayout" name="dockWidgetContentsVerticalLayout">
    <property name="spacing">
@@ -24,7 +32,7 @@
    <item>
     <widget class="QSplitter" name="splitter">
      <property name="orientation">
-      <enum>Qt::Horizontal</enum>
+      <enum>Qt::Orientation::Horizontal</enum>
      </property>
      <property name="childrenCollapsible">
       <bool>false</bool>
@@ -366,7 +374,7 @@
                <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Zoom camera in&lt;br/&gt;&amp;lt;ctrl&amp;gt;+click: fast&lt;br/&gt;&amp;lt;shift&amp;gt;+click: slow&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
               </property>
               <property name="layoutDirection">
-               <enum>Qt::LeftToRight</enum>
+               <enum>Qt::LayoutDirection::LeftToRight</enum>
               </property>
               <property name="icon">
                <iconset resource="ptz-controls.qrc">
@@ -474,7 +482,7 @@
             <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Focus far&lt;br/&gt;&amp;lt;ctrl&amp;gt;+click: fast&lt;br/&gt;&amp;lt;shift&amp;gt;+click: slow&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
            </property>
            <property name="layoutDirection">
-            <enum>Qt::LeftToRight</enum>
+            <enum>Qt::LayoutDirection::LeftToRight</enum>
            </property>
            <property name="icon">
             <iconset resource="ptz-controls.qrc">
@@ -525,10 +533,10 @@
           </size>
          </property>
          <property name="contextMenuPolicy">
-          <enum>Qt::CustomContextMenu</enum>
+          <enum>Qt::ContextMenuPolicy::CustomContextMenu</enum>
          </property>
          <property name="editTriggers">
-          <set>QAbstractItemView::NoEditTriggers</set>
+          <set>QAbstractItemView::EditTrigger::NoEditTriggers</set>
          </property>
         </widget>
        </item>
@@ -551,10 +559,10 @@
        <item>
         <widget class="CircularListView" name="presetListView">
          <property name="contextMenuPolicy">
-          <enum>Qt::CustomContextMenu</enum>
+          <enum>Qt::ContextMenuPolicy::CustomContextMenu</enum>
          </property>
          <property name="editTriggers">
-          <set>QAbstractItemView::EditKeyPressed</set>
+          <set>QAbstractItemView::EditTrigger::EditKeyPressed</set>
          </property>
         </widget>
        </item>

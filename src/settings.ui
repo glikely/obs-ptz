@@ -63,7 +63,7 @@
             <item row="1" column="1">
              <widget class="DoubleSlider" name="joystickSpeedSlider">
               <property name="orientation">
-               <enum>Qt::Horizontal</enum>
+               <enum>Qt::Orientation::Horizontal</enum>
               </property>
              </widget>
             </item>
@@ -80,7 +80,7 @@
                <string>Set this value higher if the camera position drifts when the joysticks are centered</string>
               </property>
               <property name="orientation">
-               <enum>Qt::Horizontal</enum>
+               <enum>Qt::Orientation::Horizontal</enum>
               </property>
              </widget>
             </item>
@@ -103,7 +103,7 @@
 &lt;/body&gt;&lt;/html&gt;</string>
             </property>
             <property name="alignment">
-             <set>Qt::AlignLeading|Qt::AlignLeft|Qt::AlignTop</set>
+             <set>Qt::AlignmentFlag::AlignLeading|Qt::AlignmentFlag::AlignLeft|Qt::AlignmentFlag::AlignTop</set>
             </property>
             <property name="wordWrap">
              <bool>true</bool>
@@ -133,7 +133,7 @@
        <item>
         <spacer name="verticalSpacer">
          <property name="orientation">
-          <enum>Qt::Vertical</enum>
+          <enum>Qt::Orientation::Vertical</enum>
          </property>
          <property name="sizeHint" stdset="0">
           <size>
@@ -165,12 +165,12 @@
        <item>
         <widget class="QSplitter" name="splitter">
          <property name="orientation">
-          <enum>Qt::Horizontal</enum>
+          <enum>Qt::Orientation::Horizontal</enum>
          </property>
          <widget class="QWidget" name="widget_1" native="true">
           <layout class="QVBoxLayout" name="verticalLayout_3">
            <property name="sizeConstraint">
-            <enum>QLayout::SetMinimumSize</enum>
+            <enum>QLayout::SizeConstraint::SetMinimumSize</enum>
            </property>
            <item>
             <widget class="QLabel" name="label_2">
@@ -182,10 +182,10 @@
            <item>
             <widget class="QListView" name="deviceList">
              <property name="contextMenuPolicy">
-              <enum>Qt::CustomContextMenu</enum>
+              <enum>Qt::ContextMenuPolicy::CustomContextMenu</enum>
              </property>
              <property name="editTriggers">
-              <set>QAbstractItemView::NoEditTriggers</set>
+              <set>QAbstractItemView::EditTrigger::NoEditTriggers</set>
              </property>
             </widget>
            </item>
@@ -244,7 +244,7 @@
              <item>
               <spacer name="horizontalSpacer_2">
                <property name="orientation">
-                <enum>Qt::Horizontal</enum>
+                <enum>Qt::Orientation::Horizontal</enum>
                </property>
                <property name="sizeHint" stdset="0">
                 <size>
@@ -261,7 +261,7 @@
          <widget class="QWidget" name="widget" native="true">
           <layout class="QVBoxLayout" name="verticalLayout_4" stretch="0">
            <property name="sizeConstraint">
-            <enum>QLayout::SetDefaultConstraint</enum>
+            <enum>QLayout::SizeConstraint::SetDefaultConstraint</enum>
            </property>
            <item>
             <layout class="QHBoxLayout" name="propertiesLayout">
@@ -269,7 +269,7 @@
               <number>0</number>
              </property>
              <property name="sizeConstraint">
-              <enum>QLayout::SetNoConstraint</enum>
+              <enum>QLayout::SizeConstraint::SetNoConstraint</enum>
              </property>
             </layout>
            </item>
@@ -293,7 +293,7 @@
           </sizepolicy>
          </property>
          <property name="alignment">
-          <set>Qt::AlignLeading|Qt::AlignLeft|Qt::AlignTop</set>
+          <set>Qt::AlignmentFlag::AlignLeading|Qt::AlignmentFlag::AlignLeft|Qt::AlignmentFlag::AlignTop</set>
          </property>
         </widget>
        </item>
