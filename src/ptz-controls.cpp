@@ -893,6 +893,8 @@ void PTZControls::on_actionDisableLiveMoves_toggled(bool checked)
 void PTZControls::on_actionPresetAdd_triggered()
 {
 	auto model = ui->presetListView->model();
+	if (!model)
+		return;
 	auto row = model->rowCount();
 	model->insertRows(row, 1);
 	QModelIndex index = model->index(row, 0);
@@ -907,6 +909,8 @@ void PTZControls::on_actionPresetRemove_triggered()
 {
 	auto model = ui->presetListView->model();
 	auto index = ui->presetListView->currentIndex();
+	if (!model || !index.isValid())
+		return;
 	model->removeRows(index.row(), 1);
 	presetUpdateActions();
 }
@@ -915,6 +919,8 @@ void PTZControls::on_actionPresetMoveUp_triggered()
 {
 	auto model = ui->presetListView->model();
 	auto index = ui->presetListView->currentIndex();
+	if (!model || !index.isValid())
+		return;
 	model->moveRow(QModelIndex(), index.row(), QModelIndex(), index.row() - 1);
 	presetUpdateActions();
 }
@@ -923,6 +929,8 @@ void PTZControls::on_actionPresetMoveDown_triggered()
 {
 	auto model = ui->presetListView->model();
 	auto index = ui->presetListView->currentIndex();
+	if (!model || !index.isValid())
+		return;
 	model->moveRow(QModelIndex(), index.row(), QModelIndex(), index.row() + 2);
 	presetUpdateActions();
 }
