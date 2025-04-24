@@ -21,7 +21,7 @@
  */
 
 #include <math.h>
-#include "VirtualJoystick.h"
+#include <QJoysticks/VirtualJoystick.h>
 
 VirtualJoystick::VirtualJoystick(QObject *parent)
    : QObject(parent)

@@ -26,7 +26,7 @@
 #include <SDL.h>
 #include <QObject>
 #include <QMap>
-#include "JoysticksCommon.h"
+#include <QJoysticks/JoysticksCommon.h>
 
 /**
  * \brief Translates SDL events into \c QJoysticks events

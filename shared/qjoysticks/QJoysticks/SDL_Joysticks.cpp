@@ -24,7 +24,7 @@
 #include <QDebug>
 #include <QTimer>
 #include <QApplication>
-#include "SDL_Joysticks.h"
+#include <QJoysticks/SDL_Joysticks.h>
 
 /**
  * Holds a generic mapping to be applied to joysticks that have not been mapped
@@ -165,17 +165,21 @@ void SDL_Joysticks::update()
 
             emit countChanged();
             break;
-         case SDL_JOYAXISMOTION:
-            if (!SDL_IsGameController(event.cdevice.which))
+         case SDL_JOYAXISMOTION: {
+            int device_index = m_joysticks[event.cdevice.which]->id;
+            if (!SDL_IsGameController(device_index))
             {
                emit axisEvent(getAxisEvent(&event));
             }
+        }
             break;
-         case SDL_CONTROLLERAXISMOTION:
-            if (SDL_IsGameController(event.cdevice.which))
+         case SDL_CONTROLLERAXISMOTION: {
+            int device_index = m_joysticks[event.cdevice.which]->id;
+            if (SDL_IsGameController(device_index))
             {
                emit axisEvent(getAxisEvent(&event));
             }
+        }
             break;
          case SDL_JOYBUTTONUP:
             emit buttonEvent(getButtonEvent(&event));

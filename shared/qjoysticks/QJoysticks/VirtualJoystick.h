@@ -29,7 +29,7 @@
 #include <QTimer>
 #include <QScopedPointer>
 
-#include "JoysticksCommon.h"
+#include <QJoysticks/JoysticksCommon.h>
 
 #define AXIS_AD 0
 #define AXIS_SW 1

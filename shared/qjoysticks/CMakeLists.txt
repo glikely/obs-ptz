@@ -15,12 +15,12 @@ target_sources(
   qjoysticks
   INTERFACE QJoysticks.cpp
             QJoysticks.h
-            JoysticksCommon.h
-            SDL_Joysticks.cpp
-            SDL_Joysticks.h
             qjoysticks-res.qrc
-            VirtualJoystick.cpp
-            VirtualJoystick.h)
+            QJoysticks/JoysticksCommon.h
+            QJoysticks/SDL_Joysticks.cpp
+            QJoysticks/SDL_Joysticks.h
+            QJoysticks/VirtualJoystick.cpp
+            QJoysticks/VirtualJoystick.h)
 target_include_directories(qjoysticks INTERFACE "${CMAKE_CURRENT_SOURCE_DIR}")
 
 target_link_libraries(qjoysticks INTERFACE ${SDL2_TARGET} Qt::Core)

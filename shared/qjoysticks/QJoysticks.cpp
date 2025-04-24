@@ -22,9 +22,9 @@
 
 #include <QDebug>
 #include <QSettings>
-#include "QJoysticks.h"
-#include "SDL_Joysticks.h"
-#include "VirtualJoystick.h"
+#include <QJoysticks.h>
+#include <QJoysticks/SDL_Joysticks.h>
+#include <QJoysticks/VirtualJoystick.h>
 
 QJoysticks::QJoysticks()
 {
@@ -79,7 +79,7 @@ QJoysticks *QJoysticks::getInstance()
  */
 int QJoysticks::count() const
 {
-   return (int)inputDevices().count();
+   return inputDevices().count();
 }
 
 /**
@@ -152,7 +152,7 @@ bool QJoysticks::getButton(const int index, const int button)
 int QJoysticks::getNumAxes(const int index)
 {
    if (joystickExists(index))
-      return (int)getInputDevice(index)->axes.count();
+      return getInputDevice(index)->axes.count();
 
    return -1;
 }
@@ -163,7 +163,7 @@ int QJoysticks::getNumAxes(const int index)
 int QJoysticks::getNumPOVs(const int index)
 {
    if (joystickExists(index))
-      return (int)getInputDevice(index)->povs.count();
+      return getInputDevice(index)->povs.count();
 
    return -1;
 }
@@ -174,7 +174,7 @@ int QJoysticks::getNumPOVs(const int index)
 int QJoysticks::getNumButtons(const int index)
 {
    if (joystickExists(index))
-      return (int)getInputDevice(index)->buttons.count();
+      return getInputDevice(index)->buttons.count();
 
    return -1;
 }
@@ -329,7 +329,7 @@ void QJoysticks::updateInterfaces()
          if (!joystick->blacklisted)
          {
             addInputDevice(joystick);
-            virtualJoystick()->setJoystickID((int)inputDevices().count() - 1);
+            virtualJoystick()->setJoystickID(inputDevices().count() - 1);
          }
       }
 
@@ -350,7 +350,7 @@ void QJoysticks::updateInterfaces()
          if (joystick->blacklisted)
          {
             addInputDevice(joystick);
-            virtualJoystick()->setJoystickID((int)inputDevices().count() - 1);
+            virtualJoystick()->setJoystickID(inputDevices().count() - 1);
          }
       }
    }
@@ -372,7 +372,7 @@ void QJoysticks::updateInterfaces()
          joystick->blacklisted = m_settings->value(joystick->name, false).toBool();
 
          addInputDevice(joystick);
-         virtualJoystick()->setJoystickID((int)inputDevices().count() - 1);
+         virtualJoystick()->setJoystickID(inputDevices().count() - 1);
       }
    }
 
