@@ -36,8 +36,7 @@ public:
 
 class PTZPelco : public PTZDevice {
 private:
-	bool use_pelco_d =
-		false; // Flag that Pelco-D is used instead of Pelco-P
+	bool use_pelco_d = false; // Flag that Pelco-D is used instead of Pelco-P
 	PelcoUART *iface;
 	void attach_interface(PelcoUART *new_iface);
 	char checkSum(QByteArray &data);
@@ -46,8 +45,8 @@ protected:
 	unsigned int address;
 
 	void send(const QByteArray &msg);
-	void send(const unsigned char data_1, const unsigned char data_2,
-		  const unsigned char data_3, const unsigned char data_4);
+	void send(const unsigned char data_1, const unsigned char data_2, const unsigned char data_3,
+		  const unsigned char data_4);
 	void focus_speed_set(double speed);
 	void zoom_speed_set(double speed);
 	void receive(const QByteArray &msg);

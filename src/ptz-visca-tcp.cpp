@@ -13,10 +13,8 @@ PTZViscaOverTCP::PTZViscaOverTCP(OBSData config) : PTZVisca(config)
 	address = 1;
 	set_config(config);
 	visca_socket.setSocketOption(QAbstractSocket::KeepAliveOption, 1);
-	connect(&visca_socket, &QTcpSocket::readyRead, this,
-		&PTZViscaOverTCP::poll);
-	connect(&visca_socket, &QTcpSocket::stateChanged, this,
-		&PTZViscaOverTCP::on_socket_stateChanged);
+	connect(&visca_socket, &QTcpSocket::readyRead, this, &PTZViscaOverTCP::poll);
+	connect(&visca_socket, &QTcpSocket::stateChanged, this, &PTZViscaOverTCP::on_socket_stateChanged);
 }
 
 QString PTZViscaOverTCP::description()
@@ -42,8 +40,7 @@ void PTZViscaOverTCP::on_socket_stateChanged(QAbstractSocket::SocketState state)
 		QTimer::singleShot(1900, this, SLOT(connectSocket()));
 		break;
 	case QAbstractSocket::ConnectedState:
-		blog(LOG_INFO, "VISCA_over_TCP %s connected",
-		     QT_TO_UTF8(objectName()));
+		blog(LOG_INFO, "VISCA_over_TCP %s connected", QT_TO_UTF8(objectName()));
 		reset();
 		break;
 	default:
@@ -67,9 +64,8 @@ void PTZViscaOverTCP::receive_datagram(const QByteArray &packet)
 		switch (packet[1] & 0x0f) { /* Decode Packet Socket Field */
 		case 0:
 			camera_count = (packet[2] & 0x7) - 1;
-			blog(LOG_INFO,
-			     "VISCA-over-TCP Interface %i camera%s found",
-			     camera_count, camera_count == 1 ? "" : "s");
+			blog(LOG_INFO, "VISCA-over-TCP Interface %i camera%s found", camera_count,
+			     camera_count == 1 ? "" : "s");
 			reset();
 			break;
 		case 8:

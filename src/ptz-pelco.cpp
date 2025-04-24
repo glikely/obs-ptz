@@ -19,8 +19,7 @@ std::map<QString, PelcoUART *> PelcoUART::interfaces;
 
 void PelcoUART::receive_datagram(const QByteArray &packet)
 {
-	blog(ptz_debug_level, "%s <-- %s", qPrintable(port_name),
-	     packet.toHex(':').data());
+	blog(ptz_debug_level, "%s <-- %s", qPrintable(port_name), packet.toHex(':').data());
 
 	emit receive(packet);
 }
@@ -39,13 +38,11 @@ void PelcoUART::receiveBytes(const QByteArray &data)
 PelcoUART *PelcoUART::get_interface(QString port_name)
 {
 	PelcoUART *iface;
-	blog(ptz_debug_level, "Looking for UART object %s",
-	     qPrintable(port_name));
+	blog(ptz_debug_level, "Looking for UART object %s", qPrintable(port_name));
 
 	iface = interfaces[port_name];
 	if (!iface) {
-		blog(ptz_debug_level, "Creating new Pelco UART object %s",
-		     qPrintable(port_name));
+		blog(ptz_debug_level, "Creating new Pelco UART object %s", qPrintable(port_name));
 		iface = new PelcoUART(port_name);
 		iface->open();
 		interfaces[port_name] = iface;
@@ -59,9 +56,7 @@ PelcoUART *PelcoUART::get_interface(QString port_name)
 
 QString PTZPelco::description()
 {
-	return QString("PELCO/%1 %2 id:%3")
-		.arg(use_pelco_d ? "D" : "P", iface->portName(),
-		     QString::number(address));
+	return QString("PELCO/%1 %2 id:%3").arg(use_pelco_d ? "D" : "P", iface->portName(), QString::number(address));
 }
 
 void PTZPelco::attach_interface(PelcoUART *new_iface)
@@ -117,12 +112,11 @@ void PTZPelco::send(const QByteArray &msg)
 
 	iface->send(result);
 
-	ptz_debug("Pelco %c command send: %s", use_pelco_d ? 'D' : 'P',
-		  qPrintable(result.toHex(':')));
+	ptz_debug("Pelco %c command send: %s", use_pelco_d ? 'D' : 'P', qPrintable(result.toHex(':')));
 }
 
-void PTZPelco::send(const unsigned char data_1, const unsigned char data_2,
-		    const unsigned char data_3, const unsigned char data_4)
+void PTZPelco::send(const unsigned char data_1, const unsigned char data_2, const unsigned char data_3,
+		    const unsigned char data_4)
 {
 	QByteArray message;
 	message.resize(4);
@@ -200,13 +194,11 @@ void PTZPelco::do_update()
 	if (status & STATUS_PANTILT_SPEED_CHANGED) {
 		status &= ~STATUS_PANTILT_SPEED_CHANGED;
 		if (tilt_speed) {
-			msg[1] = msg[1] |
-				 (tilt_speed > 0.0 ? (1 << 3) : (1 << 4));
+			msg[1] = msg[1] | (tilt_speed > 0.0 ? (1 << 3) : (1 << 4));
 			msg[3] = abs(tilt_speed) * 0x3f;
 		}
 		if (pan_speed) {
-			msg[1] = msg[1] |
-				 (pan_speed > 0.0 ? (1 << 1) : (1 << 2));
+			msg[1] = msg[1] | (pan_speed > 0.0 ? (1 << 1) : (1 << 2));
 			msg[2] = abs(pan_speed) * 0x3f;
 		}
 		send_update = true;
@@ -216,8 +208,7 @@ void PTZPelco::do_update()
 		status &= ~STATUS_ZOOM_SPEED_CHANGED;
 		if (zoom_speed) {
 			zoom_speed_set(std::abs(zoom_speed));
-			msg[1] = msg[1] |
-				 (zoom_speed > 0.0 ? (1 << 5) : (1 << 6));
+			msg[1] = msg[1] | (zoom_speed > 0.0 ? (1 << 5) : (1 << 6));
 		}
 		send_update = true;
 	}
@@ -235,8 +226,7 @@ void PTZPelco::do_update()
 	}
 
 	if (send_update) {
-		ptz_debug("pan %f, tilt %f, zoom %f, focus %f", pan_speed,
-			  tilt_speed, zoom_speed, focus_speed);
+		ptz_debug("pan %f, tilt %f, zoom %f, focus %f", pan_speed, tilt_speed, zoom_speed, focus_speed);
 		send(msg);
 	}
 }

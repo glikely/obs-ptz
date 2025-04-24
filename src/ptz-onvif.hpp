@@ -53,8 +53,7 @@ private:
 	void handleGetCapabilitiesResponse(QDomNode node);
 	void handleGetProfilesResponse(QDomNode node);
 
-	void genericMove(QString movetype, QString property, double pan,
-			 double tilt, double zoom);
+	void genericMove(QString movetype, QString property, double pan, double tilt, double zoom);
 	void continuousMove(double x, double y, double z);
 	void absoluteMove(int x, int y, int z);
 	void relativeMove(int x, int y, int z);

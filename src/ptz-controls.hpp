@@ -20,8 +20,7 @@ class PTZControls : public QWidget {
 	Q_OBJECT
 
 private:
-	static void OBSFrontendEventWrapper(enum obs_frontend_event event,
-					    void *ptr);
+	static void OBSFrontendEventWrapper(enum obs_frontend_event event, void *ptr);
 	static PTZControls *instance;
 	void OBSFrontendEvent(enum obs_frontend_event event);
 
@@ -64,8 +63,7 @@ private:
 	QMap<obs_hotkey_id, int> preset_hotkey_map;
 
 private slots:
-	void setPanTilt(double pan, double tilt, double pan_accel = 0,
-			double tilt_accel = 0);
+	void setPanTilt(double pan, double tilt, double pan_accel = 0, double tilt_accel = 0);
 	void keypressPanTilt(double pan, double tilt);
 	void on_panTiltButton_up_pressed();
 	void on_panTiltButton_up_released();

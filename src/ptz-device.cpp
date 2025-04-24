@@ -27,8 +27,7 @@ QMap<uint32_t, PTZDevice *> PTZListModel::devices;
 static void source_rename_cb(void *data, calldata_t *cd)
 {
 	auto ptzlm = static_cast<PTZListModel *>(data);
-	ptzlm->renameDevice(calldata_string(cd, "new_name"),
-			    calldata_string(cd, "prev_name"));
+	ptzlm->renameDevice(calldata_string(cd, "new_name"), calldata_string(cd, "prev_name"));
 }
 
 void PTZListModel::renameDevice(QString new_name, QString prev_name)
@@ -69,8 +68,7 @@ QVariant PTZListModel::data(const QModelIndex &index, int role) const
 		return QVariant();
 
 	if (role == Qt::DisplayRole || role == Qt::EditRole) {
-		return devices.value(devices.keys().at(index.row()))
-			->objectName();
+		return devices.value(devices.keys().at(index.row()))->objectName();
 	}
 #if 0
 	if (role == Qt::UserRole) {
@@ -142,8 +140,7 @@ obs_data_array_t *PTZListModel::getConfigs()
 {
 	obs_data_array_t *configs = obs_data_array_create();
 	for (auto key : devices.keys())
-		obs_data_array_push_back(
-			configs, ptzDeviceList.getDevice(key)->get_config());
+		obs_data_array_push_back(configs, ptzDeviceList.getDevice(key)->get_config());
 	return configs;
 }
 
@@ -169,8 +166,7 @@ void PTZListModel::remove(PTZDevice *ptz)
 	}
 }
 
-bool PTZPresetListModel::insertRows(int row, int count,
-				    const QModelIndex &parent)
+bool PTZPresetListModel::insertRows(int row, int count, const QModelIndex &parent)
 {
 	if (row < 0 || row > rowCount())
 		return false;
@@ -195,8 +191,7 @@ bool PTZPresetListModel::insertRows(int row, int count,
 	return true;
 }
 
-bool PTZPresetListModel::removeRows(int row, int count,
-				    const QModelIndex &parent)
+bool PTZPresetListModel::removeRows(int row, int count, const QModelIndex &parent)
 {
 	if (row < 0 || row >= rowCount())
 		return false;
@@ -211,16 +206,13 @@ bool PTZPresetListModel::removeRows(int row, int count,
 	return true;
 }
 
-bool PTZPresetListModel::moveRows(const QModelIndex &srcParent, int srcRow,
-				  int count, const QModelIndex &destParent,
+bool PTZPresetListModel::moveRows(const QModelIndex &srcParent, int srcRow, int count, const QModelIndex &destParent,
 				  int destChild)
 {
-	if (srcRow < 0 || srcRow >= rowCount() || destChild < 0 ||
-	    destChild > rowCount() || count != 1)
+	if (srcRow < 0 || srcRow >= rowCount() || destChild < 0 || destChild > rowCount() || count != 1)
 		return false;
 
-	if (!beginMoveRows(srcParent, srcRow, srcRow + count - 1, destParent,
-			   destChild))
+	if (!beginMoveRows(srcParent, srcRow, srcRow + count - 1, destParent, destChild))
 		return false;
 	if (srcRow < destChild)
 		destChild--;
@@ -282,8 +274,7 @@ enum {
 	MOVE_FLAG_FOCUS = 1 << 2,
 };
 
-void PTZListModel::move_continuous(uint32_t device_id, uint32_t flags,
-				   double pan, double tilt, double zoom,
+void PTZListModel::move_continuous(uint32_t device_id, uint32_t flags, double pan, double tilt, double zoom,
 				   double focus)
 {
 	PTZDevice *ptz = ptzDeviceList.getDevice(device_id);
@@ -310,8 +301,7 @@ int PTZPresetListModel::getPresetId(const QModelIndex &index) const
 		return -1;
 
 	if (index.row() >= m_displayOrder.size()) {
-		blog(LOG_ERROR, "ERROR: Preset Row %i is not valid",
-		     index.row());
+		blog(LOG_ERROR, "ERROR: Preset Row %i is not valid", index.row());
 		return -1;
 	}
 	return (int)m_displayOrder[index.row()];
@@ -357,8 +347,7 @@ void PTZPresetListModel::sanitize(size_t id)
 		preset.remove("name");
 }
 
-bool PTZPresetListModel::setData(const QModelIndex &index,
-				 const QVariant &value, int role)
+bool PTZPresetListModel::setData(const QModelIndex &index, const QVariant &value, int role)
 {
 	auto id = getPresetId(index);
 	if (id < 0)
@@ -527,10 +516,8 @@ void PTZDevice::set_config(OBSData config)
 {
 	/* Update the list of preset names */
 	obs_data_set_default_double(config, "preset_max", 16);
-	m_presetsModel.setMaxPresets(
-		(size_t)obs_data_get_int(config, "preset_max"));
-	OBSDataArrayAutoRelease preset_array =
-		obs_data_get_array(config, "presets");
+	m_presetsModel.setMaxPresets((size_t)obs_data_get_int(config, "preset_max"));
+	OBSDataArrayAutoRelease preset_array = obs_data_get_array(config, "presets");
 	m_presetsModel.loadPresets(preset_array.Get());
 
 	obs_data_set_default_double(config, "pantilt_speed_max", 1.0);
@@ -564,16 +551,13 @@ void PTZDevice::set_settings(OBSData config)
 	if (obs_data_has_user_value(config, "name"))
 		setObjectName(obs_data_get_string(config, "name"));
 	if (obs_data_has_user_value(config, "pantilt_speed_max"))
-		pantilt_speed_max =
-			obs_data_get_double(config, "pantilt_speed_max");
+		pantilt_speed_max = obs_data_get_double(config, "pantilt_speed_max");
 	if (obs_data_has_user_value(config, "zoom_speed_max"))
 		zoom_speed_max = obs_data_get_double(config, "zoom_speed_max");
 	if (obs_data_has_user_value(config, "focus_speed_max"))
-		focus_speed_max =
-			obs_data_get_double(config, "focus_speed_max");
+		focus_speed_max = obs_data_get_double(config, "focus_speed_max");
 	if (obs_data_has_user_value(config, "preset_max"))
-		m_presetsModel.setMaxPresets(
-			(int)obs_data_get_int(config, "preset_max"));
+		m_presetsModel.setMaxPresets((int)obs_data_get_int(config, "preset_max"));
 }
 
 OBSData PTZDevice::get_settings()
@@ -593,45 +577,31 @@ obs_properties_t *PTZDevice::get_obs_properties()
 			srcnames->append(obs_source_get_name(src));
 		return true;
 	};
-	auto srcs_prop = obs_properties_add_list(rtn_props, "name", "Source",
-						 OBS_COMBO_TYPE_LIST,
-						 OBS_COMBO_FORMAT_STRING);
+	auto srcs_prop =
+		obs_properties_add_list(rtn_props, "name", "Source", OBS_COMBO_TYPE_LIST, OBS_COMBO_FORMAT_STRING);
 	obs_property_list_add_string(srcs_prop, "---select source---", "");
 	/* Add current source to top list */
-	OBSSourceAutoRelease src =
-		obs_get_source_by_name(QT_TO_UTF8(objectName()));
+	OBSSourceAutoRelease src = obs_get_source_by_name(QT_TO_UTF8(objectName()));
 	if (src)
-		obs_property_list_add_string(srcs_prop,
-					     QT_TO_UTF8(objectName()),
-					     QT_TO_UTF8(objectName()));
+		obs_property_list_add_string(srcs_prop, QT_TO_UTF8(objectName()), QT_TO_UTF8(objectName()));
 	/* Add all sources not assigned to a camera */
 	QStringList srcnames;
 	obs_enum_sources(src_cb, &srcnames);
 	for (auto n : ptzDeviceList.getDeviceNames())
 		srcnames.removeAll(n);
 	for (auto n : srcnames)
-		obs_property_list_add_string(srcs_prop, QT_TO_UTF8(n),
-					     QT_TO_UTF8(n));
+		obs_property_list_add_string(srcs_prop, QT_TO_UTF8(n), QT_TO_UTF8(n));
 
 	obs_properties_t *config = obs_properties_create();
-	obs_properties_add_group(rtn_props, "interface", "Connection",
-				 OBS_GROUP_NORMAL, config);
+	obs_properties_add_group(rtn_props, "interface", "Connection", OBS_GROUP_NORMAL, config);
 
 	/* Generic camera limits and speeds properties */
 	auto speed = obs_properties_create();
-	obs_properties_add_group(rtn_props, "general", "Camera Settings",
-				 OBS_GROUP_NORMAL, speed);
-	obs_properties_add_int_slider(speed, "preset_max", "Number of presets",
-				      1, 0x80, 1);
-	obs_properties_add_float_slider(speed, "pantilt_speed_max",
-					"Pan/Tilt Maximum Speed", 0.1, 1.0,
-					1.0 / 1024);
-	obs_properties_add_float_slider(speed, "zoom_speed_max",
-					"Zoom Maximum Speed", 0.1, 1.0,
-					1.0 / 1024);
-	obs_properties_add_float_slider(speed, "focus_speed_max",
-					"Focus Maximum Speed", 0.1, 1.0,
-					1.0 / 1024);
+	obs_properties_add_group(rtn_props, "general", "Camera Settings", OBS_GROUP_NORMAL, speed);
+	obs_properties_add_int_slider(speed, "preset_max", "Number of presets", 1, 0x80, 1);
+	obs_properties_add_float_slider(speed, "pantilt_speed_max", "Pan/Tilt Maximum Speed", 0.1, 1.0, 1.0 / 1024);
+	obs_properties_add_float_slider(speed, "zoom_speed_max", "Zoom Maximum Speed", 0.1, 1.0, 1.0 / 1024);
+	obs_properties_add_float_slider(speed, "focus_speed_max", "Focus Maximum Speed", 0.1, 1.0, 1.0 / 1024);
 
 	return rtn_props;
 }
@@ -680,17 +650,13 @@ void ptz_load_devices()
 	/* Preset Recall/Save Callback */
 	auto ptz_preset_cb = [](void *data, calldata_t *cd) {
 		auto function = static_cast<const char *>(data);
-		QMetaObject::invokeMethod(
-			&ptzDeviceList, function,
-			Q_ARG(uint32_t, calldata_int(cd, "device_id")),
-			Q_ARG(int, calldata_int(cd, "preset_id")));
+		QMetaObject::invokeMethod(&ptzDeviceList, function, Q_ARG(uint32_t, calldata_int(cd, "device_id")),
+					  Q_ARG(int, calldata_int(cd, "preset_id")));
 	};
-	proc_handler_add(ptz_ph,
-			 "void ptz_preset_recall(int device_id, int preset_id)",
-			 ptz_preset_cb, (void *)"preset_recall");
-	proc_handler_add(ptz_ph,
-			 "void ptz_preset_save(int device_id, int preset_id)",
-			 ptz_preset_cb, (void *)"preset_save");
+	proc_handler_add(ptz_ph, "void ptz_preset_recall(int device_id, int preset_id)", ptz_preset_cb,
+			 (void *)"preset_recall");
+	proc_handler_add(ptz_ph, "void ptz_preset_save(int device_id, int preset_id)", ptz_preset_cb,
+			 (void *)"preset_save");
 
 	auto ptz_move_continuous = [](void *data, calldata_t *cd) {
 		Q_UNUSED(data);
@@ -699,23 +665,19 @@ void ptz_load_devices()
 		if (!calldata_get_int(cd, "device_id", &device_id))
 			return;
 		int flags = 0;
-		if (calldata_get_float(cd, "pan", &pan) &&
-		    calldata_get_float(cd, "tilt", &tilt))
+		if (calldata_get_float(cd, "pan", &pan) && calldata_get_float(cd, "tilt", &tilt))
 			flags |= MOVE_FLAG_PANTILT;
 		if (calldata_get_float(cd, "zoom", &zoom))
 			flags |= MOVE_FLAG_ZOOM;
 		if (calldata_get_float(cd, "focus", &focus))
 			flags |= MOVE_FLAG_FOCUS;
-		QMetaObject::invokeMethod(
-			&ptzDeviceList, "move_continuous",
-			Q_ARG(uint32_t, device_id), Q_ARG(uint32_t, flags),
-			Q_ARG(double, pan), Q_ARG(double, tilt),
-			Q_ARG(double, zoom), Q_ARG(double, focus));
+		QMetaObject::invokeMethod(&ptzDeviceList, "move_continuous", Q_ARG(uint32_t, device_id),
+					  Q_ARG(uint32_t, flags), Q_ARG(double, pan), Q_ARG(double, tilt),
+					  Q_ARG(double, zoom), Q_ARG(double, focus));
 	};
-	proc_handler_add(
-		ptz_ph,
-		"void ptz_move_continuous(int device_id, float pan, float tilt, float zoom, float focus)",
-		ptz_move_continuous, NULL);
+	proc_handler_add(ptz_ph,
+			 "void ptz_move_continuous(int device_id, float pan, float tilt, float zoom, float focus)",
+			 ptz_move_continuous, NULL);
 
 	/* Register the new proc hander with the main proc handler */
 	proc_handler_t *ph = obs_get_proc_handler();
@@ -727,14 +689,11 @@ void ptz_load_devices()
 		Q_UNUSED(data);
 		calldata_set_ptr(cd, "return", ptz_ph);
 	};
-	proc_handler_add(ph, "ptr ptz_get_proc_handler()", ptz_get_proc_handler,
-			 NULL);
+	proc_handler_add(ph, "ptr ptz_get_proc_handler()", ptz_get_proc_handler, NULL);
 
 	/* Deprecated pantilt callback for compatibility with existing plugins */
-	proc_handler_add(
-		ph,
-		"void ptz_pantilt(int device_id, float pan, float tilt, float zoom, float focus)",
-		ptz_move_continuous, NULL);
+	proc_handler_add(ph, "void ptz_pantilt(int device_id, float pan, float tilt, float zoom, float focus)",
+			 ptz_move_continuous, NULL);
 }
 
 void ptz_unload_devices(void)

@@ -13,12 +13,10 @@ std::map<int, ViscaUDPSocket *> ViscaUDPSocket::interfaces;
 ViscaUDPSocket::ViscaUDPSocket(int port) : visca_port(port)
 {
 	if (!visca_socket.bind(QHostAddress::Any, visca_port)) {
-		blog(LOG_INFO, "VISCA-over-IP bind to port %i failed",
-		     visca_port);
+		blog(LOG_INFO, "VISCA-over-IP bind to port %i failed", visca_port);
 		return;
 	}
-	connect(&visca_socket, &QUdpSocket::readyRead, this,
-		&ViscaUDPSocket::poll);
+	connect(&visca_socket, &QUdpSocket::readyRead, this, &ViscaUDPSocket::poll);
 }
 
 void ViscaUDPSocket::receive_datagram(QNetworkDatagram &dg)
@@ -28,8 +26,7 @@ void ViscaUDPSocket::receive_datagram(QNetworkDatagram &dg)
 	int size = data[2] << 8 | data[3];
 
 	if ((data.size() != size + 8) || size < 1) {
-		blog(ptz_debug_level, "VISCA UDP (malformed) <-- %s",
-		     qPrintable(data.toHex(':')));
+		blog(ptz_debug_level, "VISCA UDP (malformed) <-- %s", qPrintable(data.toHex(':')));
 		return;
 	}
 
@@ -86,8 +83,7 @@ PTZViscaOverIP::~PTZViscaOverIP()
 
 QString PTZViscaOverIP::description()
 {
-	return QString("VISCA/UDP %1:%2")
-		.arg(ip_address.toString(), QString::number(iface->port()));
+	return QString("VISCA/UDP %1:%2").arg(ip_address.toString(), QString::number(iface->port()));
 }
 
 void PTZViscaOverIP::attach_interface(ViscaUDPSocket *new_iface)
@@ -96,10 +92,8 @@ void PTZViscaOverIP::attach_interface(ViscaUDPSocket *new_iface)
 		iface->disconnect(this);
 	iface = new_iface;
 	if (iface) {
-		connect(iface, &ViscaUDPSocket::receive, this,
-			&PTZViscaOverIP::receive);
-		connect(iface, &ViscaUDPSocket::reset, this,
-			&PTZViscaOverIP::reset);
+		connect(iface, &ViscaUDPSocket::receive, this, &PTZViscaOverIP::receive);
+		connect(iface, &ViscaUDPSocket::reset, this, &PTZViscaOverIP::reset);
 		reset();
 	}
 }
@@ -140,8 +134,7 @@ void PTZViscaOverIP::set_config(OBSData config)
 OBSData PTZViscaOverIP::get_config()
 {
 	OBSData config = PTZVisca::get_config();
-	obs_data_set_string(config, "address",
-			    qPrintable(ip_address.toString()));
+	obs_data_set_string(config, "address", qPrintable(ip_address.toString()));
 	obs_data_set_int(config, "port", iface->port());
 	return config;
 }
@@ -152,8 +145,7 @@ obs_properties_t *PTZViscaOverIP::get_obs_properties()
 	obs_property_t *p = obs_properties_get(ptz_props, "interface");
 	obs_properties_t *config = obs_property_group_content(p);
 	obs_property_set_description(p, "VISCA (UDP) Connection");
-	obs_properties_add_text(config, "address", "IP Address",
-				OBS_TEXT_DEFAULT);
+	obs_properties_add_text(config, "address", "IP Address", OBS_TEXT_DEFAULT);
 	obs_properties_add_int(config, "port", "UDP port", 1, 65535, 1);
 	return ptz_props;
 }

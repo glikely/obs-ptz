@@ -20,10 +20,8 @@ class SourceNameDelegate : public QStyledItemDelegate {
 	Q_OBJECT
 
 public:
-	SourceNameDelegate(QObject *parent = nullptr)
-		: QStyledItemDelegate(parent){};
-	virtual QString displayText(const QVariant &value,
-				    const QLocale &locale) const;
+	SourceNameDelegate(QObject *parent = nullptr) : QStyledItemDelegate(parent){};
+	virtual QString displayText(const QVariant &value, const QLocale &locale) const;
 };
 
 class PTZSettings : public QWidget {
@@ -62,8 +60,7 @@ public slots:
 	void on_livemoveCheckBox_stateChanged(int state);
 	void on_enableDebugLogCheckBox_stateChanged(int state);
 
-	void currentChanged(const QModelIndex &current,
-			    const QModelIndex &previous);
+	void currentChanged(const QModelIndex &current, const QModelIndex &previous);
 	void settingsChanged(OBSData settings);
 	obs_properties_t *getProperties(void);
 	void updateProperties(OBSData old_settings, OBSData new_settings);

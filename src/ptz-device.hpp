@@ -18,9 +18,8 @@
 #include <util/platform.h>
 
 extern int ptz_debug_level;
-#define ptz_log(level, format, ...)                     \
-	blog(level, "[%s/%.12s] " format, type.c_str(), \
-	     QT_TO_UTF8(objectName()), ##__VA_ARGS__)
+#define ptz_log(level, format, ...) \
+	blog(level, "[%s/%.12s] " format, type.c_str(), QT_TO_UTF8(objectName()), ##__VA_ARGS__)
 #define ptz_info(format, ...) ptz_log(LOG_INFO, format, ##__VA_ARGS__)
 #define ptz_debug(format, ...) ptz_log(ptz_debug_level, format, ##__VA_ARGS__)
 
@@ -58,8 +57,7 @@ public:
 public slots:
 	void preset_recall(uint32_t device_id, int preset_id);
 	void preset_save(uint32_t device_id, int preset_id);
-	void move_continuous(uint32_t device_id, uint32_t flags, double pan,
-			     double tilt, double zoom, double focus);
+	void move_continuous(uint32_t device_id, uint32_t flags, double pan, double tilt, double zoom, double focus);
 };
 
 extern PTZListModel ptzDeviceList;
@@ -78,16 +76,13 @@ protected:
 
 public:
 	/* QAbstractListModel overrides */
-	bool insertRows(int row, int count,
-			const QModelIndex &parent = QModelIndex());
-	bool removeRows(int row, int count,
-			const QModelIndex &parent = QModelIndex());
-	bool moveRows(const QModelIndex &srcParent, int srcRow, int count,
-		      const QModelIndex &destParent, int destChild);
+	bool insertRows(int row, int count, const QModelIndex &parent = QModelIndex());
+	bool removeRows(int row, int count, const QModelIndex &parent = QModelIndex());
+	bool moveRows(const QModelIndex &srcParent, int srcRow, int count, const QModelIndex &destParent,
+		      int destChild);
 	int rowCount(const QModelIndex &parent = QModelIndex()) const;
 	QVariant data(const QModelIndex &index, int role) const;
-	bool setData(const QModelIndex &index, const QVariant &value,
-		     int role = Qt::EditRole);
+	bool setData(const QModelIndex &index, const QVariant &value, int role = Qt::EditRole);
 	Qt::ItemFlags flags(const QModelIndex &index) const;
 
 	/* PTZ Preset API */

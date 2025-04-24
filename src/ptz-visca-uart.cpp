@@ -40,9 +40,8 @@ void ViscaUART::receive_datagram(const QByteArray &packet)
 		switch (packet[1] & 0x0f) { /* Decode Packet Socket Field */
 		case 0:
 			camera_count = (packet[2] & 0x7) - 1;
-			blog(LOG_INFO, "VISCA Interface %s: %i camera%s found",
-			     qPrintable(uart.portName()), camera_count,
-			     camera_count == 1 ? "" : "s");
+			blog(LOG_INFO, "VISCA Interface %s: %i camera%s found", qPrintable(uart.portName()),
+			     camera_count, camera_count == 1 ? "" : "s");
 			send(VISCA_IF_CLEAR.cmd);
 			emit reset();
 			break;
@@ -77,12 +76,10 @@ void ViscaUART::receiveBytes(const QByteArray &msg)
 ViscaUART *ViscaUART::get_interface(QString port_name)
 {
 	ViscaUART *iface;
-	blog(ptz_debug_level, "Looking for UART object %s",
-	     qPrintable(port_name));
+	blog(ptz_debug_level, "Looking for UART object %s", qPrintable(port_name));
 	iface = interfaces[port_name];
 	if (!iface) {
-		blog(ptz_debug_level, "Creating new VISCA object %s",
-		     qPrintable(port_name));
+		blog(ptz_debug_level, "Creating new VISCA object %s", qPrintable(port_name));
 		iface = new ViscaUART(port_name);
 		iface->open();
 		interfaces[port_name] = iface;
@@ -102,8 +99,7 @@ PTZViscaSerial::~PTZViscaSerial()
 
 QString PTZViscaSerial::description()
 {
-	return QString("VISCA %1 id:%2")
-		.arg(iface->portName(), QString::number(address));
+	return QString("VISCA %1 id:%2").arg(iface->portName(), QString::number(address));
 }
 
 void PTZViscaSerial::attach_interface(ViscaUART *new_iface)
@@ -112,8 +108,7 @@ void PTZViscaSerial::attach_interface(ViscaUART *new_iface)
 		iface->disconnect(this);
 	iface = new_iface;
 	if (iface) {
-		connect(iface, &ViscaUART::receive, this,
-			&PTZViscaSerial::receive);
+		connect(iface, &ViscaUART::receive, this, &PTZViscaSerial::receive);
 		connect(iface, &ViscaUART::reset, this, &PTZViscaSerial::reset);
 	}
 }

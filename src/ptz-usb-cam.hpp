@@ -40,8 +40,7 @@ public:
 	bool pan(double value)
 	{
 		now_pos.pan = std::clamp(value, -1.0, 1.0);
-		long pan = std::clamp(static_cast<long>(now_pos.pan * max.pan),
-				      min.pan, max.pan);
+		long pan = std::clamp(static_cast<long>(now_pos.pan * max.pan), min.pan, max.pan);
 		return internal_pan(pan);
 	}
 	double getPan() const { return now_pos.pan; }
@@ -49,9 +48,7 @@ public:
 	bool tilt(double value)
 	{
 		now_pos.tilt = std::clamp(value, -1.0, 1.0);
-		long tilt =
-			std::clamp(static_cast<long>(now_pos.tilt * max.tilt),
-				   min.tilt, max.tilt);
+		long tilt = std::clamp(static_cast<long>(now_pos.tilt * max.tilt), min.tilt, max.tilt);
 		return internal_tilt(tilt);
 	}
 	double getTilt() const { return now_pos.tilt; }
@@ -59,9 +56,7 @@ public:
 	bool zoom(double value)
 	{
 		now_pos.zoom = std::clamp(value, 0.0, 1.0);
-		long zoom =
-			std::clamp(static_cast<long>(now_pos.zoom * max.zoom),
-				   min.zoom, max.zoom);
+		long zoom = std::clamp(static_cast<long>(now_pos.zoom * max.zoom), min.zoom, max.zoom);
 		return internal_zoom(zoom);
 	}
 	double getZoom() const { return now_pos.zoom; }
@@ -69,17 +64,13 @@ public:
 	bool focus(double value)
 	{
 		now_pos.focus = std::clamp(value, 0.0, 1.0);
-		long focus =
-			std::clamp(static_cast<long>(now_pos.focus * max.focus),
-				   min.focus, max.focus);
+		long focus = std::clamp(static_cast<long>(now_pos.focus * max.focus), min.focus, max.focus);
 		return internal_focus(false, focus);
 	}
 	double getFocus() const { return now_pos.focus; }
 	bool setAutoFocus(bool enabled)
 	{
-		long focus =
-			std::clamp(static_cast<long>(now_pos.focus * max.focus),
-				   min.focus, max.focus);
+		long focus = std::clamp(static_cast<long>(now_pos.focus * max.focus), min.focus, max.focus);
 		return internal_focus(enabled, focus);
 	}
 	struct PtzUsbCamPos getPosition() const { return now_pos; }

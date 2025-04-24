@@ -15,8 +15,7 @@ void CircularListView::cursorDown()
 		setCurrentIndex(next);
 }
 
-QModelIndex CircularListView::moveCursor(QAbstractItemView::CursorAction action,
-					 Qt::KeyboardModifiers modifiers)
+QModelIndex CircularListView::moveCursor(QAbstractItemView::CursorAction action, Qt::KeyboardModifiers modifiers)
 {
 	auto m = model();
 	auto index = currentIndex();

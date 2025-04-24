@@ -12,6 +12,5 @@ public slots:
 	void cursorDown();
 
 protected:
-	QModelIndex moveCursor(QAbstractItemView::CursorAction action,
-			       Qt::KeyboardModifiers modifiers);
+	QModelIndex moveCursor(QAbstractItemView::CursorAction action, Qt::KeyboardModifiers modifiers);
 };

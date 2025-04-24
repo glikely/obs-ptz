@@ -12,8 +12,7 @@ class TouchControl : public QWidget {
 	Q_OBJECT
 
 public:
-	TouchControl(QWidget *parent = Q_NULLPTR,
-		     Qt::WindowFlags f = Qt::WindowFlags());
+	TouchControl(QWidget *parent = Q_NULLPTR, Qt::WindowFlags f = Qt::WindowFlags());
 	double x() const;
 	double y() const;
 

@@ -80,8 +80,7 @@ void TouchControl::paintEvent(QPaintEvent *event)
 	// Draw directional arrows between the circles
 	painter.setPen(QPen(QBrush(Qt::gray), 0.05));
 	QPolygonF arrow;
-	arrow << QPointF(-0.15, -0.05) << QPointF(0, 0.05)
-	      << QPointF(0.15, -0.05);
+	arrow << QPointF(-0.15, -0.05) << QPointF(0, 0.05) << QPointF(0.15, -0.05);
 	for (int i = 0; i < 4; i++) {
 		painter.save();
 		painter.rotate(90 * i);

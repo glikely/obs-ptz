@@ -36,27 +36,25 @@ static PTZSettings *ptzSettingsWindow = nullptr;
 
 /* ----------------------------------------------------------------- */
 
-const char *description_text =
-	"<html><head/><body>"
-	"<p>OBS PTZ Controls Plugin<br>" PLUGIN_VERSION "<br>"
-	"By Grant Likely &lt;grant.likely@secretlab.ca&gt;</p>"
-	"<p><a href=\"https://obsproject.com/forum/resources/ptz-controls.1284/\">"
-	"<span style=\" text-decoration: underline; color:#7f7fff;\">"
-	"https://obsproject.com/forum/resources/ptz-controls.1284/</a></p>"
-	"<p><a href=\"https://github.com/glikely/obs-ptz\">"
-	"<span style=\" text-decoration: underline; color:#7f7fff;\">"
-	"https://github.com/glikely/obs-ptz</span></a></p>"
-	"<p>Contributors:<br/>"
-	"Norihiro Kamae<br/>"
-	"Luuk Verhagen<br/>"
-	"Jonata Bolzan Loss<br/>"
-	"Fabio Ferrari<br/>"
-	"Jim Hauxwell<br/>"
-	"Eric Schmidt</p>"
-	"</body></html>";
+const char *description_text = "<html><head/><body>"
+			       "<p>OBS PTZ Controls Plugin<br>" PLUGIN_VERSION "<br>"
+			       "By Grant Likely &lt;grant.likely@secretlab.ca&gt;</p>"
+			       "<p><a href=\"https://obsproject.com/forum/resources/ptz-controls.1284/\">"
+			       "<span style=\" text-decoration: underline; color:#7f7fff;\">"
+			       "https://obsproject.com/forum/resources/ptz-controls.1284/</a></p>"
+			       "<p><a href=\"https://github.com/glikely/obs-ptz\">"
+			       "<span style=\" text-decoration: underline; color:#7f7fff;\">"
+			       "https://github.com/glikely/obs-ptz</span></a></p>"
+			       "<p>Contributors:<br/>"
+			       "Norihiro Kamae<br/>"
+			       "Luuk Verhagen<br/>"
+			       "Jonata Bolzan Loss<br/>"
+			       "Fabio Ferrari<br/>"
+			       "Jim Hauxwell<br/>"
+			       "Eric Schmidt</p>"
+			       "</body></html>";
 
-QString SourceNameDelegate::displayText(const QVariant &value,
-					const QLocale &locale) const
+QString SourceNameDelegate::displayText(const QVariant &value, const QLocale &locale) const
 {
 	auto string = QStyledItemDelegate::displayText(value, locale);
 	auto ptz = ptzDeviceList.getDeviceByName(string);
@@ -69,8 +67,7 @@ obs_properties_t *PTZSettings::getProperties(void)
 {
 	auto applycb = [](obs_properties_t *, obs_property_t *, void *data_) {
 		auto s = static_cast<PTZSettings *>(data_);
-		PTZDevice *ptz = ptzDeviceList.getDevice(
-			s->ui->deviceList->currentIndex());
+		PTZDevice *ptz = ptzDeviceList.getDevice(s->ui->deviceList->currentIndex());
 		if (ptz)
 			ptz->set_config(s->propertiesView->GetSettings());
 		return true;
@@ -81,8 +78,7 @@ obs_properties_t *PTZSettings::getProperties(void)
 		return true;
 	};
 
-	PTZDevice *ptz =
-		ptzDeviceList.getDevice(ui->deviceList->currentIndex());
+	PTZDevice *ptz = ptzDeviceList.getDevice(ui->deviceList->currentIndex());
 	if (!ptz)
 		return obs_properties_create();
 
@@ -91,25 +87,20 @@ obs_properties_t *PTZSettings::getProperties(void)
 	if (p) {
 		auto iface = obs_property_group_content(p);
 		if (iface)
-			obs_properties_add_button2(iface, "iface_apply",
-						   "Apply", applycb, this);
+			obs_properties_add_button2(iface, "iface_apply", "Apply", applycb, this);
 	}
 	if (ptz_debug_level <= LOG_INFO) {
 		auto debug = obs_properties_create();
-		obs_properties_add_text(debug, "debug_info", NULL,
-					OBS_TEXT_INFO);
-		obs_properties_add_button2(debug, "dbgdump", "Write to OBS log",
-					   cb, settings);
-		obs_properties_add_group(props, "debug", "Debug",
-					 OBS_GROUP_NORMAL, debug);
+		obs_properties_add_text(debug, "debug_info", NULL, OBS_TEXT_INFO);
+		obs_properties_add_button2(debug, "dbgdump", "Write to OBS log", cb, settings);
+		obs_properties_add_group(props, "debug", "Debug", OBS_GROUP_NORMAL, debug);
 	}
 	return props;
 }
 
 void PTZSettings::updateProperties(OBSData old_settings, OBSData new_settings)
 {
-	PTZDevice *ptz =
-		ptzDeviceList.getDevice(ui->deviceList->currentIndex());
+	PTZDevice *ptz = ptzDeviceList.getDevice(ui->deviceList->currentIndex());
 	if (ptz)
 		ptz->set_settings(new_settings);
 	Q_UNUSED(old_settings);
@@ -122,8 +113,7 @@ PTZSettings::PTZSettings() : QWidget(nullptr), ui(new Ui_PTZSettings)
 
 	ui->setupUi(this);
 
-	ui->livemoveCheckBox->setChecked(
-		PTZControls::getInstance()->liveMovesDisabled());
+	ui->livemoveCheckBox->setChecked(PTZControls::getInstance()->liveMovesDisabled());
 	ui->enableDebugLogCheckBox->setChecked(ptz_debug_level <= LOG_INFO);
 
 	auto snd = new SourceNameDelegate(this);
@@ -131,21 +121,17 @@ PTZSettings::PTZSettings() : QWidget(nullptr), ui(new Ui_PTZSettings)
 	ui->deviceList->setItemDelegateForColumn(0, snd);
 
 	QItemSelectionModel *selectionModel = ui->deviceList->selectionModel();
-	connect(selectionModel,
-		SIGNAL(currentChanged(QModelIndex, QModelIndex)), this,
+	connect(selectionModel, SIGNAL(currentChanged(QModelIndex, QModelIndex)), this,
 		SLOT(currentChanged(QModelIndex, QModelIndex)));
 
 	auto reload_cb = [](void *obj) {
 		return static_cast<PTZSettings *>(obj)->getProperties();
 	};
 	auto update_cb = [](void *obj, obs_data_t *oldset, obs_data_t *newset) {
-		static_cast<PTZSettings *>(obj)->updateProperties(oldset,
-								  newset);
+		static_cast<PTZSettings *>(obj)->updateProperties(oldset, newset);
 	};
-	propertiesView =
-		new OBSPropertiesView(settings, this, reload_cb, update_cb);
-	propertiesView->setSizePolicy(QSizePolicy::Expanding,
-				      QSizePolicy::Expanding);
+	propertiesView = new OBSPropertiesView(settings, this, reload_cb, update_cb);
+	propertiesView->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
 	ui->propertiesLayout->insertWidget(0, propertiesView, 0);
 
 	joystickSetup();
@@ -165,19 +151,15 @@ void PTZSettings::joystickSetup()
 	auto controls = PTZControls::getInstance();
 	ui->joystickNamesListView->setModel(&m_joystickNamesModel);
 	ui->joystickGroupBox->setChecked(controls->joystickEnabled());
-	ui->joystickSpeedSlider->setDoubleConstraints(
-		0.25, 1.75, 0.05, controls->joystickSpeed());
-	ui->joystickDeadzoneSlider->setDoubleConstraints(
-		0.01, 0.15, 0.01, controls->joystickDeadzone());
+	ui->joystickSpeedSlider->setDoubleConstraints(0.25, 1.75, 0.05, controls->joystickSpeed());
+	ui->joystickDeadzoneSlider->setDoubleConstraints(0.01, 0.15, 0.01, controls->joystickDeadzone());
 
-	connect(joysticks, SIGNAL(countChanged()), this,
-		SLOT(joystickUpdate()));
+	connect(joysticks, SIGNAL(countChanged()), this, SLOT(joystickUpdate()));
 	connect(joysticks, SIGNAL(axisEvent(const QJoystickAxisEvent)), this,
 		SLOT(joystickAxisEvent(const QJoystickAxisEvent)));
 
 	auto selectionModel = ui->joystickNamesListView->selectionModel();
-	connect(selectionModel,
-		SIGNAL(currentChanged(QModelIndex, QModelIndex)), this,
+	connect(selectionModel, SIGNAL(currentChanged(QModelIndex, QModelIndex)), this,
 		SLOT(joystickCurrentChanged(QModelIndex, QModelIndex)));
 	joystickUpdate();
 }
@@ -208,8 +190,7 @@ void PTZSettings::joystickUpdate()
 		ui->joystickNamesListView->setCurrentIndex(idx);
 }
 
-void PTZSettings::joystickCurrentChanged(QModelIndex current,
-					 QModelIndex previous)
+void PTZSettings::joystickCurrentChanged(QModelIndex current, QModelIndex previous)
 {
 	Q_UNUSED(previous);
 	PTZControls::getInstance()->setJoystickId(current.row());
@@ -223,8 +204,7 @@ void PTZSettings::joystickSetup()
 
 void PTZSettings::set_selected(uint32_t device_id)
 {
-	ui->deviceList->setCurrentIndex(
-		ptzDeviceList.indexFromDeviceId(device_id));
+	ui->deviceList->setCurrentIndex(ptzDeviceList.indexFromDeviceId(device_id));
 }
 
 void PTZSettings::on_addPTZ_clicked()
@@ -301,8 +281,7 @@ void PTZSettings::on_addPTZ_clicked()
 
 void PTZSettings::on_removePTZ_clicked()
 {
-	PTZDevice *ptz =
-		ptzDeviceList.getDevice(ui->deviceList->currentIndex());
+	PTZDevice *ptz = ptzDeviceList.getDevice(ui->deviceList->currentIndex());
 	if (!ptz)
 		return;
 	delete ptz;
@@ -318,8 +297,7 @@ void PTZSettings::on_enableDebugLogCheckBox_stateChanged(int state)
 	ptz_debug_level = (state == Qt::Unchecked) ? LOG_DEBUG : LOG_INFO;
 }
 
-void PTZSettings::currentChanged(const QModelIndex &current,
-				 const QModelIndex &previous)
+void PTZSettings::currentChanged(const QModelIndex &current, const QModelIndex &previous)
 {
 	auto ptz = ptzDeviceList.getDevice(previous);
 	if (ptz)
@@ -336,15 +314,13 @@ void PTZSettings::currentChanged(const QModelIndex &current,
 			auto rawjson = obs_data_get_json(settings);
 			/* Use QJsonDocument for nice formatting */
 			auto json = QJsonDocument::fromJson(rawjson).toJson();
-			obs_data_set_string(settings, "debug_info",
-					    json.constData());
+			obs_data_set_string(settings, "debug_info", json.constData());
 		}
 
 		/* The settings dialog doesn't touch presets, so remove them */
 		obs_data_erase(settings, "presets");
 
-		ptz->connect(ptz, SIGNAL(settingsChanged(OBSData)), this,
-			     SLOT(settingsChanged(OBSData)));
+		ptz->connect(ptz, SIGNAL(settingsChanged(OBSData)), this, SLOT(settingsChanged(OBSData)));
 	}
 
 	propertiesView->ReloadProperties();
@@ -354,8 +330,7 @@ void PTZSettings::settingsChanged(OBSData changed)
 {
 	obs_data_apply(settings, changed);
 	obs_data_erase(settings, "debug_info");
-	auto json =
-		QJsonDocument::fromJson(obs_data_get_json(settings)).toJson();
+	auto json = QJsonDocument::fromJson(obs_data_get_json(settings)).toJson();
 	obs_data_set_string(settings, "debug_info", json.constData());
 	propertiesView->ReloadProperties();
 }
@@ -393,8 +368,7 @@ void ptz_settings_show(uint32_t device_id)
 
 extern "C" void ptz_load_settings()
 {
-	QAction *action = (QAction *)obs_frontend_add_tools_menu_qaction(
-		obs_module_text("PTZ Devices"));
+	QAction *action = (QAction *)obs_frontend_add_tools_menu_qaction(obs_module_text("PTZ Devices"));
 
 	auto cb = []() {
 		ptz_settings_show(0);

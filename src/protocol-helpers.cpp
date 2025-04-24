@@ -26,17 +26,13 @@ OBSData variantMapToOBSData(const QVariantMap &map)
 		case QMetaType::ULong:
 		case QMetaType::ULongLong:
 		case QMetaType::UShort:
-			obs_data_set_int(data, QT_TO_UTF8(iter.key()),
-					 iter.value().toLongLong());
+			obs_data_set_int(data, QT_TO_UTF8(iter.key()), iter.value().toLongLong());
 			break;
 		case QMetaType::Float:
-			obs_data_set_double(data, QT_TO_UTF8(iter.key()),
-					    iter.value().toFloat());
+			obs_data_set_double(data, QT_TO_UTF8(iter.key()), iter.value().toFloat());
 			break;
 		case QMetaType::QString:
-			obs_data_set_string(
-				data, QT_TO_UTF8(iter.key()),
-				QT_TO_UTF8(iter.value().toString()));
+			obs_data_set_string(data, QT_TO_UTF8(iter.key()), QT_TO_UTF8(iter.value().toString()));
 			break;
 		}
 	}
@@ -90,9 +86,9 @@ bool bool_field::decode(OBSData data, QByteArray &msg)
 	return true;
 }
 
-int_field::int_field(const char *name, unsigned offset, unsigned int mask,
-		     bool signextend)
-	: datagram_field(name, offset), mask(mask)
+int_field::int_field(const char *name, unsigned offset, unsigned int mask, bool signextend)
+	: datagram_field(name, offset),
+	  mask(mask)
 {
 	// Calculate number of bytes in the value
 	unsigned int wm = mask;
@@ -201,6 +197,5 @@ int scale_speed(double speed, int max)
 	// Multiplier is 128 to handle largest possible visca value
 	if (abs(speed) < 1.0 / 256)
 		return 0;
-	return int(std::copysign(
-		std::clamp(abs(speed) * max + 0.5, 1.0, double(max)), speed));
+	return int(std::copysign(std::clamp(abs(speed) * max + 0.5, 1.0, double(max)), speed));
 }

@@ -18,8 +18,7 @@ OBS_MODULE_USE_DEFAULT_LOCALE(PLUGIN_NAME, "en-US");
 
 bool obs_module_load()
 {
-	blog(LOG_INFO, "plugin loaded successfully (version %s)",
-	     PLUGIN_VERSION);
+	blog(LOG_INFO, "plugin loaded successfully (version %s)", PLUGIN_VERSION);
 	ptz_load_devices();
 	ptz_load_action_source();
 	ptz_load_controls();
@@ -48,8 +47,7 @@ struct source_active_cb_data {
 	bool active;
 };
 
-static void source_active_cb(obs_source_t *parent, obs_source_t *child,
-			     void *data)
+static void source_active_cb(obs_source_t *parent, obs_source_t *child, void *data)
 {
 	UNUSED_PARAMETER(parent);
 	struct source_active_cb_data *cb_data = data;
@@ -59,8 +57,7 @@ static void source_active_cb(obs_source_t *parent, obs_source_t *child,
 
 bool ptz_scene_is_source_active(obs_source_t *scene, obs_source_t *source)
 {
-	struct source_active_cb_data cb_data = {.source = source,
-						.active = false};
+	struct source_active_cb_data cb_data = {.source = source, .active = false};
 	if (scene == source)
 		return true;
 	obs_source_enum_active_sources(scene, source_active_cb, &cb_data);

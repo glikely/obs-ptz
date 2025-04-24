@@ -17,8 +17,7 @@
 void PTZOnvif::sendRequest(QString url, QString req)
 {
 	QNetworkRequest request(url);
-	request.setHeader(QNetworkRequest::ContentTypeHeader,
-			  "application/soap+xml");
+	request.setHeader(QNetworkRequest::ContentTypeHeader, "application/soap+xml");
 	QString concatenated = username + ":" + password;
 	QByteArray data = concatenated.toLocal8Bit().toBase64();
 	QString headerData = "Basic " + data;
@@ -32,22 +31,17 @@ void PTZOnvif::authRequired(QNetworkReply *, QAuthenticator *authenticator)
 	authenticator->setPassword(password);
 }
 
-const QString nsXmlSchema("http://www.w3.org/2001/XMLSchema"); //xsd
-const QString
-	nsXmlSchemaInstance("http://www.w3.org/2001/XMLSchema-instance"); //xsi
-const QString
-	nsSoapEnvelope("http://www.w3.org/2003/05/soap-envelope"); //SOAP-ENV
-const QString
-	nsSoapEncoding("http://www.w3.org/2003/05/soap-encoding");  //SOAP-ENC
-const QString nsAddressing("http://www.w3.org/2005/08/addressing"); //wsa5
-const QString nsOnvifSchema("http://www.onvif.org/ver10/schema");   //tt
-const QString nsOnvifDevice("http://www.onvif.org/ver10/device/wsdl"); //tds
-const QString nsOnvifMedia("http://www.onvif.org/ver10/media/wsdl");   //trt
-const QString nsOnvifPtz("http://www.onvif.org/ver20/ptz/wsdl");       //tptz
-const QString nsWssSecext(
-	"http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-wssecurity-secext-1.0.xsd"); //wsse
-const QString nsWssUtility(
-	"http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-wssecurity-utility-1.0.xsd"); //wsu
+const QString nsXmlSchema("http://www.w3.org/2001/XMLSchema");                  //xsd
+const QString nsXmlSchemaInstance("http://www.w3.org/2001/XMLSchema-instance"); //xsi
+const QString nsSoapEnvelope("http://www.w3.org/2003/05/soap-envelope");        //SOAP-ENV
+const QString nsSoapEncoding("http://www.w3.org/2003/05/soap-encoding");        //SOAP-ENC
+const QString nsAddressing("http://www.w3.org/2005/08/addressing");             //wsa5
+const QString nsOnvifSchema("http://www.onvif.org/ver10/schema");               //tt
+const QString nsOnvifDevice("http://www.onvif.org/ver10/device/wsdl");          //tds
+const QString nsOnvifMedia("http://www.onvif.org/ver10/media/wsdl");            //trt
+const QString nsOnvifPtz("http://www.onvif.org/ver20/ptz/wsdl");                //tptz
+const QString nsWssSecext("http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-wssecurity-secext-1.0.xsd");   //wsse
+const QString nsWssUtility("http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-wssecurity-utility-1.0.xsd"); //wsu
 const QString nsWssPasswordDigest(
 	"http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-username-token-profile-1.0#PasswordDigest");
 
@@ -117,8 +111,7 @@ static void writeZoom(QXmlStreamWriter &s, double zoom)
 	s.writeAttribute("x", QString::number(zoom));
 }
 
-void PTZOnvif::genericMove(QString movetype, QString property, double x,
-			   double y, double z)
+void PTZOnvif::genericMove(QString movetype, QString property, double x, double y, double z)
 {
 	QString msg;
 	QXmlStreamWriter s(&msg);
@@ -278,8 +271,7 @@ void PTZOnvif::handleResponse(QString response)
 	QDomNodeList nl;
 
 #if QT_VERSION >= QT_VERSION_CHECK(6, 8, 0)
-	QDomDocument::ParseOptions options =
-		QDomDocument::ParseOption::UseNamespaceProcessing;
+	QDomDocument::ParseOptions options = QDomDocument::ParseOption::UseNamespaceProcessing;
 	doc.setContent(QAnyStringView(response), options);
 #else
 	doc.setContent(response, true);
@@ -300,15 +292,13 @@ void PTZOnvif::handleGetCapabilitiesResponse(QDomNode node)
 	auto pl = responseElement.elementsByTagNameNS(nsOnvifSchema, "PTZ");
 	for (int i = 0; i < pl.length(); i++) {
 		auto e = pl.at(i).toElement();
-		m_PTZAddress =
-			e.firstChildElement("XAddr", nsOnvifSchema).text();
+		m_PTZAddress = e.firstChildElement("XAddr", nsOnvifSchema).text();
 	}
 
 	pl = responseElement.elementsByTagNameNS(nsOnvifSchema, "Media");
 	for (int i = 0; i < pl.length(); i++) {
 		auto e = pl.at(i).toElement();
-		m_mediaXAddr =
-			e.firstChildElement("XAddr", nsOnvifSchema).text();
+		m_mediaXAddr = e.firstChildElement("XAddr", nsOnvifSchema).text();
 	}
 	getProfiles();
 }
@@ -389,14 +379,11 @@ void PTZOnvif::getProfiles()
 
 void PTZOnvif::requestFinished(QNetworkReply *reply)
 {
-	auto statusCodeV =
-		reply->attribute(QNetworkRequest::HttpStatusCodeAttribute)
-			.toInt();
+	auto statusCodeV = reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();
 
 	m_isBusy = false;
 	if (reply->error() > 0) {
-		ptz_info("request error; message: %s, code: %i",
-			 QT_TO_UTF8(reply->errorString()), statusCodeV);
+		ptz_info("request error; message: %s, code: %i", QT_TO_UTF8(reply->errorString()), statusCodeV);
 	} else {
 		handleResponse(reply->readAll());
 	}
@@ -406,19 +393,15 @@ void PTZOnvif::requestFinished(QNetworkReply *reply)
 PTZOnvif::PTZOnvif(OBSData config) : PTZDevice(config)
 {
 	// for digest authenticaton request
-	connect(&m_networkManager,
-		SIGNAL(authenticationRequired(QNetworkReply *,
-					      QAuthenticator *)),
-		this, SLOT(authRequired(QNetworkReply *, QAuthenticator *)));
-	connect(&m_networkManager, SIGNAL(finished(QNetworkReply *)), this,
-		SLOT(requestFinished(QNetworkReply *)));
+	connect(&m_networkManager, SIGNAL(authenticationRequired(QNetworkReply *, QAuthenticator *)), this,
+		SLOT(authRequired(QNetworkReply *, QAuthenticator *)));
+	connect(&m_networkManager, SIGNAL(finished(QNetworkReply *)), this, SLOT(requestFinished(QNetworkReply *)));
 	set_config(config);
 }
 
 QString PTZOnvif::description()
 {
-	return QString("ONVIF %1@%2:%3")
-		.arg(username, host, QString::number(port));
+	return QString("ONVIF %1@%2:%3").arg(username, host, QString::number(port));
 }
 
 void PTZOnvif::connectCamera()
@@ -428,17 +411,13 @@ void PTZOnvif::connectCamera()
 
 void PTZOnvif::do_update()
 {
-	if (status &
-	    (STATUS_PANTILT_SPEED_CHANGED | STATUS_ZOOM_SPEED_CHANGED)) {
-		if (pan_speed == 0.0 && tilt_speed == 0.0 &&
-		    zoom_speed == 0.0) {
-			status &= ~(STATUS_PANTILT_SPEED_CHANGED |
-				    STATUS_ZOOM_SPEED_CHANGED);
+	if (status & (STATUS_PANTILT_SPEED_CHANGED | STATUS_ZOOM_SPEED_CHANGED)) {
+		if (pan_speed == 0.0 && tilt_speed == 0.0 && zoom_speed == 0.0) {
+			status &= ~(STATUS_PANTILT_SPEED_CHANGED | STATUS_ZOOM_SPEED_CHANGED);
 			stop();
 		} else if (!m_isBusy) {
 			m_isBusy = true;
-			status &= ~(STATUS_PANTILT_SPEED_CHANGED |
-				    STATUS_ZOOM_SPEED_CHANGED);
+			status &= ~(STATUS_PANTILT_SPEED_CHANGED | STATUS_ZOOM_SPEED_CHANGED);
 			continuousMove(pan_speed, tilt_speed, zoom_speed);
 		}
 	}
@@ -494,14 +473,10 @@ obs_properties_t *PTZOnvif::get_obs_properties()
 	obs_property_t *p = obs_properties_get(ptz_props, "interface");
 	obs_properties_t *config = obs_property_group_content(p);
 	obs_property_set_description(p, "ONVIF Connection (Experimental)");
-	obs_properties_add_text(config, "warning",
-				"Warning: ONVIF support is experimental",
-				OBS_TEXT_INFO);
+	obs_properties_add_text(config, "warning", "Warning: ONVIF support is experimental", OBS_TEXT_INFO);
 	obs_properties_add_text(config, "host", "IP Host", OBS_TEXT_DEFAULT);
 	obs_properties_add_int(config, "port", "TCP port", 1, 65535, 1);
-	obs_properties_add_text(config, "username", "Username",
-				OBS_TEXT_DEFAULT);
-	obs_properties_add_text(config, "password", "Password",
-				OBS_TEXT_DEFAULT);
+	obs_properties_add_text(config, "username", "Username", OBS_TEXT_DEFAULT);
+	obs_properties_add_text(config, "password", "Password", OBS_TEXT_DEFAULT);
 	return ptz_props;
 }
