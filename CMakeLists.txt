@@ -9,7 +9,8 @@ execute_process(
   COMMAND git describe --tags --dirty
   OUTPUT_VARIABLE _git_version
   WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
-  OUTPUT_STRIP_TRAILING_WHITESPACE)
+  OUTPUT_STRIP_TRAILING_WHITESPACE
+)
 add_compile_definitions(PLUGIN_NAME="${_name}" PLUGIN_VERSION="${_git_version}")
 
 option(ENABLE_FRONTEND_API "Use obs-frontend-api for UI functionality" ON)
@@ -48,30 +49,32 @@ endif()
 target_include_directories(${CMAKE_PROJECT_NAME} PRIVATE ${CMAKE_SOURCE_DIR}/src)
 target_sources(
   ${CMAKE_PROJECT_NAME}
-  PRIVATE src/ptz-controls.ui
-          src/settings.ui
-          src/ptz-controls.qrc
-          src/ptz.c
-          src/ptz-controls.cpp
-          src/ptz-device.cpp
-          src/settings.cpp
-          src/ptz-visca.cpp
-          src/ptz-visca-udp.cpp
-          src/ptz-visca-tcp.cpp
-          src/protocol-helpers.cpp
-          src/ptz-action-source.c
-          src/circularlistview.cpp
-          src/touch-control.cpp
-          src/ptz.h
-          src/ptz-controls.hpp
-          src/ptz-device.hpp
-          src/settings.hpp
-          src/ptz-visca.hpp
-          src/ptz-visca-udp.hpp
-          src/ptz-visca-tcp.hpp
-          src/protocol-helpers.hpp
-          src/circularlistview.hpp
-          src/touch-control.hpp)
+  PRIVATE
+    src/ptz-controls.ui
+    src/settings.ui
+    src/ptz-controls.qrc
+    src/ptz.c
+    src/ptz-controls.cpp
+    src/ptz-device.cpp
+    src/settings.cpp
+    src/ptz-visca.cpp
+    src/ptz-visca-udp.cpp
+    src/ptz-visca-tcp.cpp
+    src/protocol-helpers.cpp
+    src/ptz-action-source.c
+    src/circularlistview.cpp
+    src/touch-control.cpp
+    src/ptz.h
+    src/ptz-controls.hpp
+    src/ptz-device.hpp
+    src/settings.hpp
+    src/ptz-visca.hpp
+    src/ptz-visca-udp.hpp
+    src/ptz-visca-tcp.hpp
+    src/protocol-helpers.hpp
+    src/circularlistview.hpp
+    src/touch-control.hpp
+)
 
 option(ENABLE_USB_CAM "Enable USB camera support" OFF)
 if(ENABLE_USB_CAM)
@@ -93,8 +96,14 @@ if(ENABLE_SERIALPORT)
     target_link_libraries(${CMAKE_PROJECT_NAME} PRIVATE Qt::SerialPort)
     target_sources(
       ${CMAKE_PROJECT_NAME}
-      PRIVATE src/uart-wrapper.cpp src/uart-wrapper.hpp src/ptz-visca-uart.cpp
-              src/ptz-visca-uart.hpp src/ptz-pelco.cpp src/ptz-pelco.hpp)
+      PRIVATE
+        src/uart-wrapper.cpp
+        src/uart-wrapper.hpp
+        src/ptz-visca-uart.cpp
+        src/ptz-visca-uart.hpp
+        src/ptz-pelco.cpp
+        src/ptz-pelco.hpp
+    )
   endif()
 endif()
 
