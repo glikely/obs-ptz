@@ -847,36 +847,35 @@ void PTZControls::on_cameraList_customContextMenuRequested(const QPoint &pos)
 	QPoint globalpos = ui->cameraList->mapToGlobal(pos);
 	QModelIndex index = ui->cameraList->indexAt(pos);
 	PTZDevice *ptz = ptzDeviceList.getDevice(index);
-	if (!ptz)
-		return;
-
-	OBSData settings = ptz->get_settings();
-
 	QMenu context;
-	bool power_on = obs_data_get_bool(settings, "power_on");
-	QAction *powerAction = context.addAction(power_on ? "Power Off" : "Power On");
-
+	QAction *powerAction = nullptr;
 	QAction *wbOnetouchAction = nullptr;
-	bool wb_onepush = (obs_data_get_int(settings, "wb_mode") == 3);
-	if (wb_onepush)
-		wbOnetouchAction = context.addAction("Trigger One-Push White Balance");
+
+	if (ptz) {
+		OBSData settings = ptz->get_settings();
+		bool power_on = obs_data_get_bool(settings, "power_on");
+		powerAction = context.addAction(power_on ? "Power Off" : "Power On");
+
+		bool wb_onepush = (obs_data_get_int(settings, "wb_mode") == 3);
+		if (wb_onepush)
+			wbOnetouchAction = context.addAction("Trigger One-Push White Balance");
+	}
+	QAction *propertiesAction = context.addAction("Properties");
 	QAction *action = context.exec(globalpos);
 
 	OBSData setdata = obs_data_create();
 	obs_data_release(setdata);
 
 	if (action == powerAction) {
-		obs_data_set_bool(setdata, "power_on", !power_on);
+		OBSData settings = ptz->get_settings();
+		obs_data_set_bool(setdata, "power_on", !obs_data_get_bool(settings, "power_on"));
 		ptz->set_settings(setdata);
-	} else if (wb_onepush && action == wbOnetouchAction) {
+	} else if (action == wbOnetouchAction) {
 		obs_data_set_bool(setdata, "wb_onepush_trigger", true);
 		ptz->set_settings(setdata);
+	} else if (action == propertiesAction) {
+		ptz_settings_show(ptzDeviceList.getDeviceId(ui->cameraList->currentIndex()));
 	}
-}
-
-void PTZControls::on_actionPTZProperties_triggered()
-{
-	ptz_settings_show(ptzDeviceList.getDeviceId(ui->cameraList->currentIndex()));
 }
 
 void PTZControls::on_actionTouchControl_toggled(bool checked)

@@ -578,7 +578,6 @@
        <height>16</height>
       </size>
      </property>
-     <addaction name="actionPTZProperties"/>
      <addaction name="actionDisableLiveMoves"/>
      <addaction name="actionTouchControl"/>
      <addaction name="actionFollowPreview"/>
@@ -589,24 +588,6 @@
     </widget>
    </item>
   </layout>
-  <action name="actionPTZProperties">
-   <property name="enabled">
-    <bool>true</bool>
-   </property>
-   <property name="icon">
-    <iconset>
-     <normaloff>:/settings/images/settings/general.svg</normaloff>:/settings/images/settings/general.svg</iconset>
-   </property>
-   <property name="text">
-    <string>PTZ Properties</string>
-   </property>
-   <property name="toolTip">
-    <string>PTZ Camera Properties</string>
-   </property>
-   <property name="class" stdset="0">
-    <string notr="true">icon-gear</string>
-   </property>
-  </action>
   <action name="actionDisableLiveMoves">
    <property name="checkable">
     <bool>true</bool>

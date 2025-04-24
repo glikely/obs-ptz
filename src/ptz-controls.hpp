@@ -107,7 +107,6 @@ private slots:
 	void on_presetListView_customContextMenuRequested(const QPoint &pos);
 	void on_cameraList_doubleClicked(const QModelIndex &index);
 	void on_cameraList_customContextMenuRequested(const QPoint &pos);
-	void on_actionPTZProperties_triggered();
 	void on_actionDisableLiveMoves_toggled(bool checked);
 	void on_actionTouchControl_toggled(bool checked);
 	void on_actionPresetAdd_triggered();
