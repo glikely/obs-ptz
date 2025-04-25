@@ -16,6 +16,7 @@
 #include <QWindow>
 #include <QResizeEvent>
 #include <QDockWidget>
+#include <QLabel>
 
 #include <qt-wrappers.hpp>
 #include "touch-control.hpp"
@@ -133,6 +134,7 @@ PTZControls::PTZControls(QWidget *parent) : QWidget(parent), ui(new Ui::PTZContr
 	instance = this;
 	ui->setupUi(this);
 	ui->cameraList->setModel(&ptzDeviceList);
+	ui->cameraList->setItemDelegate(new PTZDeviceListDelegate(ui->cameraList));
 	copyActionsDynamicProperties();
 
 	QItemSelectionModel *selectionModel = ui->cameraList->selectionModel();
@@ -234,8 +236,6 @@ PTZControls::PTZControls(QWidget *parent) : QWidget(parent), ui(new Ui::PTZContr
 	registerHotkey("PTZ.FocusOneTouch", "PTZ One touch focus trigger", cb, ui->focusButton_onetouch);
 	registerHotkey("PTZ.SelectPrev", "PTZ Select previous device in list", prevcb, ui->cameraList);
 	registerHotkey("PTZ.SelectNext", "PTZ Select next device in list", nextcb, ui->cameraList);
-	registerHotkey("PTZ.ActionDisableLiveMovesToggle", "PTZ Toggle Control Lock", actiontogglecb,
-		       ui->actionDisableLiveMoves);
 	registerHotkey("PTZ.ActionFollowPreviewToggle", "PTZ Autoselect Preview Camera", actiontogglecb,
 		       ui->actionFollowPreview);
 	registerHotkey("PTZ.ActionFollowProgramToggle", "PTZ Autoselect Live Camera", actiontogglecb,
@@ -700,26 +700,25 @@ void PTZControls::updateMoveControls()
 	bool ctrls_enabled = true;
 	PTZDevice *ptz = currCamera();
 
-	// Check if the device's source is in the active program scene
-	// If it is then disable the pan/tilt/zoom controls
-	if (obs_frontend_preview_program_mode_active() && live_moves_disabled && ptz) {
-		auto source = obs_get_source_by_name(QT_TO_UTF8(ptz->objectName()));
-		if (source) {
-			auto program = obs_frontend_get_current_scene();
-			ctrls_enabled = !ptz_scene_is_source_active(program, source);
-			/*
-			blog(LOG_INFO, "updateMoveControls(), program:%s ptz:%s active:%s",
-					obs_source_get_name(program),
-					obs_source_get_name(cb_data.source),
-					ctrls_enabled ? "true" : "false");
-			*/
-			obs_source_release(program);
-			obs_source_release(source);
+	int rows = ptzDeviceList.rowCount();
+	for (int i = 0; i < rows; i++) {
+		auto index = ptzDeviceList.index(i, 0);
+		auto ptzitem = reinterpret_cast<PTZDeviceListItem *>(ui->cameraList->indexWidget(index));
+		if (ptzitem)
+			ptzitem->update();
+		else {
+			auto ptz_ = ptzDeviceList.getDevice(index);
+			ui->cameraList->setIndexWidget(index, new PTZDeviceListItem(ptz_));
 		}
 	}
 
-	ui->actionDisableLiveMoves->setVisible(obs_frontend_preview_program_mode_active() && live_moves_disabled);
-	ui->actionDisableLiveMoves->setChecked(!ctrls_enabled);
+	// Check if the device's source is in the active program scene
+	// If it is then disable the pan/tilt/zoom controls
+	auto item = ui->cameraList->indexWidget(ui->cameraList->currentIndex());
+	auto ptzitem = reinterpret_cast<PTZDeviceListItem *>(item);
+	if (obs_frontend_preview_program_mode_active() && live_moves_disabled && ptz)
+		ctrls_enabled = !ptzitem->isLocked();
+
 	ui->movementControlsWidget->setEnabled(ctrls_enabled);
 	ui->presetListView->setEnabled(ctrls_enabled);
 
@@ -899,12 +898,6 @@ void PTZControls::on_cameraList_customContextMenuRequested(const QPoint &pos)
 	}
 }
 
-void PTZControls::on_actionDisableLiveMoves_toggled(bool checked)
-{
-	ui->movementControlsWidget->setEnabled(!checked);
-	ui->presetListView->setEnabled(!checked);
-}
-
 void PTZControls::on_actionPresetAdd_triggered()
 {
 	auto model = ui->presetListView->model();
@@ -948,4 +941,53 @@ void PTZControls::on_actionPresetMoveDown_triggered()
 		return;
 	model->moveRow(QModelIndex(), index.row(), QModelIndex(), index.row() + 2);
 	presetUpdateActions();
+}
+
+PTZDeviceListDelegate::PTZDeviceListDelegate(QObject *parent) : QStyledItemDelegate(parent) {}
+
+QSize PTZDeviceListDelegate::sizeHint(const QStyleOptionViewItem &option, const QModelIndex &index) const
+{
+	QListView *tree = qobject_cast<QListView *>(parent());
+	QWidget *item = tree->indexWidget(index);
+
+	if (!item)
+		return (QSize(0, 0));
+
+	return (QSize(option.widget->minimumWidth(), item->height()));
+}
+
+void PTZDeviceListDelegate::initStyleOption(QStyleOptionViewItem *option, const QModelIndex &) const
+{
+	option->text = QString();
+}
+
+PTZDeviceListItem::PTZDeviceListItem(PTZDevice *ptz_) : ptz(ptz_)
+{
+	lock = new QCheckBox();
+	lock->setProperty("class", "checkbox-icon indicator-lock");
+	lock->setChecked(ptz->isLive());
+	lock->setAccessibleName("PTZ.Device.Lock");
+	lock->setAccessibleDescription("PTZ.Device.LockDescription");
+
+	label = new QLabel(ptz->objectName());
+
+	boxLayout = new QHBoxLayout();
+	boxLayout->setContentsMargins(0, 0, 0, 0);
+	boxLayout->setSpacing(0);
+	boxLayout->addWidget(label);
+	boxLayout->addWidget(lock);
+	setLayout(boxLayout);
+
+	connect(lock, SIGNAL(clicked(bool)), PTZControls::getInstance(), SLOT(updateMoveControls()));
+
+	update();
+}
+
+void PTZDeviceListItem::update()
+{
+	bool is_live = ptz->isLive();
+	// When a camera becomes live, start with it locked
+	if (lock->isVisible() == false && is_live)
+		lock->setChecked(true);
+	lock->setVisible(is_live);
 }

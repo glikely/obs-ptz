@@ -480,6 +480,21 @@ QString PTZDevice::description()
 	return QString::fromStdString(type);
 }
 
+bool PTZDevice::isLive()
+{
+	bool live = false;
+	// Check if the device's source is in the active program scene
+	// If it is then disable the pan/tilt/zoom controls
+	auto source = obs_get_source_by_name(QT_TO_UTF8(objectName()));
+	if (source) {
+		auto program = obs_frontend_get_current_scene();
+		live = ptz_scene_is_source_active(program, source);
+		obs_source_release(program);
+		obs_source_release(source);
+	}
+	return live;
+}
+
 void PTZDevice::pantilt(double pan, double tilt)
 {
 	pan = std::clamp(pan, -pantilt_speed_max, pantilt_speed_max);

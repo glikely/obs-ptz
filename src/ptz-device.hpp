@@ -138,6 +138,8 @@ public:
 
 	void setObjectName(QString name);
 	virtual QString description();
+	bool isLive();
+
 	QString presetName(size_t id);
 	void setPresetName(size_t id, QString name);
 

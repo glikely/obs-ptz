@@ -580,7 +580,6 @@
        <height>16</height>
       </size>
      </property>
-     <addaction name="actionDisableLiveMoves"/>
      <addaction name="actionFollowPreview"/>
      <addaction name="actionFollowProgram"/>
      <addaction name="actionPresetAdd"/>
@@ -589,25 +588,6 @@
     </widget>
    </item>
   </layout>
-  <action name="actionDisableLiveMoves">
-   <property name="checkable">
-    <bool>true</bool>
-   </property>
-   <property name="icon">
-    <iconset>
-     <normaloff>:/res/images/unlocked.svg</normaloff>
-     <normalon>:/res/images/locked.svg</normalon>:/res/images/unlocked.svg</iconset>
-   </property>
-   <property name="text">
-    <string>Unlock Controls</string>
-   </property>
-   <property name="toolTip">
-    <string>Block changes to live cameras</string>
-   </property>
-   <property name="class" stdset="0">
-    <string notr="true">indicator-lock</string>
-   </property>
-  </action>
   <action name="actionPresetAdd">
    <property name="text">
     <string>Add Preset</string>

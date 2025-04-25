@@ -8,6 +8,8 @@
 
 #include "ptz.h"
 #include <QTimer>
+#include <QCheckBox>
+#include <QStyledItemDelegate>
 #include <obs.hpp>
 #if defined(ENABLE_JOYSTICK)
 #include <QJoysticks.h>
@@ -62,6 +64,8 @@ private:
 	QList<obs_hotkey_id> hotkeys;
 	QMap<obs_hotkey_id, int> preset_hotkey_map;
 
+public slots:
+	void updateMoveControls();
 private slots:
 	void setPanTilt(double pan, double tilt, double pan_accel = 0, double tilt_accel = 0);
 	void keypressPanTilt(double pan, double tilt);
@@ -100,7 +104,6 @@ private slots:
 
 	void currentChanged(QModelIndex current, QModelIndex previous);
 	void settingsChanged(OBSData settings);
-	void updateMoveControls();
 
 	void presetUpdateActions();
 	void on_presetListView_activated(QModelIndex index);
@@ -108,7 +111,6 @@ private slots:
 	void on_presetListView_customContextMenuRequested(const QPoint &pos);
 	void on_cameraList_doubleClicked(const QModelIndex &index);
 	void on_cameraList_customContextMenuRequested(const QPoint &pos);
-	void on_actionDisableLiveMoves_toggled(bool checked);
 	void on_actionPresetAdd_triggered();
 	void on_actionPresetRemove_triggered();
 	void on_actionPresetMoveUp_triggered();
@@ -149,3 +151,30 @@ public:
 	bool liveMovesDisabled() { return live_moves_disabled; };
 	static PTZControls *getInstance() { return instance; };
 };
+
+class PTZDeviceListDelegate : public QStyledItemDelegate {
+	Q_OBJECT
+
+public:
+	PTZDeviceListDelegate(QObject *parent);
+	virtual QSize sizeHint(const QStyleOptionViewItem &option, const QModelIndex &index) const override;
+	virtual void initStyleOption(QStyleOptionViewItem *option, const QModelIndex &index) const override;
+};
+
+class PTZDeviceListItem : public QFrame {
+	Q_OBJECT
+
+public:
+	PTZDeviceListItem(PTZDevice *ptz_);
+	bool isLocked() { return lock ? lock->isChecked() && lock->isVisible() : false; };
+	void update();
+
+private:
+	QSpacerItem *spacer = nullptr;
+	QCheckBox *lock = nullptr;
+	QHBoxLayout *boxLayout = nullptr;
+	QLabel *label = nullptr;
+
+	PTZDevice *ptz;
+};
+
