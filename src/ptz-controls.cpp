@@ -866,6 +866,8 @@ void PTZControls::on_cameraList_customContextMenuRequested(const QPoint &pos)
 	OBSData setdata = obs_data_create();
 	obs_data_release(setdata);
 
+	if (action == nullptr)
+		return;
 	if (action == powerAction) {
 		OBSData settings = ptz->get_settings();
 		obs_data_set_bool(setdata, "power_on", !obs_data_get_bool(settings, "power_on"));
