@@ -724,6 +724,7 @@ void PTZControls::updateMoveControls()
 	ui->presetListView->setEnabled(ctrls_enabled);
 
 	ui->actionFollowPreview->setVisible(obs_frontend_preview_program_mode_active());
+	RefreshToolBarStyling(ui->ptzToolbar);
 }
 
 void PTZControls::currentChanged(QModelIndex current, QModelIndex previous)
@@ -803,6 +804,7 @@ void PTZControls::presetUpdateActions()
 	ui->actionPresetRemove->setEnabled(index.isValid());
 	ui->actionPresetMoveUp->setEnabled(index.isValid() && count > 1 && index.row() > 0);
 	ui->actionPresetMoveDown->setEnabled(index.isValid() && count > 1 && index.row() < count - 1);
+	RefreshToolBarStyling(ui->ptzToolbar);
 }
 
 void PTZControls::on_presetListView_activated(QModelIndex index)
