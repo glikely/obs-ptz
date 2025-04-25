@@ -193,17 +193,11 @@
             <layout class="QHBoxLayout" name="horizontalLayout_2">
              <item>
               <widget class="QPushButton" name="addPTZ">
-               <property name="maximumSize">
-                <size>
-                 <width>22</width>
-                 <height>22</height>
-                </size>
-               </property>
                <property name="toolTip">
-                <string>Add PTZ Device</string>
+                <string>Add Device</string>
                </property>
                <property name="accessibleName">
-                <string>Add PTZ Device</string>
+                <string>Add Device</string>
                </property>
                <property name="text">
                 <string notr="true"/>
@@ -212,23 +206,17 @@
                 <bool>true</bool>
                </property>
                <property name="class" stdset="0">
-                <string>icon-plus</string>
+                <string notr="true">icon-plus</string>
                </property>
               </widget>
              </item>
              <item>
               <widget class="QPushButton" name="removePTZ">
-               <property name="maximumSize">
-                <size>
-                 <width>22</width>
-                 <height>22</height>
-                </size>
-               </property>
                <property name="toolTip">
-                <string>RemoveScripts</string>
+                <string>Delete device</string>
                </property>
                <property name="accessibleName">
-                <string>RemoveScripts</string>
+                <string>Delete device</string>
                </property>
                <property name="text">
                 <string notr="true"/>
@@ -237,7 +225,7 @@
                 <bool>true</bool>
                </property>
                <property name="class" stdset="0">
-                <string>icon-trash</string>
+                <string notr="true">icon-trash</string>
                </property>
               </widget>
              </item>

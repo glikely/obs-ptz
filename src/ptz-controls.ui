@@ -510,9 +510,8 @@
            <property name="text">
             <string/>
            </property>
-           <property name="icon">
-            <iconset>
-             <normaloff>:/res/images/interact.svg</normaloff>:/res/images/interact.svg</iconset>
+           <property name="class" stdset="0">
+            <string notr="true">icon-touch</string>
            </property>
           </widget>
          </item>
@@ -626,10 +625,6 @@
    </property>
   </action>
   <action name="actionPresetAdd">
-   <property name="icon">
-    <iconset>
-     <normaloff>:/res/images/plus.svg</normaloff>:/res/images/plus.svg</iconset>
-   </property>
    <property name="text">
     <string>Add Preset</string>
    </property>
@@ -641,10 +636,6 @@
    </property>
   </action>
   <action name="actionPresetRemove">
-   <property name="icon">
-    <iconset>
-     <normaloff>:/res/images/minus.svg</normaloff>:/res/images/minus.svg</iconset>
-   </property>
    <property name="text">
     <string>Remove Preset</string>
    </property>
@@ -656,10 +647,6 @@
    </property>
   </action>
   <action name="actionPresetMoveUp">
-   <property name="icon">
-    <iconset>
-     <normaloff>:/res/images/up.svg</normaloff>:/res/images/up.svg</iconset>
-   </property>
    <property name="text">
     <string>Move Preset Up</string>
    </property>
@@ -671,10 +658,6 @@
    </property>
   </action>
   <action name="actionPresetMoveDown">
-   <property name="icon">
-    <iconset>
-     <normaloff>:/res/images/down.svg</normaloff>:/res/images/down.svg</iconset>
-   </property>
    <property name="text">
     <string>Move Preset Down</string>
    </property>
