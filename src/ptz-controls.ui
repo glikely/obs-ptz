@@ -80,6 +80,9 @@
           </property>
           <item row="0" column="0" rowspan="3" colspan="3">
            <widget class="QStackedWidget" name="pantiltStack">
+            <property name="contextMenuPolicy">
+             <enum>Qt::ContextMenuPolicy::CustomContextMenu</enum>
+            </property>
             <property name="currentIndex">
              <number>0</number>
             </property>
@@ -578,7 +581,6 @@
       </size>
      </property>
      <addaction name="actionDisableLiveMoves"/>
-     <addaction name="actionTouchControl"/>
      <addaction name="actionFollowPreview"/>
      <addaction name="actionFollowProgram"/>
      <addaction name="actionPresetAdd"/>
@@ -604,24 +606,6 @@
    </property>
    <property name="class" stdset="0">
     <string notr="true">indicator-lock</string>
-   </property>
-  </action>
-  <action name="actionTouchControl">
-   <property name="checkable">
-    <bool>true</bool>
-   </property>
-   <property name="icon">
-    <iconset>
-     <normaloff>:/res/images/interact.svg</normaloff>:/res/images/interact.svg</iconset>
-   </property>
-   <property name="text">
-    <string>Toggle TouchPad Control</string>
-   </property>
-   <property name="toolTip">
-    <string>Toggle between direction buttons and 'TouchPad' pan/tilt controls</string>
-   </property>
-   <property name="class" stdset="0">
-    <string notr="true">icon-touch</string>
    </property>
   </action>
   <action name="actionPresetAdd">

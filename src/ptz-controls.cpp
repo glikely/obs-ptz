@@ -810,6 +810,23 @@ void PTZControls::on_presetListView_activated(QModelIndex index)
 	presetRecall(presetIndexToId(index));
 }
 
+void PTZControls::on_pantiltStack_customContextMenuRequested(const QPoint &pos)
+{
+	QPoint globalpos = ui->pantiltStack->mapToGlobal(pos);
+	QMenu menu;
+	bool enabled = (ui->pantiltStack->currentIndex() != 0);
+
+	QAction *touchpadAction = menu.addAction("Onscreen Joystick");
+	touchpadAction->setCheckable(true);
+	touchpadAction->setChecked(enabled);
+	QAction *action = menu.exec(globalpos);
+	if (action == nullptr)
+		return;
+
+	if (action == touchpadAction)
+		ui->pantiltStack->setCurrentIndex(!enabled ? 1 : 0);
+}
+
 void PTZControls::on_presetListView_customContextMenuRequested(const QPoint &pos)
 {
 	QPoint globalpos = ui->presetListView->mapToGlobal(pos);
@@ -878,11 +895,6 @@ void PTZControls::on_cameraList_customContextMenuRequested(const QPoint &pos)
 	} else if (action == propertiesAction) {
 		ptz_settings_show(ptzDeviceList.getDeviceId(ui->cameraList->currentIndex()));
 	}
-}
-
-void PTZControls::on_actionTouchControl_toggled(bool checked)
-{
-	ui->pantiltStack->setCurrentIndex(checked);
 }
 
 void PTZControls::on_actionDisableLiveMoves_toggled(bool checked)

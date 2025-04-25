@@ -97,17 +97,18 @@ void TouchControl::paintEvent(QPaintEvent *event)
 
 void TouchControl::mousePressEvent(QMouseEvent *event)
 {
-	setPosition(event->pos());
+	if (event->button() == Qt::LeftButton)
+		setPosition(event->pos());
 }
 
-void TouchControl::mouseReleaseEvent(QMouseEvent *)
+void TouchControl::mouseReleaseEvent(QMouseEvent *event)
 {
-	m_x = 0;
-	m_y = 0;
-	emit positionChanged(m_x, m_y);
+	if (event->button() == Qt::LeftButton)
+		emit positionChanged(0, 0);
 }
 
 void TouchControl::mouseMoveEvent(QMouseEvent *event)
 {
-	setPosition(event->pos());
+	if (event->buttons() & Qt::LeftButton)
+		setPosition(event->pos());
 }

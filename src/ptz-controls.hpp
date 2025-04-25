@@ -104,11 +104,11 @@ private slots:
 
 	void presetUpdateActions();
 	void on_presetListView_activated(QModelIndex index);
+	void on_pantiltStack_customContextMenuRequested(const QPoint &pos);
 	void on_presetListView_customContextMenuRequested(const QPoint &pos);
 	void on_cameraList_doubleClicked(const QModelIndex &index);
 	void on_cameraList_customContextMenuRequested(const QPoint &pos);
 	void on_actionDisableLiveMoves_toggled(bool checked);
-	void on_actionTouchControl_toggled(bool checked);
 	void on_actionPresetAdd_triggered();
 	void on_actionPresetRemove_triggered();
 	void on_actionPresetMoveUp_triggered();
