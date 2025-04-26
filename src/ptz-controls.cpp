@@ -124,6 +124,8 @@ PTZControls::PTZControls(QWidget *parent) : QWidget(parent), ui(new Ui::PTZContr
 	ui->setupUi(this);
 	ui->cameraList->setModel(&ptzDeviceList);
 	ui->cameraList->setItemDelegate(new PTZDeviceListDelegate(ui->cameraList));
+	connect(&ptzDeviceList, SIGNAL(dataChanged(QModelIndex,QModelIndex)), this, SLOT(ptzDeviceDataChanged(const QModelIndex&, const QModelIndex&)));
+
 	copyActionsDynamicProperties();
 
 	QItemSelectionModel *selectionModel = ui->cameraList->selectionModel();
@@ -684,6 +686,21 @@ void PTZControls::setAutofocusEnabled(bool autofocus_on)
 	ui->focusButton_onetouch->setEnabled(!autofocus_on);
 }
 
+void PTZControls::ptzDeviceDataChanged(const QModelIndex &, const QModelIndex &)
+{
+	int rows = ptzDeviceList.rowCount();
+	for (int i = 0; i < rows; i++) {
+		auto index = ptzDeviceList.index(i, 0);
+		auto ptzitem = reinterpret_cast<PTZDeviceListItem *>(ui->cameraList->indexWidget(index));
+		if (ptzitem)
+			ptzitem->update();
+		else {
+			auto ptz_ = ptzDeviceList.getDevice(index);
+			ui->cameraList->setIndexWidget(index, new PTZDeviceListItem(ptz_));
+		}
+	}
+}
+
 void PTZControls::updateMoveControls()
 {
 	bool ctrls_enabled = true;
@@ -979,5 +996,7 @@ void PTZDeviceListItem::update()
 	// When a camera becomes live, start with it locked
 	if (lock->isVisible() == false && is_live)
 		lock->setChecked(true);
+	if (label->text() != ptz->objectName())
+		label->setText(ptz->objectName());
 	lock->setVisible(is_live);
 }

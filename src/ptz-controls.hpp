@@ -65,6 +65,7 @@ private:
 	QMap<obs_hotkey_id, int> preset_hotkey_map;
 
 public slots:
+	void ptzDeviceDataChanged(const QModelIndex &topLeft, const QModelIndex &bottomRight);
 	void updateMoveControls();
 private slots:
 	void setPanTilt(double pan, double tilt, double pan_accel = 0, double tilt_accel = 0);
