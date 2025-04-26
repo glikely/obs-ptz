@@ -12,7 +12,8 @@
       "cacheVariables": {
         "ENABLE_FRONTEND_API": true,
         "ENABLE_QT": true,
-        "ENABLE_JOYSTICK": false
+        "ENABLE_JOYSTICK": false,
+        "ENABLE_USB_CAM": true
       }
     },
     {
