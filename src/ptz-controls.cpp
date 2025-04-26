@@ -963,6 +963,7 @@ void PTZDeviceListDelegate::initStyleOption(QStyleOptionViewItem *option, const 
 
 PTZDeviceListItem::PTZDeviceListItem(PTZDevice *ptz_) : ptz(ptz_)
 {
+	setAttribute(Qt::WA_TranslucentBackground);
 	lock = new QCheckBox();
 	lock->setProperty("class", "checkbox-icon indicator-lock");
 	lock->setChecked(ptz->isLive());
