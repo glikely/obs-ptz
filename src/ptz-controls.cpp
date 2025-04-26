@@ -31,19 +31,8 @@ void ptz_load_controls(void)
 	obs_frontend_push_ui_translation(obs_module_get_string);
 	auto *ctrls = new PTZControls(main_window);
 
-#if LIBOBS_API_VER >= MAKE_SEMANTIC_VERSION(30, 0, 0)
 	if (!obs_frontend_add_dock_by_id("ptz-dock", "PTZ Controls", ctrls))
 		blog(LOG_ERROR, "failed to add PTZ controls dock");
-#else
-	auto dock = new QDockWidget(main_window);
-	dock->setObjectName("ptz-dock");
-	dock->setWindowTitle("PTZ Controls");
-	dock->setWidget(ctrls);
-	dock->setFeatures(QDockWidget::DockWidgetMovable | QDockWidget::DockWidgetFloatable);
-	dock->setFloating(true);
-	dock->hide();
-	obs_frontend_add_dock(dock);
-#endif
 
 	obs_frontend_pop_ui_translation();
 }
