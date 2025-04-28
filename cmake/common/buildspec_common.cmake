@@ -46,6 +46,54 @@ function(_check_deps_version version)
   return(PROPAGATE found CMAKE_PREFIX_PATH)
 endfunction()
 
+# _setup_qt_submodule: Build a Qt Submodule
+function(_setup_qt_submodule)
+  if(OS_WINDOWS)
+    set(_cmake_config RelWithDebInfo)
+    set(_cmake_arch "")
+    set(_cmake_extra "")
+  elseif(OS_MACOS)
+    set(_cmake_config Release)
+    set(_cmake_arch "-DCMAKE_OSX_ARCHITECTURES:STRING='arm64;x86_64'")
+    set(_cmake_extra "-DCMAKE_OSX_DEPLOYMENT_TARGET=${CMAKE_OSX_DEPLOYMENT_TARGET} -DQT_NO_APPLE_SDK_MAX_VERSION_CHECK=ON -DFEATURE_separate_debug_info:BOOL=ON")
+  endif()
+
+  message(STATUS "Configure ${label} (${arch})")
+  execute_process(
+    COMMAND
+      "${CMAKE_COMMAND}" -B build_${arch} -G Ninja "${_cmake_arch}"
+      "-DCMAKE_INSTALL_PREFIX='${dependencies_dir}/${_qt6_destination}'"
+      "-DCMAKE_PREFIX_PATH='${dependencies_dir}/${_qt6_destination}'"
+      "--no-warn-unused-cli"
+      "-DBUILD_SHARED_LIBS:BOOL=ON"
+      "-DCMAKE_BUILD_TYPE=${_cmake_config}"
+      "${_cmake_extra}"
+    WORKING_DIRECTORY "${dependencies_dir}/${destination}"
+    RESULT_VARIABLE _process_result
+    COMMAND_ERROR_IS_FATAL ANY
+  )
+  message(STATUS "Configure ${label} (${arch}) - done")
+
+  message(STATUS "Build ${label} (${_cmake_config} - ${arch})")
+  execute_process(
+    COMMAND "${CMAKE_COMMAND}" --build build_${arch} --config ${_cmake_config} --parallel
+    WORKING_DIRECTORY "${dependencies_dir}/${destination}"
+    RESULT_VARIABLE _process_result
+    COMMAND_ERROR_IS_FATAL ANY
+  )
+  message(STATUS "Build ${label} (${_cmake_config} - ${arch}) - done")
+
+  message(STATUS "Install ${label} (${_cmake_config} - ${arch})")
+  execute_process(
+    COMMAND
+    "${CMAKE_COMMAND}" --install build_${arch} --config ${_cmake_config}
+    WORKING_DIRECTORY "${dependencies_dir}/${destination}"
+    RESULT_VARIABLE _process_result
+    COMMAND_ERROR_IS_FATAL ANY
+  )
+  message(STATUS "Install ${label} (${_cmake_config} - ${arch}) - done")
+endfunction()
+
 # _setup_obs_studio: Create obs-studio build project, then build libobs and obs-frontend-api
 function(_setup_obs_studio)
   if(NOT libobs_DIR)
@@ -145,6 +193,8 @@ function(_check_dependencies)
       string(REPLACE "_REVISION" "" file "${file}")
       string(REPLACE "-REVISION" "" file "${file}")
     endif()
+    set(_${dependency}_file "${filename}")
+    set(_${dependency}_destination "${destination}")
 
     if(EXISTS "${dependencies_dir}/.dependency_${dependency}_${arch}.sha256")
       file(
@@ -170,7 +220,7 @@ function(_check_dependencies)
       continue()
     endif()
 
-    if(dependency STREQUAL obs-studio)
+    if(dependency STREQUAL obs-studio OR dependency STREQUAL qtserialport)
       set(url ${url}/${file})
     else()
       set(url ${url}/${version}/${file})
@@ -197,7 +247,7 @@ function(_check_dependencies)
 
     if(NOT EXISTS "${dependencies_dir}/${destination}")
       file(MAKE_DIRECTORY "${dependencies_dir}/${destination}")
-      if(dependency STREQUAL obs-studio)
+      if(dependency STREQUAL obs-studio OR dependency STREQUAL qtserialport)
         file(ARCHIVE_EXTRACT INPUT "${dependencies_dir}/${file}" DESTINATION "${dependencies_dir}")
       else()
         file(ARCHIVE_EXTRACT INPUT "${dependencies_dir}/${file}" DESTINATION "${dependencies_dir}/${destination}")
@@ -210,6 +260,8 @@ function(_check_dependencies)
       list(APPEND CMAKE_PREFIX_PATH "${dependencies_dir}/${destination}")
     elseif(dependency STREQUAL qt6)
       list(APPEND CMAKE_PREFIX_PATH "${dependencies_dir}/${destination}")
+    elseif(dependency STREQUAL qtserialport)
+      _setup_qt_submodule()
     elseif(dependency STREQUAL obs-studio)
       set(_obs_version ${version})
       set(_obs_destination "${destination}")

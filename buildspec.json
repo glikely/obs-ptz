@@ -29,6 +29,15 @@
             "debugSymbols": {
                 "windows-x64": "dad2351a5c9cd438168e1ed8fb453a2534532252edb555f1001a5e8eb3f1bbd4"
             }
+        },
+        "qtserialport": {
+            "version": "6.6.3",
+            "baseUrl": "https://download.qt.io/archive/qt/6.6/6.6.3/submodules",
+            "label": "Qt6SerialPort",
+            "hashes": {
+                "macos": "e1656579e555da61cb81cbbb5ee6d31835cea110b3a5dd9e14b16fa71e55dc37",
+                "windows-x64": "cf68d0b459cafeb0176b9107494fa2dcab6ca58ce8e29b3c9307d1b1512a448a"
+            }
         }
     },
     "platformConfig": {
