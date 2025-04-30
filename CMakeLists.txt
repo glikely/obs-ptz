@@ -104,14 +104,7 @@ if(ENABLE_SERIALPORT)
         src/ptz-pelco.cpp
         src/ptz-pelco.hpp
     )
-    if(OS_WINDOWS)
-      install(
-        FILES "${QT6_INSTALL_PREFIX}/${QT6_INSTALL_LIBEXECS}/Qt6SerialPort.dll"
-        CONFIGURATIONS RelWithDebInfo Release
-        DESTINATION "${CMAKE_PROJECT_NAME}/bin/64bit"
-        OPTIONAL
-      )
-    endif()
+    package_qt_library(${CMAKE_PROJECT_NAME} SerialPort)
   endif()
 endif()
 

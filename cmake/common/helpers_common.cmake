@@ -37,6 +37,20 @@ function(check_uuid uuid_string return_value)
   set(${return_value} ${valid_uuid} PARENT_SCOPE)
 endfunction()
 
+function(package_qt_library target qtlibrary)
+  if(OS_WINDOWS)
+    install(
+      FILES "${QT6_INSTALL_PREFIX}/${QT6_INSTALL_LIBEXECS}/Qt6${qtlibrary}.dll"
+      CONFIGURATIONS RelWithDebInfo Release
+      DESTINATION "${target}/bin/64bit"
+      OPTIONAL
+    )
+  elseif(OS_MACOS)
+    install(DIRECTORY "${QT6_INSTALL_PREFIX}/lib/Qt${qtlibrary}.Framework"
+      DESTINATION "$<TARGET_BUNDLE_DIR_NAME:${target}>/Contents/Frameworks")
+  endif()
+endfunction()
+
 if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/src/plugin-support.c.in")
   configure_file(src/plugin-support.c.in plugin-support.c @ONLY)
   add_library(plugin-support STATIC)
