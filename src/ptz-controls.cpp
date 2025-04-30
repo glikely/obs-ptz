@@ -992,7 +992,7 @@ PTZDeviceListItem::PTZDeviceListItem(PTZDevice *ptz_) : ptz(ptz_)
 
 void PTZDeviceListItem::update()
 {
-	bool is_live = ptz->isLive();
+	bool is_live = obs_frontend_preview_program_mode_active() ? ptz->isLive() : false;
 	// When a camera becomes live, start with it locked
 	if (lock->isVisible() == false && is_live)
 		lock->setChecked(true);
