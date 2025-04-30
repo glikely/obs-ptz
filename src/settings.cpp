@@ -113,6 +113,12 @@ PTZSettings::PTZSettings() : QWidget(nullptr), ui(new Ui_PTZSettings)
 
 	ui->setupUi(this);
 
+	ui->autoselectCheckBox->setChecked(PTZControls::getInstance()->autoselectEnabled());
+	connect(PTZControls::getInstance(), SIGNAL(autoselectEnabledChanged(bool)),
+	        ui->autoselectCheckBox, SLOT(setChecked(bool)));
+	connect(ui->autoselectCheckBox, SIGNAL(clicked(bool)),
+	        PTZControls::getInstance(), SLOT(setAutoselectEnabled(bool)));
+
 	ui->livemoveCheckBox->setChecked(PTZControls::getInstance()->liveMovesDisabled());
 	ui->enableDebugLogCheckBox->setChecked(ptz_debug_level <= LOG_INFO);
 
