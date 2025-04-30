@@ -46,8 +46,9 @@ function(package_qt_library target qtlibrary)
       OPTIONAL
     )
   elseif(OS_MACOS)
-    install(DIRECTORY "${QT6_INSTALL_PREFIX}/lib/Qt${qtlibrary}.Framework"
-      DESTINATION "$<TARGET_BUNDLE_DIR_NAME:${target}>/Contents/Frameworks")
+    set_target_properties(${target} PROPERTIES
+      XCODE_EMBED_FRAMEWORKS_CODE_SIGN_ON_COPY YES
+      XCODE_EMBED_FRAMEWORKS "${QT6_INSTALL_PREFIX}/lib/Qt${qtlibrary}.Framework")
   endif()
 endfunction()
 
