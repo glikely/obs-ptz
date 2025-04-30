@@ -147,15 +147,16 @@ public:
 	PTZControls(QWidget *parent = nullptr);
 	~PTZControls();
 	bool autoselectEnabled() { return autoselect_enabled; };
-	void setDisableLiveMoves(bool enable);
 	bool liveMovesDisabled() { return live_moves_disabled; };
 	static PTZControls *getInstance() { return instance; };
 
 public slots:
 	void setAutoselectEnabled(bool enable);
+	void setDisableLiveMoves(bool enable);
 
 signals:
 	void autoselectEnabledChanged(bool enabled);
+	void liveMovesDisabledChanged(bool disabled);
 };
 
 class PTZDeviceListDelegate : public QStyledItemDelegate {

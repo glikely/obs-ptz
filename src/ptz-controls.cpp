@@ -380,7 +380,7 @@ void PTZControls::SaveConfig()
 
 	obs_data_set_string(savedata, "splitter_state", ui->splitter->saveState().toBase64().constData());
 
-	obs_data_set_bool(savedata, "live_moves_disabled", live_moves_disabled);
+	obs_data_set_bool(savedata, "live_moves_disabled", liveMovesDisabled());
 	obs_data_set_int(savedata, "debug_log_level", ptz_debug_level);
 	obs_data_set_bool(savedata, "autoselect_enabled", autoselectEnabled());
 	obs_data_set_bool(savedata, "joystick_enable", m_joystick_enable);
@@ -460,8 +460,11 @@ void PTZControls::setAutoselectEnabled(bool enabled)
 
 void PTZControls::setDisableLiveMoves(bool disable)
 {
+	if (disable == live_moves_disabled)
+		return;
 	live_moves_disabled = disable;
 	updateMoveControls();
+	emit liveMovesDisabledChanged(disable);
 }
 
 PTZDevice *PTZControls::currCamera()
@@ -701,7 +704,7 @@ void PTZControls::updateMoveControls()
 	// If it is then disable the pan/tilt/zoom controls
 	auto item = ui->cameraList->indexWidget(ui->cameraList->currentIndex());
 	auto ptzitem = reinterpret_cast<PTZDeviceListItem *>(item);
-	if (obs_frontend_preview_program_mode_active() && live_moves_disabled && ptz)
+	if (obs_frontend_preview_program_mode_active() && liveMovesDisabled() && ptz)
 		ctrls_enabled = !ptzitem->isLocked();
 
 	ui->movementControlsWidget->setEnabled(ctrls_enabled);
@@ -975,7 +978,7 @@ PTZDeviceListItem::PTZDeviceListItem(PTZDevice *ptz_) : ptz(ptz_)
 
 void PTZDeviceListItem::update()
 {
-	bool is_live = obs_frontend_preview_program_mode_active() ? ptz->isLive() : false;
+	bool is_live = obs_frontend_preview_program_mode_active() && PTZControls::getInstance()->liveMovesDisabled() ? ptz->isLive() : false;
 	// When a camera becomes live, start with it locked
 	if (lock->isVisible() == false && is_live)
 		lock->setChecked(true);
