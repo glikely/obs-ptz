@@ -870,6 +870,12 @@ void PTZControls::on_cameraList_customContextMenuRequested(const QPoint &pos)
 	autoselectAction->setCheckable(true);
 	autoselectAction->setChecked(autoselectEnabled());
 	connect(autoselectAction, SIGNAL(toggled(bool)), this, SLOT(setAutoselectEnabled(bool)));
+	if (obs_frontend_preview_program_mode_active()) {
+		QAction *blockliveAction = context.addAction("Block Live Camera Moves");
+		blockliveAction->setCheckable(true);
+		blockliveAction->setChecked(liveMovesDisabled());
+		connect(blockliveAction, SIGNAL(toggled(bool)), this, SLOT(setDisableLiveMoves(bool)));
+	}
 	QAction *propertiesAction = context.addAction("Properties");
 	QAction *action = context.exec(globalpos);
 
