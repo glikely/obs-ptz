@@ -14,9 +14,5 @@
     <file>icons/pantilt_up.svg</file>
     <file>icons/pantilt_left.svg</file>
     <file>icons/pantilt_right.svg</file>
-    <file>icons/followmode_live.svg</file>
-    <file>icons/followmode_live_inactive.svg</file>
-    <file>icons/followmode_preview.svg</file>
-    <file>icons/followmode_preview_inactive.svg</file>
   </qresource>
 </RCC>
