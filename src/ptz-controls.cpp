@@ -401,6 +401,8 @@ void PTZControls::SaveConfig()
 	obs_data_set_int(savedata, "joystick_id", m_joystick_id);
 	obs_data_set_double(savedata, "joystick_speed", m_joystick_speed);
 	obs_data_set_double(savedata, "joystick_deadzone", m_joystick_deadzone);
+	if (auto ptz = currCamera())
+		obs_data_set_int(savedata, "current_selected", ptz->getId());
 
 	OBSDataArray camera_array = ptz_devices_get_config();
 	obs_data_array_release(camera_array);
@@ -465,6 +467,7 @@ void PTZControls::LoadConfig()
 	array = obs_data_get_array(loaddata, "devices");
 	obs_data_array_release(array);
 	ptz_devices_set_config(array);
+	ui->cameraList->setCurrentIndex(ptzDeviceList.indexFromDeviceId(obs_data_get_int(loaddata, "current_selected")));
 }
 
 void PTZControls::setDisableLiveMoves(bool disable)
