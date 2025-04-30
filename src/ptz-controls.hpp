@@ -30,6 +30,7 @@ private:
 	TouchControl *pantilt_widget;
 
 	bool live_moves_disabled = false;
+	bool autoselect_enabled = false;
 
 	// Current status
 	double pan_speed = 0.0;
@@ -100,9 +101,6 @@ private slots:
 	void on_focusButton_far_released();
 	void on_focusButton_onetouch_clicked();
 
-	void on_actionFollowPreview_toggled(bool checked);
-	void on_actionFollowProgram_toggled(bool checked);
-
 	void currentChanged(QModelIndex current, QModelIndex previous);
 	void settingsChanged(OBSData settings);
 
@@ -148,9 +146,17 @@ protected slots:
 public:
 	PTZControls(QWidget *parent = nullptr);
 	~PTZControls();
-	void setDisableLiveMoves(bool enable);
+	bool autoselectEnabled() { return autoselect_enabled; };
 	bool liveMovesDisabled() { return live_moves_disabled; };
 	static PTZControls *getInstance() { return instance; };
+
+public slots:
+	void setAutoselectEnabled(bool enable);
+	void setDisableLiveMoves(bool enable);
+
+signals:
+	void autoselectEnabledChanged(bool enabled);
+	void liveMovesDisabledChanged(bool disabled);
 };
 
 class PTZDeviceListDelegate : public QStyledItemDelegate {

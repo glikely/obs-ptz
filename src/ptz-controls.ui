@@ -580,8 +580,6 @@
        <height>16</height>
       </size>
      </property>
-     <addaction name="actionFollowPreview"/>
-     <addaction name="actionFollowProgram"/>
      <addaction name="actionPresetAdd"/>
      <addaction name="actionPresetMoveUp"/>
      <addaction name="actionPresetMoveDown"/>
@@ -632,40 +630,6 @@
     <string notr="true">icon-down</string>
    </property>
   </action>
-  <actiongroup name="actionGroupFollowMode">
-   <action name="actionFollowPreview">
-    <property name="checkable">
-     <bool>true</bool>
-    </property>
-    <property name="icon">
-     <iconset resource="ptz-controls.qrc">
-      <normaloff>:/icons/icons/followmode_preview_inactive.svg</normaloff>
-      <normalon>:/icons/icons/followmode_preview.svg</normalon>:/icons/icons/followmode_preview_inactive.svg</iconset>
-    </property>
-    <property name="text">
-     <string>Autoselect Preview</string>
-    </property>
-    <property name="toolTip">
-     <string>Autoselect Preview Camera</string>
-    </property>
-   </action>
-   <action name="actionFollowProgram">
-    <property name="checkable">
-     <bool>true</bool>
-    </property>
-    <property name="icon">
-     <iconset resource="ptz-controls.qrc">
-      <normaloff>:/icons/icons/followmode_live_inactive.svg</normaloff>
-      <normalon>:/icons/icons/followmode_live.svg</normalon>:/icons/icons/followmode_live_inactive.svg</iconset>
-    </property>
-    <property name="text">
-     <string>Autoselect Program</string>
-    </property>
-    <property name="toolTip">
-     <string>Autoselect Program Camera</string>
-    </property>
-   </action>
-  </actiongroup>
  </widget>
  <customwidgets>
   <customwidget>

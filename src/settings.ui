@@ -114,9 +114,12 @@
         </widget>
        </item>
        <item>
-        <widget class="QCheckBox" name="enableDebugLogCheckBox">
+        <widget class="QCheckBox" name="autoselectCheckBox">
+         <property name="toolTip">
+          <string>Auto selects the active camera from the current scene on scene changes. In Studio Mode, this will select a camera from the Preview scene.</string>
+         </property>
          <property name="text">
-          <string>Enable debug logging</string>
+          <string>Auto Select active camera</string>
          </property>
         </widget>
        </item>
@@ -127,6 +130,13 @@
          </property>
          <property name="text">
           <string>Lockout live PTZ moves in studio mode</string>
+         </property>
+        </widget>
+       </item>
+       <item>
+        <widget class="QCheckBox" name="enableDebugLogCheckBox">
+         <property name="text">
+          <string>Enable debug logging</string>
          </property>
         </widget>
        </item>

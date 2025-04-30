@@ -113,7 +113,18 @@ PTZSettings::PTZSettings() : QWidget(nullptr), ui(new Ui_PTZSettings)
 
 	ui->setupUi(this);
 
+	ui->autoselectCheckBox->setChecked(PTZControls::getInstance()->autoselectEnabled());
+	connect(PTZControls::getInstance(), SIGNAL(autoselectEnabledChanged(bool)),
+	        ui->autoselectCheckBox, SLOT(setChecked(bool)));
+	connect(ui->autoselectCheckBox, SIGNAL(clicked(bool)),
+	        PTZControls::getInstance(), SLOT(setAutoselectEnabled(bool)));
+
 	ui->livemoveCheckBox->setChecked(PTZControls::getInstance()->liveMovesDisabled());
+	connect(PTZControls::getInstance(), SIGNAL(liveMovesDisabledChanged(bool)),
+	        ui->livemoveCheckBox, SLOT(setChecked(bool)));
+	connect(ui->livemoveCheckBox, SIGNAL(clicked(bool)),
+	        PTZControls::getInstance(), SLOT(setDisableLiveMoves(bool)));
+
 	ui->enableDebugLogCheckBox->setChecked(ptz_debug_level <= LOG_INFO);
 
 	auto snd = new SourceNameDelegate(this);
@@ -285,11 +296,6 @@ void PTZSettings::on_removePTZ_clicked()
 	if (!ptz)
 		return;
 	delete ptz;
-}
-
-void PTZSettings::on_livemoveCheckBox_stateChanged(int state)
-{
-	PTZControls::getInstance()->setDisableLiveMoves(state != Qt::Unchecked);
 }
 
 void PTZSettings::on_enableDebugLogCheckBox_stateChanged(int state)

@@ -81,14 +81,14 @@ void PTZControls::OBSFrontendEvent(enum obs_frontend_event event)
 		updateMoveControls();
 		break;
 	case OBS_FRONTEND_EVENT_SCENE_CHANGED:
-		if (ui->actionFollowProgram->isChecked())
+		if (autoselectEnabled() && !obs_frontend_preview_program_mode_active())
 			scene = obs_frontend_get_current_scene();
 		updateMoveControls();
 		break;
 	case OBS_FRONTEND_EVENT_STUDIO_MODE_ENABLED:
 	case OBS_FRONTEND_EVENT_STUDIO_MODE_DISABLED:
 	case OBS_FRONTEND_EVENT_PREVIEW_SCENE_CHANGED:
-		if (ui->actionFollowPreview->isChecked())
+		if (autoselectEnabled() && obs_frontend_preview_program_mode_active())
 			scene = obs_frontend_get_current_preview_scene();
 		updateMoveControls();
 		break;
@@ -201,11 +201,6 @@ PTZControls::PTZControls(QWidget *parent) : QWidget(parent), ui(new Ui::PTZContr
 		if (pressed)
 			list->cursorDown();
 	};
-	auto actiontogglecb = [](void *action_data, obs_hotkey_id, obs_hotkey_t *, bool pressed) {
-		QAction *action = static_cast<QAction *>(action_data);
-		if (pressed)
-			action->activate(QAction::Trigger);
-	};
 	auto autofocustogglecb = [](void *ptz_data, obs_hotkey_id, obs_hotkey_t *, bool pressed) {
 		PTZControls *ptzctrl = static_cast<PTZControls *>(ptz_data);
 		if (pressed)
@@ -227,10 +222,6 @@ PTZControls::PTZControls(QWidget *parent) : QWidget(parent), ui(new Ui::PTZContr
 	registerHotkey("PTZ.FocusOneTouch", "PTZ One touch focus trigger", cb, ui->focusButton_onetouch);
 	registerHotkey("PTZ.SelectPrev", "PTZ Select previous device in list", prevcb, ui->cameraList);
 	registerHotkey("PTZ.SelectNext", "PTZ Select next device in list", nextcb, ui->cameraList);
-	registerHotkey("PTZ.ActionFollowPreviewToggle", "PTZ Autoselect Preview Camera", actiontogglecb,
-		       ui->actionFollowPreview);
-	registerHotkey("PTZ.ActionFollowProgramToggle", "PTZ Autoselect Live Camera", actiontogglecb,
-		       ui->actionFollowProgram);
 
 	auto preset_recall_cb = [](void *ptz_data, obs_hotkey_id hotkey, obs_hotkey_t *, bool pressed) {
 		PTZControls *ptzctrl = static_cast<PTZControls *>(ptz_data);
@@ -389,14 +380,9 @@ void PTZControls::SaveConfig()
 
 	obs_data_set_string(savedata, "splitter_state", ui->splitter->saveState().toBase64().constData());
 
-	obs_data_set_bool(savedata, "live_moves_disabled", live_moves_disabled);
+	obs_data_set_bool(savedata, "live_moves_disabled", liveMovesDisabled());
 	obs_data_set_int(savedata, "debug_log_level", ptz_debug_level);
-	const char *target_mode = "manual";
-	if (ui->actionFollowPreview->isChecked())
-		target_mode = "preview";
-	if (ui->actionFollowProgram->isChecked())
-		target_mode = "program";
-	obs_data_set_string(savedata, "target_mode", target_mode);
+	obs_data_set_bool(savedata, "autoselect_enabled", autoselectEnabled());
 	obs_data_set_bool(savedata, "joystick_enable", m_joystick_enable);
 	obs_data_set_int(savedata, "joystick_id", m_joystick_id);
 	obs_data_set_double(savedata, "joystick_speed", m_joystick_speed);
@@ -424,7 +410,6 @@ void PTZControls::LoadConfig()
 {
 	char *file = obs_module_config_path("config.json");
 	OBSDataArray array;
-	std::string target_mode;
 
 	if (!file)
 		return;
@@ -442,7 +427,7 @@ void PTZControls::LoadConfig()
 	obs_data_set_default_int(loaddata, "current_speed", 50);
 	obs_data_set_default_int(loaddata, "debug_log_level", LOG_INFO);
 	obs_data_set_default_bool(loaddata, "live_moves_disabled", true);
-	obs_data_set_default_string(loaddata, "target_mode", "preview");
+	obs_data_set_default_bool(loaddata, "autoselect_enabled", true);
 	obs_data_set_default_bool(loaddata, "joystick_enable", false);
 	obs_data_set_default_int(loaddata, "joystick_id", -1);
 	obs_data_set_default_double(loaddata, "joystick_speed", 1.0);
@@ -450,9 +435,7 @@ void PTZControls::LoadConfig()
 
 	ptz_debug_level = (int)obs_data_get_int(loaddata, "debug_log_level");
 	live_moves_disabled = obs_data_get_bool(loaddata, "live_moves_disabled");
-	target_mode = obs_data_get_string(loaddata, "target_mode");
-	ui->actionFollowPreview->setChecked(target_mode == "preview");
-	ui->actionFollowProgram->setChecked(target_mode == "program");
+	autoselect_enabled = obs_data_get_bool(loaddata, "autoselect_enabled");
 	m_joystick_enable = obs_data_get_bool(loaddata, "joystick_enable");
 	m_joystick_id = (int)obs_data_get_int(loaddata, "joystick_id");
 	m_joystick_speed = obs_data_get_double(loaddata, "joystick_speed");
@@ -470,10 +453,21 @@ void PTZControls::LoadConfig()
 	ui->cameraList->setCurrentIndex(ptzDeviceList.indexFromDeviceId(obs_data_get_int(loaddata, "current_selected")));
 }
 
+void PTZControls::setAutoselectEnabled(bool enabled)
+{
+	if (enabled == autoselect_enabled)
+		return;
+	autoselect_enabled = enabled;
+	emit autoselectEnabledChanged(enabled);
+}
+
 void PTZControls::setDisableLiveMoves(bool disable)
 {
+	if (disable == live_moves_disabled)
+		return;
 	live_moves_disabled = disable;
 	updateMoveControls();
+	emit liveMovesDisabledChanged(disable);
 }
 
 PTZDevice *PTZControls::currCamera()
@@ -669,18 +663,6 @@ void PTZControls::setCurrent(uint32_t device_id)
 	ui->cameraList->setCurrentIndex(ptzDeviceList.indexFromDeviceId(device_id));
 }
 
-void PTZControls::on_actionFollowPreview_toggled(bool checked)
-{
-	if (checked)
-		OBSFrontendEvent(OBS_FRONTEND_EVENT_PREVIEW_SCENE_CHANGED);
-}
-
-void PTZControls::on_actionFollowProgram_toggled(bool checked)
-{
-	if (checked)
-		OBSFrontendEvent(OBS_FRONTEND_EVENT_SCENE_CHANGED);
-}
-
 void PTZControls::setAutofocusEnabled(bool autofocus_on)
 {
 	ui->focusButton_auto->setChecked(autofocus_on);
@@ -725,13 +707,12 @@ void PTZControls::updateMoveControls()
 	// If it is then disable the pan/tilt/zoom controls
 	auto item = ui->cameraList->indexWidget(ui->cameraList->currentIndex());
 	auto ptzitem = reinterpret_cast<PTZDeviceListItem *>(item);
-	if (obs_frontend_preview_program_mode_active() && live_moves_disabled && ptz)
+	if (obs_frontend_preview_program_mode_active() && liveMovesDisabled() && ptz)
 		ctrls_enabled = !ptzitem->isLocked();
 
 	ui->movementControlsWidget->setEnabled(ctrls_enabled);
 	ui->presetListView->setEnabled(ctrls_enabled);
 
-	ui->actionFollowPreview->setVisible(obs_frontend_preview_program_mode_active());
 	RefreshToolBarStyling(ui->ptzToolbar);
 }
 
@@ -886,6 +867,17 @@ void PTZControls::on_cameraList_customContextMenuRequested(const QPoint &pos)
 		bool wb_onepush = (obs_data_get_int(settings, "wb_mode") == 3);
 		if (wb_onepush)
 			wbOnetouchAction = context.addAction("Trigger One-Push White Balance");
+		context.addSeparator();
+	}
+	QAction *autoselectAction = context.addAction("Auto Select Camera");
+	autoselectAction->setCheckable(true);
+	autoselectAction->setChecked(autoselectEnabled());
+	connect(autoselectAction, SIGNAL(toggled(bool)), this, SLOT(setAutoselectEnabled(bool)));
+	if (obs_frontend_preview_program_mode_active()) {
+		QAction *blockliveAction = context.addAction("Block Live Camera Moves");
+		blockliveAction->setCheckable(true);
+		blockliveAction->setChecked(liveMovesDisabled());
+		connect(blockliveAction, SIGNAL(toggled(bool)), this, SLOT(setDisableLiveMoves(bool)));
 	}
 	QAction *propertiesAction = context.addAction("Properties");
 	QAction *action = context.exec(globalpos);
@@ -995,7 +987,7 @@ PTZDeviceListItem::PTZDeviceListItem(PTZDevice *ptz_) : ptz(ptz_)
 
 void PTZDeviceListItem::update()
 {
-	bool is_live = ptz->isLive();
+	bool is_live = obs_frontend_preview_program_mode_active() && PTZControls::getInstance()->liveMovesDisabled() ? ptz->isLive() : false;
 	// When a camera becomes live, start with it locked
 	if (lock->isVisible() == false && is_live)
 		lock->setChecked(true);
