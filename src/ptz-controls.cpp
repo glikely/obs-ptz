@@ -546,11 +546,9 @@ void PTZControls::setZoom(double zoom)
 	if (QGuiApplication::keyboardModifiers().testFlag(Qt::ControlModifier)) {
 		ptz->zoom(zoom);
 	} else if (QGuiApplication::keyboardModifiers().testFlag(Qt::ShiftModifier)) {
-		ptz->zoom(zoom / 20);
+		ptz->zoom(zoom * 0.1);
 	} else {
-		zoom_speed = zoom_accel = zoom / 20;
-		ptz->zoom(zoom_speed);
-		accel_timer.start(2000 / 20);
+		ptz->zoom(zoom * 0.5);
 	}
 }
 
@@ -564,11 +562,9 @@ void PTZControls::setFocus(double focus)
 	if (QGuiApplication::keyboardModifiers().testFlag(Qt::ControlModifier)) {
 		ptz->focus(focus);
 	} else if (QGuiApplication::keyboardModifiers().testFlag(Qt::ShiftModifier)) {
-		ptz->focus(focus / 20);
+		ptz->focus(focus * 0.1);
 	} else {
-		focus_speed = focus_accel = focus / 20;
-		ptz->focus(focus_speed);
-		accel_timer.start(2000 / 20);
+		ptz->focus(focus * 0.5);
 	}
 }
 
