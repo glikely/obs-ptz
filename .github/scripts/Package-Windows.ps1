@@ -67,6 +67,21 @@ function Package {
     }
     Compress-Archive -Force @CompressArgs
     Log-Group
+
+    Log-Group "Creating ${ProductName} Installer..."
+    $Iscc = "C:\Program Files (x86)\Inno Setup 6\iscc.exe"
+    $IsccFile = "${ProjectRoot}/build_${Target}/installer-Windows.iss"
+    # Throw an error if the provided path is invalid
+    if ( ! ( Test-Path -Path $IsccFile ) ) {
+        throw 'InnoSetup install script ${IsccFile} not found. Run the build script or the CMake build and install procedures first.'
+    }
+    Push-Location -Stack BuildTemp
+    Ensure-Location -Path "${ProjectRoot}/release"
+    Copy-Item -Path ${Configuration}/${ProductName} -Destination Package -Recurse
+    Invoke-External ${Iscc} ${IsccFile} /O"${ProjectRoot}/release" /F"${OutputName}-Installer"
+    Remove-Item -Path Package -Recurse
+    Pop-Location -Stack BuildTemp
+    Log-Group
 }
 
 Package
