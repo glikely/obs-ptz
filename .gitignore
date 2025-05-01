@@ -16,6 +16,7 @@
 !CMakePresets.json
 !LICENSE
 !README.md
+!installer-Windows.iss.in
 !*.md
 
 # Exclude lock files

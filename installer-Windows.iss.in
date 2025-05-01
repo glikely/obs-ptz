@@ -1,0 +1,46 @@
+#define MyAppName "@CMAKE_PROJECT_NAME@"
+#define MyAppFullName "PTZ Controls (for OBS Studio)"
+#define MyAppVersion "@PLUGIN_VERSION@"
+#define MyAppPublisher "@PLUGIN_AUTHOR@"
+#define MyAppURL "https://obsproject.com/forum/resources/ptz-controls.1284/"
+
+[Setup]
+; NOTE: The value of AppId uniquely identifies this application.
+; Do not use the same AppId value in installers for other applications.
+; (To generate a new GUID, click Tools | Generate GUID inside the IDE.)
+AppId={{91164700-22BC-4204-9F2D-AA8D6986A602}
+AppName={#MyAppFullName}
+AppVersion={#MyAppVersion}
+AppPublisher={#MyAppPublisher}
+AppPublisherURL={#MyAppURL}
+AppSupportURL={#MyAppURL}
+AppUpdatesURL={#MyAppURL}
+DefaultDirName={commonappdata}\obs-studio\plugins\{#MyAppName}
+DefaultGroupName={#MyAppFullName}
+OutputBaseFilename={#MyAppName}-{#MyAppVersion}-Windows-Installer
+Compression=lzma
+SolidCompression=yes
+DirExistsWarning=no
+
+[Languages]
+Name: "english"; MessagesFile: "compiler:Default.isl"
+
+[Files]
+Source: "..\release\Package\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
+Source: "..\LICENSE"; Flags: dontcopy
+; NOTE: Don't use "Flags: ignoreversion" on any shared system files
+
+[Code]
+procedure InitializeWizard();
+var
+  GPLText: AnsiString;
+  Page: TOutputMsgMemoWizardPage;
+begin
+  ExtractTemporaryFile('LICENSE');
+  LoadStringFromFile(ExpandConstant('{tmp}\LICENSE'), GPLText);
+  Page := CreateOutputMsgMemoPage(wpWelcome,
+    'License Information', 'Please review the license terms before installing {#MyAppFullName}',
+    'Press Page Down to see the rest of the agreement. Once you are aware of your rights, click Next to continue.',
+    String(GPLText)
+  );
+end;

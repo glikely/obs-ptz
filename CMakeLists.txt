@@ -116,3 +116,7 @@ if(ENABLE_JOYSTICK)
 endif()
 
 set_target_properties_plugin(${CMAKE_PROJECT_NAME} PROPERTIES OUTPUT_NAME ${_name})
+
+if (OS_WINDOWS)
+  configure_file(installer-Windows.iss.in ${CMAKE_BINARY_DIR}/installer-Windows.iss)
+endif()
