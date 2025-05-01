@@ -31,6 +31,7 @@ private:
 
 	bool live_moves_disabled = false;
 	bool autoselect_enabled = false;
+	bool speed_ramp_enabled = false;
 
 	// Current status
 	double pan_speed = 0.0;
@@ -148,15 +149,18 @@ public:
 	~PTZControls();
 	bool autoselectEnabled() { return autoselect_enabled; };
 	bool liveMovesDisabled() { return live_moves_disabled; };
+	bool speedRampEnabled() { return speed_ramp_enabled; };
 	static PTZControls *getInstance() { return instance; };
 
 public slots:
 	void setAutoselectEnabled(bool enable);
 	void setDisableLiveMoves(bool enable);
+	void setSpeedRampEnabled(bool enable);
 
 signals:
 	void autoselectEnabledChanged(bool enabled);
 	void liveMovesDisabledChanged(bool disabled);
+	void speedRampEnabledChanged(bool enabled);
 };
 
 class PTZDeviceListDelegate : public QStyledItemDelegate {

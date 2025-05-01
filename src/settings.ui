@@ -134,6 +134,16 @@
         </widget>
        </item>
        <item>
+        <widget class="QCheckBox" name="speedRampCheckBox">
+         <property name="toolTip">
+          <string>When dynamics speed ramping is enabled, camera movements will start slowly and gradually get faster for as long as the button is held down. It allows for both precision control and fast moves from the same control</string>
+         </property>
+         <property name="text">
+          <string>Dynamic speed ramping</string>
+         </property>
+        </widget>
+       </item>
+       <item>
         <widget class="QCheckBox" name="enableDebugLogCheckBox">
          <property name="text">
           <string>Enable debug logging</string>
