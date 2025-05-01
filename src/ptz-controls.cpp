@@ -206,6 +206,16 @@ PTZControls::PTZControls(QWidget *parent) : QWidget(parent), ui(new Ui::PTZContr
 		if (pressed)
 			ptzctrl->on_focusButton_auto_clicked(!ptzctrl->ui->focusButton_auto->isChecked());
 	};
+	auto autofocusoncb = [](void *ptz_data, obs_hotkey_id, obs_hotkey_t *, bool pressed) {
+		PTZControls *ptzctrl = static_cast<PTZControls *>(ptz_data);
+		if (pressed)
+			ptzctrl->on_focusButton_auto_clicked(true);
+	};
+	auto autofocusoffcb = [](void *ptz_data, obs_hotkey_id, obs_hotkey_t *, bool pressed) {
+		PTZControls *ptzctrl = static_cast<PTZControls *>(ptz_data);
+		if (pressed)
+			ptzctrl->on_focusButton_auto_clicked(false);
+	};
 	registerHotkey("PTZ.PanTiltUpLeft", "PTZ Pan camera up & left", cb, ui->panTiltButton_upleft);
 	registerHotkey("PTZ.PanTiltLeft", "PTZ Pan camera left", cb, ui->panTiltButton_left);
 	registerHotkey("PTZ.PanTiltDownLeft", "PTZ Pan camera down & left", cb, ui->panTiltButton_downleft);
@@ -216,7 +226,9 @@ PTZControls::PTZControls(QWidget *parent) : QWidget(parent), ui(new Ui::PTZContr
 	registerHotkey("PTZ.PanTiltDown", "PTZ Tilt camera down", cb, ui->panTiltButton_down);
 	registerHotkey("PTZ.ZoomWide", "PTZ Zoom camera out (wide)", cb, ui->zoomButton_wide);
 	registerHotkey("PTZ.ZoomTele", "PTZ Zoom camera in (telefocal)", cb, ui->zoomButton_tele);
-	registerHotkey("PTZ.FocusAutoFocus", "PTZ Toggle Autofocus", autofocustogglecb, this);
+	registerHotkey("PTZ.FocusAutoToggle", "PTZ Toggle Autofocus", autofocustogglecb, this);
+	registerHotkey("PTZ.FocusAutoOn", "PTZ Set Autofocus On", autofocusoncb, this);
+	registerHotkey("PTZ.FocusAutoOff", "PTZ Set Autofocus Off", autofocusoffcb, this);
 	registerHotkey("PTZ.FocusNear", "PTZ Focus far", cb, ui->focusButton_far);
 	registerHotkey("PTZ.FocusFar", "PTZ Focus near", cb, ui->focusButton_near);
 	registerHotkey("PTZ.FocusOneTouch", "PTZ One touch focus trigger", cb, ui->focusButton_onetouch);
@@ -383,6 +395,7 @@ void PTZControls::SaveConfig()
 	obs_data_set_bool(savedata, "live_moves_disabled", liveMovesDisabled());
 	obs_data_set_int(savedata, "debug_log_level", ptz_debug_level);
 	obs_data_set_bool(savedata, "autoselect_enabled", autoselectEnabled());
+	obs_data_set_bool(savedata, "speed_ramp_enabled", speedRampEnabled());
 	obs_data_set_bool(savedata, "joystick_enable", m_joystick_enable);
 	obs_data_set_int(savedata, "joystick_id", m_joystick_id);
 	obs_data_set_double(savedata, "joystick_speed", m_joystick_speed);
@@ -428,6 +441,7 @@ void PTZControls::LoadConfig()
 	obs_data_set_default_int(loaddata, "debug_log_level", LOG_INFO);
 	obs_data_set_default_bool(loaddata, "live_moves_disabled", true);
 	obs_data_set_default_bool(loaddata, "autoselect_enabled", true);
+	obs_data_set_default_bool(loaddata, "speed_ramp_enabled", true);
 	obs_data_set_default_bool(loaddata, "joystick_enable", false);
 	obs_data_set_default_int(loaddata, "joystick_id", -1);
 	obs_data_set_default_double(loaddata, "joystick_speed", 1.0);
@@ -436,6 +450,7 @@ void PTZControls::LoadConfig()
 	ptz_debug_level = (int)obs_data_get_int(loaddata, "debug_log_level");
 	live_moves_disabled = obs_data_get_bool(loaddata, "live_moves_disabled");
 	autoselect_enabled = obs_data_get_bool(loaddata, "autoselect_enabled");
+	speed_ramp_enabled = obs_data_get_bool(loaddata, "speed_ramp_enabled");
 	m_joystick_enable = obs_data_get_bool(loaddata, "joystick_enable");
 	m_joystick_id = (int)obs_data_get_int(loaddata, "joystick_id");
 	m_joystick_speed = obs_data_get_double(loaddata, "joystick_speed");
@@ -468,6 +483,14 @@ void PTZControls::setDisableLiveMoves(bool disable)
 	live_moves_disabled = disable;
 	updateMoveControls();
 	emit liveMovesDisabledChanged(disable);
+}
+
+void PTZControls::setSpeedRampEnabled(bool enabled)
+{
+	if (enabled == speed_ramp_enabled)
+		return;
+	speed_ramp_enabled = enabled;
+	emit speedRampEnabledChanged(enabled);
 }
 
 PTZDevice *PTZControls::currCamera()
@@ -524,9 +547,11 @@ void PTZControls::keypressPanTilt(double pan, double tilt)
 	if (modifiers.testFlag(Qt::ControlModifier))
 		setPanTilt(pan, tilt);
 	else if (modifiers.testFlag(Qt::ShiftModifier))
-		setPanTilt(pan / 20, tilt / 20);
+		setPanTilt(pan * 0.05, tilt * 0.05);
+	else if (!speedRampEnabled())
+		setPanTilt(pan * 0.5, tilt * 0.5);
 	else
-		setPanTilt(pan / 20, tilt / 20, pan / 20, tilt / 20);
+		setPanTilt(pan * 0.05, tilt * 0.05, pan * 0.05, tilt * 0.05);
 }
 
 /** setZoom(double speed)
@@ -546,11 +571,9 @@ void PTZControls::setZoom(double zoom)
 	if (QGuiApplication::keyboardModifiers().testFlag(Qt::ControlModifier)) {
 		ptz->zoom(zoom);
 	} else if (QGuiApplication::keyboardModifiers().testFlag(Qt::ShiftModifier)) {
-		ptz->zoom(zoom / 20);
+		ptz->zoom(zoom * 0.1);
 	} else {
-		zoom_speed = zoom_accel = zoom / 20;
-		ptz->zoom(zoom_speed);
-		accel_timer.start(2000 / 20);
+		ptz->zoom(zoom * 0.5);
 	}
 }
 
@@ -564,11 +587,9 @@ void PTZControls::setFocus(double focus)
 	if (QGuiApplication::keyboardModifiers().testFlag(Qt::ControlModifier)) {
 		ptz->focus(focus);
 	} else if (QGuiApplication::keyboardModifiers().testFlag(Qt::ShiftModifier)) {
-		ptz->focus(focus / 20);
+		ptz->focus(focus * 0.1);
 	} else {
-		focus_speed = focus_accel = focus / 20;
-		ptz->focus(focus_speed);
-		accel_timer.start(2000 / 20);
+		ptz->focus(focus * 0.5);
 	}
 }
 
