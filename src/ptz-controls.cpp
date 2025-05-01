@@ -206,6 +206,16 @@ PTZControls::PTZControls(QWidget *parent) : QWidget(parent), ui(new Ui::PTZContr
 		if (pressed)
 			ptzctrl->on_focusButton_auto_clicked(!ptzctrl->ui->focusButton_auto->isChecked());
 	};
+	auto autofocusoncb = [](void *ptz_data, obs_hotkey_id, obs_hotkey_t *, bool pressed) {
+		PTZControls *ptzctrl = static_cast<PTZControls *>(ptz_data);
+		if (pressed)
+			ptzctrl->on_focusButton_auto_clicked(true);
+	};
+	auto autofocusoffcb = [](void *ptz_data, obs_hotkey_id, obs_hotkey_t *, bool pressed) {
+		PTZControls *ptzctrl = static_cast<PTZControls *>(ptz_data);
+		if (pressed)
+			ptzctrl->on_focusButton_auto_clicked(false);
+	};
 	registerHotkey("PTZ.PanTiltUpLeft", "PTZ Pan camera up & left", cb, ui->panTiltButton_upleft);
 	registerHotkey("PTZ.PanTiltLeft", "PTZ Pan camera left", cb, ui->panTiltButton_left);
 	registerHotkey("PTZ.PanTiltDownLeft", "PTZ Pan camera down & left", cb, ui->panTiltButton_downleft);
@@ -216,7 +226,9 @@ PTZControls::PTZControls(QWidget *parent) : QWidget(parent), ui(new Ui::PTZContr
 	registerHotkey("PTZ.PanTiltDown", "PTZ Tilt camera down", cb, ui->panTiltButton_down);
 	registerHotkey("PTZ.ZoomWide", "PTZ Zoom camera out (wide)", cb, ui->zoomButton_wide);
 	registerHotkey("PTZ.ZoomTele", "PTZ Zoom camera in (telefocal)", cb, ui->zoomButton_tele);
-	registerHotkey("PTZ.FocusAutoFocus", "PTZ Toggle Autofocus", autofocustogglecb, this);
+	registerHotkey("PTZ.FocusAutoToggle", "PTZ Toggle Autofocus", autofocustogglecb, this);
+	registerHotkey("PTZ.FocusAutoOn", "PTZ Set Autofocus On", autofocusoncb, this);
+	registerHotkey("PTZ.FocusAutoOff", "PTZ Set Autofocus Off", autofocusoffcb, this);
 	registerHotkey("PTZ.FocusNear", "PTZ Focus far", cb, ui->focusButton_far);
 	registerHotkey("PTZ.FocusFar", "PTZ Focus near", cb, ui->focusButton_near);
 	registerHotkey("PTZ.FocusOneTouch", "PTZ One touch focus trigger", cb, ui->focusButton_onetouch);
