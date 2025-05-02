@@ -37,6 +37,7 @@ protected:
 	QList<PTZCmd> pending_cmds;
 	std::optional<PTZCmd> active_cmd[8];
 	QTimer timeout_timer;
+	QTimer update_timer;
 
 	unsigned int visca_pan_speed_max = 0x18;
 	unsigned int visca_tilt_speed_max = 0x14;
@@ -50,6 +51,7 @@ protected:
 	void send(PTZCmd cmd, QList<int> args);
 	void send_pending();
 	void timeout();
+	void update_timer_callback();
 
 protected slots:
 	void receive(const QByteArray &msg);

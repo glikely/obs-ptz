@@ -515,6 +515,7 @@ PTZVisca::PTZVisca(OBSData config) : PTZDevice(config)
 	for (int i = 0; i < 8; i++)
 		active_cmd[i] = std::nullopt;
 	connect(&timeout_timer, &QTimer::timeout, this, &PTZVisca::timeout);
+	connect(&update_timer, &QTimer::timeout, this, &PTZVisca::update_timer_callback);
 }
 
 void PTZVisca::set_settings(OBSData new_settings)
@@ -626,13 +627,12 @@ void PTZVisca::send_packet(const QByteArray &packet)
 	ptz_debug("--> %s", packet.toHex(':').data());
 	send_immediate(packet);
 	timeout_timer.setSingleShot(true);
-	timeout_timer.start(1000 / 30);
+	timeout_timer.start(1000 / 20); // Update 20 times a second
 }
 
 void PTZVisca::timeout()
 {
 	if ((status & STATUS_CONNECTED) && active_cmd[0].has_value() && (timeout_retry < 3)) {
-		ptz_debug("timeout");
 		send_packet(active_cmd[0].value().cmd);
 		timeout_retry++;
 	} else {
@@ -642,11 +642,24 @@ void PTZVisca::timeout()
 	}
 }
 
+void PTZVisca::update_timer_callback()
+{
+	if (pan_speed || tilt_speed)
+		stale_settings += "pan_pos";
+	if (zoom_speed)
+		stale_settings += "zoom_pos";
+	if (focus_speed)
+		stale_settings += "focus_pos";
+	ptz_debug("Stale prop list: {%s}", QT_TO_UTF8(stale_settings.values().join(',')));
+	send_pending();
+}
+
 void PTZVisca::cmd_get_camera_info()
 {
 	status |= STATUS_CONNECTED;
 	for (auto key : inquires.keys())
 		stale_settings += key;
+	update_timer.start(1000);
 	send_pending();
 }
 
@@ -735,13 +748,6 @@ void PTZVisca::send_pending()
 			cmd.encode({scale_speed(focus_speed, visca_focus_speed_max + 1)});
 			pending_cmds += cmd;
 		} else if (status & STATUS_CONNECTED) {
-			if (pan_speed || tilt_speed)
-				stale_settings += "pan_pos";
-			if (zoom_speed)
-				stale_settings += "zoom_pos";
-			if (focus_speed)
-				stale_settings += "focus_pos";
-			ptz_debug("Stale prop list: {%s}", QT_TO_UTF8(stale_settings.values().join(',')));
 			QSetIterator<QString> i(stale_settings);
 			while (i.hasNext()) {
 				QString prop = i.next();

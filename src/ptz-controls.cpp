@@ -124,7 +124,8 @@ PTZControls::PTZControls(QWidget *parent) : QWidget(parent), ui(new Ui::PTZContr
 	ui->setupUi(this);
 	ui->cameraList->setModel(&ptzDeviceList);
 	ui->cameraList->setItemDelegate(new PTZDeviceListDelegate(ui->cameraList));
-	connect(&ptzDeviceList, SIGNAL(dataChanged(QModelIndex,QModelIndex)), this, SLOT(ptzDeviceDataChanged(const QModelIndex&, const QModelIndex&)));
+	connect(&ptzDeviceList, SIGNAL(dataChanged(QModelIndex, QModelIndex)), this,
+		SLOT(ptzDeviceDataChanged(const QModelIndex &, const QModelIndex &)));
 
 	copyActionsDynamicProperties();
 
@@ -465,7 +466,8 @@ void PTZControls::LoadConfig()
 	array = obs_data_get_array(loaddata, "devices");
 	obs_data_array_release(array);
 	ptz_devices_set_config(array);
-	ui->cameraList->setCurrentIndex(ptzDeviceList.indexFromDeviceId(obs_data_get_int(loaddata, "current_selected")));
+	ui->cameraList->setCurrentIndex(
+		ptzDeviceList.indexFromDeviceId(obs_data_get_int(loaddata, "current_selected")));
 }
 
 void PTZControls::setAutoselectEnabled(bool enabled)
@@ -1008,7 +1010,9 @@ PTZDeviceListItem::PTZDeviceListItem(PTZDevice *ptz_) : ptz(ptz_)
 
 void PTZDeviceListItem::update()
 {
-	bool is_live = obs_frontend_preview_program_mode_active() && PTZControls::getInstance()->liveMovesDisabled() ? ptz->isLive() : false;
+	bool is_live = obs_frontend_preview_program_mode_active() && PTZControls::getInstance()->liveMovesDisabled()
+			       ? ptz->isLive()
+			       : false;
 	// When a camera becomes live, start with it locked
 	if (lock->isVisible() == false && is_live)
 		lock->setChecked(true);
