@@ -38,6 +38,15 @@
                 "macos": "e1656579e555da61cb81cbbb5ee6d31835cea110b3a5dd9e14b16fa71e55dc37",
                 "windows-x64": "cf68d0b459cafeb0176b9107494fa2dcab6ca58ce8e29b3c9307d1b1512a448a"
             }
+        },
+        "sdl": {
+            "version": "2.30.11",
+            "baseUrl": "https://github.com/libsdl-org/sdl/releases/download/release-2.30.11",
+            "label": "sdl sources",
+            "hashes": {
+                "macos": "8b8d4aef2038533da814965220f88f77d60dfa0f32685f80ead65e501337da7f",
+                "windows-x64": "a0b3e7ac5f708042683ff0f22e069bdf75563540c615f9854ecc9bc8913e2488"
+            }
         }
     },
     "platformConfig": {
