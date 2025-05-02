@@ -626,13 +626,12 @@ void PTZVisca::send_packet(const QByteArray &packet)
 	ptz_debug("--> %s", packet.toHex(':').data());
 	send_immediate(packet);
 	timeout_timer.setSingleShot(true);
-	timeout_timer.start(1000 / 30);
+	timeout_timer.start(1000 / 20); // Update 20 times a second
 }
 
 void PTZVisca::timeout()
 {
 	if ((status & STATUS_CONNECTED) && active_cmd[0].has_value() && (timeout_retry < 3)) {
-		ptz_debug("timeout");
 		send_packet(active_cmd[0].value().cmd);
 		timeout_retry++;
 	} else {
