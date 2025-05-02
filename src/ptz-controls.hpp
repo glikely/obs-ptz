@@ -188,4 +188,3 @@ private:
 
 	PTZDevice *ptz;
 };
-

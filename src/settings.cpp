@@ -114,22 +114,22 @@ PTZSettings::PTZSettings() : QWidget(nullptr), ui(new Ui_PTZSettings)
 	ui->setupUi(this);
 
 	ui->autoselectCheckBox->setChecked(PTZControls::getInstance()->autoselectEnabled());
-	connect(PTZControls::getInstance(), SIGNAL(autoselectEnabledChanged(bool)),
-	        ui->autoselectCheckBox, SLOT(setChecked(bool)));
-	connect(ui->autoselectCheckBox, SIGNAL(clicked(bool)),
-	        PTZControls::getInstance(), SLOT(setAutoselectEnabled(bool)));
+	connect(PTZControls::getInstance(), SIGNAL(autoselectEnabledChanged(bool)), ui->autoselectCheckBox,
+		SLOT(setChecked(bool)));
+	connect(ui->autoselectCheckBox, SIGNAL(clicked(bool)), PTZControls::getInstance(),
+		SLOT(setAutoselectEnabled(bool)));
 
 	ui->livemoveCheckBox->setChecked(PTZControls::getInstance()->liveMovesDisabled());
-	connect(PTZControls::getInstance(), SIGNAL(liveMovesDisabledChanged(bool)),
-	        ui->livemoveCheckBox, SLOT(setChecked(bool)));
-	connect(ui->livemoveCheckBox, SIGNAL(clicked(bool)),
-	        PTZControls::getInstance(), SLOT(setDisableLiveMoves(bool)));
+	connect(PTZControls::getInstance(), SIGNAL(liveMovesDisabledChanged(bool)), ui->livemoveCheckBox,
+		SLOT(setChecked(bool)));
+	connect(ui->livemoveCheckBox, SIGNAL(clicked(bool)), PTZControls::getInstance(),
+		SLOT(setDisableLiveMoves(bool)));
 
 	ui->speedRampCheckBox->setChecked(PTZControls::getInstance()->speedRampEnabled());
-	connect(PTZControls::getInstance(), SIGNAL(speedRampEnabledChanged(bool)),
-	        ui->speedRampCheckBox, SLOT(setChecked(bool)));
-	connect(ui->speedRampCheckBox, SIGNAL(clicked(bool)),
-	        PTZControls::getInstance(), SLOT(setSpeedRampEnabled(bool)));
+	connect(PTZControls::getInstance(), SIGNAL(speedRampEnabledChanged(bool)), ui->speedRampCheckBox,
+		SLOT(setChecked(bool)));
+	connect(ui->speedRampCheckBox, SIGNAL(clicked(bool)), PTZControls::getInstance(),
+		SLOT(setSpeedRampEnabled(bool)));
 
 	ui->enableDebugLogCheckBox->setChecked(ptz_debug_level <= LOG_INFO);
 

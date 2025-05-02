@@ -55,7 +55,10 @@ function(_setup_qt_submodule)
   elseif(OS_MACOS)
     set(_cmake_config Release)
     set(_cmake_arch "-DCMAKE_OSX_ARCHITECTURES:STRING='arm64;x86_64'")
-    set(_cmake_extra "-DCMAKE_OSX_DEPLOYMENT_TARGET=${CMAKE_OSX_DEPLOYMENT_TARGET} -DQT_NO_APPLE_SDK_MAX_VERSION_CHECK=ON -DFEATURE_separate_debug_info:BOOL=ON")
+    set(
+      _cmake_extra
+      "-DCMAKE_OSX_DEPLOYMENT_TARGET=${CMAKE_OSX_DEPLOYMENT_TARGET} -DQT_NO_APPLE_SDK_MAX_VERSION_CHECK=ON -DFEATURE_separate_debug_info:BOOL=ON"
+    )
   endif()
 
   message(STATUS "Configure ${label} (${arch})")
@@ -63,11 +66,8 @@ function(_setup_qt_submodule)
     COMMAND
       "${CMAKE_COMMAND}" -B build_${arch} -G Ninja "${_cmake_arch}"
       "-DCMAKE_INSTALL_PREFIX='${dependencies_dir}/${_qt6_destination}'"
-      "-DCMAKE_PREFIX_PATH='${dependencies_dir}/${_qt6_destination}'"
-      "--no-warn-unused-cli"
-      "-DBUILD_SHARED_LIBS:BOOL=ON"
-      "-DCMAKE_BUILD_TYPE=${_cmake_config}"
-      "${_cmake_extra}"
+      "-DCMAKE_PREFIX_PATH='${dependencies_dir}/${_qt6_destination}'" "--no-warn-unused-cli"
+      "-DBUILD_SHARED_LIBS:BOOL=ON" "-DCMAKE_BUILD_TYPE=${_cmake_config}" "${_cmake_extra}"
     WORKING_DIRECTORY "${dependencies_dir}/${destination}"
     RESULT_VARIABLE _process_result
     COMMAND_ERROR_IS_FATAL ANY
@@ -85,8 +85,7 @@ function(_setup_qt_submodule)
 
   message(STATUS "Install ${label} (${_cmake_config} - ${arch})")
   execute_process(
-    COMMAND
-    "${CMAKE_COMMAND}" --install build_${arch} --config ${_cmake_config}
+    COMMAND "${CMAKE_COMMAND}" --install build_${arch} --config ${_cmake_config}
     WORKING_DIRECTORY "${dependencies_dir}/${destination}"
     RESULT_VARIABLE _process_result
     COMMAND_ERROR_IS_FATAL ANY

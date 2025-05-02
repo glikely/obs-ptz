@@ -46,9 +46,12 @@ function(package_qt_library target qtlibrary)
       OPTIONAL
     )
   elseif(OS_MACOS)
-    set_target_properties(${target} PROPERTIES
-      XCODE_EMBED_FRAMEWORKS_CODE_SIGN_ON_COPY YES
-      XCODE_EMBED_FRAMEWORKS "${QT6_INSTALL_PREFIX}/lib/Qt${qtlibrary}.Framework")
+    set_target_properties(
+      ${target}
+      PROPERTIES
+        XCODE_EMBED_FRAMEWORKS_CODE_SIGN_ON_COPY YES
+        XCODE_EMBED_FRAMEWORKS "${QT6_INSTALL_PREFIX}/lib/Qt${qtlibrary}.Framework"
+    )
   endif()
 endfunction()
 

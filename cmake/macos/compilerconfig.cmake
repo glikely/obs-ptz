@@ -21,7 +21,8 @@ execute_process(
   COMMAND xcrun --sdk macosx --show-sdk-version
   OUTPUT_VARIABLE _obs_macos_current_sdk
   WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
-  OUTPUT_STRIP_TRAILING_WHITESPACE)
+  OUTPUT_STRIP_TRAILING_WHITESPACE
+)
 message(DEBUG "macOS SDK version: ${_obs_macos_current_sdk}")
 if(_obs_macos_current_sdk VERSION_LESS _obs_macos_minimum_sdk)
   message(

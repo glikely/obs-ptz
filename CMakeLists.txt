@@ -34,8 +34,14 @@ add_subdirectory("${CMAKE_SOURCE_DIR}/shared/properties-view" "${CMAKE_BINARY_DI
 target_link_libraries(${CMAKE_PROJECT_NAME} PRIVATE OBS::properties-view)
 
 if(ENABLE_QT)
-  find_package(Qt6 COMPONENTS Widgets Core Svg Network Xml)
-  target_link_libraries(${CMAKE_PROJECT_NAME} PRIVATE Qt6::Core Qt6::Widgets Qt6::Svg Qt6::Network Qt6::Xml)
+  find_package(
+    Qt6
+    COMPONENTS Widgets Core Svg Network Xml
+  )
+  target_link_libraries(
+    ${CMAKE_PROJECT_NAME}
+    PRIVATE Qt6::Core Qt6::Widgets Qt6::Svg Qt6::Network Qt6::Xml
+  )
   target_compile_options(
     ${CMAKE_PROJECT_NAME}
     PRIVATE $<$<C_COMPILER_ID:Clang,AppleClang>:-Wno-quoted-include-in-framework-header -Wno-comma>
@@ -117,6 +123,6 @@ endif()
 
 set_target_properties_plugin(${CMAKE_PROJECT_NAME} PROPERTIES OUTPUT_NAME ${_name})
 
-if (OS_WINDOWS)
+if(OS_WINDOWS)
   configure_file(installer-Windows.iss.in ${CMAKE_BINARY_DIR}/installer-Windows.iss)
 endif()
