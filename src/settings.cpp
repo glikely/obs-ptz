@@ -344,7 +344,7 @@ void PTZSettings::settingsChanged(OBSData changed)
 	obs_data_erase(settings, "debug_info");
 	auto json = QJsonDocument::fromJson(obs_data_get_json(settings)).toJson();
 	obs_data_set_string(settings, "debug_info", json.constData());
-	propertiesView->ReloadProperties();
+	QMetaObject::invokeMethod(propertiesView, "RefreshProperties", Qt::QueuedConnection);
 }
 
 void PTZSettings::showDevice(uint32_t device_id)
