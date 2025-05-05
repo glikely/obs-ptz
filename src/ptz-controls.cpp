@@ -304,7 +304,7 @@ void PTZControls::setJoystickSpeed(double speed)
 
 void PTZControls::setJoystickDeadzone(double deadzone)
 {
-	m_joystick_deadzone = deadzone;
+	m_joystick_deadzone = std::clamp(deadzone, 0.0, 0.5);
 	/* Immediatly apply the deadzone */
 	auto jd = QJoysticks::getInstance()->getInputDevice(m_joystick_id);
 	joystickAxesChanged(jd, 0b11111111);
@@ -315,7 +315,9 @@ void PTZControls::joystickAxesChanged(const QJoystickDevice *jd, uint32_t update
 	if (!m_joystick_enable || !jd || jd->id != m_joystick_id)
 		return;
 	auto filter_axis = [=](double val) -> double {
-		val = abs(val) > m_joystick_deadzone ? val : 0.0;
+		val = abs(val) > m_joystick_deadzone
+			      ? std::copysign((abs(val) - m_joystick_deadzone) / (1.0 - m_joystick_deadzone), val)
+			      : 0.0;
 		return val * m_joystick_speed;
 	};
 
