@@ -7,6 +7,7 @@
 #pragma once
 
 #include <QObject>
+#include <QHostInfo>
 #include <QUdpSocket>
 #include "ptz-visca.hpp"
 
@@ -39,6 +40,7 @@ class PTZViscaOverIP : public PTZVisca {
 
 private:
 	uint32_t seq_state[8];
+	QString host;
 	QHostAddress ip_address;
 	ViscaUDPSocket *iface;
 	bool quirk_visca_udp_no_seq;
@@ -50,6 +52,7 @@ protected:
 
 public slots:
 	void receive_datagram(const QNetworkDatagram &datagram);
+	void lookup_host_callback(const QHostInfo hostinfo);
 
 public:
 	PTZViscaOverIP(OBSData config);

@@ -5,6 +5,7 @@
  * SPDX-License-Identifier: GPLv2
  */
 
+#include <QHostInfo>
 #include <QNetworkDatagram>
 #include "ptz-visca-udp.hpp"
 
@@ -166,13 +167,28 @@ void PTZViscaOverIP::send_immediate(const QByteArray &msg)
 	incrementStatistic("visca_udp_sent_count");
 }
 
+void PTZViscaOverIP::lookup_host_callback(const QHostInfo info)
+{
+	auto new_addr = info.addresses().first();
+	if (new_addr != ip_address) {
+		ip_address = new_addr;
+		reset();
+	}
+}
+
 void PTZViscaOverIP::set_config(OBSData config)
 {
 	PTZVisca::set_config(config);
-	const char *ip = obs_data_get_string(config, "address");
-	if (ip)
-		ip_address = QHostAddress(ip);
-	int port = (int)obs_data_get_int(config, "port");
+	QString new_host = obs_data_get_string(config, "host");
+	if (new_host.isEmpty())
+		new_host = obs_data_get_string(config, "address");
+	auto port = obs_data_get_int(config, "port");
+	if (new_host != host) {
+		ip_address.clear();
+		host = new_host;
+		if (!host.isEmpty())
+			QHostInfo::lookupHost(host, this, SLOT(lookup_host_callback(QHostInfo)));
+	}
 	if (!port)
 		port = 52381;
 	attach_interface(ViscaUDPSocket::get_interface(port));
@@ -182,6 +198,7 @@ void PTZViscaOverIP::set_config(OBSData config)
 OBSData PTZViscaOverIP::get_config()
 {
 	OBSData config = PTZVisca::get_config();
+	obs_data_set_string(config, "host", qPrintable(host));
 	obs_data_set_string(config, "address", qPrintable(ip_address.toString()));
 	obs_data_set_int(config, "port", iface->port());
 	obs_data_set_bool(config, "quirk_visca_udp_no_seq", quirk_visca_udp_no_seq);
@@ -194,7 +211,7 @@ obs_properties_t *PTZViscaOverIP::get_obs_properties()
 	obs_property_t *p = obs_properties_get(ptz_props, "interface");
 	obs_properties_t *config = obs_property_group_content(p);
 	obs_property_set_description(p, "VISCA (UDP) Connection");
-	obs_properties_add_text(config, "address", "IP Address", OBS_TEXT_DEFAULT);
+	obs_properties_add_text(config, "host", "Host name or IP Address", OBS_TEXT_DEFAULT);
 	obs_properties_add_int(config, "port", "UDP port", 1, 65535, 1);
 	obs_properties_add_bool(config, "quirk_visca_udp_no_seq", "Don't use sequence numbers");
 	return ptz_props;
