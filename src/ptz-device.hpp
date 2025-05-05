@@ -125,7 +125,9 @@ protected:
 	PTZPresetListModel m_presetsModel;
 	obs_properties_t *props;
 	OBSData settings;
+	OBSData statistics;
 	QSet<QString> stale_settings;
+	void incrementStatistic(const char *name);
 
 signals:
 	void settingsChanged(OBSData settings);

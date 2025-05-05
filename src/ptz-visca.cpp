@@ -625,6 +625,7 @@ void PTZVisca::send(PTZCmd cmd, QList<int> args)
 void PTZVisca::send_packet(const QByteArray &packet)
 {
 	ptz_debug("--> %s", packet.toHex(':').data());
+	incrementStatistic("visca_sent_count");
 	send_immediate(packet);
 	timeout_timer.setSingleShot(true);
 	timeout_timer.start(1000 / 20); // Update 20 times a second
@@ -668,6 +669,7 @@ void PTZVisca::receive(const QByteArray &msg)
 	if (VISCA_PACKET_SENDER(msg) != address || (msg.size() < 3))
 		return;
 	ptz_debug("<-- %s", msg.toHex(':').data());
+	incrementStatistic("visca_recv_count");
 	int slot = msg[1] & 0x7;
 
 	switch (msg[1] & 0xf0) {
@@ -700,6 +702,7 @@ void PTZVisca::receive(const QByteArray &msg)
 				stale_settings -= obs_data_item_get_name(item);
 
 			/* Data has been updated */
+			obs_data_set_obj(rslt_props, "statistics", statistics);
 			emit settingsChanged(rslt_props);
 			obs_data_release(rslt_props);
 		}

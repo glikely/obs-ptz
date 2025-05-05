@@ -445,6 +445,9 @@ PTZDevice::PTZDevice(OBSData config) : QObject()
 	type = obs_data_get_string(config, "type");
 	settings = obs_data_create();
 	obs_data_release(settings);
+	statistics = obs_data_create();
+	obs_data_release(statistics);
+	obs_data_set_obj(settings, "statistics", statistics);
 	stale_settings = {"pan_pos", "tilt_pos", "zoom_pos", "focus_pos"};
 	ptzDeviceList.add(this);
 }
@@ -715,4 +718,9 @@ void ptz_unload_devices(void)
 {
 	proc_handler_destroy(ptz_ph);
 	ptz_ph = nullptr;
+}
+
+void PTZDevice::incrementStatistic(const char *name)
+{
+	obs_data_set_int(statistics, name, obs_data_get_int(statistics, name) + 1);
 }
