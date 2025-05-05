@@ -612,7 +612,6 @@ obs_properties_t *PTZVisca::get_obs_properties()
 void PTZVisca::send(PTZCmd cmd)
 {
 	pending_cmds.append(cmd);
-	ptz_debug("sending cmd, queuelength=%i", (int)pending_cmds.count());
 	send_pending();
 }
 
@@ -624,7 +623,7 @@ void PTZVisca::send(PTZCmd cmd, QList<int> args)
 
 void PTZVisca::send_packet(const QByteArray &packet)
 {
-	ptz_debug("--> %s", packet.toHex(':').data());
+	ptz_debug_trace("--> %s", packet.toHex(':').data());
 	incrementStatistic("visca_sent_count");
 	send_immediate(packet);
 	timeout_timer.setSingleShot(true);
@@ -651,7 +650,6 @@ void PTZVisca::update_timer_callback()
 		stale_settings += "zoom_pos";
 	if (focus_speed)
 		stale_settings += "focus_pos";
-	ptz_debug("Stale prop list: {%s}", QT_TO_UTF8(stale_settings.values().join(',')));
 	send_pending();
 }
 
@@ -668,7 +666,7 @@ void PTZVisca::receive(const QByteArray &msg)
 {
 	if (VISCA_PACKET_SENDER(msg) != address || (msg.size() < 3))
 		return;
-	ptz_debug("<-- %s", msg.toHex(':').data());
+	ptz_debug_trace("<-- %s", msg.toHex(':').data());
 	incrementStatistic("visca_recv_count");
 	int slot = msg[1] & 0x7;
 

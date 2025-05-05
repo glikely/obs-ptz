@@ -22,6 +22,11 @@ extern int ptz_debug_level;
 	blog(level, "[%s/%.12s] " format, type.c_str(), QT_TO_UTF8(objectName()), ##__VA_ARGS__)
 #define ptz_info(format, ...) ptz_log(LOG_INFO, format, ##__VA_ARGS__)
 #define ptz_debug(format, ...) ptz_log(ptz_debug_level, format, ##__VA_ARGS__)
+#ifdef DEBUG_VERSBOSE_TRACE
+#define ptz_debug_trace(...) ptz_debug(##__VA_ARGS__)
+#else
+#define ptz_debug_trace(...)
+#endif
 
 class PTZDevice;
 
