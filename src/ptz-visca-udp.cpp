@@ -31,16 +31,47 @@ void PTZViscaOverIP::receive_datagram(const QNetworkDatagram &dg)
 		data = QByteArray::fromHex("0111000000000000") + dg.data();
 		data[3] = s;
 	}
-	int type = ((data[0] & 0xff) << 8) | (data[1] & 0xff);
-	int size = data[2] << 8 | data[3];
+	if (data.size() < 9) {
+		blog(ptz_debug_level, "VISCA UDP (too small) <-- %s", qPrintable(data.toHex(':')));
+		return;
+	}
+	uint16_t type = (uint8_t)data[0] << 8 | (uint8_t)data[1];
+	uint16_t size = (uint8_t)data[2] << 8 | (uint8_t)data[3];
+	uint32_t seq = (uint8_t)data[4] << 24 | (uint8_t)data[5] << 16 | (uint8_t)data[6] << 8 | (uint8_t)data[7];
+	uint8_t reply_code = data[9] & 0x70;
+	uint8_t slot = data[9] & 0x0f;
 
 	if ((data.size() != size + 8) || size < 1) {
 		blog(ptz_debug_level, "VISCA UDP (malformed) <-- %s", qPrintable(data.toHex(':')));
+		incrementStatistic("visca_udp_malformed_count");
 		return;
 	}
 
 	switch (type) {
 	case 0x0111:
+		switch (reply_code) {
+		case 0x40:
+			if (seq != seq_state[0]) {
+				blog(ptz_debug_level, "VISCA UDP (out of seq %i != %i) <-- %s", seq, seq_state[0],
+				     qPrintable(data.toHex(':')));
+				incrementStatistic("visca_udp_outofseq_ack_count");
+				return;
+			}
+			seq_state[slot] = seq_state[0];
+			break;
+		case 0x50:
+			if (seq != seq_state[slot]) {
+				blog(ptz_debug_level, "VISCA UDP (out of seq %i != %i) <-- %s", seq, seq_state[0],
+				     qPrintable(data.toHex(':')));
+				incrementStatistic("visca_udp_outofseq_cmplt_count");
+				return;
+			}
+			break;
+		default:
+			blog(ptz_debug_level, "VISCA UDP (unknown) <-- %s", qPrintable(data.toHex(':')));
+			incrementStatistic("visca_udp_unknown_count");
+			return;
+		}
 		receive(data.mid(8, size));
 		break;
 	case 0x0200:
@@ -107,7 +138,9 @@ void PTZViscaOverIP::attach_interface(ViscaUDPSocket *new_iface)
 
 void PTZViscaOverIP::reset()
 {
-	sequence = 1;
+	for (int i = 0; i < 8; i++)
+		seq_state[i] = 0;
+	incrementStatistic("visca_udp_reset_count");
 	iface->send(ip_address, QByteArray::fromHex("020000010000000001"));
 	cmd_get_camera_info();
 }
@@ -117,18 +150,20 @@ void PTZViscaOverIP::send_immediate(const QByteArray &msg)
 	if (quirk_visca_udp_no_seq) {
 		// Don't prepend the sequence field
 		iface->send(ip_address, msg);
+		incrementStatistic("visca_udp_sent_count");
 		return;
 	}
 	QByteArray p = QByteArray::fromHex("0100000000000000") + msg;
+	seq_state[0]++;
 	p[1] = (0x9 == msg[1]) ? 0x10 : 0x00;
 	p[3] = msg.size();
-	p[4] = (sequence >> 24) & 0xff;
-	p[5] = (sequence >> 16) & 0xff;
-	p[6] = (sequence >> 8) & 0xff;
-	p[7] = sequence & 0xff;
+	p[4] = (seq_state[0] >> 24) & 0xff;
+	p[5] = (seq_state[0] >> 16) & 0xff;
+	p[6] = (seq_state[0] >> 8) & 0xff;
+	p[7] = seq_state[0] & 0xff;
 	p[8] = '\x81';
-	sequence++;
 	iface->send(ip_address, p);
+	incrementStatistic("visca_udp_sent_count");
 }
 
 void PTZViscaOverIP::set_config(OBSData config)

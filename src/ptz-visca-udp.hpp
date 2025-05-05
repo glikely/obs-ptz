@@ -38,7 +38,7 @@ class PTZViscaOverIP : public PTZVisca {
 	Q_OBJECT
 
 private:
-	int sequence;
+	uint32_t seq_state[8];
 	QHostAddress ip_address;
 	ViscaUDPSocket *iface;
 	bool quirk_visca_udp_no_seq;
