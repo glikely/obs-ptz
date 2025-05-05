@@ -21,15 +21,12 @@ private:
 	QUdpSocket visca_socket;
 
 signals:
-	void receive(const QByteArray &packet);
-	void reset();
+	void receive_datagram(const QNetworkDatagram &dg);
 
 public:
 	ViscaUDPSocket(int port = 52381);
-	void receive_datagram(QNetworkDatagram &datagram);
 	void send(QHostAddress ip_address, const QByteArray &packet);
 	int port() { return visca_port; }
-	bool quirk_visca_udp_no_seq;
 
 	static ViscaUDPSocket *get_interface(int port);
 
@@ -44,11 +41,15 @@ private:
 	int sequence;
 	QHostAddress ip_address;
 	ViscaUDPSocket *iface;
+	bool quirk_visca_udp_no_seq;
 	void attach_interface(ViscaUDPSocket *iface);
 
 protected:
 	void send_immediate(const QByteArray &msg);
 	void reset();
+
+public slots:
+	void receive_datagram(const QNetworkDatagram &datagram);
 
 public:
 	PTZViscaOverIP(OBSData config);
