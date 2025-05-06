@@ -323,6 +323,8 @@ QVariant PTZPresetListModel::data(const QModelIndex &index, int role) const
 		return name;
 	if (role == Qt::UserRole)
 		return id;
+	if (role == Qt::SizeHintRole)
+		return QSize(0, 20);
 
 	return QVariant();
 }
