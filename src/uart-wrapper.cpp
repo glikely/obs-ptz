@@ -86,7 +86,6 @@ void PTZUARTWrapper::send(const QByteArray &packet)
 {
 	if (!uart.isOpen())
 		return;
-	blog(ptz_debug_level, "%s --> %s", qPrintable(port_name), packet.toHex(':').data());
 	uart.write(packet);
 }
 
