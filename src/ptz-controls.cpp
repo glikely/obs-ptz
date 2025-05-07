@@ -312,7 +312,7 @@ void PTZControls::setJoystickDeadzone(double deadzone)
 
 void PTZControls::joystickAxesChanged(const QJoystickDevice *jd, uint32_t updated)
 {
-	if (!m_joystick_enable || !jd || jd->id != m_joystick_id)
+	if (isLocked() || !m_joystick_enable || !jd || jd->id != m_joystick_id)
 		return;
 	auto filter_axis = [=](double val) -> double {
 		val = abs(val) > m_joystick_deadzone
@@ -356,7 +356,7 @@ void PTZControls::joystickButtonEvent(const QJoystickButtonEvent evt)
 	switch (evt.button) {
 	case 0: /* A button; activate preset */
 		index = ui->presetListView->currentIndex();
-		if (index.isValid())
+		if (index.isValid() && !isLocked())
 			ui->presetListView->activated(index);
 		break;
 	case 4: /* left shoulder; previous camera */
@@ -713,7 +713,7 @@ void PTZControls::ptzDeviceDataChanged(const QModelIndex &, const QModelIndex &)
 
 void PTZControls::updateMoveControls()
 {
-	bool ctrls_enabled = true;
+	is_locked = false;
 	PTZDevice *ptz = currCamera();
 
 	int rows = ptzDeviceList.rowCount();
@@ -733,10 +733,10 @@ void PTZControls::updateMoveControls()
 	auto item = ui->cameraList->indexWidget(ui->cameraList->currentIndex());
 	auto ptzitem = reinterpret_cast<PTZDeviceListItem *>(item);
 	if (obs_frontend_preview_program_mode_active() && liveMovesDisabled() && ptz)
-		ctrls_enabled = !ptzitem->isLocked();
+		is_locked = ptzitem->isLocked();
 
-	ui->movementControlsWidget->setEnabled(ctrls_enabled);
-	ui->presetListView->setEnabled(ctrls_enabled);
+	ui->movementControlsWidget->setEnabled(!isLocked());
+	ui->presetListView->setEnabled(!isLocked());
 
 	RefreshToolBarStyling(ui->ptzToolbar);
 }
