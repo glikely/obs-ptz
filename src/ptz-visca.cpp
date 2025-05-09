@@ -559,10 +559,12 @@ void PTZVisca::set_config(OBSData cfg)
 	obs_data_set_default_int(cfg, "visca_tilt_speed_max", 0x14);
 	obs_data_set_default_int(cfg, "visca_zoom_speed_max", 0x7);
 	obs_data_set_default_int(cfg, "visca_focus_speed_max", 0x7);
+	obs_data_set_default_bool(cfg, "protocol_trace", false);
 	visca_pan_speed_max = (int)obs_data_get_int(cfg, "visca_pan_speed_max");
 	visca_tilt_speed_max = (int)obs_data_get_int(cfg, "visca_tilt_speed_max");
 	visca_zoom_speed_max = (int)obs_data_get_int(cfg, "visca_zoom_speed_max");
 	visca_focus_speed_max = (int)obs_data_get_int(cfg, "visca_focus_speed_max");
+	protocol_trace = obs_data_get_bool(cfg, "protocol_trace");
 }
 
 OBSData PTZVisca::get_config()
@@ -572,6 +574,7 @@ OBSData PTZVisca::get_config()
 	obs_data_set_int(cfg, "visca_tilt_speed_max", visca_tilt_speed_max);
 	obs_data_set_int(cfg, "visca_zoom_speed_max", visca_zoom_speed_max);
 	obs_data_set_int(cfg, "visca_focus_speed_max", visca_focus_speed_max);
+	obs_data_set_bool(cfg, "protocol_trace", protocol_trace);
 	return cfg;
 }
 
@@ -606,6 +609,10 @@ obs_properties_t *PTZVisca::get_obs_properties()
 	obs_properties_add_int_slider(visca_grp, "visca_tilt_speed_max", "Tilt Maximum Speed (default 20)", 1, 0x7f, 1);
 	obs_properties_add_int_slider(visca_grp, "visca_zoom_speed_max", "Zoom Maximum Speed (default 7)", 0, 7, 1);
 	obs_properties_add_int_slider(visca_grp, "visca_focus_speed_max", "Focus Maximum Speed (default 7)", 0, 7, 1);
+	obs_properties_add_bool(visca_grp, "protocol_trace",
+				"Write VISCA traffic to log\n"
+				"Run OBS with --verbose to use this option\n"
+				"Warning: this generates very large logs");
 	return ptz_props;
 }
 

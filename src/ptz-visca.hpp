@@ -34,6 +34,7 @@ public:
 protected:
 	unsigned int timeout_retry = 0;
 	unsigned int address;
+	bool protocol_trace = false;
 	QList<PTZCmd> pending_cmds;
 	std::optional<PTZCmd> active_cmd[8];
 	QTimer timeout_timer;
