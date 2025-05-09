@@ -30,6 +30,7 @@ class PTZSettings : public QWidget {
 private:
 	Ui_PTZSettings *ui;
 	OBSData settings;
+	bool show_debug_info = false;
 	OBSPropertiesView *propertiesView = nullptr;
 	void current_device_changed();
 

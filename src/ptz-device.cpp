@@ -19,8 +19,6 @@
 #include "ptz-pelco.hpp"
 #endif
 
-int ptz_debug_level = LOG_DEBUG;
-
 PTZListModel ptzDeviceList;
 QMap<uint32_t, PTZDevice *> PTZListModel::devices;
 

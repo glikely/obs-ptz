@@ -396,7 +396,6 @@ void PTZControls::SaveConfig()
 	obs_data_set_string(savedata, "splitter_state", ui->splitter->saveState().toBase64().constData());
 
 	obs_data_set_bool(savedata, "live_moves_disabled", liveMovesDisabled());
-	obs_data_set_int(savedata, "debug_log_level", ptz_debug_level);
 	obs_data_set_bool(savedata, "autoselect_enabled", autoselectEnabled());
 	obs_data_set_bool(savedata, "speed_ramp_enabled", speedRampEnabled());
 	obs_data_set_bool(savedata, "joystick_enable", m_joystick_enable);
@@ -450,7 +449,6 @@ void PTZControls::LoadConfig()
 	obs_data_set_default_double(loaddata, "joystick_speed", 1.0);
 	obs_data_set_default_double(loaddata, "joystick_deadzone", 0.0);
 
-	ptz_debug_level = (int)obs_data_get_int(loaddata, "debug_log_level");
 	live_moves_disabled = obs_data_get_bool(loaddata, "live_moves_disabled");
 	autoselect_enabled = obs_data_get_bool(loaddata, "autoselect_enabled");
 	speed_ramp_enabled = obs_data_get_bool(loaddata, "speed_ramp_enabled");

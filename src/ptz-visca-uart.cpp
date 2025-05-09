@@ -76,10 +76,10 @@ void ViscaUART::receiveBytes(const QByteArray &msg)
 ViscaUART *ViscaUART::get_interface(QString port_name)
 {
 	ViscaUART *iface;
-	blog(ptz_debug_level, "Looking for UART object %s", qPrintable(port_name));
+	blog(LOG_DEBUG, "Looking for UART object %s", qPrintable(port_name));
 	iface = interfaces[port_name];
 	if (!iface) {
-		blog(ptz_debug_level, "Creating new VISCA object %s", qPrintable(port_name));
+		blog(LOG_DEBUG, "Creating new VISCA object %s", qPrintable(port_name));
 		iface = new ViscaUART(port_name);
 		iface->open();
 		interfaces[port_name] = iface;

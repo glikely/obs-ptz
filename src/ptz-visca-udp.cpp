@@ -33,7 +33,7 @@ void PTZViscaOverIP::receive_datagram(const QNetworkDatagram &dg)
 		data[3] = s;
 	}
 	if (data.size() < 9) {
-		blog(ptz_debug_level, "VISCA UDP (too small) <-- %s", qPrintable(data.toHex(':')));
+		ptz_debug("VISCA UDP (too small) <-- %s", qPrintable(data.toHex(':')));
 		return;
 	}
 	uint16_t type = (uint8_t)data[0] << 8 | (uint8_t)data[1];
@@ -43,7 +43,7 @@ void PTZViscaOverIP::receive_datagram(const QNetworkDatagram &dg)
 	uint8_t slot = data[9] & 0x0f;
 
 	if ((data.size() != size + 8) || size < 1) {
-		blog(ptz_debug_level, "VISCA UDP (malformed) <-- %s", qPrintable(data.toHex(':')));
+		blog(LOG_DEBUG, "VISCA UDP (malformed) <-- %s", qPrintable(data.toHex(':')));
 		incrementStatistic("visca_udp_malformed_count");
 		return;
 	}
@@ -53,7 +53,7 @@ void PTZViscaOverIP::receive_datagram(const QNetworkDatagram &dg)
 		switch (reply_code) {
 		case 0x40:
 			if (seq != seq_state[0]) {
-				blog(ptz_debug_level, "VISCA UDP (out of seq %i != %i) <-- %s", seq, seq_state[0],
+				blog(LOG_DEBUG, "VISCA UDP (out of seq %i != %i) <-- %s", seq, seq_state[0],
 				     qPrintable(data.toHex(':')));
 				incrementStatistic("visca_udp_outofseq_ack_count");
 				return;
@@ -62,14 +62,14 @@ void PTZViscaOverIP::receive_datagram(const QNetworkDatagram &dg)
 			break;
 		case 0x50:
 			if (seq != seq_state[slot]) {
-				blog(ptz_debug_level, "VISCA UDP (out of seq %i != %i) <-- %s", seq, seq_state[0],
+				blog(LOG_DEBUG, "VISCA UDP (out of seq %i != %i) <-- %s", seq, seq_state[0],
 				     qPrintable(data.toHex(':')));
 				incrementStatistic("visca_udp_outofseq_cmplt_count");
 				return;
 			}
 			break;
 		default:
-			blog(ptz_debug_level, "VISCA UDP (unknown) <-- %s", qPrintable(data.toHex(':')));
+			blog(LOG_DEBUG, "VISCA UDP (unknown) <-- %s", qPrintable(data.toHex(':')));
 			incrementStatistic("visca_udp_unknown_count");
 			return;
 		}
@@ -81,7 +81,7 @@ void PTZViscaOverIP::receive_datagram(const QNetworkDatagram &dg)
 			reset();
 		break;
 	default:
-		blog(ptz_debug_level, "VISCA UDP unrecognized type: %x", type);
+		blog(LOG_DEBUG, "VISCA UDP unrecognized type: %x", type);
 	}
 }
 
@@ -99,10 +99,10 @@ void ViscaUDPSocket::poll()
 ViscaUDPSocket *ViscaUDPSocket::get_interface(int port)
 {
 	ViscaUDPSocket *iface;
-	blog(ptz_debug_level, "Looking for Visca UDP Socket object %i", port);
+	blog(LOG_DEBUG, "Looking for Visca UDP Socket object %i", port);
 	iface = interfaces[port];
 	if (!iface) {
-		blog(ptz_debug_level, "Creating new VISCA object %i", port);
+		blog(LOG_DEBUG, "Creating new VISCA object %i", port);
 		iface = new ViscaUDPSocket(port);
 		interfaces[port] = iface;
 	}

@@ -89,7 +89,7 @@ obs_properties_t *PTZSettings::getProperties(void)
 		if (iface)
 			obs_properties_add_button2(iface, "iface_apply", "Apply", applycb, this);
 	}
-	if (ptz_debug_level <= LOG_INFO) {
+	if (show_debug_info) {
 		auto debug = obs_properties_create();
 		obs_properties_add_text(debug, "debug_info", NULL, OBS_TEXT_INFO);
 		obs_properties_add_button2(debug, "dbgdump", "Write to OBS log", cb, settings);
@@ -131,7 +131,7 @@ PTZSettings::PTZSettings() : QWidget(nullptr), ui(new Ui_PTZSettings)
 	connect(ui->speedRampCheckBox, SIGNAL(clicked(bool)), PTZControls::getInstance(),
 		SLOT(setSpeedRampEnabled(bool)));
 
-	ui->enableDebugLogCheckBox->setChecked(ptz_debug_level <= LOG_INFO);
+	ui->enableDebugLogCheckBox->setChecked(show_debug_info);
 
 	auto snd = new SourceNameDelegate(this);
 	ui->deviceList->setModel(&ptzDeviceList);
@@ -306,7 +306,7 @@ void PTZSettings::on_removePTZ_clicked()
 
 void PTZSettings::on_enableDebugLogCheckBox_stateChanged(int state)
 {
-	ptz_debug_level = (state == Qt::Unchecked) ? LOG_DEBUG : LOG_INFO;
+	show_debug_info = (state == Qt::Checked);
 }
 
 void PTZSettings::currentChanged(const QModelIndex &current, const QModelIndex &previous)
@@ -322,7 +322,7 @@ void PTZSettings::currentChanged(const QModelIndex &current, const QModelIndex &
 		obs_data_apply(settings, ptz->get_settings());
 
 		/* For debug, display all data in JSON format */
-		if (ptz_debug_level <= LOG_INFO) {
+		if (show_debug_info) {
 			auto rawjson = obs_data_get_json(settings);
 			/* Use QJsonDocument for nice formatting */
 			auto json = QJsonDocument::fromJson(rawjson).toJson();
