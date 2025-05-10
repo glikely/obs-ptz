@@ -87,27 +87,25 @@
            </layout>
           </item>
           <item>
-           <widget class="QLabel" name="joystickBindingsLabel">
-            <property name="text">
-             <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Joysitck Bindings:&lt;/p&gt;
-&lt;p&gt;
-&lt;table&gt;
-&lt;tr&gt;&lt;th&gt;Control&lt;/th&gt;&lt;th&gt;Action&lt;/th&gt;&lt;/tr&gt;
-&lt;tr&gt;&lt;td&gt;Left Joystick&lt;/td&gt;&lt;td&gt;Pan/Tilt&lt;/td&gt;&lt;/tr&gt;
-&lt;tr&gt;&lt;td&gt;Right Joystick&lt;/td&gt;&lt;td&gt;Zoom&lt;/td&gt;&lt;/tr&gt;
-&lt;tr&gt;&lt;td&gt;D-Pad&lt;/td&gt;&lt;td&gt;Select Preset&lt;/td&gt;&lt;/tr&gt;
-&lt;tr&gt;&lt;td&gt;Shoulder buttons&lt;/td&gt;&lt;td&gt;Change Camera&lt;/td&gt;&lt;/tr&gt;
-&lt;tr&gt;&lt;td&gt;A Button&lt;/td&gt;&lt;td&gt;Activate current preset&lt;/td&gt;&lt;/tr&gt;
-&lt;/table&gt;
-&lt;/p&gt;
-&lt;/body&gt;&lt;/html&gt;</string>
-            </property>
-            <property name="alignment">
-             <set>Qt::AlignmentFlag::AlignLeading|Qt::AlignmentFlag::AlignLeft|Qt::AlignmentFlag::AlignTop</set>
-            </property>
-            <property name="wordWrap">
+           <widget class="QScrollArea" name="scrollArea">
+            <property name="widgetResizable">
              <bool>true</bool>
             </property>
+            <widget class="QWidget" name="scrollAreaWidgetContents_3">
+             <property name="geometry">
+              <rect>
+               <x>0</x>
+               <y>0</y>
+               <width>330</width>
+               <height>338</height>
+              </rect>
+             </property>
+             <layout class="QVBoxLayout" name="verticalLayout_4">
+              <item>
+               <layout class="QGridLayout" name="joystickMapGridLayout"/>
+              </item>
+             </layout>
+            </widget>
            </widget>
           </item>
          </layout>
@@ -264,30 +262,30 @@
            <property name="sizeConstraint">
             <enum>QLayout::SizeConstraint::SetDefaultConstraint</enum>
            </property>
+           <item>
+            <layout class="QHBoxLayout" name="horizontalLayout_4">
              <item>
-              <layout class="QHBoxLayout" name="horizontalLayout_4">
-               <item>
-                <spacer name="horizontalSpacer">
-                 <property name="orientation">
-                  <enum>Qt::Orientation::Horizontal</enum>
-                 </property>
-                 <property name="sizeHint" stdset="0">
-                  <size>
-                   <width>40</width>
-                   <height>20</height>
-                  </size>
-                 </property>
-                </spacer>
-               </item>
-               <item>
-                <widget class="QPushButton" name="applyButton">
-                 <property name="text">
-                  <string>Apply</string>
-                 </property>
-                </widget>
-               </item>
-              </layout>
+              <spacer name="horizontalSpacer">
+               <property name="orientation">
+                <enum>Qt::Orientation::Horizontal</enum>
+               </property>
+               <property name="sizeHint" stdset="0">
+                <size>
+                 <width>40</width>
+                 <height>20</height>
+                </size>
+               </property>
+              </spacer>
              </item>
+             <item>
+              <widget class="QPushButton" name="applyButton">
+               <property name="text">
+                <string>Apply</string>
+               </property>
+              </widget>
+             </item>
+            </layout>
+           </item>
           </layout>
          </widget>
         </widget>

@@ -43,12 +43,20 @@ public:
 protected:
 	void joystickSetup();
 	QStringListModel m_joystickNamesModel;
+	QList<QLabel *> joystickAxisLabels, joystickButtonLabels;
+	QList<QComboBox *> joystickAxisCBs, joystickButtonCBs;
 protected slots:
 	void on_joystickGroupBox_toggled(bool checked);
 	void on_joystickSpeedSlider_doubleValChanged(double val);
 	void on_joystickDeadzoneSlider_doubleValChanged(double val);
+	void on_joystickAxisActionChanged(int idx);
+	void on_joystickButtonActionChanged(int idx);
 	void joystickUpdate();
+	void joystickAxisMappingChanged(size_t axis, ptz_joy_action_id action);
+	void joystickButtonMappingChanged(size_t button, ptz_joy_action_id action);
 	void joystickCurrentChanged(QModelIndex, QModelIndex);
+	void joystickAxisEvent(const QJoystickAxisEvent);
+	void joystickButtonEvent(const QJoystickButtonEvent);
 #else  /* ENABLE_JOYSTICK */
 protected:
 	void joystickSetup();
