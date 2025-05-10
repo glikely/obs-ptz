@@ -89,12 +89,11 @@ obs_properties_t *PTZSettings::getProperties(void)
 		if (iface)
 			obs_properties_add_button2(iface, "iface_apply", "Apply", applycb, this);
 	}
-	if (show_debug_info) {
-		auto debug = obs_properties_create();
-		obs_properties_add_text(debug, "debug_info", NULL, OBS_TEXT_INFO);
-		obs_properties_add_button2(debug, "dbgdump", "Write to OBS log", cb, settings);
-		obs_properties_add_group(props, "debug", "Debug", OBS_GROUP_NORMAL, debug);
-	}
+
+	auto debug = obs_properties_create();
+	obs_properties_add_text(debug, "debug_info", NULL, OBS_TEXT_INFO);
+	obs_properties_add_button2(debug, "dbgdump", "Write to OBS log", cb, settings);
+	obs_properties_add_group(props, "debug", "Full Details", OBS_GROUP_NORMAL, debug);
 	return props;
 }
 
@@ -130,8 +129,6 @@ PTZSettings::PTZSettings() : QWidget(nullptr), ui(new Ui_PTZSettings)
 		SLOT(setChecked(bool)));
 	connect(ui->speedRampCheckBox, SIGNAL(clicked(bool)), PTZControls::getInstance(),
 		SLOT(setSpeedRampEnabled(bool)));
-
-	ui->enableDebugLogCheckBox->setChecked(show_debug_info);
 
 	auto snd = new SourceNameDelegate(this);
 	ui->deviceList->setModel(&ptzDeviceList);
@@ -304,11 +301,6 @@ void PTZSettings::on_removePTZ_clicked()
 	delete ptz;
 }
 
-void PTZSettings::on_enableDebugLogCheckBox_stateChanged(int state)
-{
-	show_debug_info = (state == Qt::Checked);
-}
-
 void PTZSettings::currentChanged(const QModelIndex &current, const QModelIndex &previous)
 {
 	auto ptz = ptzDeviceList.getDevice(previous);
@@ -321,13 +313,10 @@ void PTZSettings::currentChanged(const QModelIndex &current, const QModelIndex &
 	if (ptz) {
 		obs_data_apply(settings, ptz->get_settings());
 
-		/* For debug, display all data in JSON format */
-		if (show_debug_info) {
-			auto rawjson = obs_data_get_json(settings);
-			/* Use QJsonDocument for nice formatting */
-			auto json = QJsonDocument::fromJson(rawjson).toJson();
-			obs_data_set_string(settings, "debug_info", json.constData());
-		}
+		auto rawjson = obs_data_get_json(settings);
+		/* Use QJsonDocument for nice formatting */
+		auto json = QJsonDocument::fromJson(rawjson).toJson();
+		obs_data_set_string(settings, "debug_info", json.constData());
 
 		/* The settings dialog doesn't touch presets, so remove them */
 		obs_data_erase(settings, "presets");
