@@ -169,7 +169,10 @@ void PTZViscaOverIP::send_immediate(const QByteArray &msg)
 
 void PTZViscaOverIP::lookup_host_callback(const QHostInfo info)
 {
-	auto new_addr = info.addresses().first();
+	auto addrs = info.addresses();
+	if (addrs.isEmpty())
+		return;
+	auto new_addr = addrs.first();
 	if (new_addr != ip_address) {
 		ip_address = new_addr;
 		reset();
