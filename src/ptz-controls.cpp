@@ -410,7 +410,7 @@ void PTZControls::SaveConfig()
 	obs_data_set_array(savedata, "devices", camera_array);
 
 	/* Save data structure to json */
-	if (!obs_data_save_json_safe(savedata, file, "tmp", "bak")) {
+	if (!obs_data_save_json_pretty_safe(savedata, file, "tmp", "bak")) {
 		char *path = obs_module_config_path("");
 		if (path) {
 			os_mkdirs(path);
