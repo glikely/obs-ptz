@@ -136,6 +136,7 @@ public:
 	void setJoystickDeadzone(double deadzone);
 	int joystickId() { return m_joystick_id; };
 	void setJoystickId(int id) { m_joystick_id = id; };
+	double readAxis(const QJoystickDevice *jd, int axis);
 protected slots:
 	void joystickAxesChanged(const QJoystickDevice *jd, uint32_t updated);
 	void joystickAxisEvent(const QJoystickAxisEvent evt);

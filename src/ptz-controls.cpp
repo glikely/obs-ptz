@@ -310,21 +310,24 @@ void PTZControls::setJoystickDeadzone(double deadzone)
 	joystickAxesChanged(jd, 0b11111111);
 }
 
+double PTZControls::readAxis(const QJoystickDevice *jd, int axis)
+{
+	if (axis < 0 || !jd || axis >= jd->axes.size())
+		return 0.0;
+	double v = jd->axes.at(axis);
+	if (abs(v) < m_joystick_deadzone)
+		return 0.0;
+	return std::copysign((abs(v) - m_joystick_deadzone) / (1.0 - m_joystick_deadzone), v);
+}
+
 void PTZControls::joystickAxesChanged(const QJoystickDevice *jd, uint32_t updated)
 {
 	if (isLocked() || !m_joystick_enable || !jd || jd->id != m_joystick_id)
 		return;
-	auto filter_axis = [=](double val) -> double {
-		val = abs(val) > m_joystick_deadzone
-			      ? std::copysign((abs(val) - m_joystick_deadzone) / (1.0 - m_joystick_deadzone), val)
-			      : 0.0;
-		return val * m_joystick_speed;
-	};
-
-	if (updated & 0b0011 && jd->axes.size() > 1)
-		setPanTilt(filter_axis(jd->axes[0]), -filter_axis(jd->axes[1]));
-	if (updated & 0b1000 && jd->axes.size() > 3)
-		setZoom(-filter_axis(jd->axes[3]));
+	if (updated & 0b0011)
+		setPanTilt(readAxis(jd, 0), -readAxis(jd, 1));
+	if (updated & 0b1000)
+		setZoom(-readAxis(jd, 3));
 }
 
 void PTZControls::joystickAxisEvent(const QJoystickAxisEvent evt)
