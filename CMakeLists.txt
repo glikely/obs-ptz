@@ -82,7 +82,7 @@ target_sources(
     src/touch-control.hpp
 )
 
-option(ENABLE_USB_CAM "Enable USB camera support" OFF)
+option(ENABLE_USB_CAM "Enable USB camera support" ON)
 if(ENABLE_USB_CAM)
   add_compile_definitions(ENABLE_USB_CAM)
   target_sources(${CMAKE_PROJECT_NAME} PRIVATE src/ptz-usb-cam.cpp src/ptz-usb-cam.hpp)
