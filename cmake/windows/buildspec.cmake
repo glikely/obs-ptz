@@ -21,7 +21,10 @@ function(_check_dependencies_windows)
       set(QT_HOST_PATH "${qt_x64_dir}" CACHE STRING "Qt Host Tools Path" FORCE)
       set($ENV{QT_HOST_PATH} "${qt_x64_dir}")
     else()
-      message(FATAL_ERROR "Building OBS Studio for Windows ARM64 requires x64 Qt dependencies, please run an x64 configure first (from an x64 native tools env) to ensure these are downloaded")
+      message(
+        FATAL_ERROR
+        "Building OBS Studio for Windows ARM64 requires x64 Qt dependencies, please run an x64 configure first (from an x64 native tools env) to ensure these are downloaded"
+      )
     endif()
   endif()
 
@@ -39,7 +42,14 @@ function(_check_dependencies_windows)
   if(CMAKE_VS_PLATFORM_NAME MATCHES "(ARM64|arm64)")
     set(dependencies_list prebuilt qt6 sdl obs-studio)
   else()
-    set(dependencies_list prebuilt qt6 sdl obs-studio qtserialport)
+    set(
+      dependencies_list
+      prebuilt
+      qt6
+      sdl
+      obs-studio
+      qtserialport
+    )
   endif()
 
   _check_dependencies()
