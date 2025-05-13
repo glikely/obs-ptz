@@ -77,6 +77,29 @@
       }
     },
     {
+      "name": "windows-arm64",
+      "displayName": "Windows ARM64",
+      "description": "Build for Windows ARM64",
+      "inherits": ["template"],
+      "binaryDir": "${sourceDir}/build_arm64",
+      "generator": "Visual Studio 17 2022",
+      "architecture": "ARM64,version=10.0.22621",
+      "warnings": {"dev": true, "deprecated": true},
+      "cacheVariables": {
+        "ENABLE_SDL2_STATIC": true,
+        "ENABLE_SERIALPORT": false
+      }
+    },
+    {
+      "name": "windows-ci-arm64",
+      "inherits": ["windows-arm64"],
+      "displayName": "Windows ARM64 CI build",
+      "description": "Build for Windows ARM64 on CI",
+      "cacheVariables": {
+        "CMAKE_COMPILE_WARNING_AS_ERROR": true
+      }
+    },
+    {
       "name": "ubuntu-x86_64",
       "displayName": "Ubuntu x86_64",
       "description": "Build for Ubuntu x86_64",
@@ -163,6 +186,13 @@
       "configurePreset": "windows-ci-x64",
       "displayName": "Windows x64 CI",
       "description": "Windows CI build for x64 (RelWithDebInfo configuration)",
+      "configuration": "RelWithDebInfo"
+    },
+    {
+      "name": "windows-arm64",
+      "configurePreset": "windows-arm64",
+      "displayName": "Windows ARM64",
+      "description": "Windows build for ARM64",
       "configuration": "RelWithDebInfo"
     },
     {
