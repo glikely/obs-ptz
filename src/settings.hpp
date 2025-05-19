@@ -9,12 +9,30 @@
 #include <QWidget>
 #include <QStyledItemDelegate>
 #include <QString>
+#include <QMenu>
 #include <properties-view.hpp>
 #if defined(ENABLE_JOYSTICK)
 #include <QJoysticks.h>
 #endif
 
 class Ui_PTZSettings;
+
+#if defined(ENABLE_JOYSTICK)
+class PTZJoyButtonMapper : public QPushButton {
+	Q_OBJECT;
+
+public:
+	PTZJoyButtonMapper(QWidget *parent, size_t button);
+
+public slots:
+	void on_joystickButtonMapping_triggered();
+	void on_joystickButtonMappingChanged(size_t button, ptz_joy_action_id action);
+	void on_joystickButtonEvent(const QJoystickButtonEvent);
+
+protected:
+	size_t button;
+};
+#endif
 
 class SourceNameDelegate : public QStyledItemDelegate {
 	Q_OBJECT
@@ -43,8 +61,9 @@ public:
 protected:
 	void joystickSetup();
 	QStringListModel m_joystickNamesModel;
-	QList<QLabel *> joystickAxisLabels, joystickButtonLabels;
-	QList<QComboBox *> joystickAxisCBs, joystickButtonCBs;
+	QList<QLabel *> joystickAxisLabels;
+	QList<QComboBox *> joystickAxisCBs;
+	QList<QPushButton *> joystickButtonButtons;
 protected slots:
 	void on_joystickGroupBox_toggled(bool checked);
 	void on_joystickSpeedSlider_doubleValChanged(double val);
@@ -53,10 +72,8 @@ protected slots:
 	void on_joystickButtonActionChanged(int idx);
 	void joystickUpdate();
 	void joystickAxisMappingChanged(size_t axis, ptz_joy_action_id action);
-	void joystickButtonMappingChanged(size_t button, ptz_joy_action_id action);
 	void joystickCurrentChanged(QModelIndex, QModelIndex);
 	void joystickAxisEvent(const QJoystickAxisEvent);
-	void joystickButtonEvent(const QJoystickButtonEvent);
 #else  /* ENABLE_JOYSTICK */
 protected:
 	void joystickSetup();
