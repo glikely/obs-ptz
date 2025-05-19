@@ -933,7 +933,7 @@ static bool matches_ranges(media_frames_per_second &best_match, media_frames_per
 	auto epsilon = make_epsilon(val);
 
 	bool match = false;
-	auto best_dist = numeric_limits<double>::max();
+	auto best_dist = (numeric_limits<double>::max)();
 	for (auto &pair : fps_ranges) {
 		auto max_ = convert_fn(pair.first);
 		auto min_ = convert_fn(pair.second);

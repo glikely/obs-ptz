@@ -34,7 +34,7 @@ double TouchControl::y() const
 
 void TouchControl::setPosition(QPointF pos)
 {
-	double size = std::min(width(), height()) / 2;
+	double size = (std::min)(width(), height()) / 2;
 	double x = std::clamp((pos.x() - width() / 2) / size, -1.0, 1.0);
 	double y = -std::clamp((pos.y() - height() / 2) / size, -1.0, 1.0);
 	double mag = sqrt(x * x + y * y);
@@ -65,7 +65,7 @@ void TouchControl::paintEvent(QPaintEvent *event)
 
 	painter.setRenderHint(QPainter::Antialiasing);
 	painter.setPen(QPen(QBrush(Qt::gray), 0.01));
-	auto tsize = std::min(width(), height()) / 2;
+	auto tsize = (std::min)(width(), height()) / 2;
 	painter.translate(QPointF(width() / 2, height() / 2));
 	painter.scale(tsize, tsize);
 
