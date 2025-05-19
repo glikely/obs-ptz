@@ -18,6 +18,22 @@
 #include "ptz-device.hpp"
 #include "ui_ptz-controls.h"
 
+typedef size_t ptz_joy_action_id;
+enum ptz_joy_action {
+	PTZ_JOY_ACTION_NONE = 0,
+	PTZ_JOY_ACTION_PAN,
+	PTZ_JOY_ACTION_TILT,
+	PTZ_JOY_ACTION_ZOOM,
+	PTZ_JOY_ACTION_CAMERA_PREV,
+	PTZ_JOY_ACTION_CAMERA_NEXT,
+	PTZ_JOY_ACTION_PRESET_PREV,
+	PTZ_JOY_ACTION_PRESET_NEXT,
+	PTZ_JOY_ACTION_PRESET_RECALL,
+	PTZ_JOY_ACTION_LAST_VALUE
+};
+typedef enum ptz_joy_action ptz_joy_action_t;
+extern QStringList ptz_joy_action_names;
+
 class PTZControls : public QWidget {
 	Q_OBJECT
 
@@ -125,6 +141,20 @@ protected:
 	int m_joystick_id = -1;
 	double m_joystick_deadzone = 0.0;
 	double m_joystick_speed = 1.0;
+	int joystick_pan_axis = -1;
+	int joystick_tilt_axis = -1;
+	int joystick_zoom_axis = -1;
+	QMap<size_t, ptz_joy_action_id> joystick_axis_actions;
+	QMap<size_t, ptz_joy_action_id> joystick_button_actions;
+
+public slots:
+	void setJoystickAxisAction(size_t axis, ptz_joy_action_id);
+	void setJoystickButtonAction(size_t button, ptz_joy_action_id);
+
+signals:
+	void joystickAxisActionChanged(size_t axis, ptz_joy_action_id action);
+	void joystickButtonActionChanged(size_t button, ptz_joy_action_id action);
+
 #if defined(ENABLE_JOYSTICK)
 public:
 	void joystickSetup();
@@ -137,12 +167,16 @@ public:
 	int joystickId() { return m_joystick_id; };
 	void setJoystickId(int id) { m_joystick_id = id; };
 	double readAxis(const QJoystickDevice *jd, int axis);
+	ptz_joy_action_id joystickAxisAction(size_t axis) { return joystick_axis_actions[axis]; };
+	ptz_joy_action_id joystickButtonAction(size_t button) { return joystick_button_actions[button]; };
+
 protected slots:
 	void joystickAxesChanged(const QJoystickDevice *jd, uint32_t updated);
 	void joystickAxisEvent(const QJoystickAxisEvent evt);
 	void joystickButtonEvent(const QJoystickButtonEvent evt);
 	void joystickPOVEvent(const QJoystickPOVEvent evt);
 #else
+public:
 	void joystickSetup(){};
 #endif /* ENABLE_JOYSTICK */
 

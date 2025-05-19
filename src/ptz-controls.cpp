@@ -25,6 +25,18 @@
 #include "settings.hpp"
 #include "ptz.h"
 
+QStringList ptz_joy_action_names = {
+	"None",
+	"Pan",
+	"Tilt",
+	"Zoom",
+	"Previous Camera",
+	"Next Camera",
+	"Previous Preset",
+	"Next Preset",
+	"Recall Preset"
+};
+
 void ptz_load_controls(void)
 {
 	const auto main_window = static_cast<QMainWindow *>(obs_frontend_get_main_window());
@@ -324,10 +336,11 @@ void PTZControls::joystickAxesChanged(const QJoystickDevice *jd, uint32_t update
 {
 	if (isLocked() || !m_joystick_enable || !jd || jd->id != m_joystick_id)
 		return;
-	if (updated & 0b0011)
-		setPanTilt(readAxis(jd, 0), -readAxis(jd, 1));
-	if (updated & 0b1000)
-		setZoom(-readAxis(jd, 3));
+	int panTiltMask = (1 << joystick_pan_axis) | (1 << joystick_tilt_axis);
+	if (updated & panTiltMask)
+		setPanTilt(readAxis(jd, joystick_pan_axis), -readAxis(jd, joystick_tilt_axis));
+	if (updated & (1 << joystick_zoom_axis))
+		setZoom(-readAxis(jd, joystick_zoom_axis));
 }
 
 void PTZControls::joystickAxisEvent(const QJoystickAxisEvent evt)
@@ -356,21 +369,67 @@ void PTZControls::joystickButtonEvent(const QJoystickButtonEvent evt)
 		return;
 	if (!evt.pressed)
 		return;
-	switch (evt.button) {
-	case 0: /* A button; activate preset */
+	switch (joystick_button_actions[evt.button]) {
+	case PTZ_JOY_ACTION_CAMERA_PREV:
+		ui->cameraList->cursorUp();
+		break;
+	case PTZ_JOY_ACTION_CAMERA_NEXT:
+		ui->cameraList->cursorDown();
+		break;
+	case PTZ_JOY_ACTION_PRESET_PREV:
+		ui->presetListView->cursorUp();
+		break;
+	case PTZ_JOY_ACTION_PRESET_NEXT:
+		ui->presetListView->cursorDown();
+		break;
+	case PTZ_JOY_ACTION_PRESET_RECALL:
 		index = ui->presetListView->currentIndex();
 		if (index.isValid() && !isLocked())
 			ui->presetListView->activated(index);
 		break;
-	case 4: /* left shoulder; previous camera */
-		ui->cameraList->cursorUp();
-		break;
-	case 5: /* right shoulder; next camera */
-		ui->cameraList->cursorDown();
+	default:
 		break;
 	}
 }
 #endif /* ENABLE_JOYSTICK */
+
+void PTZControls::setJoystickAxisAction(size_t axis, ptz_joy_action_id action)
+{
+	if (joystick_axis_actions[axis] == action)
+		return;
+	joystick_axis_actions[axis] = action;
+
+	// Clear if this is an axis already used
+	if (joystick_pan_axis == (int)axis)
+		joystick_pan_axis = -1;
+	if (joystick_tilt_axis == (int)axis)
+		joystick_tilt_axis = -1;
+	if (joystick_zoom_axis == (int)axis)
+		joystick_zoom_axis = -1;
+
+	int old_axis = -1;
+	if (action == PTZ_JOY_ACTION_PAN && joystick_pan_axis != (int)axis) {
+		old_axis = joystick_pan_axis;
+		joystick_pan_axis = (int)axis;
+	} else if (action == PTZ_JOY_ACTION_TILT && joystick_tilt_axis != (int)axis) {
+		old_axis = joystick_tilt_axis;
+		joystick_tilt_axis = (int)axis;
+	} else if (action == PTZ_JOY_ACTION_ZOOM && joystick_zoom_axis != (int)axis) {
+		old_axis = joystick_zoom_axis;
+		joystick_zoom_axis = (int)axis;
+	}
+	if (old_axis != -1)
+		emit joystickAxisActionChanged(old_axis, PTZ_JOY_ACTION_NONE);
+	emit joystickAxisActionChanged(axis, action);
+}
+
+void PTZControls::setJoystickButtonAction(size_t button, ptz_joy_action_id action)
+{
+	if (joystick_button_actions[button] == action)
+		return;
+	joystick_button_actions[button] = action;
+	emit joystickButtonActionChanged(button, action);
+}
 
 void PTZControls::copyActionsDynamicProperties()
 {
@@ -405,6 +464,29 @@ void PTZControls::SaveConfig()
 	obs_data_set_int(savedata, "joystick_id", m_joystick_id);
 	obs_data_set_double(savedata, "joystick_speed", m_joystick_speed);
 	obs_data_set_double(savedata, "joystick_deadzone", m_joystick_deadzone);
+
+	OBSDataArrayAutoRelease axis_actions = obs_data_array_create();
+	for (auto axis : joystick_axis_actions.keys()) {
+		if (joystick_axis_actions[axis] == PTZ_JOY_ACTION_NONE)
+			continue;
+		OBSDataAutoRelease d = obs_data_create();
+		obs_data_set_int(d, "axis", axis);
+		obs_data_set_int(d, "action", joystick_axis_actions[axis]);
+		obs_data_array_push_back(axis_actions, d);
+	}
+	obs_data_set_array(savedata, "joystick_axis_actions", axis_actions);
+
+	OBSDataArrayAutoRelease button_actions = obs_data_array_create();
+	for (auto button : joystick_button_actions.keys()) {
+		if (joystick_button_actions[button] == PTZ_JOY_ACTION_NONE)
+			continue;
+		OBSDataAutoRelease d = obs_data_create();
+		obs_data_set_int(d, "button", button);
+		obs_data_set_int(d, "action", joystick_button_actions[button]);
+		obs_data_array_push_back(button_actions, d);
+	}
+	obs_data_set_array(savedata, "joystick_button_actions", button_actions);
+
 	if (auto ptz = currCamera())
 		obs_data_set_int(savedata, "current_selected", ptz->getId());
 
@@ -459,6 +541,22 @@ void PTZControls::LoadConfig()
 	m_joystick_id = (int)obs_data_get_int(loaddata, "joystick_id");
 	m_joystick_speed = obs_data_get_double(loaddata, "joystick_speed");
 	m_joystick_deadzone = obs_data_get_double(loaddata, "joystick_deadzone");
+
+	OBSDataArrayAutoRelease axis_actions = obs_data_get_array(loaddata, "joystick_axis_actions");
+	for (size_t i = 0; i < obs_data_array_count(axis_actions); i++) {
+		OBSDataAutoRelease d = obs_data_array_item(axis_actions, i);
+		auto axis = obs_data_get_int(d, "axis");
+		auto action = obs_data_get_int(d, "action");
+		setJoystickAxisAction(axis, action);
+	}
+
+	OBSDataArrayAutoRelease button_actions = obs_data_get_array(loaddata, "joystick_button_actions");
+	for (size_t i = 0; i < obs_data_array_count(button_actions); i++) {
+		OBSDataAutoRelease d = obs_data_array_item(button_actions, i);
+		auto button = obs_data_get_int(d, "button");
+		auto action = obs_data_get_int(d, "action");
+		setJoystickButtonAction(button, action);
+	}
 
 	const char *splitterStateStr = obs_data_get_string(loaddata, "splitter_state");
 	if (splitterStateStr) {
