@@ -11,7 +11,7 @@
    </rect>
   </property>
   <property name="windowTitle">
-   <string>PTZ Device Settings</string>
+   <string>PTZ.Settings.Title</string>
   </property>
   <layout class="QVBoxLayout" name="verticalLayout">
    <property name="leftMargin">
@@ -33,13 +33,13 @@
      </property>
      <widget class="QWidget" name="generalTab">
       <attribute name="title">
-       <string>General</string>
+       <string>PTZ.Settings.General</string>
       </attribute>
       <layout class="QVBoxLayout" name="verticalLayout_5">
        <item>
         <widget class="QGroupBox" name="joystickGroupBox">
          <property name="title">
-          <string>Joystick Control</string>
+          <string>PTZ.Settings.JoystickControl</string>
          </property>
          <property name="checkable">
           <bool>true</bool>
@@ -56,7 +56,7 @@
             <item row="1" column="0">
              <widget class="QLabel" name="joystickSpeedLabel">
               <property name="text">
-               <string>Speed</string>
+               <string>PTZ.Settings.Speed</string>
               </property>
              </widget>
             </item>
@@ -70,14 +70,14 @@
             <item row="2" column="0">
              <widget class="QLabel" name="joystickDeadzoneLabel">
               <property name="text">
-               <string>Deadzone size</string>
+               <string>PTZ.Settings.DeadzoneSize</string>
               </property>
              </widget>
             </item>
             <item row="2" column="1">
              <widget class="DoubleSlider" name="joystickDeadzoneSlider">
               <property name="toolTip">
-               <string>Set this value higher if the camera position drifts when the joysticks are centered</string>
+               <string>PTZ.Settings.DeadzoneSlider.Tooltip</string>
               </property>
               <property name="orientation">
                <enum>Qt::Orientation::Horizontal</enum>
@@ -114,30 +114,30 @@
        <item>
         <widget class="QCheckBox" name="autoselectCheckBox">
          <property name="toolTip">
-          <string>Auto selects the active camera from the current scene on scene changes. In Studio Mode, this will select a camera from the Preview scene.</string>
+          <string>PTZ.Settings.Autoselect.Tooltip</string>
          </property>
          <property name="text">
-          <string>Auto Select active camera</string>
+          <string>PTZ.Settings.Autoselect</string>
          </property>
         </widget>
        </item>
        <item>
         <widget class="QCheckBox" name="livemoveCheckBox">
          <property name="toolTip">
-          <string>Disable movement controls for cameras in the currently active program scene. This protects against accidental camera moves on the live stream.</string>
+          <string>PTZ.Settings.LiveMoveLock.Tooltip</string>
          </property>
          <property name="text">
-          <string>Lockout live PTZ moves in studio mode</string>
+          <string>PTZ.Settings.LiveMoveLock</string>
          </property>
         </widget>
        </item>
        <item>
         <widget class="QCheckBox" name="speedRampCheckBox">
          <property name="toolTip">
-          <string>When dynamics speed ramping is enabled, camera movements will start slowly and gradually get faster for as long as the button is held down. It allows for both precision control and fast moves from the same control</string>
+          <string>PTZ.Settings.SpeedRamp.Tooltip</string>
          </property>
          <property name="text">
-          <string>Dynamic speed ramping</string>
+          <string>PTZ.Settings.SpeedRamp</string>
          </property>
         </widget>
        </item>
@@ -158,7 +158,7 @@
      </widget>
      <widget class="QWidget" name="camerasTab">
       <attribute name="title">
-       <string>Cameras</string>
+       <string>PTZ.Cameras</string>
       </attribute>
       <layout class="QHBoxLayout" name="horizontalLayout_3">
        <property name="leftMargin">
@@ -186,7 +186,7 @@
            <item>
             <widget class="QLabel" name="label_2">
              <property name="text">
-              <string>Devices</string>
+              <string>PTZ.Devices</string>
              </property>
             </widget>
            </item>
@@ -205,10 +205,10 @@
              <item>
               <widget class="QPushButton" name="addPTZ">
                <property name="toolTip">
-                <string>Add Device</string>
+                <string>PTZ.AddDevice.Tooltip</string>
                </property>
                <property name="accessibleName">
-                <string>Add Device</string>
+                <string>Add</string>
                </property>
                <property name="text">
                 <string notr="true"/>
@@ -224,10 +224,10 @@
              <item>
               <widget class="QPushButton" name="removePTZ">
                <property name="toolTip">
-                <string>Delete device</string>
+                <string>PTZ.RemoveDevice.Tooltip</string>
                </property>
                <property name="accessibleName">
-                <string>Delete device</string>
+                <string>Remove</string>
                </property>
                <property name="text">
                 <string notr="true"/>

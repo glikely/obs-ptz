@@ -583,15 +583,17 @@ obs_properties_t *PTZVisca::get_obs_properties()
 	auto *ptz_props = PTZDevice::get_obs_properties();
 
 	auto *wbGroup = obs_properties_create();
-	obs_properties_add_group(ptz_props, "whitebalance", "White Balance", OBS_GROUP_NORMAL, wbGroup);
+	obs_properties_add_group(ptz_props, "whitebalance", obs_module_text("PTZ.WhiteBalance"), OBS_GROUP_NORMAL,
+				 wbGroup);
 
-	auto *list = obs_properties_add_list(wbGroup, "wb_mode", "Mode", OBS_COMBO_TYPE_LIST, OBS_COMBO_FORMAT_INT);
-	obs_property_list_add_int(list, "Auto", 0);
-	obs_property_list_add_int(list, "Indoor", 1);
-	obs_property_list_add_int(list, "Outdoor", 2);
-	obs_property_list_add_int(list, "One Push", 3);
-	obs_property_list_add_int(list, "Auto Tracing", 4);
-	obs_property_list_add_int(list, "Manual", 5);
+	auto *list = obs_properties_add_list(wbGroup, "wb_mode", obs_module_text("PTZ.WhiteBalance.Mode"),
+					     OBS_COMBO_TYPE_LIST, OBS_COMBO_FORMAT_INT);
+	obs_property_list_add_int(list, obs_module_text("PTZ.WhiteBalance.Auto"), 0);
+	obs_property_list_add_int(list, obs_module_text("PTZ.WhiteBalance.Indoor"), 1);
+	obs_property_list_add_int(list, obs_module_text("PTZ.WhiteBalance.Outdoor"), 2);
+	obs_property_list_add_int(list, obs_module_text("PTZ.WhiteBalance.OnePush"), 3);
+	obs_property_list_add_int(list, obs_module_text("PTZ.WhiteBalance.AutoTrace"), 4);
+	obs_property_list_add_int(list, obs_module_text("PTZ.WhiteBalance.Manual"), 5);
 
 	auto clicked_cb = [](obs_properties_t *pps, obs_property_t *property, void *data) {
 		Q_UNUSED(pps);
@@ -600,19 +602,21 @@ obs_properties_t *PTZVisca::get_obs_properties()
 		ptz->send(VISCA_CAM_WB_OnePushTrigger);
 		return false;
 	};
-	obs_properties_add_button2(wbGroup, "one-push", "One Push Whitebalance", clicked_cb, this);
+	obs_properties_add_button2(wbGroup, "one-push", obs_module_text("PTZ.WhiteBalance.OnePushButton"), clicked_cb,
+				   this);
 
 	auto visca_grp = obs_properties_create();
-	obs_properties_add_group(ptz_props, "visca_advanced", "Modify Expert VISCA Settings", OBS_GROUP_CHECKABLE,
-				 visca_grp);
-	obs_properties_add_int_slider(visca_grp, "visca_pan_speed_max", "Pan Maximum Speed (default 24)", 1, 0x7f, 1);
-	obs_properties_add_int_slider(visca_grp, "visca_tilt_speed_max", "Tilt Maximum Speed (default 20)", 1, 0x7f, 1);
-	obs_properties_add_int_slider(visca_grp, "visca_zoom_speed_max", "Zoom Maximum Speed (default 7)", 0, 7, 1);
-	obs_properties_add_int_slider(visca_grp, "visca_focus_speed_max", "Focus Maximum Speed (default 7)", 0, 7, 1);
-	obs_properties_add_bool(visca_grp, "protocol_trace",
-				"Write VISCA traffic to log\n"
-				"Run OBS with --verbose to use this option\n"
-				"Warning: this generates very large logs");
+	obs_properties_add_group(ptz_props, "visca_advanced", obs_module_text("PTZ.Settings.Advanced"),
+				 OBS_GROUP_CHECKABLE, visca_grp);
+	obs_properties_add_int_slider(visca_grp, "visca_pan_speed_max", obs_module_text("PTZ.Visca.PanMaxSpeed"), 1,
+				      0x7f, 1);
+	obs_properties_add_int_slider(visca_grp, "visca_tilt_speed_max", obs_module_text("PTZ.Visca.TiltMaxSpeed"), 1,
+				      0x7f, 1);
+	obs_properties_add_int_slider(visca_grp, "visca_zoom_speed_max", obs_module_text("PTZ.Visca.ZoomMaxSpeed"), 0,
+				      7, 1);
+	obs_properties_add_int_slider(visca_grp, "visca_focus_speed_max", obs_module_text("PTZ.Visca.FocusMaxSpeed"), 0,
+				      7, 1);
+	obs_properties_add_bool(visca_grp, "protocol_trace", obs_module_text("PTZ.Device.ProtocolTraceToLog"));
 	return ptz_props;
 }
 

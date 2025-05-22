@@ -122,7 +122,8 @@ PTZViscaOverIP::~PTZViscaOverIP()
 
 QString PTZViscaOverIP::description()
 {
-	return QString("VISCA/UDP %1:%2").arg(ip_address.toString(), QString::number(iface->port()));
+	return QString(obs_module_text("PTZ.Visca.UDP.HostPortName"))
+		.arg(ip_address.toString(), QString::number(iface->port()));
 }
 
 void PTZViscaOverIP::attach_interface(ViscaUDPSocket *new_iface)
@@ -216,9 +217,9 @@ obs_properties_t *PTZViscaOverIP::get_obs_properties()
 	obs_properties_t *ptz_props = PTZVisca::get_obs_properties();
 	obs_property_t *p = obs_properties_get(ptz_props, "interface");
 	obs_properties_t *config = obs_property_group_content(p);
-	obs_property_set_description(p, "VISCA (UDP) Connection");
-	obs_properties_add_text(config, "host", "Host name or IP Address", OBS_TEXT_DEFAULT);
-	obs_properties_add_int(config, "port", "UDP port", 1, 65535, 1);
-	obs_properties_add_bool(config, "quirk_visca_udp_no_seq", "Don't use sequence numbers");
+	obs_property_set_description(p, obs_module_text("PTZ.Visca.UDP.Description"));
+	obs_properties_add_text(config, "host", obs_module_text("PTZ.Device.Hostname"), OBS_TEXT_DEFAULT);
+	obs_properties_add_int(config, "port", obs_module_text("PTZ.Device.UDPPort"), 1, 65535, 1);
+	obs_properties_add_bool(config, "quirk_visca_udp_no_seq", obs_module_text("PTZ.Visca.UDP.QuirkNoSeq"));
 	return ptz_props;
 }

@@ -26,16 +26,8 @@
 #include "ptz.h"
 
 QStringList ptz_joy_action_names = {
-	"None",
-	"Pan",
-	"Tilt",
-	"Zoom",
-	"Previous Camera",
-	"Next Camera",
-	"Previous Preset",
-	"Next Preset",
-	"Recall Preset"
-};
+	"None",        "Pan",          "Tilt", "Zoom", "Previous Camera", "Next Camera", "Previous Preset",
+	"Next Preset", "Recall Preset"};
 
 void ptz_load_controls(void)
 {
@@ -43,7 +35,7 @@ void ptz_load_controls(void)
 	obs_frontend_push_ui_translation(obs_module_get_string);
 	auto *ctrls = new PTZControls(main_window);
 
-	if (!obs_frontend_add_dock_by_id("ptz-dock", "PTZ Controls", ctrls))
+	if (!obs_frontend_add_dock_by_id("ptz-dock", obs_module_text("PTZ.Dock.Name"), ctrls))
 		blog(LOG_ERROR, "failed to add PTZ controls dock");
 
 	obs_frontend_pop_ui_translation();
@@ -229,24 +221,27 @@ PTZControls::PTZControls(QWidget *parent) : QWidget(parent), ui(new Ui::PTZContr
 		if (pressed)
 			ptzctrl->on_focusButton_auto_clicked(false);
 	};
-	registerHotkey("PTZ.PanTiltUpLeft", "PTZ Pan camera up & left", cb, ui->panTiltButton_upleft);
-	registerHotkey("PTZ.PanTiltLeft", "PTZ Pan camera left", cb, ui->panTiltButton_left);
-	registerHotkey("PTZ.PanTiltDownLeft", "PTZ Pan camera down & left", cb, ui->panTiltButton_downleft);
-	registerHotkey("PTZ.PanTiltUpRight", "PTZ Pan camera up & right", cb, ui->panTiltButton_upright);
-	registerHotkey("PTZ.PanTiltRight", "PTZ Pan camera right", cb, ui->panTiltButton_right);
-	registerHotkey("PTZ.PanTiltDownRight", "PTZ Pan camera down & right", cb, ui->panTiltButton_downright);
-	registerHotkey("PTZ.PanTiltUp", "PTZ Tilt camera up", cb, ui->panTiltButton_up);
-	registerHotkey("PTZ.PanTiltDown", "PTZ Tilt camera down", cb, ui->panTiltButton_down);
-	registerHotkey("PTZ.ZoomWide", "PTZ Zoom camera out (wide)", cb, ui->zoomButton_wide);
-	registerHotkey("PTZ.ZoomTele", "PTZ Zoom camera in (telefocal)", cb, ui->zoomButton_tele);
-	registerHotkey("PTZ.FocusAutoToggle", "PTZ Toggle Autofocus", autofocustogglecb, this);
-	registerHotkey("PTZ.FocusAutoOn", "PTZ Set Autofocus On", autofocusoncb, this);
-	registerHotkey("PTZ.FocusAutoOff", "PTZ Set Autofocus Off", autofocusoffcb, this);
-	registerHotkey("PTZ.FocusNear", "PTZ Focus far", cb, ui->focusButton_far);
-	registerHotkey("PTZ.FocusFar", "PTZ Focus near", cb, ui->focusButton_near);
-	registerHotkey("PTZ.FocusOneTouch", "PTZ One touch focus trigger", cb, ui->focusButton_onetouch);
-	registerHotkey("PTZ.SelectPrev", "PTZ Select previous device in list", prevcb, ui->cameraList);
-	registerHotkey("PTZ.SelectNext", "PTZ Select next device in list", nextcb, ui->cameraList);
+	registerHotkey("PTZ.PanTiltUpLeft", obs_module_text("PTZ.Action.PanTiltUpLeft"), cb, ui->panTiltButton_upleft);
+	registerHotkey("PTZ.PanTiltLeft", obs_module_text("PTZ.Action.PanTiltLeft"), cb, ui->panTiltButton_left);
+	registerHotkey("PTZ.PanTiltDownLeft", obs_module_text("PTZ.Action.PanTiltDownLeft"), cb,
+		       ui->panTiltButton_downleft);
+	registerHotkey("PTZ.PanTiltUpRight", obs_module_text("PTZ.Action.PanTiltUpRight"), cb,
+		       ui->panTiltButton_upright);
+	registerHotkey("PTZ.PanTiltRight", obs_module_text("PTZ.Action.PanTiltRight"), cb, ui->panTiltButton_right);
+	registerHotkey("PTZ.PanTiltDownRight", obs_module_text("PTZ.Action.PanTiltDownRight"), cb,
+		       ui->panTiltButton_downright);
+	registerHotkey("PTZ.PanTiltUp", obs_module_text("PTZ.Action.PanTiltUp"), cb, ui->panTiltButton_up);
+	registerHotkey("PTZ.PanTiltDown", obs_module_text("PTZ.Action.PanTiltDown"), cb, ui->panTiltButton_down);
+	registerHotkey("PTZ.ZoomWide", obs_module_text("PTZ.Action.ZoomWide"), cb, ui->zoomButton_wide);
+	registerHotkey("PTZ.ZoomTele", obs_module_text("PTZ.Action.ZoomTele"), cb, ui->zoomButton_tele);
+	registerHotkey("PTZ.FocusAutoToggle", obs_module_text("PTZ.Action.FocusAutoToggle"), autofocustogglecb, this);
+	registerHotkey("PTZ.FocusAutoOn", obs_module_text("PTZ.Action.FocusAutoOn"), autofocusoncb, this);
+	registerHotkey("PTZ.FocusAutoOff", obs_module_text("PTZ.Action.FocusAutoOff"), autofocusoffcb, this);
+	registerHotkey("PTZ.FocusNear", obs_module_text("PTZ.Action.FocusNear"), cb, ui->focusButton_far);
+	registerHotkey("PTZ.FocusFar", obs_module_text("PTZ.Action.FocusFar"), cb, ui->focusButton_near);
+	registerHotkey("PTZ.FocusOneTouch", obs_module_text("PTZ.Action.FocusOneTouch"), cb, ui->focusButton_onetouch);
+	registerHotkey("PTZ.SelectPrev", obs_module_text("PTZ.Action.SelectPrev"), prevcb, ui->cameraList);
+	registerHotkey("PTZ.SelectNext", obs_module_text("PTZ.Action.SelectNext"), nextcb, ui->cameraList);
 
 	auto preset_recall_cb = [](void *ptz_data, obs_hotkey_id hotkey, obs_hotkey_t *, bool pressed) {
 		PTZControls *ptzctrl = static_cast<PTZControls *>(ptz_data);
@@ -264,11 +259,11 @@ PTZControls::PTZControls(QWidget *parent) : QWidget(parent), ui(new Ui::PTZContr
 
 	for (int i = 0; i < 16; i++) {
 		auto name = QString("PTZ.Recall%1").arg(i + 1);
-		auto description = QString("PTZ Memory Recall #%1").arg(i + 1);
+		auto description = QString(obs_module_text("PTZ.Action.Preset.RecallNum")).arg(i + 1);
 		auto hotkey = registerHotkey(QT_TO_UTF8(name), QT_TO_UTF8(description), preset_recall_cb, this);
 		preset_hotkey_map[hotkey] = i;
 		name = QString("PTZ.Save%1").arg(i + 1);
-		description = QString("PTZ Memory Save #%1").arg(i + 1);
+		description = QString(obs_module_text("PTZ.Action.Preset.SaveNum")).arg(i + 1);
 		hotkey = registerHotkey(QT_TO_UTF8(name), QT_TO_UTF8(description), preset_set_cb, this);
 		preset_hotkey_map[hotkey] = i;
 	}
@@ -931,7 +926,7 @@ void PTZControls::on_pantiltStack_customContextMenuRequested(const QPoint &pos)
 	QMenu menu;
 	bool enabled = (ui->pantiltStack->currentIndex() != 0);
 
-	QAction *touchpadAction = menu.addAction("Onscreen Joystick");
+	QAction *touchpadAction = menu.addAction(obs_module_text("PTZ.Dock.OnscreenJoystick"));
 	touchpadAction->setCheckable(true);
 	touchpadAction->setChecked(enabled);
 	QAction *action = menu.exec(globalpos);
@@ -951,9 +946,9 @@ void PTZControls::on_presetListView_customContextMenuRequested(const QPoint &pos
 		return;
 
 	QMenu presetContext;
-	QAction *renameAction = presetContext.addAction("Rename");
-	QAction *setAction = presetContext.addAction("Save Preset");
-	QAction *resetAction = presetContext.addAction("Clear Preset");
+	QAction *renameAction = presetContext.addAction(obs_module_text("Rename"));
+	QAction *setAction = presetContext.addAction(obs_module_text("PTZ.Action.Preset.Save"));
+	QAction *resetAction = presetContext.addAction(obs_module_text("PTZ.Action.Preset.Clear"));
 	presetContext.addAction(ui->actionPresetAdd);
 	if (index.isValid())
 		presetContext.addAction(ui->actionPresetRemove);
@@ -986,24 +981,25 @@ void PTZControls::on_cameraList_customContextMenuRequested(const QPoint &pos)
 	if (ptz) {
 		OBSData settings = ptz->get_settings();
 		bool power_on = obs_data_get_bool(settings, "power_on");
-		powerAction = context.addAction(power_on ? "Power Off" : "Power On");
+		powerAction =
+			context.addAction(obs_module_text(power_on ? "PTZ.Action.PowerOff" : "PTZ.Action.PowerOn"));
 
 		bool wb_onepush = (obs_data_get_int(settings, "wb_mode") == 3);
 		if (wb_onepush)
-			wbOnetouchAction = context.addAction("Trigger One-Push White Balance");
+			wbOnetouchAction = context.addAction(obs_module_text("PTZ.Action.WhiteBalance.OnePushTrigger"));
 		context.addSeparator();
 	}
-	QAction *autoselectAction = context.addAction("Auto Select Camera");
+	QAction *autoselectAction = context.addAction(obs_module_text("PTZ.Settings.CameraAutoselect"));
 	autoselectAction->setCheckable(true);
 	autoselectAction->setChecked(autoselectEnabled());
 	connect(autoselectAction, SIGNAL(toggled(bool)), this, SLOT(setAutoselectEnabled(bool)));
 	if (obs_frontend_preview_program_mode_active()) {
-		QAction *blockliveAction = context.addAction("Block Live Camera Moves");
+		QAction *blockliveAction = context.addAction(obs_module_text("PTZ.Settings.BlockLiveMoves"));
 		blockliveAction->setCheckable(true);
 		blockliveAction->setChecked(liveMovesDisabled());
 		connect(blockliveAction, SIGNAL(toggled(bool)), this, SLOT(setDisableLiveMoves(bool)));
 	}
-	QAction *propertiesAction = context.addAction("Properties");
+	QAction *propertiesAction = context.addAction(obs_module_text("Properties"));
 	QAction *action = context.exec(globalpos);
 
 	OBSData setdata = obs_data_create();
@@ -1092,8 +1088,8 @@ PTZDeviceListItem::PTZDeviceListItem(PTZDevice *ptz_) : ptz(ptz_)
 	lock = new QCheckBox();
 	lock->setProperty("class", "checkbox-icon indicator-lock");
 	lock->setChecked(ptz->isLive());
-	lock->setAccessibleName("PTZ.Device.Lock");
-	lock->setAccessibleDescription("PTZ.Device.LockDescription");
+	lock->setAccessibleName(obs_module_text("PTZ.Dock.Lock.Name"));
+	lock->setAccessibleDescription(obs_module_text("PTZ.Dock.Lock.Description"));
 
 	label = new QLabel(ptz->objectName());
 

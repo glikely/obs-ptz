@@ -64,14 +64,16 @@ void PTZUARTWrapper::addOBSProperties(obs_properties_t *props)
 {
 	obs_property_t *p;
 
-	p = obs_properties_add_list(props, "port", "UART Port", OBS_COMBO_TYPE_EDITABLE, OBS_COMBO_FORMAT_STRING);
+	p = obs_properties_add_list(props, "port", obs_module_text("PTZ.Device.SerialPort"), OBS_COMBO_TYPE_EDITABLE,
+				    OBS_COMBO_FORMAT_STRING);
 	Q_FOREACH(auto port, QSerialPortInfo::availablePorts())
 	{
 		std::string name = port.portName().toStdString();
 		obs_property_list_add_string(p, name.c_str(), name.c_str());
 	}
 
-	p = obs_properties_add_list(props, "baud_rate", "Baud Rate", OBS_COMBO_TYPE_LIST, OBS_COMBO_FORMAT_INT);
+	p = obs_properties_add_list(props, "baud_rate", obs_module_text("PTZ.Device.SerialBaud"), OBS_COMBO_TYPE_LIST,
+				    OBS_COMBO_FORMAT_INT);
 	QMetaEnum e = QMetaEnum::fromType<QSerialPort::BaudRate>();
 	for (int i = 0; i < e.keyCount(); i++) {
 		auto baud_rate = (QSerialPort::BaudRate)e.value(i);

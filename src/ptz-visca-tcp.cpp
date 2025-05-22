@@ -19,7 +19,7 @@ PTZViscaOverTCP::PTZViscaOverTCP(OBSData config) : PTZVisca(config)
 
 QString PTZViscaOverTCP::description()
 {
-	return QString("VISCA/TCP %1:%2").arg(host, QString::number(port));
+	return QString(obs_module_text("PTZ.Visca.TCP.HostPortName")).arg(host, QString::number(port));
 }
 
 void PTZViscaOverTCP::reset()
@@ -115,8 +115,8 @@ obs_properties_t *PTZViscaOverTCP::get_obs_properties()
 	obs_properties_t *ptz_props = PTZVisca::get_obs_properties();
 	obs_property_t *p = obs_properties_get(ptz_props, "interface");
 	obs_properties_t *config = obs_property_group_content(p);
-	obs_property_set_description(p, "VISCA (TCP) Connection");
-	obs_properties_add_text(config, "host", "IP Host", OBS_TEXT_DEFAULT);
-	obs_properties_add_int(config, "port", "TCP port", 1, 65535, 1);
+	obs_property_set_description(p, obs_module_text("PTZ.Visca.TCP.Description"));
+	obs_properties_add_text(config, "host", obs_module_text("PTZ.Device.Hostname"), OBS_TEXT_DEFAULT);
+	obs_properties_add_int(config, "port", obs_module_text("PTZ.Device.TCPPort"), 1, 65535, 1);
 	return ptz_props;
 }
