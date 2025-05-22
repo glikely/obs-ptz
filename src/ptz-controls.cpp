@@ -941,27 +941,15 @@ void PTZControls::on_presetListView_customContextMenuRequested(const QPoint &pos
 {
 	QPoint globalpos = ui->presetListView->mapToGlobal(pos);
 	QModelIndex index = ui->presetListView->indexAt(pos);
-	PTZDevice *ptz = currCamera();
-	if (!ptz)
-		return;
-
 	QMenu presetContext;
-	QAction *renameAction = presetContext.addAction(obs_module_text("Rename"));
-	QAction *setAction = presetContext.addAction(obs_module_text("PTZ.Action.Preset.Save"));
-	QAction *resetAction = presetContext.addAction(obs_module_text("PTZ.Action.Preset.Clear"));
-	presetContext.addAction(ui->actionPresetAdd);
-	if (index.isValid())
+	if (index.isValid()) {
+		presetContext.addAction(ui->actionPresetRename);
+		presetContext.addAction(ui->actionPresetSave);
+		presetContext.addAction(ui->actionPresetClear);
 		presetContext.addAction(ui->actionPresetRemove);
-	QAction *action = presetContext.exec(globalpos);
-
-	if (action == renameAction) {
-		ui->presetListView->edit(index);
-	} else if (action == setAction) {
-		ptz->memory_set(presetIndexToId(index));
-	} else if (action == resetAction) {
-		ptz->memory_reset(presetIndexToId(index));
-		ui->presetListView->model()->setData(index, "");
 	}
+	presetContext.addAction(ui->actionPresetAdd);
+	presetContext.exec(globalpos);
 }
 
 void PTZControls::on_cameraList_doubleClicked(const QModelIndex &index)
@@ -1062,6 +1050,36 @@ void PTZControls::on_actionPresetMoveDown_triggered()
 		return;
 	model->moveRow(QModelIndex(), index.row(), QModelIndex(), index.row() + 2);
 	presetUpdateActions();
+}
+
+void PTZControls::on_actionPresetRename_triggered()
+{
+	auto model = ui->presetListView->model();
+	auto index = ui->presetListView->currentIndex();
+	if (!model || !index.isValid())
+		return;
+	ui->presetListView->edit(index);
+}
+
+void PTZControls::on_actionPresetSave_triggered()
+{
+	auto model = ui->presetListView->model();
+	auto index = ui->presetListView->currentIndex();
+	PTZDevice *ptz = currCamera();
+	if (!model || !index.isValid() || !ptz)
+		return;
+	ptz->memory_set(presetIndexToId(index));
+}
+
+void PTZControls::on_actionPresetClear_triggered()
+{
+	auto model = ui->presetListView->model();
+	auto index = ui->presetListView->currentIndex();
+	PTZDevice *ptz = currCamera();
+	if (!model || !index.isValid() || !ptz)
+		return;
+	ptz->memory_reset(presetIndexToId(index));
+	ui->presetListView->model()->setData(index, "");
 }
 
 PTZDeviceListDelegate::PTZDeviceListDelegate(QObject *parent) : QStyledItemDelegate(parent) {}

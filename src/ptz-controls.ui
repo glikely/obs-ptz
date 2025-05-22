@@ -630,6 +630,30 @@
     <string notr="true">icon-down</string>
    </property>
   </action>
+  <action name="actionPresetRename">
+   <property name="text">
+    <string>Rename</string>
+   </property>
+   <property name="toolTip">
+    <string>PTZ.Action.Preset.Rename.Tooltip</string>
+   </property>
+  </action>
+  <action name="actionPresetSave">
+   <property name="text">
+    <string>PTZ.Action.Preset.Save</string>
+   </property>
+   <property name="toolTip">
+    <string>PTZ.Action.Preset.Save.Tooltip</string>
+   </property>
+  </action>
+  <action name="actionPresetClear">
+   <property name="text">
+    <string>PTZ.Action.Preset.Clear</string>
+   </property>
+   <property name="toolTip">
+    <string>PTZ.Action.Preset.Clear.Tooltip</string>
+   </property>
+  </action>
  </widget>
  <customwidgets>
   <customwidget>
