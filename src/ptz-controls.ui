@@ -580,12 +580,27 @@
        <height>16</height>
       </size>
      </property>
+     <addaction name="actionProperties"/>
      <addaction name="actionPresetAdd"/>
      <addaction name="actionPresetMoveUp"/>
      <addaction name="actionPresetMoveDown"/>
     </widget>
    </item>
   </layout>
+  <action name="actionProperties">
+   <property name="enabled">
+    <bool>true</bool>
+   </property>
+   <property name="text">
+    <string>Properties</string>
+   </property>
+   <property name="toolTip">
+    <string>PTZ.Action.Properties.Tooltip</string>
+   </property>
+   <property name="class" stdset="0">
+    <string notr="true">icon-gear</string>
+   </property>
+  </action>
   <action name="actionPresetAdd">
    <property name="text">
     <string>Add</string>

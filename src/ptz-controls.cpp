@@ -987,7 +987,7 @@ void PTZControls::on_cameraList_customContextMenuRequested(const QPoint &pos)
 		blockliveAction->setChecked(liveMovesDisabled());
 		connect(blockliveAction, SIGNAL(toggled(bool)), this, SLOT(setDisableLiveMoves(bool)));
 	}
-	QAction *propertiesAction = context.addAction(obs_module_text("Properties"));
+	context.addAction(ui->actionProperties);
 	QAction *action = context.exec(globalpos);
 
 	OBSData setdata = obs_data_create();
@@ -1002,9 +1002,12 @@ void PTZControls::on_cameraList_customContextMenuRequested(const QPoint &pos)
 	} else if (action == wbOnetouchAction) {
 		obs_data_set_bool(setdata, "wb_onepush_trigger", true);
 		ptz->set_settings(setdata);
-	} else if (action == propertiesAction) {
-		ptz_settings_show(ptzDeviceList.getDeviceId(ui->cameraList->currentIndex()));
 	}
+}
+
+void PTZControls::on_actionProperties_triggered()
+{
+	ptz_settings_show(ptzDeviceList.getDeviceId(ui->cameraList->currentIndex()));
 }
 
 void PTZControls::on_actionPresetAdd_triggered()
