@@ -304,7 +304,7 @@ PTZUSBCam::~PTZUSBCam()
 
 QString PTZUSBCam::description()
 {
-	return QString("USB CAM (UVC)");
+	return QString(obs_module_text("PTZ.UVC.Name"));
 }
 
 void PTZUSBCam::set_config(OBSData config)

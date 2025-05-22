@@ -343,7 +343,7 @@ void PTZPresetListModel::sanitize(size_t id)
 		m_displayOrder.append(id);
 	QVariantMap &preset = m_presets[id];
 	QString name = preset["name"].toString();
-	if (name == "" || name == QString("Preset %1").arg(id))
+	if (name == "" || name == QString(obs_module_text("PTZ.PresetNum")).arg(id))
 		preset.remove("name");
 }
 
@@ -461,9 +461,9 @@ void PTZDevice::setObjectName(QString name)
 {
 	name = name.simplified();
 	if (name == "") {
-		if (objectName().startsWith("PTZ Device"))
+		if (objectName().startsWith(obs_module_text("PTZ.Device.DefaultName")))
 			return;
-		name = "PTZ Device";
+		name = obs_module_text("PTZ.Device.DefaultName");
 	}
 	if (name == objectName())
 		return;
@@ -595,9 +595,9 @@ obs_properties_t *PTZDevice::get_obs_properties()
 			srcnames->append(obs_source_get_name(src));
 		return true;
 	};
-	auto srcs_prop =
-		obs_properties_add_list(rtn_props, "name", "Source", OBS_COMBO_TYPE_LIST, OBS_COMBO_FORMAT_STRING);
-	obs_property_list_add_string(srcs_prop, "---select source---", "");
+	auto srcs_prop = obs_properties_add_list(rtn_props, "name", obs_module_text("PTZ.Source"), OBS_COMBO_TYPE_LIST,
+						 OBS_COMBO_FORMAT_STRING);
+	obs_property_list_add_string(srcs_prop, obs_module_text("PTZ.Device.NoSource"), "");
 	/* Add current source to top list */
 	OBSSourceAutoRelease src = obs_get_source_by_name(QT_TO_UTF8(objectName()));
 	if (src)
@@ -611,15 +611,20 @@ obs_properties_t *PTZDevice::get_obs_properties()
 		obs_property_list_add_string(srcs_prop, QT_TO_UTF8(n), QT_TO_UTF8(n));
 
 	obs_properties_t *config = obs_properties_create();
-	obs_properties_add_group(rtn_props, "interface", "Connection", OBS_GROUP_NORMAL, config);
+	obs_properties_add_group(rtn_props, "interface", obs_module_text("PTZ.Device.Connection"), OBS_GROUP_NORMAL,
+				 config);
 
 	/* Generic camera limits and speeds properties */
 	auto speed = obs_properties_create();
-	obs_properties_add_group(rtn_props, "general", "Camera Settings", OBS_GROUP_NORMAL, speed);
-	obs_properties_add_int_slider(speed, "preset_max", "Number of presets", 1, 0x80, 1);
-	obs_properties_add_float_slider(speed, "pantilt_speed_max", "Pan/Tilt Maximum Speed", 0.1, 1.0, 1.0 / 1024);
-	obs_properties_add_float_slider(speed, "zoom_speed_max", "Zoom Maximum Speed", 0.1, 1.0, 1.0 / 1024);
-	obs_properties_add_float_slider(speed, "focus_speed_max", "Focus Maximum Speed", 0.1, 1.0, 1.0 / 1024);
+	obs_properties_add_group(rtn_props, "general", obs_module_text("PTZ.Device.CameraSettings"), OBS_GROUP_NORMAL,
+				 speed);
+	obs_properties_add_int_slider(speed, "preset_max", obs_module_text("PTZ.Device.MaxPresets"), 1, 0x80, 1);
+	obs_properties_add_float_slider(speed, "pantilt_speed_max", obs_module_text("PTZ.Device.PanTiltMaxSpeed"), 0.1,
+					1.0, 1.0 / 1024);
+	obs_properties_add_float_slider(speed, "zoom_speed_max", obs_module_text("PTZ.Device.ZoomMaxSpeed"), 0.1, 1.0,
+					1.0 / 1024);
+	obs_properties_add_float_slider(speed, "focus_speed_max", obs_module_text("PTZ.Device.FocusMaxSpeed"), 0.1, 1.0,
+					1.0 / 1024);
 
 	return rtn_props;
 }

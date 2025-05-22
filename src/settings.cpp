@@ -36,24 +36,6 @@ static PTZSettings *ptzSettingsWindow = nullptr;
 
 /* ----------------------------------------------------------------- */
 
-const char *description_text = "<html><head/><body>"
-			       "<p>OBS PTZ Controls Plugin<br>" PLUGIN_VERSION "<br>"
-			       "By Grant Likely &lt;grant.likely@secretlab.ca&gt;</p>"
-			       "<p><a href=\"https://obsproject.com/forum/resources/ptz-controls.1284/\">"
-			       "<span style=\" text-decoration: underline; color:#7f7fff;\">"
-			       "https://obsproject.com/forum/resources/ptz-controls.1284/</a></p>"
-			       "<p><a href=\"https://github.com/glikely/obs-ptz\">"
-			       "<span style=\" text-decoration: underline; color:#7f7fff;\">"
-			       "https://github.com/glikely/obs-ptz</span></a></p>"
-			       "<p>Contributors:<br/>"
-			       "Norihiro Kamae<br/>"
-			       "Luuk Verhagen<br/>"
-			       "Jonata Bolzan Loss<br/>"
-			       "Fabio Ferrari<br/>"
-			       "Jim Hauxwell<br/>"
-			       "Eric Schmidt</p>"
-			       "</body></html>";
-
 QString SourceNameDelegate::displayText(const QVariant &value, const QLocale &locale) const
 {
 	auto string = QStyledItemDelegate::displayText(value, locale);
@@ -140,7 +122,7 @@ PTZSettings::PTZSettings() : QWidget(nullptr), ui(new Ui_PTZSettings)
 
 	joystickSetup();
 
-	ui->versionLabel->setText(description_text);
+	ui->versionLabel->setText(QString(obs_module_text("PTZ.About.Info")).arg(PLUGIN_VERSION));
 }
 
 PTZSettings::~PTZSettings()
@@ -227,7 +209,7 @@ void PTZSettings::joystickUpdate()
 		for (int i = joystickAxisLabels.count(); i < joysticks->getNumAxes(jid); i++) {
 			auto label = new QLabel(this);
 			auto cb = new QComboBox(this);
-			label->setText(QString("Axis %1").arg(i));
+			label->setText(QString(obs_module_text("PTZ.Settings.Joystick.AxisNum")).arg(i).arg(0));
 			cbAddJoyAction(cb, PTZ_JOY_ACTION_NONE);
 			cbAddJoyAction(cb, PTZ_JOY_ACTION_PAN);
 			cbAddJoyAction(cb, PTZ_JOY_ACTION_TILT);
@@ -242,7 +224,7 @@ void PTZSettings::joystickUpdate()
 		for (int i = joystickButtonLabels.count(); i < joysticks->getNumButtons(jid); i++) {
 			auto label = new QLabel(this);
 			auto cb = new QComboBox(this);
-			label->setText(QString("Button %1").arg(i));
+			label->setText(QString(obs_module_text("PTZ.Settings.Joystick.ButtonNum")).arg(i).arg(0));
 			cbAddJoyAction(cb, PTZ_JOY_ACTION_NONE);
 			cbAddJoyAction(cb, PTZ_JOY_ACTION_CAMERA_PREV);
 			cbAddJoyAction(cb, PTZ_JOY_ACTION_CAMERA_NEXT);
@@ -294,7 +276,7 @@ void PTZSettings::joystickAxisEvent(const QJoystickAxisEvent evt)
 	if (evt.joystick->id != jid || evt.axis >= joystickAxisLabels.size())
 		return;
 	auto label = joystickAxisLabels.at(evt.axis);
-	label->setText(QString("Axis %1 [%2]").arg(evt.axis).arg(evt.value));
+	label->setText(QString(obs_module_text("PTZ.Settings.Joystick.AxisNum")).arg(evt.axis).arg(evt.value));
 }
 
 void PTZSettings::joystickButtonEvent(const QJoystickButtonEvent evt)
@@ -303,7 +285,7 @@ void PTZSettings::joystickButtonEvent(const QJoystickButtonEvent evt)
 	if (evt.joystick->id != jid || evt.button >= joystickButtonLabels.size())
 		return;
 	auto label = joystickButtonLabels.at(evt.button);
-	label->setText(QString("Button %1 [%2]").arg(evt.button).arg(evt.pressed));
+	label->setText(QString(obs_module_text("PTZ.Settings.Joystick.ButtonNum")).arg(evt.button).arg(evt.pressed));
 }
 
 #else
@@ -322,19 +304,19 @@ void PTZSettings::on_addPTZ_clicked()
 {
 	QMenu addPTZContext;
 #if defined(ENABLE_SERIALPORT)
-	QAction *addViscaSerial = addPTZContext.addAction("VISCA (Serial)");
+	QAction *addViscaSerial = addPTZContext.addAction(obs_module_text("PTZ.Visca.Serial.Name"));
 #endif
-	QAction *addViscaUDP = addPTZContext.addAction("VISCA (UDP)");
-	QAction *addViscaTCP = addPTZContext.addAction("VISCA (TCP)");
+	QAction *addViscaUDP = addPTZContext.addAction(obs_module_text("PTZ.Visca.UDP.Name"));
+	QAction *addViscaTCP = addPTZContext.addAction(obs_module_text("PTZ.Visca.TCP.Name"));
 #if defined(ENABLE_SERIALPORT)
-	QAction *addPelcoD = addPTZContext.addAction("Pelco D");
-	QAction *addPelcoP = addPTZContext.addAction("Pelco P");
+	QAction *addPelcoD = addPTZContext.addAction(obs_module_text("PTZ.PelcoD.Name"));
+	QAction *addPelcoP = addPTZContext.addAction(obs_module_text("PTZ.PelcoP.Name"));
 #endif
 #if defined(ENABLE_ONVIF) // ONVIF disabled until code is reworked
-	QAction *addOnvif = addPTZContext.addAction("ONVIF (experimental)");
+	QAction *addOnvif = addPTZContext.addAction(obs_module_text("PTZ.ONVIF.Name"));
 #endif
 #if defined(ENABLE_USB_CAM)
-	QAction *addUsbCam = addPTZContext.addAction("USB Camera (UVC)");
+	QAction *addUsbCam = addPTZContext.addAction(obs_module_text("PTZ.UVC.Name"));
 #endif
 	QAction *action = addPTZContext.exec(QCursor::pos());
 
@@ -477,7 +459,7 @@ void ptz_settings_show(uint32_t device_id)
 
 extern "C" void ptz_load_settings()
 {
-	QAction *action = (QAction *)obs_frontend_add_tools_menu_qaction(obs_module_text("PTZ Devices"));
+	QAction *action = (QAction *)obs_frontend_add_tools_menu_qaction(obs_module_text("PTZ.Settings.PTZDevices"));
 
 	auto cb = []() {
 		ptz_settings_show(0);

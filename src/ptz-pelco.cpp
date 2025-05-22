@@ -177,11 +177,11 @@ obs_properties_t *PTZPelco::get_obs_properties()
 	obs_properties_t *ptz_props = PTZDevice::get_obs_properties();
 	obs_property_t *p = obs_properties_get(ptz_props, "interface");
 	obs_properties_t *config = obs_property_group_content(p);
-	obs_property_set_description(p, "Serial Port");
+	obs_property_set_description(p, obs_module_text("PTZ.Pelco.Name"));
 
 	iface->addOBSProperties(config);
-	obs_properties_add_int(config, "address", "Device ID", 0, 15, 1);
-	obs_properties_add_bool(config, "use_pelco_d", "Use Pelco-D");
+	obs_properties_add_int(config, "address", obs_module_text("PTZ.Device.DeviceID"), 0, 15, 1);
+	obs_properties_add_bool(config, "use_pelco_d", obs_module_text("PTZ.Pelco.UsePelcoD"));
 
 	return ptz_props;
 }

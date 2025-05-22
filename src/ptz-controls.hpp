@@ -128,10 +128,14 @@ private slots:
 	void on_presetListView_customContextMenuRequested(const QPoint &pos);
 	void on_cameraList_doubleClicked(const QModelIndex &index);
 	void on_cameraList_customContextMenuRequested(const QPoint &pos);
+	void on_actionProperties_triggered();
 	void on_actionPresetAdd_triggered();
 	void on_actionPresetRemove_triggered();
 	void on_actionPresetMoveUp_triggered();
 	void on_actionPresetMoveDown_triggered();
+	void on_actionPresetSave_triggered();
+	void on_actionPresetClear_triggered();
+	void on_actionPresetRename_triggered();
 
 	void accelTimerHandler();
 
