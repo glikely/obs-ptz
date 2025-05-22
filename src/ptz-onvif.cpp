@@ -472,11 +472,11 @@ obs_properties_t *PTZOnvif::get_obs_properties()
 	obs_properties_t *ptz_props = PTZDevice::get_obs_properties();
 	obs_property_t *p = obs_properties_get(ptz_props, "interface");
 	obs_properties_t *config = obs_property_group_content(p);
-	obs_property_set_description(p, "ONVIF Connection (Experimental)");
-	obs_properties_add_text(config, "warning", "Warning: ONVIF support is experimental", OBS_TEXT_INFO);
-	obs_properties_add_text(config, "host", "IP Host", OBS_TEXT_DEFAULT);
-	obs_properties_add_int(config, "port", "TCP port", 1, 65535, 1);
-	obs_properties_add_text(config, "username", "Username", OBS_TEXT_DEFAULT);
-	obs_properties_add_text(config, "password", "Password", OBS_TEXT_DEFAULT);
+	obs_property_set_description(p, obs_module_text("PTZ.ONVIF.Name"));
+	obs_properties_add_text(config, "warning", obs_module_text("PTZ.ONVIF.Warning"), OBS_TEXT_INFO);
+	obs_properties_add_text(config, "host", obs_module_text("PTZ.Device.Hostname"), OBS_TEXT_DEFAULT);
+	obs_properties_add_int(config, "port", obs_module_text("PTZ.Device.TCPPort"), 1, 65535, 1);
+	obs_properties_add_text(config, "username", obs_module_text("PTZ.Device.Username"), OBS_TEXT_DEFAULT);
+	obs_properties_add_text(config, "password", obs_module_text("PTZ.Device.Password"), OBS_TEXT_DEFAULT);
 	return ptz_props;
 }

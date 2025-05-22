@@ -588,10 +588,10 @@
   </layout>
   <action name="actionPresetAdd">
    <property name="text">
-    <string>Add Preset</string>
+    <string>Add</string>
    </property>
    <property name="toolTip">
-    <string>Add preset</string>
+    <string>PTZ.Action.Preset.Add.Tooltip</string>
    </property>
    <property name="class" stdset="0">
     <string notr="true">icon-plus</string>
@@ -599,10 +599,10 @@
   </action>
   <action name="actionPresetRemove">
    <property name="text">
-    <string>Remove Preset</string>
+    <string>Remove</string>
    </property>
    <property name="toolTip">
-    <string>Delete selected preset</string>
+    <string>PTZ.Action.Preset.Remove.Tooltip</string>
    </property>
    <property name="class" stdset="0">
     <string notr="true">icon-trash</string>
@@ -610,10 +610,10 @@
   </action>
   <action name="actionPresetMoveUp">
    <property name="text">
-    <string>Move Preset Up</string>
+    <string>MoveUp</string>
    </property>
    <property name="toolTip">
-    <string>Move selected preset up</string>
+    <string>PTZ.Action.Preset.MoveUp.Tooltip</string>
    </property>
    <property name="class" stdset="0">
     <string notr="true">icon-up</string>
@@ -621,10 +621,10 @@
   </action>
   <action name="actionPresetMoveDown">
    <property name="text">
-    <string>Move Preset Down</string>
+    <string>MoveDown</string>
    </property>
    <property name="toolTip">
-    <string>Move selected preset down</string>
+    <string>PTZ.Action.Preset.MoveDown.Tooltip</string>
    </property>
    <property name="class" stdset="0">
     <string notr="true">icon-down</string>
