@@ -132,6 +132,9 @@ private slots:
 	void on_actionPresetRemove_triggered();
 	void on_actionPresetMoveUp_triggered();
 	void on_actionPresetMoveDown_triggered();
+	void on_actionPresetSave_triggered();
+	void on_actionPresetClear_triggered();
+	void on_actionPresetRename_triggered();
 
 	void accelTimerHandler();
 
