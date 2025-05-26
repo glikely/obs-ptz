@@ -18,7 +18,7 @@
 #include <util/platform.h>
 
 #define ptz_log(level, format, ...) \
-	blog(level, "[%s/%.12s] " format, type.c_str(), QT_TO_UTF8(objectName()), ##__VA_ARGS__)
+	blog(level, "[%s/%.12s] " format, this->type.c_str(), QT_TO_UTF8(this->objectName()), ##__VA_ARGS__)
 #define ptz_info(format, ...) ptz_log(LOG_INFO, format, ##__VA_ARGS__)
 #define ptz_debug(format, ...) ptz_log(LOG_DEBUG, format, ##__VA_ARGS__)
 #define ptz_debug_trace(format, ...) \
