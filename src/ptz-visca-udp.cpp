@@ -189,8 +189,11 @@ void PTZViscaOverIP::set_config(OBSData config)
 	if (new_host != host) {
 		ip_address.clear();
 		host = new_host;
-		if (!host.isEmpty())
-			QHostInfo::lookupHost(host, this, SLOT(lookup_host_callback(QHostInfo)));
+		if (!host.isEmpty()) {
+			bool is_ip = ip_address.setAddress(host);
+			if (!is_ip)
+				QHostInfo::lookupHost(host, this, SLOT(lookup_host_callback(QHostInfo)));
+		}
 	}
 	if (!port)
 		port = 52381;
