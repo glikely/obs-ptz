@@ -46,11 +46,12 @@ const char *description_text = "<html><head/><body>"
 			       "<span style=\" text-decoration: underline; color:#7f7fff;\">"
 			       "https://github.com/glikely/obs-ptz</span></a></p>"
 			       "<p>Contributors:<br/>"
+			       "Fabio Ferrari<br/>"
 			       "Norihiro Kamae<br/>"
 			       "Luuk Verhagen<br/>"
 			       "Jonata Bolzan Loss<br/>"
-			       "Fabio Ferrari<br/>"
 			       "Jim Hauxwell<br/>"
+			       "Jason Lanclos<br/>"
 			       "Eric Schmidt</p>"
 			       "</body></html>";
 
