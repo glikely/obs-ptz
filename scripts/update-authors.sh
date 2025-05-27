@@ -7,4 +7,4 @@ Contributions are sorted by their number of commits
 
 Contributors:
 EOF
-git log --pretty=format:%an template/master.. | sort | uniq -c | sort -nr | cut -c8- >> AUTHORS
+git log --pretty=format:%an template/master.. | sort | uniq -c | sort -nr | sed -e 's/^[ 0-9]*/ /g' >> AUTHORS
