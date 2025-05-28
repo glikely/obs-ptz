@@ -1,6 +1,7 @@
 # Pan Tilt Zoom (PTZ) Controls for OBS Studio
 
 [![Push](https://github.com/glikely/obs-ptz/actions/workflows/push.yaml/badge.svg)](https://github.com/glikely/obs-ptz/actions/workflows/push.yaml)
+[![Crowdin](https://badges.crowdin.net/obs-ptz/localized.svg)](https://crowdin.com/project/obs-ptz)
 
 This is a plugin for controlling PTZ Cameras from OBS studio.
 
