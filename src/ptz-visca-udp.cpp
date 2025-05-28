@@ -37,48 +37,30 @@ void PTZViscaOverIP::receive_datagram(const QNetworkDatagram &dg)
 		return;
 	}
 	uint16_t type = (uint8_t)data[0] << 8 | (uint8_t)data[1];
-	uint16_t size = (uint8_t)data[2] << 8 | (uint8_t)data[3];
+	/*uint16_t size = (uint8_t)data[2] << 8 | (uint8_t)data[3];*/
 	uint32_t seq = (uint8_t)data[4] << 24 | (uint8_t)data[5] << 16 | (uint8_t)data[6] << 8 | (uint8_t)data[7];
 	uint8_t reply_code = data[9] & 0x70;
 	uint8_t slot = data[9] & 0x0f;
 
-	if ((data.size() != size + 8) || size < 1) {
-		blog(LOG_DEBUG, "VISCA UDP (malformed) <-- %s", qPrintable(data.toHex(':')));
-		incrementStatistic("visca_udp_malformed_count");
-		return;
-	}
-
 	switch (type) {
 	case 0x0111:
-		switch (reply_code) {
-		case 0x40:
-			if (seq != seq_state[0]) {
-				blog(LOG_DEBUG, "VISCA UDP (out of seq %i != %i) <-- %s", seq, seq_state[0],
-				     qPrintable(data.toHex(':')));
-				incrementStatistic("visca_udp_outofseq_ack_count");
-				return;
-			}
-			seq_state[slot] = seq_state[0];
-			break;
-		case 0x50:
-			if (seq != seq_state[slot]) {
-				blog(LOG_DEBUG, "VISCA UDP (out of seq %i != %i) <-- %s", seq, seq_state[0],
-				     qPrintable(data.toHex(':')));
-				incrementStatistic("visca_udp_outofseq_cmplt_count");
-				return;
-			}
-			break;
-		default:
-			blog(LOG_DEBUG, "VISCA UDP (unknown) <-- %s", qPrintable(data.toHex(':')));
-			incrementStatistic("visca_udp_unknown_count");
+		if (seq != seq_state[0] && seq != seq_state[slot]) {
+			ptz_debug_trace("out of seq; %i != [0]%i or [%i]%i) <-- %s", seq, seq_state[0], slot,
+					seq_state[slot], qPrintable(data.toHex(':')));
+			incrementStatistic("visca_udp_outofseq_cmplt_count");
 			return;
 		}
-		receive(data.mid(8, size));
+		/* if slot is nonzero, update or clear the sequence number for that slot */
+		if (slot)
+			seq_state[slot] = (reply_code == 0x40) ? seq_state[0] : 0;
+		receive(data.sliced(8));
 		break;
 	case 0x0200:
 	case 0x0201: /* Check for sequence number out of sync */
 		if (data[8] == (char)0x0f && data[8 + 1] == (char)1)
 			reset();
+		else if (data[8] == 0x01)
+			cmd_get_camera_info();
 		break;
 	default:
 		blog(LOG_DEBUG, "VISCA UDP unrecognized type: %x", type);

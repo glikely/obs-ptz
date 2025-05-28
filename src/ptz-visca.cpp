@@ -690,8 +690,14 @@ void PTZVisca::receive(const QByteArray &msg)
 		if (slot == 0)
 			timeout_timer.stop(); /* timer is only for slot 0 */
 		if (!active_cmd[slot].has_value()) {
-			ptz_debug("spurious reply: %s", msg.toHex(':').data());
-			break;
+			if (active_cmd[0].has_value()) {
+				// Slot is empty, but some cameras reply without an ack first. Handle that case
+				active_cmd[slot] = active_cmd[0];
+				active_cmd[0] = std::nullopt;
+			} else {
+				ptz_debug("spurious reply: %s", msg.toHex(':').data());
+				break;
+			}
 		}
 
 		/* Slot 0 responses are inquiries that need to be parsed */
