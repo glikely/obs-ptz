@@ -35,6 +35,8 @@ protected:
 	unsigned int timeout_retry = 0;
 	unsigned int address;
 	bool protocol_trace = false;
+	QMap<QByteArray, QByteArray> replyLast;
+	QMap<QByteArray, int> replyCount;
 	QList<PTZCmd> pending_cmds;
 	std::optional<PTZCmd> active_cmd[8];
 	QTimer timeout_timer;
@@ -53,6 +55,8 @@ protected:
 	void send_pending();
 	void timeout();
 	void update_timer_callback();
+	void scan_commands();
+	void write_replies_to_log();
 
 protected slots:
 	void receive(const QByteArray &msg);

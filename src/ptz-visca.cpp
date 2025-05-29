@@ -521,6 +521,42 @@ PTZVisca::PTZVisca(OBSData config) : PTZDevice(config)
 	connect(&update_timer, &QTimer::timeout, this, &PTZVisca::update_timer_callback);
 }
 
+void PTZVisca::scan_commands()
+{
+	for (int i = 0; i < 0x7e; i++) {
+		PTZInq inq("81090000ff");
+		inq.cmd[3] = i;
+		pending_cmds += inq;
+	}
+	for (int i = 0; i < 0x7e; i++) {
+		PTZInq inq("81090400ff");
+		inq.cmd[3] = i;
+		pending_cmds += inq;
+	}
+	for (int i = 0; i < 0x7e; i++) {
+		PTZInq inq("81090600ff");
+		inq.cmd[3] = i;
+		pending_cmds += inq;
+	}
+	for (int i = 0; i < 0x7e; i++) {
+		PTZInq inq("81097e0100ff");
+		inq.cmd[4] = i;
+		pending_cmds += inq;
+	}
+	for (int i = 0; i < 0x7e; i++) {
+		PTZInq inq("81097e7e00ff");
+		inq.cmd[4] = i;
+		pending_cmds += inq;
+	}
+}
+
+void PTZVisca::write_replies_to_log()
+{
+	for (auto key : replyLast.keys())
+		ptz_info("inq:%s count:%.4i reply:%s", key.toHex(':').data(), replyCount[key],
+			 replyLast[key].toHex(':').data());
+}
+
 void PTZVisca::set_settings(OBSData new_settings)
 {
 	/* `updates` is the property values that should be cached */
@@ -620,6 +656,19 @@ obs_properties_t *PTZVisca::get_obs_properties()
 	obs_properties_add_int_slider(visca_grp, "visca_focus_speed_max", obs_module_text("PTZ.Visca.FocusMaxSpeed"), 0,
 				      7, 1);
 	obs_properties_add_bool(visca_grp, "protocol_trace", obs_module_text("PTZ.Device.ProtocolTraceToLog"));
+
+	auto scan_inquiries_clicked_cb = [](obs_properties_t *, obs_property_t *, void *data) {
+		static_cast<PTZVisca *>(data)->scan_commands();
+		return false;
+	};
+	obs_properties_add_button2(visca_grp, "scan_inquiries", obs_module_text("PTZ.Visca.Debug.ScanInquiries"),
+				   scan_inquiries_clicked_cb, this);
+	auto replies_to_log_clicked_cb = [](obs_properties_t *, obs_property_t *, void *data) {
+		static_cast<PTZVisca *>(data)->write_replies_to_log();
+		return false;
+	};
+	obs_properties_add_button2(visca_grp, "replies_to_log", obs_module_text("PTZ.Visca.Debug.RepliesToLog"),
+				   replies_to_log_clicked_cb, this);
 	return ptz_props;
 }
 
@@ -683,6 +732,7 @@ void PTZVisca::receive(const QByteArray &msg)
 	ptz_debug_trace("<-- %s", msg.toHex(':').data());
 	incrementStatistic("visca_recv_count");
 	int slot = msg[1] & 0x7;
+	QByteArray inq;
 
 	switch (msg[1] & 0xf0) {
 	case VISCA_RESPONSE_ACK:
@@ -705,6 +755,13 @@ void PTZVisca::receive(const QByteArray &msg)
 				ptz_debug("spurious reply: %s", msg.toHex(':').data());
 				break;
 			}
+		}
+
+		/* Log Inquiry Replies */
+		inq = active_cmd[slot]->cmd;
+		if (inq[1] == 0x09) {
+			replyLast[inq] = msg;
+			replyCount[inq]++;
 		}
 
 		/* Slot 0 responses are inquiries that need to be parsed */
