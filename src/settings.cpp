@@ -210,10 +210,8 @@ void PTZSettings::joystickUpdate()
 			auto label = new QLabel(this);
 			auto cb = new QComboBox(this);
 			label->setText(QString(obs_module_text("PTZ.Settings.Joystick.AxisNum")).arg(i).arg(0));
-			cbAddJoyAction(cb, PTZ_JOY_ACTION_NONE);
-			cbAddJoyAction(cb, PTZ_JOY_ACTION_PAN);
-			cbAddJoyAction(cb, PTZ_JOY_ACTION_TILT);
-			cbAddJoyAction(cb, PTZ_JOY_ACTION_ZOOM);
+			for (int i = PTZ_JOY_ACTION_NONE; i <= PTZ_JOY_ACTION_FOCUS_INVERT; i++)
+				cbAddJoyAction(cb, i);
 			cb->setProperty("axis-id", i);
 			joystickAxisLabels.append(label);
 			joystickAxisCBs.append(cb);

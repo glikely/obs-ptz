@@ -25,9 +25,20 @@
 #include "settings.hpp"
 #include "ptz.h"
 
-QStringList ptz_joy_action_names = {
-	"None",        "Pan",          "Tilt", "Zoom", "Previous Camera", "Next Camera", "Previous Preset",
-	"Next Preset", "Recall Preset"};
+QStringList ptz_joy_action_names = {"None",
+				    "Pan",
+				    "Pan (Inverted)",
+				    "Tilt",
+				    "Tilt (Inverted)",
+				    "Zoom",
+				    "Zoom (Inverted)",
+				    "Focus",
+				    "Focus (Inverted)",
+				    "Previous Camera",
+				    "Next Camera",
+				    "Previous Preset",
+				    "Next Preset",
+				    "Recall Preset"};
 
 void ptz_load_controls(void)
 {
@@ -317,11 +328,11 @@ void PTZControls::setJoystickDeadzone(double deadzone)
 	joystickAxesChanged(jd, 0b11111111);
 }
 
-double PTZControls::readAxis(const QJoystickDevice *jd, int axis)
+double PTZControls::readAxis(const QJoystickDevice *jd, int axis, bool invert)
 {
 	if (axis < 0 || !jd || axis >= jd->axes.size())
 		return 0.0;
-	double v = jd->axes.at(axis);
+	double v = jd->axes.at(axis) * (invert ? -1 : 1);
 	if (abs(v) < m_joystick_deadzone)
 		return 0.0;
 	return std::copysign((abs(v) - m_joystick_deadzone) / (1.0 - m_joystick_deadzone), v);
@@ -333,9 +344,12 @@ void PTZControls::joystickAxesChanged(const QJoystickDevice *jd, uint32_t update
 		return;
 	int panTiltMask = (1 << joystick_pan_axis) | (1 << joystick_tilt_axis);
 	if (updated & panTiltMask)
-		setPanTilt(readAxis(jd, joystick_pan_axis), -readAxis(jd, joystick_tilt_axis));
+		setPanTilt(readAxis(jd, joystick_pan_axis, joystick_pan_invert),
+			   -readAxis(jd, joystick_tilt_axis, joystick_tilt_invert));
 	if (updated & (1 << joystick_zoom_axis))
-		setZoom(-readAxis(jd, joystick_zoom_axis));
+		setZoom(-readAxis(jd, joystick_zoom_axis, joystick_zoom_invert));
+	if (updated & (1 << joystick_focus_axis))
+		setFocus(-readAxis(jd, joystick_focus_axis, joystick_focus_invert));
 }
 
 void PTZControls::joystickAxisEvent(const QJoystickAxisEvent evt)
@@ -401,17 +415,29 @@ void PTZControls::setJoystickAxisAction(size_t axis, ptz_joy_action_id action)
 		joystick_tilt_axis = -1;
 	if (joystick_zoom_axis == (int)axis)
 		joystick_zoom_axis = -1;
+	if (joystick_focus_axis == (int)axis)
+		joystick_focus_axis = -1;
 
 	int old_axis = -1;
-	if (action == PTZ_JOY_ACTION_PAN && joystick_pan_axis != (int)axis) {
+	if ((action == PTZ_JOY_ACTION_PAN || action == PTZ_JOY_ACTION_PAN_INVERT) && joystick_pan_axis != (int)axis) {
 		old_axis = joystick_pan_axis;
 		joystick_pan_axis = (int)axis;
-	} else if (action == PTZ_JOY_ACTION_TILT && joystick_tilt_axis != (int)axis) {
+		joystick_pan_invert = action == PTZ_JOY_ACTION_PAN_INVERT;
+	} else if ((action == PTZ_JOY_ACTION_TILT || action == PTZ_JOY_ACTION_TILT_INVERT) &&
+		   joystick_tilt_axis != (int)axis) {
 		old_axis = joystick_tilt_axis;
 		joystick_tilt_axis = (int)axis;
-	} else if (action == PTZ_JOY_ACTION_ZOOM && joystick_zoom_axis != (int)axis) {
+		joystick_tilt_invert = action == PTZ_JOY_ACTION_TILT_INVERT;
+	} else if ((action == PTZ_JOY_ACTION_ZOOM || action == PTZ_JOY_ACTION_ZOOM_INVERT) &&
+		   joystick_zoom_axis != (int)axis) {
 		old_axis = joystick_zoom_axis;
 		joystick_zoom_axis = (int)axis;
+		joystick_zoom_invert = action == PTZ_JOY_ACTION_ZOOM_INVERT;
+	} else if ((action == PTZ_JOY_ACTION_FOCUS || action == PTZ_JOY_ACTION_FOCUS_INVERT) &&
+		   joystick_focus_axis != (int)axis) {
+		old_axis = joystick_focus_axis;
+		joystick_focus_axis = (int)axis;
+		joystick_focus_invert = action == PTZ_JOY_ACTION_FOCUS_INVERT;
 	}
 	if (old_axis != -1)
 		emit joystickAxisActionChanged(old_axis, PTZ_JOY_ACTION_NONE);

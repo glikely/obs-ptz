@@ -22,8 +22,13 @@ typedef size_t ptz_joy_action_id;
 enum ptz_joy_action {
 	PTZ_JOY_ACTION_NONE = 0,
 	PTZ_JOY_ACTION_PAN,
+	PTZ_JOY_ACTION_PAN_INVERT,
 	PTZ_JOY_ACTION_TILT,
+	PTZ_JOY_ACTION_TILT_INVERT,
 	PTZ_JOY_ACTION_ZOOM,
+	PTZ_JOY_ACTION_ZOOM_INVERT,
+	PTZ_JOY_ACTION_FOCUS,
+	PTZ_JOY_ACTION_FOCUS_INVERT,
 	PTZ_JOY_ACTION_CAMERA_PREV,
 	PTZ_JOY_ACTION_CAMERA_NEXT,
 	PTZ_JOY_ACTION_PRESET_PREV,
@@ -146,8 +151,13 @@ protected:
 	double m_joystick_deadzone = 0.0;
 	double m_joystick_speed = 1.0;
 	int joystick_pan_axis = -1;
+	bool joystick_pan_invert = false;
 	int joystick_tilt_axis = -1;
+	bool joystick_tilt_invert = false;
 	int joystick_zoom_axis = -1;
+	bool joystick_zoom_invert = false;
+	int joystick_focus_axis = -1;
+	bool joystick_focus_invert = false;
 	QMap<size_t, ptz_joy_action_id> joystick_axis_actions;
 	QMap<size_t, ptz_joy_action_id> joystick_button_actions;
 
@@ -170,7 +180,7 @@ public:
 	void setJoystickDeadzone(double deadzone);
 	int joystickId() { return m_joystick_id; };
 	void setJoystickId(int id) { m_joystick_id = id; };
-	double readAxis(const QJoystickDevice *jd, int axis);
+	double readAxis(const QJoystickDevice *jd, int axis, bool invert);
 	ptz_joy_action_id joystickAxisAction(size_t axis) { return joystick_axis_actions[axis]; };
 	ptz_joy_action_id joystickButtonAction(size_t button) { return joystick_button_actions[button]; };
 
