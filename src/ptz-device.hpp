@@ -119,10 +119,14 @@ protected:
 	double pan_speed = 0;
 	double tilt_speed = 0;
 	double pantilt_speed_max = 1.0;
+	bool pan_invert = false;
+	bool tilt_invert = false;
 	double zoom_speed = 0;
 	double zoom_speed_max = 1.0;
+	bool zoom_invert = false;
 	double focus_speed = 0;
 	double focus_speed_max = 1.0;
+	bool focus_invert = false;
 
 	PTZPresetListModel m_presetsModel;
 	obs_properties_t *props;

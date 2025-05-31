@@ -500,8 +500,8 @@ bool PTZDevice::isLive()
 
 void PTZDevice::pantilt(double pan, double tilt)
 {
-	pan = std::clamp(pan, -pantilt_speed_max, pantilt_speed_max);
-	tilt = std::clamp(tilt, -pantilt_speed_max, pantilt_speed_max);
+	pan = std::clamp(pan * (pan_invert ? -1 : 1), -pantilt_speed_max, pantilt_speed_max);
+	tilt = std::clamp(tilt * (tilt_invert ? -1 : 1), -pantilt_speed_max, pantilt_speed_max);
 	if ((pan_speed == pan) && (tilt_speed == tilt))
 		return;
 	pan_speed = pan;
@@ -512,7 +512,7 @@ void PTZDevice::pantilt(double pan, double tilt)
 
 void PTZDevice::zoom(double speed)
 {
-	speed = std::clamp(speed, -zoom_speed_max, zoom_speed_max);
+	speed = std::clamp(speed * (zoom_invert ? -1 : 1), -zoom_speed_max, zoom_speed_max);
 	if (zoom_speed == speed)
 		return;
 	zoom_speed = speed;
@@ -522,7 +522,7 @@ void PTZDevice::zoom(double speed)
 
 void PTZDevice::focus(double speed)
 {
-	speed = std::clamp(speed, -focus_speed_max, focus_speed_max);
+	speed = std::clamp(speed * (focus_invert ? -1 : 1), -focus_speed_max, focus_speed_max);
 	if (focus_speed == speed)
 		return;
 	focus_speed = speed;
@@ -541,9 +541,18 @@ void PTZDevice::set_config(OBSData config)
 	obs_data_set_default_double(config, "pantilt_speed_max", 1.0);
 	obs_data_set_default_double(config, "zoom_speed_max", 1.0);
 	obs_data_set_default_double(config, "focus_speed_max", 1.0);
+	obs_data_set_default_bool(config, "pan_invert", false);
+	obs_data_set_default_bool(config, "tilt_invert", false);
+	obs_data_set_default_bool(config, "zoom_invert", false);
+	obs_data_set_default_bool(config, "focus_invert", false);
+
 	pantilt_speed_max = obs_data_get_double(config, "pantilt_speed_max");
 	zoom_speed_max = obs_data_get_double(config, "zoom_speed_max");
 	focus_speed_max = obs_data_get_double(config, "focus_speed_max");
+	pan_invert = obs_data_get_bool(config, "pan_invert");
+	tilt_invert = obs_data_get_bool(config, "tilt_invert");
+	zoom_invert = obs_data_get_bool(config, "zoom_invert");
+	focus_invert = obs_data_get_bool(config, "focus_invert");
 }
 
 OBSData PTZDevice::get_config()
@@ -557,6 +566,10 @@ OBSData PTZDevice::get_config()
 	obs_data_set_double(config, "pantilt_speed_max", pantilt_speed_max);
 	obs_data_set_double(config, "zoom_speed_max", zoom_speed_max);
 	obs_data_set_double(config, "focus_speed_max", focus_speed_max);
+	obs_data_set_bool(config, "pan_invert", pan_invert);
+	obs_data_set_bool(config, "tilt_invert", tilt_invert);
+	obs_data_set_bool(config, "zoom_invert", zoom_invert);
+	obs_data_set_bool(config, "focus_invert", focus_invert);
 	obs_data_set_int(config, "preset_max", m_presetsModel.maxPresets());
 
 	OBSDataArrayAutoRelease preset_array = m_presetsModel.savePresets();
@@ -574,6 +587,14 @@ void PTZDevice::set_settings(OBSData config)
 		zoom_speed_max = obs_data_get_double(config, "zoom_speed_max");
 	if (obs_data_has_user_value(config, "focus_speed_max"))
 		focus_speed_max = obs_data_get_double(config, "focus_speed_max");
+	if (obs_data_has_user_value(config, "pan_invert"))
+		pan_invert = obs_data_get_bool(config, "pan_invert");
+	if (obs_data_has_user_value(config, "tilt_invert"))
+		tilt_invert = obs_data_get_bool(config, "tilt_invert");
+	if (obs_data_has_user_value(config, "zoom_invert"))
+		zoom_invert = obs_data_get_bool(config, "zoom_invert");
+	if (obs_data_has_user_value(config, "focus_invert"))
+		focus_invert = obs_data_get_bool(config, "focus_invert");
 	if (obs_data_has_user_value(config, "preset_max"))
 		m_presetsModel.setMaxPresets((int)obs_data_get_int(config, "preset_max"));
 }
@@ -621,10 +642,14 @@ obs_properties_t *PTZDevice::get_obs_properties()
 	obs_properties_add_int_slider(speed, "preset_max", obs_module_text("PTZ.Device.MaxPresets"), 1, 0x80, 1);
 	obs_properties_add_float_slider(speed, "pantilt_speed_max", obs_module_text("PTZ.Device.PanTiltMaxSpeed"), 0.1,
 					1.0, 1.0 / 1024);
+	obs_properties_add_bool(speed, "pan_invert", obs_module_text("PTZ.Device.PanInvertAxis"));
+	obs_properties_add_bool(speed, "tilt_invert", obs_module_text("PTZ.Device.TiltInvertAxis"));
 	obs_properties_add_float_slider(speed, "zoom_speed_max", obs_module_text("PTZ.Device.ZoomMaxSpeed"), 0.1, 1.0,
 					1.0 / 1024);
+	obs_properties_add_bool(speed, "zoom_invert", obs_module_text("PTZ.Device.ZoomInvertAxis"));
 	obs_properties_add_float_slider(speed, "focus_speed_max", obs_module_text("PTZ.Device.FocusMaxSpeed"), 0.1, 1.0,
 					1.0 / 1024);
+	obs_properties_add_bool(speed, "focus_invert", obs_module_text("PTZ.Device.FocusInvertAxis"));
 
 	return rtn_props;
 }
