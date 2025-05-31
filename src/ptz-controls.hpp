@@ -37,7 +37,8 @@ enum ptz_joy_action {
 	PTZ_JOY_ACTION_LAST_VALUE
 };
 typedef enum ptz_joy_action ptz_joy_action_t;
-extern QStringList ptz_joy_action_names;
+extern const char *ptz_joy_action_axis_names[PTZ_JOY_ACTION_LAST_VALUE];
+extern const char *ptz_joy_action_button_names[PTZ_JOY_ACTION_LAST_VALUE];
 
 class PTZControls : public QWidget {
 	Q_OBJECT

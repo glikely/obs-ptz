@@ -25,20 +25,24 @@
 #include "settings.hpp"
 #include "ptz.h"
 
-QStringList ptz_joy_action_names = {"None",
-				    "Pan",
-				    "Pan (Inverted)",
-				    "Tilt",
-				    "Tilt (Inverted)",
-				    "Zoom",
-				    "Zoom (Inverted)",
-				    "Focus",
-				    "Focus (Inverted)",
-				    "Previous Camera",
-				    "Next Camera",
-				    "Previous Preset",
-				    "Next Preset",
-				    "Recall Preset"};
+const char *ptz_joy_action_axis_names[PTZ_JOY_ACTION_LAST_VALUE] = {"None",
+								    "Pan",
+								    "Pan (Inverted)",
+								    "Tilt",
+								    "Tilt (Inverted)",
+								    "Zoom",
+								    "Zoom (Inverted)",
+								    "Focus",
+								    "Focus (Inverted)",
+								    "Previous Camera",
+								    "Next Camera",
+								    "Previous Preset",
+								    "Next Preset",
+								    "Recall Preset"};
+
+const char *ptz_joy_action_button_names[PTZ_JOY_ACTION_LAST_VALUE] = {
+	"None",      "Pan Right",  "Pan Left",        "Tilt Up",     "Tilt Down",       "Zoom In",     "Zoom Out",
+	"Focus Far", "Focus Near", "Previous Camera", "Next Camera", "Previous Preset", "Next Preset", "Recall Preset"};
 
 void ptz_load_controls(void)
 {
@@ -376,25 +380,53 @@ void PTZControls::joystickButtonEvent(const QJoystickButtonEvent evt)
 	QModelIndex index;
 	if (!m_joystick_enable || evt.joystick->id != m_joystick_id)
 		return;
-	if (!evt.pressed)
-		return;
 	switch (joystick_button_actions[evt.button]) {
+	case PTZ_JOY_ACTION_PAN:
+		setPanTilt(evt.pressed, 0);
+		break;
+	case PTZ_JOY_ACTION_PAN_INVERT:
+		setPanTilt(-1 * evt.pressed, 0);
+		break;
+	case PTZ_JOY_ACTION_TILT:
+		setPanTilt(0, evt.pressed);
+		break;
+	case PTZ_JOY_ACTION_TILT_INVERT:
+		keypressPanTilt(0, -1 * evt.pressed);
+		break;
+	case PTZ_JOY_ACTION_ZOOM:
+		setZoom(evt.pressed);
+		break;
+	case PTZ_JOY_ACTION_ZOOM_INVERT:
+		setZoom(-1 * evt.pressed);
+		break;
+	case PTZ_JOY_ACTION_FOCUS:
+		setFocus(evt.pressed);
+		break;
+	case PTZ_JOY_ACTION_FOCUS_INVERT:
+		setFocus(-1 * evt.pressed);
+		break;
 	case PTZ_JOY_ACTION_CAMERA_PREV:
-		ui->cameraList->cursorUp();
+		if (evt.pressed)
+			ui->cameraList->cursorUp();
 		break;
 	case PTZ_JOY_ACTION_CAMERA_NEXT:
-		ui->cameraList->cursorDown();
+		if (evt.pressed)
+			ui->cameraList->cursorDown();
 		break;
 	case PTZ_JOY_ACTION_PRESET_PREV:
-		ui->presetListView->cursorUp();
+		if (evt.pressed)
+			ui->presetListView->cursorUp();
 		break;
 	case PTZ_JOY_ACTION_PRESET_NEXT:
-		ui->presetListView->cursorDown();
+		if (evt.pressed)
+			ui->presetListView->cursorDown();
 		break;
 	case PTZ_JOY_ACTION_PRESET_RECALL:
-		index = ui->presetListView->currentIndex();
-		if (index.isValid() && !isLocked())
-			ui->presetListView->activated(index);
+		if (evt.pressed) {
+			index = ui->presetListView->currentIndex();
+			if (index.isValid() && !isLocked())
+				ui->presetListView->activated(index);
+		}
 		break;
 	default:
 		break;

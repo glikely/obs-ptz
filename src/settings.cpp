@@ -195,10 +195,6 @@ void PTZSettings::on_joystickButtonActionChanged(int idx)
 #define BUTTON_ROW_OFFSET 100
 void PTZSettings::joystickUpdate()
 {
-	auto cbAddJoyAction = [](QComboBox *cb, ptz_joy_action_id action) {
-		cb->addItem(ptz_joy_action_names[action], (int)action);
-	};
-
 	auto joysticks = QJoysticks::getInstance();
 	auto controls = PTZControls::getInstance();
 	m_joystickNamesModel.setStringList(joysticks->deviceNames());
@@ -211,7 +207,7 @@ void PTZSettings::joystickUpdate()
 			auto cb = new QComboBox(this);
 			label->setText(QString(obs_module_text("PTZ.Settings.Joystick.AxisNum")).arg(i).arg(0));
 			for (int i = PTZ_JOY_ACTION_NONE; i <= PTZ_JOY_ACTION_FOCUS_INVERT; i++)
-				cbAddJoyAction(cb, i);
+				cb->addItem(obs_module_text(ptz_joy_action_axis_names[i]), i);
 			cb->setProperty("axis-id", i);
 			joystickAxisLabels.append(label);
 			joystickAxisCBs.append(cb);
@@ -223,12 +219,8 @@ void PTZSettings::joystickUpdate()
 			auto label = new QLabel(this);
 			auto cb = new QComboBox(this);
 			label->setText(QString(obs_module_text("PTZ.Settings.Joystick.ButtonNum")).arg(i).arg(0));
-			cbAddJoyAction(cb, PTZ_JOY_ACTION_NONE);
-			cbAddJoyAction(cb, PTZ_JOY_ACTION_CAMERA_PREV);
-			cbAddJoyAction(cb, PTZ_JOY_ACTION_CAMERA_NEXT);
-			cbAddJoyAction(cb, PTZ_JOY_ACTION_PRESET_PREV);
-			cbAddJoyAction(cb, PTZ_JOY_ACTION_PRESET_NEXT);
-			cbAddJoyAction(cb, PTZ_JOY_ACTION_PRESET_RECALL);
+			for (int i = PTZ_JOY_ACTION_NONE; i < PTZ_JOY_ACTION_LAST_VALUE; i++)
+				cb->addItem(obs_module_text(ptz_joy_action_button_names[i]), i);
 			cb->setProperty("button-id", i);
 			joystickButtonLabels.append(label);
 			joystickButtonCBs.append(cb);
