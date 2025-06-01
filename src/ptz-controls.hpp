@@ -29,16 +29,10 @@ enum ptz_joy_action {
 	PTZ_JOY_ACTION_ZOOM_INVERT,
 	PTZ_JOY_ACTION_FOCUS,
 	PTZ_JOY_ACTION_FOCUS_INVERT,
-	PTZ_JOY_ACTION_CAMERA_PREV,
-	PTZ_JOY_ACTION_CAMERA_NEXT,
-	PTZ_JOY_ACTION_PRESET_PREV,
-	PTZ_JOY_ACTION_PRESET_NEXT,
-	PTZ_JOY_ACTION_PRESET_RECALL,
 	PTZ_JOY_ACTION_LAST_VALUE
 };
 typedef enum ptz_joy_action ptz_joy_action_t;
 extern const char *ptz_joy_action_axis_names[PTZ_JOY_ACTION_LAST_VALUE];
-extern const char *ptz_joy_action_button_names[PTZ_JOY_ACTION_LAST_VALUE];
 
 class PTZControls : public QWidget {
 	Q_OBJECT
@@ -160,15 +154,15 @@ protected:
 	int joystick_focus_axis = -1;
 	bool joystick_focus_invert = false;
 	QMap<size_t, ptz_joy_action_id> joystick_axis_actions;
-	QMap<size_t, ptz_joy_action_id> joystick_button_actions;
+	QMap<size_t, QString> joystick_button_hotkey_mappings;
 
 public slots:
 	void setJoystickAxisAction(size_t axis, ptz_joy_action_id);
-	void setJoystickButtonAction(size_t button, ptz_joy_action_id);
+	void setJoystickButtonHotkey(size_t button, QString);
 
 signals:
 	void joystickAxisActionChanged(size_t axis, ptz_joy_action_id action);
-	void joystickButtonActionChanged(size_t button, ptz_joy_action_id action);
+	void joystickButtonHotkeyChanged(size_t button, QString hotkey);
 
 #if defined(ENABLE_JOYSTICK)
 public:
@@ -183,7 +177,7 @@ public:
 	void setJoystickId(int id) { m_joystick_id = id; };
 	double readAxis(const QJoystickDevice *jd, int axis, bool invert);
 	ptz_joy_action_id joystickAxisAction(size_t axis) { return joystick_axis_actions[axis]; };
-	ptz_joy_action_id joystickButtonAction(size_t button) { return joystick_button_actions[button]; };
+	QString joystickButtonHotkey(size_t button) { return joystick_button_hotkey_mappings[button]; };
 
 protected slots:
 	void joystickAxesChanged(const QJoystickDevice *jd, uint32_t updated);

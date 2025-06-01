@@ -179,35 +179,56 @@ PTZJoyButtonMapper::PTZJoyButtonMapper(QWidget *parent, size_t _button) : QPushB
 {
 	setCheckable(true);
 	auto m = new QMenu;
-	for (int i = PTZ_JOY_ACTION_NONE; i < PTZ_JOY_ACTION_LAST_VALUE; i++) {
-		auto a = m->addAction(obs_module_text(ptz_joy_action_button_names[i]));
-		a->setData(i);
-		connect(a, SIGNAL(triggered(bool)), this, SLOT(on_joystickButtonMapping_triggered()));
-	}
+	m->addAction(obs_module_text("None"));
+	auto data = std::make_tuple(m, this);
+	using data_t = decltype(data);
+	obs_enum_hotkeys(
+		[](void *data, obs_hotkey_id, obs_hotkey_t *key) {
+			data_t &d = *static_cast<data_t *>(data);
+			if (obs_hotkey_get_registerer_type(key) != OBS_HOTKEY_REGISTERER_FRONTEND)
+				return true; /* todo: extra logic needed for other hotkey registerers */
+			auto a = get<0>(d)->addAction(obs_hotkey_get_description(key));
+			a->setData(obs_hotkey_get_name(key));
+			connect(a, SIGNAL(triggered(bool)), get<1>(d), SLOT(on_menuAction()));
+			return true;
+		},
+		&data);
 	setMenu(m);
 
-	connect(PTZControls::getInstance(), SIGNAL(joystickButtonActionChanged(size_t, ptz_joy_action_id)), this,
-		SLOT(on_joystickButtonMappingChanged(size_t, ptz_joy_action_id)));
+	connect(PTZControls::getInstance(), SIGNAL(joystickButtonHotkeyChanged(size_t, QString)), this,
+		SLOT(on_hotkeyChanged(size_t, QString)));
 	connect(QJoysticks::getInstance(), SIGNAL(buttonEvent(const QJoystickButtonEvent)), this,
 		SLOT(on_joystickButtonEvent(const QJoystickButtonEvent)));
 
-	on_joystickButtonMappingChanged(button, PTZControls::getInstance()->joystickButtonAction(button));
+	on_hotkeyChanged(button, PTZControls::getInstance()->joystickButtonHotkey(button));
 }
 
-void PTZJoyButtonMapper::on_joystickButtonMapping_triggered()
+void PTZJoyButtonMapper::on_menuAction()
 {
 	auto controls = PTZControls::getInstance();
 	auto a = qobject_cast<QAction *>(sender());
 	if (a == nullptr)
 		return;
-	controls->setJoystickButtonAction(button, a->data().toInt());
+	controls->setJoystickButtonHotkey(button, a->data().toString());
 }
 
-void PTZJoyButtonMapper::on_joystickButtonMappingChanged(size_t _button, ptz_joy_action_id action)
+void PTZJoyButtonMapper::on_hotkeyChanged(size_t _button, QString hotkey_name)
 {
 	if (_button != button)
 		return;
-	setText(obs_module_text(ptz_joy_action_button_names[action]));
+	setText(obs_module_text("None"));
+	auto data = std::make_tuple(hotkey_name, this);
+	using data_t = decltype(data);
+	obs_enum_hotkeys(
+		[](void *data, obs_hotkey_id, obs_hotkey_t *key) {
+			data_t &d = *static_cast<data_t *>(data);
+			if (get<0>(d) == obs_hotkey_get_name(key)) {
+				get<1>(d)->setText(obs_hotkey_get_description(key));
+				return false;
+			}
+			return true;
+		},
+		&data);
 }
 
 void PTZJoyButtonMapper::on_joystickButtonEvent(const QJoystickButtonEvent evt)

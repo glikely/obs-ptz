@@ -25,8 +25,8 @@ public:
 	PTZJoyButtonMapper(QWidget *parent, size_t button);
 
 public slots:
-	void on_joystickButtonMapping_triggered();
-	void on_joystickButtonMappingChanged(size_t button, ptz_joy_action_id action);
+	void on_menuAction();
+	void on_hotkeyChanged(size_t button, QString hotkey_name);
 	void on_joystickButtonEvent(const QJoystickButtonEvent);
 
 protected:

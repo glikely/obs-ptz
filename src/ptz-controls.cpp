@@ -33,16 +33,7 @@ const char *ptz_joy_action_axis_names[PTZ_JOY_ACTION_LAST_VALUE] = {"None",
 								    "Zoom",
 								    "Zoom (Inverted)",
 								    "Focus",
-								    "Focus (Inverted)",
-								    "Previous Camera",
-								    "Next Camera",
-								    "Previous Preset",
-								    "Next Preset",
-								    "Recall Preset"};
-
-const char *ptz_joy_action_button_names[PTZ_JOY_ACTION_LAST_VALUE] = {
-	"None",      "Pan Right",  "Pan Left",        "Tilt Up",     "Tilt Down",       "Zoom In",     "Zoom Out",
-	"Focus Far", "Focus Near", "Previous Camera", "Next Camera", "Previous Preset", "Next Preset", "Recall Preset"};
+								    "Focus (Inverted)"};
 
 void ptz_load_controls(void)
 {
@@ -375,62 +366,33 @@ void PTZControls::joystickPOVEvent(const QJoystickPOVEvent evt)
 	}
 }
 
+static obs_hotkey_id lookup_obs_hotkey_id(QString hotkey_name)
+{
+	obs_hotkey_id id = OBS_INVALID_HOTKEY_ID;
+	auto data = std::make_tuple(hotkey_name, &id);
+	using data_t = decltype(data);
+	if (hotkey_name == "")
+		return OBS_INVALID_HOTKEY_ID;
+	obs_enum_hotkeys(
+		[](void *data, obs_hotkey_id id, obs_hotkey_t *key) {
+			data_t &d = *static_cast<data_t *>(data);
+			if (get<0>(d) == obs_hotkey_get_name(key)) {
+				*get<1>(d) = id;
+				return false;
+			}
+			return true;
+		},
+		&data);
+	return id;
+}
+
 void PTZControls::joystickButtonEvent(const QJoystickButtonEvent evt)
 {
-	QModelIndex index;
 	if (!m_joystick_enable || evt.joystick->id != m_joystick_id)
 		return;
-	switch (joystick_button_actions[evt.button]) {
-	case PTZ_JOY_ACTION_PAN:
-		setPanTilt(evt.pressed, 0);
-		break;
-	case PTZ_JOY_ACTION_PAN_INVERT:
-		setPanTilt(-1 * evt.pressed, 0);
-		break;
-	case PTZ_JOY_ACTION_TILT:
-		setPanTilt(0, evt.pressed);
-		break;
-	case PTZ_JOY_ACTION_TILT_INVERT:
-		keypressPanTilt(0, -1 * evt.pressed);
-		break;
-	case PTZ_JOY_ACTION_ZOOM:
-		setZoom(evt.pressed);
-		break;
-	case PTZ_JOY_ACTION_ZOOM_INVERT:
-		setZoom(-1 * evt.pressed);
-		break;
-	case PTZ_JOY_ACTION_FOCUS:
-		setFocus(evt.pressed);
-		break;
-	case PTZ_JOY_ACTION_FOCUS_INVERT:
-		setFocus(-1 * evt.pressed);
-		break;
-	case PTZ_JOY_ACTION_CAMERA_PREV:
-		if (evt.pressed)
-			ui->cameraList->cursorUp();
-		break;
-	case PTZ_JOY_ACTION_CAMERA_NEXT:
-		if (evt.pressed)
-			ui->cameraList->cursorDown();
-		break;
-	case PTZ_JOY_ACTION_PRESET_PREV:
-		if (evt.pressed)
-			ui->presetListView->cursorUp();
-		break;
-	case PTZ_JOY_ACTION_PRESET_NEXT:
-		if (evt.pressed)
-			ui->presetListView->cursorDown();
-		break;
-	case PTZ_JOY_ACTION_PRESET_RECALL:
-		if (evt.pressed) {
-			index = ui->presetListView->currentIndex();
-			if (index.isValid() && !isLocked())
-				ui->presetListView->activated(index);
-		}
-		break;
-	default:
-		break;
-	}
+	auto hotkey_id = lookup_obs_hotkey_id(joystick_button_hotkey_mappings[evt.button]);
+	if (hotkey_id != OBS_INVALID_HOTKEY_ID)
+		obs_hotkey_trigger_routed_callback(hotkey_id, evt.pressed);
 }
 #endif /* ENABLE_JOYSTICK */
 
@@ -476,12 +438,17 @@ void PTZControls::setJoystickAxisAction(size_t axis, ptz_joy_action_id action)
 	emit joystickAxisActionChanged(axis, action);
 }
 
-void PTZControls::setJoystickButtonAction(size_t button, ptz_joy_action_id action)
+void PTZControls::setJoystickButtonHotkey(size_t button, QString hotkey_name)
 {
-	if (joystick_button_actions[button] == action)
+	if (joystick_button_hotkey_mappings[button] == hotkey_name)
 		return;
-	joystick_button_actions[button] = action;
-	emit joystickButtonActionChanged(button, action);
+	if (hotkey_name == "") {
+		joystick_button_hotkey_mappings.remove(button);
+		emit joystickButtonHotkeyChanged(button, "");
+		return;
+	}
+	joystick_button_hotkey_mappings[button] = hotkey_name;
+	emit joystickButtonHotkeyChanged(button, hotkey_name);
 }
 
 void PTZControls::copyActionsDynamicProperties()
@@ -530,15 +497,16 @@ void PTZControls::SaveConfig()
 	obs_data_set_array(savedata, "joystick_axis_actions", axis_actions);
 
 	OBSDataArrayAutoRelease button_actions = obs_data_array_create();
-	for (auto button : joystick_button_actions.keys()) {
-		if (joystick_button_actions[button] == PTZ_JOY_ACTION_NONE)
+	for (auto button : joystick_button_hotkey_mappings.keys()) {
+		auto hotkey_name = joystick_button_hotkey_mappings[button];
+		if (hotkey_name == "")
 			continue;
 		OBSDataAutoRelease d = obs_data_create();
 		obs_data_set_int(d, "button", button);
-		obs_data_set_int(d, "action", joystick_button_actions[button]);
+		obs_data_set_string(d, "hotkey", QT_TO_UTF8(hotkey_name));
 		obs_data_array_push_back(button_actions, d);
 	}
-	obs_data_set_array(savedata, "joystick_button_actions", button_actions);
+	obs_data_set_array(savedata, "joystick_button_hotkeys", button_actions);
 
 	if (auto ptz = currCamera())
 		obs_data_set_int(savedata, "current_selected", ptz->getId());
@@ -603,12 +571,12 @@ void PTZControls::LoadConfig()
 		setJoystickAxisAction(axis, action);
 	}
 
-	OBSDataArrayAutoRelease button_actions = obs_data_get_array(loaddata, "joystick_button_actions");
+	OBSDataArrayAutoRelease button_actions = obs_data_get_array(loaddata, "joystick_button_hotkeys");
 	for (size_t i = 0; i < obs_data_array_count(button_actions); i++) {
 		OBSDataAutoRelease d = obs_data_array_item(button_actions, i);
 		auto button = obs_data_get_int(d, "button");
-		auto action = obs_data_get_int(d, "action");
-		setJoystickButtonAction(button, action);
+		auto hotkey_name = obs_data_get_string(d, "hotkey");
+		setJoystickButtonHotkey(button, hotkey_name);
 	}
 
 	const char *splitterStateStr = obs_data_get_string(loaddata, "splitter_state");
