@@ -69,7 +69,6 @@ protected slots:
 	void on_joystickSpeedSlider_doubleValChanged(double val);
 	void on_joystickDeadzoneSlider_doubleValChanged(double val);
 	void on_joystickAxisActionChanged(int idx);
-	void on_joystickButtonActionChanged(int idx);
 	void joystickUpdate();
 	void joystickAxisMappingChanged(size_t axis, ptz_joy_action_id action);
 	void joystickCurrentChanged(QModelIndex, QModelIndex);

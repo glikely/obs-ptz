@@ -175,18 +175,6 @@ void PTZSettings::on_joystickAxisActionChanged(int idx)
 		controls->setJoystickAxisAction(axis.toInt(), action);
 }
 
-void PTZSettings::on_joystickButtonActionChanged(int idx)
-{
-	auto controls = PTZControls::getInstance();
-	auto cb = qobject_cast<QComboBox *>(sender());
-	if (cb == nullptr)
-		return;
-	auto axis = cb->property("button-id");
-	ptz_joy_action_id action = cb->itemData(idx).toInt();
-	if (axis.isValid())
-		controls->setJoystickButtonAction(axis.toInt(), action);
-}
-
 PTZJoyButtonMapper::PTZJoyButtonMapper(QWidget *parent, size_t _button) : QPushButton(parent), button(_button)
 {
 	setCheckable(true);
