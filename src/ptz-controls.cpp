@@ -128,6 +128,30 @@ void PTZControls::OBSFrontendEvent(enum obs_frontend_event event)
 		setCurrent(cb_data.ptz->getId());
 }
 
+/* Helper funciton for changing currently selected OBS scene */
+static void change_current_scene(int delta)
+{
+	struct obs_frontend_source_list scenes = {0};
+	obs_source_t *cur = obs_frontend_preview_program_mode_active() ? obs_frontend_get_current_preview_scene()
+								       : obs_frontend_get_current_scene();
+	if (!cur)
+		return;
+	obs_frontend_get_scenes(&scenes);
+	size_t start = delta < 0 ? -delta : 0;
+	size_t end = scenes.sources.num - (delta > 0 ? delta : 0);
+	for (size_t i = start; i < end; i++) {
+		if (cur == scenes.sources.array[i]) {
+			if (obs_frontend_preview_program_mode_active()) {
+				obs_frontend_set_current_preview_scene(scenes.sources.array[i + delta]);
+			} else {
+				obs_frontend_set_current_scene(scenes.sources.array[i + delta]);
+			}
+		}
+	}
+	obs_frontend_source_list_free(&scenes);
+	obs_source_release(cur);
+}
+
 PTZControls::PTZControls(QWidget *parent) : QWidget(parent), ui(new Ui::PTZControls)
 {
 	instance = this;
@@ -248,6 +272,20 @@ PTZControls::PTZControls(QWidget *parent) : QWidget(parent), ui(new Ui::PTZContr
 	registerHotkey("PTZ.FocusOneTouch", obs_module_text("PTZ.Action.FocusOneTouch"), cb, ui->focusButton_onetouch);
 	registerHotkey("PTZ.SelectPrev", obs_module_text("PTZ.Action.SelectPrev"), prevcb, ui->cameraList);
 	registerHotkey("PTZ.SelectNext", obs_module_text("PTZ.Action.SelectNext"), nextcb, ui->cameraList);
+	registerHotkey(
+		"PTZ.ScenePrev", obs_module_text("PTZ.Action.ScenePrev"),
+		[](void *, obs_hotkey_id, obs_hotkey *, bool pressed) {
+			if (pressed)
+				change_current_scene(-1);
+		},
+		nullptr);
+	registerHotkey(
+		"PTZ.SceneNext", obs_module_text("PTZ.Action.SceneNext"),
+		[](void *, obs_hotkey_id, obs_hotkey *, bool pressed) {
+			if (pressed)
+				change_current_scene(1);
+		},
+		nullptr);
 
 	auto preset_recall_cb = [](void *ptz_data, obs_hotkey_id hotkey, obs_hotkey_t *, bool pressed) {
 		PTZControls *ptzctrl = static_cast<PTZControls *>(ptz_data);
