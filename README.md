@@ -17,27 +17,26 @@ to trigger camera actions when scenes change.
 
 Features:
 
-- Pan, Tilt, and Zoom controls
-- Auto and manual focus
-- Hotkeys control
-- Joystick control
+- Adjuts camera Pan, Tilt, Zoom and Focus settings
+- Toggle between manual and auto focus modes
+- Assign hotkeys to camera controls
+- Use a joystick to control comera position
 - Save and recall camera presets
-- Control any number of cameras
+- Control multiple cameras from OBS
 - Auto select active camera based on active scene
 - Control camera power
-- Whitebalance control
-- Supported protocols
-  - VISCA
-  - VISCA over UDP (Sony protocol)
-  - VISCA over TCP (PTZ Optics and others)
+- Adjust camera whitebalance
+- Supports multiple camera control protocols, including:
+  - VISCA (RS232, RS422, UDP and TCP)
   - Pelco-P
   - Pelco-D
   - ONVIF (experimental)
   - USB Cameras (Windows and Linux only)
 
-[OBS project resource page](https://obsproject.com/forum/resources/ptz-controls.1284/)
-
-[#obsptz on Twitter](https://twitter.com/hashtag/obsptz?s=09)
+## Websites
+- [OBS project resource page](https://obsproject.com/forum/resources/ptz-controls.1284/)
+- [PTZ Controls on GitHub](https://github.com/glikely/obs-ptz)
+- [PTZ Controls on Crowdin (translations)](https://crowdin.com/project/obs-ptz)
 
 # User Guide
 
@@ -45,7 +44,7 @@ Features:
 
 Go to the releases page to find the latest binary release for your platform.
 Binaries are created for Windows (x64), MacOS (Arm, x86_64, and Universal),
-and Ubuntu Linux 22.04 (x86_64).
+and Ubuntu Linux 24.04 (x86_64).
 Download the package for your platform and install it.
 If you need support for a different platform (e.g. Linux Arm) then you'll need
 to follow the building from source instructions below.
@@ -71,21 +70,22 @@ and change individual camera settings.
 The `About` tab give some details about the plugin and what version is installed.
 
 ### Adding a Camera
-The camera controller only handles the PTZ control of a video source.
-You should add the camera's video source in OBS before adding PTZ control
-to the plugin.
+In this plugin, cameras are associated with OBS Studio video sources.
+To add a camera, you should first add a source for the camera's video feed in
+the OBS Studio `Sources` dock.
+Once you've got the camera video working, add PTZ controls to the source in the
+PTZ Controls settings dialog `Tools->PTZ Devices'.
 
-To add a camera, select the `Cameras` tab and click the `+` button at the bottom
-of the window.
+On the `Cameras` tab, click the `+` button in the bottom toolbar to add a
+device.
 It will expand to a list of camera control connections that are available.
 Select the control protocol that is used by your camera.
-A new camera instance will be added to the list above.
+A new entry will be added to the device list.
 Click on the new camera and the camera settings will appear on the right hand
 side of the window.
 You'll need to enter the camera connection details, either the network address
 or serial port used for control.
 Click the `Apply` button to connect to the camera.
-
 Finally associate the camera with an OBS source by using the `Source` combo box.
 This lets the plugin automatically select the right camera for control when
 the preview or program scene changes in OBS.
@@ -98,11 +98,15 @@ button in the toolbar.
 ## Controlling Cameras
 
 Cameras are controlled with the arrow buttons in the control dock.
-To move a camera, select it in the list of cameras
-(bottom left of the control dock) and then click the control buttons above.
+To adjuat a camera, you needs to be selected from the camera list in the PTZ
+dock (bottom left of the control dock).
+By default (if `Auto Select Active Camera` is enabled in settings), then the
+plugin will automatically select the correct camera when the current scene
+changes.
+Then, clicking the camera control buttons will adjust the camera position.
 The arrow buttons will pan/tilt the camera,
 The magnifing glass buttons will zoom in and out,
-and the small/large buttons will chagne the focus.
+and the small/large buttons will change the focus.
 You can also toggle autofocus on and off with the `AF` button and trigger
 a one-touch refocus action.
 
@@ -122,8 +126,8 @@ To enable joystick control, select the `Joystick Control` check box on the
 `general` tab of the settings dialog.
 All of the connected joysticks will be shown in the list box.
 Click on the joystick that you want to use for camera control.
-The mapping of controls to PTZ actions is shown in the settings dialog
-to the right of the joystick list.
+Joystick axis can be mapped to Pan, Tilt, Zoom or Focus.
+Joystick buttons can be mapped to any OBS hotkey action.
 
 ## Advanced Features
 
@@ -149,23 +153,74 @@ the toolbar.
 The plugin can generate a large amount of debug data with all the protocol
 messages sent to and received by the cameras.
 Debug logs appear in the main obs-studio log, but are disable by default.
-To enable verbose debug logs, select `Enable debug logging` in the settings
-dialog.
+To enable debug logs, select `Write protocol trace to OBS log file` in the
+device settings, and run OBS Studio with the --verbose command line option.
 
-# Build Instructions
+# Building from Source
 
 The build infrastructure for this project comes from the
 [OBS Plugin Template](https://https://github.com/obsproject/obs-plugintemplate]
 repo. To build this plugin, follow the instructions in the plugin template
 [README.md](doc/plugin-template-README.md)
 
+## Linux Quickstart
+
+This project should be easy to build on any Linux distro once OBS Studio and
+all of the build dependencies are installed on your machine.
+Check your distributions documentation for instructions on how to do this.
+Then you can build the plugin with cmake commands:
+
+```
+$ cmake -B build
+$ cmake --build build --config RelWithDebInfo
+$ cmake --install build --config RelWithDebInfo
+```
+
+On Ubuntu 24.04, you can also use the GitHub action CI script to build the
+plugin, which will also download and install all the build dependencies for you.
+
+```
+$ ./.github/scripts/build-ubuntu
+$ cp release/RelWithDebInfo /usr/
+```
+
+## MacOS Quickstart
+
+The easiest way to build the plugin is to use the CMake presets.
+Use the following commands to configure, build and install the plugin in your
+OBS Studio plugins directory.
+
+```
+$ cmake -B build_macos --preset macos
+$ cmake --build build_macos --config RelWithDebInfo
+$ cmake --install build_macos --config RelWithDebInfo
+```
+
+## Windows Quickstart
+
+Easiest way to build for windows is to use the GitHub actions build script.
+First install Visual Studio and CMake as described in the obs-plugintemplate
+documentation linked above.
+Then open the `x64 Native Tools Command Prompt for VS 2022` and run the following commands:
+
+```
+c:\> pwsh
+PS > cd path/to/obs-ptz
+PS > $env:ci=1
+PS > .github/scripts/Build-Windows.ps1
+```
+
 # Contributing
 
 Contributions welcome!
 You can submit changes as GitHub pull requests.
-Or email patches to me at mailto:grant.likely@secretlab.ca
+See the github pull request page for details.
+https://github.com/glikely/obs-ptz/pulls
 
-See [CONTRIBUTING.md](CONTRIBUTING.md) for details.
+Help is also needed to translate into other languages.
+Go to the Crowdin project page to help: [PTZ Controls on Crowdin](https://crowdin.com/project/obs-ptz)
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) for more details.
 
 # Acknowledgements
 
