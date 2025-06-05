@@ -1074,11 +1074,10 @@ QSize PTZDeviceListDelegate::sizeHint(const QStyleOptionViewItem &option, const 
 {
 	QListView *tree = qobject_cast<QListView *>(parent());
 	QWidget *item = tree->indexWidget(index);
+	if (item)
+		return item->sizeHint();
 
-	if (!item)
-		return (QSize(0, 0));
-
-	return (QSize(option.widget->minimumWidth(), item->height()));
+	return QStyledItemDelegate::sizeHint(option, index);
 }
 
 void PTZDeviceListDelegate::initStyleOption(QStyleOptionViewItem *option, const QModelIndex &) const
@@ -1107,6 +1106,12 @@ PTZDeviceListItem::PTZDeviceListItem(PTZDevice *ptz_) : ptz(ptz_)
 	connect(lock, SIGNAL(clicked(bool)), PTZControls::getInstance(), SLOT(updateMoveControls()));
 
 	update();
+}
+
+QSize PTZDeviceListItem::sizeHint() const
+{
+	// The lock may be hidden, so account for it's size manually
+	return QFrame::sizeHint().expandedTo(lock->sizeHint());
 }
 
 void PTZDeviceListItem::update()

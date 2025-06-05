@@ -216,6 +216,7 @@ public:
 	PTZDeviceListItem(PTZDevice *ptz_);
 	bool isLocked() { return lock ? lock->isChecked() && lock->isVisible() : false; };
 	void update();
+	virtual QSize sizeHint() const;
 
 private:
 	QSpacerItem *spacer = nullptr;
