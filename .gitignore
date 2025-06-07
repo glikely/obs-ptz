@@ -18,6 +18,7 @@
 !README.md
 !installer-Windows.iss.in
 !*.md
+!crowdin.yml
 
 # Exclude lock files
 *.lock.json
