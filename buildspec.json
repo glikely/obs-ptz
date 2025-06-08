@@ -56,7 +56,7 @@
     },
     "name": "obs-ptz",
     "displayName": "PTZ Camera Control for OBS",
-    "version": "0.17.1",
+    "version": "0.17.2",
     "author": "Grant Likely",
     "website": "https://obsproject.com/forum/resources/ptz-controls.1284",
     "email": "grant.likely@secretlab.ca"
