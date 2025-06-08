@@ -6,7 +6,7 @@
 
 "files": [
   {
-    "source": "data/locale/en-US.ini",
+    "source": "data/locale/en-GB.ini",
     "translation": "data/locale/%locale%.ini"
   }
 ]

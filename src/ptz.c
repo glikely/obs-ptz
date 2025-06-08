@@ -14,7 +14,7 @@
 
 OBS_DECLARE_MODULE();
 OBS_MODULE_AUTHOR("Grant Likely <grant.likely@secretlab.ca>");
-OBS_MODULE_USE_DEFAULT_LOCALE(PLUGIN_NAME, "en-US");
+OBS_MODULE_USE_DEFAULT_LOCALE(PLUGIN_NAME, "en-GB");
 
 bool obs_module_load()
 {
