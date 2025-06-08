@@ -7,6 +7,7 @@
 "files": [
   {
     "source": "data/locale/en-GB.ini",
-    "translation": "data/locale/%locale%.ini"
+    "translation": "data/locale/%locale%.ini",
+    "update_option": "update_as_unapproved"
   }
 ]
