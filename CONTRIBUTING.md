@@ -12,7 +12,6 @@ source patch under the GPLv2 license.
 Patches that are not signed off will not be accepted.
 
 Use GitHub pull requests to submit proposed changes.
-Or you can email grant.likely@secretlab.ca
 
 Also, please write good git commit messages. A good commit message looks like this:
 

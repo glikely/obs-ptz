@@ -38,7 +38,7 @@ static PTZSettings *ptzSettingsWindow = nullptr;
 
 const char *description_text = "<html><head/><body>"
 			       "<p>OBS PTZ Controls Plugin<br>" PLUGIN_VERSION "<br>"
-			       "By Grant Likely &lt;grant.likely@secretlab.ca&gt;</p>"
+			       "By Grant Likely</p>"
 			       "<p><a href=\"https://obsproject.com/forum/resources/ptz-controls.1284/\">"
 			       "<span style=\" text-decoration: underline; color:#7f7fff;\">"
 			       "https://obsproject.com/forum/resources/ptz-controls.1284/</a></p>"
