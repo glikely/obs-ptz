@@ -200,7 +200,7 @@ PTZControls::PTZControls(QWidget *parent) : QFrame(parent), ui(new Ui::PTZContro
 		return id;
 	};
 	auto cb = [](void *button_data, obs_hotkey_id, obs_hotkey_t *, bool pressed) {
-		QPushButton *button = static_cast<QPushButton *>(button_data);
+		auto *button = static_cast<QToolButton *>(button_data);
 		if (pressed)
 			button->pressed();
 		else

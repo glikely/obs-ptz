@@ -104,18 +104,12 @@
                <number>4</number>
               </property>
               <item row="0" column="0">
-               <widget class="QPushButton" name="panTiltButton_upleft">
+               <widget class="QToolButton" name="panTiltButton_upleft">
                 <property name="sizePolicy">
-                 <sizepolicy hsizetype="Minimum" vsizetype="Minimum">
+                 <sizepolicy hsizetype="Expanding" vsizetype="Expanding">
                   <horstretch>0</horstretch>
                   <verstretch>0</verstretch>
                  </sizepolicy>
-                </property>
-                <property name="minimumSize">
-                 <size>
-                  <width>20</width>
-                  <height>20</height>
-                 </size>
                 </property>
                 <property name="toolTip">
                  <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Move camera up left&lt;br/&gt;&amp;lt;ctrl&amp;gt;+click: fast&lt;br/&gt;&amp;lt;shift&amp;gt;+click: slow&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
@@ -130,18 +124,12 @@
                </widget>
               </item>
               <item row="0" column="1">
-               <widget class="QPushButton" name="panTiltButton_up">
+               <widget class="QToolButton" name="panTiltButton_up">
                 <property name="sizePolicy">
-                 <sizepolicy hsizetype="Minimum" vsizetype="Minimum">
+                 <sizepolicy hsizetype="Expanding" vsizetype="Expanding">
                   <horstretch>0</horstretch>
                   <verstretch>0</verstretch>
                  </sizepolicy>
-                </property>
-                <property name="minimumSize">
-                 <size>
-                  <width>20</width>
-                  <height>20</height>
-                 </size>
                 </property>
                 <property name="toolTip">
                  <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Move camera up&lt;br/&gt;&amp;lt;ctrl&amp;gt;+click: fast&lt;br/&gt;&amp;lt;shift&amp;gt;+click: slow&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
@@ -156,18 +144,12 @@
                </widget>
               </item>
               <item row="2" column="2">
-               <widget class="QPushButton" name="panTiltButton_downright">
+               <widget class="QToolButton" name="panTiltButton_downright">
                 <property name="sizePolicy">
-                 <sizepolicy hsizetype="Minimum" vsizetype="Minimum">
+                 <sizepolicy hsizetype="Expanding" vsizetype="Expanding">
                   <horstretch>0</horstretch>
                   <verstretch>0</verstretch>
                  </sizepolicy>
-                </property>
-                <property name="minimumSize">
-                 <size>
-                  <width>20</width>
-                  <height>20</height>
-                 </size>
                 </property>
                 <property name="toolTip">
                  <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Move camera down right&lt;br/&gt;&amp;lt;ctrl&amp;gt;+click: fast&lt;br/&gt;&amp;lt;shift&amp;gt;+click: slow&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
@@ -182,18 +164,12 @@
                </widget>
               </item>
               <item row="0" column="2">
-               <widget class="QPushButton" name="panTiltButton_upright">
+               <widget class="QToolButton" name="panTiltButton_upright">
                 <property name="sizePolicy">
-                 <sizepolicy hsizetype="Minimum" vsizetype="Minimum">
+                 <sizepolicy hsizetype="Expanding" vsizetype="Expanding">
                   <horstretch>0</horstretch>
                   <verstretch>0</verstretch>
                  </sizepolicy>
-                </property>
-                <property name="minimumSize">
-                 <size>
-                  <width>20</width>
-                  <height>20</height>
-                 </size>
                 </property>
                 <property name="toolTip">
                  <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Move camera up right&lt;br/&gt;&amp;lt;ctrl&amp;gt;+click: fast&lt;br/&gt;&amp;lt;shift&amp;gt;+click: slow&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
@@ -208,18 +184,12 @@
                </widget>
               </item>
               <item row="1" column="1">
-               <widget class="QPushButton" name="panTiltButton_home">
+               <widget class="QToolButton" name="panTiltButton_home">
                 <property name="sizePolicy">
-                 <sizepolicy hsizetype="Minimum" vsizetype="Minimum">
+                 <sizepolicy hsizetype="Expanding" vsizetype="Expanding">
                   <horstretch>0</horstretch>
                   <verstretch>0</verstretch>
                  </sizepolicy>
-                </property>
-                <property name="minimumSize">
-                 <size>
-                  <width>20</width>
-                  <height>20</height>
-                 </size>
                 </property>
                 <property name="text">
                  <string/>
@@ -231,18 +201,12 @@
                </widget>
               </item>
               <item row="1" column="0">
-               <widget class="QPushButton" name="panTiltButton_left">
+               <widget class="QToolButton" name="panTiltButton_left">
                 <property name="sizePolicy">
-                 <sizepolicy hsizetype="Minimum" vsizetype="Minimum">
+                 <sizepolicy hsizetype="Expanding" vsizetype="Expanding">
                   <horstretch>0</horstretch>
                   <verstretch>0</verstretch>
                  </sizepolicy>
-                </property>
-                <property name="minimumSize">
-                 <size>
-                  <width>20</width>
-                  <height>20</height>
-                 </size>
                 </property>
                 <property name="toolTip">
                  <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Move camera left&lt;br/&gt;&amp;lt;ctrl&amp;gt;+click: fast&lt;br/&gt;&amp;lt;shift&amp;gt;+click: slow&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
@@ -257,18 +221,12 @@
                </widget>
               </item>
               <item row="2" column="1">
-               <widget class="QPushButton" name="panTiltButton_down">
+               <widget class="QToolButton" name="panTiltButton_down">
                 <property name="sizePolicy">
-                 <sizepolicy hsizetype="Minimum" vsizetype="Minimum">
+                 <sizepolicy hsizetype="Expanding" vsizetype="Expanding">
                   <horstretch>0</horstretch>
                   <verstretch>0</verstretch>
                  </sizepolicy>
-                </property>
-                <property name="minimumSize">
-                 <size>
-                  <width>20</width>
-                  <height>20</height>
-                 </size>
                 </property>
                 <property name="toolTip">
                  <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Move camera down&lt;br/&gt;&amp;lt;ctrl&amp;gt;+click: fast&lt;br/&gt;&amp;lt;shift&amp;gt;+click: slow&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
@@ -283,18 +241,12 @@
                </widget>
               </item>
               <item row="2" column="0">
-               <widget class="QPushButton" name="panTiltButton_downleft">
+               <widget class="QToolButton" name="panTiltButton_downleft">
                 <property name="sizePolicy">
-                 <sizepolicy hsizetype="Minimum" vsizetype="Minimum">
+                 <sizepolicy hsizetype="Expanding" vsizetype="Expanding">
                   <horstretch>0</horstretch>
                   <verstretch>0</verstretch>
                  </sizepolicy>
-                </property>
-                <property name="minimumSize">
-                 <size>
-                  <width>20</width>
-                  <height>20</height>
-                 </size>
                 </property>
                 <property name="toolTip">
                  <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Move camera down left&lt;br/&gt;&amp;lt;ctrl&amp;gt;+click: fast&lt;br/&gt;&amp;lt;shift&amp;gt;+click: slow&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
@@ -309,18 +261,12 @@
                </widget>
               </item>
               <item row="1" column="2">
-               <widget class="QPushButton" name="panTiltButton_right">
+               <widget class="QToolButton" name="panTiltButton_right">
                 <property name="sizePolicy">
-                 <sizepolicy hsizetype="Minimum" vsizetype="Minimum">
+                 <sizepolicy hsizetype="Expanding" vsizetype="Expanding">
                   <horstretch>0</horstretch>
                   <verstretch>0</verstretch>
                  </sizepolicy>
-                </property>
-                <property name="minimumSize">
-                 <size>
-                  <width>20</width>
-                  <height>20</height>
-                 </size>
                 </property>
                 <property name="toolTip">
                  <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Move camera right&lt;br/&gt;&amp;lt;ctrl&amp;gt;+click: fast&lt;br/&gt;&amp;lt;shift&amp;gt;+click: slow&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
@@ -360,18 +306,12 @@
           <item row="0" column="3" rowspan="3">
            <layout class="QVBoxLayout" name="zoomControlsVerticalLayout">
             <item>
-             <widget class="QPushButton" name="zoomButton_tele">
+             <widget class="QToolButton" name="zoomButton_tele">
               <property name="sizePolicy">
-               <sizepolicy hsizetype="Minimum" vsizetype="Minimum">
+               <sizepolicy hsizetype="Expanding" vsizetype="Expanding">
                 <horstretch>0</horstretch>
                 <verstretch>0</verstretch>
                </sizepolicy>
-              </property>
-              <property name="minimumSize">
-               <size>
-                <width>20</width>
-                <height>20</height>
-               </size>
               </property>
               <property name="toolTip">
                <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Zoom camera in&lt;br/&gt;&amp;lt;ctrl&amp;gt;+click: fast&lt;br/&gt;&amp;lt;shift&amp;gt;+click: slow&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
@@ -386,18 +326,12 @@
              </widget>
             </item>
             <item>
-             <widget class="QPushButton" name="zoomButton_wide">
+             <widget class="QToolButton" name="zoomButton_wide">
               <property name="sizePolicy">
-               <sizepolicy hsizetype="Minimum" vsizetype="Minimum">
+               <sizepolicy hsizetype="Expanding" vsizetype="Expanding">
                 <horstretch>0</horstretch>
                 <verstretch>0</verstretch>
                </sizepolicy>
-              </property>
-              <property name="minimumSize">
-               <size>
-                <width>20</width>
-                <height>20</height>
-               </size>
               </property>
               <property name="toolTip">
                <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Zoom camera out&lt;br/&gt;&amp;lt;ctrl&amp;gt;+click: fast&lt;br/&gt;&amp;lt;shift&amp;gt;+click: slow&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
@@ -410,115 +344,84 @@
             </item>
            </layout>
           </item>
+          <item row="3" column="0">
+           <widget class="QToolButton" name="focusButton_auto">
+            <property name="sizePolicy">
+             <sizepolicy hsizetype="Expanding" vsizetype="Expanding">
+              <horstretch>0</horstretch>
+              <verstretch>0</verstretch>
+             </sizepolicy>
+            </property>
+            <property name="toolTip">
+             <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Toggle Autofocus On/Off&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+            </property>
+            <property name="icon">
+             <iconset resource="ptz-controls.qrc">
+              <normaloff>:/icons/icons/focus_auto.svg</normaloff>:/icons/icons/focus_auto.svg</iconset>
+            </property>
+            <property name="checkable">
+             <bool>true</bool>
+            </property>
+           </widget>
+          </item>
+          <item row="3" column="1">
+           <widget class="QToolButton" name="focusButton_near">
+            <property name="sizePolicy">
+             <sizepolicy hsizetype="Expanding" vsizetype="Expanding">
+              <horstretch>0</horstretch>
+              <verstretch>0</verstretch>
+             </sizepolicy>
+            </property>
+            <property name="toolTip">
+             <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Focus near&lt;br/&gt;&amp;lt;ctrl&amp;gt;+click: fast&lt;br/&gt;&amp;lt;shift&amp;gt;+click: slow&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+            </property>
+            <property name="icon">
+             <iconset resource="ptz-controls.qrc">
+              <normaloff>:/icons/icons/focus_near.svg</normaloff>:/icons/icons/focus_near.svg</iconset>
+            </property>
+           </widget>
+          </item>
+          <item row="3" column="2">
+           <widget class="QToolButton" name="focusButton_far">
+            <property name="sizePolicy">
+             <sizepolicy hsizetype="Expanding" vsizetype="Expanding">
+              <horstretch>0</horstretch>
+              <verstretch>0</verstretch>
+             </sizepolicy>
+            </property>
+            <property name="toolTip">
+             <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Focus far&lt;br/&gt;&amp;lt;ctrl&amp;gt;+click: fast&lt;br/&gt;&amp;lt;shift&amp;gt;+click: slow&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+            </property>
+            <property name="layoutDirection">
+             <enum>Qt::LayoutDirection::LeftToRight</enum>
+            </property>
+            <property name="icon">
+             <iconset resource="ptz-controls.qrc">
+              <normaloff>:/icons/icons/focus_far.svg</normaloff>:/icons/icons/focus_far.svg</iconset>
+            </property>
+           </widget>
+          </item>
+          <item row="3" column="3">
+           <widget class="QToolButton" name="focusButton_onetouch">
+            <property name="sizePolicy">
+             <sizepolicy hsizetype="Expanding" vsizetype="Expanding">
+              <horstretch>0</horstretch>
+              <verstretch>0</verstretch>
+             </sizepolicy>
+            </property>
+            <property name="toolTip">
+             <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;One-touch Autofocus&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+            </property>
+            <property name="text">
+             <string/>
+            </property>
+            <property name="class" stdset="0">
+             <string notr="true">icon-touch</string>
+            </property>
+           </widget>
+          </item>
          </layout>
         </widget>
-       </item>
-       <item>
-        <layout class="QHBoxLayout" name="focusControlsHorizontalLayout">
-         <property name="spacing">
-          <number>4</number>
-         </property>
-         <item>
-          <widget class="QPushButton" name="focusButton_auto">
-           <property name="sizePolicy">
-            <sizepolicy hsizetype="Minimum" vsizetype="Minimum">
-             <horstretch>0</horstretch>
-             <verstretch>0</verstretch>
-            </sizepolicy>
-           </property>
-           <property name="minimumSize">
-            <size>
-             <width>20</width>
-             <height>20</height>
-            </size>
-           </property>
-           <property name="toolTip">
-            <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Toggle Autofocus On/Off&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
-           </property>
-           <property name="icon">
-            <iconset resource="ptz-controls.qrc">
-             <normaloff>:/icons/icons/focus_auto.svg</normaloff>:/icons/icons/focus_auto.svg</iconset>
-           </property>
-           <property name="checkable">
-            <bool>true</bool>
-           </property>
-          </widget>
-         </item>
-         <item>
-          <widget class="QPushButton" name="focusButton_near">
-           <property name="sizePolicy">
-            <sizepolicy hsizetype="Minimum" vsizetype="Minimum">
-             <horstretch>0</horstretch>
-             <verstretch>0</verstretch>
-            </sizepolicy>
-           </property>
-           <property name="minimumSize">
-            <size>
-             <width>20</width>
-             <height>20</height>
-            </size>
-           </property>
-           <property name="toolTip">
-            <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Focus near&lt;br/&gt;&amp;lt;ctrl&amp;gt;+click: fast&lt;br/&gt;&amp;lt;shift&amp;gt;+click: slow&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
-           </property>
-           <property name="icon">
-            <iconset resource="ptz-controls.qrc">
-             <normaloff>:/icons/icons/focus_near.svg</normaloff>:/icons/icons/focus_near.svg</iconset>
-           </property>
-          </widget>
-         </item>
-         <item>
-          <widget class="QPushButton" name="focusButton_far">
-           <property name="sizePolicy">
-            <sizepolicy hsizetype="Minimum" vsizetype="Minimum">
-             <horstretch>0</horstretch>
-             <verstretch>0</verstretch>
-            </sizepolicy>
-           </property>
-           <property name="minimumSize">
-            <size>
-             <width>20</width>
-             <height>20</height>
-            </size>
-           </property>
-           <property name="toolTip">
-            <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Focus far&lt;br/&gt;&amp;lt;ctrl&amp;gt;+click: fast&lt;br/&gt;&amp;lt;shift&amp;gt;+click: slow&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
-           </property>
-           <property name="layoutDirection">
-            <enum>Qt::LayoutDirection::LeftToRight</enum>
-           </property>
-           <property name="icon">
-            <iconset resource="ptz-controls.qrc">
-             <normaloff>:/icons/icons/focus_far.svg</normaloff>:/icons/icons/focus_far.svg</iconset>
-           </property>
-          </widget>
-         </item>
-         <item>
-          <widget class="QPushButton" name="focusButton_onetouch">
-           <property name="sizePolicy">
-            <sizepolicy hsizetype="Minimum" vsizetype="Minimum">
-             <horstretch>0</horstretch>
-             <verstretch>0</verstretch>
-            </sizepolicy>
-           </property>
-           <property name="minimumSize">
-            <size>
-             <width>20</width>
-             <height>20</height>
-            </size>
-           </property>
-           <property name="toolTip">
-            <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;One-touch Autofocus&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
-           </property>
-           <property name="text">
-            <string/>
-           </property>
-           <property name="class" stdset="0">
-            <string notr="true">icon-touch</string>
-           </property>
-          </widget>
-         </item>
-        </layout>
        </item>
        <item>
         <widget class="CircularListView" name="cameraList">
