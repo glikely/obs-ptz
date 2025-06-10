@@ -12,6 +12,7 @@
 #include <QMenu>
 #include <properties-view.hpp>
 #if defined(ENABLE_JOYSTICK)
+#include <QPushButton>
 #include <QJoysticks.h>
 #endif
 
