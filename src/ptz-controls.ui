@@ -544,31 +544,13 @@
        </item>
       </layout>
      </widget>
-     <widget class="QWidget" name="splitterWidgetRight" native="true">
-      <layout class="QVBoxLayout" name="splitterWidgetRightVerticalLayout">
-       <property name="leftMargin">
-        <number>0</number>
-       </property>
-       <property name="topMargin">
-        <number>0</number>
-       </property>
-       <property name="rightMargin">
-        <number>0</number>
-       </property>
-       <property name="bottomMargin">
-        <number>0</number>
-       </property>
-       <item>
-        <widget class="CircularListView" name="presetListView">
-         <property name="contextMenuPolicy">
-          <enum>Qt::ContextMenuPolicy::CustomContextMenu</enum>
-         </property>
-         <property name="editTriggers">
-          <set>QAbstractItemView::EditTrigger::EditKeyPressed</set>
-         </property>
-        </widget>
-       </item>
-      </layout>
+     <widget class="CircularListView" name="presetListView">
+      <property name="contextMenuPolicy">
+       <enum>Qt::ContextMenuPolicy::CustomContextMenu</enum>
+      </property>
+      <property name="editTriggers">
+       <set>QAbstractItemView::EditTrigger::EditKeyPressed</set>
+      </property>
      </widget>
     </widget>
    </item>
