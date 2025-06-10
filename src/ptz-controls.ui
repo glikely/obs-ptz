@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <ui version="4.0">
  <class>PTZControls</class>
- <widget class="QWidget" name="PTZControls">
+ <widget class="QFrame" name="PTZControls">
   <property name="geometry">
    <rect>
     <x>0</x>
@@ -37,16 +37,10 @@
      <property name="childrenCollapsible">
       <bool>false</bool>
      </property>
-     <widget class="QWidget" name="splitterWidgetLeft" native="true">
-      <property name="maximumSize">
-       <size>
-        <width>200</width>
-        <height>16777215</height>
-       </size>
-      </property>
+     <widget class="QFrame" name="splitterWidgetLeft">
       <layout class="QVBoxLayout" name="splitterWidgetLeftVerticalLayout">
        <property name="spacing">
-        <number>4</number>
+        <number>0</number>
        </property>
        <property name="leftMargin">
         <number>0</number>

@@ -152,7 +152,7 @@ static void change_current_scene(int delta)
 	obs_source_release(cur);
 }
 
-PTZControls::PTZControls(QWidget *parent) : QWidget(parent), ui(new Ui::PTZControls)
+PTZControls::PTZControls(QWidget *parent) : QFrame(parent), ui(new Ui::PTZControls)
 {
 	instance = this;
 	ui->setupUi(this);
