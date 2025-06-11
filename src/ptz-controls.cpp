@@ -149,6 +149,14 @@ PTZControls::PTZControls(QWidget *parent) : QFrame(parent), ui(new Ui::PTZContro
 {
 	instance = this;
 	ui->setupUi(this);
+
+	/* Compatability: Before OBS Studio 31.1.0 the theme had left and right
+	 * margins on widgets which mess with the grid layout used by this
+	 * plugin. If the version is earlier than 31.1.0 then apply an extra
+	 * style sheet to fix */
+	if (obs_get_version() < MAKE_SEMANTIC_VERSION(31, 1, 0))
+		this->setStyleSheet("margin-left: 0px; margin-right: 0px");
+
 	ui->cameraList->setModel(&ptzDeviceList);
 	ui->cameraList->setItemDelegate(new PTZDeviceListDelegate(ui->cameraList));
 	connect(&ptzDeviceList, SIGNAL(dataChanged(QModelIndex, QModelIndex)), this,
