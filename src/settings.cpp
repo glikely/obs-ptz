@@ -119,7 +119,18 @@ PTZSettings::PTZSettings() : QWidget(nullptr), ui(new Ui_PTZSettings)
 
 	joystickSetup();
 
-	ui->versionLabel->setText(QString(obs_module_text("PTZ.About.Info")).arg(PLUGIN_VERSION));
+	const QStringList contributors = {"Fabio Ferrari", "Norihiro Kamae", "Luuk Verhagen", "Jonata Bolzan Loss",
+					  "Jim Hauxell",   "Jason Lanclos",  "Eric Schmidt",  "Anthony Roberts"};
+	const QStringList translators = {
+		"cassiopetry (Portuguese, Brazilian)",
+		"ETE-Design (Danish)",
+		"Luca Montibeller Nunes (Portuguese, Brazilian)",
+		"Norman Hansen (German)",
+	};
+	ui->versionLabel->setText(QString(obs_module_text("PTZ.About.Info"))
+					  .arg(PLUGIN_VERSION)
+					  .arg(contributors.join("<br/>"))
+					  .arg(translators.join("<br/>")));
 }
 
 PTZSettings::~PTZSettings()
