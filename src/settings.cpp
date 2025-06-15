@@ -119,18 +119,40 @@ PTZSettings::PTZSettings() : QWidget(nullptr), ui(new Ui_PTZSettings)
 
 	joystickSetup();
 
-	const QStringList contributors = {"Fabio Ferrari", "Norihiro Kamae", "Luuk Verhagen", "Jonata Bolzan Loss",
-					  "Jim Hauxell",   "Jason Lanclos",  "Eric Schmidt",  "Anthony Roberts"};
-	const QStringList translators = {
+	QString basic_info = QString("<p>%1<br/>%2<br/>%3 %4</p>")
+				     .arg(obs_module_text("PTZ.About.Name"))
+				     .arg(PLUGIN_VERSION)
+				     .arg(obs_module_text("PTZ.About.By"))
+				     .arg("Grant Likely");
+	QString url_format = "<a href=\"%1\"><span style=\"text-decoration: underline; color:#7f7fff;\">%1</a>";
+	const QStringList url_list = {
+		url_format.arg("https://obsproject.com/forum/resources/ptz-controls.1284"),
+		url_format.arg("https://github.com/glikely/obs-ptz"),
+	};
+	const QString urls = QString("<p>%1</p>").arg(url_list.join("<br/>"));
+	const QStringList contrib_list = {obs_module_text("PTZ.About.Contributors"),
+					  "Fabio Ferrari",
+					  "Norihiro Kamae",
+					  "Luuk Verhagen",
+					  "Jonata Bolzan Loss",
+					  "Jim Hauxell",
+					  "Jason Lanclos",
+					  "Eric Schmidt",
+					  "Anthony Roberts"};
+	const QString contributors = QString("<p>%1</p>").arg(contrib_list.join("<br/>"));
+	const QStringList translator_list = {
+		obs_module_text("PTZ.About.Translators"),
 		"cassiopetry (Portuguese, Brazilian)",
 		"ETE-Design (Danish)",
 		"Luca Montibeller Nunes (Portuguese, Brazilian)",
 		"Norman Hansen (German)",
 	};
-	ui->versionLabel->setText(QString(obs_module_text("PTZ.About.Info"))
-					  .arg(PLUGIN_VERSION)
-					  .arg(contributors.join("<br/>"))
-					  .arg(translators.join("<br/>")));
+	const QString translators = QString("<p>%1</p>").arg(translator_list.join("<br/>"));
+	ui->versionLabel->setText(QString("<html><head/><body>%1%2%3%4</body></html>")
+					  .arg(basic_info)
+					  .arg(urls)
+					  .arg(contributors)
+					  .arg(translators));
 }
 
 PTZSettings::~PTZSettings()
