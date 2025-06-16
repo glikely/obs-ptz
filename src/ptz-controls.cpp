@@ -1164,6 +1164,7 @@ PTZDeviceListItem::PTZDeviceListItem(PTZDevice *ptz_) : ptz(ptz_)
 	lock->setAccessibleDescription(obs_module_text("PTZ.Dock.Lock.Description"));
 
 	label = new QLabel(ptz->objectName());
+	label->setSizePolicy(QSizePolicy::Ignored, QSizePolicy::Preferred);
 
 	boxLayout = new QHBoxLayout();
 	boxLayout->setContentsMargins(0, 0, 0, 0);
