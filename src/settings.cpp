@@ -144,6 +144,7 @@ PTZSettings::PTZSettings() : QWidget(nullptr), ui(new Ui_PTZSettings)
 		obs_module_text("PTZ.About.Translators"),
 		"cassiopetry (Portuguese, Brazilian)",
 		"ETE-Design (Danish)",
+		"John Hanssen Kolstad (Norwegian)",
 		"Luca Montibeller Nunes (Portuguese, Brazilian)",
 		"Norman Hansen (German)",
 	};
