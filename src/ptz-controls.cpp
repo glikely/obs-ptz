@@ -506,6 +506,7 @@ void PTZControls::SaveConfig()
 	obs_data_set_bool(savedata, "live_moves_disabled", liveMovesDisabled());
 	obs_data_set_bool(savedata, "autoselect_enabled", autoselectEnabled());
 	obs_data_set_bool(savedata, "speed_ramp_enabled", speedRampEnabled());
+	obs_data_set_bool(savedata, "onscreen_joystick_enabled", ui->pantiltStack->currentIndex() != 0);
 	obs_data_set_bool(savedata, "joystick_enable", m_joystick_enable);
 	obs_data_set_int(savedata, "joystick_id", m_joystick_id);
 	obs_data_set_double(savedata, "joystick_speed", m_joystick_speed);
@@ -576,6 +577,7 @@ void PTZControls::LoadConfig()
 	obs_data_set_default_bool(loaddata, "live_moves_disabled", true);
 	obs_data_set_default_bool(loaddata, "autoselect_enabled", true);
 	obs_data_set_default_bool(loaddata, "speed_ramp_enabled", true);
+	obs_data_set_default_bool(loaddata, "onscreen_joystick_enabled", false);
 	obs_data_set_default_bool(loaddata, "joystick_enable", false);
 	obs_data_set_default_int(loaddata, "joystick_id", -1);
 	obs_data_set_default_double(loaddata, "joystick_speed", 1.0);
@@ -584,6 +586,7 @@ void PTZControls::LoadConfig()
 	live_moves_disabled = obs_data_get_bool(loaddata, "live_moves_disabled");
 	autoselect_enabled = obs_data_get_bool(loaddata, "autoselect_enabled");
 	speed_ramp_enabled = obs_data_get_bool(loaddata, "speed_ramp_enabled");
+	ui->pantiltStack->setCurrentIndex(obs_data_get_bool(loaddata, "onscreen_joystick_enabled") ? 1 : 0);
 	m_joystick_enable = obs_data_get_bool(loaddata, "joystick_enable");
 	m_joystick_id = (int)obs_data_get_int(loaddata, "joystick_id");
 	m_joystick_speed = obs_data_get_double(loaddata, "joystick_speed");
