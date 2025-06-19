@@ -559,10 +559,6 @@ void PTZVisca::write_replies_to_log()
 
 void PTZVisca::set_settings(OBSData new_settings)
 {
-	/* `updates` is the property values that should be cached */
-	OBSData updates = obs_data_create();
-	obs_data_release(updates);
-
 	PTZDevice::set_settings(new_settings);
 
 	if (obs_data_has_user_value(new_settings, "visca_pan_speed_max"))
