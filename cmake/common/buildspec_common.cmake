@@ -108,10 +108,9 @@ function(_setup_sdl)
   message(STATUS "Configure ${label} (${arch})")
   execute_process(
     COMMAND
-      "${CMAKE_COMMAND}" -B build_${arch} -G Ninja "${_cmake_arch}"
-      "-DCMAKE_INSTALL_PREFIX='${dependencies_dir}/sdl'"
-      "-DCMAKE_PREFIX_PATH='${dependencies_dir}/sdl" "--no-warn-unused-cli"
-      "-DBUILD_SHARED_LIBS:BOOL=OFF" "-DCMAKE_BUILD_TYPE=${_cmake_config}" "${_cmake_extra}"
+      "${CMAKE_COMMAND}" -B build_${arch} -G Ninja "${_cmake_arch}" "-DCMAKE_INSTALL_PREFIX='${dependencies_dir}/sdl'"
+      "-DCMAKE_PREFIX_PATH='${dependencies_dir}/sdl" "--no-warn-unused-cli" "-DBUILD_SHARED_LIBS:BOOL=OFF"
+      "-DCMAKE_BUILD_TYPE=${_cmake_config}" "${_cmake_extra}"
     WORKING_DIRECTORY "${dependencies_dir}/${destination}"
     RESULT_VARIABLE _process_result
     COMMAND_ERROR_IS_FATAL ANY
@@ -158,7 +157,7 @@ function(_setup_obs_studio)
     COMMAND
       "${CMAKE_COMMAND}" -S "${dependencies_dir}/${_obs_destination}" -B
       "${dependencies_dir}/${_obs_destination}/build_${arch}" -G ${_cmake_generator} "${_cmake_arch}"
-      -DOBS_CMAKE_VERSION:STRING=3.0.0 -DENABLE_PLUGINS:BOOL=OFF -DENABLE_UI:BOOL=OFF
+      -DOBS_CMAKE_VERSION:STRING=3.0.0 -DENABLE_PLUGINS:BOOL=OFF -DENABLE_FRONTEND:BOOL=OFF
       -DOBS_VERSION_OVERRIDE:STRING=${_obs_version} "-DCMAKE_PREFIX_PATH='${CMAKE_PREFIX_PATH}'" ${_is_fresh}
       ${_cmake_extra}
     RESULT_VARIABLE _process_result
