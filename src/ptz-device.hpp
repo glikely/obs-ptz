@@ -210,11 +210,11 @@ public:
 	 * `settings` are the dynamic state of the device which includes the
 	 * config.  Most of the data in settings is not saved in the config
 	 * file. `set_config()` is used to change saved config values, and
-	 * `set_settings()` is used to send commands to the camera to change
+	 * `update_settings()` is used to send commands to the camera to change
 	 * the state */
 	virtual void set_config(OBSData ptz_config);
 	virtual OBSData get_config();
-	virtual void set_settings(OBSData setting);
+	virtual void update_settings(OBSData old_settings, OBSData new_settings);
 	virtual OBSData get_settings();
 
 	/* Properties describe how to display the settings in a GUI dialog */

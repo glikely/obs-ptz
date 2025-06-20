@@ -581,26 +581,27 @@ OBSData PTZDevice::get_config()
 	return config;
 }
 
-void PTZDevice::set_settings(OBSData config)
+void PTZDevice::update_settings(OBSData old_settings, OBSData new_settings)
 {
-	if (obs_data_has_user_value(config, "name"))
-		setObjectName(obs_data_get_string(config, "name"));
-	if (obs_data_has_user_value(config, "pantilt_speed_max"))
-		pantilt_speed_max = obs_data_get_double(config, "pantilt_speed_max");
-	if (obs_data_has_user_value(config, "zoom_speed_max"))
-		zoom_speed_max = obs_data_get_double(config, "zoom_speed_max");
-	if (obs_data_has_user_value(config, "focus_speed_max"))
-		focus_speed_max = obs_data_get_double(config, "focus_speed_max");
-	if (obs_data_has_user_value(config, "pan_invert"))
-		pan_invert = obs_data_get_bool(config, "pan_invert");
-	if (obs_data_has_user_value(config, "tilt_invert"))
-		tilt_invert = obs_data_get_bool(config, "tilt_invert");
-	if (obs_data_has_user_value(config, "zoom_invert"))
-		zoom_invert = obs_data_get_bool(config, "zoom_invert");
-	if (obs_data_has_user_value(config, "focus_invert"))
-		focus_invert = obs_data_get_bool(config, "focus_invert");
-	if (obs_data_has_user_value(config, "preset_max"))
-		m_presetsModel.setMaxPresets((int)obs_data_get_int(config, "preset_max"));
+	Q_UNUSED(old_settings);
+	if (obs_data_has_user_value(new_settings, "name"))
+		setObjectName(obs_data_get_string(new_settings, "name"));
+	if (obs_data_has_user_value(new_settings, "pantilt_speed_max"))
+		pantilt_speed_max = obs_data_get_double(new_settings, "pantilt_speed_max");
+	if (obs_data_has_user_value(new_settings, "zoom_speed_max"))
+		zoom_speed_max = obs_data_get_double(new_settings, "zoom_speed_max");
+	if (obs_data_has_user_value(new_settings, "focus_speed_max"))
+		focus_speed_max = obs_data_get_double(new_settings, "focus_speed_max");
+	if (obs_data_has_user_value(new_settings, "pan_invert"))
+		pan_invert = obs_data_get_bool(new_settings, "pan_invert");
+	if (obs_data_has_user_value(new_settings, "tilt_invert"))
+		tilt_invert = obs_data_get_bool(new_settings, "tilt_invert");
+	if (obs_data_has_user_value(new_settings, "zoom_invert"))
+		zoom_invert = obs_data_get_bool(new_settings, "zoom_invert");
+	if (obs_data_has_user_value(new_settings, "focus_invert"))
+		focus_invert = obs_data_get_bool(new_settings, "focus_invert");
+	if (obs_data_has_user_value(new_settings, "preset_max"))
+		m_presetsModel.setMaxPresets((int)obs_data_get_int(new_settings, "preset_max"));
 }
 
 OBSData PTZDevice::get_settings()

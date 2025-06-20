@@ -557,9 +557,9 @@ void PTZVisca::write_replies_to_log()
 			 replyLast[key].toHex(':').data());
 }
 
-void PTZVisca::set_settings(OBSData new_settings)
+void PTZVisca::update_settings(OBSData old_settings, OBSData new_settings)
 {
-	PTZDevice::set_settings(new_settings);
+	PTZDevice::update_settings(old_settings, new_settings);
 
 	if (obs_data_has_user_value(new_settings, "visca_pan_speed_max"))
 		visca_pan_speed_max = (int)obs_data_get_int(new_settings, "visca_pan_speed_max");
@@ -572,12 +572,12 @@ void PTZVisca::set_settings(OBSData new_settings)
 
 	if (obs_data_has_user_value(new_settings, "power_on")) {
 		bool power_on = obs_data_get_bool(new_settings, "power_on");
-		if (power_on != obs_data_get_bool(settings, "power_on"))
+		if (power_on != obs_data_get_bool(old_settings, "power_on"))
 			send(VISCA_CAM_Power, {power_on});
 	}
 
 	auto wb_mode = (int)obs_data_get_int(new_settings, "wb_mode");
-	if (wb_mode != obs_data_get_int(settings, "wb_mode")) {
+	if (wb_mode != obs_data_get_int(old_settings, "wb_mode")) {
 		send(VISCA_CAM_WB_Mode, {wb_mode});
 	}
 

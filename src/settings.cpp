@@ -68,8 +68,7 @@ void PTZSettings::updateProperties(OBSData old_settings, OBSData new_settings)
 {
 	PTZDevice *ptz = ptzDeviceList.getDevice(ui->deviceList->currentIndex());
 	if (ptz)
-		ptz->set_settings(new_settings);
-	Q_UNUSED(old_settings);
+		ptz->update_settings(old_settings, new_settings);
 }
 
 PTZSettings::PTZSettings() : QWidget(nullptr), ui(new Ui_PTZSettings)

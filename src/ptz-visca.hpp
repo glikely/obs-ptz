@@ -67,7 +67,7 @@ public:
 
 	void set_config(OBSData ptz_data);
 	OBSData get_config();
-	void set_settings(OBSData setting);
+	void update_settings(OBSData old_settings, OBSData new_setting);
 
 	void cmd_get_camera_info();
 

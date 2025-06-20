@@ -1045,18 +1045,23 @@ void PTZControls::on_cameraList_customContextMenuRequested(const QPoint &pos)
 	context.addAction(ui->actionProperties);
 	QAction *action = context.exec(globalpos);
 
-	OBSData setdata = obs_data_create();
-	obs_data_release(setdata);
-
 	if (action == nullptr)
 		return;
 	if (action == powerAction) {
 		OBSData settings = ptz->get_settings();
+		OBSData setdata = obs_data_create();
+		obs_data_release(setdata);
 		obs_data_set_bool(setdata, "power_on", !obs_data_get_bool(settings, "power_on"));
-		ptz->set_settings(setdata);
+		OBSData emptydata = obs_data_create();
+		obs_data_release(emptydata);
+		ptz->update_settings(emptydata, setdata);
 	} else if (action == wbOnetouchAction) {
+		OBSData setdata = obs_data_create();
+		obs_data_release(setdata);
 		obs_data_set_bool(setdata, "wb_onepush_trigger", true);
-		ptz->set_settings(setdata);
+		OBSData emptydata = obs_data_create();
+		obs_data_release(emptydata);
+		ptz->update_settings(emptydata, setdata);
 	}
 }
 
