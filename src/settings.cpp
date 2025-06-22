@@ -147,6 +147,7 @@ PTZSettings::PTZSettings() : QWidget(nullptr), ui(new Ui_PTZSettings)
 		"John Hanssen Kolstad (Norwegian)",
 		"Luca Montibeller Nunes (Portuguese, Brazilian)",
 		"Norman Hansen (German)",
+		"Manoah Tervoort (Dutch)",
 	};
 	const QString translators = QString("<p>%1</p>").arg(translator_list.join("<br/>"));
 	ui->versionLabel->setText(QString("<html><head/><body>%1%2%3%4</body></html>")
