@@ -143,9 +143,27 @@ ${_usage_host:-}"
   }
 
   local product_name
-  local product_version
-  read -r product_name product_version <<< \
-    "$(jq -r '. | {name, version} | join(" ")' ${buildspec_file})"
+  read -r product_name <<< \
+    "$(jq -r '.name' ${buildspec_file})"
+
+  local commit_version='0.0.0'
+  local commit_distance='0'
+  local commit_hash
+
+  if [[ -d ${project_root}/.git ]] {
+    local git_description="$(git describe --tags --long)"
+    commit_version="${${git_description%-*}%-*}"
+    commit_hash="${git_description##*-g}"
+    commit_distance="${${git_description%-*}##*-}"
+  }
+
+  local output_name
+  if (( commit_distance > 0 )) {
+    output_name="${project_name}-${commit_version}-${commit_hash}-${target##*-}-ubuntu-gnu"
+  } else {
+    output_name="${project_name}-${commit_version}-${target##*-}-ubuntu-gnu"
+  }
+
 
   local -a cmake_args=()
   if (( _loglevel > 1 )) cmake_args+=(--verbose)
@@ -162,7 +180,6 @@ ${_usage_host:-}"
     popd
   } else {
     log_group "Archiving ${product_name}..."
-    local output_name="${product_name}-${product_version}-${target##*-}-ubuntu-gnu"
     local _tarflags='cJf'
     if (( _loglevel > 1 || ${+CI} )) _tarflags="v${_tarflags}"
 

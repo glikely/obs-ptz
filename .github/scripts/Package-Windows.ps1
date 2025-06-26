@@ -45,9 +45,18 @@ function Package {
 
     $BuildSpec = Get-Content -Path ${BuildSpecFile} -Raw | ConvertFrom-Json
     $ProductName = $BuildSpec.name
-    $ProductVersion = $BuildSpec.version
 
-    $OutputName = "${ProductName}-${ProductVersion}-windows-${Target}"
+    $GitDescription = Invoke-External git describe --tags --long
+    $Tokens = ($GitDescription -split '-')
+    $CommitVersion = $Tokens[0..$($Tokens.Count - 3)] -join '-'
+    $CommitHash = $($Tokens[-1]).SubString(1)
+    $CommitDistance = $Tokens[-2]
+
+    if ( $CommitDistance -gt 0 ) {
+        $OutputName = "${ProductName}-${CommitVersion}-${CommitHash}-windows-${Target}"
+    } else {
+        $OutputName = "${ProductName}-${CommitVersion}-windows-${Target}"
+    }
 
     $RemoveArgs = @{
         ErrorAction = 'SilentlyContinue'
