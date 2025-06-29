@@ -49,21 +49,15 @@ string(JSON _name GET ${buildspec} name)
 string(JSON _website GET ${buildspec} website)
 string(JSON _author GET ${buildspec} author)
 string(JSON _email GET ${buildspec} email)
-string(JSON _version GET ${buildspec} version)
 string(JSON _bundleId GET ${buildspec} platformConfig macos bundleId)
 
+set(PLUGIN_NAME ${_name})
 set(PLUGIN_AUTHOR ${_author})
 set(PLUGIN_WEBSITE ${_website})
 set(PLUGIN_EMAIL ${_email})
-set(PLUGIN_VERSION ${_version})
 set(MACOS_BUNDLEID ${_bundleId})
 
-string(REPLACE "." ";" _version_canonical "${_version}")
-list(GET _version_canonical 0 PLUGIN_VERSION_MAJOR)
-list(GET _version_canonical 1 PLUGIN_VERSION_MINOR)
-list(GET _version_canonical 2 PLUGIN_VERSION_PATCH)
-unset(_version_canonical)
-
+include(versionconfig)
 include(buildnumber)
 include(osconfig)
 

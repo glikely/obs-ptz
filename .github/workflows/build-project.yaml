@@ -106,8 +106,10 @@ jobs:
 
           local product_name
           local product_version
-          read -r product_name product_version <<< \
-            "$(jq -r '. | {name, version} | join(" ")' buildspec.json)"
+          read -r product_name <<< \
+            "$(jq -r '.name' buildspec.json)"
+          read -r product_version <<< \
+            "$(git describe --always --tags --dirty=-modified)"
 
           print "pluginName=${product_name}" >> $GITHUB_OUTPUT
           print "pluginVersion=${product_version}" >> $GITHUB_OUTPUT
@@ -197,8 +199,10 @@ jobs:
           : Set Up Environment 🔧
           if [[ "${RUNNER_DEBUG}" ]]; then set -x; fi
 
-          read -r product_name product_version <<< \
-            "$(jq -r '. | {name, version} | join(" ")' buildspec.json)"
+          read -r product_name <<< \
+            "$(jq -r '.name' buildspec.json)"
+          read -r product_version <<< \
+            "$(git describe --always --tags --dirty=-modified)"
 
           echo "pluginName=${product_name}" >> $GITHUB_OUTPUT
           echo "pluginVersion=${product_version}" >> $GITHUB_OUTPUT
@@ -272,7 +276,9 @@ jobs:
 
           $BuildSpec = Get-Content -Path buildspec.json -Raw | ConvertFrom-Json
           $ProductName = $BuildSpec.name
-          $ProductVersion = $BuildSpec.version
+          $GitDescription = Invoke-External git describe --tags --long
+          $Tokens = ($GitDescription -split '-')
+          $ProductVersion = $Tokens[0..$($Tokens.Count - 3)] -join '-'
 
           "pluginName=${ProductName}" >> $env:GITHUB_OUTPUT
           "pluginVersion=${ProductVersion}" >> $env:GITHUB_OUTPUT

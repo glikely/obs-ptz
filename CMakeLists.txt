@@ -2,16 +2,9 @@ cmake_minimum_required(VERSION 3.28...3.30)
 
 include("${CMAKE_CURRENT_SOURCE_DIR}/cmake/common/bootstrap.cmake" NO_POLICY_SCOPE)
 
-project(${_name} VERSION ${_version})
+project(${PLUGIN_NAME} VERSION ${PLUGIN_VERSION_CANONICAL})
 
-# Generate a version number from the git tag that can be embedded in the binary
-execute_process(
-  COMMAND git describe --tags --dirty
-  OUTPUT_VARIABLE _git_version
-  WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
-  OUTPUT_STRIP_TRAILING_WHITESPACE
-)
-add_compile_definitions(PLUGIN_NAME="${_name}" PLUGIN_VERSION="${_git_version}")
+add_compile_definitions(PLUGIN_NAME="${PLUGIN_NAME}" PLUGIN_VERSION="${PLUGIN_VERSION}")
 
 option(ENABLE_FRONTEND_API "Use obs-frontend-api for UI functionality" ON)
 option(ENABLE_QT "Use Qt functionality" ON)
@@ -121,7 +114,7 @@ if(ENABLE_JOYSTICK)
   add_compile_definitions(ENABLE_JOYSTICK SDL_SUPPORTED)
 endif()
 
-set_target_properties_plugin(${CMAKE_PROJECT_NAME} PROPERTIES OUTPUT_NAME ${_name})
+set_target_properties_plugin(${CMAKE_PROJECT_NAME} PROPERTIES OUTPUT_NAME ${PLUGIN_NAME})
 
 if(OS_WINDOWS)
   configure_file(installer-Windows.iss.in ${CMAKE_BINARY_DIR}/installer-Windows.iss)

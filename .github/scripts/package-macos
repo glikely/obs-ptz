@@ -94,10 +94,27 @@ package() {
 
   local product_name
   local product_version
-  read -r product_name product_version <<< \
-    "$(jq -r '. | {name, version} | join(" ")' ${buildspec_file})"
+  read -r product_name <<< \
+    "$(jq -r '.name' ${buildspec_file})"
 
-  local output_name="${product_name}-${product_version}-${host_os}-universal"
+  local commit_version='0.0.0'
+  local commit_distance='0'
+  local commit_hash
+
+  if [[ -d ${project_root}/.git ]] {
+    local git_description="$(git describe --tags --long)"
+    commit_version="${${git_description%-*}%-*}"
+    commit_hash="${git_description##*-g}"
+    commit_distance="${${git_description%-*}##*-}"
+  }
+
+  local output_name
+  if (( commit_distance > 0 )) {
+    output_name="${product_name}-${commit_version}-${commit_hash}"
+  } else {
+    output_name="${product_name}-${commit_version}"
+  }
+
 
   if [[ ! -d ${project_root}/release/${config}/${product_name}.plugin ]] {
     log_error 'No release artifact found. Run the build script or the CMake install procedure first.'
