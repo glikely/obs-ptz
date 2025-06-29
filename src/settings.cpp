@@ -146,6 +146,7 @@ PTZSettings::PTZSettings() : QWidget(nullptr), ui(new Ui_PTZSettings)
 		"ETE-Design (Danish)",
 		"John Hanssen Kolstad (Norwegian)",
 		"Luca Montibeller Nunes (Portuguese, Brazilian)",
+		"Manoah Tervoort (Dutch)",
 		"Norman Hansen (German)",
 	};
 	const QString translators = QString("<p>%1</p>").arg(translator_list.join("<br/>"));
