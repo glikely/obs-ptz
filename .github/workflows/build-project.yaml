@@ -105,12 +105,10 @@ jobs:
           print '::endgroup::'
 
           local product_name
-          local product_version
-          read -r product_name product_version <<< \
-            "$(jq -r '. | {name, version} | join(" ")' buildspec.json)"
+          read -r product_name <<< \
+            "$(jq -r '.name' buildspec.json)"
 
           print "pluginName=${product_name}" >> $GITHUB_OUTPUT
-          print "pluginVersion=${product_version}" >> $GITHUB_OUTPUT
 
       - uses: actions/cache/restore@v4
         id: ccache-cache
@@ -159,15 +157,15 @@ jobs:
       - name: Upload Artifacts 📡
         uses: actions/upload-artifact@v4
         with:
-          name: ${{ steps.setup.outputs.pluginName }}-${{ steps.setup.outputs.pluginVersion }}-macos-universal-${{ needs.check-event.outputs.commitHash }}
-          path: ${{ github.workspace }}/release/${{ steps.setup.outputs.pluginName }}-${{ steps.setup.outputs.pluginVersion }}-macos-universal.*
+          name: ${{ steps.setup.outputs.pluginName }}-macos-universal-${{ needs.check-event.outputs.commitHash }}
+          path: ${{ github.workspace }}/release/${{ steps.setup.outputs.pluginName }}-*-macos-universal.*
 
       - name: Upload Debug Symbol Artifacts 🪲
         uses: actions/upload-artifact@v4
         if: ${{ needs.check-event.outputs.config == 'Release' }}
         with:
-          name: ${{ steps.setup.outputs.pluginName }}-${{ steps.setup.outputs.pluginVersion }}-macos-universal-${{ needs.check-event.outputs.commitHash }}-dSYMs
-          path: ${{ github.workspace }}/release/${{ steps.setup.outputs.pluginName }}-${{ steps.setup.outputs.pluginVersion }}-macos-universal-dSYMs.*
+          name: ${{ steps.setup.outputs.pluginName }}-macos-universal-${{ needs.check-event.outputs.commitHash }}-dSYMs
+          path: ${{ github.workspace }}/release/${{ steps.setup.outputs.pluginName }}-*-macos-universal-dSYMs.*
 
       - uses: actions/cache/save@v4
         if: github.event_name != 'pull_request' && steps.ccache-cache.outputs.cache-hit != 'true'
@@ -197,11 +195,10 @@ jobs:
           : Set Up Environment 🔧
           if [[ "${RUNNER_DEBUG}" ]]; then set -x; fi
 
-          read -r product_name product_version <<< \
-            "$(jq -r '. | {name, version} | join(" ")' buildspec.json)"
+          read -r product_name <<< \
+            "$(jq -r '.name' buildspec.json)"
 
           echo "pluginName=${product_name}" >> $GITHUB_OUTPUT
-          echo "pluginVersion=${product_version}" >> $GITHUB_OUTPUT
 
       - uses: actions/cache/restore@v4
         id: ccache-cache
@@ -227,21 +224,21 @@ jobs:
       - name: Upload Source Tarball 🗜️
         uses: actions/upload-artifact@v4
         with:
-          name: ${{ steps.setup.outputs.pluginName }}-${{ steps.setup.outputs.pluginVersion }}-${{ matrix.os }}-sources-${{ needs.check-event.outputs.commitHash }}
-          path: ${{ github.workspace }}/release/${{ steps.setup.outputs.pluginName }}-${{ steps.setup.outputs.pluginVersion }}-source.*
+          name: ${{ steps.setup.outputs.pluginName }}-${{ matrix.os }}-sources-${{ needs.check-event.outputs.commitHash }}
+          path: ${{ github.workspace }}/release/${{ steps.setup.outputs.pluginName }}-*-source.*
 
       - name: Upload Artifacts 📡
         uses: actions/upload-artifact@v4
         with:
-          name: ${{ steps.setup.outputs.pluginName }}-${{ steps.setup.outputs.pluginVersion }}-${{ matrix.os }}-x86_64-${{ needs.check-event.outputs.commitHash }}
-          path: ${{ github.workspace }}/release/${{ steps.setup.outputs.pluginName }}-${{ steps.setup.outputs.pluginVersion }}-x86_64*.*
+          name: ${{ steps.setup.outputs.pluginName }}-${{ matrix.os }}-x86_64-${{ needs.check-event.outputs.commitHash }}
+          path: ${{ github.workspace }}/release/${{ steps.setup.outputs.pluginName }}-*-x86_64*.*
 
       - name: Upload debug symbol artifacts 🪲
         uses: actions/upload-artifact@v4
         if: ${{ fromJSON(needs.check-event.outputs.package) }}
         with:
-          name: ${{ steps.setup.outputs.pluginName }}-${{ steps.setup.outputs.pluginVersion }}-${{ matrix.os }}-x86_64-${{ needs.check-event.outputs.commitHash }}-dbgsym
-          path: ${{ github.workspace }}/release/${{ steps.setup.outputs.pluginName }}-${{ steps.setup.outputs.pluginVersion }}-x86_64*-dbgsym.ddeb
+          name: ${{ steps.setup.outputs.pluginName }}-${{ matrix.os }}-x86_64-${{ needs.check-event.outputs.commitHash }}-dbgsym
+          path: ${{ github.workspace }}/release/${{ steps.setup.outputs.pluginName }}-*-x86_64*-dbgsym.ddeb
 
       - uses: actions/cache/save@v4
         if: github.event_name != 'pull_request' && steps.ccache-cache.outputs.cache-hit != 'true'
@@ -272,10 +269,8 @@ jobs:
 
           $BuildSpec = Get-Content -Path buildspec.json -Raw | ConvertFrom-Json
           $ProductName = $BuildSpec.name
-          $ProductVersion = $BuildSpec.version
 
           "pluginName=${ProductName}" >> $env:GITHUB_OUTPUT
-          "pluginVersion=${ProductVersion}" >> $env:GITHUB_OUTPUT
 
       - name: Build Plugin 🧱
         uses: ./.github/actions/build-plugin
@@ -293,5 +288,5 @@ jobs:
       - name: Upload Artifacts 📡
         uses: actions/upload-artifact@v4
         with:
-          name: ${{ steps.setup.outputs.pluginName }}-${{ steps.setup.outputs.pluginVersion }}-windows-x64-${{ needs.check-event.outputs.commitHash }}
-          path: ${{ github.workspace }}/release/${{ steps.setup.outputs.pluginName }}-${{ steps.setup.outputs.pluginVersion }}-windows-x64*.*
+          name: ${{ steps.setup.outputs.pluginName }}-windows-x64-${{ needs.check-event.outputs.commitHash }}
+          path: ${{ github.workspace }}/release/${{ steps.setup.outputs.pluginName }}-*-windows-x64*.*
