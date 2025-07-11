@@ -121,10 +121,28 @@ if(ENABLE_JOYSTICK)
   add_compile_definitions(ENABLE_JOYSTICK SDL_SUPPORTED)
 endif()
 
+option(ENABLE_NDI "Enable NDI support" ON)
+if(ENABLE_NDI)
+  find_package(Qt6 REQUIRED COMPONENTS Network)
+  if(Qt6Network_FOUND)
+    target_link_libraries(${CMAKE_PROJECT_NAME} PRIVATE Qt6::Network)
+
+    add_compile_definitions(ENABLE_NDI)
+    target_sources(
+            ${CMAKE_PROJECT_NAME}
+            PRIVATE
+              src/ptz-ndi.cpp
+              src/ptz-ndi.hpp
+              src/ndi.hpp
+              src/ndi-finder.cpp
+              src/ndi-finder.hpp
+    )
+    target_include_directories(${CMAKE_PROJECT_NAME} PRIVATE ${CMAKE_SOURCE_DIR}/lib/ndi)
+  endif()
+endif()
+
 set_target_properties_plugin(${CMAKE_PROJECT_NAME} PROPERTIES OUTPUT_NAME ${_name})
 
 if(OS_WINDOWS)
   configure_file(installer-Windows.iss.in ${CMAKE_BINARY_DIR}/installer-Windows.iss)
 endif()
-
-target_include_directories(${CMAKE_PROJECT_NAME} PRIVATE ${CMAKE_SOURCE_DIR}/lib/ndi)

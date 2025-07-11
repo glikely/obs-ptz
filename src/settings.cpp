@@ -365,6 +365,9 @@ void PTZSettings::on_addPTZ_clicked()
 #if defined(ENABLE_USB_CAM)
 	QAction *addUsbCam = addPTZContext.addAction(obs_module_text("PTZ.UVC.Name"));
 #endif
+#if defined(ENABLE_NDI)
+	QAction *addNdi = addPTZContext.addAction(obs_module_text("PTZ.NDI.Name"));
+#endif
 	QAction *action = addPTZContext.exec(QCursor::pos());
 
 #if defined(ENABLE_SERIALPORT)
@@ -418,6 +421,14 @@ void PTZSettings::on_addPTZ_clicked()
 		OBSData cfg = obs_data_create();
 		obs_data_release(cfg);
 		obs_data_set_string(cfg, "type", "usb-cam");
+		ptzDeviceList.make_device(cfg);
+	}
+#endif
+#if defined(ENABLE_NDI)
+	if (action == addNdi) {
+		OBSData cfg = obs_data_create();
+		obs_data_release(cfg);
+		obs_data_set_string(cfg, "type", "ndi");
 		ptzDeviceList.make_device(cfg);
 	}
 #endif

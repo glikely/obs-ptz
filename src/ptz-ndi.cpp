@@ -1,0 +1,173 @@
+/* Pan Tilt Zoom over NDI
+*
+ * Copyright 2025 Christian Mäder <mail@cmaeder.ch>
+ *
+ * SPDX-License-Identifier: GPLv2
+ */
+
+#include "ptz-ndi.hpp"
+
+QString PTZNDI::description()
+{
+	return QString("NDI/%1").arg(source_name);
+}
+
+PTZNDI::PTZNDI(OBSData data) : PTZDevice(data)
+{
+	PTZNDI::set_config(data);
+	ptz_debug("device created");
+}
+
+PTZNDI::~PTZNDI()
+{
+	if (!instance)
+		return;
+
+	NDIlib_recv_destroy(instance);
+}
+
+void PTZNDI::do_update()
+{
+	status &= ~(STATUS_PANTILT_SPEED_CHANGED | STATUS_ZOOM_SPEED_CHANGED | STATUS_FOCUS_SPEED_CHANGED);
+}
+
+void PTZNDI::set_config(const OBSData config)
+{
+	receiver_name = obs_data_get_string(config, "receiver_name");
+	source_name = obs_data_get_string(config, "source_name");
+
+	NDIlib_source_t src;
+	src.p_ndi_name = source_name;
+
+	NDIlib_recv_create_v3_t recv;
+	recv.p_ndi_recv_name = receiver_name;
+	recv.bandwidth = NDIlib_recv_bandwidth_metadata_only;
+	recv.source_to_connect_to = src;
+
+	instance = NDIlib_recv_create_v3(&recv);
+}
+
+OBSData PTZNDI::get_config()
+{
+	OBSData config = PTZDevice::get_config();
+	obs_data_set_string(config, "receiver_name", receiver_name);
+	obs_data_set_default_string(config, "receiver_name", QT_TO_UTF8(QHostInfo::localHostName()));
+	obs_data_set_string(config, "source_name", source_name);
+	obs_data_set_string(config, "source_name", source_name);
+	return config;
+}
+
+obs_properties_t *PTZNDI::get_obs_properties()
+{
+	obs_properties_t *ptz_props = PTZDevice::get_obs_properties();
+
+	obs_property_t *p = obs_properties_get(ptz_props, "interface");
+	obs_properties_t *config = obs_property_group_content(p);
+	obs_property_set_description(p, obs_module_text("PTZ.NDI.Name"));
+
+	obs_properties_add_text(config, "source_name", obs_module_text("PTZ.NDI.SourceName"), OBS_TEXT_DEFAULT);
+	obs_properties_add_text(config, "receiver_name", obs_module_text("PTZ.NDI.SourceName"), OBS_TEXT_DEFAULT);
+
+	return ptz_props;
+}
+
+
+
+
+
+
+void PTZNDI::pantilt_abs(const double pan, const double tilt)
+{
+	if (pan < -1.0 || pan > 1.0)
+		return;
+	if (tilt < -1.0 || tilt > 1.0)
+		return;
+	
+	NDIlib_recv_ptz_pan_tilt(instance, static_cast<float>(pan), static_cast<float>(tilt));
+	ptz_debug("pantilt_abs");
+}
+
+void PTZNDI::pantilt_rel(const double panSpeed, const double tiltSpeed)
+{
+	if (panSpeed < -1.0 || panSpeed > 1.0)
+		return;
+	if (tiltSpeed < -1.0 || tiltSpeed > 1.0)
+		return;
+
+	NDIlib_recv_ptz_pan_tilt_speed(instance, static_cast<float>(panSpeed), static_cast<float>(tiltSpeed));
+	ptz_debug("pantilt_rel");
+}
+
+void PTZNDI::pantilt_home()
+{
+	NDIlib_recv_ptz_pan_tilt(instance, 0.0f, 0.0f);
+	ptz_debug("pantilt_home");
+}
+
+void PTZNDI::zoom_speed_set(const double speed)
+{
+	zoom_speed = static_cast<float>(speed);
+}
+
+void PTZNDI::zoom_abs(const double pos)
+{
+	if (pos < 0.0 || pos > 1.0)
+		return;
+
+	NDIlib_recv_ptz_zoom(instance, static_cast<float>(pos));
+	ptz_debug("zoom_abs");
+}
+
+void PTZNDI::zoom_rel(const double speed) const
+{
+	if (speed < -1.0 || speed > 1.0)
+		return;
+
+	NDIlib_recv_ptz_zoom_speed(instance, static_cast<float>(speed));
+	ptz_debug("zoom_rel");
+}
+
+void PTZNDI::focus_abs(const double pos)
+{
+	if (pos < 0.0 || pos > 1.0)
+		return;
+
+	NDIlib_recv_ptz_focus(instance, static_cast<float>(pos));
+	ptz_debug("focus_abs");
+}
+
+void PTZNDI::focus_rel(const double speed) const
+{
+	if (speed < -1.0 || speed > 1.0)
+		return;
+
+	NDIlib_recv_ptz_focus_speed(instance, static_cast<float>(speed));
+	ptz_debug("focus_abs");
+}
+
+void PTZNDI::set_autofocus(const bool enabled)
+{
+	if (!enabled)
+		return;
+
+	NDIlib_recv_ptz_auto_focus(instance);
+	ptz_debug("autofocus");
+}
+
+void PTZNDI::memory_set(const int i)
+{
+	if (i < 0 || i > 99)
+		return;
+
+	NDIlib_recv_ptz_store_preset(instance, i);
+	ptz_debug("memory_set");
+}
+
+void PTZNDI::memory_recall(const int i)
+{
+	if (i < 0 || i > 99)
+		return;
+
+	NDIlib_recv_ptz_recall_preset(instance, i, 0.5f);
+	ptz_debug("memory_recall");
+}
