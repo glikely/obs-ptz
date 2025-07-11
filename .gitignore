@@ -9,6 +9,7 @@
 !/src
 !/shared
 !.clang-format
+!.editorconfig
 !.gersemirc
 !.gitignore
 !buildspec.json
