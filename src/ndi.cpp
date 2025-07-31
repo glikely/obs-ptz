@@ -103,7 +103,7 @@ NDIlib_v6* NDI::loadNdiLib()
 	}
 
 	blog(LOG_ERROR,
-		"ERR-404 - NDI library not found, DistroAV cannot continue. Read the wiki and install the NDI Libraries.");
+		"ERR-404 - NDI library not found, obs-ptz cannot continue. Read the wiki and install the NDI Libraries.");
 	blog(LOG_DEBUG, "loadNdiLib: ERROR: Can't find the NDI library");
 	return nullptr;
 }
