@@ -13,6 +13,8 @@
 #include <QStringListModel>
 #include <QtGlobal>
 #include <QHostInfo>
+
+#include <__stddef_null.h>
 #include <Processing.NDI.Lib.h>
 #include <Processing.NDI.Lib.cplusplus.h>
 #include <Processing.NDI.structs.h>

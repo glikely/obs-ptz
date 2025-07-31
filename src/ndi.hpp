@@ -17,6 +17,7 @@
 
 #pragma once
 
+#include <__stddef_null.h>
 #include <Processing.NDI.Lib.h>
 
 #define NDI_OFFICIAL_REDIST_URL NDILIB_REDIST_URL
@@ -45,7 +46,7 @@
 
 #include "qt-wrappers.hpp"
 
-typedef NDIlib_v6 *(*NDIlib_v6_load_)();
+typedef NDIlib_v6 *(*NDIlib_v6_load_)(void);
 
 class NDI {
 public:
@@ -55,6 +56,8 @@ public:
 
 private:
 	bool initialized = false;
+	QLibrary *loaded_lib = nullptr;
+	NDIlib_v6 *ndiLib = nullptr;
 
 	NDIlib_v6 *loadNdiLib();
 	static QString makeLink(const char *url);

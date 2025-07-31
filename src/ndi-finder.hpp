@@ -27,6 +27,7 @@
 #include <Processing.NDI.structs.h>
 #include <Processing.NDI.Lib.h>
 
+#include <__stddef_null.h>
 #include "ndi.hpp"
 
 class NDIFinder {

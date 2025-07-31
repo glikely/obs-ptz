@@ -133,11 +133,13 @@ if(ENABLE_NDI)
             PRIVATE
               src/ptz-ndi.cpp
               src/ptz-ndi.hpp
+              src/ndi.cpp
               src/ndi.hpp
               src/ndi-finder.cpp
               src/ndi-finder.hpp
     )
-    target_include_directories(${CMAKE_PROJECT_NAME} PRIVATE ${CMAKE_SOURCE_DIR}/lib/ndi)
+    add_subdirectory("${CMAKE_SOURCE_DIR}/shared/ndi" "${CMAKE_BINARY_DIR}/shared/ndi")
+    target_link_libraries(${CMAKE_PROJECT_NAME} PRIVATE OBS::ndi)
   endif()
 endif()
 
