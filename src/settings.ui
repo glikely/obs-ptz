@@ -307,16 +307,6 @@
      </widget>
     </widget>
    </item>
-   <item>
-    <widget class="QLabel" name="labelNdiRegisteredTrademark">
-     <property name="text">
-      <string>PTZ.NDI.Trademark=</string>
-     </property>
-     <property name="alignment">
-      <set>Qt::AlignCenter</set>
-     </property>
-    </widget>
-  </item>
   </layout>
  </widget>
  <customwidgets>

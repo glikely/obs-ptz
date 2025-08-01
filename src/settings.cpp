@@ -27,6 +27,8 @@
 #include "ptz-device.hpp"
 #include "ptz-controls.hpp"
 #include "settings.hpp"
+
+#include "ndi.hpp"
 #include "ui_settings.h"
 
 /* ----------------------------------------------------------------- */
@@ -150,11 +152,17 @@ PTZSettings::PTZSettings() : QWidget(nullptr), ui(new Ui_PTZSettings)
 		"Norman Hansen (German)",
 	};
 	const QString translators = QString("<p>%1</p>").arg(translator_list.join("<br/>"));
-	ui->versionLabel->setText(QString("<html><head/><body>%1%2%3%4</body></html>")
+#ifdef ENABLE_NDI
+	const QString ndi = QString("<p>%1</p>").arg(obs_module_text(NDI_IS_A_REGISTERED_TRADEMARK_TEXT));
+#elif
+	const QString ndi = QString("");
+#endif
+	ui->versionLabel->setText(QString("<html><head/><body>%1%2%3%4%5</body></html>")
 					  .arg(basic_info)
 					  .arg(urls)
 					  .arg(contributors)
-					  .arg(translators));
+					  .arg(translators)
+					  .arg(ndi));
 }
 
 PTZSettings::~PTZSettings()
