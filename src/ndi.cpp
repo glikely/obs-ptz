@@ -69,7 +69,7 @@ NDIlib_v6* NDI::loadNdiLib()
 #else
 		// MacOS, Windows
 		temp_path = QDir::cleanPath(dir.absoluteFilePath(NDILIB_LIBRARY_NAME));
-		blog(LOG_DEBUG, "loadNdiLib: Trying '%s'", QT_TO_UTF8(QDir::toNativeSeparators(temp_path)));
+		blog(LOG_DEBUG, "[obs-ptz] loadNdiLib: Trying '%s'", QT_TO_UTF8(QDir::toNativeSeparators(temp_path)));
 		auto file_info = QFileInfo(temp_path);
 		if (file_info.exists() && file_info.isFile()) {
 			lib_path = temp_path;
@@ -78,24 +78,24 @@ NDIlib_v6* NDI::loadNdiLib()
 #endif
 	}
 	if (!lib_path.isEmpty()) {
-		blog(LOG_DEBUG, "loadNdiLib: Found '%s'; attempting to load NDI library...",
+		blog(LOG_DEBUG, "[obs-ptz] loadNdiLib: Found '%s'; attempting to load NDI library...",
 			QT_TO_UTF8(QDir::toNativeSeparators(lib_path)));
 		loaded_lib = new QLibrary(lib_path, nullptr);
 		if (loaded_lib->load()) {
-			blog(LOG_DEBUG, "loadNdiLib: NDI library loaded successfully");
+			blog(LOG_DEBUG, "[obs-ptz] loadNdiLib: NDI library loaded successfully");
 			const auto lib_load =
 				reinterpret_cast<NDIlib_v6_load_>(loaded_lib->resolve("NDIlib_v6_load"));
 			if (lib_load != nullptr) {
 				blog(LOG_DEBUG, "loadNdiLib: NDIlib_v6_load found");
 				return lib_load();
 			}
-			blog(LOG_ERROR, "ERR-405 - Error loading the NDI Library from path: '%s'",
+			blog(LOG_ERROR, "[obs-ptz] ERR-405 - Error loading the NDI Library from path: '%s'",
 			     QT_TO_UTF8(QDir::toNativeSeparators(lib_path)));
-			blog(LOG_DEBUG, "loadNdiLib: ERROR: NDIlib_v6_load not found in loaded library");
+			blog(LOG_DEBUG, "[obs-ptz] loadNdiLib: ERROR: NDIlib_v6_load not found in loaded library");
 		} else {
-			blog(LOG_ERROR, "ERR-402 - Error loading QLibrary with error: '%s'",
+			blog(LOG_ERROR, "[obs-ptz] ERR-402 - Error loading QLibrary with error: '%s'",
 				QT_TO_UTF8(loaded_lib->errorString()));
-			blog(LOG_DEBUG, "loadNdiLib: ERROR: QLibrary returned the following error: '%s'",
+			blog(LOG_DEBUG, "[obs-ptz] loadNdiLib: ERROR: QLibrary returned the following error: '%s'",
 				QT_TO_UTF8(loaded_lib->errorString()));
 			delete loaded_lib;
 			loaded_lib = nullptr;
@@ -103,8 +103,8 @@ NDIlib_v6* NDI::loadNdiLib()
 	}
 
 	blog(LOG_ERROR,
-		"ERR-404 - NDI library not found, obs-ptz cannot continue. Read the wiki and install the NDI Libraries.");
-	blog(LOG_DEBUG, "loadNdiLib: ERROR: Can't find the NDI library");
+		"[obs-ptz] ERR-404 - NDI library not found, obs-ptz cannot continue. Read the wiki and install the NDI Libraries.");
+	blog(LOG_DEBUG, "[obs-ptz] loadNdiLib: ERROR: Can't find the NDI library");
 	return nullptr;
 }
 
@@ -126,8 +126,8 @@ bool NDI::initNdiLib()
 #ifdef NDI_OFFICIAL_REDIST_URL
 		message += makeLink(NDI_OFFICIAL_REDIST_URL);
 #endif
-		blog(LOG_ERROR, "ERR-401 - NDI library failed to load with message: '%s'", QT_TO_UTF8(message));
-		blog(LOG_DEBUG, "obs_module_load: ERROR - loadNdiLib() failed; message=%s", QT_TO_UTF8(message));
+		blog(LOG_ERROR, "[obs-ptz] ERR-401 - NDI library failed to load with message: '%s'", QT_TO_UTF8(message));
+		blog(LOG_DEBUG, "[obs-ptz] obs_module_load: ERROR - loadNdiLib() failed; message=%s", QT_TO_UTF8(message));
 		return false;
 	}
 
@@ -138,30 +138,30 @@ bool NDI::initNdiLib()
 	auto initialized = lib->initialize();
 #endif
 	if (!initialized) {
-		blog(LOG_ERROR, "ERR-406 - NDI library could not initialize due to unsupported CPU.");
+		blog(LOG_ERROR, "[obs-ptz] ERR-406 - NDI library could not initialize due to unsupported CPU.");
 		blog(LOG_DEBUG,
-			"obs_module_load: ndiLib->initialize() failed; CPU unsupported by NDI library. Module won't load.");
+			"[obs-ptz] obs_module_load: ndiLib->initialize() failed; CPU unsupported by NDI library. Module won't load.");
 		return false;
 	}
 
-	blog(LOG_INFO, "obs_module_load: NDI library detected ('%s')", lib->version());
+	blog(LOG_INFO, "[obs-ptz] obs_module_load: NDI library detected ('%s')", lib->version());
 
 	// Check if the minimum NDI Runtime/SDK required by this plugin is used
 	const QString ndi_version_short =
 		QRegularExpression(R"((\d+\.\d+(\.\d+)?(\.\d+)?$))").match(lib->version()).captured(1);
-	blog(LOG_INFO, "NDI Version detected: %s", QT_TO_UTF8(ndi_version_short));
+	blog(LOG_INFO, "[obs-ptz] NDI Version detected: %s", QT_TO_UTF8(ndi_version_short));
 
 	if (!isVersionSupported(QT_TO_UTF8(ndi_version_short), NDI_MIN_VERSION)) {
 		blog(LOG_ERROR,
-			"ERR-425 - %s requires at least NDI version %s. NDI Version detected: %s. Plugin will unload.",
-			"obs-ptz", NDI_MIN_VERSION, QT_TO_UTF8(ndi_version_short));
-		blog(LOG_DEBUG, "obs_module_load: NDI minimum version not met (%s). NDI version detected: %s.",
+			"obs-ptz: ERR-425 - At least NDI version %s required. NDI Version detected: %s. Plugin will unload.",
+			NDI_MIN_VERSION, QT_TO_UTF8(ndi_version_short));
+		blog(LOG_DEBUG, "obs-ptz: obs_module_load: NDI minimum version not met (%s). NDI version detected: %s.",
 			NDI_MIN_VERSION, lib->version());
 		return false;
 	}
 
 	initialized = true;
-	blog(LOG_INFO, "obs_module_load: NDI library initialized successfully");
+	blog(LOG_INFO, "[obs-ptz] obs_module_load: NDI library initialized successfully");
 	return true;
 }
 

@@ -7,14 +7,16 @@
 
 #include "ptz-ndi.hpp"
 
+#include "ndi-finder.hpp"
+
 QString PTZNDI::description()
 {
 	return QString("NDI/%1").arg(source_name);
 }
 
-PTZNDI::PTZNDI(OBSData data) : PTZDevice(data)
+PTZNDI::PTZNDI(OBSData ptz_data) : PTZDevice(ptz_data)
 {
-	PTZNDI::set_config(data);
+	PTZNDI::set_config(ptz_data);
 	ptz_debug("device created");
 }
 
@@ -31,16 +33,16 @@ void PTZNDI::do_update()
 	status &= ~(STATUS_PANTILT_SPEED_CHANGED | STATUS_ZOOM_SPEED_CHANGED | STATUS_FOCUS_SPEED_CHANGED);
 }
 
-void PTZNDI::set_config(const OBSData config)
+void PTZNDI::set_config(const OBSData ptz_data)
 {
-	receiver_name = obs_data_get_string(config, "receiver_name");
-	source_name = obs_data_get_string(config, "source_name");
+	controller_name = obs_data_get_string(ptz_data, "controller_name");
+	source_name = obs_data_get_string(ptz_data, "source_name");
 
 	NDIlib_source_t src;
 	src.p_ndi_name = source_name;
 
 	NDIlib_recv_create_v3_t recv;
-	recv.p_ndi_recv_name = receiver_name;
+	recv.p_ndi_recv_name = controller_name;
 	recv.bandwidth = NDIlib_recv_bandwidth_metadata_only;
 	recv.source_to_connect_to = src;
 
@@ -50,10 +52,10 @@ void PTZNDI::set_config(const OBSData config)
 OBSData PTZNDI::get_config()
 {
 	OBSData config = PTZDevice::get_config();
-	obs_data_set_string(config, "receiver_name", receiver_name);
-	obs_data_set_default_string(config, "receiver_name", QT_TO_UTF8(QHostInfo::localHostName()));
+	obs_data_set_string(config, "controller_name", controller_name);
+	obs_data_set_default_string(config, "controller_name", QT_TO_UTF8(QHostInfo::localHostName()));
 	obs_data_set_string(config, "source_name", source_name);
-	obs_data_set_string(config, "source_name", source_name);
+	obs_data_set_default_string(config, "source_name", "");
 	return config;
 }
 
@@ -65,16 +67,30 @@ obs_properties_t *PTZNDI::get_obs_properties()
 	obs_properties_t *config = obs_property_group_content(p);
 	obs_property_set_description(p, obs_module_text("PTZ.NDI.Name"));
 
-	obs_properties_add_text(config, "source_name", obs_module_text("PTZ.NDI.SourceName"), OBS_TEXT_DEFAULT);
-	obs_properties_add_text(config, "receiver_name", obs_module_text("PTZ.NDI.SourceName"), OBS_TEXT_DEFAULT);
+	sources_list = obs_properties_add_list(config, "source_name", obs_module_text("PTZ.NDI.SourceName"), OBS_COMBO_TYPE_EDITABLE, OBS_COMBO_FORMAT_STRING);
+	obs_property_list_add_string(sources_list, obs_module_text("PTZ.NDI.Loading"), "");
+
+	auto finder_callback = [this](void *ndi_names) {
+		const auto ndi_sources = static_cast<std::vector<std::string> *>(ndi_names);
+		obs_property_list_clear(sources_list);
+
+		if (ndi_sources->empty()) {
+			obs_property_list_add_string(sources_list, obs_module_text("PTZ.NDI.NoSourcesFound"), "");
+		}
+		for (auto &source : *ndi_sources) {
+			obs_property_list_add_string(sources_list, source.c_str(), source.c_str());
+		}
+	};
+
+	const auto ndi_sources = NDIFinder::getNDISourceList(finder_callback);
+	for (auto &source : ndi_sources) {
+		obs_property_list_add_string(sources_list, source.c_str(), source.c_str());
+	}
+
+	obs_properties_add_text(config, "controller_name", obs_module_text("PTZ.NDI.ControllerName"), OBS_TEXT_DEFAULT);
 
 	return ptz_props;
 }
-
-
-
-
-
 
 void PTZNDI::pantilt_abs(const double pan, const double tilt)
 {

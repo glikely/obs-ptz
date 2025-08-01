@@ -437,6 +437,8 @@ void PTZSettings::on_addPTZ_clicked()
 		OBSData cfg = obs_data_create();
 		obs_data_release(cfg);
 		obs_data_set_string(cfg, "type", "ndi");
+		obs_data_set_string(cfg, "source_name", "");
+		obs_data_set_string(cfg, "controller_name", "");
 		ptzDeviceList.make_device(cfg);
 	}
 #endif

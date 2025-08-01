@@ -7,6 +7,8 @@
 
 #include <obs.hpp>
 #include "ptz-device.hpp"
+
+#include "ndi-finder.hpp"
 #include "ptz-visca-udp.hpp"
 #include "ptz-visca-tcp.hpp"
 #include "ptz-onvif.hpp"
@@ -756,8 +758,12 @@ void ptz_load_devices()
 			 ptz_move_continuous, NULL);
 
 #if defined(ENABLE_NDI)
+	/* Load NDI */
 	ndi = new NDI();
 	ndi->initNdiLib();
+
+	/* initiate search for NDI devices */
+	NDIFinder::getNDISourceList(nullptr);
 #endif
 }
 

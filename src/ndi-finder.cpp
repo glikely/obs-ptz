@@ -41,7 +41,9 @@ void NDIFinder::refreshNDISourceList(Callback callback)
 	retrieveNDISourceList();
 	std::lock_guard lock(listMutex);
 	lastRefreshTime = std::chrono::steady_clock::now();
-	callback(&NDISourceList);
+	if (callback != nullptr) {
+		callback(&NDISourceList);
+	}
 	isRefreshing = false;
 }
 
@@ -50,7 +52,8 @@ void NDIFinder::retrieveNDISourceList()
 	NDIlib_find_create_t find_desc = {0};
 	find_desc.show_local_sources = true;
 	find_desc.p_groups = nullptr;
-	NDIlib_find_instance_t ndi_find = ndi->lib->find_create_v2(&find_desc);
+	find_desc.p_extra_ips = qEnvironmentVariable("OBS_PTZ_NDI_EXTRA_IPS", "").toStdString().c_str();
+	const NDIlib_find_instance_t ndi_find = ndi->lib->find_create_v2(&find_desc);
 
 	if (!ndi_find) {
 		return;

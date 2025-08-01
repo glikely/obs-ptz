@@ -33,13 +33,11 @@
 class PTZNDI : public PTZDevice {
 	Q_OBJECT
 
-public:
-	static std::vector<std::string> NDISources;
-
 private:
-	const char* receiver_name;
+	const char* controller_name;
 	const char* source_name;
 	NDIlib_recv_instance_t instance;
+	obs_property_t* sources_list;
 
 public:
 	explicit PTZNDI(OBSData config);
