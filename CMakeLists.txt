@@ -123,24 +123,19 @@ endif()
 
 option(ENABLE_NDI "Enable NDI support" ON)
 if(ENABLE_NDI)
-  find_package(Qt6 REQUIRED COMPONENTS Network)
-  if(Qt6Network_FOUND)
-    target_link_libraries(${CMAKE_PROJECT_NAME} PRIVATE Qt6::Network)
-
-    add_compile_definitions(ENABLE_NDI)
-    target_sources(
-            ${CMAKE_PROJECT_NAME}
-            PRIVATE
-              src/ptz-ndi.cpp
-              src/ptz-ndi.hpp
-              src/ndi.cpp
-              src/ndi.hpp
-              src/ndi-finder.cpp
-              src/ndi-finder.hpp
-    )
-    add_subdirectory("${CMAKE_SOURCE_DIR}/shared/ndi" "${CMAKE_BINARY_DIR}/shared/ndi")
-    target_link_libraries(${CMAKE_PROJECT_NAME} PRIVATE OBS::ndi)
-  endif()
+  add_compile_definitions(ENABLE_NDI)
+  target_sources(
+          ${CMAKE_PROJECT_NAME}
+          PRIVATE
+            src/ptz-ndi.cpp
+            src/ptz-ndi.hpp
+            src/ndi.cpp
+            src/ndi.hpp
+            src/ndi-finder.cpp
+            src/ndi-finder.hpp
+  )
+  add_subdirectory("${CMAKE_SOURCE_DIR}/shared/ndi" "${CMAKE_BINARY_DIR}/shared/ndi")
+  target_link_libraries(${CMAKE_PROJECT_NAME} PRIVATE OBS::ndi)
 endif()
 
 set_target_properties_plugin(${CMAKE_PROJECT_NAME} PROPERTIES OUTPUT_NAME ${_name})

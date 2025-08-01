@@ -12,7 +12,6 @@
 #include <QDebug>
 #include <QStringListModel>
 #include <QtGlobal>
-#include <QHostInfo>
 
 #include <__stddef_null.h>
 #include <Processing.NDI.Lib.h>
@@ -34,8 +33,7 @@ class PTZNDI : public PTZDevice {
 	Q_OBJECT
 
 private:
-	const char* controller_name;
-	const char* source_name;
+	const char *source_name;
 	NDIlib_recv_instance_t instance;
 	obs_property_t* sources_list;
 

@@ -27,9 +27,12 @@
 #include "ptz-device.hpp"
 #include "ptz-controls.hpp"
 #include "settings.hpp"
-
-#include "ndi.hpp"
 #include "ui_settings.h"
+
+#ifdef ENABLE_NDI
+#include "ndi.hpp"
+#endif
+
 
 /* ----------------------------------------------------------------- */
 
@@ -438,7 +441,6 @@ void PTZSettings::on_addPTZ_clicked()
 		obs_data_release(cfg);
 		obs_data_set_string(cfg, "type", "ndi");
 		obs_data_set_string(cfg, "source_name", "");
-		obs_data_set_string(cfg, "controller_name", "");
 		ptzDeviceList.make_device(cfg);
 	}
 #endif
