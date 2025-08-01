@@ -35,7 +35,7 @@ class PTZNDI : public PTZDevice {
 private:
 	const char *source_name;
 	NDIlib_recv_instance_t instance;
-	obs_property_t* sources_list;
+	obs_property_t *sources_list;
 
 public:
 	explicit PTZNDI(OBSData config);
@@ -48,15 +48,13 @@ public:
 
 	void do_update() override;
 
-	void pantilt_abs(double pan, double tilt) override;
-	void pantilt_rel(double panSpeed, double tiltSpeed) override;
 	void pantilt_home() override;
-	void zoom_speed_set(double speed);
-	void zoom_abs(double pos) override;
-	void zoom_rel(double speed) const;
-	void focus_abs(double pos) override;
-	void focus_rel(double speed) const;
 	void set_autofocus(bool enabled) override;
 	void memory_set(int i) override;
 	void memory_recall(int i) override;
+
+private:
+	void pantilt_rel() const;
+	void zoom_rel() const;
+	void focus_rel() const;
 };

@@ -30,23 +30,37 @@ PTZNDI::~PTZNDI()
 
 void PTZNDI::do_update()
 {
+	if (status & STATUS_PANTILT_SPEED_CHANGED) {
+		pantilt_rel();
+	}
+	if (status & STATUS_FOCUS_SPEED_CHANGED) {
+		focus_rel();
+	}
+	if (status & STATUS_ZOOM_SPEED_CHANGED) {
+		zoom_rel();
+	}
+
 	status &= ~(STATUS_PANTILT_SPEED_CHANGED | STATUS_ZOOM_SPEED_CHANGED | STATUS_FOCUS_SPEED_CHANGED);
+	ptz_info("do_update");
 }
 
 void PTZNDI::set_config(const OBSData ptz_data)
 {
 	source_name = obs_data_get_string(ptz_data, "source_name");
+	ptz_debug("source_name: '%s'", source_name);
 
 	if (instance) {
+		ptz_debug("cleanup instance");
 		ndi->lib->recv_destroy(instance);
 		instance = nullptr;
+		ptz_debug("cleanup instance done");
 	}
 
-	if (strcmp(source_name, "")) {
+	if (!strcmp(source_name, "")) {
 		return;
 	}
 
-	ptz_info("connecting to source '%s'", source_name);
+	ptz_debug("connecting to source '%s'", source_name);
 
 	NDIlib_source_t src;
 	src.p_ndi_name = source_name;
@@ -57,14 +71,23 @@ void PTZNDI::set_config(const OBSData ptz_data)
 
 	instance = ndi->lib->recv_create_v3(&recv);
 	if (!instance) {
-		ptz_log(LOG_WARNING, "unable to connect to source '%s'", source_name);
+		ptz_log(LOG_WARNING, "unable to connect to NDI source '%s'", source_name);
+		return;
 	}
+	ptz_info("connected to source '%s'", source_name);
+
+	if (ndi->lib->recv_ptz_is_supported(instance)) {
+		ptz_log(LOG_WARNING, "NDI source '%s' does not support PTZ", source_name);
+		return;
+	}
+	ptz_debug("source '%s' supports ptz", source_name);
 }
 
 OBSData PTZNDI::get_config()
 {
 	OBSData config = PTZDevice::get_config();
 	obs_data_set_string(config, "source_name", source_name);
+	obs_data_set_default_string(config, "source_name", "");
 	return config;
 }
 
@@ -79,22 +102,26 @@ obs_properties_t *PTZNDI::get_obs_properties()
 	sources_list = obs_properties_add_list(config, "source_name", obs_module_text("PTZ.NDI.SourceName"),
 					       OBS_COMBO_TYPE_EDITABLE, OBS_COMBO_FORMAT_STRING);
 	obs_property_list_add_string(sources_list, obs_module_text("PTZ.NDI.Loading"), "");
+	obs_property_list_item_disable(sources_list, 0, true);
 
 	auto finder_callback = [this](void *ndi_names) {
 		const auto ndi_sources = static_cast<std::vector<std::string> *>(ndi_names);
 		obs_property_list_clear(sources_list);
 
-		ptz_debug("Callback from NDI");
-
 		if (ndi_sources->empty()) {
 			obs_property_list_add_string(sources_list, obs_module_text("PTZ.NDI.NoSourcesFound"), "");
+			obs_property_list_item_disable(sources_list, 0, true);
+			return;
 		}
+
+		ptz_debug("Found %lu NDI sources via callback", ndi_sources->size());
 		for (auto &source : *ndi_sources) {
 			obs_property_list_add_string(sources_list, source.c_str(), source.c_str());
 		}
 	};
 
 	const auto ndi_sources = NDIFinder::getNDISourceList(finder_callback);
+	ptz_debug("Got %lu NDI sources directly", ndi_sources.size());
 	for (auto &source : ndi_sources) {
 		obs_property_list_add_string(sources_list, source.c_str(), source.c_str());
 	}
@@ -102,98 +129,87 @@ obs_properties_t *PTZNDI::get_obs_properties()
 	return ptz_props;
 }
 
-void PTZNDI::pantilt_abs(const double pan, const double tilt)
+void PTZNDI::pantilt_rel() const
 {
-	if (pan < -1.0 || pan > 1.0)
+	ptz_info("pantilt_rel");
+	if (pan_speed < -1.0 || pan_speed > 1.0)
 		return;
-	if (tilt < -1.0 || tilt > 1.0)
-		return;
-
-	ndi->lib->recv_ptz_pan_tilt(instance, static_cast<float>(pan), static_cast<float>(tilt));
-	ptz_debug("pantilt_abs");
-}
-
-void PTZNDI::pantilt_rel(const double panSpeed, const double tiltSpeed)
-{
-	if (panSpeed < -1.0 || panSpeed > 1.0)
-		return;
-	if (tiltSpeed < -1.0 || tiltSpeed > 1.0)
+	if (tilt_speed < -1.0 || tilt_speed > 1.0)
 		return;
 
-	ndi->lib->recv_ptz_pan_tilt_speed(instance, static_cast<float>(panSpeed), static_cast<float>(tiltSpeed));
-	ptz_debug("pantilt_rel");
+	const auto sent = ndi->lib->recv_ptz_pan_tilt_speed(instance, static_cast<float>(pan_speed),
+							    static_cast<float>(tilt_speed));
+	if (!sent) {
+		ptz_log(LOG_WARNING, "Couldn't send recv_ptz_pan_tilt_speed(%f, %f) to '%s'",
+			static_cast<float>(pan_speed), static_cast<float>(tilt_speed), source_name);
+	}
 }
 
 void PTZNDI::pantilt_home()
 {
-	ndi->lib->recv_ptz_pan_tilt(instance, 0.0f, 0.0f);
-	ptz_debug("pantilt_home");
+	ptz_info("pantilt_home");
+	const auto sent = ndi->lib->recv_ptz_pan_tilt(instance, 0.0f, 0.0f);
+	if (!sent) {
+		ptz_log(LOG_WARNING, "Couldn't send recv_ptz_pan_tilt(0,0) to '%s'", source_name);
+	}
 }
 
-void PTZNDI::zoom_speed_set(const double speed)
+void PTZNDI::zoom_rel() const
 {
-	zoom_speed = static_cast<float>(speed);
-}
-
-void PTZNDI::zoom_abs(const double pos)
-{
-	if (pos < 0.0 || pos > 1.0)
+	ptz_info("zoom_rel");
+	if (zoom_speed < -1.0 || zoom_speed > 1.0)
 		return;
 
-	ndi->lib->recv_ptz_zoom(instance, static_cast<float>(pos));
-	ptz_debug("zoom_abs");
+	const auto sent = ndi->lib->recv_ptz_zoom_speed(instance, static_cast<float>(zoom_speed));
+	if (!sent) {
+		ptz_log(LOG_WARNING, "Couldn't send recv_ptz_zoom_speed to '%s'", source_name);
+	}
 }
 
-void PTZNDI::zoom_rel(const double speed) const
+void PTZNDI::focus_rel() const
 {
-	if (speed < -1.0 || speed > 1.0)
+	ptz_info("focus_abs");
+	if (focus_speed < -1.0 || focus_speed > 1.0)
 		return;
 
-	ndi->lib->recv_ptz_zoom_speed(instance, static_cast<float>(speed));
-	ptz_debug("zoom_rel");
-}
-
-void PTZNDI::focus_abs(const double pos)
-{
-	if (pos < 0.0 || pos > 1.0)
-		return;
-
-	ndi->lib->recv_ptz_focus(instance, static_cast<float>(pos));
-	ptz_debug("focus_abs");
-}
-
-void PTZNDI::focus_rel(const double speed) const
-{
-	if (speed < -1.0 || speed > 1.0)
-		return;
-
-	ndi->lib->recv_ptz_focus_speed(instance, static_cast<float>(speed));
-	ptz_debug("focus_abs");
+	const auto sent = ndi->lib->recv_ptz_focus_speed(instance, static_cast<float>(focus_speed));
+	if (!sent) {
+		ptz_log(LOG_WARNING, "Couldn't send recv_ptz_focus_speed to '%s'", source_name);
+	}
 }
 
 void PTZNDI::set_autofocus(const bool enabled)
 {
+	ptz_info("autofocus");
 	if (!enabled)
 		return;
 
-	ndi->lib->recv_ptz_auto_focus(instance);
-	ptz_debug("autofocus");
+	const auto sent = ndi->lib->recv_ptz_auto_focus(instance);
+	if (!sent) {
+		ptz_log(LOG_WARNING, "Couldn't send recv_ptz_auto_focus to '%s'", source_name);
+	}
 }
 
 void PTZNDI::memory_set(const int i)
 {
+	ptz_info("memory_set");
 	if (i < 0 || i > 99)
 		return;
 
-	ndi->lib->recv_ptz_store_preset(instance, i);
-	ptz_debug("memory_set");
+	const auto sent = ndi->lib->recv_ptz_store_preset(instance, i);
+	if (!sent) {
+		ptz_log(LOG_WARNING, "Couldn't send recv_ptz_store_preset to '%s'", source_name);
+	}
 }
 
 void PTZNDI::memory_recall(const int i)
 {
+	ptz_info("memory_recall");
 	if (i < 0 || i > 99)
 		return;
 
-	ndi->lib->recv_ptz_recall_preset(instance, i, 0.5f);
-	ptz_debug("memory_recall");
+	const auto sent = ndi->lib->recv_ptz_recall_preset(instance, i, 0.5f);
+	if (!sent) {
+		ptz_log(LOG_WARNING, "Couldn't send recv_ptz_recall_preset to '%s'", source_name);
+	}
 }
