@@ -23,7 +23,7 @@ PTZNDI::~PTZNDI()
 	if (!instance)
 		return;
 
-	NDIlib_recv_destroy(instance);
+	ndi->lib->recv_destroy(instance);
 }
 
 void PTZNDI::do_update()
@@ -44,7 +44,7 @@ void PTZNDI::set_config(const OBSData config)
 	recv.bandwidth = NDIlib_recv_bandwidth_metadata_only;
 	recv.source_to_connect_to = src;
 
-	instance = NDIlib_recv_create_v3(&recv);
+	instance = ndi->lib->recv_create_v3(&recv);
 }
 
 OBSData PTZNDI::get_config()
@@ -83,7 +83,7 @@ void PTZNDI::pantilt_abs(const double pan, const double tilt)
 	if (tilt < -1.0 || tilt > 1.0)
 		return;
 	
-	NDIlib_recv_ptz_pan_tilt(instance, static_cast<float>(pan), static_cast<float>(tilt));
+	ndi->lib->recv_ptz_pan_tilt(instance, static_cast<float>(pan), static_cast<float>(tilt));
 	ptz_debug("pantilt_abs");
 }
 
@@ -94,13 +94,13 @@ void PTZNDI::pantilt_rel(const double panSpeed, const double tiltSpeed)
 	if (tiltSpeed < -1.0 || tiltSpeed > 1.0)
 		return;
 
-	NDIlib_recv_ptz_pan_tilt_speed(instance, static_cast<float>(panSpeed), static_cast<float>(tiltSpeed));
+	ndi->lib->recv_ptz_pan_tilt_speed(instance, static_cast<float>(panSpeed), static_cast<float>(tiltSpeed));
 	ptz_debug("pantilt_rel");
 }
 
 void PTZNDI::pantilt_home()
 {
-	NDIlib_recv_ptz_pan_tilt(instance, 0.0f, 0.0f);
+	ndi->lib->recv_ptz_pan_tilt(instance, 0.0f, 0.0f);
 	ptz_debug("pantilt_home");
 }
 
@@ -114,7 +114,7 @@ void PTZNDI::zoom_abs(const double pos)
 	if (pos < 0.0 || pos > 1.0)
 		return;
 
-	NDIlib_recv_ptz_zoom(instance, static_cast<float>(pos));
+	ndi->lib->recv_ptz_zoom(instance, static_cast<float>(pos));
 	ptz_debug("zoom_abs");
 }
 
@@ -123,7 +123,7 @@ void PTZNDI::zoom_rel(const double speed) const
 	if (speed < -1.0 || speed > 1.0)
 		return;
 
-	NDIlib_recv_ptz_zoom_speed(instance, static_cast<float>(speed));
+	ndi->lib->recv_ptz_zoom_speed(instance, static_cast<float>(speed));
 	ptz_debug("zoom_rel");
 }
 
@@ -132,7 +132,7 @@ void PTZNDI::focus_abs(const double pos)
 	if (pos < 0.0 || pos > 1.0)
 		return;
 
-	NDIlib_recv_ptz_focus(instance, static_cast<float>(pos));
+	ndi->lib->recv_ptz_focus(instance, static_cast<float>(pos));
 	ptz_debug("focus_abs");
 }
 
@@ -141,7 +141,7 @@ void PTZNDI::focus_rel(const double speed) const
 	if (speed < -1.0 || speed > 1.0)
 		return;
 
-	NDIlib_recv_ptz_focus_speed(instance, static_cast<float>(speed));
+	ndi->lib->recv_ptz_focus_speed(instance, static_cast<float>(speed));
 	ptz_debug("focus_abs");
 }
 
@@ -150,7 +150,7 @@ void PTZNDI::set_autofocus(const bool enabled)
 	if (!enabled)
 		return;
 
-	NDIlib_recv_ptz_auto_focus(instance);
+	ndi->lib->recv_ptz_auto_focus(instance);
 	ptz_debug("autofocus");
 }
 
@@ -159,7 +159,7 @@ void PTZNDI::memory_set(const int i)
 	if (i < 0 || i > 99)
 		return;
 
-	NDIlib_recv_ptz_store_preset(instance, i);
+	ndi->lib->recv_ptz_store_preset(instance, i);
 	ptz_debug("memory_set");
 }
 
@@ -168,6 +168,6 @@ void PTZNDI::memory_recall(const int i)
 	if (i < 0 || i > 99)
 		return;
 
-	NDIlib_recv_ptz_recall_preset(instance, i, 0.5f);
+	ndi->lib->recv_ptz_recall_preset(instance, i, 0.5f);
 	ptz_debug("memory_recall");
 }
