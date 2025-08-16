@@ -7,6 +7,8 @@
 
 #pragma once
 
+#include <qatomic.h>
+
 #include <util/base.h>
 #include <QObject>
 #include <QDebug>
@@ -33,8 +35,9 @@ class PTZNDI : public PTZDevice {
 	Q_OBJECT
 
 private:
-	const char *source_name;
-	NDIlib_recv_instance_t instance;
+	QString source_name;
+	NDIlib_recv_instance_t instance = nullptr;
+	NDIlib_source_t src;
 	obs_property_t *sources_list;
 
 public:
@@ -52,6 +55,7 @@ public:
 	void set_autofocus(bool enabled) override;
 	void memory_set(int i) override;
 	void memory_recall(int i) override;
+	bool is_connected() const;
 
 private:
 	void pantilt_rel() const;
