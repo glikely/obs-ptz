@@ -52,15 +52,19 @@ void PTZNDI::set_config(OBSData ptz_data)
 	PTZDevice::set_config(ptz_data);
 
 	auto raw_source_name = obs_data_get_string(ptz_data, "source_name");
-	source_name = raw_source_name;
+	QString new_source_name = raw_source_name;
+
+	if (source_name == new_source_name) {
+		return;
+	}
 
 	if (instance) {
-		ptz_debug("cleanup instance");
 		ndi->lib->recv_destroy(instance);
 		instance = nullptr;
 		ptz_debug("cleanup instance done");
 	}
 
+	source_name = new_source_name;
 	if (source_name.isEmpty()) {
 		return;
 	}
@@ -150,7 +154,7 @@ void PTZNDI::pantilt_rel() const
 	if (tilt_speed < -1.0 || tilt_speed > 1.0)
 		return;
 
-	const auto sent = ndi->lib->recv_ptz_pan_tilt_speed(instance, static_cast<float>(pan_speed),
+	const auto sent = ndi->lib->recv_ptz_pan_tilt_speed(instance, static_cast<float>(pan_speed) * -1,
 							    static_cast<float>(tilt_speed));
 	if (!sent) {
 		ptz_log(LOG_WARNING, "Couldn't send recv_ptz_pan_tilt_speed(%f, %f) to '%s'",
