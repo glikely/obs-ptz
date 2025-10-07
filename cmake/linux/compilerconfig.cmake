@@ -13,7 +13,8 @@ set(
   _obs_gcc_c_options
   -fno-strict-aliasing
   -fopenmp-simd
-  -Wdeprecated-declarations
+  #-Wdeprecated-declarations
+  -Wno-deprecated-declarations
   -Wempty-body
   -Wenum-conversion
   -Werror=return-type
