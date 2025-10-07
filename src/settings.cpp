@@ -148,6 +148,8 @@ PTZSettings::PTZSettings() : QWidget(nullptr), ui(new Ui_PTZSettings)
 		"Luca Montibeller Nunes (Portuguese, Brazilian)",
 		"Manoah Tervoort (Dutch)",
 		"Norman Hansen (German)",
+		"Giuseppe Chiodaroli (Italian)",
+		"이지행(Korean)",
 	};
 	const QString translators = QString("<p>%1</p>").arg(translator_list.join("<br/>"));
 	ui->versionLabel->setText(QString("<html><head/><body>%1%2%3%4</body></html>")
