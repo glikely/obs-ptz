@@ -6,9 +6,11 @@
 !/build-aux
 !/cmake
 !/data
+!/lib
 !/src
 !/shared
 !.clang-format
+!.editorconfig
 !.gersemirc
 !.gitignore
 !buildspec.json

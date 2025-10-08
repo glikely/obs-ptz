@@ -29,6 +29,10 @@
 #include "settings.hpp"
 #include "ui_settings.h"
 
+#ifdef ENABLE_NDI
+#include "ndi.hpp"
+#endif
+
 /* ----------------------------------------------------------------- */
 
 static PTZSettings *ptzSettingsWindow = nullptr;
@@ -152,11 +156,18 @@ PTZSettings::PTZSettings() : QWidget(nullptr), ui(new Ui_PTZSettings)
 		"이지행(Korean)",
 	};
 	const QString translators = QString("<p>%1</p>").arg(translator_list.join("<br/>"));
-	ui->versionLabel->setText(QString("<html><head/><body>%1%2%3%4</body></html>")
+#ifdef ENABLE_NDI
+	const QString ndi = QString("<p>%1</p>").arg(obs_module_text(NDI_IS_A_REGISTERED_TRADEMARK_TEXT));
+#endif
+	ui->versionLabel->setText(QString("<html><head/><body>%1%2%3%4%5</body></html>")
 					  .arg(basic_info)
 					  .arg(urls)
 					  .arg(contributors)
-					  .arg(translators));
+					  .arg(translators)
+#ifdef ENABLE_NDI
+					  .arg(ndi)
+#endif
+	);
 }
 
 PTZSettings::~PTZSettings()
@@ -367,6 +378,9 @@ void PTZSettings::on_addPTZ_clicked()
 #if defined(ENABLE_USB_CAM)
 	QAction *addUsbCam = addPTZContext.addAction(obs_module_text("PTZ.UVC.Name"));
 #endif
+#if defined(ENABLE_NDI)
+	QAction *addNdi = addPTZContext.addAction(obs_module_text("PTZ.NDI.Name"));
+#endif
 	QAction *action = addPTZContext.exec(QCursor::pos());
 
 #if defined(ENABLE_SERIALPORT)
@@ -420,6 +434,15 @@ void PTZSettings::on_addPTZ_clicked()
 		OBSData cfg = obs_data_create();
 		obs_data_release(cfg);
 		obs_data_set_string(cfg, "type", "usb-cam");
+		ptzDeviceList.make_device(cfg);
+	}
+#endif
+#if defined(ENABLE_NDI)
+	if (action == addNdi) {
+		OBSData cfg = obs_data_create();
+		obs_data_release(cfg);
+		obs_data_set_string(cfg, "type", "ndi");
+		obs_data_set_string(cfg, "source_name", "");
 		ptzDeviceList.make_device(cfg);
 	}
 #endif

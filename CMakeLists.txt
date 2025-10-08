@@ -121,6 +121,23 @@ if(ENABLE_JOYSTICK)
   add_compile_definitions(ENABLE_JOYSTICK SDL_SUPPORTED)
 endif()
 
+option(ENABLE_NDI "Enable NDI support" ON)
+if(ENABLE_NDI)
+  add_compile_definitions(ENABLE_NDI)
+  target_sources(
+          ${CMAKE_PROJECT_NAME}
+          PRIVATE
+            src/ptz-ndi.cpp
+            src/ptz-ndi.hpp
+            src/ndi.cpp
+            src/ndi.hpp
+            src/ndi-finder.cpp
+            src/ndi-finder.hpp
+  )
+  add_subdirectory("${CMAKE_SOURCE_DIR}/shared/ndi" "${CMAKE_BINARY_DIR}/shared/ndi")
+  target_link_libraries(${CMAKE_PROJECT_NAME} PRIVATE OBS::ndi)
+endif()
+
 set_target_properties_plugin(${CMAKE_PROJECT_NAME} PROPERTIES OUTPUT_NAME ${_name})
 
 if(OS_WINDOWS)

@@ -7,12 +7,18 @@
 
 #include <obs.hpp>
 #include "ptz-device.hpp"
+
+#include "ndi-finder.hpp"
 #include "ptz-visca-udp.hpp"
 #include "ptz-visca-tcp.hpp"
 #include "ptz-onvif.hpp"
 #include "ptz-usb-cam.hpp"
 #include "ptz.h"
 #include "protocol-helpers.hpp"
+
+#if defined(ENABLE_NDI)
+#include "ptz-ndi.hpp"
+#endif
 
 #if defined(ENABLE_SERIALPORT)
 #include "ptz-visca-uart.hpp"
@@ -241,6 +247,10 @@ PTZDevice *PTZListModel::make_device(OBSData config)
 #if defined(ENABLE_USB_CAM)
 	if (type == "usb-cam")
 		ptz = new PTZUSBCam(config);
+#endif /* ENABLE_USB_CAM */
+#if defined(ENABLE_NDI)
+	if (type == "ndi")
+		ptz = new PTZNDI(config);
 #endif /* ENABLE_USB_CAM */
 	return ptz;
 }
@@ -746,6 +756,15 @@ void ptz_load_devices()
 	/* Deprecated pantilt callback for compatibility with existing plugins */
 	proc_handler_add(ph, "void ptz_pantilt(int device_id, float pan, float tilt, float zoom, float focus)",
 			 ptz_move_continuous, NULL);
+
+#if defined(ENABLE_NDI)
+	/* Load NDI */
+	ndi = new NDI();
+	ndi->initNdiLib();
+
+	/* initiate search for NDI devices */
+	NDIFinder::getNDISourceList(nullptr);
+#endif
 }
 
 void ptz_unload_devices(void)
