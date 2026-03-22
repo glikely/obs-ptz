@@ -129,6 +129,7 @@ protected:
 	bool focus_invert = false;
 
 	PTZPresetListModel m_presetsModel;
+	void setConnected(bool connected);
 	obs_properties_t *props;
 	OBSData settings;
 	OBSData statistics;
@@ -137,6 +138,7 @@ protected:
 
 signals:
 	void settingsChanged(OBSData settings);
+	void connectionStatusChanged(bool connected);
 
 public:
 	~PTZDevice();
@@ -205,6 +207,7 @@ public:
 	virtual void memory_recall(int i) { Q_UNUSED(i); }
 	virtual void memory_reset(int i) { Q_UNUSED(i); }
 	virtual QAbstractListModel *presetModel() { return &m_presetsModel; }
+	bool isConnected() const { return status & STATUS_CONNECTED; }
 
 	/* `config` is the device configuration, saved to the config file
 	 * `settings` are the dynamic state of the device which includes the

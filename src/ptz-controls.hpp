@@ -232,6 +232,8 @@ private:
 	QCheckBox *lock = nullptr;
 	QHBoxLayout *boxLayout = nullptr;
 	QLabel *label = nullptr;
+	QLabel *statusDot = nullptr;
+	void updateStatusDot();
 
 	PTZDevice *ptz;
 };

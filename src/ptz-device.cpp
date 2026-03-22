@@ -758,3 +758,14 @@ void PTZDevice::incrementStatistic(const char *name)
 {
 	obs_data_set_int(statistics, name, obs_data_get_int(statistics, name) + 1);
 }
+
+void PTZDevice::setConnected(bool connected)
+{
+	bool was_connected = status & STATUS_CONNECTED;
+	if (connected)
+		status |= STATUS_CONNECTED;
+	else
+		status &= ~STATUS_CONNECTED;
+	if (was_connected != (bool)(status & STATUS_CONNECTED))
+		emit connectionStatusChanged(connected);
+}
