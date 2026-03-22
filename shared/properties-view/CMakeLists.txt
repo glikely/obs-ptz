@@ -57,3 +57,11 @@ target_link_libraries(
     Qt::Core
     Qt::Widgets
 )
+
+# Suppress deprecation warnings for this imported/shared code from OBS Studio upstream
+# This code contains deprecated Qt API usage that should be fixed upstream
+target_compile_options(
+  properties-view
+  INTERFACE
+    $<$<COMPILE_LANGUAGE:CXX>:-Wno-deprecated-declarations>
+)

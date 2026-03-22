@@ -5,6 +5,7 @@
  * SPDX-License-Identifier: GPLv2
  */
 
+#include <algorithm>
 #include <obs.hpp>
 #include "ptz-device.hpp"
 #include "ptz-visca-udp.hpp"
@@ -422,6 +423,13 @@ void PTZPresetListModel::loadPresets(OBSDataArray preset_array)
 	for (size_t i = 0; i < obs_data_array_count(preset_array); i++) {
 		OBSDataAutoRelease item = obs_data_array_item(preset_array, i);
 		auto id = obs_data_get_int(item, "id");
+
+		// Validate: id must be non-negative and within bounds
+		if (id < 0 || (size_t)id >= m_maxPresets) {
+			blog(LOG_WARNING, "[obs-ptz] Skipping invalid preset id: %lld", id);
+			continue;
+		}
+
 		if (m_displayOrder.contains(id))
 			continue;
 		QVariantMap preset = OBSDataToVariantMap(item.Get());
@@ -538,7 +546,13 @@ void PTZDevice::set_config(OBSData config)
 {
 	/* Update the list of preset names */
 	obs_data_set_default_int(config, "preset_max", 16);
-	m_presetsModel.setMaxPresets((size_t)obs_data_get_int(config, "preset_max"));
+	auto preset_max_val = obs_data_get_int(config, "preset_max");
+	// Validate: preset_max must be between 1 and 256
+	if (preset_max_val < 1)
+		preset_max_val = 16;
+	if (preset_max_val > 256)
+		preset_max_val = 256;
+	m_presetsModel.setMaxPresets((size_t)preset_max_val);
 	OBSDataArrayAutoRelease preset_array = obs_data_get_array(config, "presets");
 	m_presetsModel.loadPresets(preset_array.Get());
 
@@ -550,9 +564,9 @@ void PTZDevice::set_config(OBSData config)
 	obs_data_set_default_bool(config, "zoom_invert", false);
 	obs_data_set_default_bool(config, "focus_invert", false);
 
-	pantilt_speed_max = obs_data_get_double(config, "pantilt_speed_max");
-	zoom_speed_max = obs_data_get_double(config, "zoom_speed_max");
-	focus_speed_max = obs_data_get_double(config, "focus_speed_max");
+	pantilt_speed_max = std::clamp(obs_data_get_double(config, "pantilt_speed_max"), 0.01, 10.0);
+	zoom_speed_max = std::clamp(obs_data_get_double(config, "zoom_speed_max"), 0.01, 10.0);
+	focus_speed_max = std::clamp(obs_data_get_double(config, "focus_speed_max"), 0.01, 10.0);
 	pan_invert = obs_data_get_bool(config, "pan_invert");
 	tilt_invert = obs_data_get_bool(config, "tilt_invert");
 	zoom_invert = obs_data_get_bool(config, "zoom_invert");

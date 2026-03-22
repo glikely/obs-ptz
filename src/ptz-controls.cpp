@@ -17,6 +17,7 @@
 #include <QResizeEvent>
 #include <QDockWidget>
 #include <QLabel>
+#include <QFile>
 
 #include <qt-wrappers.hpp>
 #include "touch-control.hpp"
@@ -531,6 +532,21 @@ void PTZControls::SaveConfig()
 	if (!file)
 		return;
 
+	// Create periodic backup (every 10 saves)
+	static int save_count = 0;
+	if (++save_count % 10 == 0) {
+		char *backup = obs_module_config_path("config.backup.json");
+		if (backup) {
+			// Only backup if current config exists and is valid
+			QFile src(file);
+			if (src.exists() && src.size() > 10) {
+				QFile::remove(backup);
+				src.copy(backup);
+			}
+			bfree(backup);
+		}
+	}
+
 	OBSDataAutoRelease savedata = obs_data_create();
 
 	obs_data_set_string(savedata, "splitter_state", ui->splitter->saveState().toBase64().constData());
@@ -594,7 +610,20 @@ void PTZControls::LoadConfig()
 	if (!file)
 		return;
 
+	blog(LOG_INFO, "[obs-ptz] Loading config from: %s", file);
+
 	OBSDataAutoRelease loaddata = obs_data_create_from_json_file_safe(file, "bak");
+	if (!loaddata) {
+		/* Try loading from backup */
+		char *backup = obs_module_config_path("config.backup.json");
+		if (backup) {
+			loaddata = obs_data_create_from_json_file(backup);
+			if (loaddata) {
+				blog(LOG_WARNING, "[obs-ptz] Loaded from backup config");
+			}
+			bfree(backup);
+		}
+	}
 	if (!loaddata) {
 		/* Try loading from the old configuration path */
 		auto f = QString(file).replace("obs-ptz", "ptz-controls");
@@ -648,6 +677,7 @@ void PTZControls::LoadConfig()
 	array = obs_data_get_array(loaddata, "devices");
 	obs_data_array_release(array);
 	ptz_devices_set_config(array);
+	blog(LOG_INFO, "[obs-ptz] Config loaded: %d devices", (int)obs_data_array_count(array));
 	ui->cameraList->setCurrentIndex(
 		ptzDeviceList.indexFromDeviceId(obs_data_get_int(loaddata, "current_selected")));
 }

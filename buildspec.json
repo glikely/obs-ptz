@@ -2,6 +2,7 @@
     "dependencies": {
         "obs-studio": {
             "version": "31.1.1",
+            "_comment": "Plugin targets OBS 31.1.1 but is compatible with OBS 32.x. Update version + hashes when OBS 33 is released to ensure forward compatibility.",
             "baseUrl": "https://github.com/obsproject/obs-studio/archive/refs/tags",
             "label": "OBS sources",
             "hashes": {
