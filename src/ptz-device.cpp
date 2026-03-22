@@ -537,7 +537,7 @@ void PTZDevice::focus(double speed)
 void PTZDevice::set_config(OBSData config)
 {
 	/* Update the list of preset names */
-	obs_data_set_default_double(config, "preset_max", 16);
+	obs_data_set_default_int(config, "preset_max", 16);
 	m_presetsModel.setMaxPresets((size_t)obs_data_get_int(config, "preset_max"));
 	OBSDataArrayAutoRelease preset_array = obs_data_get_array(config, "presets");
 	m_presetsModel.loadPresets(preset_array.Get());

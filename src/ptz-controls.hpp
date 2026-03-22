@@ -69,6 +69,10 @@ private:
 	void SaveConfig();
 	void LoadConfig();
 
+	QTimer *m_autoSaveTimer = nullptr;
+	bool m_configDirty = false;
+	void markDirty();
+
 	void setZoom(double speed);
 	void setFocus(double speed);
 
