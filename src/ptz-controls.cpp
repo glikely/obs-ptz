@@ -17,6 +17,8 @@
 #include <QResizeEvent>
 #include <QDockWidget>
 #include <QLabel>
+#include <QFile>
+#include <QInputDialog>
 
 #include <qt-wrappers.hpp>
 #include "touch-control.hpp"
@@ -1126,7 +1128,31 @@ void PTZControls::on_actionPresetSave_triggered()
 	PTZDevice *ptz = currCamera();
 	if (!model || !index.isValid() || !ptz)
 		return;
-	ptz->memory_set(presetIndexToId(index));
+
+	int preset_id = presetIndexToId(index);
+
+	/* Show name input dialog before saving */
+	QString currentName = model->data(index, Qt::DisplayRole).toString();
+	bool ok = false;
+	QString newName = QInputDialog::getText(
+		this,
+		obs_module_text("PTZ.Action.Preset.Save"),
+		obs_module_text("PTZ.Action.Preset.Name.Label"),
+		QLineEdit::Normal,
+		currentName,
+		&ok);
+
+	if (!ok)
+		return; /* User cancelled — do nothing */
+
+	/* Save camera position to camera memory */
+	ptz->memory_set(preset_id);
+
+	/* Update preset name if changed */
+	if (!newName.isEmpty() && newName != currentName)
+		model->setData(index, newName, Qt::EditRole);
+
+	markDirty();
 }
 
 void PTZControls::on_actionPresetClear_triggered()
