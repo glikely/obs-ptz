@@ -17,6 +17,8 @@
 #include <QResizeEvent>
 #include <QDockWidget>
 #include <QLabel>
+#include <QFile>
+#include <QInputDialog>
 
 #include <qt-wrappers.hpp>
 #include "touch-control.hpp"
@@ -72,7 +74,10 @@ public:
 void PTZControls::OBSFrontendEventWrapper(enum obs_frontend_event event, void *ptr)
 {
 	PTZControls *controls = reinterpret_cast<PTZControls *>(ptr);
-	controls->OBSFrontendEvent(event);
+	// Ensure execution on Qt main thread to prevent crashes
+	// OBS frontend callbacks may come from non-GUI threads
+	QMetaObject::invokeMethod(
+		controls, [controls, event]() { controls->OBSFrontendEvent(event); }, Qt::QueuedConnection);
 }
 
 void PTZControls::OBSFrontendEvent(enum obs_frontend_event event)
@@ -94,6 +99,9 @@ void PTZControls::OBSFrontendEvent(enum obs_frontend_event event)
 		if (autoselectEnabled() && obs_frontend_preview_program_mode_active())
 			scene = obs_frontend_get_current_preview_scene();
 		updateMoveControls();
+		break;
+	case OBS_FRONTEND_EVENT_EXIT:
+		SaveConfig();
 		break;
 	default:
 		break;
@@ -168,6 +176,17 @@ PTZControls::PTZControls(QWidget *parent) : QFrame(parent), ui(new Ui::PTZContro
 	connect(selectionModel, SIGNAL(currentChanged(QModelIndex, QModelIndex)), this,
 		SLOT(currentChanged(QModelIndex, QModelIndex)));
 	connect(&accel_timer, &QTimer::timeout, this, &PTZControls::accelTimerHandler);
+
+	// Auto-save config every 30 seconds if changes were made
+	m_autoSaveTimer = new QTimer(this);
+	m_autoSaveTimer->setInterval(30000);
+	connect(m_autoSaveTimer, &QTimer::timeout, this, [this]() {
+		if (m_configDirty) {
+			SaveConfig();
+			m_configDirty = false;
+		}
+	});
+	m_autoSaveTimer->start();
 
 	connect(ui->panTiltTouch, SIGNAL(positionChanged(double, double)), this, SLOT(setPanTilt(double, double)));
 
@@ -303,6 +322,10 @@ PTZControls::PTZControls(QWidget *parent) : QFrame(parent), ui(new Ui::PTZContro
 
 PTZControls::~PTZControls()
 {
+	if (m_autoSaveTimer) {
+		m_autoSaveTimer->stop();
+	}
+
 	while (!hotkeys.isEmpty())
 		obs_hotkey_unregister(hotkeys.takeFirst());
 
@@ -331,6 +354,7 @@ void PTZControls::setJoystickEnabled(bool enable)
 	setPanTilt(0, 0);
 	setZoom(0);
 	m_joystick_enable = enable;
+	markDirty();
 }
 
 void PTZControls::setJoystickSpeed(double speed)
@@ -339,6 +363,7 @@ void PTZControls::setJoystickSpeed(double speed)
 	/* Immediatly apply the deadzone */
 	auto jd = QJoysticks::getInstance()->getInputDevice(m_joystick_id);
 	joystickAxesChanged(jd, 0b11111111);
+	markDirty();
 }
 
 void PTZControls::setJoystickDeadzone(double deadzone)
@@ -347,6 +372,7 @@ void PTZControls::setJoystickDeadzone(double deadzone)
 	/* Immediatly apply the deadzone */
 	auto jd = QJoysticks::getInstance()->getInputDevice(m_joystick_id);
 	joystickAxesChanged(jd, 0b11111111);
+	markDirty();
 }
 
 double PTZControls::readAxis(const QJoystickDevice *jd, int axis, bool invert)
@@ -462,6 +488,7 @@ void PTZControls::setJoystickAxisAction(size_t axis, ptz_joy_action_id action)
 	if (old_axis != -1)
 		emit joystickAxisActionChanged(old_axis, PTZ_JOY_ACTION_NONE);
 	emit joystickAxisActionChanged(axis, action);
+	markDirty();
 }
 
 void PTZControls::setJoystickButtonHotkey(size_t button, QString hotkey_name)
@@ -471,10 +498,12 @@ void PTZControls::setJoystickButtonHotkey(size_t button, QString hotkey_name)
 	if (hotkey_name == "") {
 		joystick_button_hotkey_mappings.remove(button);
 		emit joystickButtonHotkeyChanged(button, "");
+		markDirty();
 		return;
 	}
 	joystick_button_hotkey_mappings[button] = hotkey_name;
 	emit joystickButtonHotkeyChanged(button, hotkey_name);
+	markDirty();
 }
 
 void PTZControls::copyActionsDynamicProperties()
@@ -492,14 +521,33 @@ void PTZControls::copyActionsDynamicProperties()
 /*
  * Save/Load configuration methods
  */
+void PTZControls::markDirty()
+{
+	m_configDirty = true;
+}
+
 void PTZControls::SaveConfig()
 {
 	char *file = obs_module_config_path("config.json");
 	if (!file)
 		return;
 
-	OBSData savedata = obs_data_create();
-	obs_data_release(savedata);
+	// Create periodic backup (every 10 saves)
+	static int save_count = 0;
+	if (++save_count % 10 == 0) {
+		char *backup = obs_module_config_path("config.backup.json");
+		if (backup) {
+			// Only backup if current config exists and is valid
+			QFile src(file);
+			if (src.exists() && src.size() > 10) {
+				QFile::remove(backup);
+				src.copy(backup);
+			}
+			bfree(backup);
+		}
+	}
+
+	OBSDataAutoRelease savedata = obs_data_create();
 
 	obs_data_set_string(savedata, "splitter_state", ui->splitter->saveState().toBase64().constData());
 
@@ -562,7 +610,20 @@ void PTZControls::LoadConfig()
 	if (!file)
 		return;
 
-	OBSData loaddata = obs_data_create_from_json_file_safe(file, "bak");
+	blog(LOG_INFO, "[obs-ptz] Loading config from: %s", file);
+
+	OBSDataAutoRelease loaddata = obs_data_create_from_json_file_safe(file, "bak");
+	if (!loaddata) {
+		/* Try loading from backup */
+		char *backup = obs_module_config_path("config.backup.json");
+		if (backup) {
+			loaddata = obs_data_create_from_json_file(backup);
+			if (loaddata) {
+				blog(LOG_WARNING, "[obs-ptz] Loaded from backup config");
+			}
+			bfree(backup);
+		}
+	}
 	if (!loaddata) {
 		/* Try loading from the old configuration path */
 		auto f = QString(file).replace("obs-ptz", "ptz-controls");
@@ -571,7 +632,6 @@ void PTZControls::LoadConfig()
 	bfree(file);
 	if (!loaddata)
 		return;
-	obs_data_release(loaddata);
 	obs_data_set_default_int(loaddata, "current_speed", 50);
 	obs_data_set_default_int(loaddata, "debug_log_level", LOG_INFO);
 	obs_data_set_default_bool(loaddata, "live_moves_disabled", true);
@@ -617,6 +677,7 @@ void PTZControls::LoadConfig()
 	array = obs_data_get_array(loaddata, "devices");
 	obs_data_array_release(array);
 	ptz_devices_set_config(array);
+	blog(LOG_INFO, "[obs-ptz] Config loaded: %d devices", (int)obs_data_array_count(array));
 	ui->cameraList->setCurrentIndex(
 		ptzDeviceList.indexFromDeviceId(obs_data_get_int(loaddata, "current_selected")));
 }
@@ -627,6 +688,7 @@ void PTZControls::setAutoselectEnabled(bool enabled)
 		return;
 	autoselect_enabled = enabled;
 	emit autoselectEnabledChanged(enabled);
+	markDirty();
 }
 
 void PTZControls::setDisableLiveMoves(bool disable)
@@ -636,6 +698,7 @@ void PTZControls::setDisableLiveMoves(bool disable)
 	live_moves_disabled = disable;
 	updateMoveControls();
 	emit liveMovesDisabledChanged(disable);
+	markDirty();
 }
 
 void PTZControls::setSpeedRampEnabled(bool enabled)
@@ -644,6 +707,7 @@ void PTZControls::setSpeedRampEnabled(bool enabled)
 		return;
 	speed_ramp_enabled = enabled;
 	emit speedRampEnabledChanged(enabled);
+	markDirty();
 }
 
 PTZDevice *PTZControls::currCamera()
@@ -858,6 +922,7 @@ void PTZControls::ptzDeviceDataChanged(const QModelIndex &, const QModelIndex &)
 			ui->cameraList->setIndexWidget(index, new PTZDeviceListItem(ptz_));
 		}
 	}
+	markDirty();
 }
 
 void PTZControls::updateMoveControls()
@@ -926,6 +991,7 @@ void PTZControls::currentChanged(QModelIndex current, QModelIndex previous)
 	}
 
 	updateMoveControls();
+	markDirty();
 }
 
 void PTZControls::settingsChanged(OBSData settings)
@@ -988,8 +1054,10 @@ void PTZControls::on_pantiltStack_customContextMenuRequested(const QPoint &pos)
 	if (action == nullptr)
 		return;
 
-	if (action == touchpadAction)
+	if (action == touchpadAction) {
 		ui->pantiltStack->setCurrentIndex(!enabled ? 1 : 0);
+		markDirty();
+	}
 }
 
 void PTZControls::on_presetListView_customContextMenuRequested(const QPoint &pos)
@@ -1078,6 +1146,7 @@ void PTZControls::on_actionPresetAdd_triggered()
 		ui->presetListView->edit(index);
 	}
 	presetUpdateActions();
+	markDirty();
 }
 
 void PTZControls::on_actionPresetRemove_triggered()
@@ -1088,6 +1157,7 @@ void PTZControls::on_actionPresetRemove_triggered()
 		return;
 	model->removeRows(index.row(), 1);
 	presetUpdateActions();
+	markDirty();
 }
 
 void PTZControls::on_actionPresetMoveUp_triggered()
@@ -1098,6 +1168,7 @@ void PTZControls::on_actionPresetMoveUp_triggered()
 		return;
 	model->moveRow(QModelIndex(), index.row(), QModelIndex(), index.row() - 1);
 	presetUpdateActions();
+	markDirty();
 }
 
 void PTZControls::on_actionPresetMoveDown_triggered()
@@ -1108,6 +1179,7 @@ void PTZControls::on_actionPresetMoveDown_triggered()
 		return;
 	model->moveRow(QModelIndex(), index.row(), QModelIndex(), index.row() + 2);
 	presetUpdateActions();
+	markDirty();
 }
 
 void PTZControls::on_actionPresetRename_triggered()
@@ -1126,7 +1198,27 @@ void PTZControls::on_actionPresetSave_triggered()
 	PTZDevice *ptz = currCamera();
 	if (!model || !index.isValid() || !ptz)
 		return;
-	ptz->memory_set(presetIndexToId(index));
+
+	int preset_id = presetIndexToId(index);
+
+	/* Show name input dialog before saving */
+	QString currentName = model->data(index, Qt::DisplayRole).toString();
+	bool ok = false;
+	QString newName = QInputDialog::getText(this, obs_module_text("PTZ.Action.Preset.Save"),
+						obs_module_text("PTZ.Action.Preset.Name.Label"), QLineEdit::Normal,
+						currentName, &ok);
+
+	if (!ok)
+		return; /* User cancelled — do nothing */
+
+	/* Save camera position to camera memory */
+	ptz->memory_set(preset_id);
+
+	/* Update preset name if changed */
+	if (!newName.isEmpty() && newName != currentName)
+		model->setData(index, newName, Qt::EditRole);
+
+	markDirty();
 }
 
 void PTZControls::on_actionPresetClear_triggered()
@@ -1138,6 +1230,7 @@ void PTZControls::on_actionPresetClear_triggered()
 		return;
 	ptz->memory_reset(presetIndexToId(index));
 	ui->presetListView->model()->setData(index, "");
+	markDirty();
 }
 
 PTZDeviceListDelegate::PTZDeviceListDelegate(QObject *parent) : QStyledItemDelegate(parent) {}
@@ -1160,6 +1253,13 @@ void PTZDeviceListDelegate::initStyleOption(QStyleOptionViewItem *option, const 
 PTZDeviceListItem::PTZDeviceListItem(PTZDevice *ptz_) : ptz(ptz_)
 {
 	setAttribute(Qt::WA_TranslucentBackground);
+
+	// Connection status indicator
+	statusDot = new QLabel();
+	statusDot->setFixedSize(8, 8);
+	statusDot->setStyleSheet("background-color: #6b7280; border-radius: 4px; margin: 2px;");
+	statusDot->setToolTip(obs_module_text("PTZ.Device.Status.Unknown"));
+
 	lock = new QCheckBox();
 	lock->setProperty("class", "checkbox-icon indicator-lock");
 	lock->setChecked(ptz->isLive());
@@ -1172,11 +1272,16 @@ PTZDeviceListItem::PTZDeviceListItem(PTZDevice *ptz_) : ptz(ptz_)
 	boxLayout = new QHBoxLayout();
 	boxLayout->setContentsMargins(0, 0, 0, 0);
 	boxLayout->setSpacing(0);
+	boxLayout->addWidget(statusDot);
 	boxLayout->addWidget(label);
 	boxLayout->addWidget(lock);
 	setLayout(boxLayout);
 
 	connect(lock, SIGNAL(clicked(bool)), PTZControls::getInstance(), SLOT(updateMoveControls()));
+
+	// Update status dot when connection changes
+	connect(ptz, &PTZDevice::connectionStatusChanged, this, &PTZDeviceListItem::updateStatusDot,
+		Qt::QueuedConnection);
 
 	update();
 }
@@ -1185,6 +1290,19 @@ QSize PTZDeviceListItem::sizeHint() const
 {
 	// The lock may be hidden, so account for it's size manually
 	return QFrame::sizeHint().expandedTo(lock->sizeHint());
+}
+
+void PTZDeviceListItem::updateStatusDot()
+{
+	if (!ptz || !statusDot)
+		return;
+	if (ptz->isConnected()) {
+		statusDot->setStyleSheet("background-color: #22c55e; border-radius: 4px; margin: 2px;");
+		statusDot->setToolTip(obs_module_text("PTZ.Device.Status.Connected"));
+	} else {
+		statusDot->setStyleSheet("background-color: #ef4444; border-radius: 4px; margin: 2px;");
+		statusDot->setToolTip(obs_module_text("PTZ.Device.Status.Disconnected"));
+	}
 }
 
 void PTZDeviceListItem::update()
@@ -1198,4 +1316,5 @@ void PTZDeviceListItem::update()
 	if (label->text() != ptz->objectName())
 		label->setText(ptz->objectName());
 	lock->setVisible(is_live);
+	updateStatusDot();
 }
