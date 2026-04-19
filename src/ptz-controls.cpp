@@ -502,6 +502,7 @@ void PTZControls::SaveConfig()
 	OBSDataAutoRelease savedata = obs_data_create();
 
 	obs_data_set_string(savedata, "splitter_state", ui->splitter->saveState().toBase64().constData());
+	obs_data_set_string(savedata, "vertsplitter_state", ui->vertsplitter->saveState().toBase64().constData());
 
 	obs_data_set_bool(savedata, "live_moves_disabled", liveMovesDisabled());
 	obs_data_set_bool(savedata, "autoselect_enabled", autoselectEnabled());
@@ -612,6 +613,13 @@ void PTZControls::LoadConfig()
 		QByteArray splitterState = QByteArray::fromBase64(QByteArray(splitterStateStr));
 		ui->splitter->restoreState(splitterState);
 	}
+
+	const char *vertsplitterStateStr = obs_data_get_string(loaddata, "vertsplitter_state");
+	if (vertsplitterStateStr) {
+		QByteArray splitterState = QByteArray::fromBase64(QByteArray(vertsplitterStateStr));
+		ui->vertsplitter->restoreState(splitterState);
+	}
+	ui->splitter->setChildrenCollapsible(true);
 
 	array = obs_data_get_array(loaddata, "devices");
 	obs_data_array_release(array);
