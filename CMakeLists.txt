@@ -34,6 +34,40 @@ add_subdirectory("${CMAKE_SOURCE_DIR}/shared/properties-view" "${CMAKE_BINARY_DI
 target_link_libraries(${CMAKE_PROJECT_NAME} PRIVATE OBS::properties-view)
 
 if(ENABLE_QT)
+  # AGL was removed from Xcode 15+, but the prebuilt libraries ask for it
+  if(APPLE)
+    foreach(
+      _qt_target
+      IN
+      ITEMS
+        Qt6::Core
+        Qt6::Widgets
+        Qt6::Svg
+        Qt6::Network
+        Qt6::Xml
+        Qt6::SerialPort
+        WrapOpenGL::WrapOpenGL
+        OpenGL::GL
+        OpenGL::GLU
+    )
+      if(TARGET ${_qt_target})
+        foreach(_qt_prop IN ITEMS INTERFACE_LINK_LIBRARIES INTERFACE_LINK_OPTIONS)
+          get_target_property(_qt_prop_value ${_qt_target} ${_qt_prop})
+          if(_qt_prop_value)
+            set(_qt_prop_cleaned "${_qt_prop_value}")
+            string(REPLACE "-framework;AGL;" "" _qt_prop_cleaned "${_qt_prop_cleaned}")
+            string(REPLACE ";-framework;AGL" "" _qt_prop_cleaned "${_qt_prop_cleaned}")
+            string(REPLACE "-framework;AGL" "" _qt_prop_cleaned "${_qt_prop_cleaned}")
+            string(REPLACE "-framework AGL" "" _qt_prop_cleaned "${_qt_prop_cleaned}")
+            string(REPLACE "/System/Library/Frameworks/AGL.framework" "" _qt_prop_cleaned "${_qt_prop_cleaned}")
+            if(NOT _qt_prop_cleaned STREQUAL _qt_prop_value)
+              set_property(TARGET ${_qt_target} PROPERTY ${_qt_prop} "${_qt_prop_cleaned}")
+            endif()
+          endif()
+        endforeach()
+      endif()
+    endforeach()
+  endif()
   find_package(
     Qt6
     COMPONENTS Widgets Core Svg Network Xml
