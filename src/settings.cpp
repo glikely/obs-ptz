@@ -491,8 +491,10 @@ void PTZSettings::showDevice(uint32_t device_id)
 
 static void obs_event(enum obs_frontend_event event, void *)
 {
-	if (event == OBS_FRONTEND_EVENT_EXIT)
-		delete ptzSettingsWindow;
+	if (event == OBS_FRONTEND_EVENT_EXIT && ptzSettingsWindow) {
+		ptzSettingsWindow->deleteLater();
+		ptzSettingsWindow = nullptr;
+	}
 }
 
 void ptz_settings_show(uint32_t device_id)
