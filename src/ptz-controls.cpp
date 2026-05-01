@@ -499,8 +499,7 @@ void PTZControls::SaveConfig()
 	if (!file)
 		return;
 
-	OBSData savedata = obs_data_create();
-	obs_data_release(savedata);
+	OBSDataAutoRelease savedata = obs_data_create();
 
 	obs_data_set_string(savedata, "splitter_state", ui->splitter->saveState().toBase64().constData());
 
@@ -563,7 +562,7 @@ void PTZControls::LoadConfig()
 	if (!file)
 		return;
 
-	OBSData loaddata = obs_data_create_from_json_file_safe(file, "bak");
+	OBSDataAutoRelease loaddata = obs_data_create_from_json_file_safe(file, "bak");
 	if (!loaddata) {
 		/* Try loading from the old configuration path */
 		auto f = QString(file).replace("obs-ptz", "ptz-controls");
@@ -572,7 +571,6 @@ void PTZControls::LoadConfig()
 	bfree(file);
 	if (!loaddata)
 		return;
-	obs_data_release(loaddata);
 	obs_data_set_default_int(loaddata, "current_speed", 50);
 	obs_data_set_default_int(loaddata, "debug_log_level", LOG_INFO);
 	obs_data_set_default_bool(loaddata, "live_moves_disabled", true);
