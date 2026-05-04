@@ -5,7 +5,7 @@ class CircularListView : public QListView {
 	Q_OBJECT
 
 public:
-	CircularListView(QWidget *parent = nullptr) : QListView(parent){};
+	CircularListView(QWidget *parent = nullptr) : QListView(parent) {};
 
 public slots:
 	void cursorUp();
