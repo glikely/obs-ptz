@@ -104,31 +104,27 @@ class PTZDevice : public QObject {
 	Q_OBJECT
 	friend class PTZListModel;
 
-public:
-	enum StatusFlags {
-		STATUS_CONNECTED = 0x1,
-		STATUS_PANTILT_SPEED_CHANGED = 0x2,
-		STATUS_ZOOM_SPEED_CHANGED = 0x4,
-		STATUS_FOCUS_SPEED_CHANGED = 0x8,
-	};
-
 protected:
 	uint32_t id = 0;
 	std::string type;
-	uint32_t status = 0;
+	bool connected = false;
 	double pan_speed = 0;
 	double tilt_speed = 0;
 	double pantilt_speed_max = 1.0;
 	bool pan_invert = false;
 	bool tilt_invert = false;
+	bool pantilt_changed = false;
 	double zoom_speed = 0;
 	double zoom_speed_max = 1.0;
 	bool zoom_invert = false;
+	bool zoom_changed = false;
 	double focus_speed = 0;
 	double focus_speed_max = 1.0;
 	bool focus_invert = false;
+	bool focus_changed = false;
 
 	PTZPresetListModel m_presetsModel;
+	void setConnected(bool connected);
 	obs_properties_t *props;
 	OBSData settings;
 	OBSData statistics;
@@ -137,6 +133,7 @@ protected:
 
 signals:
 	void settingsChanged(OBSData settings);
+	void connectionStatusChanged(bool connected);
 
 public:
 	~PTZDevice();
@@ -205,6 +202,10 @@ public:
 	virtual void memory_recall(int i) { Q_UNUSED(i); }
 	virtual void memory_reset(int i) { Q_UNUSED(i); }
 	virtual QAbstractListModel *presetModel() { return &m_presetsModel; }
+	bool isConnected() const { return connected; }
+	bool pantiltChanged() const { return pantilt_changed; }
+	bool zoomChanged() const { return zoom_changed; }
+	bool focusChanged() const { return focus_changed; }
 
 	/* `config` is the device configuration, saved to the config file
 	 * `settings` are the dynamic state of the device which includes the

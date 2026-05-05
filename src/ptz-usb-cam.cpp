@@ -358,7 +358,9 @@ obs_properties_t *PTZUSBCam::get_obs_properties()
 
 void PTZUSBCam::do_update()
 {
-	status &= ~(STATUS_PANTILT_SPEED_CHANGED | STATUS_ZOOM_SPEED_CHANGED | STATUS_FOCUS_SPEED_CHANGED);
+	pantilt_changed = false;
+	zoom_changed = false;
+	focus_changed = false;
 }
 
 PTZControl *PTZUSBCam::get_ptz_control()

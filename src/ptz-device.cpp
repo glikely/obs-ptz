@@ -510,7 +510,7 @@ void PTZDevice::pantilt(double pan, double tilt)
 		return;
 	pan_speed = pan;
 	tilt_speed = tilt;
-	status |= STATUS_PANTILT_SPEED_CHANGED;
+	pantilt_changed = true;
 	do_update();
 }
 
@@ -520,7 +520,7 @@ void PTZDevice::zoom(double speed)
 	if (zoom_speed == speed)
 		return;
 	zoom_speed = speed;
-	status |= STATUS_ZOOM_SPEED_CHANGED;
+	zoom_changed = true;
 	do_update();
 }
 
@@ -530,7 +530,7 @@ void PTZDevice::focus(double speed)
 	if (focus_speed == speed)
 		return;
 	focus_speed = speed;
-	status |= STATUS_FOCUS_SPEED_CHANGED;
+	focus_changed = true;
 	do_update();
 }
 
@@ -757,4 +757,12 @@ void ptz_unload_devices(void)
 void PTZDevice::incrementStatistic(const char *name)
 {
 	obs_data_set_int(statistics, name, obs_data_get_int(statistics, name) + 1);
+}
+
+void PTZDevice::setConnected(bool _connected)
+{
+	bool was_connected = connected;
+	connected = _connected;
+	if (was_connected != connected)
+		emit connectionStatusChanged(connected);
 }

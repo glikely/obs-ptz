@@ -695,11 +695,11 @@ void PTZVisca::send_packet(const QByteArray &packet)
 
 void PTZVisca::timeout()
 {
-	if ((status & STATUS_CONNECTED) && active_cmd[0].has_value() && (timeout_retry < 3)) {
+	if (isConnected() && active_cmd[0].has_value() && (timeout_retry < 3)) {
 		send_packet(active_cmd[0].value().cmd);
 		timeout_retry++;
 	} else {
-		status &= ~STATUS_CONNECTED;
+		setConnected(false);
 		active_cmd[0] = std::nullopt;
 		send_pending();
 	}
@@ -718,7 +718,7 @@ void PTZVisca::update_timer_callback()
 
 void PTZVisca::cmd_get_camera_info()
 {
-	status |= STATUS_CONNECTED;
+	setConnected(true);
 	for (auto key : inquires.keys())
 		stale_settings += key;
 	update_timer.start(1000);
@@ -736,14 +736,14 @@ void PTZVisca::receive(const QByteArray &msg)
 
 	switch (msg[1] & 0xf0) {
 	case VISCA_RESPONSE_ACK:
-		status |= STATUS_CONNECTED;
+		setConnected(true);
 		if (slot != 0) {
 			active_cmd[slot] = active_cmd[0];
 			active_cmd[0] = std::nullopt;
 		}
 		break;
 	case VISCA_RESPONSE_COMPLETED:
-		status |= STATUS_CONNECTED;
+		setConnected(true);
 		if (slot == 0)
 			timeout_timer.stop(); /* timer is only for slot 0 */
 		if (!active_cmd[slot].has_value()) {
@@ -808,24 +808,24 @@ void PTZVisca::send_pending()
 		return;
 
 	if (pending_cmds.isEmpty()) {
-		if (status & STATUS_PANTILT_SPEED_CHANGED) {
-			status &= ~STATUS_PANTILT_SPEED_CHANGED;
+		if (pantilt_changed) {
+			pantilt_changed = false;
 			int p = scale_speed(pan_speed, visca_pan_speed_max);
 			int t = -scale_speed(tilt_speed, visca_tilt_speed_max);
 			PTZCmd cmd = VISCA_PanTilt_drive;
 			cmd.encode({p, t});
 			pending_cmds += cmd;
-		} else if (status & STATUS_ZOOM_SPEED_CHANGED) {
-			status &= ~STATUS_ZOOM_SPEED_CHANGED;
+		} else if (zoom_changed) {
+			zoom_changed = false;
 			PTZCmd cmd = VISCA_CAM_Zoom_drive;
 			cmd.encode({scale_speed(zoom_speed, visca_zoom_speed_max + 1)});
 			pending_cmds += cmd;
-		} else if (status & STATUS_FOCUS_SPEED_CHANGED) {
-			status &= ~STATUS_FOCUS_SPEED_CHANGED;
+		} else if (focus_changed) {
+			focus_changed = false;
 			PTZCmd cmd = VISCA_CAM_Focus_drive;
 			cmd.encode({scale_speed(focus_speed, visca_focus_speed_max + 1)});
 			pending_cmds += cmd;
-		} else if (status & STATUS_CONNECTED) {
+		} else if (isConnected()) {
 			QSetIterator<QString> i(stale_settings);
 			while (i.hasNext()) {
 				QString prop = i.next();

@@ -411,13 +411,15 @@ void PTZOnvif::connectCamera()
 
 void PTZOnvif::do_update()
 {
-	if (status & (STATUS_PANTILT_SPEED_CHANGED | STATUS_ZOOM_SPEED_CHANGED)) {
+	if (pantilt_changed || zoom_changed) {
 		if (pan_speed == 0.0 && tilt_speed == 0.0 && zoom_speed == 0.0) {
-			status &= ~(STATUS_PANTILT_SPEED_CHANGED | STATUS_ZOOM_SPEED_CHANGED);
+			pantilt_changed = false;
+			zoom_changed = false;
 			stop();
 		} else if (!m_isBusy) {
 			m_isBusy = true;
-			status &= ~(STATUS_PANTILT_SPEED_CHANGED | STATUS_ZOOM_SPEED_CHANGED);
+			pantilt_changed = false;
+			zoom_changed = false;
 			continuousMove(pan_speed, tilt_speed, zoom_speed);
 		}
 	}

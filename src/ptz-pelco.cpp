@@ -191,8 +191,8 @@ void PTZPelco::do_update()
 	QByteArray msg = QByteArray::fromHex("00000000");
 	bool send_update = false;
 
-	if (status & STATUS_PANTILT_SPEED_CHANGED) {
-		status &= ~STATUS_PANTILT_SPEED_CHANGED;
+	if (pantilt_changed) {
+		pantilt_changed = false;
 		if (tilt_speed) {
 			msg[1] = msg[1] | (tilt_speed > 0.0 ? (1 << 3) : (1 << 4));
 			msg[3] = abs(tilt_speed) * 0x3f;
@@ -204,8 +204,8 @@ void PTZPelco::do_update()
 		send_update = true;
 	}
 
-	if (status & STATUS_ZOOM_SPEED_CHANGED) {
-		status &= ~STATUS_ZOOM_SPEED_CHANGED;
+	if (zoom_changed) {
+		zoom_changed = false;
 		if (zoom_speed) {
 			zoom_speed_set(std::abs(zoom_speed));
 			msg[1] = msg[1] | (zoom_speed > 0.0 ? (1 << 5) : (1 << 6));
@@ -213,8 +213,8 @@ void PTZPelco::do_update()
 		send_update = true;
 	}
 
-	if (status & STATUS_FOCUS_SPEED_CHANGED) {
-		status &= ~STATUS_FOCUS_SPEED_CHANGED;
+	if (focus_changed) {
+		focus_changed = false;
 		if (focus_speed) {
 			focus_speed_set(std::abs(focus_speed));
 			if (focus_speed > 0.0)
