@@ -1166,6 +1166,13 @@ void PTZDeviceListDelegate::initStyleOption(QStyleOptionViewItem *option, const 
 PTZDeviceListItem::PTZDeviceListItem(PTZDevice *ptz_) : ptz(ptz_)
 {
 	setAttribute(Qt::WA_TranslucentBackground);
+
+	// Connection status indicator
+	statusDot = new QLabel();
+	statusDot->setFixedSize(8, 8);
+	statusDot->setStyleSheet("background-color: #6b7280; border-radius: 4px; margin: 2px;");
+	statusDot->setToolTip(obs_module_text("PTZ.Device.Status.Unknown"));
+
 	lock = new QCheckBox();
 	lock->setProperty("class", "checkbox-icon indicator-lock");
 	lock->setChecked(ptz->isLive());
@@ -1178,11 +1185,16 @@ PTZDeviceListItem::PTZDeviceListItem(PTZDevice *ptz_) : ptz(ptz_)
 	boxLayout = new QHBoxLayout();
 	boxLayout->setContentsMargins(0, 0, 0, 0);
 	boxLayout->setSpacing(0);
+	boxLayout->addWidget(statusDot);
 	boxLayout->addWidget(label);
 	boxLayout->addWidget(lock);
 	setLayout(boxLayout);
 
 	connect(lock, SIGNAL(clicked(bool)), PTZControls::getInstance(), SLOT(updateMoveControls()));
+
+	// Update status dot when connection changes
+	connect(ptz, &PTZDevice::connectionStatusChanged, this, &PTZDeviceListItem::updateStatusDot,
+		Qt::QueuedConnection);
 
 	update();
 }
@@ -1191,6 +1203,19 @@ QSize PTZDeviceListItem::sizeHint() const
 {
 	// The lock may be hidden, so account for it's size manually
 	return QFrame::sizeHint().expandedTo(lock->sizeHint());
+}
+
+void PTZDeviceListItem::updateStatusDot()
+{
+	if (!ptz || !statusDot)
+		return;
+	if (ptz->isConnected()) {
+		statusDot->setStyleSheet("background-color: #22c55e; border-radius: 4px; margin: 2px;");
+		statusDot->setToolTip(obs_module_text("PTZ.Device.Status.Connected"));
+	} else {
+		statusDot->setStyleSheet("background-color: #ef4444; border-radius: 4px; margin: 2px;");
+		statusDot->setToolTip(obs_module_text("PTZ.Device.Status.Disconnected"));
+	}
 }
 
 void PTZDeviceListItem::update()
@@ -1204,4 +1229,5 @@ void PTZDeviceListItem::update()
 	if (label->text() != ptz->objectName())
 		label->setText(ptz->objectName());
 	lock->setVisible(is_live);
+	updateStatusDot();
 }
