@@ -35,7 +35,7 @@
       <enum>Qt::Orientation::Horizontal</enum>
      </property>
      <property name="childrenCollapsible">
-      <bool>false</bool>
+      <bool>true</bool>
      </property>
      <widget class="QSplitter" name="vertsplitter">
       <property name="orientation">

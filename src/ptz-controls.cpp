@@ -619,7 +619,6 @@ void PTZControls::LoadConfig()
 		QByteArray splitterState = QByteArray::fromBase64(QByteArray(vertsplitterStateStr));
 		ui->vertsplitter->restoreState(splitterState);
 	}
-	ui->splitter->setChildrenCollapsible(true);
 
 	array = obs_data_get_array(loaddata, "devices");
 	obs_data_array_release(array);
