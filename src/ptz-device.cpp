@@ -151,6 +151,12 @@ QStringList PTZListModel::getDeviceNames() const
 	return names;
 }
 
+bool PTZListModel::callDevice(const QModelIndex &index, const char *method, calldata *cd)
+{
+	auto ptz = getDevice(index);
+	return ptz ? proc_handler_call(ptz->handler, method, cd) : false;
+}
+
 QModelIndex PTZListModel::indexFromDeviceId(uint32_t device_id)
 {
 	int row = (int)devices.keys().indexOf(device_id);
@@ -455,6 +461,73 @@ OBSDataArray PTZPresetListModel::savePresets() const
 
 PTZDevice::PTZDevice(OBSData config) : QObject()
 {
+	/* Create and populate the proc handler methods */
+	handler = proc_handler_create();
+	if (!handler) {
+		blog(LOG_ERROR, "could not allocate proc_handler for %s", obs_data_get_string(config, "name"));
+		return;
+	}
+
+	proc_handler_add(
+		handler, "void stop()",
+		[](void *p, calldata *) { QMetaObject::invokeMethod(static_cast<PTZDevice *>(p), "stop"); }, this);
+	proc_handler_add(
+		handler, "void home()",
+		[](void *p, calldata *) { QMetaObject::invokeMethod(static_cast<PTZDevice *>(p), "pantilt_home"); },
+		this);
+
+	// Pan/tilt/zoom/focus operations
+	proc_handler_add(
+		handler, "void move()",
+		[](void *p, calldata *cd) {
+			QMetaObject::invokeMethod(static_cast<PTZDevice *>(p), "move", Q_ARG(calldata_t *, cd));
+		},
+		this);
+	proc_handler_add(
+		handler, "void move_abs()",
+		[](void *p, calldata *cd) {
+			QMetaObject::invokeMethod(static_cast<PTZDevice *>(p), "move_abs", Q_ARG(calldata_t *, cd));
+		},
+		this);
+	proc_handler_add(
+		handler, "void move_rel()",
+		[](void *p, calldata *cd) {
+			QMetaObject::invokeMethod(static_cast<PTZDevice *>(p), "move_rel", Q_ARG(calldata_t *, cd));
+		},
+		this);
+
+	proc_handler_add(
+		handler, "void set()",
+		[](void *p, calldata *cd) {
+			QMetaObject::invokeMethod(static_cast<PTZDevice *>(p), "set", Q_ARG(calldata_t *, cd));
+		},
+		this);
+
+	auto focus_onetouch_cb = [](void *p, calldata *) {
+		QMetaObject::invokeMethod(static_cast<PTZDevice *>(p), "focus_onetouch");
+	};
+	proc_handler_add(handler, "void focus_onetouch()", focus_onetouch_cb, this);
+
+	proc_handler_add(
+		handler, "void preset_save()",
+		[](void *p, calldata *cd) {
+			QMetaObject::invokeMethod(static_cast<PTZDevice *>(p), "preset_save", Q_ARG(calldata_t *, cd));
+		},
+		this);
+	proc_handler_add(
+		handler, "void preset_recall()",
+		[](void *p, calldata *cd) {
+			QMetaObject::invokeMethod(static_cast<PTZDevice *>(p), "preset_recall",
+						  Q_ARG(calldata_t *, cd));
+		},
+		this);
+	proc_handler_add(
+		handler, "void preset_clear()",
+		[](void *p, calldata *cd) {
+			QMetaObject::invokeMethod(static_cast<PTZDevice *>(p), "preset_clear", Q_ARG(calldata_t *, cd));
+		},
+		this);
+
 	setObjectName(obs_data_get_string(config, "name"));
 	id = (int)obs_data_get_int(config, "id");
 	type = obs_data_get_string(config, "type");
@@ -470,6 +543,8 @@ PTZDevice::PTZDevice(OBSData config) : QObject()
 PTZDevice::~PTZDevice()
 {
 	ptzDeviceList.remove(this);
+	proc_handler_destroy(handler);
+	handler = nullptr;
 }
 
 void PTZDevice::setObjectName(QString name)
@@ -513,6 +588,13 @@ bool PTZDevice::isLive()
 	return live;
 }
 
+void PTZDevice::stop()
+{
+	pantilt(0, 0);
+	zoom(0);
+	focus(0);
+}
+
 void PTZDevice::pantilt(double pan, double tilt)
 {
 	pan = std::clamp(pan * (pan_invert ? -1 : 1), -pantilt_speed_max, pantilt_speed_max);
@@ -543,6 +625,48 @@ void PTZDevice::focus(double speed)
 	focus_speed = speed;
 	focus_changed = true;
 	do_update();
+}
+
+void PTZDevice::move(calldata_t *cd)
+{
+	double p = 0, t = 0, z = 0, f = 0;
+
+	if (calldata_get_float(cd, "pan", &p) + calldata_get_float(cd, "tilt", &t))
+		pantilt(p, t);
+
+	if (calldata_get_float(cd, "zoom", &z))
+		zoom(z);
+
+	if (calldata_get_float(cd, "focus", &f))
+		focus(f);
+}
+
+void PTZDevice::set(calldata_t *cd)
+{
+	bool enable;
+	if (calldata_get_bool(cd, "autofocus", &enable))
+		set_autofocus(enable);
+}
+
+void PTZDevice::preset_save(calldata_t *cd)
+{
+	long long id;
+	if (calldata_get_int(cd, "id", &id))
+		memory_set(id);
+}
+
+void PTZDevice::preset_recall(calldata_t *cd)
+{
+	long long id;
+	if (calldata_get_int(cd, "id", &id))
+		memory_recall(id);
+}
+
+void PTZDevice::preset_clear(calldata_t *cd)
+{
+	long long id;
+	if (calldata_get_int(cd, "id", &id))
+		memory_reset(id);
 }
 
 void PTZDevice::set_config(OBSData config)

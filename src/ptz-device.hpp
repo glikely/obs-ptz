@@ -58,6 +58,7 @@ public:
 	PTZDevice *getDevice(uint32_t device_id) const;
 	PTZDevice *getDeviceByName(const QString &name) const;
 	QStringList getDeviceNames() const;
+	bool callDevice(const QModelIndex &index, const char *method, calldata *cd = nullptr);
 	QModelIndex indexFromDeviceId(uint32_t device_id);
 	void renameDevice(QString new_name, QString prev_name);
 	obs_data_array_t *getConfigs();
@@ -139,6 +140,10 @@ protected:
 	QSet<QString> stale_settings;
 	void incrementStatistic(const char *name);
 
+	// Each PTZ device has a proc handler so methods can be called
+	// from other plugins
+	proc_handler_t *handler = nullptr;
+
 signals:
 	void settingsChanged(OBSData settings);
 	void connectionStatusChanged(bool connected);
@@ -188,6 +193,7 @@ public:
 	 * zoom: range[0.0, 1.0], 0.0 == wide angle, 1.0 == telephoto
 	 * focus: range[0.0, 1.0], 0.0 == far focus, 1.0 == near focus
 	 */
+protected:
 	void pantilt(double pan, double tilt);
 	virtual void pantilt_rel(double pan, double tilt)
 	{
@@ -199,7 +205,6 @@ public:
 		Q_UNUSED(pan);
 		Q_UNUSED(tilt);
 	}
-	virtual void pantilt_home() {}
 	/**
 	 * pantilt_set_home(): record the camera's *current* pan/tilt/zoom as
 	 * its new home position (so a later pantilt_home() returns here).
@@ -214,10 +219,21 @@ public:
 	virtual void set_autofocus(bool enabled) { Q_UNUSED(enabled); };
 	void focus(double speed);
 	virtual void focus_abs(double pos) { Q_UNUSED(pos); }
-	virtual void focus_onetouch() {}
 	virtual void memory_set(int i) { Q_UNUSED(i); }
 	virtual void memory_recall(int i) { Q_UNUSED(i); }
 	virtual void memory_reset(int i) { Q_UNUSED(i); }
+
+protected slots:
+	void stop();
+	virtual void pantilt_home() {}
+	void move(calldata_t *cd);
+	virtual void set(calldata_t *cd);
+	virtual void focus_onetouch() {}
+	void preset_save(calldata_t *cd);
+	void preset_recall(calldata_t *cd);
+	void preset_clear(calldata_t *cd);
+
+public:
 	virtual QAbstractListModel *presetModel() { return &m_presetsModel; }
 	bool isLocked() { return locked; };
 	bool isConnected() const { return connected; }
