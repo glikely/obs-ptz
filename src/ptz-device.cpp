@@ -154,6 +154,12 @@ QStringList PTZListModel::getDeviceNames() const
 	return names;
 }
 
+bool PTZListModel::callDevice(const QModelIndex &index, const char *method, calldata_t *cd)
+{
+	auto ptz = getDevice(index);
+	return ptz ? proc_handler_call(ptz->handler, method, cd) : false;
+}
+
 QModelIndex PTZListModel::indexFromDeviceId(uint32_t device_id)
 {
 	auto ptz = getDevice(device_id);
@@ -486,8 +492,58 @@ OBSDataArray PTZPresetListModel::savePresets() const
 	return preset_array.Get();
 }
 
+/**
+ * Lambda factory macro for the PTZ proc_handler methods. This macro
+ * simplifies the registration of PTZDevice methods as targets for
+ * proc_handler calls.
+ *
+ * In this current implementation, the proc_handler must be called from
+ * the GUI thread. If called from another thread it will output a
+ * warning and return without action. It is done this way because the
+ * calldata_t* is transient and owned by the calling thread, but Qt
+ * objects need to be called from their own thread, and calldata would
+ * be stale if the call was queued with QMetaObject::invokeMethod()
+ *
+ * This isn't ideal, as there are places where other plugins may want to
+ * make calls from their own threads. The rule can be relaxed on a call
+ * by call basis if the method is made thread safe.
+ */
+#define ptz_ph_lambda(_method) [](void *p, calldata_t *cd) \
+	{ \
+		auto ptz = static_cast<PTZDevice *>(p); \
+		if (!ptz) { \
+			blog(LOG_ERROR, "PTZ proc_handler called without PTZDevice pointer"); \
+			return; \
+		} \
+		if (QThread::currentThread() != ptz->thread()) { \
+			blog(LOG_WARNING, "PTZDevice proc_handler '%s'->%s() call from non-GUI thread; ignored", QT_TO_UTF8(ptz->objectName()), #_method); \
+			return; \
+		} \
+		ptz->_method(cd); \
+	}
+
 PTZDevice::PTZDevice(OBSData config) : QObject()
 {
+	/* Create and populate the proc handler methods */
+	handler = proc_handler_create();
+	if (!handler) {
+		blog(LOG_ERROR, "could not allocate proc_handler for %s", obs_data_get_string(config, "name"));
+		return;
+	}
+
+	proc_handler_add(handler, "void stop()", ptz_ph_lambda(stop), this);
+	proc_handler_add(handler, "void home()", ptz_ph_lambda(pantilt_home), this);
+	proc_handler_add(handler, "void set_home()", ptz_ph_lambda(pantilt_set_home), this);
+	// Pan/tilt/zoom/focus operations
+	proc_handler_add(handler, "void move()", ptz_ph_lambda(move), this);
+	proc_handler_add(handler, "void move_abs()", ptz_ph_lambda(move_abs), this);
+	proc_handler_add(handler, "void move_rel()", ptz_ph_lambda(move_rel), this);
+	proc_handler_add(handler, "void set()", ptz_ph_lambda(set), this);
+	proc_handler_add(handler, "void focus_onetouch()", ptz_ph_lambda(focus_onetouch), this);
+	proc_handler_add(handler, "void preset_save()", ptz_ph_lambda(preset_save), this);
+	proc_handler_add(handler, "void preset_recall()", ptz_ph_lambda(preset_recall), this);
+	proc_handler_add(handler, "void preset_clear()", ptz_ph_lambda(preset_clear), this);
+
 	setObjectName(obs_data_get_string(config, "name"));
 	id = (int)obs_data_get_int(config, "id");
 	type = obs_data_get_string(config, "type");
@@ -503,6 +559,8 @@ PTZDevice::PTZDevice(OBSData config) : QObject()
 PTZDevice::~PTZDevice()
 {
 	ptzDeviceList.remove(this);
+	proc_handler_destroy(handler);
+	handler = nullptr;
 }
 
 void PTZDevice::setObjectName(QString name)
@@ -549,6 +607,13 @@ void PTZDevice::onSceneChanged()
 	}
 }
 
+void PTZDevice::stop()
+{
+	pantilt(0, 0);
+	zoom(0);
+	focus(0);
+}
+
 void PTZDevice::pantilt(double pan, double tilt)
 {
 	pan = std::clamp(pan * (pan_invert ? -1 : 1), -pantilt_speed_max, pantilt_speed_max);
@@ -579,6 +644,70 @@ void PTZDevice::focus(double speed)
 	focus_speed = speed;
 	focus_changed = true;
 	do_update();
+}
+
+void PTZDevice::move(calldata_t *cd)
+{
+	double p = 0, t = 0, z = 0, f = 0;
+
+	if (calldata_get_float(cd, "pan", &p) + calldata_get_float(cd, "tilt", &t))
+		pantilt(p, t);
+
+	if (calldata_get_float(cd, "zoom", &z))
+		zoom(z);
+
+	if (calldata_get_float(cd, "focus", &f))
+		focus(f);
+}
+
+void PTZDevice::move_abs(calldata_t *cd)
+{
+	double p = 0, t = 0, z = 0, f = 0;
+
+	if (calldata_get_float(cd, "pan", &p) + calldata_get_float(cd, "tilt", &t))
+		pantilt_abs(p, t);
+
+	if (calldata_get_float(cd, "zoom", &z))
+		zoom_abs(z);
+
+	if (calldata_get_float(cd, "focus", &f))
+		focus_abs(f);
+}
+
+void PTZDevice::move_rel(calldata_t *cd)
+{
+	double p = 0, t = 0;
+
+	if (calldata_get_float(cd, "pan", &p) + calldata_get_float(cd, "tilt", &t))
+		pantilt_rel(p, t);
+}
+
+void PTZDevice::set(calldata_t *cd)
+{
+	bool enable;
+	if (calldata_get_bool(cd, "autofocus", &enable))
+		set_autofocus(enable);
+}
+
+void PTZDevice::preset_save(calldata_t *cd)
+{
+	long long id;
+	if (calldata_get_int(cd, "preset_id", &id))
+		memory_set(id);
+}
+
+void PTZDevice::preset_recall(calldata_t *cd)
+{
+	long long id;
+	if (calldata_get_int(cd, "preset_id", &id))
+		memory_recall(id);
+}
+
+void PTZDevice::preset_clear(calldata_t *cd)
+{
+	long long id;
+	if (calldata_get_int(cd, "preset_id", &id))
+		memory_reset(id);
 }
 
 void PTZDevice::set_config(OBSData config)

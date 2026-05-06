@@ -666,29 +666,47 @@ PTZDevice *PTZControls::currCamera()
 	return ptzDeviceList.getDevice(ui->cameraList->currentIndex());
 }
 
+bool PTZControls::callCurrentDevice(const char *method, calldata_t *cd)
+{
+	return ptzDeviceList.callDevice(ui->cameraList->currentIndex(), method, cd);
+}
+
 void PTZControls::accelTimerHandler()
 {
-	PTZDevice *ptz = currCamera();
-	if (!ptz) {
+	calldata cd = {};
+	if (!ui->cameraList->currentIndex().isValid()) {
 		accel_timer.stop();
 		return;
 	}
 
-	pan_speed = std::clamp(pan_speed + pan_accel, -1.0, 1.0);
-	if (std::abs(pan_speed) == 1.0)
-		pan_accel = 0.0;
-	tilt_speed = std::clamp(tilt_speed + tilt_accel, -1.0, 1.0);
-	if (std::abs(tilt_speed) == 1.0)
-		tilt_accel = 0.0;
-	ptz->pantilt(pan_speed, tilt_speed);
-	zoom_speed = std::clamp(zoom_speed + zoom_accel, -1.0, 1.0);
-	if (std::abs(zoom_speed) == 1.0)
-		zoom_accel = 0.0;
-	ptz->zoom(zoom_speed);
-	focus_speed = std::clamp(focus_speed + focus_accel, -1.0, 1.0);
-	if (std::abs(focus_speed) == 1.0)
-		focus_accel = 0.0;
-	ptz->focus(focus_speed);
+	if (pan_accel || tilt_accel) {
+		pan_speed = std::clamp(pan_speed + pan_accel, -1.0, 1.0);
+		if (std::abs(pan_speed) == 1.0)
+			pan_accel = 0.0;
+		tilt_speed = std::clamp(tilt_speed + tilt_accel, -1.0, 1.0);
+		if (std::abs(tilt_speed) == 1.0)
+			tilt_accel = 0.0;
+		calldata_set_float(&cd, "pan", pan_speed);
+		calldata_set_float(&cd, "tilt", tilt_speed);
+	}
+
+	if (zoom_accel) {
+		zoom_speed = std::clamp(zoom_speed + zoom_accel, -1.0, 1.0);
+		if (std::abs(zoom_speed) == 1.0)
+			zoom_accel = 0.0;
+		calldata_set_float(&cd, "zoom", zoom_speed);
+	}
+
+	if (focus_accel) {
+		focus_speed = std::clamp(focus_speed + focus_accel, -1.0, 1.0);
+		if (std::abs(focus_speed) == 1.0)
+			focus_accel = 0.0;
+		calldata_set_float(&cd, "focus", focus_speed);
+	}
+
+	callCurrentDevice("move", &cd);
+	calldata_free(&cd);
+
 	if (pan_accel == 0.0 && tilt_accel == 0.0 && zoom_accel == 0.0 && focus_accel == 0.0)
 		accel_timer.stop();
 }
@@ -701,12 +719,14 @@ void PTZControls::setPanTilt(double pan, double tilt, double pan_accel_, double 
 	tilt_accel = tilt_accel_;
 	pantiltingFlag = pan != 0 || tilt != 0;
 
-	PTZDevice *ptz = currCamera();
-	if (!ptz)
-		return;
-	ptz->pantilt(pan, tilt);
 	if (pan_accel != 0 || tilt_accel != 0)
 		accel_timer.start(2000 / 20);
+
+	calldata cd = {};
+	calldata_set_float(&cd, "pan", pan_speed);
+	calldata_set_float(&cd, "tilt", tilt_speed);
+	callCurrentDevice("move", &cd);
+	calldata_free(&cd);
 }
 
 void PTZControls::keypressPanTilt(double pan, double tilt)
@@ -734,10 +754,6 @@ void PTZControls::keypressPanTilt(double pan, double tilt)
  */
 void PTZControls::setZoom(double zoom)
 {
-	PTZDevice *ptz = currCamera();
-	if (!ptz)
-		return;
-
 	auto modifiers = QGuiApplication::keyboardModifiers();
 	double speed = 0.5;
 	zoomingFlag = (zoom != 0.0);
@@ -746,15 +762,14 @@ void PTZControls::setZoom(double zoom)
 	else if (modifiers.testFlag(Qt::ShiftModifier))
 		speed = 0.1;
 
-	ptz->zoom(zoom * speed);
+	calldata cd = {};
+	calldata_set_float(&cd, "zoom", zoom * speed);
+	callCurrentDevice("move", &cd);
+	calldata_free(&cd);
 }
 
 void PTZControls::setFocus(double focus)
 {
-	PTZDevice *ptz = currCamera();
-	if (!ptz)
-		return;
-
 	auto modifiers = QGuiApplication::keyboardModifiers();
 	double speed = 0.5;
 	focusingFlag = (focus != 0.0);
@@ -763,7 +778,10 @@ void PTZControls::setFocus(double focus)
 	else if (modifiers.testFlag(Qt::ShiftModifier))
 		speed = 0.1;
 
-	ptz->focus(focus * speed);
+	calldata cd = {};
+	calldata_set_float(&cd, "focus", focus * speed);
+	callCurrentDevice("move", &cd);
+	calldata_free(&cd);
 }
 
 /* The pan/tilt buttons are a large block of simple and mostly identical code.
@@ -789,9 +807,7 @@ button_pantilt_actions(downright, 1, -1);
 
 void PTZControls::on_panTiltButton_home_released()
 {
-	PTZDevice *ptz = currCamera();
-	if (ptz)
-		ptz->pantilt_home();
+	callCurrentDevice("home");
 }
 
 void PTZControls::onHomeButtonContextMenu(const QPoint &pos)
@@ -801,11 +817,8 @@ void PTZControls::onHomeButtonContextMenu(const QPoint &pos)
 	QMenu menu(this);
 	QAction *setHome = menu.addAction(obs_module_text("PTZ.Action.SetHome"));
 	QAction *picked = menu.exec(ui->panTiltButton_home->mapToGlobal(pos));
-	if (picked == setHome) {
-		auto ptz = currCamera();
-		if (ptz)
-			ptz->pantilt_set_home();
-	}
+	if (picked == setHome)
+		callCurrentDevice("set_home");
 }
 
 /* There are fewer buttons for zoom or focus; so don't bother with macros */
@@ -832,9 +845,10 @@ void PTZControls::on_zoomButton_wide_released()
 void PTZControls::on_focusButton_auto_clicked(bool checked)
 {
 	setAutofocusEnabled(checked);
-	PTZDevice *ptz = currCamera();
-	if (ptz)
-		ptz->set_autofocus(checked);
+	calldata cd = {};
+	calldata_set_bool(&cd, "autofocus", checked);
+	callCurrentDevice("set", &cd);
+	calldata_free(&cd);
 }
 
 void PTZControls::on_focusButton_near_pressed()
@@ -859,9 +873,7 @@ void PTZControls::on_focusButton_far_released()
 
 void PTZControls::on_focusButton_onetouch_clicked()
 {
-	PTZDevice *ptz = currCamera();
-	if (ptz)
-		ptz->focus_onetouch();
+	callCurrentDevice("focus_onetouch");
 }
 
 void PTZControls::setAutofocusEnabled(bool autofocus_on)
@@ -888,15 +900,10 @@ void PTZControls::currentChanged(QModelIndex current, QModelIndex previous)
 {
 	PTZDevice *ptz = ptzDeviceList.getDevice(previous);
 	accel_timer.stop();
-	if (ptz) {
+	if (ptz)
 		disconnect(ptz, nullptr, this, nullptr);
-		if (pantiltingFlag)
-			ptz->pantilt(0, 0);
-		if (zoomingFlag)
-			ptz->zoom(0);
-		if (focusingFlag)
-			ptz->focus(0);
-	}
+	if (pantiltingFlag || zoomingFlag || focusingFlag)
+		ptzDeviceList.callDevice(previous, "stop");
 	pantiltingFlag = false;
 	zoomingFlag = false;
 	focusingFlag = false;
@@ -929,18 +936,26 @@ void PTZControls::settingsChanged(OBSData settings)
 
 void PTZControls::presetSet(int preset_id)
 {
-	PTZDevice *ptz = currCamera();
-	if (!ptz)
-		return;
-	ptz->memory_set(preset_id);
+	calldata cd = {};
+	calldata_set_int(&cd, "preset_id", preset_id);
+	callCurrentDevice("preset_save", &cd);
+	calldata_free(&cd);
 }
 
 void PTZControls::presetRecall(int preset_id)
 {
-	PTZDevice *ptz = currCamera();
-	if (!ptz)
-		return;
-	ptz->memory_recall(preset_id);
+	calldata cd = {};
+	calldata_set_int(&cd, "preset_id", preset_id);
+	callCurrentDevice("preset_recall", &cd);
+	calldata_free(&cd);
+}
+
+void PTZControls::presetReset(int preset_id)
+{
+	calldata cd = {};
+	calldata_set_int(&cd, "preset_id", preset_id);
+	callCurrentDevice("preset_clear", &cd);
+	calldata_free(&cd);
 }
 
 int PTZControls::presetIndexToId(QModelIndex index)
@@ -1110,20 +1125,18 @@ void PTZControls::on_actionPresetSave_triggered()
 {
 	auto model = ui->presetListView->model();
 	auto index = ui->presetListView->currentIndex();
-	PTZDevice *ptz = currCamera();
-	if (!model || !index.isValid() || !ptz)
+	if (!model || !index.isValid())
 		return;
-	ptz->memory_set(presetIndexToId(index));
+	presetSet(presetIndexToId(index));
 }
 
 void PTZControls::on_actionPresetClear_triggered()
 {
 	auto model = ui->presetListView->model();
 	auto index = ui->presetListView->currentIndex();
-	PTZDevice *ptz = currCamera();
-	if (!model || !index.isValid() || !ptz)
+	if (!model || !index.isValid())
 		return;
-	ptz->memory_reset(presetIndexToId(index));
+	presetReset(presetIndexToId(index));
 	ui->presetListView->model()->setData(index, "");
 }
 

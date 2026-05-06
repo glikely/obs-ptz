@@ -74,9 +74,11 @@ private:
 	int presetIndexToId(QModelIndex index);
 	void presetSet(int id);
 	void presetRecall(int id);
+	void presetReset(int id);
 	void setAutofocusEnabled(bool autofocus_on);
 
 	PTZDevice *currCamera();
+	bool callCurrentDevice(const char *method, calldata_t *cd = nullptr);
 
 	QList<obs_hotkey_id> hotkeys;
 	QMap<obs_hotkey_id, int> preset_hotkey_map;
