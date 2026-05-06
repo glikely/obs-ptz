@@ -711,14 +711,17 @@ void PTZControls::setPanTilt(double pan, double tilt, double pan_accel_, double 
 void PTZControls::keypressPanTilt(double pan, double tilt)
 {
 	auto modifiers = QGuiApplication::keyboardModifiers();
+	double speed = 0.5;
+	double ramp = 0;
+
 	if (modifiers.testFlag(Qt::ControlModifier))
-		setPanTilt(pan, tilt);
+		speed = 1.0;
 	else if (modifiers.testFlag(Qt::ShiftModifier))
-		setPanTilt(pan * 0.05, tilt * 0.05);
-	else if (!speedRampEnabled())
-		setPanTilt(pan * 0.5, tilt * 0.5);
-	else
-		setPanTilt(pan * 0.05, tilt * 0.05, pan * 0.05, tilt * 0.05);
+		speed = 0.05;
+	else if (speedRampEnabled())
+		speed = ramp = 0.05;
+
+	setPanTilt(pan * speed, tilt * speed, pan * ramp, tilt * ramp);
 }
 
 /** setZoom(double speed)
@@ -734,14 +737,15 @@ void PTZControls::setZoom(double zoom)
 	if (!ptz)
 		return;
 
+	auto modifiers = QGuiApplication::keyboardModifiers();
+	double speed = 0.5;
 	zoomingFlag = (zoom != 0.0);
-	if (QGuiApplication::keyboardModifiers().testFlag(Qt::ControlModifier)) {
-		ptz->zoom(zoom);
-	} else if (QGuiApplication::keyboardModifiers().testFlag(Qt::ShiftModifier)) {
-		ptz->zoom(zoom * 0.1);
-	} else {
-		ptz->zoom(zoom * 0.5);
-	}
+	if (modifiers.testFlag(Qt::ControlModifier))
+		speed = 1.0;
+	else if (modifiers.testFlag(Qt::ShiftModifier))
+		speed = 0.1;
+
+	ptz->zoom(zoom * speed);
 }
 
 void PTZControls::setFocus(double focus)
@@ -750,14 +754,15 @@ void PTZControls::setFocus(double focus)
 	if (!ptz)
 		return;
 
+	auto modifiers = QGuiApplication::keyboardModifiers();
+	double speed = 0.5;
 	focusingFlag = (focus != 0.0);
-	if (QGuiApplication::keyboardModifiers().testFlag(Qt::ControlModifier)) {
-		ptz->focus(focus);
-	} else if (QGuiApplication::keyboardModifiers().testFlag(Qt::ShiftModifier)) {
-		ptz->focus(focus * 0.1);
-	} else {
-		ptz->focus(focus * 0.5);
-	}
+	if (modifiers.testFlag(Qt::ControlModifier))
+		speed = 1.0;
+	else if (modifiers.testFlag(Qt::ShiftModifier))
+		speed = 0.1;
+
+	ptz->focus(focus * speed);
 }
 
 /* The pan/tilt buttons are a large block of simple and mostly identical code.
