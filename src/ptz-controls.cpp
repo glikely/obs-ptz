@@ -962,8 +962,7 @@ void PTZControls::currentChanged(QModelIndex current, QModelIndex previous)
 				SLOT(presetUpdateActions()));
 		ptz->connect(ptz, SIGNAL(settingsChanged(OBSData)), this, SLOT(settingsChanged(OBSData)));
 
-		auto settings = ptz->get_settings();
-		setAutofocusEnabled(obs_data_get_bool(settings, "focus_af_enabled"));
+		settingsChanged(ptz->get_settings());
 	}
 
 	updateMoveControls();
