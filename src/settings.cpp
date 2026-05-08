@@ -35,14 +35,33 @@ static PTZSettings *ptzSettingsWindow = nullptr;
 
 /* ----------------------------------------------------------------- */
 
-QString SourceNameDelegate::displayText(const QVariant &value, const QLocale &locale) const
-{
-	auto string = QStyledItemDelegate::displayText(value, locale);
-	auto ptz = ptzDeviceList.getDeviceByName(string);
-	if (ptz)
-		return ptz->description() + " - " + string;
-	return string;
-}
+class SourceNameDelegate : public QStyledItemDelegate {
+	Q_DISABLE_COPY(SourceNameDelegate)
+
+public:
+	using QStyledItemDelegate::QStyledItemDelegate;
+	void fixName(QStyleOptionViewItem *opt, const QModelIndex &index) const
+	{
+		initStyleOption(opt, index);
+		opt->text = opt->text + " [" + index.data(PTZListModel::DescriptionRole).toString() + "]";
+	}
+	void paint(QPainter *painter, const QStyleOptionViewItem &option, const QModelIndex &index) const override
+	{
+		Q_ASSERT(index.isValid());
+		QStyleOptionViewItem opt = option;
+		fixName(&opt, index);
+		QStyle *style = option.widget ? option.widget->style() : QApplication::style();
+		style->drawControl(QStyle::CE_ItemViewItem, &opt, painter, option.widget);
+	}
+	QSize sizeHint(const QStyleOptionViewItem &option, const QModelIndex &index) const override
+	{
+		Q_ASSERT(index.isValid());
+		QStyleOptionViewItem opt = option;
+		fixName(&opt, index);
+		QStyle *style = option.widget ? option.widget->style() : QApplication::style();
+		return style->sizeFromContents(QStyle::CT_ItemViewItem, &opt, QSize(), option.widget);
+	}
+};
 
 obs_properties_t *PTZSettings::getProperties(void)
 {
