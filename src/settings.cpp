@@ -429,10 +429,7 @@ void PTZSettings::on_addPTZ_clicked()
 
 void PTZSettings::on_removePTZ_clicked()
 {
-	PTZDevice *ptz = ptzDeviceList.getDevice(ui->deviceList->currentIndex());
-	if (!ptz)
-		return;
-	delete ptz;
+	ptzDeviceList.removeDevice(ui->deviceList->currentIndex());
 }
 
 void PTZSettings::on_applyButton_clicked()

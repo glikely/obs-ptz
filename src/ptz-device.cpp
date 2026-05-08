@@ -194,6 +194,13 @@ void PTZListModel::add(PTZDevice *ptz)
 	do_reset();
 }
 
+void PTZListModel::removeDevice(const QModelIndex &index)
+{
+	PTZDevice *ptz = getDevice(index);
+	if (ptz)
+		delete ptz;
+}
+
 void PTZListModel::remove(PTZDevice *ptz)
 {
 	devicesById.remove(ptz->getId());
