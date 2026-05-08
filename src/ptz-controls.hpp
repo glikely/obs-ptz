@@ -77,7 +77,6 @@ private:
 	void presetReset(int id);
 	void setAutofocusEnabled(bool autofocus_on);
 
-	PTZDevice *currCamera();
 	bool callCurrentDevice(const char *method, calldata_t *cd = nullptr);
 
 	QList<obs_hotkey_id> hotkeys;

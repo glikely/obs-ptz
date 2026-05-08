@@ -661,11 +661,6 @@ void PTZControls::setSpeedRampEnabled(bool enabled)
 	emit speedRampEnabledChanged(enabled);
 }
 
-PTZDevice *PTZControls::currCamera()
-{
-	return ptzDeviceList.getDevice(ui->cameraList->currentIndex());
-}
-
 bool PTZControls::callCurrentDevice(const char *method, calldata_t *cd)
 {
 	return ptzDeviceList.callDevice(ui->cameraList->currentIndex(), method, cd);
