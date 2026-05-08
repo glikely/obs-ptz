@@ -78,7 +78,6 @@ private:
 	void setAutofocusEnabled(bool autofocus_on);
 
 	/* Wrappers to camera API */
-	PTZDevice *currCamera();
 	bool callCamera(const char *method, calldata *cd = nullptr);
 
 	QList<obs_hotkey_id> hotkeys;
