@@ -151,9 +151,23 @@ QStringList PTZListModel::getDeviceNames() const
 	return names;
 }
 
+/**
+ * This variant of callDevice accepts a QModelIndex into the data model
+ * to choose which device will receive the call
+ */
 bool PTZListModel::callDevice(const QModelIndex &index, const char *method, calldata *cd)
 {
 	auto ptz = getDevice(index);
+	return ptz ? proc_handler_call(ptz->handler, method, cd) : false;
+}
+
+/**
+ * This variant of callDevice extracts the device_id from calldata
+ * before calling the device's proc handler.
+ */
+bool PTZListModel::callDevice(const char *method, calldata *cd)
+{
+	auto ptz = getDevice(calldata_int(cd, "device_id"));
 	return ptz ? proc_handler_call(ptz->handler, method, cd) : false;
 }
 
@@ -281,27 +295,6 @@ void PTZListModel::delete_all()
 	// Devices remove themselves when deleted, so just loop until empty
 	while (!devices.isEmpty())
 		delete devices.first();
-}
-
-enum {
-	MOVE_FLAG_PANTILT = 1 << 0,
-	MOVE_FLAG_ZOOM = 1 << 1,
-	MOVE_FLAG_FOCUS = 1 << 2,
-};
-
-void PTZListModel::move_continuous(uint32_t device_id, uint32_t flags, double pan, double tilt, double zoom,
-				   double focus)
-{
-	PTZDevice *ptz = ptzDeviceList.getDevice(device_id);
-	if (!ptz)
-		return;
-
-	if (flags & MOVE_FLAG_PANTILT)
-		ptz->pantilt(pan, tilt);
-	if (flags & MOVE_FLAG_ZOOM)
-		ptz->zoom(zoom);
-	if (flags & MOVE_FLAG_FOCUS)
-		ptz->focus(focus);
 }
 
 int PTZPresetListModel::rowCount(const QModelIndex &parent) const
@@ -835,36 +828,15 @@ void ptz_load_devices()
 		return;
 
 	/* Preset Recall/Save Callback */
-	auto ptz_preset_cb = [](void *data, calldata_t *cd) {
-		auto function = static_cast<const char *>(data);
-		QMetaObject::invokeMethod(&ptzDeviceList, function, Q_ARG(uint32_t, calldata_int(cd, "device_id")),
-					  Q_ARG(int, calldata_int(cd, "preset_id")));
+	auto ptz_cb = [](void *p, calldata_t *cd) {
+		ptzDeviceList.callDevice(static_cast<const char *>(p), cd);
 	};
-	proc_handler_add(ptz_ph, "void ptz_preset_recall(int device_id, int preset_id)", ptz_preset_cb,
+	proc_handler_add(ptz_ph, "void ptz_preset_save(int device_id, int preset_id)", ptz_cb, (void *)"preset_save");
+	proc_handler_add(ptz_ph, "void ptz_preset_recall(int device_id, int preset_id)", ptz_cb,
 			 (void *)"preset_recall");
-	proc_handler_add(ptz_ph, "void ptz_preset_save(int device_id, int preset_id)", ptz_preset_cb,
-			 (void *)"preset_save");
-
-	auto ptz_move_continuous = [](void *data, calldata_t *cd) {
-		Q_UNUSED(data);
-		long long device_id;
-		double pan, tilt, zoom, focus;
-		if (!calldata_get_int(cd, "device_id", &device_id))
-			return;
-		int flags = 0;
-		if (calldata_get_float(cd, "pan", &pan) && calldata_get_float(cd, "tilt", &tilt))
-			flags |= MOVE_FLAG_PANTILT;
-		if (calldata_get_float(cd, "zoom", &zoom))
-			flags |= MOVE_FLAG_ZOOM;
-		if (calldata_get_float(cd, "focus", &focus))
-			flags |= MOVE_FLAG_FOCUS;
-		QMetaObject::invokeMethod(&ptzDeviceList, "move_continuous", Q_ARG(uint32_t, device_id),
-					  Q_ARG(uint32_t, flags), Q_ARG(double, pan), Q_ARG(double, tilt),
-					  Q_ARG(double, zoom), Q_ARG(double, focus));
-	};
 	proc_handler_add(ptz_ph,
 			 "void ptz_move_continuous(int device_id, float pan, float tilt, float zoom, float focus)",
-			 ptz_move_continuous, NULL);
+			 ptz_cb, (void *)"move");
 
 	/* Register the new proc hander with the main proc handler */
 	proc_handler_t *ph = obs_get_proc_handler();
@@ -872,15 +844,14 @@ void ptz_load_devices()
 		return;
 
 	/* Register a function for retrieving the PTZ call handler */
-	auto ptz_get_proc_handler = [](void *data, calldata_t *cd) {
-		Q_UNUSED(data);
+	auto ptz_get_proc_handler = [](void *, calldata_t *cd) {
 		calldata_set_ptr(cd, "return", ptz_ph);
 	};
 	proc_handler_add(ph, "ptr ptz_get_proc_handler()", ptz_get_proc_handler, NULL);
 
 	/* Deprecated pantilt callback for compatibility with existing plugins */
-	proc_handler_add(ph, "void ptz_pantilt(int device_id, float pan, float tilt, float zoom, float focus)",
-			 ptz_move_continuous, NULL);
+	proc_handler_add(ph, "void ptz_pantilt(int device_id, float pan, float tilt, float zoom, float focus)", ptz_cb,
+			 (void *)"move");
 }
 
 void ptz_unload_devices(void)

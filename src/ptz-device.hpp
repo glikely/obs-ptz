@@ -59,15 +59,13 @@ public:
 	PTZDevice *getDeviceByName(const QString &name) const;
 	QStringList getDeviceNames() const;
 	bool callDevice(const QModelIndex &index, const char *method, calldata *cd = nullptr);
+	bool callDevice(const char *method, calldata *cd = nullptr);
 	QModelIndex indexFromDeviceId(uint32_t device_id);
 	void renameDevice(QString new_name, QString prev_name);
 	obs_data_array_t *getConfigs();
 	void add(PTZDevice *ptz);
 	void remove(PTZDevice *ptz);
 	void delete_all();
-
-public slots:
-	void move_continuous(uint32_t device_id, uint32_t flags, double pan, double tilt, double zoom, double focus);
 };
 
 extern PTZListModel ptzDeviceList;
