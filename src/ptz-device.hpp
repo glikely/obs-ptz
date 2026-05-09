@@ -62,6 +62,7 @@ public:
 	PTZDevice *getDeviceByName(const QString &name) const;
 	QStringList getDeviceNames() const;
 	bool callDevice(const QModelIndex &index, const char *method, calldata_t *cd = nullptr);
+	bool callDevice(const char *method, calldata_t *cd = nullptr);
 	QModelIndex indexFromDeviceId(uint32_t device_id);
 	QModelIndex indexFromName(const QString &name);
 	void renameDevice(QString new_name, QString prev_name);
@@ -74,7 +75,6 @@ public:
 public slots:
 	void preset_recall(uint32_t device_id, int preset_id);
 	void preset_save(uint32_t device_id, int preset_id);
-	void move_continuous(uint32_t device_id, uint32_t flags, double pan, double tilt, double zoom, double focus);
 };
 
 extern PTZListModel ptzDeviceList;
