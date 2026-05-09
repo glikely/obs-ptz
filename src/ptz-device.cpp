@@ -252,20 +252,6 @@ void PTZListModel::delete_all()
 		delete devices.first();
 }
 
-void PTZListModel::preset_recall(uint32_t device_id, int preset_id)
-{
-	PTZDevice *ptz = ptzDeviceList.getDevice(device_id);
-	if (ptz)
-		ptz->memory_recall(preset_id);
-}
-
-void PTZListModel::preset_save(uint32_t device_id, int preset_id)
-{
-	PTZDevice *ptz = ptzDeviceList.getDevice(device_id);
-	if (ptz)
-		ptz->memory_set(preset_id);
-}
-
 enum {
 	MOVE_FLAG_PANTILT = 1 << 0,
 	MOVE_FLAG_ZOOM = 1 << 1,
