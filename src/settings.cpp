@@ -134,22 +134,29 @@ PTZSettings::PTZSettings() : QWidget(nullptr), ui(new Ui_PTZSettings)
 					  "Fabio Ferrari",
 					  "Norihiro Kamae",
 					  "Luuk Verhagen",
-					  "Jonata Bolzan Loss",
-					  "Jim Hauxell",
+					  "Trouffman",
+					  "Kaito Udagawa",
+					  "Jonatã Bolzan Loss",
+					  "Jim Hauxwell",
 					  "Jason Lanclos",
 					  "Eric Schmidt",
+					  "BitRate27",
 					  "Anthony Roberts"};
 	const QString contributors = QString("<p>%1</p>").arg(contrib_list.join("<br/>"));
 	const QStringList translator_list = {
 		obs_module_text("PTZ.About.Translators"),
 		"cassiopetry (Portuguese, Brazilian)",
 		"ETE-Design (Danish)",
-		"John Hanssen Kolstad (Norwegian)",
-		"Luca Montibeller Nunes (Portuguese, Brazilian)",
 		"Manoah Tervoort (Dutch)",
+		"이지행(Korean)",
 		"Norman Hansen (German)",
 		"Giuseppe Chiodaroli (Italian)",
-		"이지행(Korean)",
+		"arthur_fr (French)",
+		"alanfermtz (Spanish)",
+		"John Hanssen Kolstad (Norwegian)",
+		"danvoulez (Portuguese)",
+		"Luca Montibeller Nunes (Portuguese, Brazilian)",
+		"Valdinel Lankewicz (Portuguese)",
 	};
 	const QString translators = QString("<p>%1</p>").arg(translator_list.join("<br/>"));
 	ui->versionLabel->setText(QString("<html><head/><body>%1%2%3%4</body></html>")
