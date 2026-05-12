@@ -24,6 +24,7 @@ class MediaProfile {
 public:
 	QString name;
 	QString token;
+	QString videoSourceToken;
 };
 
 class PTZOnvif : public PTZDevice {
@@ -39,6 +40,7 @@ private:
 
 	QString m_mediaXAddr{""};
 	QString m_PTZAddress{""};
+	QString m_imagingXAddr{""};
 	MediaProfile m_selectedMedia;
 	QList<MediaProfile> m_mediaProfiles;
 	/* Token the user picked previously; kept across reconnects so we can
@@ -95,6 +97,16 @@ private:
 	void stop();
 	void goToHomePosition();
 
+	void imagingFocusMove(double speed);
+	void imagingFocusStop();
+	void imagingSetAutoFocus(bool autoFocus);
+	void imagingSetWhiteBalance(const QString &mode);
+	void applyImagingIfPending();
+
+	/* Imaging settings the user picked. Empty string means "don't touch". */
+	QString m_wbMode;
+	bool m_imagingDirty = false;
+
 private slots:
 	void connectCamera();
 	void authRequired(QNetworkReply *reply, QAuthenticator *authenticator);
@@ -114,6 +126,7 @@ public:
 	void pantilt_abs(double pan, double tilt);
 	void pantilt_home();
 	void zoom_abs(double pos);
+	void set_autofocus(bool enabled);
 	void memory_reset(int i);
 	void memory_set(int i);
 	void memory_recall(int i);

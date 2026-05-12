@@ -443,6 +443,13 @@ void PTZOnvif::handleGetCapabilitiesResponse(QDomNode node)
 		auto e = pl.at(i).toElement();
 		m_mediaXAddr = rewriteXAddrHost(e.firstChildElement("XAddr", nsOnvifSchema).text(), host);
 	}
+
+	/* Imaging service hosts focus and white balance controls. Optional. */
+	pl = responseElement.elementsByTagNameNS(nsOnvifSchema, "Imaging");
+	for (int i = 0; i < pl.length(); i++) {
+		auto e = pl.at(i).toElement();
+		m_imagingXAddr = rewriteXAddrHost(e.firstChildElement("XAddr", nsOnvifSchema).text(), host);
+	}
 	getProfiles();
 }
 
@@ -455,6 +462,14 @@ void PTZOnvif::handleGetProfilesResponse(QDomNode n)
 		auto e = pl.at(i).toElement();
 		pro.token = e.attribute("token");
 		pro.name = e.firstChildElement("Name", nsOnvifSchema).text();
+		/* The Imaging service is keyed by VideoSourceToken (not profile
+		 * token), so grab it from the VideoSourceConfiguration. */
+		auto vsCfg = e.firstChildElement("VideoSourceConfiguration", nsOnvifSchema);
+		if (!vsCfg.isNull()) {
+			auto src = vsCfg.firstChildElement("SourceToken", nsOnvifSchema);
+			if (!src.isNull())
+				pro.videoSourceToken = src.text().trimmed();
+		}
 		m_mediaProfiles.push_back(pro);
 	}
 	if (m_mediaProfiles.isEmpty()) {
@@ -473,6 +488,7 @@ void PTZOnvif::handleGetProfilesResponse(QDomNode n)
 		}
 	}
 	getPresets();
+	applyImagingIfPending();
 }
 
 void PTZOnvif::handleGetPresetsResponse(QDomDocument &doc)
@@ -498,6 +514,114 @@ void PTZOnvif::handleGetPresetsResponse(QDomDocument &doc)
 			map["name"] = name;
 		m_presetsModel.updatePreset(psid, map);
 	}
+}
+
+const QString nsOnvifImaging("http://www.onvif.org/ver20/imaging/wsdl"); //timg
+
+void PTZOnvif::imagingFocusMove(double speed)
+{
+	if (m_imagingXAddr.isEmpty() || m_selectedMedia.videoSourceToken.isEmpty())
+		return;
+	QString msg;
+	QXmlStreamWriter s(&msg);
+	writeStartOnvifDocument(s);
+	s.writeNamespace(nsOnvifImaging, "timg");
+	s.writeStartElement(nsSoapEnvelope, "Envelope");
+	writeHeader(s, nsOnvifImaging + "/Move");
+	s.writeStartElement(nsSoapEnvelope, "Body");
+	s.writeStartElement(nsOnvifImaging, "Move");
+	s.writeTextElement(nsOnvifImaging, "VideoSourceToken", m_selectedMedia.videoSourceToken);
+	s.writeStartElement(nsOnvifImaging, "Focus");
+	s.writeStartElement(nsOnvifSchema, "Continuous");
+	s.writeTextElement(nsOnvifSchema, "Speed", QString::number(speed));
+	s.writeEndElement(); // Continuous
+	s.writeEndElement(); // Focus
+	s.writeEndElement(); // Move
+	s.writeEndElement(); // Body
+	s.writeEndElement(); // Envelope
+	s.writeEndDocument();
+	sendRequest(m_imagingXAddr, msg);
+}
+
+void PTZOnvif::imagingFocusStop()
+{
+	if (m_imagingXAddr.isEmpty() || m_selectedMedia.videoSourceToken.isEmpty())
+		return;
+	QString msg;
+	QXmlStreamWriter s(&msg);
+	writeStartOnvifDocument(s);
+	s.writeNamespace(nsOnvifImaging, "timg");
+	s.writeStartElement(nsSoapEnvelope, "Envelope");
+	writeHeader(s, nsOnvifImaging + "/Stop");
+	s.writeStartElement(nsSoapEnvelope, "Body");
+	s.writeStartElement(nsOnvifImaging, "Stop");
+	s.writeTextElement(nsOnvifImaging, "VideoSourceToken", m_selectedMedia.videoSourceToken);
+	s.writeEndElement(); // Stop
+	s.writeEndElement(); // Body
+	s.writeEndElement(); // Envelope
+	s.writeEndDocument();
+	sendRequest(m_imagingXAddr, msg);
+}
+
+void PTZOnvif::imagingSetAutoFocus(bool autoFocus)
+{
+	if (m_imagingXAddr.isEmpty() || m_selectedMedia.videoSourceToken.isEmpty())
+		return;
+	QString msg;
+	QXmlStreamWriter s(&msg);
+	writeStartOnvifDocument(s);
+	s.writeNamespace(nsOnvifImaging, "timg");
+	s.writeStartElement(nsSoapEnvelope, "Envelope");
+	writeHeader(s, nsOnvifImaging + "/SetImagingSettings");
+	s.writeStartElement(nsSoapEnvelope, "Body");
+	s.writeStartElement(nsOnvifImaging, "SetImagingSettings");
+	s.writeTextElement(nsOnvifImaging, "VideoSourceToken", m_selectedMedia.videoSourceToken);
+	s.writeStartElement(nsOnvifImaging, "ImagingSettings");
+	s.writeStartElement(nsOnvifSchema, "Focus");
+	s.writeTextElement(nsOnvifSchema, "AutoFocusMode", autoFocus ? "AUTO" : "MANUAL");
+	s.writeEndElement(); // Focus
+	s.writeEndElement(); // ImagingSettings
+	s.writeEndElement(); // SetImagingSettings
+	s.writeEndElement(); // Body
+	s.writeEndElement(); // Envelope
+	s.writeEndDocument();
+	sendRequest(m_imagingXAddr, msg);
+}
+
+void PTZOnvif::imagingSetWhiteBalance(const QString &mode)
+{
+	if (m_imagingXAddr.isEmpty() || m_selectedMedia.videoSourceToken.isEmpty() || mode.isEmpty())
+		return;
+	QString msg;
+	QXmlStreamWriter s(&msg);
+	writeStartOnvifDocument(s);
+	s.writeNamespace(nsOnvifImaging, "timg");
+	s.writeStartElement(nsSoapEnvelope, "Envelope");
+	writeHeader(s, nsOnvifImaging + "/SetImagingSettings");
+	s.writeStartElement(nsSoapEnvelope, "Body");
+	s.writeStartElement(nsOnvifImaging, "SetImagingSettings");
+	s.writeTextElement(nsOnvifImaging, "VideoSourceToken", m_selectedMedia.videoSourceToken);
+	s.writeStartElement(nsOnvifImaging, "ImagingSettings");
+	s.writeStartElement(nsOnvifSchema, "WhiteBalance");
+	s.writeTextElement(nsOnvifSchema, "Mode", mode);
+	s.writeEndElement(); // WhiteBalance
+	s.writeEndElement(); // ImagingSettings
+	s.writeEndElement(); // SetImagingSettings
+	s.writeEndElement(); // Body
+	s.writeEndElement(); // Envelope
+	s.writeEndDocument();
+	sendRequest(m_imagingXAddr, msg);
+}
+
+void PTZOnvif::applyImagingIfPending()
+{
+	if (!m_imagingDirty)
+		return;
+	if (m_imagingXAddr.isEmpty() || m_selectedMedia.videoSourceToken.isEmpty())
+		return; /* try again once we're properly connected */
+	if (!m_wbMode.isEmpty())
+		imagingSetWhiteBalance(m_wbMode);
+	m_imagingDirty = false;
 }
 
 void PTZOnvif::getSystemDateAndTime()
@@ -636,6 +760,18 @@ void PTZOnvif::do_update()
 				       zoom_speed * m_speed_boost);
 		}
 	}
+	if (focus_changed) {
+		focus_changed = false;
+		if (focus_speed == 0.0)
+			imagingFocusStop();
+		else
+			imagingFocusMove(focus_speed * m_speed_boost);
+	}
+}
+
+void PTZOnvif::set_autofocus(bool enabled)
+{
+	imagingSetAutoFocus(enabled);
 }
 
 void PTZOnvif::pantilt_abs(double pan, double tilt)
@@ -670,6 +806,11 @@ void PTZOnvif::set_config(OBSData config)
 	if (m_speed_boost <= 0.0)
 		m_speed_boost = 1.0;
 	m_savedProfileToken = obs_data_get_string(config, "profile_token");
+	QString newWb = obs_data_get_string(config, "wb_mode");
+	if (newWb != m_wbMode) {
+		m_wbMode = newWb;
+		m_imagingDirty = true;
+	}
 	if (username == "")
 		username = "admin";
 	if (!port)
@@ -686,6 +827,7 @@ OBSData PTZOnvif::get_config()
 	obs_data_set_string(config, "password", QT_TO_UTF8(password));
 	obs_data_set_double(config, "speed_boost", m_speed_boost);
 	obs_data_set_string(config, "profile_token", QT_TO_UTF8(m_selectedMedia.token));
+	obs_data_set_string(config, "wb_mode", QT_TO_UTF8(m_wbMode));
 	return config;
 }
 
@@ -714,5 +856,13 @@ obs_properties_t *PTZOnvif::get_obs_properties()
 			obs_property_list_add_string(prof, QT_TO_UTF8(label), QT_TO_UTF8(p.token));
 		}
 	}
+
+	/* Imaging: white balance mode. Cameras without an Imaging service
+	 * simply ignore the request. */
+	obs_property_t *wb = obs_properties_add_list(config, "wb_mode", obs_module_text("PTZ.WhiteBalance.Mode"),
+						     OBS_COMBO_TYPE_LIST, OBS_COMBO_FORMAT_STRING);
+	obs_property_list_add_string(wb, obs_module_text("PTZ.ONVIF.WbDefault"), "");
+	obs_property_list_add_string(wb, obs_module_text("PTZ.WhiteBalance.Auto"), "AUTO");
+	obs_property_list_add_string(wb, "Manual", "MANUAL");
 	return ptz_props;
 }
