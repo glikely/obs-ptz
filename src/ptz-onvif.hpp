@@ -50,8 +50,13 @@ private:
 	void getPresets();
 	void handleResponse(QString response);
 	void handleGetPresetsResponse(QDomDocument &doc);
+	void handleSetPresetResponse(QDomDocument &doc);
 	void handleGetCapabilitiesResponse(QDomNode node);
 	void handleGetProfilesResponse(QDomNode node);
+
+	/* Slot that's waiting for its SetPresetResponse to come back with the
+	 * new camera-assigned token. -1 means no SetPreset is in flight. */
+	int m_pendingSetPresetSlot = -1;
 
 	void genericMove(QString movetype, QString property, double pan, double tilt, double zoom);
 	void continuousMove(double x, double y, double z);

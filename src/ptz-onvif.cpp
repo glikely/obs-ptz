@@ -199,6 +199,9 @@ void PTZOnvif::memory_set(int i)
 {
 	QString token = m_presetsModel.presetProperty(i, "token").toString();
 	QString name = m_presetsModel.presetProperty(i, "name").toString();
+	/* Remember which slot the response should be filed under, so we can
+	 * link the camera-assigned PresetToken back to the right local slot. */
+	m_pendingSetPresetSlot = i;
 	QString msg;
 	QXmlStreamWriter s(&msg);
 	writeStartOnvifDocument(s);
@@ -237,6 +240,12 @@ void PTZOnvif::memory_reset(int i)
 	s.writeEndElement(); // Envelope
 	s.writeEndDocument();
 	sendRequest(m_PTZAddress, msg);
+	/* The preset is gone from the camera; clear the stale token locally so
+	 * a future memory_set on this slot creates a new one instead of trying
+	 * to update a token the camera doesn't know about. */
+	QVariantMap clear;
+	clear["token"] = QString();
+	m_presetsModel.updatePreset(i, clear);
 }
 
 void PTZOnvif::memory_recall(int i)
@@ -303,6 +312,26 @@ void PTZOnvif::handleResponse(QString response)
 	for (int i = 0; i < nl.length(); i++)
 		handleGetProfilesResponse(nl.at(i));
 	handleGetPresetsResponse(doc);
+	handleSetPresetResponse(doc);
+}
+
+void PTZOnvif::handleSetPresetResponse(QDomDocument &doc)
+{
+	if (m_pendingSetPresetSlot < 0)
+		return;
+	auto nl = doc.elementsByTagNameNS(nsOnvifPtz, "SetPresetResponse");
+	if (nl.isEmpty())
+		return;
+	auto tokenNodes = nl.at(0).toElement().elementsByTagNameNS(nsOnvifPtz, "PresetToken");
+	if (tokenNodes.isEmpty())
+		return;
+	QString newToken = tokenNodes.at(0).toElement().text().trimmed();
+	if (newToken.isEmpty())
+		return;
+	QVariantMap map;
+	map["token"] = newToken;
+	m_presetsModel.updatePreset(m_pendingSetPresetSlot, map);
+	m_pendingSetPresetSlot = -1;
 }
 
 void PTZOnvif::handleGetCapabilitiesResponse(QDomNode node)
