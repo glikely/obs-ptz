@@ -632,7 +632,8 @@ void PTZOnvif::do_update()
 			m_isBusy = true;
 			pantilt_changed = false;
 			zoom_changed = false;
-			continuousMove(pan_speed, tilt_speed, zoom_speed);
+			continuousMove(pan_speed * m_speed_boost, tilt_speed * m_speed_boost,
+				       zoom_speed * m_speed_boost);
 		}
 	}
 }
@@ -664,6 +665,10 @@ void PTZOnvif::set_config(OBSData config)
 	port = (int)obs_data_get_int(config, "port");
 	username = obs_data_get_string(config, "username");
 	password = obs_data_get_string(config, "password");
+	obs_data_set_default_double(config, "speed_boost", 1.0);
+	m_speed_boost = obs_data_get_double(config, "speed_boost");
+	if (m_speed_boost <= 0.0)
+		m_speed_boost = 1.0;
 	m_savedProfileToken = obs_data_get_string(config, "profile_token");
 	if (username == "")
 		username = "admin";
@@ -679,6 +684,7 @@ OBSData PTZOnvif::get_config()
 	obs_data_set_int(config, "port", port);
 	obs_data_set_string(config, "username", QT_TO_UTF8(username));
 	obs_data_set_string(config, "password", QT_TO_UTF8(password));
+	obs_data_set_double(config, "speed_boost", m_speed_boost);
 	obs_data_set_string(config, "profile_token", QT_TO_UTF8(m_selectedMedia.token));
 	return config;
 }
@@ -694,6 +700,8 @@ obs_properties_t *PTZOnvif::get_obs_properties()
 	obs_properties_add_int(config, "port", obs_module_text("PTZ.Device.TCPPort"), 1, 65535, 1);
 	obs_properties_add_text(config, "username", obs_module_text("PTZ.Device.Username"), OBS_TEXT_DEFAULT);
 	obs_properties_add_text(config, "password", obs_module_text("PTZ.Device.Password"), OBS_TEXT_DEFAULT);
+	obs_properties_add_float_slider(config, "speed_boost", obs_module_text("PTZ.ONVIF.SpeedBoost"), 0.1, 10.0,
+					0.01);
 	obs_property_t *prof = obs_properties_add_list(config, "profile_token",
 						       obs_module_text("PTZ.ONVIF.MediaProfile"), OBS_COMBO_TYPE_LIST,
 						       OBS_COMBO_FORMAT_STRING);

@@ -45,6 +45,11 @@ private:
 	 * re-pick the same profile after a GetProfiles refresh. */
 	QString m_savedProfileToken;
 
+	/* ONVIF-specific velocity multiplier. ONVIF velocity is normalized
+	 * [-1.0, 1.0] in the spec, but many cameras accept (and respect)
+	 * larger values for faster moves. Defaults to 1.0 (spec-compliant). */
+	double m_speed_boost = 1.0;
+
 	// SOAP/XML helpers
 	void writeHeader(QXmlStreamWriter &s, const QString action);
 
