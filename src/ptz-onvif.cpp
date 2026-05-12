@@ -137,12 +137,12 @@ void PTZOnvif::continuousMove(double x, double y, double z)
 	genericMove("ContinuousMove", "Velocity", x, y, z);
 }
 
-void PTZOnvif::absoluteMove(int x, int y, int z)
+void PTZOnvif::absoluteMove(double x, double y, double z)
 {
 	genericMove("AbsoluteMove", "Position", x, y, z);
 }
 
-void PTZOnvif::relativeMove(int x, int y, int z)
+void PTZOnvif::relativeMove(double x, double y, double z)
 {
 	genericMove("RelativeMove", "Translation", x, y, z);
 }
