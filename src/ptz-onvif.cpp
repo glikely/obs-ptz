@@ -17,11 +17,12 @@
 void PTZOnvif::sendRequest(QString url, QString req)
 {
 	QNetworkRequest request(url);
-	request.setHeader(QNetworkRequest::ContentTypeHeader, "application/soap+xml");
-	QString concatenated = username + ":" + password;
-	QByteArray data = concatenated.toLocal8Bit().toBase64();
-	QString headerData = "Basic " + data;
-	request.setRawHeader("Authorization", headerData.toLocal8Bit());
+	request.setHeader(QNetworkRequest::ContentTypeHeader, "application/soap+xml; charset=utf-8");
+	/* Authentication is carried in the SOAP envelope via WS-Security
+	 * UsernameToken (see writeHeader). If a camera actually demands HTTP
+	 * Digest, authRequired() supplies it on demand. Sending a Basic
+	 * Authorization header unconditionally caused some firmwares to
+	 * reject the request as ambiguous. */
 	m_networkManager.post(request, req.toUtf8());
 }
 
