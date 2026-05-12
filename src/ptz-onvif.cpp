@@ -289,6 +289,25 @@ void PTZOnvif::getPresets()
 	sendRequest(m_PTZAddress, msg);
 }
 
+void PTZOnvif::getStatus()
+{
+	if (m_PTZAddress.isEmpty() || m_selectedMedia.token.isEmpty())
+		return;
+	QString msg;
+	QXmlStreamWriter s(&msg);
+	writeStartOnvifDocument(s);
+	s.writeStartElement(nsSoapEnvelope, "Envelope");
+	writeHeader(s, nsOnvifPtz + "/" + "GetStatus");
+	s.writeStartElement(nsSoapEnvelope, "Body");
+	s.writeStartElement(nsOnvifPtz, "GetStatus");
+	s.writeTextElement(nsOnvifPtz, "ProfileToken", m_selectedMedia.token);
+	s.writeEndElement(); // GetStatus
+	s.writeEndElement(); // Body
+	s.writeEndElement(); // Envelope
+	s.writeEndDocument();
+	sendRequest(m_PTZAddress, msg);
+}
+
 void PTZOnvif::handleResponse(QString response)
 {
 	/* Some firmwares emit unescaped '&' in URI text content (notably in
@@ -319,6 +338,28 @@ void PTZOnvif::handleResponse(QString response)
 		handleGetProfilesResponse(nl.at(i));
 	handleGetPresetsResponse(doc);
 	handleSetPresetResponse(doc);
+	nl = doc.elementsByTagNameNS(nsOnvifPtz, "GetStatusResponse");
+	for (int i = 0; i < nl.length(); i++)
+		handleGetStatusResponse(nl.at(i));
+}
+
+void PTZOnvif::handleGetStatusResponse(QDomNode node)
+{
+	auto statusEl = node.toElement().firstChildElement("PTZStatus", nsOnvifPtz);
+	if (statusEl.isNull())
+		return;
+	auto posEl = statusEl.firstChildElement("Position", nsOnvifSchema);
+	if (posEl.isNull())
+		return;
+	auto ptEl = posEl.firstChildElement("PanTilt", nsOnvifSchema);
+	if (!ptEl.isNull()) {
+		m_position_pan = ptEl.attribute("x").toDouble();
+		m_position_tilt = ptEl.attribute("y").toDouble();
+	}
+	auto zoomEl = posEl.firstChildElement("Zoom", nsOnvifSchema);
+	if (!zoomEl.isNull())
+		m_position_zoom = zoomEl.attribute("x").toDouble();
+	ptz_debug("status: pan=%.3f tilt=%.3f zoom=%.3f", m_position_pan, m_position_tilt, m_position_zoom);
 }
 
 void PTZOnvif::handleGetSystemDateAndTimeResponse(QDomNode node)
@@ -513,11 +554,17 @@ void PTZOnvif::requestFinished(QNetworkReply *reply)
 	m_isBusy = false;
 	if (reply->error() > 0) {
 		ptz_info("request error; message: %s, code: %i", QT_TO_UTF8(reply->errorString()), statusCodeV);
+		++m_consecutiveFailures;
+		if (m_consecutiveFailures >= 3 && isConnected())
+			setConnected(false);
 		/* If the very first request (GetSystemDateAndTime) fails we
 		 * still need to try GetCapabilities; otherwise the device
 		 * stays in a permanently un-initialized state. */
 		ensureCapabilitiesRequested();
 	} else {
+		m_consecutiveFailures = 0;
+		if (!isConnected())
+			setConnected(true);
 		handleResponse(reply->readAll());
 	}
 	do_update();
@@ -529,6 +576,21 @@ PTZOnvif::PTZOnvif(OBSData config) : PTZDevice(config)
 	connect(&m_networkManager, SIGNAL(authenticationRequired(QNetworkReply *, QAuthenticator *)), this,
 		SLOT(authRequired(QNetworkReply *, QAuthenticator *)));
 	connect(&m_networkManager, SIGNAL(finished(QNetworkReply *)), this, SLOT(requestFinished(QNetworkReply *)));
+	m_statusTimer.setInterval(5000);
+	connect(&m_statusTimer, &QTimer::timeout, this, [this]() {
+		/* When connected, keep position fresh; when disconnected and
+		 * we've already passed the initial connect, retry from
+		 * GetSystemDateAndTime so a rebooted camera that may have
+		 * changed profile tokens / service URLs re-initializes cleanly. */
+		if (isConnected()) {
+			getStatus();
+		} else if (m_consecutiveFailures >= 3) {
+			m_capabilitiesRequested = false;
+			m_timeOffsetSecs = 0;
+			getSystemDateAndTime();
+		}
+	});
+	m_statusTimer.start();
 	set_config(config);
 }
 
@@ -542,6 +604,7 @@ void PTZOnvif::connectCamera()
 	m_capabilitiesRequested = false;
 	m_timeOffsetSecs = 0;
 	m_pendingSetPresetSlot = -1;
+	m_consecutiveFailures = 0;
 	getSystemDateAndTime();
 }
 

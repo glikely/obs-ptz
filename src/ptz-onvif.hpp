@@ -49,13 +49,24 @@ private:
 	void getCapabilities();
 	void getProfiles();
 	void getPresets();
+	void getStatus();
 	void handleResponse(QString response);
 	void handleGetPresetsResponse(QDomDocument &doc);
 	void handleSetPresetResponse(QDomDocument &doc);
 	void handleGetCapabilitiesResponse(QDomNode node);
 	void handleGetProfilesResponse(QDomNode node);
 	void handleGetSystemDateAndTimeResponse(QDomNode node);
+	void handleGetStatusResponse(QDomNode node);
 	void ensureCapabilitiesRequested();
+
+	QTimer m_statusTimer;
+	double m_position_pan = 0.0;
+	double m_position_tilt = 0.0;
+	double m_position_zoom = 0.0;
+	/* Consecutive request failures since the last good response. When
+	 * this crosses a threshold we flip the dock indicator to red and
+	 * kick a full reconnect attempt on the next timer tick. */
+	int m_consecutiveFailures = 0;
 
 	/* Slot that's waiting for its SetPresetResponse to come back with the
 	 * new camera-assigned token. -1 means no SetPreset is in flight. */
