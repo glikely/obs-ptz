@@ -369,19 +369,38 @@ void PTZOnvif::handleSetPresetResponse(QDomDocument &doc)
 	m_pendingSetPresetSlot = -1;
 }
 
+/* Rewrite the host portion of a camera-reported service XAddr to whatever
+ * host the user configured. Some firmwares (Xiongmai/hsoap is the canonical
+ * offender) advertise their static/DHCP IP for every service even when the
+ * device is actually being reached through a different IP/route. Trusting
+ * those values verbatim leaves us trying to connect to an unreachable host
+ * once we move from the device service to media/ptz/imaging. */
+static QString rewriteXAddrHost(const QString &xaddr, const QString &knownHost)
+{
+	if (xaddr.isEmpty() || knownHost.isEmpty())
+		return xaddr;
+	QUrl url(xaddr.trimmed());
+	if (!url.isValid())
+		return xaddr;
+	if (url.host() == knownHost)
+		return xaddr;
+	url.setHost(knownHost);
+	return url.toString();
+}
+
 void PTZOnvif::handleGetCapabilitiesResponse(QDomNode node)
 {
 	auto responseElement = node.toElement();
 	auto pl = responseElement.elementsByTagNameNS(nsOnvifSchema, "PTZ");
 	for (int i = 0; i < pl.length(); i++) {
 		auto e = pl.at(i).toElement();
-		m_PTZAddress = e.firstChildElement("XAddr", nsOnvifSchema).text();
+		m_PTZAddress = rewriteXAddrHost(e.firstChildElement("XAddr", nsOnvifSchema).text(), host);
 	}
 
 	pl = responseElement.elementsByTagNameNS(nsOnvifSchema, "Media");
 	for (int i = 0; i < pl.length(); i++) {
 		auto e = pl.at(i).toElement();
-		m_mediaXAddr = e.firstChildElement("XAddr", nsOnvifSchema).text();
+		m_mediaXAddr = rewriteXAddrHost(e.firstChildElement("XAddr", nsOnvifSchema).text(), host);
 	}
 	getProfiles();
 }
