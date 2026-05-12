@@ -45,6 +45,7 @@ private:
 	void writeHeader(QXmlStreamWriter &s, const QString action);
 
 	void sendRequest(QString host, QString req);
+	void getSystemDateAndTime();
 	void getCapabilities();
 	void getProfiles();
 	void getPresets();
@@ -53,10 +54,19 @@ private:
 	void handleSetPresetResponse(QDomDocument &doc);
 	void handleGetCapabilitiesResponse(QDomNode node);
 	void handleGetProfilesResponse(QDomNode node);
+	void handleGetSystemDateAndTimeResponse(QDomNode node);
+	void ensureCapabilitiesRequested();
 
 	/* Slot that's waiting for its SetPresetResponse to come back with the
 	 * new camera-assigned token. -1 means no SetPreset is in flight. */
 	int m_pendingSetPresetSlot = -1;
+	/* Local-to-camera time offset (seconds). Computed from
+	 * GetSystemDateAndTime on connect. Used so WS-Security timestamps
+	 * still validate against cameras whose clocks have drifted. */
+	qint64 m_timeOffsetSecs = 0;
+	/* Once true, we've already issued getCapabilities; suppress duplicates
+	 * regardless of whether time-sync succeeded or failed. */
+	bool m_capabilitiesRequested = false;
 
 	void genericMove(QString movetype, QString property, double pan, double tilt, double zoom);
 	void continuousMove(double x, double y, double z);

@@ -14,6 +14,7 @@
 #include <QtXml/QDomDocument>
 #include <QXmlStreamWriter>
 #include <QRegularExpression>
+#include <QTimeZone>
 
 void PTZOnvif::sendRequest(QString url, QString req)
 {
@@ -79,7 +80,9 @@ void PTZOnvif::writeHeader(QXmlStreamWriter &s, const QString action = "")
 {
 	QUuid nonce = QUuid::createUuid();
 	QString nonce64 = nonce.toByteArray().toBase64();
-	auto timestamp = QDateTime::currentDateTimeUtc().toString(Qt::ISODate);
+	/* Adjust by the per-camera clock offset so cameras with bad NTP
+	 * don't reject our WS-Security timestamp. */
+	auto timestamp = QDateTime::currentDateTimeUtc().addSecs(m_timeOffsetSecs).toString(Qt::ISODate);
 	auto token = nonce.toString() + timestamp + password;
 	QCryptographicHash hash(QCryptographicHash::Sha1);
 	hash.addData(token.toUtf8());
@@ -305,6 +308,9 @@ void PTZOnvif::handleResponse(QString response)
 	doc.setContent(response, true);
 #endif
 
+	nl = doc.elementsByTagNameNS(nsOnvifDevice, "GetSystemDateAndTimeResponse");
+	for (int i = 0; i < nl.length(); i++)
+		handleGetSystemDateAndTimeResponse(nl.at(i));
 	nl = doc.elementsByTagNameNS(nsOnvifDevice, "GetCapabilitiesResponse");
 	for (int i = 0; i < nl.length(); i++)
 		handleGetCapabilitiesResponse(nl.at(i));
@@ -313,6 +319,35 @@ void PTZOnvif::handleResponse(QString response)
 		handleGetProfilesResponse(nl.at(i));
 	handleGetPresetsResponse(doc);
 	handleSetPresetResponse(doc);
+}
+
+void PTZOnvif::handleGetSystemDateAndTimeResponse(QDomNode node)
+{
+	auto sysEl = node.toElement().firstChildElement("SystemDateAndTime", nsOnvifDevice);
+	auto utcEl = sysEl.firstChildElement("UTCDateTime", nsOnvifSchema);
+	if (!utcEl.isNull()) {
+		auto dateEl = utcEl.firstChildElement("Date", nsOnvifSchema);
+		auto timeEl = utcEl.firstChildElement("Time", nsOnvifSchema);
+		int y = dateEl.firstChildElement("Year", nsOnvifSchema).text().toInt();
+		int mo = dateEl.firstChildElement("Month", nsOnvifSchema).text().toInt();
+		int d = dateEl.firstChildElement("Day", nsOnvifSchema).text().toInt();
+		int h = timeEl.firstChildElement("Hour", nsOnvifSchema).text().toInt();
+		int mi = timeEl.firstChildElement("Minute", nsOnvifSchema).text().toInt();
+		int se = timeEl.firstChildElement("Second", nsOnvifSchema).text().toInt();
+		/* Construct as local-naive then re-anchor to UTC. The
+		 * (QDate, QTime, Qt::TimeSpec) constructor was deprecated in
+		 * Qt 6.5 (MSVC -Werror flags it); setTimeZone(QTimeZone::utc())
+		 * does the same thing and is portable back to Qt 5.2. */
+		QDateTime cameraTime(QDate(y, mo, d), QTime(h, mi, se));
+		cameraTime.setTimeZone(QTimeZone::utc());
+		if (cameraTime.isValid()) {
+			m_timeOffsetSecs = QDateTime::currentDateTimeUtc().secsTo(cameraTime);
+			if (m_timeOffsetSecs > 60 || m_timeOffsetSecs < -60)
+				ptz_info("camera clock offset %lld s; adjusting WS-Security timestamps",
+					 (long long)m_timeOffsetSecs);
+		}
+	}
+	ensureCapabilitiesRequested();
 }
 
 void PTZOnvif::handleSetPresetResponse(QDomDocument &doc)
@@ -392,6 +427,25 @@ void PTZOnvif::handleGetPresetsResponse(QDomDocument &doc)
 	}
 }
 
+void PTZOnvif::getSystemDateAndTime()
+{
+	/* GetSystemDateAndTime is required by the ONVIF spec to work without
+	 * authentication, so we send a bare envelope (no WS-Security header).
+	 * Use the response to align our WS-Security timestamps to the camera
+	 * clock before any authenticated request goes out. */
+	const QString hostformat("http://%1:%2/onvif/device_service");
+	QString msg;
+	QXmlStreamWriter s(&msg);
+	writeStartOnvifDocument(s);
+	s.writeStartElement(nsSoapEnvelope, "Envelope");
+	s.writeStartElement(nsSoapEnvelope, "Body");
+	s.writeEmptyElement(nsOnvifDevice, "GetSystemDateAndTime");
+	s.writeEndElement(); // Body
+	s.writeEndElement(); // Envelope
+	s.writeEndDocument();
+	sendRequest(hostformat.arg(host).arg(port), msg);
+}
+
 void PTZOnvif::getCapabilities()
 {
 	const QString hostformat("http://%1:%2/onvif/device_service");
@@ -408,6 +462,14 @@ void PTZOnvif::getCapabilities()
 	s.writeEndElement(); // Envelope
 	s.writeEndDocument();
 	sendRequest(hostformat.arg(host).arg(port), msg);
+}
+
+void PTZOnvif::ensureCapabilitiesRequested()
+{
+	if (m_capabilitiesRequested)
+		return;
+	m_capabilitiesRequested = true;
+	getCapabilities();
 }
 
 void PTZOnvif::getProfiles()
@@ -432,6 +494,10 @@ void PTZOnvif::requestFinished(QNetworkReply *reply)
 	m_isBusy = false;
 	if (reply->error() > 0) {
 		ptz_info("request error; message: %s, code: %i", QT_TO_UTF8(reply->errorString()), statusCodeV);
+		/* If the very first request (GetSystemDateAndTime) fails we
+		 * still need to try GetCapabilities; otherwise the device
+		 * stays in a permanently un-initialized state. */
+		ensureCapabilitiesRequested();
 	} else {
 		handleResponse(reply->readAll());
 	}
@@ -454,7 +520,10 @@ QString PTZOnvif::description()
 
 void PTZOnvif::connectCamera()
 {
-	getCapabilities();
+	m_capabilitiesRequested = false;
+	m_timeOffsetSecs = 0;
+	m_pendingSetPresetSlot = -1;
+	getSystemDateAndTime();
 }
 
 void PTZOnvif::do_update()
