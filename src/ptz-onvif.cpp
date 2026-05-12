@@ -16,8 +16,18 @@
 
 void PTZOnvif::sendRequest(QString url, QString req)
 {
+	if (url.isEmpty()) {
+		/* Happens when an operation fires before GetCapabilities has
+		 * populated the per-service XAddrs (e.g. the camera was added
+		 * with an unreachable host). Quietly drop instead of letting
+		 * Qt spam "Protocol \"\" is unknown" once per command. */
+		return;
+	}
 	QNetworkRequest request(url);
 	request.setHeader(QNetworkRequest::ContentTypeHeader, "application/soap+xml; charset=utf-8");
+	/* Surface failures in seconds instead of waiting on the OS TCP
+	 * timeout (~2 min). 10s is generous for an ONVIF SOAP exchange. */
+	request.setTransferTimeout(10000);
 	/* Authentication is carried in the SOAP envelope via WS-Security
 	 * UsernameToken (see writeHeader). If a camera actually demands HTTP
 	 * Digest, authRequired() supplies it on demand. Sending a Basic
