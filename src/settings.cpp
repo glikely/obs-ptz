@@ -436,6 +436,37 @@ void PTZSettings::on_addPTZ_clicked()
 			if (!p.isEmpty())
 				obs_data_set_string(cfg, "password", QT_TO_UTF8(p));
 			ptzDeviceList.make_device(cfg);
+
+			/* Optionally create an OBS Media Source from the
+			 * camera's first RTSP stream URI and drop it into
+			 * the current scene. Embeds Basic-auth credentials
+			 * into the URL so it survives token expiry. */
+			QString uri = dlg.selectedStreamUri();
+			if (dlg.createMediaSourceRequested() && !uri.isEmpty()) {
+				QUrl url(uri);
+				if (url.isValid() && !u.isEmpty()) {
+					url.setUserName(u);
+					if (!p.isEmpty())
+						url.setPassword(p);
+				}
+				QString sourceName = cam.name.isEmpty() ? QString("ONVIF %1").arg(cam.host) : cam.name;
+				OBSData settings = obs_data_create();
+				obs_data_release(settings);
+				obs_data_set_string(settings, "input", QT_TO_UTF8(url.toString()));
+				obs_data_set_bool(settings, "is_local_file", false);
+				obs_data_set_bool(settings, "restart_on_activate", true);
+				obs_data_set_bool(settings, "hw_decode", true);
+				obs_data_set_string(settings, "input_format", "");
+
+				OBSSourceAutoRelease source =
+					obs_source_create("ffmpeg_source", QT_TO_UTF8(sourceName), settings, nullptr);
+				if (source) {
+					OBSSourceAutoRelease sceneSrc = obs_frontend_get_current_scene();
+					obs_scene_t *scene = sceneSrc ? obs_scene_from_source(sceneSrc) : nullptr;
+					if (scene)
+						obs_scene_add(scene, source);
+				}
+			}
 		}
 	}
 #endif

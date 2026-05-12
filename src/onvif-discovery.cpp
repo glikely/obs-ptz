@@ -11,6 +11,8 @@
 
 #include <QCryptographicHash>
 #include <QDateTime>
+#include <QCheckBox>
+#include <QComboBox>
 #include <QDialogButtonBox>
 #include <QFile>
 #include <QFormLayout>
@@ -682,6 +684,16 @@ OnvifDiscoveryDialog::OnvifDiscoveryDialog(QWidget *parent) : QDialog(parent)
 	connect(m_manualHostEdit, &QLineEdit::returnPressed, this, &OnvifDiscoveryDialog::onAddManualClicked);
 	connect(m_manualPortEdit, &QLineEdit::returnPressed, this, &OnvifDiscoveryDialog::onAddManualClicked);
 
+	auto *mediaSourceRow = new QHBoxLayout();
+	m_addMediaSourceCheck = new QCheckBox(obs_module_text("PTZ.ONVIF.Discovery.CreateMediaSource"), this);
+	m_addMediaSourceCheck->setChecked(true);
+	m_streamCombo = new QComboBox(this);
+	m_streamCombo->setEnabled(false);
+	m_streamCombo->setMinimumContentsLength(20);
+	mediaSourceRow->addWidget(m_addMediaSourceCheck);
+	mediaSourceRow->addWidget(m_streamCombo, 1);
+	layout->addLayout(mediaSourceRow);
+
 	auto *buttons = new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel, this);
 	m_okButton = buttons->button(QDialogButtonBox::Ok);
 	m_okButton->setText(obs_module_text("PTZ.ONVIF.Discovery.UseCamera"));
@@ -769,6 +781,8 @@ void OnvifDiscoveryDialog::onSelectionChanged()
 		m_selected = OnvifCameraInfo();
 		m_streams.clear();
 		m_streamStatus.clear();
+		m_streamCombo->clear();
+		m_streamCombo->setEnabled(false);
 		m_detailView->clear();
 		return;
 	}
@@ -779,6 +793,8 @@ void OnvifDiscoveryDialog::onSelectionChanged()
 	m_okButton->setEnabled(true);
 	m_streams.clear();
 	m_streamStatus.clear();
+	m_streamCombo->clear();
+	m_streamCombo->setEnabled(false);
 	rebuildDetail();
 	maybeProbeStreams();
 }
@@ -811,6 +827,15 @@ void OnvifDiscoveryDialog::onStreamsReady(const QList<OnvifMediaProbe::StreamInf
 	m_streams = streams;
 	m_streamStatus.clear();
 	rebuildDetail();
+	/* Re-populate the stream picker so the user can choose Main vs Sub
+	 * for the auto-created Media Source. Falls back to disabled when no
+	 * streams are available. */
+	m_streamCombo->clear();
+	for (const auto &s : m_streams) {
+		QString label = s.profileName.isEmpty() ? s.profileToken : s.profileName;
+		m_streamCombo->addItem(label, s.uri);
+	}
+	m_streamCombo->setEnabled(m_streamCombo->count() > 0);
 }
 
 void OnvifDiscoveryDialog::onStreamProbeError(const QString &msg)
@@ -881,4 +906,23 @@ QString OnvifDiscoveryDialog::selectedUsername() const
 QString OnvifDiscoveryDialog::selectedPassword() const
 {
 	return m_passEdit ? m_passEdit->text() : QString();
+}
+
+QString OnvifDiscoveryDialog::selectedStreamUri() const
+{
+	if (m_streamCombo && m_streamCombo->currentIndex() >= 0) {
+		QString uri = m_streamCombo->currentData().toString();
+		if (!uri.isEmpty())
+			return uri;
+	}
+	for (const auto &s : m_streams) {
+		if (!s.uri.isEmpty())
+			return s.uri;
+	}
+	return QString();
+}
+
+bool OnvifDiscoveryDialog::createMediaSourceRequested() const
+{
+	return m_addMediaSourceCheck && m_addMediaSourceCheck->isChecked();
 }
