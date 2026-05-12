@@ -13,6 +13,7 @@
 #include "ptz-onvif.hpp"
 #include <QtXml/QDomDocument>
 #include <QXmlStreamWriter>
+#include <QRegularExpression>
 
 void PTZOnvif::sendRequest(QString url, QString req)
 {
@@ -278,6 +279,13 @@ void PTZOnvif::getPresets()
 
 void PTZOnvif::handleResponse(QString response)
 {
+	/* Some firmwares emit unescaped '&' in URI text content (notably in
+	 * GetStreamUri responses with `&channel=`/`&protocol=`). That's
+	 * invalid XML and Qt's QDomDocument rejects the whole document.
+	 * Replace any bare '&' not starting a known entity with '&amp;'. */
+	static const QRegularExpression ampFix(QStringLiteral("&(?!(?:amp|lt|gt|quot|apos|#[0-9]+|#x[0-9a-fA-F]+);)"));
+	response.replace(ampFix, "&amp;");
+
 	QDomDocument doc;
 	QDomNodeList nl;
 
