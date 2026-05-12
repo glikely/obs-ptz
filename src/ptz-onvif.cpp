@@ -198,6 +198,25 @@ void PTZOnvif::goToHomePosition()
 	sendRequest(m_PTZAddress, msg);
 }
 
+void PTZOnvif::pantilt_set_home()
+{
+	if (m_selectedMedia.token.isEmpty())
+		return;
+	QString msg;
+	QXmlStreamWriter s(&msg);
+	writeStartOnvifDocument(s);
+	s.writeStartElement(nsSoapEnvelope, "Envelope");
+	writeHeader(s, nsOnvifPtz + "/" + "SetHomePosition");
+	s.writeStartElement(nsSoapEnvelope, "Body");
+	s.writeStartElement(nsOnvifPtz, "SetHomePosition");
+	s.writeTextElement(nsOnvifPtz, "ProfileToken", m_selectedMedia.token);
+	s.writeEndElement(); // SetHomePosition
+	s.writeEndElement(); // Body
+	s.writeEndElement(); // Envelope
+	s.writeEndDocument();
+	sendRequest(m_PTZAddress, msg);
+}
+
 void PTZOnvif::memory_set(int i)
 {
 	QString token = m_presetsModel.presetProperty(i, "token").toString();

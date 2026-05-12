@@ -172,6 +172,14 @@ PTZControls::PTZControls(QWidget *parent) : QFrame(parent), ui(new Ui::PTZContro
 
 	connect(ui->panTiltTouch, SIGNAL(positionChanged(double, double)), this, SLOT(setPanTilt(double, double)));
 
+	/* Right-click on the dock's Home button → "Save current position as
+	 * Home" (only shown for protocols that override supportsSetHome()).
+	 * Single-click still triggers GotoHome; the context menu is purely
+	 * additive. */
+	ui->panTiltButton_home->setContextMenuPolicy(Qt::CustomContextMenu);
+	connect(ui->panTiltButton_home, &QWidget::customContextMenuRequested, this,
+		&PTZControls::onHomeButtonContextMenu);
+
 	joystickSetup();
 
 	LoadConfig();
@@ -778,6 +786,18 @@ void PTZControls::on_panTiltButton_home_released()
 	PTZDevice *ptz = currCamera();
 	if (ptz)
 		ptz->pantilt_home();
+}
+
+void PTZControls::onHomeButtonContextMenu(const QPoint &pos)
+{
+	PTZDevice *ptz = currCamera();
+	if (!ptz || !ptz->supportsSetHome())
+		return;
+	QMenu menu(this);
+	QAction *setHome = menu.addAction(obs_module_text("PTZ.Action.SetHome"));
+	QAction *picked = menu.exec(ui->panTiltButton_home->mapToGlobal(pos));
+	if (picked == setHome)
+		ptz->pantilt_set_home();
 }
 
 /* There are fewer buttons for zoom or focus; so don't bother with macros */

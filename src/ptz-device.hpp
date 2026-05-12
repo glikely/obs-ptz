@@ -192,6 +192,15 @@ public:
 		Q_UNUSED(tilt);
 	}
 	virtual void pantilt_home() {}
+	/**
+	 * pantilt_set_home(): record the camera's *current* pan/tilt/zoom as
+	 * its new home position (so a later pantilt_home() returns here).
+	 * Optional — drivers that don't implement it should leave the default
+	 * empty body and return false from supportsSetHome(), so the UI can
+	 * hide the action entirely instead of presenting a dead control.
+	 */
+	virtual void pantilt_set_home() {}
+	virtual bool supportsSetHome() const { return false; }
 	void zoom(double speed);
 	virtual void zoom_abs(double pos) { Q_UNUSED(pos); };
 	virtual void set_autofocus(bool enabled) { Q_UNUSED(enabled); };

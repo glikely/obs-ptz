@@ -125,6 +125,8 @@ public:
 	void pantilt_rel(double pan, double tilt) override;
 	void pantilt_abs(double pan, double tilt) override;
 	void pantilt_home() override;
+	void pantilt_set_home() override;
+	bool supportsSetHome() const override { return true; }
 	void zoom_abs(double pos) override;
 	void set_autofocus(bool enabled) override;
 	void memory_reset(int i) override;
