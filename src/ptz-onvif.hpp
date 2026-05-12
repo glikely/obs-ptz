@@ -40,6 +40,10 @@ private:
 	QString m_mediaXAddr{""};
 	QString m_PTZAddress{""};
 	MediaProfile m_selectedMedia;
+	QList<MediaProfile> m_mediaProfiles;
+	/* Token the user picked previously; kept across reconnects so we can
+	 * re-pick the same profile after a GetProfiles refresh. */
+	QString m_savedProfileToken;
 
 	// SOAP/XML helpers
 	void writeHeader(QXmlStreamWriter &s, const QString action);
