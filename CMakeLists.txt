@@ -125,7 +125,10 @@ endif()
 option(ENABLE_ONVIF "Enable ONVIF camera support" ON)
 if(ENABLE_ONVIF)
   add_compile_definitions(ENABLE_ONVIF)
-  target_sources(${CMAKE_PROJECT_NAME} PRIVATE src/ptz-onvif.cpp src/ptz-onvif.hpp)
+  target_sources(
+    ${CMAKE_PROJECT_NAME}
+    PRIVATE src/ptz-onvif.cpp src/ptz-onvif.hpp src/onvif-discovery.cpp src/onvif-discovery.hpp
+  )
 endif()
 
 option(ENABLE_SERIALPORT "Enable UART connected camera support" OFF)

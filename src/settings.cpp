@@ -28,6 +28,9 @@
 #include "ptz-controls.hpp"
 #include "settings.hpp"
 #include "ui_settings.h"
+#if defined(ENABLE_ONVIF)
+#include "onvif-discovery.hpp"
+#endif
 
 /* ----------------------------------------------------------------- */
 
@@ -416,10 +419,24 @@ void PTZSettings::on_addPTZ_clicked()
 #endif
 #if defined(ENABLE_ONVIF)
 	if (action == addOnvif) {
-		OBSData cfg = obs_data_create();
-		obs_data_release(cfg);
-		obs_data_set_string(cfg, "type", "onvif");
-		ptzDeviceList.make_device(cfg);
+		OnvifDiscoveryDialog dlg(this);
+		if (dlg.exec() == QDialog::Accepted) {
+			auto cam = dlg.selectedCamera();
+			OBSData cfg = obs_data_create();
+			obs_data_release(cfg);
+			obs_data_set_string(cfg, "type", "onvif");
+			obs_data_set_string(cfg, "host", QT_TO_UTF8(cam.host));
+			obs_data_set_int(cfg, "port", cam.port);
+			if (!cam.name.isEmpty())
+				obs_data_set_string(cfg, "name", QT_TO_UTF8(cam.name));
+			QString u = dlg.selectedUsername();
+			QString p = dlg.selectedPassword();
+			if (!u.isEmpty())
+				obs_data_set_string(cfg, "username", QT_TO_UTF8(u));
+			if (!p.isEmpty())
+				obs_data_set_string(cfg, "password", QT_TO_UTF8(p));
+			ptzDeviceList.make_device(cfg);
+		}
 	}
 #endif
 #if defined(ENABLE_USB_CAM)
