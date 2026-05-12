@@ -17,6 +17,8 @@
 #include <QList>
 #include <QMetaType>
 
+class QCheckBox;
+class QComboBox;
 class QNetworkReply;
 class QTableWidget;
 class QLineEdit;
@@ -132,6 +134,12 @@ public:
 	OnvifCameraInfo selectedCamera() const { return m_selected; }
 	QString selectedUsername() const;
 	QString selectedPassword() const;
+	/* Returns the first usable RTSP stream URI we fetched (empty if
+	 * streams weren't probed or all came back empty). */
+	QString selectedStreamUri() const;
+	/* True if the user wants us to also create an OBS Media Source from
+	 * the picked stream. */
+	bool createMediaSourceRequested() const;
 
 private slots:
 	void onRescanClicked();
@@ -160,6 +168,8 @@ private:
 	QLineEdit *m_manualHostEdit;
 	QLineEdit *m_manualPortEdit;
 	QPushButton *m_addManualButton;
+	QCheckBox *m_addMediaSourceCheck;
+	QComboBox *m_streamCombo;
 	QPlainTextEdit *m_detailView;
 	QList<OnvifCameraInfo> m_cameras;
 	OnvifCameraInfo m_selected;
