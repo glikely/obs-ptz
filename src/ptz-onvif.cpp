@@ -456,7 +456,7 @@ void PTZOnvif::set_config(OBSData config)
 	if (username == "")
 		username = "admin";
 	if (!port)
-		port = 8899;
+		port = 80;
 	connectCamera();
 }
 
