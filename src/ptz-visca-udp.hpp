@@ -47,7 +47,7 @@ private:
 	void attach_interface(ViscaUDPSocket *iface);
 
 protected:
-	void send_immediate(const QByteArray &msg);
+	void send_immediate(const QByteArray &msg) override;
 	void reset();
 
 public slots:
@@ -57,9 +57,9 @@ public slots:
 public:
 	PTZViscaOverIP(OBSData config);
 	~PTZViscaOverIP();
-	virtual QString description();
+	QString description() override;
 
-	void set_config(OBSData ptz_data);
-	OBSData get_config();
-	obs_properties_t *get_obs_properties();
+	void set_config(OBSData ptz_data) override;
+	OBSData get_config() override;
+	obs_properties_t *get_obs_properties() override;
 };
