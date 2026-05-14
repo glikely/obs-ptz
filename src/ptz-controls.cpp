@@ -16,7 +16,7 @@
 #include <QWindow>
 #include <QResizeEvent>
 #include <QDockWidget>
-#include <QLabel>
+#include <QStylePainter>
 
 #include <qt-wrappers.hpp>
 #include "touch-control.hpp"
@@ -170,8 +170,7 @@ PTZControls::PTZControls(QWidget *parent) : QFrame(parent), ui(new Ui::PTZContro
 
 	ui->cameraList->setModel(&ptzDeviceList);
 	ui->cameraList->setItemDelegate(new PTZDeviceListDelegate(ui->cameraList));
-	connect(&ptzDeviceList, SIGNAL(dataChanged(QModelIndex, QModelIndex)), this,
-		SLOT(ptzDeviceDataChanged(const QModelIndex &, const QModelIndex &)));
+	connect(&ptzDeviceList, SIGNAL(dataChanged(QModelIndex, QModelIndex)), this, SLOT(updateMoveControls()));
 
 	copyActionsDynamicProperties();
 
@@ -887,43 +886,9 @@ void PTZControls::setAutofocusEnabled(bool autofocus_on)
 	ui->focusButton_onetouch->setEnabled(!autofocus_on);
 }
 
-void PTZControls::ptzDeviceDataChanged(const QModelIndex &, const QModelIndex &)
-{
-	int rows = ptzDeviceList.rowCount();
-	for (int i = 0; i < rows; i++) {
-		auto index = ptzDeviceList.index(i, 0);
-		auto ptzitem = reinterpret_cast<PTZDeviceListItem *>(ui->cameraList->indexWidget(index));
-		if (ptzitem)
-			ptzitem->update();
-		else {
-			auto ptz_ = ptzDeviceList.getDevice(index);
-			ui->cameraList->setIndexWidget(index, new PTZDeviceListItem(ptz_));
-		}
-	}
-}
-
 void PTZControls::updateMoveControls()
 {
-	bool is_locked = false;
-
-	int rows = ptzDeviceList.rowCount();
-	for (int i = 0; i < rows; i++) {
-		auto index = ptzDeviceList.index(i, 0);
-		auto ptzitem = reinterpret_cast<PTZDeviceListItem *>(ui->cameraList->indexWidget(index));
-		if (ptzitem)
-			ptzitem->update();
-		else {
-			auto ptz_ = ptzDeviceList.getDevice(index);
-			ui->cameraList->setIndexWidget(index, new PTZDeviceListItem(ptz_));
-		}
-	}
-
-	// Check if the device's source is in the active program scene
-	// If it is then disable the pan/tilt/zoom controls
-	auto item = ui->cameraList->indexWidget(ui->cameraList->currentIndex());
-	auto ptzitem = reinterpret_cast<PTZDeviceListItem *>(item);
-	if (ptzitem && obs_frontend_preview_program_mode_active() && liveMovesDisabled())
-		is_locked = ptzitem->isLocked();
+	bool is_locked = ui->cameraList->currentIndex().data(PTZListModel::IsLockedRole).toBool();
 
 	ui->movementControlsWidget->setEnabled(!is_locked);
 	ui->presetListView->setEnabled(!is_locked);
@@ -1183,82 +1148,48 @@ PTZDeviceListDelegate::PTZDeviceListDelegate(QObject *parent) : QStyledItemDeleg
 
 QSize PTZDeviceListDelegate::sizeHint(const QStyleOptionViewItem &option, const QModelIndex &index) const
 {
-	QListView *tree = qobject_cast<QListView *>(parent());
-	QWidget *item = tree->indexWidget(index);
-	if (item)
-		return item->sizeHint();
-
-	return QStyledItemDelegate::sizeHint(option, index);
+	return QStyledItemDelegate::sizeHint(option, index).expandedTo(QSize(40, 0));
 }
 
-void PTZDeviceListDelegate::initStyleOption(QStyleOptionViewItem *option, const QModelIndex &) const
+void PTZDeviceListDelegate::paint(QPainter *painter, const QStyleOptionViewItem &option, const QModelIndex &index) const
 {
-	option->text = QString();
+	auto newopt = option;
+
+	bool isLive = index.data(PTZListModel::IsLiveRole).toBool();
+	bool isLocked = index.data(PTZListModel::IsLockedRole).toBool();
+	bool isConnected = index.data(PTZListModel::IsConnectedRole).toBool();
+	bool isDark = obs_frontend_is_theme_dark();
+
+	if (isLive) {
+		QIcon locked(isDark ? "theme:Dark/locked.svg" : ":res/images/locked.svg");
+		QIcon unlocked(":res/images/unlocked.svg");
+		QRect r(newopt.rect.right() - 18, newopt.rect.top() + 2, 16, 16);
+		newopt.rect = newopt.rect.marginsRemoved(QMargins(0, 0, 20, 0));
+		if (isLocked)
+			locked.paint(painter, r);
+		else
+			unlocked.paint(painter, r);
+	}
+
+	if (!isConnected) {
+		QIcon disconnected(isDark ? "theme:Dark/no_sources.svg" : ":res/images/no_sources.svg");
+		QRect r(newopt.rect.right() - 18, newopt.rect.top() + 2, 16, 16);
+		newopt.rect = newopt.rect.marginsRemoved(QMargins(0, 0, 20, 0));
+		disconnected.paint(painter, r);
+	}
+
+	QStyledItemDelegate::paint(painter, newopt, index);
 }
 
-PTZDeviceListItem::PTZDeviceListItem(PTZDevice *ptz_) : ptz(ptz_)
+bool PTZDeviceListDelegate::editorEvent(QEvent *event, QAbstractItemModel *model, const QStyleOptionViewItem &option,
+					const QModelIndex &index)
 {
-	setAttribute(Qt::WA_TranslucentBackground);
-
-	lock = new QCheckBox();
-	lock->setProperty("class", "checkbox-icon indicator-lock");
-	lock->setChecked(ptz->isLive());
-	lock->setAccessibleName(obs_module_text("PTZ.Dock.Lock.Name"));
-	lock->setAccessibleDescription(obs_module_text("PTZ.Dock.Lock.Description"));
-
-	// Connection status indicator
-	const char *iconname = obs_frontend_is_theme_dark() ? "theme:Dark/no_sources.svg"
-							    : ":res/images/no_sources.svg";
-	statusDot = new QLabel();
-	statusDot->setAlignment(Qt::AlignCenter);
-	statusDot->setPixmap(QIcon(iconname).pixmap(QSize(16, 16)));
-	statusDot->setToolTip(obs_module_text("PTZ.Device.Status.Disconnected"));
-	statusDot->setFixedSize(lock->sizeHint().width() - 4, 16); /* Match size of checkbox */
-	statusDot->setVisible(false);
-
-	label = new QLabel(ptz->objectName());
-	label->setSizePolicy(QSizePolicy::Ignored, QSizePolicy::Preferred);
-
-	boxLayout = new QHBoxLayout();
-	boxLayout->setContentsMargins(0, 0, 0, 0);
-	boxLayout->setSpacing(0);
-	boxLayout->addWidget(label);
-	boxLayout->addWidget(statusDot);
-	boxLayout->addWidget(lock);
-	setLayout(boxLayout);
-
-	connect(lock, SIGNAL(clicked(bool)), PTZControls::getInstance(), SLOT(updateMoveControls()));
-
-	// Update status dot when connection changes
-	connect(ptz, &PTZDevice::connectionStatusChanged, this, &PTZDeviceListItem::updateStatusDot,
-		Qt::QueuedConnection);
-
-	update();
-}
-
-QSize PTZDeviceListItem::sizeHint() const
-{
-	// The lock may be hidden, so account for it's size manually
-	return QFrame::sizeHint().expandedTo(lock->sizeHint());
-}
-
-void PTZDeviceListItem::updateStatusDot()
-{
-	if (!ptz || !statusDot)
-		return;
-	statusDot->setVisible(!ptz->isConnected());
-}
-
-void PTZDeviceListItem::update()
-{
-	bool is_live = obs_frontend_preview_program_mode_active() && PTZControls::getInstance()->liveMovesDisabled()
-			       ? ptz->isLive()
-			       : false;
-	// When a camera becomes live, start with it locked
-	if (lock->isVisible() == false && is_live)
-		lock->setChecked(true);
-	if (label->text() != ptz->objectName())
-		label->setText(ptz->objectName());
-	lock->setVisible(is_live);
-	updateStatusDot();
+	bool isLive = index.data(PTZListModel::IsLiveRole).toBool();
+	if (event && event->type() == QEvent::MouseButtonRelease && isLive) {
+		bool isLocked = index.data(PTZListModel::IsLockedRole).toBool();
+		auto pos = static_cast<QMouseEvent *>(event)->pos() - option.rect.topRight();
+		if (pos.x() > -20)
+			model->setData(index, !isLocked, PTZListModel::IsLockedRole);
+	}
+	return QStyledItemDelegate::editorEvent(event, model, option, index);
 }
