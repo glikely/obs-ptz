@@ -1187,17 +1187,21 @@ PTZDeviceListItem::PTZDeviceListItem(PTZDevice *ptz_) : ptz(ptz_)
 {
 	setAttribute(Qt::WA_TranslucentBackground);
 
-	// Connection status indicator
-	statusDot = new QLabel();
-	statusDot->setFixedSize(8, 8);
-	statusDot->setStyleSheet("background-color: #6b7280; border-radius: 4px; margin: 2px;");
-	statusDot->setToolTip(obs_module_text("PTZ.Device.Status.Unknown"));
-
 	lock = new QCheckBox();
 	lock->setProperty("class", "checkbox-icon indicator-lock");
 	lock->setChecked(ptz->isLive());
 	lock->setAccessibleName(obs_module_text("PTZ.Dock.Lock.Name"));
 	lock->setAccessibleDescription(obs_module_text("PTZ.Dock.Lock.Description"));
+
+	// Connection status indicator
+	const char *iconname = obs_frontend_is_theme_dark() ? "theme:Dark/no_sources.svg"
+							    : ":res/images/no_sources.svg";
+	statusDot = new QLabel();
+	statusDot->setAlignment(Qt::AlignCenter);
+	statusDot->setPixmap(QIcon(iconname).pixmap(QSize(16, 16)));
+	statusDot->setToolTip(obs_module_text("PTZ.Device.Status.Disconnected"));
+	statusDot->setFixedSize(lock->sizeHint().width() - 4, 16); /* Match size of checkbox */
+	statusDot->setVisible(false);
 
 	label = new QLabel(ptz->objectName());
 	label->setSizePolicy(QSizePolicy::Ignored, QSizePolicy::Preferred);
@@ -1205,8 +1209,8 @@ PTZDeviceListItem::PTZDeviceListItem(PTZDevice *ptz_) : ptz(ptz_)
 	boxLayout = new QHBoxLayout();
 	boxLayout->setContentsMargins(0, 0, 0, 0);
 	boxLayout->setSpacing(0);
-	boxLayout->addWidget(statusDot);
 	boxLayout->addWidget(label);
+	boxLayout->addWidget(statusDot);
 	boxLayout->addWidget(lock);
 	setLayout(boxLayout);
 
@@ -1229,13 +1233,7 @@ void PTZDeviceListItem::updateStatusDot()
 {
 	if (!ptz || !statusDot)
 		return;
-	if (ptz->isConnected()) {
-		statusDot->setStyleSheet("background-color: #22c55e; border-radius: 4px; margin: 2px;");
-		statusDot->setToolTip(obs_module_text("PTZ.Device.Status.Connected"));
-	} else {
-		statusDot->setStyleSheet("background-color: #ef4444; border-radius: 4px; margin: 2px;");
-		statusDot->setToolTip(obs_module_text("PTZ.Device.Status.Disconnected"));
-	}
+	statusDot->setVisible(!ptz->isConnected());
 }
 
 void PTZDeviceListItem::update()
