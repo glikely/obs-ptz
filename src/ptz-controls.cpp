@@ -16,7 +16,7 @@
 #include <QWindow>
 #include <QResizeEvent>
 #include <QDockWidget>
-#include <QLabel>
+#include <QStylePainter>
 
 #include <qt-wrappers.hpp>
 #include "touch-control.hpp"
@@ -173,8 +173,7 @@ PTZControls::PTZControls(QWidget *parent) : QFrame(parent), ui(new Ui::PTZContro
 
 	ui->cameraList->setModel(&ptzDeviceList);
 	ui->cameraList->setItemDelegate(new PTZDeviceListDelegate(ui->cameraList));
-	connect(&ptzDeviceList, SIGNAL(dataChanged(QModelIndex, QModelIndex)), this,
-		SLOT(ptzDeviceDataChanged(const QModelIndex &, const QModelIndex &)));
+	connect(&ptzDeviceList, &PTZListModel::dataChanged, this, &PTZControls::updateMoveControls);
 
 	copyActionsDynamicProperties();
 
@@ -876,45 +875,13 @@ void PTZControls::setAutofocusEnabled(bool autofocus_on)
 	ui->focusButton_onetouch->setEnabled(!autofocus_on);
 }
 
-void PTZControls::ptzDeviceDataChanged(const QModelIndex &, const QModelIndex &)
-{
-	int rows = ptzDeviceList.rowCount();
-	for (int i = 0; i < rows; i++) {
-		auto index = ptzDeviceList.index(i, 0);
-		auto ptzitem = reinterpret_cast<PTZDeviceListItem *>(ui->cameraList->indexWidget(index));
-		if (ptzitem)
-			ptzitem->update();
-		else {
-			auto ptz_ = ptzDeviceList.getDevice(index);
-			ui->cameraList->setIndexWidget(index, new PTZDeviceListItem(ptz_));
-		}
-	}
-}
-
 void PTZControls::updateMoveControls()
 {
-	bool is_locked = false;
-
-	int rows = ptzDeviceList.rowCount();
-	for (int i = 0; i < rows; i++) {
-		auto index = ptzDeviceList.index(i, 0);
-		auto ptzitem = reinterpret_cast<PTZDeviceListItem *>(ui->cameraList->indexWidget(index));
-		if (ptzitem)
-			ptzitem->update();
-		else {
-			auto ptz_ = ptzDeviceList.getDevice(index);
-			ui->cameraList->setIndexWidget(index, new PTZDeviceListItem(ptz_));
-		}
-	}
-
-	// Check if the device's source is in the active program scene
-	// If it is then disable the pan/tilt/zoom controls
-	auto item = ui->cameraList->indexWidget(ui->cameraList->currentIndex());
-	auto ptzitem = reinterpret_cast<PTZDeviceListItem *>(item);
-	if (ptzitem && liveMoveLockActive())
-		is_locked = ptzitem->isLocked();
+	bool is_locked = liveMoveLockActive() &&
+			 ui->cameraList->currentIndex().data(PTZListModel::IsLockedRole).toBool();
 
 	ui->movementControlsWidget->setEnabled(!is_locked);
+	ui->cameraList->update();
 	ui->presetListView->setEnabled(!is_locked);
 
 	RefreshToolBarStyling(ui->ptzToolbar);
@@ -1033,11 +1000,6 @@ void PTZControls::on_presetListView_customContextMenuRequested(const QPoint &pos
 	}
 	presetContext.addAction(ui->actionPresetAdd);
 	presetContext.exec(globalpos);
-}
-
-void PTZControls::on_cameraList_doubleClicked(const QModelIndex &index)
-{
-	ptz_settings_show(index);
 }
 
 void PTZControls::on_cameraList_customContextMenuRequested(const QPoint &pos)
@@ -1168,86 +1130,132 @@ void PTZControls::on_actionPresetClear_triggered()
 	ui->presetListView->model()->setData(index, "");
 }
 
-PTZDeviceListDelegate::PTZDeviceListDelegate(QObject *parent) : QStyledItemDelegate(parent) {}
+PTZDeviceListDelegate::PTZDeviceListDelegate(QObject *parent) : QStyledItemDelegate(parent)
+{
+	bool isDark = obs_frontend_is_theme_dark();
+	lockedIcon = QIcon(isDark ? "theme:Dark/locked.svg" : ":res/images/locked.svg");
+	unlockedIcon = QIcon(":res/images/unlocked.svg");
+	disconnectedIcon = QIcon(isDark ? "theme:Dark/no_sources.svg" : ":res/images/no_sources.svg");
+}
 
 QSize PTZDeviceListDelegate::sizeHint(const QStyleOptionViewItem &option, const QModelIndex &index) const
 {
-	QListView *tree = qobject_cast<QListView *>(parent());
-	QWidget *item = tree->indexWidget(index);
-	if (item)
-		return item->sizeHint();
-
-	return QStyledItemDelegate::sizeHint(option, index);
+	auto size = QStyledItemDelegate::sizeHint(option, index);
+	size.setWidth(25);
+	return size;
 }
 
-void PTZDeviceListDelegate::initStyleOption(QStyleOptionViewItem *option, const QModelIndex &) const
+PTZDeviceListDelegate::CellLayout PTZDeviceListDelegate::layoutCell(const QModelIndex &index,
+								    const QStyleOptionViewItem &option) const
 {
-	option->text = QString();
+	QStyle *style = option.widget ? option.widget->style() : QApplication::style();
+	CellLayout l;
+	l.text = style->subElementRect(QStyle::SE_ItemViewItemText, &option, option.widget);
+	l.lock = QRect();
+	l.status = QRect();
+	const int iconMargin = 1;
+	const int textMargin = 2;
+	const int iconSize = l.text.height();
+	bool isLive = PTZControls::getInstance()->liveMoveLockActive() && index.data(PTZListModel::IsLiveRole).toBool();
+	bool isConnected = index.data(PTZListModel::IsConnectedRole).toBool();
+
+	if (isLive) {
+		l.lock = QRect(l.text.right() - iconSize + iconMargin, l.text.top() + iconMargin,
+			       iconSize - 2 * iconMargin, iconSize - 2 * iconMargin);
+		l.text = l.text.marginsRemoved(QMargins(0, 0, iconSize, 0));
+	}
+	if (!isConnected) {
+		l.status = QRect(l.text.right() - iconSize + iconMargin, l.text.top() + iconMargin,
+				 iconSize - 2 * iconMargin, iconSize - 2 * iconMargin);
+		l.text = l.text.marginsRemoved(QMargins(0, 0, iconSize, 0));
+	}
+
+	l.text = l.text.marginsRemoved(QMargins(textMargin, 0, textMargin, 0));
+	return l;
 }
 
-PTZDeviceListItem::PTZDeviceListItem(PTZDevice *ptz_) : ptz(ptz_)
+/**
+ * Add icon on right hand side of drawing area
+ */
+void PTZDeviceListDelegate::paint(QPainter *painter, const QStyleOptionViewItem &option, const QModelIndex &index) const
 {
-	setAttribute(Qt::WA_TranslucentBackground);
+	bool isLocked = index.data(PTZListModel::IsLockedRole).toBool();
 
-	lock = new QCheckBox();
-	lock->setProperty("class", "checkbox-icon indicator-lock");
-	lock->setChecked(ptz->isLive());
-	lock->setAccessibleName(obs_module_text("PTZ.Dock.Lock.Name"));
-	lock->setAccessibleDescription(obs_module_text("PTZ.Dock.Lock.Description"));
+	QStyleOptionViewItem opt(option);
+	initStyleOption(&opt, index);
 
-	// Connection status indicator
-	const char *iconname = obs_frontend_is_theme_dark() ? "theme:Dark/no_sources.svg"
-							    : ":res/images/no_sources.svg";
-	statusDot = new QLabel();
-	statusDot->setAlignment(Qt::AlignCenter);
-	statusDot->setPixmap(QIcon(iconname).pixmap(QSize(16, 16)));
-	statusDot->setToolTip(obs_module_text("PTZ.Device.Status.Disconnected"));
-	statusDot->setFixedSize(lock->sizeHint().width() - 4, 16); /* Match size of checkbox */
-	statusDot->setVisible(false);
+	/* Draw the background highlight */
+	QStyle *style = opt.widget ? opt.widget->style() : QApplication::style();
+	style->drawPrimitive(QStyle::PE_PanelItemViewItem, &opt, painter, opt.widget);
 
-	label = new QLabel(ptz->objectName());
-	label->setSizePolicy(QSizePolicy::Ignored, QSizePolicy::Preferred);
+	/* Divide up the space into the label, status icon and lock icon */
+	CellLayout l = layoutCell(index, opt);
 
-	boxLayout = new QHBoxLayout();
-	boxLayout->setContentsMargins(0, 0, 0, 0);
-	boxLayout->setSpacing(0);
-	boxLayout->addWidget(label);
-	boxLayout->addWidget(statusDot);
-	boxLayout->addWidget(lock);
-	setLayout(boxLayout);
+	auto icon = isLocked ? &lockedIcon : &unlockedIcon;
+	if (l.lock.width())
+		icon->paint(painter, l.lock); /* Device is live, show the lock/unlock icon */
+	if (l.status.width())
+		disconnectedIcon.paint(painter, l.status); /* Device is disconnected, show '?' icon */
 
-	connect(lock, SIGNAL(clicked(bool)), PTZControls::getInstance(), SLOT(updateMoveControls()));
-
-	// Update status dot when connection changes
-	connect(ptz, &PTZDevice::connectionStatusChanged, this, &PTZDeviceListItem::updateStatusDot,
-		Qt::QueuedConnection);
-
-	update();
+	/* Finally, render the text in the space remaining */
+	style->drawItemText(painter, l.text, opt.displayAlignment, opt.palette, true, opt.text);
 }
 
-QSize PTZDeviceListItem::sizeHint() const
+bool PTZDeviceListDelegate::editorEvent(QEvent *event, QAbstractItemModel *model, const QStyleOptionViewItem &option,
+					const QModelIndex &index)
 {
-	// The lock may be hidden, so account for it's size manually
-	return QFrame::sizeHint().expandedTo(lock->sizeHint());
+	if (!event || !model || !index.isValid())
+		return false;
+
+	const CellLayout l = layoutCell(index, option);
+	QMouseEvent *mouseEvent = nullptr;
+	QPoint pos;
+
+	switch (event->type()) {
+	case QEvent::MouseButtonRelease:
+		mouseEvent = static_cast<QMouseEvent *>(event);
+		pos = mouseEvent->pos();
+		if (mouseEvent->button() == Qt::LeftButton && l.lock.contains(pos)) {
+			bool isLocked = index.data(PTZListModel::IsLockedRole).toBool();
+			model->setData(index, !isLocked, PTZListModel::IsLockedRole);
+			return true;
+		}
+		break;
+	case QEvent::MouseButtonDblClick:
+		mouseEvent = static_cast<QMouseEvent *>(event);
+		pos = mouseEvent->pos();
+		if (mouseEvent->button() == Qt::LeftButton && l.text.contains(pos)) {
+			ptz_settings_show(index);
+			return true;
+		}
+		break;
+	default:
+		break;
+	}
+	return QStyledItemDelegate::editorEvent(event, model, option, index);
 }
 
-void PTZDeviceListItem::updateStatusDot()
+bool PTZDeviceListDelegate::helpEvent(QHelpEvent *event, QAbstractItemView *view, const QStyleOptionViewItem &option,
+				      const QModelIndex &index)
 {
-	if (!ptz || !statusDot)
-		return;
-	statusDot->setVisible(!ptz->isConnected());
-}
+	if (!event || !view || !index.isValid())
+		return false;
 
-void PTZDeviceListItem::update()
-{
-	bool is_live = obs_frontend_preview_program_mode_active() && PTZControls::getInstance()->liveMoveLockEnabled()
-			       ? ptz->isLive()
-			       : false;
-	// When a camera becomes live, start with it locked
-	if (lock->isVisible() == false && is_live)
-		lock->setChecked(true);
-	if (label->text() != ptz->objectName())
-		label->setText(ptz->objectName());
-	lock->setVisible(is_live);
-	updateStatusDot();
+	const CellLayout l = layoutCell(index, option);
+	const QPoint pos = event->pos();
+
+	if (l.lock.contains(pos)) {
+		bool isLocked = index.data(PTZListModel::IsLockedRole).toBool();
+		auto tooltip = isLocked ? obs_module_text("PTZ.Dock.Lock.Description")
+					: obs_module_text("PTZ.Dock.Unlock.Description");
+		QToolTip::showText(event->globalPos(), tooltip, view);
+		return true;
+	}
+
+	if (l.status.contains(pos)) {
+		QToolTip::showText(event->globalPos(), obs_module_text("PTZ.Device.Status.Disconnected"), view);
+		return true;
+	}
+
+	return QStyledItemDelegate::helpEvent(event, view, option, index);
 }
