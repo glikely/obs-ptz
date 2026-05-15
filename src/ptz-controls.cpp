@@ -1040,7 +1040,7 @@ void PTZControls::on_presetListView_customContextMenuRequested(const QPoint &pos
 
 void PTZControls::on_cameraList_doubleClicked(const QModelIndex &index)
 {
-	ptz_settings_show(ptzDeviceList.getDeviceId(index));
+	ptz_settings_show(index);
 }
 
 void PTZControls::on_cameraList_customContextMenuRequested(const QPoint &pos)
@@ -1093,7 +1093,7 @@ void PTZControls::on_cameraList_customContextMenuRequested(const QPoint &pos)
 
 void PTZControls::on_actionProperties_triggered()
 {
-	ptz_settings_show(ptzDeviceList.getDeviceId(ui->cameraList->currentIndex()));
+	ptz_settings_show(ui->cameraList->currentIndex());
 }
 
 void PTZControls::on_actionPresetAdd_triggered()

@@ -351,11 +351,6 @@ void PTZSettings::joystickSetup()
 }
 #endif /* ENABLE_JOYSTICK */
 
-void PTZSettings::set_selected(uint32_t device_id)
-{
-	ui->deviceList->setCurrentIndex(ptzDeviceList.indexFromDeviceId(device_id));
-}
-
 void PTZSettings::on_addPTZ_clicked()
 {
 	QMenu addPTZContext;
@@ -482,10 +477,10 @@ void PTZSettings::settingsChanged(OBSData changed)
 	QMetaObject::invokeMethod(propertiesView, "RefreshProperties", Qt::QueuedConnection);
 }
 
-void PTZSettings::showDevice(uint32_t device_id)
+void PTZSettings::showDevice(const QModelIndex &index)
 {
-	if (device_id) {
-		set_selected(device_id);
+	if (index.isValid()) {
+		ui->deviceList->setCurrentIndex(index);
 		ui->tabWidget->setCurrentWidget(ui->camerasTab);
 	} else {
 		ui->tabWidget->setCurrentWidget(ui->generalTab);
@@ -504,13 +499,13 @@ static void obs_event(enum obs_frontend_event event, void *)
 	}
 }
 
-void ptz_settings_show(uint32_t device_id)
+void ptz_settings_show(const QModelIndex &index)
 {
 	obs_frontend_push_ui_translation(obs_module_get_string);
 
 	if (!ptzSettingsWindow)
 		ptzSettingsWindow = new PTZSettings();
-	ptzSettingsWindow->showDevice(device_id);
+	ptzSettingsWindow->showDevice(index);
 
 	obs_frontend_pop_ui_translation();
 }
@@ -519,11 +514,7 @@ extern "C" void ptz_load_settings()
 {
 	QAction *action = (QAction *)obs_frontend_add_tools_menu_qaction(obs_module_text("PTZ.Settings.PTZDevices"));
 
-	auto cb = []() {
-		ptz_settings_show(0);
-	};
-
 	obs_frontend_add_event_callback(obs_event, nullptr);
 
-	action->connect(action, &QAction::triggered, cb);
+	action->connect(action, &QAction::triggered, []() { ptz_settings_show(); });
 }

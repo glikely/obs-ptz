@@ -55,7 +55,6 @@ private:
 public:
 	PTZSettings();
 	~PTZSettings();
-	void set_selected(uint32_t device_id);
 
 /* Joystick Support */
 #if defined(ENABLE_JOYSTICK)
@@ -88,8 +87,8 @@ public slots:
 	void settingsChanged(OBSData settings);
 	obs_properties_t *getProperties(void);
 	void updateProperties(OBSData old_settings, OBSData new_settings);
-	void showDevice(uint32_t device_id);
+	void showDevice(const QModelIndex &index);
 };
 
-void ptz_settings_show(uint32_t device_id = 0);
+void ptz_settings_show(const QModelIndex &index = QModelIndex());
 extern "C" void ptz_init_settings();
