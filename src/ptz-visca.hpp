@@ -60,6 +60,7 @@ protected:
 
 protected slots:
 	void receive(const QByteArray &msg);
+	void set(calldata_t *cd) override;
 
 public:
 	PTZVisca(OBSData config);

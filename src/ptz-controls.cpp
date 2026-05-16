@@ -1066,11 +1066,12 @@ void PTZControls::on_cameraList_customContextMenuRequested(const QPoint &pos)
 		return;
 	if (action == powerAction) {
 		OBSData settings = ptz->get_settings();
-		obs_data_set_bool(setdata, "power_on", !obs_data_get_bool(settings, "power_on"));
-		ptz->set_settings(setdata);
+		calldata cd = {};
+		calldata_set_bool(&cd, "power_on", !obs_data_get_bool(settings, "power_on"));
+		ptzDeviceList.callDevice(index, "set", &cd);
+		calldata_free(&cd);
 	} else if (action == wbOnetouchAction) {
-		obs_data_set_bool(setdata, "wb_onepush_trigger", true);
-		ptz->set_settings(setdata);
+		ptzDeviceList.callDevice(index, "wb_onepush_trigger");
 	}
 }
 
