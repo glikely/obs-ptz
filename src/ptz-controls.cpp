@@ -1039,10 +1039,11 @@ void PTZControls::on_cameraList_customContextMenuRequested(const QPoint &pos)
 	QMenu context;
 	QAction *powerAction = nullptr;
 	QAction *wbOnetouchAction = nullptr;
+	bool power_on = false;
 
 	if (ptz) {
 		OBSData settings = ptz->get_settings();
-		bool power_on = obs_data_get_bool(settings, "power_on");
+		power_on = obs_data_get_bool(settings, "power_on");
 		powerAction =
 			context.addAction(obs_module_text(power_on ? "PTZ.Action.PowerOff" : "PTZ.Action.PowerOn"));
 
@@ -1064,18 +1065,18 @@ void PTZControls::on_cameraList_customContextMenuRequested(const QPoint &pos)
 	context.addAction(ui->actionProperties);
 	QAction *action = context.exec(globalpos);
 
-	OBSData setdata = obs_data_create();
-	obs_data_release(setdata);
-
 	if (action == nullptr)
 		return;
 	if (action == powerAction) {
-		OBSData settings = ptz->get_settings();
-		obs_data_set_bool(setdata, "power_on", !obs_data_get_bool(settings, "power_on"));
-		ptz->set_settings(setdata);
+		calldata cd = {};
+		calldata_set_bool(&cd, "power_on", !power_on);
+		ptzDeviceList.callDevice(index, "ptz_set", &cd);
+		calldata_free(&cd);
 	} else if (action == wbOnetouchAction) {
-		obs_data_set_bool(setdata, "wb_onepush_trigger", true);
-		ptz->set_settings(setdata);
+		calldata cd = {};
+		calldata_set_bool(&cd, "wb_onepush_trigger", true);
+		ptzDeviceList.callDevice(index, "ptz_set", &cd);
+		calldata_free(&cd);
 	}
 }
 
