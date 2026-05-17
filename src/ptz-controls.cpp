@@ -536,9 +536,9 @@ void PTZControls::SaveConfig()
 		obs_data_array_push_back(button_actions, d);
 	}
 	obs_data_set_array(savedata, "joystick_button_hotkeys", button_actions);
-
-	if (auto ptz = currCamera())
-		obs_data_set_int(savedata, "current_selected", ptz->getId());
+	if (ui->cameraList->currentIndex().isValid())
+		obs_data_set_int(savedata, "current_selected",
+				 ui->cameraList->currentIndex().data(PTZListModel::DeviceIdRole).toInt());
 
 	OBSDataArray camera_array = ptz_devices_get_config();
 	obs_data_array_release(camera_array);
@@ -788,14 +788,16 @@ void PTZControls::on_panTiltButton_home_released()
 
 void PTZControls::onHomeButtonContextMenu(const QPoint &pos)
 {
-	PTZDevice *ptz = currCamera();
-	if (!ptz || !ptz->supportsSetHome())
+	if (!ui->cameraList->currentIndex().data(PTZListModel::SupportsSetHomeRole).toBool())
 		return;
 	QMenu menu(this);
 	QAction *setHome = menu.addAction(obs_module_text("PTZ.Action.SetHome"));
 	QAction *picked = menu.exec(ui->panTiltButton_home->mapToGlobal(pos));
-	if (picked == setHome)
-		ptz->pantilt_set_home();
+	if (picked == setHome) {
+		auto ptz = currCamera();
+		if (ptz)
+			ptz->pantilt_set_home();
+	}
 }
 
 /* There are fewer buttons for zoom or focus; so don't bother with macros */
