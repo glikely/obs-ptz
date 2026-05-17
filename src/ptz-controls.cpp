@@ -993,9 +993,8 @@ void PTZControls::presetRecall(int preset_id)
 
 int PTZControls::presetIndexToId(QModelIndex index)
 {
-	auto model = ui->presetListView->model();
-	if (model && index.isValid())
-		return model->data(index, Qt::UserRole).toInt();
+	if (index.isValid())
+		return index.data(Qt::UserRole).toInt();
 	return -1;
 }
 
