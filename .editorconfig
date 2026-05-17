@@ -1,0 +1,31 @@
+root = true
+
+[*]
+charset = utf-8
+end_of_line = lf
+indent_style = space
+insert_final_newline = true
+tab_width = 2
+
+[*.{hpp,cpp,h,c}]
+indent_size = 2
+indent_style = tab
+tab_width = 8
+
+[*.json]
+indent_size = 2
+
+[{CMakeLists.txt,*.cmake}]
+indent_size = 2
+
+[*.ui]
+indent_size = 1
+
+[*.svg]
+indent_size = 2
+
+[*.qrc]
+indent_size = 4
+
+[*.py]
+indent_size = 4

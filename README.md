@@ -32,6 +32,7 @@ Features:
   - Pelco-D
   - ONVIF (experimental)
   - USB Cameras (Windows and Linux only)
+  - [NDI®](https://ndi.video/)
 
 ## Websites
 - [OBS project resource page](https://obsproject.com/forum/resources/ptz-controls.1284/)
@@ -238,3 +239,5 @@ Joystick support uses the
 And finally, thank you to everyone who contributes to the Free and Open Source
 Software that this project is built upon, including OBS Studio, Qt, Simple
 DirectMedia Layer (SDL), Linux, and countless libraries and tools.
+
+NDI® is a registered trademark of Vizrt NDI AB.

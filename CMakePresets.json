@@ -14,7 +14,8 @@
         "ENABLE_QT": true,
         "ENABLE_SERIALPORT": true,
         "ENABLE_JOYSTICK": true,
-        "ENABLE_USB_CAM": true
+        "ENABLE_USB_CAM": true,
+        "ENABLE_NDI": true
       }
     },
     {

@@ -1,0 +1,64 @@
+/* Pan Tilt Zoom over NDI
+ *
+ * Copyright 2025 Christian Mäder <mail@cmaeder.ch>
+ *
+ * SPDX-License-Identifier: GPLv2
+ */
+
+#pragma once
+
+#include <qatomic.h>
+
+#include <util/base.h>
+#include <QObject>
+#include <QDebug>
+#include <QStringListModel>
+#include <QtGlobal>
+
+#include <__stddef_null.h>
+#include <Processing.NDI.Lib.h>
+#include <Processing.NDI.Lib.cplusplus.h>
+#include <Processing.NDI.structs.h>
+#include <Processing.NDI.Recv.h>
+#include <Processing.NDI.Recv.ex.h>
+
+#include "ptz-device.hpp"
+#include "protocol-helpers.hpp"
+#include "qt-wrappers.hpp"
+
+#include "ndi.hpp"
+
+/*
+ * NDI PTZ Controller
+ */
+class PTZNDI : public PTZDevice {
+	Q_OBJECT
+
+private:
+	QString source_name;
+	NDIlib_recv_instance_t instance = nullptr;
+	NDIlib_source_t src;
+	obs_property_t *sources_list;
+
+public:
+	explicit PTZNDI(OBSData config);
+	~PTZNDI() override;
+	QString description() override;
+
+	void set_config(OBSData ptz_data) override;
+	OBSData get_config() override;
+	obs_properties_t *get_obs_properties() override;
+
+	void do_update() override;
+
+	void pantilt_home() override;
+	void set_autofocus(bool enabled) override;
+	void memory_set(int i) override;
+	void memory_recall(int i) override;
+	bool is_connected() const;
+
+private:
+	void pantilt_rel() const;
+	void zoom_rel() const;
+	void focus_rel() const;
+};
