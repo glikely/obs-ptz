@@ -65,14 +65,28 @@ QVariant PTZListModel::data(const QModelIndex &index, int role) const
 	if (!index.isValid())
 		return QVariant();
 
-	if (role == Qt::DisplayRole || role == Qt::EditRole) {
-		return devices.value(devices.keys().at(index.row()))->objectName();
-	}
-#if 0
-	if (role == Qt::UserRole) {
-		return get_device(index.row());
-	}
-#endif
+	auto ptz = getDevice(index);
+	if (!ptz)
+		return QVariant();
+
+	if (role == Qt::DisplayRole || role == Qt::EditRole)
+		return ptz->objectName();
+
+	if (role == PTZListModel::DeviceIdRole)
+		return devices.keys().at(index.row());
+
+	if (role == PTZListModel::DescriptionRole)
+		return ptz->description();
+
+	if (role == PTZListModel::IsLiveRole)
+		return ptz->isLive();
+
+	if (role == PTZListModel::IsConnectedRole)
+		return ptz->isConnected();
+
+	if (role == PTZListModel::SupportsSetHomeRole)
+		return ptz->supportsSetHome();
+
 	return QVariant();
 }
 
@@ -94,13 +108,6 @@ PTZDevice *PTZListModel::getDevice(const QModelIndex &index) const
 	if (index.row() < 0)
 		return nullptr;
 	return devices.value(devices.keys().at(index.row()));
-}
-
-uint32_t PTZListModel::getDeviceId(const QModelIndex &index) const
-{
-	if (index.row() < 0)
-		return 0;
-	return devices.keys().at(index.row());
 }
 
 PTZDevice *PTZListModel::getDevice(uint32_t device_id) const

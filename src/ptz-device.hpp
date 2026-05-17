@@ -34,6 +34,14 @@ private:
 	static QMap<uint32_t, PTZDevice *> devices;
 
 public:
+	enum PTZListModelRole {
+		DeviceIdRole = Qt::UserRole,
+		DescriptionRole,
+		IsLiveRole,
+		IsConnectedRole,
+		SupportsSetHomeRole,
+	};
+
 	PTZListModel();
 	~PTZListModel();
 	int rowCount(const QModelIndex &parent = QModelIndex()) const;
@@ -45,7 +53,6 @@ public:
 	/* Data Model */
 	PTZDevice *make_device(OBSData config);
 	PTZDevice *getDevice(const QModelIndex &index) const;
-	uint32_t getDeviceId(const QModelIndex &index) const;
 	PTZDevice *getDevice(uint32_t device_id) const;
 	PTZDevice *getDeviceByName(const QString &name) const;
 	QStringList getDeviceNames() const;
