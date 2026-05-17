@@ -48,7 +48,6 @@ private:
 	bool live_moves_disabled = false;
 	bool autoselect_enabled = false;
 	bool speed_ramp_enabled = false;
-	bool is_locked = false;
 
 	// Current status
 	double pan_speed = 0.0;
@@ -196,7 +195,6 @@ public:
 	bool autoselectEnabled() { return autoselect_enabled; };
 	bool liveMovesDisabled() { return live_moves_disabled; };
 	bool speedRampEnabled() { return speed_ramp_enabled; };
-	bool isLocked() { return is_locked; };
 	static PTZControls *getInstance() { return instance; };
 
 public slots:

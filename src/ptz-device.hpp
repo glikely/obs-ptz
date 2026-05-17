@@ -39,6 +39,7 @@ public:
 		DescriptionRole,
 		IsLiveRole,
 		IsConnectedRole,
+		IsLockedRole,
 		SupportsSetHomeRole,
 	};
 
@@ -46,6 +47,7 @@ public:
 	~PTZListModel();
 	int rowCount(const QModelIndex &parent = QModelIndex()) const override;
 	QVariant data(const QModelIndex &index, int role) const override;
+	bool setData(const QModelIndex &index, const QVariant &value, int role = Qt::EditRole) override;
 	void do_reset();
 	void name_changed(PTZDevice *ptz);
 	Qt::ItemFlags flags(const QModelIndex &index) const override;
@@ -116,6 +118,7 @@ protected:
 	uint32_t id = 0;
 	std::string type;
 	bool connected = false;
+	bool locked = false;
 	double pan_speed = 0;
 	double tilt_speed = 0;
 	double pantilt_speed_max = 1.0;
@@ -219,7 +222,9 @@ public:
 	virtual void memory_recall(int i) { Q_UNUSED(i); }
 	virtual void memory_reset(int i) { Q_UNUSED(i); }
 	virtual QAbstractListModel *presetModel() { return &m_presetsModel; }
+	bool isLocked() const { return locked; };
 	bool isConnected() const { return connected; }
+	void setLock(bool state) { locked = state; }
 	bool pantiltChanged() const { return pantilt_changed; }
 	bool zoomChanged() const { return zoom_changed; }
 	bool focusChanged() const { return focus_changed; }

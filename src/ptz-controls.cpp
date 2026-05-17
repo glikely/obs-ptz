@@ -102,6 +102,16 @@ void PTZControls::handleFrontendEvent(enum obs_frontend_event event)
 			OBSSourceAutoRelease source = obs_frontend_get_current_scene();
 			autoselectDevice(source.Get());
 		}
+
+		/* The main scene has changed. Iterate over all the devices and mark the live
+		 * ones as locked. The user can manually unlock a device when they want to
+		 * perform a move on a live camera. */
+		for (int i = 0; i < ptzDeviceList.rowCount(); i++) {
+			auto index = ptzDeviceList.index(i, 0);
+			bool isLive = index.data(PTZListModel::IsLiveRole).toBool();
+			ptzDeviceList.setData(index, isLive, PTZListModel::IsLockedRole);
+		}
+
 		updateMoveControls();
 		break;
 	case OBS_FRONTEND_EVENT_STUDIO_MODE_ENABLED:
@@ -363,7 +373,8 @@ double PTZControls::readAxis(const QJoystickDevice *jd, int axis, bool invert)
 
 void PTZControls::joystickAxesChanged(const QJoystickDevice *jd, uint32_t updated)
 {
-	if (isLocked() || !m_joystick_enable || !jd || jd->id != m_joystick_id)
+	bool isLocked = ui->cameraList->currentIndex().data(PTZListModel::IsLockedRole).toBool();
+	if (isLocked || !m_joystick_enable || !jd || jd->id != m_joystick_id)
 		return;
 	int panTiltMask = (1 << joystick_pan_axis) | (1 << joystick_tilt_axis);
 	if (updated & panTiltMask)
@@ -881,8 +892,7 @@ void PTZControls::ptzDeviceDataChanged(const QModelIndex &, const QModelIndex &)
 
 void PTZControls::updateMoveControls()
 {
-	is_locked = false;
-	PTZDevice *ptz = currCamera();
+	bool is_locked = false;
 
 	int rows = ptzDeviceList.rowCount();
 	for (int i = 0; i < rows; i++) {
@@ -900,11 +910,11 @@ void PTZControls::updateMoveControls()
 	// If it is then disable the pan/tilt/zoom controls
 	auto item = ui->cameraList->indexWidget(ui->cameraList->currentIndex());
 	auto ptzitem = reinterpret_cast<PTZDeviceListItem *>(item);
-	if (obs_frontend_preview_program_mode_active() && liveMovesDisabled() && ptz)
+	if (ptzitem && obs_frontend_preview_program_mode_active() && liveMovesDisabled())
 		is_locked = ptzitem->isLocked();
 
-	ui->movementControlsWidget->setEnabled(!isLocked());
-	ui->presetListView->setEnabled(!isLocked());
+	ui->movementControlsWidget->setEnabled(!is_locked);
+	ui->presetListView->setEnabled(!is_locked);
 
 	RefreshToolBarStyling(ui->ptzToolbar);
 }
