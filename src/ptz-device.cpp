@@ -84,10 +84,28 @@ QVariant PTZListModel::data(const QModelIndex &index, int role) const
 	if (role == PTZListModel::IsConnectedRole)
 		return ptz->isConnected();
 
+	if (role == PTZListModel::IsLockedRole)
+		return ptz->isLocked();
+
 	if (role == PTZListModel::SupportsSetHomeRole)
 		return ptz->supportsSetHome();
 
 	return QVariant();
+}
+
+bool PTZListModel::setData(const QModelIndex &index, const QVariant &value, int role)
+{
+	auto ptz = getDevice(index);
+	if (!ptz)
+		return false;
+
+	if (role == PTZListModel::IsLockedRole && ptz->isLocked() != value.toBool()) {
+		ptz->setLock(value.toBool());
+		emit dataChanged(index, index);
+		return true;
+	}
+
+	return false;
 }
 
 void PTZListModel::do_reset()
