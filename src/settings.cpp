@@ -28,6 +28,9 @@
 #include "ptz-controls.hpp"
 #include "settings.hpp"
 #include "ui_settings.h"
+#if defined(ENABLE_ONVIF)
+#include "onvif-discovery.hpp"
+#endif
 
 /* ----------------------------------------------------------------- */
 
@@ -411,10 +414,55 @@ void PTZSettings::on_addPTZ_clicked()
 #endif
 #if defined(ENABLE_ONVIF)
 	if (action == addOnvif) {
-		OBSData cfg = obs_data_create();
-		obs_data_release(cfg);
-		obs_data_set_string(cfg, "type", "onvif");
-		ptzDeviceList.make_device(cfg);
+		OnvifDiscoveryDialog dlg(this);
+		if (dlg.exec() == QDialog::Accepted) {
+			auto cam = dlg.selectedCamera();
+			OBSData cfg = obs_data_create();
+			obs_data_release(cfg);
+			obs_data_set_string(cfg, "type", "onvif");
+			obs_data_set_string(cfg, "host", QT_TO_UTF8(cam.host));
+			obs_data_set_int(cfg, "port", cam.port);
+			if (!cam.name.isEmpty())
+				obs_data_set_string(cfg, "name", QT_TO_UTF8(cam.name));
+			QString u = dlg.selectedUsername();
+			QString p = dlg.selectedPassword();
+			if (!u.isEmpty())
+				obs_data_set_string(cfg, "username", QT_TO_UTF8(u));
+			if (!p.isEmpty())
+				obs_data_set_string(cfg, "password", QT_TO_UTF8(p));
+			ptzDeviceList.make_device(cfg);
+
+			/* Optionally create an OBS Media Source from the
+			 * camera's first RTSP stream URI and drop it into
+			 * the current scene. Embeds Basic-auth credentials
+			 * into the URL so it survives token expiry. */
+			QString uri = dlg.selectedStreamUri();
+			if (dlg.createMediaSourceRequested() && !uri.isEmpty()) {
+				QUrl url(uri);
+				if (url.isValid() && !u.isEmpty()) {
+					url.setUserName(u);
+					if (!p.isEmpty())
+						url.setPassword(p);
+				}
+				QString sourceName = cam.name.isEmpty() ? QString("ONVIF %1").arg(cam.host) : cam.name;
+				OBSData settings = obs_data_create();
+				obs_data_release(settings);
+				obs_data_set_string(settings, "input", QT_TO_UTF8(url.toString()));
+				obs_data_set_bool(settings, "is_local_file", false);
+				obs_data_set_bool(settings, "restart_on_activate", true);
+				obs_data_set_bool(settings, "hw_decode", true);
+				obs_data_set_string(settings, "input_format", "");
+
+				OBSSourceAutoRelease source =
+					obs_source_create("ffmpeg_source", QT_TO_UTF8(sourceName), settings, nullptr);
+				if (source) {
+					OBSSourceAutoRelease sceneSrc = obs_frontend_get_current_scene();
+					obs_scene_t *scene = sceneSrc ? obs_scene_from_source(sceneSrc) : nullptr;
+					if (scene)
+						obs_scene_add(scene, source);
+				}
+			}
+		}
 	}
 #endif
 #if defined(ENABLE_USB_CAM)
