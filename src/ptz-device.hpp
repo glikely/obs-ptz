@@ -34,10 +34,20 @@ private:
 	static QMap<uint32_t, PTZDevice *> devices;
 
 public:
+	enum PTZListModelRole {
+		DeviceIdRole = Qt::UserRole,
+		DescriptionRole,
+		IsLiveRole,
+		IsConnectedRole,
+		IsLockedRole,
+		SupportsSetHomeRole,
+	};
+
 	PTZListModel();
 	~PTZListModel();
 	int rowCount(const QModelIndex &parent = QModelIndex()) const;
 	QVariant data(const QModelIndex &index, int role) const;
+	bool setData(const QModelIndex &index, const QVariant &value, int role = Qt::EditRole);
 	void do_reset();
 	void name_changed(PTZDevice *ptz);
 	Qt::ItemFlags flags(const QModelIndex &index) const;
@@ -45,19 +55,17 @@ public:
 	/* Data Model */
 	PTZDevice *make_device(OBSData config);
 	PTZDevice *getDevice(const QModelIndex &index) const;
-	uint32_t getDeviceId(const QModelIndex &index) const;
 	PTZDevice *getDevice(uint32_t device_id) const;
 	PTZDevice *getDeviceByName(const QString &name) const;
 	QStringList getDeviceNames() const;
+	bool callDevice(const QModelIndex &index, const char *method, calldata *cd = nullptr);
+	bool callDevice(const char *method, calldata *cd = nullptr);
 	QModelIndex indexFromDeviceId(uint32_t device_id);
 	void renameDevice(QString new_name, QString prev_name);
 	obs_data_array_t *getConfigs();
 	void add(PTZDevice *ptz);
 	void remove(PTZDevice *ptz);
 	void delete_all();
-
-public slots:
-	void move_continuous(uint32_t device_id, uint32_t flags, double pan, double tilt, double zoom, double focus);
 };
 
 extern PTZListModel ptzDeviceList;
@@ -106,6 +114,7 @@ protected:
 	uint32_t id = 0;
 	std::string type;
 	bool connected = false;
+	bool locked = false;
 	double pan_speed = 0;
 	double tilt_speed = 0;
 	double pantilt_speed_max = 1.0;
@@ -128,6 +137,10 @@ protected:
 	OBSData statistics;
 	QSet<QString> stale_settings;
 	void incrementStatistic(const char *name);
+
+	// Each PTZ device has a proc handler so methods can be called
+	// from other plugins
+	proc_handler_t *handler = nullptr;
 
 signals:
 	void settingsChanged(OBSData settings);
@@ -178,6 +191,7 @@ public:
 	 * zoom: range[0.0, 1.0], 0.0 == wide angle, 1.0 == telephoto
 	 * focus: range[0.0, 1.0], 0.0 == far focus, 1.0 == near focus
 	 */
+protected:
 	void pantilt(double pan, double tilt);
 	virtual void pantilt_rel(double pan, double tilt)
 	{
@@ -189,7 +203,6 @@ public:
 		Q_UNUSED(pan);
 		Q_UNUSED(tilt);
 	}
-	virtual void pantilt_home() {}
 	/**
 	 * pantilt_set_home(): record the camera's *current* pan/tilt/zoom as
 	 * its new home position (so a later pantilt_home() returns here).
@@ -204,12 +217,25 @@ public:
 	virtual void set_autofocus(bool enabled) { Q_UNUSED(enabled); };
 	void focus(double speed);
 	virtual void focus_abs(double pos) { Q_UNUSED(pos); }
-	virtual void focus_onetouch() {}
 	virtual void memory_set(int i) { Q_UNUSED(i); }
 	virtual void memory_recall(int i) { Q_UNUSED(i); }
 	virtual void memory_reset(int i) { Q_UNUSED(i); }
+
+protected slots:
+	void stop();
+	virtual void pantilt_home() {}
+	void move(calldata_t *cd);
+	virtual void set(calldata_t *cd);
+	virtual void focus_onetouch() {}
+	void preset_save(calldata_t *cd);
+	void preset_recall(calldata_t *cd);
+	void preset_clear(calldata_t *cd);
+
+public:
 	virtual QAbstractListModel *presetModel() { return &m_presetsModel; }
+	bool isLocked() { return locked; };
 	bool isConnected() const { return connected; }
+	void setLock(bool state) { locked = state; }
 	bool pantiltChanged() const { return pantilt_changed; }
 	bool zoomChanged() const { return zoom_changed; }
 	bool focusChanged() const { return focus_changed; }

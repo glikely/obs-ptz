@@ -16,7 +16,7 @@
 #include <QWindow>
 #include <QResizeEvent>
 #include <QDockWidget>
-#include <QLabel>
+#include <QStylePainter>
 
 #include <qt-wrappers.hpp>
 #include "touch-control.hpp"
@@ -87,6 +87,16 @@ void PTZControls::OBSFrontendEvent(enum obs_frontend_event event)
 	case OBS_FRONTEND_EVENT_SCENE_CHANGED:
 		if (autoselectEnabled() && !obs_frontend_preview_program_mode_active())
 			scene = obs_frontend_get_current_scene();
+
+		/* The main scene has changed. Iterate over all the devices and mark the live
+		 * ones as locked. The user can manually unlock a device when they want to
+		 * perform a move on a live camera. */
+		for (int i = 0; i < ptzDeviceList.rowCount(); i++) {
+			auto index = ptzDeviceList.index(i, 0);
+			bool isLive = index.data(PTZListModel::IsLiveRole).toBool();
+			ptzDeviceList.setData(index, isLive, PTZListModel::IsLockedRole);
+		}
+
 		updateMoveControls();
 		break;
 	case OBS_FRONTEND_EVENT_STUDIO_MODE_ENABLED:
@@ -160,8 +170,7 @@ PTZControls::PTZControls(QWidget *parent) : QFrame(parent), ui(new Ui::PTZContro
 
 	ui->cameraList->setModel(&ptzDeviceList);
 	ui->cameraList->setItemDelegate(new PTZDeviceListDelegate(ui->cameraList));
-	connect(&ptzDeviceList, SIGNAL(dataChanged(QModelIndex, QModelIndex)), this,
-		SLOT(ptzDeviceDataChanged(const QModelIndex &, const QModelIndex &)));
+	connect(&ptzDeviceList, SIGNAL(dataChanged(QModelIndex, QModelIndex)), this, SLOT(updateMoveControls()));
 
 	copyActionsDynamicProperties();
 
@@ -370,7 +379,8 @@ double PTZControls::readAxis(const QJoystickDevice *jd, int axis, bool invert)
 
 void PTZControls::joystickAxesChanged(const QJoystickDevice *jd, uint32_t updated)
 {
-	if (isLocked() || !m_joystick_enable || !jd || jd->id != m_joystick_id)
+	bool isLocked = ui->cameraList->currentIndex().data(PTZListModel::IsLockedRole).toBool();
+	if (isLocked || !m_joystick_enable || !jd || jd->id != m_joystick_id)
 		return;
 	int panTiltMask = (1 << joystick_pan_axis) | (1 << joystick_tilt_axis);
 	if (updated & panTiltMask)
@@ -543,9 +553,9 @@ void PTZControls::SaveConfig()
 		obs_data_array_push_back(button_actions, d);
 	}
 	obs_data_set_array(savedata, "joystick_button_hotkeys", button_actions);
-
-	if (auto ptz = currCamera())
-		obs_data_set_int(savedata, "current_selected", ptz->getId());
+	if (ui->cameraList->currentIndex().isValid())
+		obs_data_set_int(savedata, "current_selected",
+				 ui->cameraList->currentIndex().data(PTZListModel::DeviceIdRole).toInt());
 
 	OBSDataArray camera_array = ptz_devices_get_config();
 	obs_data_array_release(camera_array);
@@ -660,34 +670,47 @@ void PTZControls::setSpeedRampEnabled(bool enabled)
 	emit speedRampEnabledChanged(enabled);
 }
 
-PTZDevice *PTZControls::currCamera()
+bool PTZControls::callCamera(const char *method, calldata *cd)
 {
-	return ptzDeviceList.getDevice(ui->cameraList->currentIndex());
+	return ptzDeviceList.callDevice(ui->cameraList->currentIndex(), method, cd);
 }
 
 void PTZControls::accelTimerHandler()
 {
-	PTZDevice *ptz = currCamera();
-	if (!ptz) {
+	calldata cd = {};
+	if (!ui->cameraList->currentIndex().isValid()) {
 		accel_timer.stop();
 		return;
 	}
 
-	pan_speed = std::clamp(pan_speed + pan_accel, -1.0, 1.0);
-	if (std::abs(pan_speed) == 1.0)
-		pan_accel = 0.0;
-	tilt_speed = std::clamp(tilt_speed + tilt_accel, -1.0, 1.0);
-	if (std::abs(tilt_speed) == 1.0)
-		tilt_accel = 0.0;
-	ptz->pantilt(pan_speed, tilt_speed);
-	zoom_speed = std::clamp(zoom_speed + zoom_accel, -1.0, 1.0);
-	if (std::abs(zoom_speed) == 1.0)
-		zoom_accel = 0.0;
-	ptz->zoom(zoom_speed);
-	focus_speed = std::clamp(focus_speed + focus_accel, -1.0, 1.0);
-	if (std::abs(focus_speed) == 1.0)
-		focus_accel = 0.0;
-	ptz->focus(focus_speed);
+	if (pan_accel || tilt_accel) {
+		pan_speed = std::clamp(pan_speed + pan_accel, -1.0, 1.0);
+		if (std::abs(pan_speed) == 1.0)
+			pan_accel = 0.0;
+		tilt_speed = std::clamp(tilt_speed + tilt_accel, -1.0, 1.0);
+		if (std::abs(tilt_speed) == 1.0)
+			tilt_accel = 0.0;
+		calldata_set_float(&cd, "pan", pan_speed);
+		calldata_set_float(&cd, "tilt", tilt_speed);
+	}
+
+	if (zoom_accel) {
+		zoom_speed = std::clamp(zoom_speed + zoom_accel, -1.0, 1.0);
+		if (std::abs(zoom_speed) == 1.0)
+			zoom_accel = 0.0;
+		calldata_set_float(&cd, "zoom", zoom_speed);
+	}
+
+	if (focus_accel) {
+		focus_speed = std::clamp(focus_speed + focus_accel, -1.0, 1.0);
+		if (std::abs(focus_speed) == 1.0)
+			focus_accel = 0.0;
+		calldata_set_float(&cd, "focus", focus_speed);
+	}
+
+	callCamera("move", &cd);
+	calldata_free(&cd);
+
 	if (pan_accel == 0.0 && tilt_accel == 0.0 && zoom_accel == 0.0 && focus_accel == 0.0)
 		accel_timer.stop();
 }
@@ -700,12 +723,14 @@ void PTZControls::setPanTilt(double pan, double tilt, double pan_accel_, double 
 	tilt_accel = tilt_accel_;
 	pantiltingFlag = pan != 0 || tilt != 0;
 
-	PTZDevice *ptz = currCamera();
-	if (!ptz)
-		return;
-	ptz->pantilt(pan, tilt);
 	if (pan_accel != 0 || tilt_accel != 0)
 		accel_timer.start(2000 / 20);
+
+	calldata cd = {};
+	calldata_set_float(&cd, "pan", pan_speed);
+	calldata_set_float(&cd, "tilt", tilt_speed);
+	callCamera("move", &cd);
+	calldata_free(&cd);
 }
 
 void PTZControls::keypressPanTilt(double pan, double tilt)
@@ -733,10 +758,6 @@ void PTZControls::keypressPanTilt(double pan, double tilt)
  */
 void PTZControls::setZoom(double zoom)
 {
-	PTZDevice *ptz = currCamera();
-	if (!ptz)
-		return;
-
 	auto modifiers = QGuiApplication::keyboardModifiers();
 	double speed = 0.5;
 	zoomingFlag = (zoom != 0.0);
@@ -745,15 +766,14 @@ void PTZControls::setZoom(double zoom)
 	else if (modifiers.testFlag(Qt::ShiftModifier))
 		speed = 0.1;
 
-	ptz->zoom(zoom * speed);
+	calldata cd = {};
+	calldata_set_float(&cd, "zoom", zoom * speed);
+	callCamera("move", &cd);
+	calldata_free(&cd);
 }
 
 void PTZControls::setFocus(double focus)
 {
-	PTZDevice *ptz = currCamera();
-	if (!ptz)
-		return;
-
 	auto modifiers = QGuiApplication::keyboardModifiers();
 	double speed = 0.5;
 	focusingFlag = (focus != 0.0);
@@ -762,7 +782,10 @@ void PTZControls::setFocus(double focus)
 	else if (modifiers.testFlag(Qt::ShiftModifier))
 		speed = 0.1;
 
-	ptz->focus(focus * speed);
+	calldata cd = {};
+	calldata_set_float(&cd, "focus", focus * speed);
+	callCamera("move", &cd);
+	calldata_free(&cd);
 }
 
 /* The pan/tilt buttons are a large block of simple and mostly identical code.
@@ -788,21 +811,18 @@ button_pantilt_actions(downright, 1, -1);
 
 void PTZControls::on_panTiltButton_home_released()
 {
-	PTZDevice *ptz = currCamera();
-	if (ptz)
-		ptz->pantilt_home();
+	callCamera("home");
 }
 
 void PTZControls::onHomeButtonContextMenu(const QPoint &pos)
 {
-	PTZDevice *ptz = currCamera();
-	if (!ptz || !ptz->supportsSetHome())
+	if (!ui->cameraList->currentIndex().data(PTZListModel::SupportsSetHomeRole).toBool())
 		return;
 	QMenu menu(this);
 	QAction *setHome = menu.addAction(obs_module_text("PTZ.Action.SetHome"));
 	QAction *picked = menu.exec(ui->panTiltButton_home->mapToGlobal(pos));
 	if (picked == setHome)
-		ptz->pantilt_set_home();
+		callCamera("set_home");
 }
 
 /* There are fewer buttons for zoom or focus; so don't bother with macros */
@@ -829,9 +849,10 @@ void PTZControls::on_zoomButton_wide_released()
 void PTZControls::on_focusButton_auto_clicked(bool checked)
 {
 	setAutofocusEnabled(checked);
-	PTZDevice *ptz = currCamera();
-	if (ptz)
-		ptz->set_autofocus(checked);
+	calldata cd = {};
+	calldata_set_bool(&cd, "autofocus", checked);
+	callCamera("set", &cd);
+	calldata_free(&cd);
 }
 
 void PTZControls::on_focusButton_near_pressed()
@@ -856,15 +877,11 @@ void PTZControls::on_focusButton_far_released()
 
 void PTZControls::on_focusButton_onetouch_clicked()
 {
-	PTZDevice *ptz = currCamera();
-	if (ptz)
-		ptz->focus_onetouch();
+	callCamera("focus_onetouch");
 }
 
 void PTZControls::setCurrent(uint32_t device_id)
 {
-	if (device_id == ptzDeviceList.getDeviceId(ui->cameraList->currentIndex()))
-		return;
 	ui->cameraList->setCurrentIndex(ptzDeviceList.indexFromDeviceId(device_id));
 }
 
@@ -876,47 +893,12 @@ void PTZControls::setAutofocusEnabled(bool autofocus_on)
 	ui->focusButton_onetouch->setEnabled(!autofocus_on);
 }
 
-void PTZControls::ptzDeviceDataChanged(const QModelIndex &, const QModelIndex &)
-{
-	int rows = ptzDeviceList.rowCount();
-	for (int i = 0; i < rows; i++) {
-		auto index = ptzDeviceList.index(i, 0);
-		auto ptzitem = reinterpret_cast<PTZDeviceListItem *>(ui->cameraList->indexWidget(index));
-		if (ptzitem)
-			ptzitem->update();
-		else {
-			auto ptz_ = ptzDeviceList.getDevice(index);
-			ui->cameraList->setIndexWidget(index, new PTZDeviceListItem(ptz_));
-		}
-	}
-}
-
 void PTZControls::updateMoveControls()
 {
-	is_locked = false;
-	PTZDevice *ptz = currCamera();
+	bool is_locked = ui->cameraList->currentIndex().data(PTZListModel::IsLockedRole).toBool();
 
-	int rows = ptzDeviceList.rowCount();
-	for (int i = 0; i < rows; i++) {
-		auto index = ptzDeviceList.index(i, 0);
-		auto ptzitem = reinterpret_cast<PTZDeviceListItem *>(ui->cameraList->indexWidget(index));
-		if (ptzitem)
-			ptzitem->update();
-		else {
-			auto ptz_ = ptzDeviceList.getDevice(index);
-			ui->cameraList->setIndexWidget(index, new PTZDeviceListItem(ptz_));
-		}
-	}
-
-	// Check if the device's source is in the active program scene
-	// If it is then disable the pan/tilt/zoom controls
-	auto item = ui->cameraList->indexWidget(ui->cameraList->currentIndex());
-	auto ptzitem = reinterpret_cast<PTZDeviceListItem *>(item);
-	if (obs_frontend_preview_program_mode_active() && liveMovesDisabled() && ptz)
-		is_locked = ptzitem->isLocked();
-
-	ui->movementControlsWidget->setEnabled(!isLocked());
-	ui->presetListView->setEnabled(!isLocked());
+	ui->movementControlsWidget->setEnabled(!is_locked);
+	ui->presetListView->setEnabled(!is_locked);
 
 	RefreshToolBarStyling(ui->ptzToolbar);
 }
@@ -925,15 +907,10 @@ void PTZControls::currentChanged(QModelIndex current, QModelIndex previous)
 {
 	PTZDevice *ptz = ptzDeviceList.getDevice(previous);
 	accel_timer.stop();
-	if (ptz) {
+	if (ptz)
 		disconnect(ptz, nullptr, this, nullptr);
-		if (pantiltingFlag)
-			ptz->pantilt(0, 0);
-		if (zoomingFlag)
-			ptz->zoom(0);
-		if (focusingFlag)
-			ptz->focus(0);
-	}
+	if (pantiltingFlag || zoomingFlag || focusingFlag)
+		callCamera("stop");
 	pantiltingFlag = false;
 	zoomingFlag = false;
 	focusingFlag = false;
@@ -952,8 +929,7 @@ void PTZControls::currentChanged(QModelIndex current, QModelIndex previous)
 				SLOT(presetUpdateActions()));
 		ptz->connect(ptz, SIGNAL(settingsChanged(OBSData)), this, SLOT(settingsChanged(OBSData)));
 
-		auto settings = ptz->get_settings();
-		setAutofocusEnabled(obs_data_get_bool(settings, "focus_af_enabled"));
+		settingsChanged(ptz->get_settings());
 	}
 
 	updateMoveControls();
@@ -967,25 +943,32 @@ void PTZControls::settingsChanged(OBSData settings)
 
 void PTZControls::presetSet(int preset_id)
 {
-	PTZDevice *ptz = currCamera();
-	if (!ptz)
-		return;
-	ptz->memory_set(preset_id);
+	calldata cd = {};
+	calldata_set_int(&cd, "id", preset_id);
+	callCamera("preset_save", &cd);
+	calldata_free(&cd);
 }
 
 void PTZControls::presetRecall(int preset_id)
 {
-	PTZDevice *ptz = currCamera();
-	if (!ptz)
-		return;
-	ptz->memory_recall(preset_id);
+	calldata cd = {};
+	calldata_set_int(&cd, "id", preset_id);
+	callCamera("preset_recall", &cd);
+	calldata_free(&cd);
+}
+
+void PTZControls::presetReset(int preset_id)
+{
+	calldata cd = {};
+	calldata_set_int(&cd, "id", preset_id);
+	callCamera("preset_clear", &cd);
+	calldata_free(&cd);
 }
 
 int PTZControls::presetIndexToId(QModelIndex index)
 {
-	auto model = ui->presetListView->model();
-	if (model && index.isValid())
-		return model->data(index, Qt::UserRole).toInt();
+	if (index.isValid())
+		return index.data(Qt::UserRole).toInt();
 	return -1;
 }
 
@@ -1083,11 +1066,12 @@ void PTZControls::on_cameraList_customContextMenuRequested(const QPoint &pos)
 		return;
 	if (action == powerAction) {
 		OBSData settings = ptz->get_settings();
-		obs_data_set_bool(setdata, "power_on", !obs_data_get_bool(settings, "power_on"));
-		ptz->set_settings(setdata);
+		calldata cd = {};
+		calldata_set_bool(&cd, "power_on", !obs_data_get_bool(settings, "power_on"));
+		ptzDeviceList.callDevice(index, "set", &cd);
+		calldata_free(&cd);
 	} else if (action == wbOnetouchAction) {
-		obs_data_set_bool(setdata, "wb_onepush_trigger", true);
-		ptz->set_settings(setdata);
+		ptzDeviceList.callDevice(index, "wb_onepush_trigger");
 	}
 }
 
@@ -1154,20 +1138,18 @@ void PTZControls::on_actionPresetSave_triggered()
 {
 	auto model = ui->presetListView->model();
 	auto index = ui->presetListView->currentIndex();
-	PTZDevice *ptz = currCamera();
-	if (!model || !index.isValid() || !ptz)
+	if (!model || !index.isValid())
 		return;
-	ptz->memory_set(presetIndexToId(index));
+	presetSet(presetIndexToId(index));
 }
 
 void PTZControls::on_actionPresetClear_triggered()
 {
 	auto model = ui->presetListView->model();
 	auto index = ui->presetListView->currentIndex();
-	PTZDevice *ptz = currCamera();
-	if (!model || !index.isValid() || !ptz)
+	if (!model || !index.isValid())
 		return;
-	ptz->memory_reset(presetIndexToId(index));
+	presetReset(presetIndexToId(index));
 	ui->presetListView->model()->setData(index, "");
 }
 
@@ -1175,82 +1157,48 @@ PTZDeviceListDelegate::PTZDeviceListDelegate(QObject *parent) : QStyledItemDeleg
 
 QSize PTZDeviceListDelegate::sizeHint(const QStyleOptionViewItem &option, const QModelIndex &index) const
 {
-	QListView *tree = qobject_cast<QListView *>(parent());
-	QWidget *item = tree->indexWidget(index);
-	if (item)
-		return item->sizeHint();
-
-	return QStyledItemDelegate::sizeHint(option, index);
+	return QStyledItemDelegate::sizeHint(option, index).expandedTo(QSize(40, 0));
 }
 
-void PTZDeviceListDelegate::initStyleOption(QStyleOptionViewItem *option, const QModelIndex &) const
+void PTZDeviceListDelegate::paint(QPainter *painter, const QStyleOptionViewItem &option, const QModelIndex &index) const
 {
-	option->text = QString();
+	auto newopt = option;
+
+	bool isLive = index.data(PTZListModel::IsLiveRole).toBool();
+	bool isLocked = index.data(PTZListModel::IsLockedRole).toBool();
+	bool isConnected = index.data(PTZListModel::IsConnectedRole).toBool();
+	bool isDark = obs_frontend_is_theme_dark();
+
+	if (isLive) {
+		QIcon locked(isDark ? "theme:Dark/locked.svg" : ":res/images/locked.svg");
+		QIcon unlocked(":res/images/unlocked.svg");
+		QRect r(newopt.rect.right() - 18, newopt.rect.top() + 2, 16, 16);
+		newopt.rect = newopt.rect.marginsRemoved(QMargins(0, 0, 20, 0));
+		if (isLocked)
+			locked.paint(painter, r);
+		else
+			unlocked.paint(painter, r);
+	}
+
+	if (!isConnected) {
+		QIcon disconnected(isDark ? "theme:Dark/no_sources.svg" : ":res/images/no_sources.svg");
+		QRect r(newopt.rect.right() - 18, newopt.rect.top() + 2, 16, 16);
+		newopt.rect = newopt.rect.marginsRemoved(QMargins(0, 0, 20, 0));
+		disconnected.paint(painter, r);
+	}
+
+	QStyledItemDelegate::paint(painter, newopt, index);
 }
 
-PTZDeviceListItem::PTZDeviceListItem(PTZDevice *ptz_) : ptz(ptz_)
+bool PTZDeviceListDelegate::editorEvent(QEvent *event, QAbstractItemModel *model, const QStyleOptionViewItem &option,
+					const QModelIndex &index)
 {
-	setAttribute(Qt::WA_TranslucentBackground);
-
-	lock = new QCheckBox();
-	lock->setProperty("class", "checkbox-icon indicator-lock");
-	lock->setChecked(ptz->isLive());
-	lock->setAccessibleName(obs_module_text("PTZ.Dock.Lock.Name"));
-	lock->setAccessibleDescription(obs_module_text("PTZ.Dock.Lock.Description"));
-
-	// Connection status indicator
-	const char *iconname = obs_frontend_is_theme_dark() ? "theme:Dark/no_sources.svg"
-							    : ":res/images/no_sources.svg";
-	statusDot = new QLabel();
-	statusDot->setAlignment(Qt::AlignCenter);
-	statusDot->setPixmap(QIcon(iconname).pixmap(QSize(16, 16)));
-	statusDot->setToolTip(obs_module_text("PTZ.Device.Status.Disconnected"));
-	statusDot->setFixedSize(lock->sizeHint().width() - 4, 16); /* Match size of checkbox */
-	statusDot->setVisible(false);
-
-	label = new QLabel(ptz->objectName());
-	label->setSizePolicy(QSizePolicy::Ignored, QSizePolicy::Preferred);
-
-	boxLayout = new QHBoxLayout();
-	boxLayout->setContentsMargins(0, 0, 0, 0);
-	boxLayout->setSpacing(0);
-	boxLayout->addWidget(label);
-	boxLayout->addWidget(statusDot);
-	boxLayout->addWidget(lock);
-	setLayout(boxLayout);
-
-	connect(lock, SIGNAL(clicked(bool)), PTZControls::getInstance(), SLOT(updateMoveControls()));
-
-	// Update status dot when connection changes
-	connect(ptz, &PTZDevice::connectionStatusChanged, this, &PTZDeviceListItem::updateStatusDot,
-		Qt::QueuedConnection);
-
-	update();
-}
-
-QSize PTZDeviceListItem::sizeHint() const
-{
-	// The lock may be hidden, so account for it's size manually
-	return QFrame::sizeHint().expandedTo(lock->sizeHint());
-}
-
-void PTZDeviceListItem::updateStatusDot()
-{
-	if (!ptz || !statusDot)
-		return;
-	statusDot->setVisible(!ptz->isConnected());
-}
-
-void PTZDeviceListItem::update()
-{
-	bool is_live = obs_frontend_preview_program_mode_active() && PTZControls::getInstance()->liveMovesDisabled()
-			       ? ptz->isLive()
-			       : false;
-	// When a camera becomes live, start with it locked
-	if (lock->isVisible() == false && is_live)
-		lock->setChecked(true);
-	if (label->text() != ptz->objectName())
-		label->setText(ptz->objectName());
-	lock->setVisible(is_live);
-	updateStatusDot();
+	bool isLive = index.data(PTZListModel::IsLiveRole).toBool();
+	if (event && event->type() == QEvent::MouseButtonRelease && isLive) {
+		bool isLocked = index.data(PTZListModel::IsLockedRole).toBool();
+		auto pos = static_cast<QMouseEvent *>(event)->pos() - option.rect.topRight();
+		if (pos.x() > -20)
+			model->setData(index, !isLocked, PTZListModel::IsLockedRole);
+	}
+	return QStyledItemDelegate::editorEvent(event, model, option, index);
 }

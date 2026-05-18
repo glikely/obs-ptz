@@ -569,22 +569,6 @@ void PTZVisca::set_settings(OBSData new_settings)
 		visca_zoom_speed_max = (int)obs_data_get_int(new_settings, "visca_zoom_speed_max");
 	if (obs_data_has_user_value(new_settings, "visca_focus_speed_max"))
 		visca_focus_speed_max = (int)obs_data_get_int(new_settings, "visca_focus_speed_max");
-
-	if (obs_data_has_user_value(new_settings, "power_on")) {
-		bool power_on = obs_data_get_bool(new_settings, "power_on");
-		if (power_on != obs_data_get_bool(settings, "power_on"))
-			send(VISCA_CAM_Power, {power_on});
-	}
-
-	auto wb_mode = (int)obs_data_get_int(new_settings, "wb_mode");
-	if (wb_mode != obs_data_get_int(settings, "wb_mode")) {
-		send(VISCA_CAM_WB_Mode, {wb_mode});
-	}
-
-	if (obs_data_has_user_value(new_settings, "wb_onepush_trigger")) {
-		/* Just send command, don't change state */
-		send(VISCA_CAM_WB_OnePushTrigger);
-	}
 }
 
 void PTZVisca::set_config(OBSData cfg)
@@ -629,6 +613,12 @@ obs_properties_t *PTZVisca::get_obs_properties()
 	obs_property_list_add_int(list, obs_module_text("PTZ.WhiteBalance.OnePush"), 3);
 	obs_property_list_add_int(list, obs_module_text("PTZ.WhiteBalance.AutoTrace"), 4);
 	obs_property_list_add_int(list, obs_module_text("PTZ.WhiteBalance.Manual"), 5);
+	auto wb_modified_cb = [](void *_ptz, obs_properties_t *, obs_property_t *, obs_data_t *settings) -> bool {
+		PTZVisca *ptz = static_cast<PTZVisca *>(_ptz);
+		ptz->send(VISCA_CAM_WB_Mode, {(int)obs_data_get_int(settings, "wb_mode")});
+		return false;
+	};
+	obs_property_set_modified_callback2(list, wb_modified_cb, (void *)this);
 
 	auto clicked_cb = [](obs_properties_t *pps, obs_property_t *property, void *data) {
 		Q_UNUSED(pps);
@@ -796,6 +786,19 @@ void PTZVisca::receive(const QByteArray &msg)
 		break;
 	}
 	send_pending();
+}
+
+void PTZVisca::set(calldata_t *cd)
+{
+	bool power_on;
+	if (calldata_get_bool(cd, "power_on", &power_on))
+		send(VISCA_CAM_Power, {power_on});
+
+	long long wb_mode;
+	if (calldata_get_int(cd, "wb_mode", &wb_mode))
+		send(VISCA_CAM_WB_Mode, {(int)wb_mode});
+
+	PTZDevice::set(cd);
 }
 
 void PTZVisca::send_pending()

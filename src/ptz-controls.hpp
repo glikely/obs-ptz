@@ -8,7 +8,6 @@
 
 #include "ptz.h"
 #include <QTimer>
-#include <QCheckBox>
 #include <QStyledItemDelegate>
 #include <obs.hpp>
 #if defined(ENABLE_JOYSTICK)
@@ -48,7 +47,6 @@ private:
 	bool live_moves_disabled = false;
 	bool autoselect_enabled = false;
 	bool speed_ramp_enabled = false;
-	bool is_locked = false;
 
 	// Current status
 	double pan_speed = 0.0;
@@ -76,18 +74,18 @@ private:
 	int presetIndexToId(QModelIndex index);
 	void presetSet(int id);
 	void presetRecall(int id);
+	void presetReset(int id);
 	void setAutofocusEnabled(bool autofocus_on);
 
-	PTZDevice *currCamera();
+	/* Wrappers to camera API */
+	bool callCamera(const char *method, calldata *cd = nullptr);
 
 	QList<obs_hotkey_id> hotkeys;
 	QMap<obs_hotkey_id, int> preset_hotkey_map;
 
-public slots:
-	void ptzDeviceDataChanged(const QModelIndex &topLeft, const QModelIndex &bottomRight);
+private slots:
 	void updateMoveControls();
 	void onHomeButtonContextMenu(const QPoint &pos);
-private slots:
 	void setPanTilt(double pan, double tilt, double pan_accel = 0, double tilt_accel = 0);
 	void keypressPanTilt(double pan, double tilt);
 	void on_panTiltButton_up_pressed();
@@ -196,7 +194,6 @@ public:
 	bool autoselectEnabled() { return autoselect_enabled; };
 	bool liveMovesDisabled() { return live_moves_disabled; };
 	bool speedRampEnabled() { return speed_ramp_enabled; };
-	bool isLocked() { return is_locked; };
 	static PTZControls *getInstance() { return instance; };
 
 public slots:
@@ -216,25 +213,8 @@ class PTZDeviceListDelegate : public QStyledItemDelegate {
 public:
 	PTZDeviceListDelegate(QObject *parent);
 	virtual QSize sizeHint(const QStyleOptionViewItem &option, const QModelIndex &index) const override;
-	virtual void initStyleOption(QStyleOptionViewItem *option, const QModelIndex &index) const override;
-};
-
-class PTZDeviceListItem : public QFrame {
-	Q_OBJECT
-
-public:
-	PTZDeviceListItem(PTZDevice *ptz_);
-	bool isLocked() { return lock ? lock->isChecked() && lock->isVisible() : false; };
-	void update();
-	virtual QSize sizeHint() const;
-
-private:
-	QSpacerItem *spacer = nullptr;
-	QCheckBox *lock = nullptr;
-	QHBoxLayout *boxLayout = nullptr;
-	QLabel *label = nullptr;
-	QLabel *statusDot = nullptr;
-	void updateStatusDot();
-
-	PTZDevice *ptz;
+	virtual void paint(QPainter *painter, const QStyleOptionViewItem &option,
+			   const QModelIndex &index) const override;
+	virtual bool editorEvent(QEvent *event, QAbstractItemModel *model, const QStyleOptionViewItem &option,
+				 const QModelIndex &index) override;
 };

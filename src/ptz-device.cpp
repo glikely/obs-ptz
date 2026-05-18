@@ -65,15 +65,47 @@ QVariant PTZListModel::data(const QModelIndex &index, int role) const
 	if (!index.isValid())
 		return QVariant();
 
-	if (role == Qt::DisplayRole || role == Qt::EditRole) {
-		return devices.value(devices.keys().at(index.row()))->objectName();
-	}
-#if 0
-	if (role == Qt::UserRole) {
-		return get_device(index.row());
-	}
-#endif
+	auto ptz = getDevice(index);
+	if (!ptz)
+		return QVariant();
+
+	if (role == Qt::DisplayRole || role == Qt::EditRole)
+		return ptz->objectName();
+
+	if (role == PTZListModel::DeviceIdRole)
+		return devices.keys().at(index.row());
+
+	if (role == PTZListModel::DescriptionRole)
+		return ptz->description();
+
+	if (role == PTZListModel::IsLiveRole)
+		return ptz->isLive();
+
+	if (role == PTZListModel::IsConnectedRole)
+		return ptz->isConnected();
+
+	if (role == PTZListModel::IsLockedRole)
+		return ptz->isLocked();
+
+	if (role == PTZListModel::SupportsSetHomeRole)
+		return ptz->supportsSetHome();
+
 	return QVariant();
+}
+
+bool PTZListModel::setData(const QModelIndex &index, const QVariant &value, int role)
+{
+	auto ptz = getDevice(index);
+	if (!ptz)
+		return false;
+
+	if (role == PTZListModel::IsLockedRole && ptz->isLocked() != value.toBool()) {
+		ptz->setLock(value.toBool());
+		emit dataChanged(index, index);
+		return true;
+	}
+
+	return false;
 }
 
 void PTZListModel::do_reset()
@@ -94,13 +126,6 @@ PTZDevice *PTZListModel::getDevice(const QModelIndex &index) const
 	if (index.row() < 0)
 		return nullptr;
 	return devices.value(devices.keys().at(index.row()));
-}
-
-uint32_t PTZListModel::getDeviceId(const QModelIndex &index) const
-{
-	if (index.row() < 0)
-		return 0;
-	return devices.keys().at(index.row());
 }
 
 PTZDevice *PTZListModel::getDevice(uint32_t device_id) const
@@ -124,6 +149,26 @@ QStringList PTZListModel::getDeviceNames() const
 	for (auto key : devices.keys())
 		names.append(devices.value(key)->objectName());
 	return names;
+}
+
+/**
+ * This variant of callDevice accepts a QModelIndex into the data model
+ * to choose which device will receive the call
+ */
+bool PTZListModel::callDevice(const QModelIndex &index, const char *method, calldata *cd)
+{
+	auto ptz = getDevice(index);
+	return ptz ? proc_handler_call(ptz->handler, method, cd) : false;
+}
+
+/**
+ * This variant of callDevice extracts the device_id from calldata
+ * before calling the device's proc handler.
+ */
+bool PTZListModel::callDevice(const char *method, calldata *cd)
+{
+	auto ptz = getDevice(calldata_int(cd, "device_id"));
+	return ptz ? proc_handler_call(ptz->handler, method, cd) : false;
 }
 
 QModelIndex PTZListModel::indexFromDeviceId(uint32_t device_id)
@@ -250,27 +295,6 @@ void PTZListModel::delete_all()
 	// Devices remove themselves when deleted, so just loop until empty
 	while (!devices.isEmpty())
 		delete devices.first();
-}
-
-enum {
-	MOVE_FLAG_PANTILT = 1 << 0,
-	MOVE_FLAG_ZOOM = 1 << 1,
-	MOVE_FLAG_FOCUS = 1 << 2,
-};
-
-void PTZListModel::move_continuous(uint32_t device_id, uint32_t flags, double pan, double tilt, double zoom,
-				   double focus)
-{
-	PTZDevice *ptz = ptzDeviceList.getDevice(device_id);
-	if (!ptz)
-		return;
-
-	if (flags & MOVE_FLAG_PANTILT)
-		ptz->pantilt(pan, tilt);
-	if (flags & MOVE_FLAG_ZOOM)
-		ptz->zoom(zoom);
-	if (flags & MOVE_FLAG_FOCUS)
-		ptz->focus(focus);
 }
 
 int PTZPresetListModel::rowCount(const QModelIndex &parent) const
@@ -430,6 +454,73 @@ OBSDataArray PTZPresetListModel::savePresets() const
 
 PTZDevice::PTZDevice(OBSData config) : QObject()
 {
+	/* Create and populate the proc handler methods */
+	handler = proc_handler_create();
+	if (!handler) {
+		blog(LOG_ERROR, "could not allocate proc_handler for %s", obs_data_get_string(config, "name"));
+		return;
+	}
+
+	proc_handler_add(
+		handler, "void stop()",
+		[](void *p, calldata *) { QMetaObject::invokeMethod(static_cast<PTZDevice *>(p), "stop"); }, this);
+	proc_handler_add(
+		handler, "void home()",
+		[](void *p, calldata *) { QMetaObject::invokeMethod(static_cast<PTZDevice *>(p), "pantilt_home"); },
+		this);
+
+	// Pan/tilt/zoom/focus operations
+	proc_handler_add(
+		handler, "void move()",
+		[](void *p, calldata *cd) {
+			QMetaObject::invokeMethod(static_cast<PTZDevice *>(p), "move", Q_ARG(calldata_t *, cd));
+		},
+		this);
+	proc_handler_add(
+		handler, "void move_abs()",
+		[](void *p, calldata *cd) {
+			QMetaObject::invokeMethod(static_cast<PTZDevice *>(p), "move_abs", Q_ARG(calldata_t *, cd));
+		},
+		this);
+	proc_handler_add(
+		handler, "void move_rel()",
+		[](void *p, calldata *cd) {
+			QMetaObject::invokeMethod(static_cast<PTZDevice *>(p), "move_rel", Q_ARG(calldata_t *, cd));
+		},
+		this);
+
+	proc_handler_add(
+		handler, "void set()",
+		[](void *p, calldata *cd) {
+			QMetaObject::invokeMethod(static_cast<PTZDevice *>(p), "set", Q_ARG(calldata_t *, cd));
+		},
+		this);
+
+	auto focus_onetouch_cb = [](void *p, calldata *) {
+		QMetaObject::invokeMethod(static_cast<PTZDevice *>(p), "focus_onetouch");
+	};
+	proc_handler_add(handler, "void focus_onetouch()", focus_onetouch_cb, this);
+
+	proc_handler_add(
+		handler, "void preset_save()",
+		[](void *p, calldata *cd) {
+			QMetaObject::invokeMethod(static_cast<PTZDevice *>(p), "preset_save", Q_ARG(calldata_t *, cd));
+		},
+		this);
+	proc_handler_add(
+		handler, "void preset_recall()",
+		[](void *p, calldata *cd) {
+			QMetaObject::invokeMethod(static_cast<PTZDevice *>(p), "preset_recall",
+						  Q_ARG(calldata_t *, cd));
+		},
+		this);
+	proc_handler_add(
+		handler, "void preset_clear()",
+		[](void *p, calldata *cd) {
+			QMetaObject::invokeMethod(static_cast<PTZDevice *>(p), "preset_clear", Q_ARG(calldata_t *, cd));
+		},
+		this);
+
 	setObjectName(obs_data_get_string(config, "name"));
 	id = (int)obs_data_get_int(config, "id");
 	type = obs_data_get_string(config, "type");
@@ -445,6 +536,8 @@ PTZDevice::PTZDevice(OBSData config) : QObject()
 PTZDevice::~PTZDevice()
 {
 	ptzDeviceList.remove(this);
+	proc_handler_destroy(handler);
+	handler = nullptr;
 }
 
 void PTZDevice::setObjectName(QString name)
@@ -488,6 +581,13 @@ bool PTZDevice::isLive()
 	return live;
 }
 
+void PTZDevice::stop()
+{
+	pantilt(0, 0);
+	zoom(0);
+	focus(0);
+}
+
 void PTZDevice::pantilt(double pan, double tilt)
 {
 	pan = std::clamp(pan * (pan_invert ? -1 : 1), -pantilt_speed_max, pantilt_speed_max);
@@ -518,6 +618,48 @@ void PTZDevice::focus(double speed)
 	focus_speed = speed;
 	focus_changed = true;
 	do_update();
+}
+
+void PTZDevice::move(calldata_t *cd)
+{
+	double p = 0, t = 0, z = 0, f = 0;
+
+	if (calldata_get_float(cd, "pan", &p) + calldata_get_float(cd, "tilt", &t))
+		pantilt(p, t);
+
+	if (calldata_get_float(cd, "zoom", &z))
+		zoom(z);
+
+	if (calldata_get_float(cd, "focus", &f))
+		focus(f);
+}
+
+void PTZDevice::set(calldata_t *cd)
+{
+	bool enable;
+	if (calldata_get_bool(cd, "autofocus", &enable))
+		set_autofocus(enable);
+}
+
+void PTZDevice::preset_save(calldata_t *cd)
+{
+	long long id;
+	if (calldata_get_int(cd, "id", &id))
+		memory_set(id);
+}
+
+void PTZDevice::preset_recall(calldata_t *cd)
+{
+	long long id;
+	if (calldata_get_int(cd, "id", &id))
+		memory_recall(id);
+}
+
+void PTZDevice::preset_clear(calldata_t *cd)
+{
+	long long id;
+	if (calldata_get_int(cd, "id", &id))
+		memory_reset(id);
 }
 
 void PTZDevice::set_config(OBSData config)
@@ -686,36 +828,15 @@ void ptz_load_devices()
 		return;
 
 	/* Preset Recall/Save Callback */
-	auto ptz_preset_cb = [](void *data, calldata_t *cd) {
-		auto function = static_cast<const char *>(data);
-		QMetaObject::invokeMethod(&ptzDeviceList, function, Q_ARG(uint32_t, calldata_int(cd, "device_id")),
-					  Q_ARG(int, calldata_int(cd, "preset_id")));
+	auto ptz_cb = [](void *p, calldata_t *cd) {
+		ptzDeviceList.callDevice(static_cast<const char *>(p), cd);
 	};
-	proc_handler_add(ptz_ph, "void ptz_preset_recall(int device_id, int preset_id)", ptz_preset_cb,
+	proc_handler_add(ptz_ph, "void ptz_preset_save(int device_id, int preset_id)", ptz_cb, (void *)"preset_save");
+	proc_handler_add(ptz_ph, "void ptz_preset_recall(int device_id, int preset_id)", ptz_cb,
 			 (void *)"preset_recall");
-	proc_handler_add(ptz_ph, "void ptz_preset_save(int device_id, int preset_id)", ptz_preset_cb,
-			 (void *)"preset_save");
-
-	auto ptz_move_continuous = [](void *data, calldata_t *cd) {
-		Q_UNUSED(data);
-		long long device_id;
-		double pan, tilt, zoom, focus;
-		if (!calldata_get_int(cd, "device_id", &device_id))
-			return;
-		int flags = 0;
-		if (calldata_get_float(cd, "pan", &pan) && calldata_get_float(cd, "tilt", &tilt))
-			flags |= MOVE_FLAG_PANTILT;
-		if (calldata_get_float(cd, "zoom", &zoom))
-			flags |= MOVE_FLAG_ZOOM;
-		if (calldata_get_float(cd, "focus", &focus))
-			flags |= MOVE_FLAG_FOCUS;
-		QMetaObject::invokeMethod(&ptzDeviceList, "move_continuous", Q_ARG(uint32_t, device_id),
-					  Q_ARG(uint32_t, flags), Q_ARG(double, pan), Q_ARG(double, tilt),
-					  Q_ARG(double, zoom), Q_ARG(double, focus));
-	};
 	proc_handler_add(ptz_ph,
 			 "void ptz_move_continuous(int device_id, float pan, float tilt, float zoom, float focus)",
-			 ptz_move_continuous, NULL);
+			 ptz_cb, (void *)"move");
 
 	/* Register the new proc hander with the main proc handler */
 	proc_handler_t *ph = obs_get_proc_handler();
@@ -723,15 +844,14 @@ void ptz_load_devices()
 		return;
 
 	/* Register a function for retrieving the PTZ call handler */
-	auto ptz_get_proc_handler = [](void *data, calldata_t *cd) {
-		Q_UNUSED(data);
+	auto ptz_get_proc_handler = [](void *, calldata_t *cd) {
 		calldata_set_ptr(cd, "return", ptz_ph);
 	};
 	proc_handler_add(ph, "ptr ptz_get_proc_handler()", ptz_get_proc_handler, NULL);
 
 	/* Deprecated pantilt callback for compatibility with existing plugins */
-	proc_handler_add(ph, "void ptz_pantilt(int device_id, float pan, float tilt, float zoom, float focus)",
-			 ptz_move_continuous, NULL);
+	proc_handler_add(ph, "void ptz_pantilt(int device_id, float pan, float tilt, float zoom, float focus)", ptz_cb,
+			 (void *)"move");
 }
 
 void ptz_unload_devices(void)
