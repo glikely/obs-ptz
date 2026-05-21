@@ -493,8 +493,11 @@ void PTZSettings::showDevice(const QModelIndex &index)
 
 static void obs_event(enum obs_frontend_event event, void *)
 {
-	if (event == OBS_FRONTEND_EVENT_EXIT)
+	if (event == OBS_FRONTEND_EVENT_EXIT) {
+		obs_frontend_remove_event_callback(obs_event, nullptr);
 		delete ptzSettingsWindow;
+		ptzSettingsWindow = nullptr;
+	}
 }
 
 void ptz_settings_show(const QModelIndex &index)
