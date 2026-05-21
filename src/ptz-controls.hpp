@@ -192,7 +192,6 @@ public:
 
 public:
 	PTZControls(QWidget *parent = nullptr);
-	~PTZControls();
 	bool autoselectEnabled() { return autoselect_enabled; };
 	bool liveMovesDisabled() { return live_moves_disabled; };
 	bool speedRampEnabled() { return speed_ramp_enabled; };

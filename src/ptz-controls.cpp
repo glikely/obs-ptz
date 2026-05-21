@@ -95,6 +95,14 @@ void PTZControls::handleFrontendEvent(enum obs_frontend_event event)
 			scene = obs_frontend_get_current_preview_scene();
 		updateMoveControls();
 		break;
+	case OBS_FRONTEND_EVENT_EXIT:
+		/* OBS is shutting down. Save the configuration and remove the PTZDevice instances */
+		SaveConfig();
+		while (!hotkeys.isEmpty())
+			obs_hotkey_unregister(hotkeys.takeFirst());
+		obs_frontend_remove_event_callback(onFrontendEvent, this);
+		ptzDeviceList.delete_all();
+		break;
 	default:
 		break;
 	}
@@ -307,16 +315,6 @@ PTZControls::PTZControls(QWidget *parent) : QFrame(parent), ui(new Ui::PTZContro
 		hotkey = registerHotkey(QT_TO_UTF8(name), QT_TO_UTF8(description), preset_set_cb, this);
 		preset_hotkey_map[hotkey] = i;
 	}
-}
-
-PTZControls::~PTZControls()
-{
-	while (!hotkeys.isEmpty())
-		obs_hotkey_unregister(hotkeys.takeFirst());
-
-	SaveConfig();
-	ptzDeviceList.delete_all();
-	deleteLater();
 }
 
 #if defined(ENABLE_JOYSTICK)
