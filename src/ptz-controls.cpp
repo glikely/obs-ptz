@@ -72,8 +72,7 @@ public:
 void PTZControls::OBSFrontendEventWrapper(enum obs_frontend_event event, void *ptr)
 {
 	PTZControls *controls = reinterpret_cast<PTZControls *>(ptr);
-	QMetaObject::invokeMethod(
-		controls, [controls, event]() { controls->OBSFrontendEvent(event); }, Qt::QueuedConnection);
+	controls->OBSFrontendEvent(event);
 }
 
 void PTZControls::OBSFrontendEvent(enum obs_frontend_event event)
