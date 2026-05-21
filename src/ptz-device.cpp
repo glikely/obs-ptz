@@ -134,6 +134,19 @@ QModelIndex PTZListModel::indexFromDeviceId(uint32_t device_id)
 	return index(row, 0);
 }
 
+/**
+ * Look up model index from the device name
+ */
+QModelIndex PTZListModel::indexFromName(const QString &name)
+{
+	for (auto key : devices.keys()) {
+		auto ptz = devices.value(key);
+		if (name == ptz->objectName())
+			return index(devices.keys().indexOf(key), 0);
+	}
+	return QModelIndex();
+}
+
 obs_data_array_t *PTZListModel::getConfigs()
 {
 	obs_data_array_t *configs = obs_data_array_create();

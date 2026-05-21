@@ -69,6 +69,21 @@ public:
 	}
 };
 
+void PTZControls::autoselectDevice(OBSSource scene)
+{
+	auto active_src_cb = [](obs_source_t *, obs_source_t *child, void *data) {
+		auto index = static_cast<QModelIndex *>(data);
+		if (!index->isValid())
+			*index = ptzDeviceList.indexFromName(obs_source_get_name(child));
+	};
+	QModelIndex index = ptzDeviceList.indexFromName(obs_source_get_name(scene));
+	if (!index.isValid())
+		obs_source_enum_active_sources(scene, active_src_cb, &index);
+
+	if (index.isValid())
+		ui->cameraList->setCurrentIndex(index);
+}
+
 void PTZControls::onFrontendEvent(enum obs_frontend_event event, void *ptr)
 {
 	PTZControls *controls = reinterpret_cast<PTZControls *>(ptr);
@@ -77,22 +92,24 @@ void PTZControls::onFrontendEvent(enum obs_frontend_event event, void *ptr)
 
 void PTZControls::handleFrontendEvent(enum obs_frontend_event event)
 {
-	obs_source_t *scene = NULL;
-
 	switch (event) {
 	case OBS_FRONTEND_EVENT_TRANSITION_STOPPED:
 		updateMoveControls();
 		break;
+	case OBS_FRONTEND_EVENT_STUDIO_MODE_DISABLED:
 	case OBS_FRONTEND_EVENT_SCENE_CHANGED:
-		if (autoselectEnabled() && !obs_frontend_preview_program_mode_active())
-			scene = obs_frontend_get_current_scene();
+		if (autoselectEnabled() && !obs_frontend_preview_program_mode_active()) {
+			OBSSourceAutoRelease source = obs_frontend_get_current_scene();
+			autoselectDevice(source.Get());
+		}
 		updateMoveControls();
 		break;
 	case OBS_FRONTEND_EVENT_STUDIO_MODE_ENABLED:
-	case OBS_FRONTEND_EVENT_STUDIO_MODE_DISABLED:
 	case OBS_FRONTEND_EVENT_PREVIEW_SCENE_CHANGED:
-		if (autoselectEnabled() && obs_frontend_preview_program_mode_active())
-			scene = obs_frontend_get_current_preview_scene();
+		if (autoselectEnabled() && obs_frontend_preview_program_mode_active()) {
+			OBSSourceAutoRelease source = obs_frontend_get_current_preview_scene();
+			autoselectDevice(source.Get());
+		}
 		updateMoveControls();
 		break;
 	case OBS_FRONTEND_EVENT_EXIT:
@@ -106,27 +123,6 @@ void PTZControls::handleFrontendEvent(enum obs_frontend_event event)
 	default:
 		break;
 	}
-
-	if (!scene)
-		return;
-
-	struct active_src_cb_data {
-		PTZDevice *ptz;
-	};
-	auto active_src_cb = [](obs_source_t *parent, obs_source_t *child, void *context_data) {
-		Q_UNUSED(parent);
-		struct active_src_cb_data *context = static_cast<struct active_src_cb_data *>(context_data);
-		if (!context->ptz)
-			context->ptz = ptzDeviceList.getDeviceByName(obs_source_get_name(child));
-	};
-	struct active_src_cb_data cb_data;
-	cb_data.ptz = ptzDeviceList.getDeviceByName(obs_source_get_name(scene));
-	if (!cb_data.ptz)
-		obs_source_enum_active_sources(scene, active_src_cb, &cb_data);
-	obs_source_release(scene);
-
-	if (cb_data.ptz)
-		setCurrent(cb_data.ptz->getId());
 }
 
 /* Helper funciton for changing currently selected OBS scene */
@@ -856,13 +852,6 @@ void PTZControls::on_focusButton_onetouch_clicked()
 	PTZDevice *ptz = currCamera();
 	if (ptz)
 		ptz->focus_onetouch();
-}
-
-void PTZControls::setCurrent(uint32_t device_id)
-{
-	if (device_id == ptzDeviceList.getDeviceId(ui->cameraList->currentIndex()))
-		return;
-	ui->cameraList->setCurrentIndex(ptzDeviceList.indexFromDeviceId(device_id));
 }
 
 void PTZControls::setAutofocusEnabled(bool autofocus_on)

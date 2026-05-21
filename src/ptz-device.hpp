@@ -50,6 +50,7 @@ public:
 	PTZDevice *getDeviceByName(const QString &name) const;
 	QStringList getDeviceNames() const;
 	QModelIndex indexFromDeviceId(uint32_t device_id);
+	QModelIndex indexFromName(const QString &name);
 	void renameDevice(QString new_name, QString prev_name);
 	obs_data_array_t *getConfigs();
 	void add(PTZDevice *ptz);

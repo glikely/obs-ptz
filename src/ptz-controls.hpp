@@ -85,6 +85,7 @@ private:
 
 public slots:
 	void ptzDeviceDataChanged(const QModelIndex &topLeft, const QModelIndex &bottomRight);
+	void autoselectDevice(OBSSource scene);
 	void updateMoveControls();
 	void onHomeButtonContextMenu(const QPoint &pos);
 private slots:
