@@ -69,13 +69,13 @@ public:
 	}
 };
 
-void PTZControls::OBSFrontendEventWrapper(enum obs_frontend_event event, void *ptr)
+void PTZControls::onFrontendEvent(enum obs_frontend_event event, void *ptr)
 {
 	PTZControls *controls = reinterpret_cast<PTZControls *>(ptr);
-	controls->OBSFrontendEvent(event);
+	controls->handleFrontendEvent(event);
 }
 
-void PTZControls::OBSFrontendEvent(enum obs_frontend_event event)
+void PTZControls::handleFrontendEvent(enum obs_frontend_event event)
 {
 	obs_source_t *scene = NULL;
 
@@ -188,7 +188,7 @@ PTZControls::PTZControls(QWidget *parent) : QFrame(parent), ui(new Ui::PTZContro
 	ui->movementControlsWidget->installEventFilter(filter);
 	ui->pantiltStack->installEventFilter(filter);
 
-	obs_frontend_add_event_callback(OBSFrontendEventWrapper, this);
+	obs_frontend_add_event_callback(onFrontendEvent, this);
 
 	hide();
 

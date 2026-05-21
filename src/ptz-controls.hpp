@@ -38,9 +38,9 @@ class PTZControls : public QFrame {
 	Q_OBJECT
 
 private:
-	static void OBSFrontendEventWrapper(enum obs_frontend_event event, void *ptr);
 	static PTZControls *instance;
-	void OBSFrontendEvent(enum obs_frontend_event event);
+	static void onFrontendEvent(enum obs_frontend_event event, void *ptr);
+	void handleFrontendEvent(enum obs_frontend_event event);
 
 	std::unique_ptr<Ui::PTZControls> ui;
 	TouchControl *pantilt_widget;
