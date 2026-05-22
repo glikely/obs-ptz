@@ -72,6 +72,12 @@ public:
 void PTZControls::OBSFrontendEventWrapper(enum obs_frontend_event event, void *ptr)
 {
 	PTZControls *controls = reinterpret_cast<PTZControls *>(ptr);
+	if (event == OBS_FRONTEND_EVENT_EXIT) {
+		/* Must run synchronously; the event loop may not drain
+		 * queued events during shutdown. */
+		controls->OBSFrontendEvent(event);
+		return;
+	}
 	QMetaObject::invokeMethod(
 		controls, [controls, event]() { controls->OBSFrontendEvent(event); }, Qt::QueuedConnection);
 }
@@ -81,6 +87,14 @@ void PTZControls::OBSFrontendEvent(enum obs_frontend_event event)
 	obs_source_t *scene = NULL;
 
 	switch (event) {
+	case OBS_FRONTEND_EVENT_EXIT:
+		/* Save config here: obs APIs are still valid and the
+		 * widget is still alive on all platforms. */
+		SaveConfig();
+		while (!hotkeys.isEmpty())
+			obs_hotkey_unregister(hotkeys.takeFirst());
+		ptzDeviceList.delete_all();
+		return;
 	case OBS_FRONTEND_EVENT_TRANSITION_STOPPED:
 		updateMoveControls();
 		break;
@@ -312,11 +326,7 @@ PTZControls::PTZControls(QWidget *parent) : QFrame(parent), ui(new Ui::PTZContro
 
 PTZControls::~PTZControls()
 {
-	while (!hotkeys.isEmpty())
-		obs_hotkey_unregister(hotkeys.takeFirst());
-
-	SaveConfig();
-	ptzDeviceList.delete_all();
+	instance = NULL;
 	deleteLater();
 }
 

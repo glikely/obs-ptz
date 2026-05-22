@@ -494,7 +494,9 @@ void PTZSettings::showDevice(const QModelIndex &index)
 static void obs_event(enum obs_frontend_event event, void *)
 {
 	if (event == OBS_FRONTEND_EVENT_EXIT && ptzSettingsWindow) {
-		ptzSettingsWindow->deleteLater();
+		/* Destroy synchronously; deleteLater() may not run before
+		 * libobs shuts down, causing crashes on teardown. */
+		delete ptzSettingsWindow;
 		ptzSettingsWindow = nullptr;
 	}
 }
