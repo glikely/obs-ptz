@@ -36,11 +36,11 @@ private:
 public:
 	PTZListModel();
 	~PTZListModel();
-	int rowCount(const QModelIndex &parent = QModelIndex()) const;
-	QVariant data(const QModelIndex &index, int role) const;
+	int rowCount(const QModelIndex &parent = QModelIndex()) const override;
+	QVariant data(const QModelIndex &index, int role) const override;
 	void do_reset();
 	void name_changed(PTZDevice *ptz);
-	Qt::ItemFlags flags(const QModelIndex &index) const;
+	Qt::ItemFlags flags(const QModelIndex &index) const override;
 
 	/* Data Model */
 	PTZDevice *make_device(OBSData config);
