@@ -20,7 +20,6 @@
 #endif
 
 PTZListModel ptzDeviceList;
-QMap<uint32_t, PTZDevice *> PTZListModel::devices;
 
 static void source_rename_cb(void *data, calldata_t *cd)
 {

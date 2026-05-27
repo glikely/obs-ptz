@@ -31,7 +31,7 @@ class PTZListModel : public QAbstractListModel {
 	Q_OBJECT
 
 private:
-	static QMap<uint32_t, PTZDevice *> devices;
+	QMap<uint32_t, PTZDevice *> devices;
 
 public:
 	enum PTZListModelRole {
