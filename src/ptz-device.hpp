@@ -53,6 +53,7 @@ public:
 	void do_reset();
 	void name_changed(PTZDevice *ptz);
 	Qt::ItemFlags flags(const QModelIndex &index) const override;
+	void onSceneChanged();
 
 	/* Data Model */
 	PTZDevice *make_device(OBSData config);
@@ -121,6 +122,7 @@ protected:
 	std::string type;
 	bool connected = false;
 	bool locked = false;
+	bool live = false;
 	double pan_speed = 0;
 	double tilt_speed = 0;
 	double pantilt_speed_max = 1.0;
@@ -155,7 +157,8 @@ public:
 
 	void setObjectName(QString name);
 	virtual QString description();
-	bool isLive();
+	bool isLive() const { return live; }
+	void onSceneChanged();
 
 	QString presetName(size_t id);
 	void setPresetName(size_t id, QString name);

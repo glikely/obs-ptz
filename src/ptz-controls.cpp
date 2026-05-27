@@ -96,25 +96,22 @@ void PTZControls::handleFrontendEvent(enum obs_frontend_event event)
 	case OBS_FRONTEND_EVENT_TRANSITION_STOPPED:
 		updateMoveControls();
 		break;
-	case OBS_FRONTEND_EVENT_STUDIO_MODE_DISABLED:
 	case OBS_FRONTEND_EVENT_SCENE_CHANGED:
 		if (autoselectEnabled() && !obs_frontend_preview_program_mode_active()) {
 			OBSSourceAutoRelease source = obs_frontend_get_current_scene();
 			autoselectDevice(source.Get());
 		}
-
-		/* The main scene has changed. Iterate over all the devices and mark the live
-		 * ones as locked. The user can manually unlock a device when they want to
-		 * perform a move on a live camera. */
-		for (int i = 0; i < ptzDeviceList.rowCount(); i++) {
-			auto index = ptzDeviceList.index(i, 0);
-			bool isLive = index.data(PTZListModel::IsLiveRole).toBool();
-			ptzDeviceList.setData(index, isLive, PTZListModel::IsLockedRole);
-		}
-
+		ptzDeviceList.onSceneChanged();
 		updateMoveControls();
 		break;
 	case OBS_FRONTEND_EVENT_STUDIO_MODE_ENABLED:
+		if (autoselectEnabled()) {
+			OBSSourceAutoRelease source = obs_frontend_get_current_scene();
+			autoselectDevice(source.Get());
+		}
+		updateMoveControls();
+		break;
+	case OBS_FRONTEND_EVENT_STUDIO_MODE_DISABLED:
 	case OBS_FRONTEND_EVENT_PREVIEW_SCENE_CHANGED:
 		if (autoselectEnabled() && obs_frontend_preview_program_mode_active()) {
 			OBSSourceAutoRelease source = obs_frontend_get_current_preview_scene();
