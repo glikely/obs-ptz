@@ -122,40 +122,36 @@ void PTZListModel::name_changed(PTZDevice *ptz)
 
 PTZDevice *PTZListModel::getDevice(const QModelIndex &index) const
 {
-	if (index.row() < 0)
-		return nullptr;
-	return devices.value(devices.keys().at(index.row()));
+	return devices.value(index.row());
 }
 
 PTZDevice *PTZListModel::getDevice(uint32_t device_id) const
 {
-	return devices.value(device_id, nullptr);
+	return devicesById.value(device_id, nullptr);
 }
 
 PTZDevice *PTZListModel::getDeviceByName(const QString &name) const
 {
-	for (auto key : devices.keys()) {
-		auto ptz = devices.value(key);
+	for (PTZDevice *ptz : devices)
 		if (name == ptz->objectName())
 			return ptz;
-	}
-	return NULL;
+	return nullptr;
 }
 
 QStringList PTZListModel::getDeviceNames() const
 {
 	QStringList names;
-	for (auto key : devices.keys())
-		names.append(devices.value(key)->objectName());
+	for (const PTZDevice *ptz : devices)
+		names.append(ptz->objectName());
 	return names;
 }
 
 QModelIndex PTZListModel::indexFromDeviceId(uint32_t device_id)
 {
-	int row = (int)devices.keys().indexOf(device_id);
-	if (row < 0)
-		return QModelIndex();
-	return index(row, 0);
+	auto ptz = getDevice(device_id);
+	if (ptz)
+		return index(devices.indexOf(ptz), 0);
+	return QModelIndex();
 }
 
 /**
@@ -163,10 +159,9 @@ QModelIndex PTZListModel::indexFromDeviceId(uint32_t device_id)
  */
 QModelIndex PTZListModel::indexFromName(const QString &name)
 {
-	for (auto key : devices.keys()) {
-		auto ptz = devices.value(key);
-		if (name == ptz->objectName())
-			return index(devices.keys().indexOf(key), 0);
+	for (auto row = 0; row < devices.size(); row++) {
+		if (name == devices.at(row)->objectName())
+			return index(row, 0);
 	}
 	return QModelIndex();
 }
@@ -174,31 +169,28 @@ QModelIndex PTZListModel::indexFromName(const QString &name)
 obs_data_array_t *PTZListModel::getConfigs()
 {
 	obs_data_array_t *configs = obs_data_array_create();
-	for (auto key : devices.keys())
-		obs_data_array_push_back(configs, ptzDeviceList.getDevice(key)->get_config());
+	for (PTZDevice *ptz : devices)
+		obs_data_array_push_back(configs, ptz->get_config());
 	return configs;
 }
 
 void PTZListModel::add(PTZDevice *ptz)
 {
 	/* Assign a unique ID */
-	if (ptz->id == 0 || devices.contains(ptz->id))
-		ptz->id = devices.isEmpty() ? 1 : devices.lastKey() + 1;
-	while (devices.contains(ptz->id)) {
-		ptz->id++;
-		if (ptz->id == 0)
-			ptz->id++;
-	}
-	devices.insert(ptz->id, ptz);
+	uint32_t id = ptz->getId();
+	while (devicesById.contains(id) || id == 0)
+		id++;
+	ptz->id = id;
+	devices.append(ptz);
+	devicesById[ptz->id] = ptz;
 	do_reset();
 }
 
 void PTZListModel::remove(PTZDevice *ptz)
 {
-	if (ptz == devices.value(ptz->id)) {
-		devices.remove(ptz->id);
-		do_reset();
-	}
+	devicesById.remove(ptz->getId());
+	devices.removeAll(ptz);
+	do_reset();
 }
 
 bool PTZPresetListModel::insertRows(int row, int count, const QModelIndex &parent)

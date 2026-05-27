@@ -10,6 +10,7 @@
 #include <qt-wrappers.hpp>
 #include <memory>
 #include <QObject>
+#include <QHash>
 #include <QSet>
 #include <QStringListModel>
 #include <QtGlobal>
@@ -31,7 +32,8 @@ class PTZListModel : public QAbstractListModel {
 	Q_OBJECT
 
 private:
-	QMap<uint32_t, PTZDevice *> devices;
+	QList<PTZDevice *> devices;
+	QHash<uint32_t, PTZDevice *> devicesById;
 
 public:
 	enum PTZListModelRole {
@@ -149,7 +151,7 @@ signals:
 public:
 	~PTZDevice();
 	PTZDevice(OBSData config);
-	uint32_t getId() { return id; }
+	uint32_t getId() const { return id; }
 
 	void setObjectName(QString name);
 	virtual QString description();
