@@ -45,7 +45,7 @@ private:
 	std::unique_ptr<Ui::PTZControls> ui;
 	TouchControl *pantilt_widget;
 
-	bool live_moves_disabled = false;
+	bool live_move_lock_enabled = true;
 	bool autoselect_enabled = false;
 	bool speed_ramp_enabled = false;
 
@@ -193,18 +193,19 @@ public:
 public:
 	PTZControls(QWidget *parent = nullptr);
 	bool autoselectEnabled() { return autoselect_enabled; };
-	bool liveMovesDisabled() { return live_moves_disabled; };
+	bool liveMoveLockEnabled() { return live_move_lock_enabled; };
+	bool liveMoveLockActive() { return live_move_lock_enabled && obs_frontend_preview_program_mode_active(); };
 	bool speedRampEnabled() { return speed_ramp_enabled; };
 	static PTZControls *getInstance() { return instance; };
 
 public slots:
 	void setAutoselectEnabled(bool enable);
-	void setDisableLiveMoves(bool enable);
+	void setLiveMoveLockEnabled(bool enable);
 	void setSpeedRampEnabled(bool enable);
 
 signals:
 	void autoselectEnabledChanged(bool enabled);
-	void liveMovesDisabledChanged(bool disabled);
+	void liveMoveLockEnabledChanged(bool enabled);
 	void speedRampEnabledChanged(bool enabled);
 };
 

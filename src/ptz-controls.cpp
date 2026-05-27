@@ -373,7 +373,8 @@ double PTZControls::readAxis(const QJoystickDevice *jd, int axis, bool invert)
 
 void PTZControls::joystickAxesChanged(const QJoystickDevice *jd, uint32_t updated)
 {
-	bool isLocked = ui->cameraList->currentIndex().data(PTZListModel::IsLockedRole).toBool();
+	bool isLocked = liveMoveLockActive() &&
+			ui->cameraList->currentIndex().data(PTZListModel::IsLockedRole).toBool();
 	if (isLocked || !m_joystick_enable || !jd || jd->id != m_joystick_id)
 		return;
 	int panTiltMask = (1 << joystick_pan_axis) | (1 << joystick_tilt_axis);
@@ -516,7 +517,7 @@ void PTZControls::SaveConfig()
 	obs_data_set_string(savedata, "splitter_state", ui->splitter->saveState().toBase64().constData());
 	obs_data_set_string(savedata, "vertsplitter_state", ui->vertsplitter->saveState().toBase64().constData());
 
-	obs_data_set_bool(savedata, "live_moves_disabled", liveMovesDisabled());
+	obs_data_set_bool(savedata, "live_moves_disabled", liveMoveLockEnabled());
 	obs_data_set_bool(savedata, "autoselect_enabled", autoselectEnabled());
 	obs_data_set_bool(savedata, "speed_ramp_enabled", speedRampEnabled());
 	obs_data_set_bool(savedata, "onscreen_joystick_enabled", ui->pantiltStack->currentIndex() != 0);
@@ -595,7 +596,7 @@ void PTZControls::LoadConfig()
 	obs_data_set_default_double(loaddata, "joystick_speed", 1.0);
 	obs_data_set_default_double(loaddata, "joystick_deadzone", 0.0);
 
-	live_moves_disabled = obs_data_get_bool(loaddata, "live_moves_disabled");
+	live_move_lock_enabled = obs_data_get_bool(loaddata, "live_moves_disabled");
 	autoselect_enabled = obs_data_get_bool(loaddata, "autoselect_enabled");
 	speed_ramp_enabled = obs_data_get_bool(loaddata, "speed_ramp_enabled");
 	ui->pantiltStack->setCurrentIndex(obs_data_get_bool(loaddata, "onscreen_joystick_enabled") ? 1 : 0);
@@ -647,13 +648,13 @@ void PTZControls::setAutoselectEnabled(bool enabled)
 	emit autoselectEnabledChanged(enabled);
 }
 
-void PTZControls::setDisableLiveMoves(bool disable)
+void PTZControls::setLiveMoveLockEnabled(bool enable)
 {
-	if (disable == live_moves_disabled)
+	if (enable == live_move_lock_enabled)
 		return;
-	live_moves_disabled = disable;
+	live_move_lock_enabled = enable;
 	updateMoveControls();
-	emit liveMovesDisabledChanged(disable);
+	emit liveMoveLockEnabledChanged(enable);
 }
 
 void PTZControls::setSpeedRampEnabled(bool enabled)
@@ -910,7 +911,7 @@ void PTZControls::updateMoveControls()
 	// If it is then disable the pan/tilt/zoom controls
 	auto item = ui->cameraList->indexWidget(ui->cameraList->currentIndex());
 	auto ptzitem = reinterpret_cast<PTZDeviceListItem *>(item);
-	if (ptzitem && obs_frontend_preview_program_mode_active() && liveMovesDisabled())
+	if (ptzitem && liveMoveLockActive())
 		is_locked = ptzitem->isLocked();
 
 	ui->movementControlsWidget->setEnabled(!is_locked);
@@ -1066,8 +1067,8 @@ void PTZControls::on_cameraList_customContextMenuRequested(const QPoint &pos)
 	if (obs_frontend_preview_program_mode_active()) {
 		QAction *blockliveAction = context.addAction(obs_module_text("PTZ.Settings.BlockLiveMoves"));
 		blockliveAction->setCheckable(true);
-		blockliveAction->setChecked(liveMovesDisabled());
-		connect(blockliveAction, SIGNAL(toggled(bool)), this, SLOT(setDisableLiveMoves(bool)));
+		blockliveAction->setChecked(liveMoveLockEnabled());
+		connect(blockliveAction, &QAction::toggled, this, &PTZControls::setLiveMoveLockEnabled);
 	}
 	context.addAction(ui->actionProperties);
 	QAction *action = context.exec(globalpos);
@@ -1239,7 +1240,7 @@ void PTZDeviceListItem::updateStatusDot()
 
 void PTZDeviceListItem::update()
 {
-	bool is_live = obs_frontend_preview_program_mode_active() && PTZControls::getInstance()->liveMovesDisabled()
+	bool is_live = obs_frontend_preview_program_mode_active() && PTZControls::getInstance()->liveMoveLockEnabled()
 			       ? ptz->isLive()
 			       : false;
 	// When a camera becomes live, start with it locked

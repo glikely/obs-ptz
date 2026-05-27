@@ -85,11 +85,11 @@ PTZSettings::PTZSettings() : QWidget(nullptr), ui(new Ui_PTZSettings)
 	connect(ui->autoselectCheckBox, SIGNAL(clicked(bool)), PTZControls::getInstance(),
 		SLOT(setAutoselectEnabled(bool)));
 
-	ui->livemoveCheckBox->setChecked(PTZControls::getInstance()->liveMovesDisabled());
-	connect(PTZControls::getInstance(), SIGNAL(liveMovesDisabledChanged(bool)), ui->livemoveCheckBox,
-		SLOT(setChecked(bool)));
-	connect(ui->livemoveCheckBox, SIGNAL(clicked(bool)), PTZControls::getInstance(),
-		SLOT(setDisableLiveMoves(bool)));
+	ui->livemoveCheckBox->setChecked(PTZControls::getInstance()->liveMoveLockEnabled());
+	connect(PTZControls::getInstance(), &PTZControls::liveMoveLockEnabledChanged, ui->livemoveCheckBox,
+		&QCheckBox::setChecked);
+	connect(ui->livemoveCheckBox, &QCheckBox::clicked, PTZControls::getInstance(),
+		&PTZControls::setLiveMoveLockEnabled);
 	connect(PTZControls::getInstance(), SIGNAL(joystickAxisActionChanged(size_t, ptz_joy_action_id)), this,
 		SLOT(joystickAxisMappingChanged(size_t, ptz_joy_action_id)));
 
