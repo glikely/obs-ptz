@@ -95,6 +95,7 @@ target_sources(
     src/ptz-controls.qrc
     src/ptz.c
     src/ptz-controls.cpp
+    src/ptz-list-model.cpp
     src/ptz-device.cpp
     src/settings.cpp
     src/ptz-visca.cpp
@@ -106,6 +107,7 @@ target_sources(
     src/touch-control.cpp
     src/ptz.h
     src/ptz-controls.hpp
+    src/ptz-list-model.hpp
     src/ptz-device.hpp
     src/settings.hpp
     src/ptz-visca.hpp
