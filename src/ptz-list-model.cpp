@@ -275,4 +275,3 @@ void PTZListModel::preset_save(uint32_t device_id, int preset_id)
 	if (ptz)
 		ptz->memory_set(preset_id);
 }
-

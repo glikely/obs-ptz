@@ -1,20 +1,18 @@
-/* Pan Tilt Zoom device base object
+/* Pan Tilt Zoom Controls - PTZDevice base object
  *
- * Copyright 2020 Grant Likely <grant.likely@secretlab.ca>
+ * Copyright 2020-2026 Grant Likely <grant.likely@secretlab.ca>
  *
  * SPDX-License-Identifier: GPLv2
  */
 #pragma once
 
-#include "ptz.h"
-#include <qt-wrappers.hpp>
-#include <memory>
 #include <QObject>
-#include <QStringListModel>
-#include <QtGlobal>
 #include <obs.hpp>
 #include <obs-frontend-api.h>
+#include <qt-wrappers.hpp>
 #include <util/platform.h>
+#include "ptz.h"
+#include "ptz-preset-model.hpp"
 
 #define ptz_log(level, format, ...) \
 	blog(level, "[%s/%.12s] " format, this->type.c_str(), QT_TO_UTF8(this->objectName()), ##__VA_ARGS__)
@@ -23,42 +21,6 @@
 #define ptz_debug_trace(format, ...) \
 	if (this->protocol_trace)    \
 	ptz_log(LOG_DEBUG, format, ##__VA_ARGS__)
-
-class PTZPresetListModel : public QAbstractListModel {
-	Q_OBJECT
-
-protected:
-	/* Collection of all presets, keyed by unique integer id.
-	 * On cameras that use preset numbers, the id is mapped 1:1 with the
-	 * preset number.  */
-	size_t m_maxPresets = 16;
-	QMap<size_t, QVariantMap> m_presets;
-	QList<size_t> m_displayOrder;
-	void sanitize(size_t id);
-
-public:
-	/* QAbstractListModel overrides */
-	bool insertRows(int row, int count, const QModelIndex &parent = QModelIndex());
-	bool removeRows(int row, int count, const QModelIndex &parent = QModelIndex());
-	bool moveRows(const QModelIndex &srcParent, int srcRow, int count, const QModelIndex &destParent,
-		      int destChild);
-	int rowCount(const QModelIndex &parent = QModelIndex()) const;
-	QVariant data(const QModelIndex &index, int role) const;
-	bool setData(const QModelIndex &index, const QVariant &value, int role = Qt::EditRole);
-	Qt::ItemFlags flags(const QModelIndex &index) const;
-
-	/* PTZ Preset API */
-	int getPresetId(const QModelIndex &index) const;
-	size_t maxPresets() const { return m_maxPresets; };
-	void setMaxPresets(size_t max) { m_maxPresets = max; };
-	int newPreset();
-	QVariant presetProperty(size_t id, QString key);
-	bool updatePreset(size_t id, const QVariantMap &map);
-	int find(QString key, QVariant value);
-
-	void loadPresets(OBSDataArray preset_array);
-	OBSDataArray savePresets() const;
-};
 
 class PTZDevice : public QObject {
 	Q_OBJECT

@@ -1,0 +1,47 @@
+/* Pan Tilt Zoom Controls - Qt list model for managing presets
+ *
+ * Copyright 2020-2026 Grant Likely <grant.likely@secretlab.ca>
+ *
+ * SPDX-License-Identifier: GPLv2
+ */
+#pragma once
+
+#include <QObject>
+#include <QSize>
+#include <QAbstractListModel>
+
+class PTZPresetListModel : public QAbstractListModel {
+	Q_OBJECT
+
+protected:
+	/* Collection of all presets, keyed by unique integer id.
+	 * On cameras that use preset numbers, the id is mapped 1:1 with the
+	 * preset number.  */
+	size_t m_maxPresets = 16;
+	QMap<size_t, QVariantMap> m_presets;
+	QList<size_t> m_displayOrder;
+	void sanitize(size_t id);
+
+public:
+	/* QAbstractListModel overrides */
+	bool insertRows(int row, int count, const QModelIndex &parent = QModelIndex()) override;
+	bool removeRows(int row, int count, const QModelIndex &parent = QModelIndex()) override;
+	bool moveRows(const QModelIndex &srcParent, int srcRow, int count, const QModelIndex &destParent,
+		      int destChild) override;
+	int rowCount(const QModelIndex &parent = QModelIndex()) const override;
+	QVariant data(const QModelIndex &index, int role) const override;
+	bool setData(const QModelIndex &index, const QVariant &value, int role = Qt::EditRole) override;
+	Qt::ItemFlags flags(const QModelIndex &index) const override;
+
+	/* PTZ Preset API */
+	int getPresetId(const QModelIndex &index) const;
+	size_t maxPresets() const { return m_maxPresets; };
+	void setMaxPresets(size_t max) { m_maxPresets = max; };
+	int newPreset();
+	QVariant presetProperty(size_t id, QString key);
+	bool updatePreset(size_t id, const QVariantMap &map);
+	int find(QString key, QVariant value);
+
+	void loadPresets(OBSDataArray preset_array);
+	OBSDataArray savePresets() const;
+};
