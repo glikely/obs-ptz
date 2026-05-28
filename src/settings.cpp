@@ -25,6 +25,7 @@
 
 #include "ptz.h"
 #include "ptz-device.hpp"
+#include "ptz-list-model.hpp"
 #include "ptz-controls.hpp"
 #include "settings.hpp"
 #include "ui_settings.h"

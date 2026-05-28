@@ -22,6 +22,7 @@
 #include "touch-control.hpp"
 #include "ui_ptz-controls.h"
 #include "ptz-controls.hpp"
+#include "ptz-list-model.hpp"
 #include "settings.hpp"
 #include "ptz.h"
 

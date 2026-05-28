@@ -96,6 +96,7 @@ target_sources(
     src/ptz.c
     src/ptz-controls.cpp
     src/ptz-device.cpp
+    src/ptz-list-model.cpp
     src/settings.cpp
     src/ptz-visca.cpp
     src/ptz-visca-udp.cpp
@@ -107,6 +108,7 @@ target_sources(
     src/ptz.h
     src/ptz-controls.hpp
     src/ptz-device.hpp
+    src/ptz-list-model.hpp
     src/settings.hpp
     src/ptz-visca.hpp
     src/ptz-visca-udp.hpp
