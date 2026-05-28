@@ -128,6 +128,8 @@ void PTZListModel::onSceneChanged()
 
 PTZDevice *PTZListModel::getDevice(const QModelIndex &index) const
 {
+	if (!index.isValid() || index.model() != this)
+		return nullptr;
 	return devices.value(index.row());
 }
 
