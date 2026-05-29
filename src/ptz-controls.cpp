@@ -696,7 +696,7 @@ void PTZControls::accelTimerHandler()
 		calldata_set_float(&cd, "focus", focus_speed);
 	}
 
-	callCurrentDevice("move", &cd);
+	callCurrentDevice("ptz_move", &cd);
 	calldata_free(&cd);
 
 	if (pan_accel == 0.0 && tilt_accel == 0.0 && zoom_accel == 0.0 && focus_accel == 0.0)
@@ -717,7 +717,7 @@ void PTZControls::setPanTilt(double pan, double tilt, double pan_accel_, double 
 	calldata cd = {};
 	calldata_set_float(&cd, "pan", pan_speed);
 	calldata_set_float(&cd, "tilt", tilt_speed);
-	callCurrentDevice("move", &cd);
+	callCurrentDevice("ptz_move", &cd);
 	calldata_free(&cd);
 }
 
@@ -756,7 +756,7 @@ void PTZControls::setZoom(double zoom)
 
 	calldata cd = {};
 	calldata_set_float(&cd, "zoom", zoom * speed);
-	callCurrentDevice("move", &cd);
+	callCurrentDevice("ptz_move", &cd);
 	calldata_free(&cd);
 }
 
@@ -772,7 +772,7 @@ void PTZControls::setFocus(double focus)
 
 	calldata cd = {};
 	calldata_set_float(&cd, "focus", focus * speed);
-	callCurrentDevice("move", &cd);
+	callCurrentDevice("ptz_move", &cd);
 	calldata_free(&cd);
 }
 
@@ -799,7 +799,7 @@ button_pantilt_actions(downright, 1, -1);
 
 void PTZControls::on_panTiltButton_home_released()
 {
-	callCurrentDevice("home");
+	callCurrentDevice("ptz_home_recall");
 }
 
 void PTZControls::onHomeButtonContextMenu(const QPoint &pos)
@@ -810,7 +810,7 @@ void PTZControls::onHomeButtonContextMenu(const QPoint &pos)
 	QAction *setHome = menu.addAction(obs_module_text("PTZ.Action.SetHome"));
 	QAction *picked = menu.exec(ui->panTiltButton_home->mapToGlobal(pos));
 	if (picked == setHome)
-		callCurrentDevice("set_home");
+		callCurrentDevice("ptz_home_save");
 }
 
 /* There are fewer buttons for zoom or focus; so don't bother with macros */
@@ -839,7 +839,7 @@ void PTZControls::on_focusButton_auto_clicked(bool checked)
 	setAutofocusEnabled(checked);
 	calldata cd = {};
 	calldata_set_bool(&cd, "autofocus", checked);
-	callCurrentDevice("set", &cd);
+	callCurrentDevice("ptz_set", &cd);
 	calldata_free(&cd);
 }
 
@@ -865,7 +865,10 @@ void PTZControls::on_focusButton_far_released()
 
 void PTZControls::on_focusButton_onetouch_clicked()
 {
-	callCurrentDevice("focus_onetouch");
+	calldata cd = {};
+	calldata_set_bool(&cd, "focus_onetouch_trigger", true);
+	callCurrentDevice("ptz_set", &cd);
+	calldata_free(&cd);
 }
 
 void PTZControls::setAutofocusEnabled(bool autofocus_on)
@@ -895,7 +898,7 @@ void PTZControls::currentChanged(QModelIndex current, QModelIndex previous)
 	if (ptz)
 		disconnect(ptz, nullptr, this, nullptr);
 	if (pantiltingFlag || zoomingFlag || focusingFlag)
-		ptzDeviceList.callDevice(previous, "stop");
+		ptzDeviceList.callDevice(previous, "ptz_stop");
 	pantiltingFlag = false;
 	zoomingFlag = false;
 	focusingFlag = false;
@@ -929,7 +932,7 @@ void PTZControls::presetSet(int preset_id)
 {
 	calldata cd = {};
 	calldata_set_int(&cd, "preset_id", preset_id);
-	callCurrentDevice("preset_save", &cd);
+	callCurrentDevice("ptz_preset_save", &cd);
 	calldata_free(&cd);
 }
 
@@ -937,7 +940,7 @@ void PTZControls::presetRecall(int preset_id)
 {
 	calldata cd = {};
 	calldata_set_int(&cd, "preset_id", preset_id);
-	callCurrentDevice("preset_recall", &cd);
+	callCurrentDevice("ptz_preset_recall", &cd);
 	calldata_free(&cd);
 }
 
@@ -945,7 +948,7 @@ void PTZControls::presetReset(int preset_id)
 {
 	calldata cd = {};
 	calldata_set_int(&cd, "preset_id", preset_id);
-	callCurrentDevice("preset_clear", &cd);
+	callCurrentDevice("ptz_preset_clear", &cd);
 	calldata_free(&cd);
 }
 

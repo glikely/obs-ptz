@@ -51,18 +51,18 @@ PTZDevice::PTZDevice(OBSData config) : QObject()
 		return;
 	}
 
-	proc_handler_add(handler, "void stop()", ptz_ph_lambda(stop), this);
-	proc_handler_add(handler, "void home()", ptz_ph_lambda(pantilt_home), this);
-	proc_handler_add(handler, "void set_home()", ptz_ph_lambda(pantilt_set_home), this);
-	// Pan/tilt/zoom/focus operations
-	proc_handler_add(handler, "void move()", ptz_ph_lambda(move), this);
-	proc_handler_add(handler, "void move_abs()", ptz_ph_lambda(move_abs), this);
-	proc_handler_add(handler, "void move_rel()", ptz_ph_lambda(move_rel), this);
-	proc_handler_add(handler, "void set()", ptz_ph_lambda(set), this);
-	proc_handler_add(handler, "void focus_onetouch()", ptz_ph_lambda(focus_onetouch), this);
-	proc_handler_add(handler, "void preset_save()", ptz_ph_lambda(preset_save), this);
-	proc_handler_add(handler, "void preset_recall()", ptz_ph_lambda(preset_recall), this);
-	proc_handler_add(handler, "void preset_clear()", ptz_ph_lambda(preset_clear), this);
+	/* The PTZ Device API. All these functions are prefixed with 'ptz_' so that they can
+	 * be added to an existing proc_handler with low risk of conflicts */
+	proc_handler_add(handler, "void ptz_stop()", ptz_ph_lambda(stop), this);
+	proc_handler_add(handler, "void ptz_home_recall()", ptz_ph_lambda(pantilt_home), this);
+	proc_handler_add(handler, "void ptz_home_save()", ptz_ph_lambda(pantilt_set_home), this);
+	proc_handler_add(handler, "void ptz_move()", ptz_ph_lambda(move), this);
+	proc_handler_add(handler, "void ptz_move_abs()", ptz_ph_lambda(move_abs), this);
+	proc_handler_add(handler, "void ptz_move_rel()", ptz_ph_lambda(move_rel), this);
+	proc_handler_add(handler, "void ptz_set()", ptz_ph_lambda(set), this);
+	proc_handler_add(handler, "void ptz_preset_save()", ptz_ph_lambda(preset_save), this);
+	proc_handler_add(handler, "void ptz_preset_recall()", ptz_ph_lambda(preset_recall), this);
+	proc_handler_add(handler, "void ptz_preset_clear()", ptz_ph_lambda(preset_clear), this);
 
 	setObjectName(obs_data_get_string(config, "name"));
 	id = (int)obs_data_get_int(config, "id");
@@ -207,6 +207,9 @@ void PTZDevice::set(calldata_t *cd)
 	bool enable;
 	if (calldata_get_bool(cd, "autofocus", &enable))
 		set_autofocus(enable);
+	bool trigger;
+	if (calldata_get_bool(cd, "focus_onetouch_trigger", &trigger) && trigger)
+		focus_onetouch();
 }
 
 void PTZDevice::preset_save(calldata_t *cd)
@@ -399,12 +402,13 @@ void ptz_load_devices()
 	auto ptz_cb = [](void *p, calldata_t *cd) {
 		ptzDeviceList.callDevice(static_cast<const char *>(p), cd);
 	};
-	proc_handler_add(ptz_ph, "void ptz_preset_save(int device_id, int preset_id)", ptz_cb, (void *)"preset_save");
+	proc_handler_add(ptz_ph, "void ptz_preset_save(int device_id, int preset_id)", ptz_cb,
+			 (void *)"ptz_preset_save");
 	proc_handler_add(ptz_ph, "void ptz_preset_recall(int device_id, int preset_id)", ptz_cb,
-			 (void *)"preset_recall");
+			 (void *)"ptz_preset_recall");
 	proc_handler_add(ptz_ph,
 			 "void ptz_move_continuous(int device_id, float pan, float tilt, float zoom, float focus)",
-			 ptz_cb, (void *)"move");
+			 ptz_cb, (void *)"ptz_move");
 
 	/* Register the new proc hander with the main proc handler */
 	proc_handler_t *ph = obs_get_proc_handler();
@@ -419,7 +423,7 @@ void ptz_load_devices()
 
 	/* Deprecated pantilt callback for compatibility with existing plugins */
 	proc_handler_add(ph, "void ptz_pantilt(int device_id, float pan, float tilt, float zoom, float focus)", ptz_cb,
-			 (void *)"move");
+			 (void *)"ptz_move");
 }
 
 void ptz_unload_devices(void)

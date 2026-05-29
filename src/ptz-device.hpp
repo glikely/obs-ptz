@@ -150,7 +150,6 @@ protected slots:
 	void move_abs(calldata_t *cd);
 	void move_rel(calldata_t *cd);
 	virtual void set(calldata_t *cd);
-	void focus_onetouch(calldata_t *) { focus_onetouch(); }
 	void preset_save(calldata_t *cd);
 	void preset_recall(calldata_t *cd);
 	void preset_clear(calldata_t *cd);
