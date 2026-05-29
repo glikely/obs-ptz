@@ -658,14 +658,57 @@ void PTZControls::setSpeedRampEnabled(bool enabled)
 	emit speedRampEnabledChanged(enabled);
 }
 
-bool PTZControls::callCurrentDevice(const char *method, calldata_t *cd)
+/**
+ * PTZControls::callCurrentDevice - Helpers for sending device commands
+ *
+ * These are helper methods for sending commands through to a PTZ
+ * device. The first method accepts a calldata structure with all the
+ * command's arguments. The variants are argument helper versions that
+ * handle the most common calling cases, freeing the caller from
+ * creating a calldata structure.
+ *
+ * The argument helpers all use a fixed-stack instance of calldata. This
+ * is faster because it puts all the data onto the stack and doesn't
+ * require calls to bzalloc()/bfree() in the calldata code.
+ */
+bool PTZControls::callCurrentDevice(const char *method, calldata_t *cd) const
 {
 	return ptzDeviceList.callDevice(ui->cameraList->currentIndex(), method, cd);
 }
 
+bool PTZControls::callCurrentDevice(const char *method, const char *arg, long long val) const
+{
+	calldata cd;
+	uint8_t stack[128];
+	calldata_init_fixed(&cd, stack, sizeof(stack));
+	calldata_set_int(&cd, arg, val);
+	return callCurrentDevice(method, &cd);
+}
+
+bool PTZControls::callCurrentDevice(const char *method, const char *arg, double val) const
+{
+	calldata cd;
+	uint8_t stack[128];
+	calldata_init_fixed(&cd, stack, sizeof(stack));
+	calldata_set_float(&cd, arg, val);
+	return callCurrentDevice(method, &cd);
+}
+
+bool PTZControls::callCurrentDevice(const char *method, const char *arg, bool val) const
+{
+	calldata cd;
+	uint8_t stack[128];
+	calldata_init_fixed(&cd, stack, sizeof(stack));
+	calldata_set_bool(&cd, arg, val);
+	return callCurrentDevice(method, &cd);
+}
+
 void PTZControls::accelTimerHandler()
 {
-	calldata cd = {};
+	calldata cd;
+	uint8_t stack[128];
+	calldata_init_fixed(&cd, stack, sizeof(stack));
+
 	if (!ui->cameraList->currentIndex().isValid()) {
 		accel_timer.stop();
 		return;
@@ -697,7 +740,6 @@ void PTZControls::accelTimerHandler()
 	}
 
 	callCurrentDevice("ptz_move", &cd);
-	calldata_free(&cd);
 
 	if (pan_accel == 0.0 && tilt_accel == 0.0 && zoom_accel == 0.0 && focus_accel == 0.0)
 		accel_timer.stop();
@@ -714,7 +756,9 @@ void PTZControls::setPanTilt(double pan, double tilt, double pan_accel_, double 
 	if (pan_accel != 0 || tilt_accel != 0)
 		accel_timer.start(2000 / 20);
 
-	calldata cd = {};
+	calldata cd;
+	uint8_t stack[128];
+	calldata_init_fixed(&cd, stack, sizeof(stack));
 	calldata_set_float(&cd, "pan", pan_speed);
 	calldata_set_float(&cd, "tilt", tilt_speed);
 	callCurrentDevice("ptz_move", &cd);
@@ -754,10 +798,7 @@ void PTZControls::setZoom(double zoom)
 	else if (modifiers.testFlag(Qt::ShiftModifier))
 		speed = 0.1;
 
-	calldata cd = {};
-	calldata_set_float(&cd, "zoom", zoom * speed);
-	callCurrentDevice("ptz_move", &cd);
-	calldata_free(&cd);
+	callCurrentDevice("ptz_move", "zoom", zoom * speed);
 }
 
 void PTZControls::setFocus(double focus)
@@ -770,10 +811,7 @@ void PTZControls::setFocus(double focus)
 	else if (modifiers.testFlag(Qt::ShiftModifier))
 		speed = 0.1;
 
-	calldata cd = {};
-	calldata_set_float(&cd, "focus", focus * speed);
-	callCurrentDevice("ptz_move", &cd);
-	calldata_free(&cd);
+	callCurrentDevice("ptz_move", "focus", focus * speed);
 }
 
 /* The pan/tilt buttons are a large block of simple and mostly identical code.
@@ -837,10 +875,7 @@ void PTZControls::on_zoomButton_wide_released()
 void PTZControls::on_focusButton_auto_clicked(bool checked)
 {
 	setAutofocusEnabled(checked);
-	calldata cd = {};
-	calldata_set_bool(&cd, "autofocus", checked);
-	callCurrentDevice("ptz_set", &cd);
-	calldata_free(&cd);
+	callCurrentDevice("ptz_set", "autofocus", checked);
 }
 
 void PTZControls::on_focusButton_near_pressed()
@@ -865,10 +900,7 @@ void PTZControls::on_focusButton_far_released()
 
 void PTZControls::on_focusButton_onetouch_clicked()
 {
-	calldata cd = {};
-	calldata_set_bool(&cd, "focus_onetouch_trigger", true);
-	callCurrentDevice("ptz_set", &cd);
-	calldata_free(&cd);
+	callCurrentDevice("ptz_set", "focus_onetouch_trigger", true);
 }
 
 void PTZControls::setAutofocusEnabled(bool autofocus_on)
@@ -928,28 +960,19 @@ void PTZControls::settingsChanged(OBSData settings)
 		setAutofocusEnabled(obs_data_get_bool(settings, "focus_af_enabled"));
 }
 
-void PTZControls::presetSet(int preset_id)
+void PTZControls::presetSet(long long preset_id)
 {
-	calldata cd = {};
-	calldata_set_int(&cd, "preset_id", preset_id);
-	callCurrentDevice("ptz_preset_save", &cd);
-	calldata_free(&cd);
+	callCurrentDevice("ptz_preset_save", "preset_id", preset_id);
 }
 
-void PTZControls::presetRecall(int preset_id)
+void PTZControls::presetRecall(long long preset_id)
 {
-	calldata cd = {};
-	calldata_set_int(&cd, "preset_id", preset_id);
-	callCurrentDevice("ptz_preset_recall", &cd);
-	calldata_free(&cd);
+	callCurrentDevice("ptz_preset_recall", "preset_id", preset_id);
 }
 
-void PTZControls::presetReset(int preset_id)
+void PTZControls::presetReset(long long preset_id)
 {
-	calldata cd = {};
-	calldata_set_int(&cd, "preset_id", preset_id);
-	callCurrentDevice("ptz_preset_clear", &cd);
-	calldata_free(&cd);
+	callCurrentDevice("ptz_preset_clear", "preset_id", preset_id);
 }
 
 int PTZControls::presetIndexToId(QModelIndex index)

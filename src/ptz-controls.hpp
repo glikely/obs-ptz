@@ -72,12 +72,15 @@ private:
 
 	void setCurrent(unsigned int index);
 	int presetIndexToId(QModelIndex index);
-	void presetSet(int id);
-	void presetRecall(int id);
-	void presetReset(int id);
+	void presetSet(long long id);
+	void presetRecall(long long id);
+	void presetReset(long long id);
 	void setAutofocusEnabled(bool autofocus_on);
 
-	bool callCurrentDevice(const char *method, calldata_t *cd = nullptr);
+	bool callCurrentDevice(const char *method, calldata_t *cd = nullptr) const;
+	bool callCurrentDevice(const char *method, const char *arg, long long val) const;
+	bool callCurrentDevice(const char *method, const char *arg, double val) const;
+	bool callCurrentDevice(const char *method, const char *arg, bool val) const;
 
 	QList<obs_hotkey_id> hotkeys;
 	QMap<obs_hotkey_id, int> preset_hotkey_map;
