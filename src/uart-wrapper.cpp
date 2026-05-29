@@ -41,7 +41,7 @@ void PTZUARTWrapper::setBaudRate(int baudRate)
 	open();
 }
 
-int PTZUARTWrapper::baudRate()
+int PTZUARTWrapper::baudRate() const
 {
 	return uart.baudRate();
 }
@@ -51,13 +51,10 @@ void PTZUARTWrapper::setConfig(OBSData config)
 	setBaudRate((int)obs_data_get_int(config, "baud_rate"));
 }
 
-OBSData PTZUARTWrapper::getConfig()
+void PTZUARTWrapper::save(OBSData config) const
 {
-	OBSData config = obs_data_create();
-	obs_data_release(config);
 	obs_data_set_string(config, "port", qPrintable(portName()));
 	obs_data_set_int(config, "baud_rate", baudRate());
-	return config;
 }
 
 void PTZUARTWrapper::addOBSProperties(obs_properties_t *props)

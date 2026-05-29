@@ -183,14 +183,13 @@ void PTZViscaOverIP::set_config(OBSData config)
 	quirk_visca_udp_no_seq = obs_data_get_bool(config, "quirk_visca_udp_no_seq");
 }
 
-OBSData PTZViscaOverIP::get_config()
+void PTZViscaOverIP::save(OBSData config) const
 {
-	OBSData config = PTZVisca::get_config();
+	PTZVisca::save(config);
 	obs_data_set_string(config, "host", qPrintable(host));
 	obs_data_set_string(config, "address", qPrintable(ip_address.toString()));
 	obs_data_set_int(config, "port", iface->port());
 	obs_data_set_bool(config, "quirk_visca_udp_no_seq", quirk_visca_udp_no_seq);
-	return config;
 }
 
 obs_properties_t *PTZViscaOverIP::get_obs_properties()

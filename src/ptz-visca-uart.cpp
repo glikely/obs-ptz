@@ -138,12 +138,11 @@ void PTZViscaSerial::set_config(OBSData config)
 	attach_interface(iface);
 }
 
-OBSData PTZViscaSerial::get_config()
+void PTZViscaSerial::save(OBSData config) const
 {
-	OBSData config = PTZVisca::get_config();
-	obs_data_apply(config, iface->getConfig());
+	PTZVisca::save(config);
+	iface->save(config);
 	obs_data_set_int(config, "address", address);
-	return config;
 }
 
 obs_properties_t *PTZViscaSerial::get_obs_properties()

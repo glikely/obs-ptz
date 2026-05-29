@@ -258,11 +258,8 @@ void PTZDevice::set_config(OBSData config)
 	focus_invert = obs_data_get_bool(config, "focus_invert");
 }
 
-OBSData PTZDevice::get_config()
+void PTZDevice::save(OBSData config) const
 {
-	OBSData config = obs_data_create();
-	obs_data_release(config);
-
 	obs_data_set_string(config, "name", QT_TO_UTF8(objectName()));
 	obs_data_set_int(config, "id", id);
 	obs_data_set_string(config, "type", type.c_str());
@@ -277,7 +274,6 @@ OBSData PTZDevice::get_config()
 
 	OBSDataArrayAutoRelease preset_array = m_presetsModel.savePresets();
 	obs_data_set_array(config, "presets", preset_array);
-	return config;
 }
 
 void PTZDevice::set_settings(OBSData config)
@@ -304,7 +300,7 @@ void PTZDevice::set_settings(OBSData config)
 
 OBSData PTZDevice::get_settings()
 {
-	obs_data_apply(settings, get_config());
+	save(settings);
 	return settings;
 }
 
@@ -360,7 +356,9 @@ obs_properties_t *PTZDevice::get_obs_properties()
 /* C interface for non-QT parts of the plugin */
 obs_data_array_t *ptz_devices_get_config()
 {
-	return ptzDeviceList.getConfigs();
+	obs_data_array_t *devices = obs_data_array_create();
+	ptzDeviceList.save(devices);
+	return devices;
 }
 
 obs_source_t *ptz_device_find_source_using_ptz_name(uint32_t device_id)

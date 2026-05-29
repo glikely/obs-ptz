@@ -117,7 +117,7 @@ public:
 	QString description() override;
 
 	void set_config(OBSData ptz_data) override;
-	OBSData get_config() override;
+	void save(OBSData ptz_data) const override;
 
 	obs_properties_t *get_obs_properties() override;
 

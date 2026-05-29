@@ -163,13 +163,12 @@ void PTZPelco::set_config(OBSData config)
 	attach_interface(ifc);
 }
 
-OBSData PTZPelco::get_config()
+void PTZPelco::save(OBSData config) const
 {
-	OBSData config = PTZDevice::get_config();
-	obs_data_apply(config, iface->getConfig());
+	PTZDevice::save(config);
+	iface->save(config);
 	obs_data_set_int(config, "address", address);
 	obs_data_set_bool(config, "use_pelco_d", use_pelco_d);
-	return config;
 }
 
 obs_properties_t *PTZPelco::get_obs_properties()

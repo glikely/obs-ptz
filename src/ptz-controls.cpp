@@ -545,9 +545,9 @@ void PTZControls::SaveConfig()
 		obs_data_set_int(savedata, "current_selected",
 				 ui->cameraList->currentIndex().data(PTZListModel::DeviceIdRole).toInt());
 
-	OBSDataArray camera_array = ptz_devices_get_config();
-	obs_data_array_release(camera_array);
-	obs_data_set_array(savedata, "devices", camera_array);
+	OBSDataArrayAutoRelease devices = obs_data_array_create();
+	ptzDeviceList.save(devices.Get());
+	obs_data_set_array(savedata, "devices", devices);
 
 	/* Save data structure to json */
 	if (!obs_data_save_json_pretty_safe(savedata, file, "tmp", "bak")) {

@@ -195,12 +195,13 @@ QModelIndex PTZListModel::indexFromName(const QString &name)
 	return QModelIndex();
 }
 
-obs_data_array_t *PTZListModel::getConfigs()
+void PTZListModel::save(OBSDataArray configs) const
 {
-	obs_data_array_t *configs = obs_data_array_create();
-	for (PTZDevice *ptz : devices)
-		obs_data_array_push_back(configs, ptz->get_config());
-	return configs;
+	for (PTZDevice *ptz : devices) {
+		OBSDataAutoRelease cfg = obs_data_create();
+		ptz->save(cfg.Get());
+		obs_data_array_push_back(configs, cfg);
+	}
 }
 
 void PTZListModel::add(PTZDevice *ptz)

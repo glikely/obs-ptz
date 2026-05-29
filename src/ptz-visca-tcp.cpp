@@ -102,12 +102,11 @@ void PTZViscaOverTCP::set_config(OBSData config)
 	connectSocket();
 }
 
-OBSData PTZViscaOverTCP::get_config()
+void PTZViscaOverTCP::save(OBSData config) const
 {
-	OBSData config = PTZVisca::get_config();
+	PTZVisca::save(config);
 	obs_data_set_string(config, "host", QT_TO_UTF8(host));
 	obs_data_set_int(config, "port", port);
-	return config;
 }
 
 obs_properties_t *PTZViscaOverTCP::get_obs_properties()

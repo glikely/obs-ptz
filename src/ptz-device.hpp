@@ -170,7 +170,7 @@ public:
 	 * `set_settings()` is used to send commands to the camera to change
 	 * the state */
 	virtual void set_config(OBSData ptz_config);
-	virtual OBSData get_config();
+	virtual void save(OBSData ptz_config) const;
 	virtual void set_settings(OBSData setting);
 	virtual OBSData get_settings();
 

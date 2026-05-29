@@ -327,9 +327,9 @@ void PTZUSBCam::set_config(OBSData config)
 	}
 }
 
-OBSData PTZUSBCam::get_config()
+void PTZUSBCam::save(OBSData config) const
 {
-	OBSData config = PTZDevice::get_config();
+	PTZDevice::save(config);
 	OBSDataArrayAutoRelease presetArray = obs_data_array_create();
 	for (auto it = presets.constBegin(); it != presets.constEnd(); ++it) {
 		const PtzUsbCamPos &preset = it.value();
@@ -346,7 +346,6 @@ OBSData PTZUSBCam::get_config()
 		obs_data_array_push_back(presetArray, presetData);
 	}
 	obs_data_set_array(config, "presets_memory", presetArray);
-	return config;
 }
 
 obs_properties_t *PTZUSBCam::get_obs_properties()

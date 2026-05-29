@@ -30,13 +30,13 @@ public:
 	virtual bool open();
 	void close();
 	void setBaudRate(int baudRate);
-	int baudRate();
+	int baudRate() const;
 	virtual void setConfig(OBSData config);
-	virtual OBSData getConfig();
+	virtual void save(OBSData config) const;
 	virtual void addOBSProperties(obs_properties_t *props);
 	virtual void send(const QByteArray &packet);
 	virtual void receiveBytes(const QByteArray &bytes) = 0;
-	QString portName() { return port_name; }
+	QString portName() const { return port_name; }
 
 public slots:
 	void poll();

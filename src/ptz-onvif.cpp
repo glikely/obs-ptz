@@ -836,9 +836,9 @@ void PTZOnvif::set_config(OBSData config)
 	connectCamera();
 }
 
-OBSData PTZOnvif::get_config()
+void PTZOnvif::save(OBSData config) const
 {
-	OBSData config = PTZDevice::get_config();
+	PTZDevice::save(config);
 	obs_data_set_string(config, "host", QT_TO_UTF8(host));
 	obs_data_set_int(config, "port", port);
 	obs_data_set_string(config, "username", QT_TO_UTF8(username));
@@ -846,7 +846,6 @@ OBSData PTZOnvif::get_config()
 	obs_data_set_double(config, "speed_boost", m_speed_boost);
 	obs_data_set_string(config, "profile_token", QT_TO_UTF8(m_selectedMedia.token));
 	obs_data_set_string(config, "wb_mode", QT_TO_UTF8(m_wbMode));
-	return config;
 }
 
 obs_properties_t *PTZOnvif::get_obs_properties()
