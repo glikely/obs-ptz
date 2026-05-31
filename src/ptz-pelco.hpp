@@ -56,6 +56,7 @@ public:
 	~PTZPelco();
 	QString description() override;
 
+	void getDefaults(OBSData config) const override;
 	void set_config(OBSData ptz_data) override;
 	void save(OBSData config) const override;
 	obs_properties_t *get_obs_properties() override;

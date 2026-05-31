@@ -89,6 +89,7 @@ ViscaUART *ViscaUART::get_interface(QString port_name)
 
 PTZViscaSerial::PTZViscaSerial(OBSData config) : PTZVisca(config), iface(NULL)
 {
+	getDefaults(config);
 	set_config(config);
 }
 
@@ -123,6 +124,12 @@ void PTZViscaSerial::send_immediate(const QByteArray &msg_)
 	QByteArray msg = msg_;
 	msg[0] = (char)(0x80 | (address & 0x7)); // Set the camera address
 	iface->send(msg);
+}
+
+void PTZViscaSerial::getDefaults(OBSData config) const
+{
+	PTZVisca::getDefaults(config);
+	obs_data_set_default_int(config, "address", 1);
 }
 
 void PTZViscaSerial::set_config(OBSData config)

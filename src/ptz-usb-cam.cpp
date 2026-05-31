@@ -293,6 +293,7 @@ void PTZUSBCam::ptz_tick_callback(void *param, float seconds)
 
 PTZUSBCam::PTZUSBCam(OBSData config) : PTZDevice(config)
 {
+	getDefaults(config);
 	set_config(config);
 	obs_add_tick_callback(ptz_tick_callback, this);
 }

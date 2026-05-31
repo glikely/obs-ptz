@@ -571,14 +571,19 @@ void PTZVisca::set_settings(OBSData new_settings)
 		visca_focus_speed_max = (int)obs_data_get_int(new_settings, "visca_focus_speed_max");
 }
 
-void PTZVisca::set_config(OBSData cfg)
+void PTZVisca::getDefaults(OBSData cfg) const
 {
-	PTZDevice::set_config(cfg);
+	PTZDevice::getDefaults(cfg);
 	obs_data_set_default_int(cfg, "visca_pan_speed_max", 0x18);
 	obs_data_set_default_int(cfg, "visca_tilt_speed_max", 0x14);
 	obs_data_set_default_int(cfg, "visca_zoom_speed_max", 0x7);
 	obs_data_set_default_int(cfg, "visca_focus_speed_max", 0x7);
 	obs_data_set_default_bool(cfg, "protocol_trace", false);
+}
+
+void PTZVisca::set_config(OBSData cfg)
+{
+	PTZDevice::set_config(cfg);
 	visca_pan_speed_max = (int)obs_data_get_int(cfg, "visca_pan_speed_max");
 	visca_tilt_speed_max = (int)obs_data_get_int(cfg, "visca_tilt_speed_max");
 	visca_zoom_speed_max = (int)obs_data_get_int(cfg, "visca_zoom_speed_max");

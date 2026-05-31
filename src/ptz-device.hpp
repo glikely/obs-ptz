@@ -169,6 +169,7 @@ public:
 	 * file. `set_config()` is used to change saved config values, and
 	 * `set_settings()` is used to send commands to the camera to change
 	 * the state */
+	virtual void getDefaults(OBSData defaults) const;
 	virtual void set_config(OBSData ptz_config);
 	virtual void save(OBSData ptz_config) const;
 	virtual void set_settings(OBSData setting);

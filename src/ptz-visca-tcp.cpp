@@ -11,6 +11,7 @@
 PTZViscaOverTCP::PTZViscaOverTCP(OBSData config) : PTZVisca(config)
 {
 	address = 1;
+	getDefaults(config);
 	set_config(config);
 	visca_socket.setSocketOption(QAbstractSocket::KeepAliveOption, 1);
 	connect(&visca_socket, &QTcpSocket::readyRead, this, &PTZViscaOverTCP::poll);
@@ -92,13 +93,17 @@ void PTZViscaOverTCP::poll()
 	}
 }
 
+void PTZViscaOverTCP::getDefaults(OBSData config) const
+{
+	PTZVisca::getDefaults(config);
+	obs_data_set_default_int(config, "port", 5678);
+}
+
 void PTZViscaOverTCP::set_config(OBSData config)
 {
 	PTZVisca::set_config(config);
 	host = obs_data_get_string(config, "host");
 	port = (int)obs_data_get_int(config, "port");
-	if (!port)
-		port = 5678;
 	connectSocket();
 }
 

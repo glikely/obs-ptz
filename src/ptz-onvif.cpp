@@ -746,6 +746,7 @@ PTZOnvif::PTZOnvif(OBSData config) : PTZDevice(config)
 		}
 	});
 	m_statusTimer.start();
+	getDefaults(config);
 	set_config(config);
 }
 
@@ -812,6 +813,15 @@ void PTZOnvif::zoom_abs(double pos)
 	absoluteMove(0.0, 0.0, pos);
 }
 
+void PTZOnvif::getDefaults(OBSData config) const
+{
+	PTZDevice::getDefaults(config);
+	obs_data_set_default_int(config, "port", 80);
+	obs_data_set_default_string(config, "username", "admin");
+	obs_data_set_default_string(config, "password", "");
+	obs_data_set_default_double(config, "speed_boost", 1.0);
+}
+
 void PTZOnvif::set_config(OBSData config)
 {
 	PTZDevice::set_config(config);
@@ -819,7 +829,6 @@ void PTZOnvif::set_config(OBSData config)
 	port = (int)obs_data_get_int(config, "port");
 	username = obs_data_get_string(config, "username");
 	password = obs_data_get_string(config, "password");
-	obs_data_set_default_double(config, "speed_boost", 1.0);
 	m_speed_boost = obs_data_get_double(config, "speed_boost");
 	if (m_speed_boost <= 0.0)
 		m_speed_boost = 1.0;
@@ -829,10 +838,6 @@ void PTZOnvif::set_config(OBSData config)
 		m_wbMode = newWb;
 		m_imagingDirty = true;
 	}
-	if (username == "")
-		username = "admin";
-	if (!port)
-		port = 80;
 	connectCamera();
 }
 

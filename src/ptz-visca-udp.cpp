@@ -94,6 +94,7 @@ ViscaUDPSocket *ViscaUDPSocket::get_interface(int port)
 PTZViscaOverIP::PTZViscaOverIP(OBSData config) : PTZVisca(config), iface(NULL)
 {
 	address = 1;
+	getDefaults(config);
 	set_config(config);
 }
 

@@ -66,6 +66,7 @@ public:
 	PTZVisca(OBSData config);
 	obs_properties_t *get_obs_properties() override;
 
+	void getDefaults(OBSData config) const override;
 	void set_config(OBSData ptz_data) override;
 	void save(OBSData config) const override;
 	void set_settings(OBSData setting) override;

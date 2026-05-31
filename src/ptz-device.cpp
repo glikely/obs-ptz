@@ -233,14 +233,9 @@ void PTZDevice::preset_clear(calldata_t *cd)
 		memory_reset(id);
 }
 
-void PTZDevice::set_config(OBSData config)
+void PTZDevice::getDefaults(OBSData config) const
 {
-	/* Update the list of preset names */
-	obs_data_set_default_double(config, "preset_max", 16);
-	m_presetsModel.setMaxPresets((size_t)obs_data_get_int(config, "preset_max"));
-	OBSDataArrayAutoRelease preset_array = obs_data_get_array(config, "presets");
-	m_presetsModel.loadPresets(preset_array.Get());
-
+	obs_data_set_default_int(config, "preset_max", 16);
 	obs_data_set_default_double(config, "pantilt_speed_max", 1.0);
 	obs_data_set_default_double(config, "zoom_speed_max", 1.0);
 	obs_data_set_default_double(config, "focus_speed_max", 1.0);
@@ -248,6 +243,16 @@ void PTZDevice::set_config(OBSData config)
 	obs_data_set_default_bool(config, "tilt_invert", false);
 	obs_data_set_default_bool(config, "zoom_invert", false);
 	obs_data_set_default_bool(config, "focus_invert", false);
+}
+
+void PTZDevice::set_config(OBSData config)
+{
+	getDefaults(config);
+
+	/* Update the list of preset names */
+	m_presetsModel.setMaxPresets((size_t)obs_data_get_int(config, "preset_max"));
+	OBSDataArrayAutoRelease preset_array = obs_data_get_array(config, "presets");
+	m_presetsModel.loadPresets(preset_array.Get());
 
 	pantilt_speed_max = obs_data_get_double(config, "pantilt_speed_max");
 	zoom_speed_max = obs_data_get_double(config, "zoom_speed_max");
