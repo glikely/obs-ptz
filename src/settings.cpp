@@ -465,7 +465,7 @@ void PTZSettings::currentChanged(const QModelIndex &current, const QModelIndex &
 
 	ptz = ptzDeviceList.getDevice(current);
 	if (ptz) {
-		obs_data_apply(settings, ptz->get_settings());
+		ptz->save(settings);
 
 		auto rawjson = obs_data_get_json(settings);
 		/* Use QJsonDocument for nice formatting */

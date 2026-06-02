@@ -174,7 +174,6 @@ public:
 	virtual void set_config(OBSData ptz_config);
 	virtual void save(OBSData ptz_config) const;
 	virtual void set_settings(OBSData setting);
-	virtual OBSData get_settings();
 
 	/* Properties describe how to display the settings in a GUI dialog */
 	virtual obs_properties_t *get_obs_properties();

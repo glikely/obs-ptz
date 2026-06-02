@@ -314,12 +314,6 @@ void PTZDevice::set_settings(OBSData config)
 		m_presetsModel.setMaxPresets((int)obs_data_get_int(config, "preset_max"));
 }
 
-OBSData PTZDevice::get_settings()
-{
-	save(settings);
-	return settings;
-}
-
 obs_properties_t *PTZDevice::get_obs_properties()
 {
 	obs_properties_t *rtn_props = obs_properties_create();
