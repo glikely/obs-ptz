@@ -100,32 +100,29 @@ PTZSettings::PTZSettings() : QWidget(nullptr), ui(new Ui_PTZSettings)
 	ui->setupUi(this);
 
 	ui->autoselectCheckBox->setChecked(PTZControls::getInstance()->autoselectEnabled());
-	connect(PTZControls::getInstance(), SIGNAL(autoselectEnabledChanged(bool)), ui->autoselectCheckBox,
-		SLOT(setChecked(bool)));
-	connect(ui->autoselectCheckBox, SIGNAL(clicked(bool)), PTZControls::getInstance(),
-		SLOT(setAutoselectEnabled(bool)));
+	connect(PTZControls::getInstance(), &PTZControls::autoselectEnabledChanged, ui->autoselectCheckBox,
+		&QCheckBox::setChecked);
+	connect(ui->autoselectCheckBox, &QCheckBox::clicked, PTZControls::getInstance(),
+		&PTZControls::setAutoselectEnabled);
 
 	ui->livemoveCheckBox->setChecked(PTZControls::getInstance()->liveMoveLockEnabled());
 	connect(PTZControls::getInstance(), &PTZControls::liveMoveLockEnabledChanged, ui->livemoveCheckBox,
 		&QCheckBox::setChecked);
 	connect(ui->livemoveCheckBox, &QCheckBox::clicked, PTZControls::getInstance(),
 		&PTZControls::setLiveMoveLockEnabled);
-	connect(PTZControls::getInstance(), SIGNAL(joystickAxisActionChanged(size_t, ptz_joy_action_id)), this,
-		SLOT(joystickAxisMappingChanged(size_t, ptz_joy_action_id)));
 
 	ui->speedRampCheckBox->setChecked(PTZControls::getInstance()->speedRampEnabled());
-	connect(PTZControls::getInstance(), SIGNAL(speedRampEnabledChanged(bool)), ui->speedRampCheckBox,
-		SLOT(setChecked(bool)));
-	connect(ui->speedRampCheckBox, SIGNAL(clicked(bool)), PTZControls::getInstance(),
-		SLOT(setSpeedRampEnabled(bool)));
+	connect(PTZControls::getInstance(), &PTZControls::speedRampEnabledChanged, ui->speedRampCheckBox,
+		&QCheckBox::setChecked);
+	connect(ui->speedRampCheckBox, &QCheckBox::clicked, PTZControls::getInstance(),
+		&PTZControls::setSpeedRampEnabled);
 
 	auto snd = new SourceNameDelegate(this);
 	ui->deviceList->setModel(&ptzDeviceList);
 	ui->deviceList->setItemDelegateForColumn(0, snd);
 
 	QItemSelectionModel *selectionModel = ui->deviceList->selectionModel();
-	connect(selectionModel, SIGNAL(currentChanged(QModelIndex, QModelIndex)), this,
-		SLOT(currentChanged(QModelIndex, QModelIndex)));
+	connect(selectionModel, &QItemSelectionModel::currentChanged, this, &PTZSettings::currentChanged);
 
 	auto reload_cb = [](void *obj) {
 		return static_cast<PTZSettings *>(obj)->getProperties();
@@ -201,13 +198,13 @@ void PTZSettings::joystickSetup()
 	ui->joystickSpeedSlider->setDoubleConstraints(0.25, 1.75, 0.05, controls->joystickSpeed());
 	ui->joystickDeadzoneSlider->setDoubleConstraints(0.01, 0.15, 0.01, controls->joystickDeadzone());
 
-	connect(joysticks, SIGNAL(countChanged()), this, SLOT(joystickUpdate()));
-	connect(joysticks, SIGNAL(axisEvent(const QJoystickAxisEvent)), this,
-		SLOT(joystickAxisEvent(const QJoystickAxisEvent)));
+	connect(joysticks, &QJoysticks::countChanged, this, &PTZSettings::joystickUpdate);
+	connect(joysticks, &QJoysticks::axisEvent, this, &PTZSettings::joystickAxisEvent);
+	connect(PTZControls::getInstance(), &PTZControls::joystickAxisActionChanged, this,
+		&PTZSettings::joystickAxisMappingChanged);
 
 	auto selectionModel = ui->joystickNamesListView->selectionModel();
-	connect(selectionModel, SIGNAL(currentChanged(QModelIndex, QModelIndex)), this,
-		SLOT(joystickCurrentChanged(QModelIndex, QModelIndex)));
+	connect(selectionModel, &QItemSelectionModel::currentChanged, this, &PTZSettings::joystickCurrentChanged);
 	joystickUpdate();
 }
 
@@ -253,16 +250,15 @@ PTZJoyButtonMapper::PTZJoyButtonMapper(QWidget *parent, size_t _button) : QPushB
 				return true; /* todo: extra logic needed for other hotkey registerers */
 			auto a = get<0>(d)->addAction(obs_hotkey_get_description(key));
 			a->setData(obs_hotkey_get_name(key));
-			connect(a, SIGNAL(triggered(bool)), get<1>(d), SLOT(on_menuAction()));
+			connect(a, &QAction::triggered, get<1>(d), &PTZJoyButtonMapper::on_menuAction);
 			return true;
 		},
 		&data);
 	setMenu(m);
 
-	connect(PTZControls::getInstance(), SIGNAL(joystickButtonHotkeyChanged(size_t, QString)), this,
-		SLOT(on_hotkeyChanged(size_t, QString)));
-	connect(QJoysticks::getInstance(), SIGNAL(buttonEvent(const QJoystickButtonEvent)), this,
-		SLOT(on_joystickButtonEvent(const QJoystickButtonEvent)));
+	connect(PTZControls::getInstance(), &PTZControls::joystickButtonHotkeyChanged, this,
+		&PTZJoyButtonMapper::on_hotkeyChanged);
+	connect(QJoysticks::getInstance(), &QJoysticks::buttonEvent, this, &PTZJoyButtonMapper::on_joystickButtonEvent);
 
 	on_hotkeyChanged(button, PTZControls::getInstance()->joystickButtonHotkey(button));
 }
@@ -325,7 +321,7 @@ void PTZSettings::joystickUpdate()
 			joystickAxisCBs.append(cb);
 			ui->joystickMapGridLayout->addWidget(label, 2 * (i / numcols), i % numcols);
 			ui->joystickMapGridLayout->addWidget(cb, 2 * (i / numcols) + 1, i % numcols);
-			connect(cb, SIGNAL(currentIndexChanged(int)), this, SLOT(on_joystickAxisActionChanged(int)));
+			connect(cb, &QComboBox::currentIndexChanged, this, &PTZSettings::on_joystickAxisActionChanged);
 		}
 
 		for (int i = joystickButtonButtons.count(); i < joysticks->getNumButtons(jid); i++) {
@@ -479,7 +475,7 @@ void PTZSettings::currentChanged(const QModelIndex &current, const QModelIndex &
 		/* The settings dialog doesn't touch presets, so remove them */
 		obs_data_erase(settings, "presets");
 
-		ptz->connect(ptz, SIGNAL(settingsChanged(OBSData)), this, SLOT(settingsChanged(OBSData)));
+		ptz->connect(ptz, &PTZDevice::settingsChanged, this, &PTZSettings::settingsChanged);
 	}
 
 	propertiesView->ReloadProperties();

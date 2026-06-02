@@ -176,11 +176,10 @@ PTZControls::PTZControls(QWidget *parent) : QFrame(parent), ui(new Ui::PTZContro
 	copyActionsDynamicProperties();
 
 	QItemSelectionModel *selectionModel = ui->cameraList->selectionModel();
-	connect(selectionModel, SIGNAL(currentChanged(QModelIndex, QModelIndex)), this,
-		SLOT(currentChanged(QModelIndex, QModelIndex)));
+	connect(selectionModel, &QItemSelectionModel::currentChanged, this, &PTZControls::currentChanged);
 	connect(&accel_timer, &QTimer::timeout, this, &PTZControls::accelTimerHandler);
 
-	connect(ui->panTiltTouch, SIGNAL(positionChanged(double, double)), this, SLOT(setPanTilt(double, double)));
+	connect(ui->panTiltTouch, &TouchControl::positionChanged, [this](double p, double t) { setPanTilt(p, t); });
 
 	/* Right-click on the dock's Home button → "Save current position as
 	 * Home" (only shown for protocols that override supportsSetHome()).
@@ -326,12 +325,9 @@ void PTZControls::joystickSetup()
 	auto joysticks = QJoysticks::getInstance();
 	joysticks->setVirtualJoystickEnabled(false);
 	joysticks->updateInterfaces();
-	connect(joysticks, SIGNAL(axisEvent(const QJoystickAxisEvent)), this,
-		SLOT(joystickAxisEvent(const QJoystickAxisEvent)));
-	connect(joysticks, SIGNAL(buttonEvent(const QJoystickButtonEvent)), this,
-		SLOT(joystickButtonEvent(const QJoystickButtonEvent)));
-	connect(joysticks, SIGNAL(POVEvent(const QJoystickPOVEvent)), this,
-		SLOT(joystickPOVEvent(const QJoystickPOVEvent)));
+	connect(joysticks, &QJoysticks::axisEvent, this, &PTZControls::joystickAxisEvent);
+	connect(joysticks, &QJoysticks::buttonEvent, this, &PTZControls::joystickButtonEvent);
+	connect(joysticks, &QJoysticks::POVEvent, this, &PTZControls::joystickPOVEvent);
 }
 
 void PTZControls::setJoystickEnabled(bool enable)
@@ -914,10 +910,9 @@ void PTZControls::currentChanged(QModelIndex current, QModelIndex previous)
 		presetUpdateActions();
 		auto *selectionModel = ui->presetListView->selectionModel();
 		if (selectionModel)
-			connect(selectionModel, SIGNAL(currentChanged(QModelIndex, QModelIndex)), this,
-				SLOT(presetUpdateActions()));
-		ptz->connect(ptz, SIGNAL(settingsChanged(OBSData)), this, SLOT(settingsChanged(OBSData)));
-
+			connect(selectionModel, &QItemSelectionModel::currentChanged, this,
+				&PTZControls::presetUpdateActions);
+		connect(ptz, &PTZDevice::settingsChanged, this, &PTZControls::settingsChanged);
 		settingsChanged(ptz->get_settings());
 	}
 
@@ -1033,7 +1028,7 @@ void PTZControls::on_cameraList_customContextMenuRequested(const QPoint &pos)
 	QAction *autoselectAction = context.addAction(obs_module_text("PTZ.Settings.CameraAutoselect"));
 	autoselectAction->setCheckable(true);
 	autoselectAction->setChecked(autoselectEnabled());
-	connect(autoselectAction, SIGNAL(toggled(bool)), this, SLOT(setAutoselectEnabled(bool)));
+	connect(autoselectAction, &QAction::toggled, this, &PTZControls::setAutoselectEnabled);
 	if (obs_frontend_preview_program_mode_active()) {
 		QAction *blockliveAction = context.addAction(obs_module_text("PTZ.Settings.BlockLiveMoves"));
 		blockliveAction->setCheckable(true);

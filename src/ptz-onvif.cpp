@@ -729,9 +729,8 @@ void PTZOnvif::requestFinished(QNetworkReply *reply)
 PTZOnvif::PTZOnvif(OBSData config) : PTZDevice(config)
 {
 	// for digest authenticaton request
-	connect(&m_networkManager, SIGNAL(authenticationRequired(QNetworkReply *, QAuthenticator *)), this,
-		SLOT(authRequired(QNetworkReply *, QAuthenticator *)));
-	connect(&m_networkManager, SIGNAL(finished(QNetworkReply *)), this, SLOT(requestFinished(QNetworkReply *)));
+	connect(&m_networkManager, &QNetworkAccessManager::authenticationRequired, this, &PTZOnvif::authRequired);
+	connect(&m_networkManager, &QNetworkAccessManager::finished, this, &PTZOnvif::requestFinished);
 	m_statusTimer.setInterval(5000);
 	connect(&m_statusTimer, &QTimer::timeout, this, [this]() {
 		/* When connected, keep position fresh; when disconnected and

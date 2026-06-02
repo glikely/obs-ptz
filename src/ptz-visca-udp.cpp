@@ -114,8 +114,7 @@ void PTZViscaOverIP::attach_interface(ViscaUDPSocket *new_iface)
 		iface->disconnect(this);
 	iface = new_iface;
 	if (iface) {
-		connect(iface, SIGNAL(receive_datagram(QNetworkDatagram)), this,
-			SLOT(receive_datagram(QNetworkDatagram)));
+		connect(iface, &ViscaUDPSocket::receive_datagram, this, &PTZViscaOverIP::receive_datagram);
 		reset();
 	}
 }
@@ -175,7 +174,7 @@ void PTZViscaOverIP::set_config(OBSData config)
 		if (!host.isEmpty()) {
 			bool is_ip = ip_address.setAddress(host);
 			if (!is_ip)
-				QHostInfo::lookupHost(host, this, SLOT(lookup_host_callback(QHostInfo)));
+				QHostInfo::lookupHost(host, this, &PTZViscaOverIP::lookup_host_callback);
 		}
 	}
 	if (!port)
