@@ -5,7 +5,6 @@ on:
     branches:
       - master
       - main
-      - staging
       - 'release/**'
     tags:
       - '*'
@@ -14,7 +13,7 @@ permissions:
 jobs:
   check-format:
     name: Check Formatting 🔍
-    if: github.ref_name == 'staging'
+    if: github.ref_name == 'master' || github.ref_name == 'main'
     uses: ./.github/workflows/check-format.yaml
     permissions:
       contents: read
