@@ -792,6 +792,15 @@ void PTZVisca::receive(const QByteArray &msg)
 	send_pending();
 }
 
+void PTZVisca::get(calldata_t *cd) const
+{
+	QString arg = calldata_string(cd, "property");
+	if (arg == "wb_mode")
+		calldata_set_int(cd, "wb_mode", obs_data_get_int(settings, "wb_mode"));
+	else
+		PTZDevice::get(cd);
+}
+
 void PTZVisca::set(calldata_t *cd)
 {
 	bool power_on;

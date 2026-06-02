@@ -59,6 +59,7 @@ PTZDevice::PTZDevice(OBSData config) : QObject()
 	proc_handler_add(handler, "void ptz_move()", ptz_ph_lambda(move), this);
 	proc_handler_add(handler, "void ptz_move_abs()", ptz_ph_lambda(move_abs), this);
 	proc_handler_add(handler, "void ptz_move_rel()", ptz_ph_lambda(move_rel), this);
+	proc_handler_add(handler, "void ptz_get()", ptz_ph_lambda(get), this);
 	proc_handler_add(handler, "void ptz_set()", ptz_ph_lambda(set), this);
 	proc_handler_add(handler, "void ptz_preset_save()", ptz_ph_lambda(preset_save), this);
 	proc_handler_add(handler, "void ptz_preset_recall()", ptz_ph_lambda(preset_recall), this);
@@ -200,6 +201,16 @@ void PTZDevice::move_rel(calldata_t *cd)
 
 	if (calldata_get_float(cd, "pan", &p) + calldata_get_float(cd, "tilt", &t))
 		pantilt_rel(p, t);
+}
+
+void PTZDevice::get(calldata_t *cd) const
+{
+	QString arg = calldata_string(cd, "property");
+	if (arg == "power_on")
+		calldata_set_bool(cd, "power_on", obs_data_get_bool(settings, "power_on"));
+	else if (arg == "focus_af_enabled")
+		calldata_set_bool(cd, "focus_af_enabled", obs_data_get_bool(settings, "focus_af_enabled"));
+	return;
 }
 
 void PTZDevice::set(calldata_t *cd)

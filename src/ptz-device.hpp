@@ -149,6 +149,7 @@ protected slots:
 	void move(calldata_t *cd);
 	void move_abs(calldata_t *cd);
 	void move_rel(calldata_t *cd);
+	virtual void get(calldata_t *cd) const;
 	virtual void set(calldata_t *cd);
 	void preset_save(calldata_t *cd);
 	void preset_recall(calldata_t *cd);

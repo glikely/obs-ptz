@@ -948,16 +948,20 @@ void PTZControls::currentChanged(QModelIndex current, QModelIndex previous)
 			connect(selectionModel, &QItemSelectionModel::currentChanged, this,
 				&PTZControls::presetUpdateActions);
 		connect(ptz, &PTZDevice::settingsChanged, this, &PTZControls::settingsChanged);
-		settingsChanged(ptz->get_settings());
+		settingsChanged();
 	}
 
 	updateMoveControls();
 }
 
-void PTZControls::settingsChanged(OBSData settings)
+void PTZControls::settingsChanged()
 {
-	if (obs_data_has_user_value(settings, "focus_af_enabled"))
-		setAutofocusEnabled(obs_data_get_bool(settings, "focus_af_enabled"));
+	auto index = ui->cameraList->currentIndex();
+	calldata cd = {};
+	calldata_set_string(&cd, "property", "focus_af_enabled");
+	ptzDeviceList.callDevice(index, "ptz_get", &cd);
+	setAutofocusEnabled(calldata_bool(&cd, "focus_af_enabled"));
+	calldata_free(&cd);
 }
 
 void PTZControls::presetSet(long long preset_id)
@@ -1035,22 +1039,27 @@ void PTZControls::on_cameraList_customContextMenuRequested(const QPoint &pos)
 {
 	QPoint globalpos = ui->cameraList->mapToGlobal(pos);
 	QModelIndex index = ui->cameraList->indexAt(pos);
-	PTZDevice *ptz = ptzDeviceList.getDevice(index);
 	QMenu context;
 	QAction *powerAction = nullptr;
 	QAction *wbOnetouchAction = nullptr;
 	bool power_on = false;
 
-	if (ptz) {
-		OBSData settings = ptz->get_settings();
-		power_on = obs_data_get_bool(settings, "power_on");
+	if (index.isValid()) {
+		calldata cd = {};
+		calldata_set_string(&cd, "property", "power_on");
+		ptzDeviceList.callDevice(index, "ptz_get", &cd);
+		power_on = calldata_bool(&cd, "power_on");
 		powerAction =
 			context.addAction(obs_module_text(power_on ? "PTZ.Action.PowerOff" : "PTZ.Action.PowerOn"));
 
-		bool wb_onepush = (obs_data_get_int(settings, "wb_mode") == 3);
+		calldata_set_string(&cd, "property", "wb_mode");
+		ptzDeviceList.callDevice(index, "ptz_get", &cd);
+		bool wb_onepush = (calldata_int(&cd, "wb_mode") == 3);
 		if (wb_onepush)
 			wbOnetouchAction = context.addAction(obs_module_text("PTZ.Action.WhiteBalance.OnePushTrigger"));
 		context.addSeparator();
+
+		calldata_free(&cd);
 	}
 	QAction *autoselectAction = context.addAction(obs_module_text("PTZ.Settings.CameraAutoselect"));
 	autoselectAction->setCheckable(true);

@@ -60,6 +60,7 @@ protected:
 
 protected slots:
 	void receive(const QByteArray &msg);
+	void get(calldata_t *cd) const override;
 	void set(calldata_t *cd) override;
 
 public:
