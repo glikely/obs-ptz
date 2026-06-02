@@ -256,7 +256,7 @@ void PTZDevice::getDefaults(OBSData config) const
 	obs_data_set_default_bool(config, "focus_invert", false);
 }
 
-void PTZDevice::set_config(OBSData config)
+void PTZDevice::update(OBSData config)
 {
 	getDefaults(config);
 
@@ -265,6 +265,7 @@ void PTZDevice::set_config(OBSData config)
 	OBSDataArrayAutoRelease preset_array = obs_data_get_array(config, "presets");
 	m_presetsModel.loadPresets(preset_array.Get());
 
+	setObjectName(obs_data_get_string(config, "name"));
 	pantilt_speed_max = obs_data_get_double(config, "pantilt_speed_max");
 	zoom_speed_max = obs_data_get_double(config, "zoom_speed_max");
 	focus_speed_max = obs_data_get_double(config, "focus_speed_max");
@@ -290,28 +291,6 @@ void PTZDevice::save(OBSData config) const
 
 	OBSDataArrayAutoRelease preset_array = m_presetsModel.savePresets();
 	obs_data_set_array(config, "presets", preset_array);
-}
-
-void PTZDevice::set_settings(OBSData config)
-{
-	if (obs_data_has_user_value(config, "name"))
-		setObjectName(obs_data_get_string(config, "name"));
-	if (obs_data_has_user_value(config, "pantilt_speed_max"))
-		pantilt_speed_max = obs_data_get_double(config, "pantilt_speed_max");
-	if (obs_data_has_user_value(config, "zoom_speed_max"))
-		zoom_speed_max = obs_data_get_double(config, "zoom_speed_max");
-	if (obs_data_has_user_value(config, "focus_speed_max"))
-		focus_speed_max = obs_data_get_double(config, "focus_speed_max");
-	if (obs_data_has_user_value(config, "pan_invert"))
-		pan_invert = obs_data_get_bool(config, "pan_invert");
-	if (obs_data_has_user_value(config, "tilt_invert"))
-		tilt_invert = obs_data_get_bool(config, "tilt_invert");
-	if (obs_data_has_user_value(config, "zoom_invert"))
-		zoom_invert = obs_data_get_bool(config, "zoom_invert");
-	if (obs_data_has_user_value(config, "focus_invert"))
-		focus_invert = obs_data_get_bool(config, "focus_invert");
-	if (obs_data_has_user_value(config, "preset_max"))
-		m_presetsModel.setMaxPresets((int)obs_data_get_int(config, "preset_max"));
 }
 
 obs_properties_t *PTZDevice::get_obs_properties()

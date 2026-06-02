@@ -95,7 +95,7 @@ PTZViscaOverIP::PTZViscaOverIP(OBSData config) : PTZVisca(config), iface(NULL)
 {
 	address = 1;
 	getDefaults(config);
-	set_config(config);
+	update(config);
 }
 
 PTZViscaOverIP::~PTZViscaOverIP()
@@ -162,9 +162,9 @@ void PTZViscaOverIP::lookup_host_callback(const QHostInfo info)
 	}
 }
 
-void PTZViscaOverIP::set_config(OBSData config)
+void PTZViscaOverIP::update(OBSData config)
 {
-	PTZVisca::set_config(config);
+	PTZVisca::update(config);
 	QString new_host = obs_data_get_string(config, "host");
 	if (new_host.isEmpty())
 		new_host = obs_data_get_string(config, "address");

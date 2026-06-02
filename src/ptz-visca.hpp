@@ -68,9 +68,8 @@ public:
 	obs_properties_t *get_obs_properties() override;
 
 	void getDefaults(OBSData config) const override;
-	void set_config(OBSData ptz_data) override;
+	void update(OBSData config) override;
 	void save(OBSData config) const override;
-	void set_settings(OBSData setting) override;
 
 	void cmd_get_camera_info();
 

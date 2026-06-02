@@ -88,7 +88,7 @@ void PTZSettings::updateProperties(OBSData old_settings, OBSData new_settings)
 {
 	PTZDevice *ptz = ptzDeviceList.getDevice(ui->deviceList->currentIndex());
 	if (ptz)
-		ptz->set_settings(new_settings);
+		ptz->update(new_settings);
 	Q_UNUSED(old_settings);
 }
 
@@ -452,7 +452,7 @@ void PTZSettings::on_applyButton_clicked()
 {
 	PTZDevice *ptz = ptzDeviceList.getDevice(ui->deviceList->currentIndex());
 	if (ptz)
-		ptz->set_config(propertiesView->GetSettings());
+		ptz->update(propertiesView->GetSettings());
 }
 
 void PTZSettings::currentChanged(const QModelIndex &current, const QModelIndex &previous)

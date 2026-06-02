@@ -294,7 +294,7 @@ void PTZUSBCam::ptz_tick_callback(void *param, float seconds)
 PTZUSBCam::PTZUSBCam(OBSData config) : PTZDevice(config)
 {
 	getDefaults(config);
-	set_config(config);
+	update(config);
 	obs_add_tick_callback(ptz_tick_callback, this);
 }
 
@@ -308,9 +308,9 @@ QString PTZUSBCam::description()
 	return QString(obs_module_text("PTZ.UVC.Name"));
 }
 
-void PTZUSBCam::set_config(OBSData config)
+void PTZUSBCam::update(OBSData config)
 {
-	PTZDevice::set_config(config);
+	PTZDevice::update(config);
 	OBSDataArrayAutoRelease presetArray = obs_data_get_array(config, "presets_memory");
 	size_t count = obs_data_array_count(presetArray);
 	for (size_t i = 0; i < count; ++i) {

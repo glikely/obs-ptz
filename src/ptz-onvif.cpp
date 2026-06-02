@@ -747,7 +747,7 @@ PTZOnvif::PTZOnvif(OBSData config) : PTZDevice(config)
 	});
 	m_statusTimer.start();
 	getDefaults(config);
-	set_config(config);
+	update(config);
 }
 
 QString PTZOnvif::description()
@@ -822,9 +822,9 @@ void PTZOnvif::getDefaults(OBSData config) const
 	obs_data_set_default_double(config, "speed_boost", 1.0);
 }
 
-void PTZOnvif::set_config(OBSData config)
+void PTZOnvif::update(OBSData config)
 {
-	PTZDevice::set_config(config);
+	PTZDevice::update(config);
 	host = obs_data_get_string(config, "host");
 	port = (int)obs_data_get_int(config, "port");
 	username = obs_data_get_string(config, "username");

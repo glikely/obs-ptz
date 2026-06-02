@@ -59,7 +59,7 @@ public:
 	~PTZViscaOverIP();
 	QString description() override;
 
-	void set_config(OBSData ptz_data) override;
+	void update(OBSData ptz_data) override;
 	void save(OBSData ptz_data) const override;
 	obs_properties_t *get_obs_properties() override;
 };

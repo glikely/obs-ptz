@@ -90,7 +90,7 @@ ViscaUART *ViscaUART::get_interface(QString port_name)
 PTZViscaSerial::PTZViscaSerial(OBSData config) : PTZVisca(config), iface(NULL)
 {
 	getDefaults(config);
-	set_config(config);
+	update(config);
 }
 
 PTZViscaSerial::~PTZViscaSerial()
@@ -132,9 +132,9 @@ void PTZViscaSerial::getDefaults(OBSData config) const
 	obs_data_set_default_int(config, "address", 1);
 }
 
-void PTZViscaSerial::set_config(OBSData config)
+void PTZViscaSerial::update(OBSData config)
 {
-	PTZVisca::set_config(config);
+	PTZVisca::update(config);
 	const char *uart = obs_data_get_string(config, "port");
 	address = std::clamp((int)obs_data_get_int(config, "address"), 1, 7);
 	if (!uart)

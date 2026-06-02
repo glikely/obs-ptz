@@ -164,16 +164,15 @@ public:
 	bool zoomChanged() const { return zoom_changed; }
 	bool focusChanged() const { return focus_changed; }
 
-	/* `config` is the device configuration, saved to the config file
-	 * `settings` are the dynamic state of the device which includes the
-	 * config.  Most of the data in settings is not saved in the config
-	 * file. `set_config()` is used to change saved config values, and
-	 * `set_settings()` is used to send commands to the camera to change
-	 * the state */
+	/* Device configuration methods
+	 * These match the pattern used by sources in OBS studio with the following methods:
+	 * `getDefaults()`: loads OBSData with default values for the device
+	 * `update()`: which informs the device of changes to the configuration
+	 * `save()`: Make sure device configuration is written to an OBSData
+	 */
 	virtual void getDefaults(OBSData defaults) const;
-	virtual void set_config(OBSData ptz_config);
+	virtual void update(OBSData ptz_config);
 	virtual void save(OBSData ptz_config) const;
-	virtual void set_settings(OBSData setting);
 
 	/* Properties describe how to display the settings in a GUI dialog */
 	virtual obs_properties_t *get_obs_properties();
