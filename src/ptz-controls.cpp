@@ -875,7 +875,7 @@ void PTZControls::on_zoomButton_wide_released()
 void PTZControls::on_focusButton_auto_clicked(bool checked)
 {
 	setAutofocusEnabled(checked);
-	callCurrentDevice("ptz_set", "autofocus", checked);
+	callCurrentDevice("ptz_set", "focus_af_enabled", checked);
 }
 
 void PTZControls::on_focusButton_near_pressed()

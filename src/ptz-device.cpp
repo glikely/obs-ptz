@@ -205,7 +205,7 @@ void PTZDevice::move_rel(calldata_t *cd)
 void PTZDevice::set(calldata_t *cd)
 {
 	bool enable;
-	if (calldata_get_bool(cd, "autofocus", &enable))
+	if (calldata_get_bool(cd, "focus_af_enabled", &enable))
 		set_autofocus(enable);
 	bool trigger;
 	if (calldata_get_bool(cd, "focus_onetouch_trigger", &trigger) && trigger)
