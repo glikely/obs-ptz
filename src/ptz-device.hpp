@@ -60,7 +60,7 @@ protected:
 	proc_handler_t *handler = nullptr;
 
 signals:
-	void settingsChanged(OBSData settings);
+	void settingsChanged(PTZDevice *ptz, OBSData settings);
 	void connectionStatusChanged(bool connected);
 
 public:

@@ -754,7 +754,7 @@ void PTZVisca::receive(const QByteArray &msg)
 
 			/* Data has been updated */
 			obs_data_set_obj(rslt_props, "statistics", statistics);
-			emit settingsChanged(rslt_props);
+			emit settingsChanged(this, rslt_props);
 			obs_data_release(rslt_props);
 		}
 
