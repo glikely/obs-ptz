@@ -10,19 +10,16 @@
 #include <QSize>
 #include <QAbstractListModel>
 
+class PTZDevice;
+
 class PTZPresetListModel : public QAbstractListModel {
 	Q_OBJECT
 
 protected:
-	/* Collection of all presets, keyed by unique integer id.
-	 * On cameras that use preset numbers, the id is mapped 1:1 with the
-	 * preset number.  */
-	size_t m_maxPresets = 16;
-	QMap<size_t, QVariantMap> m_presets;
-	QList<size_t> m_displayOrder;
 	void sanitize(size_t id);
 
 public:
+	PTZDevice *ptz;
 	/* QAbstractListModel overrides */
 	bool insertRows(int row, int count, const QModelIndex &parent = QModelIndex()) override;
 	bool removeRows(int row, int count, const QModelIndex &parent = QModelIndex()) override;
@@ -35,8 +32,6 @@ public:
 
 	/* PTZ Preset API */
 	int getPresetId(const QModelIndex &index) const;
-	size_t maxPresets() const { return m_maxPresets; };
-	void setMaxPresets(size_t max) { m_maxPresets = max; };
 	int newPreset();
 	QVariant presetProperty(size_t id, QString key);
 	bool updatePreset(size_t id, const QVariantMap &map);

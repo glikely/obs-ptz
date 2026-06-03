@@ -7,6 +7,9 @@
 #pragma once
 
 #include <QObject>
+#include <QList>
+#include <QMap>
+#include <QVariantMap>
 #include <obs.hpp>
 #include <obs-frontend-api.h>
 #include <qt-wrappers.hpp>
@@ -47,7 +50,16 @@ protected:
 	bool focus_invert = false;
 	bool focus_changed = false;
 
+public:
+	/* Collection of all presets, keyed by unique integer id.
+	 * On cameras that use preset numbers, the id is mapped 1:1 with the
+	 * preset number.  */
+	size_t m_maxPresets = 16;
+	QMap<size_t, QVariantMap> m_presets;
+	QList<size_t> m_presetsDisplayOrder;
+protected:
 	PTZPresetListModel m_presetsModel;
+
 	void setConnected(bool connected);
 	obs_properties_t *props;
 	OBSData settings;
@@ -58,6 +70,7 @@ protected:
 	// Each PTZ device has a proc handler so methods can be called
 	// from other plugins
 	proc_handler_t *handler = nullptr;
+
 
 signals:
 	void settingsChanged(PTZDevice *ptz, OBSData settings);

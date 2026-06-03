@@ -44,6 +44,7 @@
 
 PTZDevice::PTZDevice(OBSData config) : QObject()
 {
+	m_presetsModel.ptz = this;
 	/* Create and populate the proc handler methods */
 	handler = proc_handler_create();
 	if (!handler) {
@@ -261,7 +262,7 @@ void PTZDevice::update(OBSData config)
 	getDefaults(config);
 
 	/* Update the list of preset names */
-	m_presetsModel.setMaxPresets((size_t)obs_data_get_int(config, "preset_max"));
+	m_maxPresets = (size_t)obs_data_get_int(config, "preset_max");
 	OBSDataArrayAutoRelease preset_array = obs_data_get_array(config, "presets");
 	m_presetsModel.loadPresets(preset_array.Get());
 
@@ -287,7 +288,7 @@ void PTZDevice::save(OBSData config) const
 	obs_data_set_bool(config, "tilt_invert", tilt_invert);
 	obs_data_set_bool(config, "zoom_invert", zoom_invert);
 	obs_data_set_bool(config, "focus_invert", focus_invert);
-	obs_data_set_int(config, "preset_max", m_presetsModel.maxPresets());
+	obs_data_set_int(config, "preset_max", m_maxPresets);
 
 	OBSDataArrayAutoRelease preset_array = m_presetsModel.savePresets();
 	obs_data_set_array(config, "presets", preset_array);
