@@ -214,13 +214,17 @@ void PTZListModel::add(PTZDevice *ptz)
 	devices.append(ptz);
 	devicesById[ptz->id] = ptz;
 	do_reset();
+
+	connect(ptz, &PTZDevice::settingsChanged, this, &PTZListModel::deviceSettingsChanged);
 }
 
 void PTZListModel::removeDevice(const QModelIndex &index)
 {
 	PTZDevice *ptz = getDevice(index);
-	if (ptz)
+	if (ptz) {
 		delete ptz;
+		disconnect(ptz, nullptr, this, nullptr);
+	}
 }
 
 void PTZListModel::remove(PTZDevice *ptz)
@@ -272,7 +276,16 @@ void PTZListModel::preset_recall(uint32_t device_id, int preset_id)
 
 void PTZListModel::preset_save(uint32_t device_id, int preset_id)
 {
-	PTZDevice *ptz = ptzDeviceList.getDevice(device_id);
+	PTZDevice *ptz = getDevice(device_id);
 	if (ptz)
 		ptz->memory_set(preset_id);
+}
+
+void PTZListModel::deviceSettingsChanged(PTZDevice *ptz, OBSData)
+{
+	int row = devices.indexOf(ptz);
+	if (row < 0)
+		return;
+	auto idx = index(row, 0);
+	emit dataChanged(idx, idx);
 }

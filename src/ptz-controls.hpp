@@ -123,7 +123,7 @@ private slots:
 	void on_focusButton_onetouch_clicked();
 
 	void currentChanged(QModelIndex current, QModelIndex previous);
-	void settingsChanged();
+	void settingsChanged(const QModelIndex &topleft, const QModelIndex &bottomRight);
 
 	void presetUpdateActions();
 	void on_presetListView_activated(QModelIndex index);

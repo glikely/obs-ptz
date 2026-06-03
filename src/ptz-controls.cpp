@@ -171,7 +171,7 @@ PTZControls::PTZControls(QWidget *parent) : QFrame(parent), ui(new Ui::PTZContro
 
 	ui->cameraList->setModel(&ptzDeviceList);
 	ui->cameraList->setItemDelegate(new PTZDeviceListDelegate(ui->cameraList));
-	connect(&ptzDeviceList, &PTZListModel::dataChanged, this, &PTZControls::updateMoveControls);
+	connect(&ptzDeviceList, &PTZListModel::dataChanged, this, &PTZControls::settingsChanged);
 
 	copyActionsDynamicProperties();
 
@@ -921,14 +921,17 @@ void PTZControls::updateMoveControls()
 	ui->presetListView->setEnabled(!is_locked);
 
 	RefreshToolBarStyling(ui->ptzToolbar);
+
+	calldata cd = {};
+	calldata_set_string(&cd, "property", "focus_af_enabled");
+	callCurrentDevice("ptz_get", &cd);
+	setAutofocusEnabled(calldata_bool(&cd, "focus_af_enabled"));
+	calldata_free(&cd);
 }
 
 void PTZControls::currentChanged(QModelIndex current, QModelIndex previous)
 {
-	PTZDevice *ptz = ptzDeviceList.getDevice(previous);
 	accel_timer.stop();
-	if (ptz)
-		disconnect(ptz, nullptr, this, nullptr);
 	if (pantiltingFlag || zoomingFlag || focusingFlag)
 		ptzDeviceList.callDevice(previous, "ptz_stop");
 	pantiltingFlag = false;
@@ -939,7 +942,7 @@ void PTZControls::currentChanged(QModelIndex current, QModelIndex previous)
 	zoom_speed = zoom_accel = 0.0;
 	focus_speed = focus_accel = 0.0;
 
-	ptz = ptzDeviceList.getDevice(current);
+	auto ptz = ptzDeviceList.getDevice(current);
 	if (ptz) {
 		ui->presetListView->setModel(ptz->presetModel());
 		presetUpdateActions();
@@ -947,21 +950,17 @@ void PTZControls::currentChanged(QModelIndex current, QModelIndex previous)
 		if (selectionModel)
 			connect(selectionModel, &QItemSelectionModel::currentChanged, this,
 				&PTZControls::presetUpdateActions);
-		connect(ptz, &PTZDevice::settingsChanged, this, &PTZControls::settingsChanged);
-		settingsChanged();
 	}
 
 	updateMoveControls();
 }
 
-void PTZControls::settingsChanged()
+void PTZControls::settingsChanged(const QModelIndex &topLeft, const QModelIndex &bottomRight)
 {
 	auto index = ui->cameraList->currentIndex();
-	calldata cd = {};
-	calldata_set_string(&cd, "property", "focus_af_enabled");
-	ptzDeviceList.callDevice(index, "ptz_get", &cd);
-	setAutofocusEnabled(calldata_bool(&cd, "focus_af_enabled"));
-	calldata_free(&cd);
+	QItemSelectionRange range(topLeft, bottomRight);
+	if (range.contains(index))
+		updateMoveControls();
 }
 
 void PTZControls::presetSet(long long preset_id)

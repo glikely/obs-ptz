@@ -77,7 +77,7 @@ public slots:
 	void on_applyButton_clicked();
 
 	void currentChanged(const QModelIndex &current, const QModelIndex &previous);
-	void settingsChanged(OBSData settings);
+	void settingsChanged(const QModelIndex &topLeft, const QModelIndex &bottomRight);
 	obs_properties_t *getProperties(void);
 	void updateProperties(OBSData old_settings, OBSData new_settings);
 	void showDevice(const QModelIndex &index);
