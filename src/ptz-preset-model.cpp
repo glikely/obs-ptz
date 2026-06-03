@@ -23,9 +23,9 @@ bool PTZPresetListModel::insertRows(int row, int count, const QModelIndex &paren
 	size_t curr_id = 0;
 	QList<size_t> ids;
 	for (int i = 0; i < count; i++) {
-		while (m_presets.contains(curr_id))
+		while (ptz->m_presets.contains(curr_id))
 			curr_id++;
-		if (curr_id >= m_maxPresets)
+		if (curr_id >= ptz->m_maxPresets)
 			return false;
 		ids.append(curr_id);
 	}
@@ -34,8 +34,8 @@ bool PTZPresetListModel::insertRows(int row, int count, const QModelIndex &paren
 	for (auto id : ids) {
 		QVariantMap map;
 		map["id"] = (uint)id;
-		m_presets[id] = map;
-		m_displayOrder.insert(row++, id);
+		ptz->m_presets[id] = map;
+		ptz->m_presetsDisplayOrder.insert(row++, id);
 	}
 	endInsertRows();
 	return true;
@@ -46,11 +46,11 @@ bool PTZPresetListModel::removeRows(int row, int count, const QModelIndex &paren
 	if (row < 0 || row >= rowCount())
 		return false;
 	beginRemoveRows(parent, row, count);
-	QList<size_t> ids = m_displayOrder.mid(row, count);
+	QList<size_t> ids = ptz->m_presetsDisplayOrder.mid(row, count);
 	;
 	for (auto id : ids) {
-		m_displayOrder.removeAt(row);
-		m_presets.remove(id);
+		ptz->m_presetsDisplayOrder.removeAt(row);
+		ptz->m_presets.remove(id);
 	}
 	endRemoveRows();
 	return true;
@@ -66,14 +66,14 @@ bool PTZPresetListModel::moveRows(const QModelIndex &srcParent, int srcRow, int 
 		return false;
 	if (srcRow < destChild)
 		destChild--;
-	m_displayOrder.move(srcRow, destChild);
+	ptz->m_presetsDisplayOrder.move(srcRow, destChild);
 	endMoveRows();
 	return true;
 }
 int PTZPresetListModel::rowCount(const QModelIndex &parent) const
 {
 	Q_UNUSED(parent);
-	return (int)m_displayOrder.size();
+	return (int)ptz->m_presetsDisplayOrder.size();
 }
 
 int PTZPresetListModel::getPresetId(const QModelIndex &index) const
@@ -81,11 +81,11 @@ int PTZPresetListModel::getPresetId(const QModelIndex &index) const
 	if (!index.isValid())
 		return -1;
 
-	if (index.row() >= m_displayOrder.size()) {
+	if (index.row() >= ptz->m_presetsDisplayOrder.size()) {
 		blog(LOG_ERROR, "ERROR: Preset Row %i is not valid", index.row());
 		return -1;
 	}
-	return (int)m_displayOrder[index.row()];
+	return (int)ptz->m_presetsDisplayOrder[index.row()];
 }
 
 QVariant PTZPresetListModel::data(const QModelIndex &index, int role) const
@@ -93,7 +93,7 @@ QVariant PTZPresetListModel::data(const QModelIndex &index, int role) const
 	auto id = getPresetId(index);
 	if (id < 0)
 		return QVariant();
-	auto preset = m_presets[id];
+	auto preset = ptz->m_presets[id];
 	if (role == Qt::DisplayRole) {
 		QString name = preset["name"].toString();
 		return (name != "") ? name : QString(obs_module_text("PTZ.PresetNum")).arg(id);
@@ -124,11 +124,11 @@ Qt::ItemFlags PTZPresetListModel::flags(const QModelIndex &index) const
 
 void PTZPresetListModel::sanitize(size_t id)
 {
-	if (!m_presets.contains(id))
+	if (!ptz->m_presets.contains(id))
 		return;
-	if (!m_displayOrder.contains(id))
-		m_displayOrder.append(id);
-	QVariantMap &preset = m_presets[id];
+	if (!ptz->m_presetsDisplayOrder.contains(id))
+		ptz->m_presetsDisplayOrder.append(id);
+	QVariantMap &preset = ptz->m_presets[id];
 	QString name = preset["name"].toString();
 	if (name == "" || name == QString(obs_module_text("PTZ.PresetNum")).arg(id))
 		preset.remove("name");
@@ -141,7 +141,7 @@ bool PTZPresetListModel::setData(const QModelIndex &index, const QVariant &value
 		return false;
 
 	if (role == Qt::EditRole) {
-		QVariantMap &preset = m_presets[id];
+		QVariantMap &preset = ptz->m_presets[id];
 		preset["name"] = value.toString();
 		sanitize(id);
 		emit dataChanged(index, index);
@@ -154,16 +154,16 @@ bool PTZPresetListModel::setData(const QModelIndex &index, const QVariant &value
 int PTZPresetListModel::newPreset()
 {
 	size_t id = 0;
-	while (m_presets.contains(id))
+	while (ptz->m_presets.contains(id))
 		id++;
-	if (id >= m_maxPresets)
+	if (id >= ptz->m_maxPresets)
 		return -1;
 
 	QVariantMap map;
 	map["id"] = (uint)id;
 	beginInsertRows(QModelIndex(), rowCount(), 1);
-	m_presets[id] = map;
-	m_displayOrder.append(id);
+	ptz->m_presets[id] = map;
+	ptz->m_presetsDisplayOrder.append(id);
 	endInsertRows();
 	return (int)id;
 }
@@ -172,14 +172,14 @@ QVariant PTZPresetListModel::presetProperty(size_t id, QString key)
 {
 	/* Safe to derefernce unconditionally here. Both levels will return
 	 * default empty values without segfaulting */
-	return m_presets[id][key];
+	return ptz->m_presets[id][key];
 }
 
 bool PTZPresetListModel::updatePreset(size_t id, const QVariantMap &map)
 {
-	if (!m_presets.contains(id))
+	if (!ptz->m_presets.contains(id))
 		return false;
-	m_presets[id].insert(map);
+	ptz->m_presets[id].insert(map);
 	return true;
 }
 
@@ -187,8 +187,8 @@ int PTZPresetListModel::find(QString key, QVariant value)
 {
 	/* Search for the matching key/value pair in all presets.
 	 * This is an O(N) operation */
-	auto end = m_presets.cend();
-	for (auto i = m_presets.cbegin(); i != end; i++) {
+	auto end = ptz->m_presets.cend();
+	for (auto i = ptz->m_presets.cbegin(); i != end; i++) {
 		if (i.value()[key] == value)
 			return (int)i.key();
 	}
@@ -200,15 +200,15 @@ void PTZPresetListModel::loadPresets(OBSDataArray preset_array)
 	if (!preset_array)
 		return;
 	beginResetModel();
-	m_presets.clear();
-	m_displayOrder.clear();
+	ptz->m_presets.clear();
+	ptz->m_presetsDisplayOrder.clear();
 	for (size_t i = 0; i < obs_data_array_count(preset_array); i++) {
 		OBSDataAutoRelease item = obs_data_array_item(preset_array, i);
 		auto id = obs_data_get_int(item, "id");
-		if (m_displayOrder.contains(id))
+		if (ptz->m_presetsDisplayOrder.contains(id))
 			continue;
 		QVariantMap preset = OBSDataToVariantMap(item.Get());
-		m_presets[id] = preset;
+		ptz->m_presets[id] = preset;
 		sanitize(id);
 	}
 	endResetModel();
@@ -217,8 +217,8 @@ void PTZPresetListModel::loadPresets(OBSDataArray preset_array)
 OBSDataArray PTZPresetListModel::savePresets() const
 {
 	OBSDataArrayAutoRelease preset_array = obs_data_array_create();
-	for (auto id : m_displayOrder) {
-		OBSDataAutoRelease data = variantMapToOBSData(m_presets[id]);
+	for (auto id : ptz->m_presetsDisplayOrder) {
+		OBSDataAutoRelease data = variantMapToOBSData(ptz->m_presets[id]);
 		obs_data_set_int(data, "id", id);
 		obs_data_array_push_back(preset_array, data);
 	}
