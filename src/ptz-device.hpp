@@ -15,7 +15,6 @@
 #include <qt-wrappers.hpp>
 #include <util/platform.h>
 #include "ptz.h"
-#include "ptz-preset-model.hpp"
 
 #define ptz_log(level, format, ...) \
 	blog(level, "[%s/%.12s] " format, this->type.c_str(), QT_TO_UTF8(this->objectName()), ##__VA_ARGS__)
@@ -57,7 +56,6 @@ protected:
 	size_t m_maxPresets = 16;
 	QMap<size_t, QVariantMap> m_presets;
 	QList<size_t> m_presetsDisplayOrder;
-	PTZPresetListModel m_presetsModel;
 	void sanitizePreset(size_t id);
 	void setConnected(bool connected);
 	obs_properties_t *props;
@@ -84,6 +82,7 @@ public:
 	bool isLive() const { return live; }
 	void onSceneChanged();
 
+	size_t maxPresets() const { return m_maxPresets; }
 	int presetCount() const { return m_presetsDisplayOrder.size(); }
 	int newPreset(int row = -1);
 	void removePresetAtDisplayRow(int row);
@@ -175,7 +174,6 @@ protected slots:
 	void preset_clear(calldata_t *cd);
 
 public:
-	virtual QAbstractListModel *presetModel() { return &m_presetsModel; }
 	bool isLocked() const { return locked; };
 	bool isConnected() const { return connected; }
 	void setLock(bool state) { locked = state; }
