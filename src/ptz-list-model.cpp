@@ -204,6 +204,26 @@ void PTZListModel::save(OBSDataArray configs) const
 	}
 }
 
+void PTZListModel::save(const QModelIndex &index, OBSData settings) const
+{
+	auto ptz = getDevice(index);
+	if (ptz)
+		ptz->save(settings);
+}
+
+void PTZListModel::update(const QModelIndex &index, OBSData settings)
+{
+	auto ptz = getDevice(index);
+	if (ptz)
+		ptz->update(settings);
+}
+
+obs_properties_t *PTZListModel::getProperties(const QModelIndex &index) const
+{
+	auto ptz = getDevice(index);
+	return ptz ? ptz->get_obs_properties() : obs_properties_create();
+}
+
 void PTZListModel::add(PTZDevice *ptz)
 {
 	/* Assign a unique ID */
