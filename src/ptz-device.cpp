@@ -8,7 +8,6 @@
 #include <obs.hpp>
 #include "ptz-device.hpp"
 #include "ptz-list-model.hpp"
-#include "ptz-preset-model.hpp"
 #include "ptz.h"
 #include "protocol-helpers.hpp"
 
@@ -37,7 +36,6 @@
 
 PTZDevice::PTZDevice(OBSData config) : QObject()
 {
-	m_presetsModel.ptz = this;
 	/* Create and populate the proc handler methods */
 	handler = proc_handler_create();
 	if (!handler) {
@@ -456,21 +454,19 @@ void PTZDevice::setPresetName(size_t id, QString name)
 /* Insert a new preset and return the ID */
 int PTZDevice::newPreset(int row)
 {
-	if ((row < 0) || (row > m_presets.size()))
-		row = m_presets.size();
-	size_t id = 0;
+	if ((row < 0) || (row > m_presetsDisplayOrder.size()))
+		row = m_presetsDisplayOrder.size();
+	int id = 0;
 	while (m_presets.contains(id))
 		id++;
-	if (id >= m_maxPresets)
+	if (id >= (int)m_maxPresets)
 		return -1;
 
 	QVariantMap map;
 	map["id"] = (uint)id;
-	//FIXME: m_presetsModel.beginInsertRows(QModelIndex(), rowCount(), 1);
 	m_presets[id] = map;
 	m_presetsDisplayOrder.insert(row, id);
-	//FIXME: m_presetsModel.endInsertRows();
-	return (int)id;
+	return id;
 }
 
 void PTZDevice::removePresetAtDisplayRow(int row)
@@ -495,7 +491,7 @@ int PTZDevice::presetAtDisplayRow(int row) const
 
 QVariant PTZDevice::presetProperty(size_t id, QString key) const
 {
-	/* Safe to derefernce unconditionally here. Both levels will return
+	/* Safe to dereference unconditionally here. Both levels will return
 	 * default empty values without segfaulting */
 	return m_presets[id][key];
 }

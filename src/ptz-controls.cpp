@@ -179,6 +179,11 @@ PTZControls::PTZControls(QWidget *parent) : QFrame(parent), ui(new Ui::PTZContro
 	connect(selectionModel, &QItemSelectionModel::currentChanged, this, &PTZControls::currentChanged);
 	connect(&accel_timer, &QTimer::timeout, this, &PTZControls::accelTimerHandler);
 
+	ui->presetListView->setModel(&ptzDeviceList);
+	ui->presetListView->setRootIndex(ptzDeviceList.index(0, 0));
+	selectionModel = ui->presetListView->selectionModel();
+	connect(selectionModel, &QItemSelectionModel::currentChanged, this, &PTZControls::presetUpdateActions);
+
 	connect(ui->panTiltTouch, &TouchControl::positionChanged, [this](double p, double t) { setPanTilt(p, t); });
 
 	/* Right-click on the dock's Home button → "Save current position as
@@ -942,16 +947,7 @@ void PTZControls::currentChanged(QModelIndex current, QModelIndex previous)
 	zoom_speed = zoom_accel = 0.0;
 	focus_speed = focus_accel = 0.0;
 
-	auto ptz = ptzDeviceList.getDevice(current);
-	if (ptz) {
-		ui->presetListView->setModel(ptz->presetModel());
-		presetUpdateActions();
-		auto *selectionModel = ui->presetListView->selectionModel();
-		if (selectionModel)
-			connect(selectionModel, &QItemSelectionModel::currentChanged, this,
-				&PTZControls::presetUpdateActions);
-	}
-
+	ui->presetListView->setRootIndex(current);
 	updateMoveControls();
 }
 
@@ -987,13 +983,14 @@ int PTZControls::presetIndexToId(QModelIndex index)
 
 void PTZControls::presetUpdateActions()
 {
-	auto index = ui->presetListView->currentIndex();
-	auto model = ui->presetListView->model();
-	int count = model ? model->rowCount() : 0;
-	ui->actionPresetAdd->setEnabled(model != nullptr);
-	ui->actionPresetRemove->setEnabled(index.isValid());
-	ui->actionPresetMoveUp->setEnabled(index.isValid() && count > 1 && index.row() > 0);
-	ui->actionPresetMoveDown->setEnabled(index.isValid() && count > 1 && index.row() < count - 1);
+	auto presetIndex = ui->presetListView->currentIndex();
+	auto deviceIndex = ui->cameraList->currentIndex();
+	int count = ptzDeviceList.rowCount(deviceIndex);
+	bool isValid = presetIndex.isValid() && deviceIndex.isValid();
+	ui->actionPresetAdd->setEnabled(deviceIndex.isValid());
+	ui->actionPresetRemove->setEnabled(isValid);
+	ui->actionPresetMoveUp->setEnabled(isValid && count > 1 && presetIndex.row() > 0);
+	ui->actionPresetMoveDown->setEnabled(isValid && count > 1 && presetIndex.row() < count - 1);
 	RefreshToolBarStyling(ui->ptzToolbar);
 }
 
@@ -1095,12 +1092,10 @@ void PTZControls::on_actionProperties_triggered()
 
 void PTZControls::on_actionPresetAdd_triggered()
 {
-	auto model = ui->presetListView->model();
-	if (!model)
-		return;
-	auto row = model->rowCount();
-	model->insertRows(row, 1);
-	QModelIndex index = model->index(row, 0);
+	auto parent = ui->cameraList->currentIndex();
+	auto row = ptzDeviceList.rowCount(parent);
+	ptzDeviceList.insertRows(row, 1, parent);
+	QModelIndex index = ptzDeviceList.index(row, 0, parent);
 	if (index.isValid()) {
 		ui->presetListView->setCurrentIndex(index);
 		ui->presetListView->edit(index);
@@ -1110,60 +1105,56 @@ void PTZControls::on_actionPresetAdd_triggered()
 
 void PTZControls::on_actionPresetRemove_triggered()
 {
-	auto model = ui->presetListView->model();
 	auto index = ui->presetListView->currentIndex();
-	if (!model || !index.isValid())
+	if (!index.isValid())
 		return;
-	model->removeRows(index.row(), 1);
+	ptzDeviceList.removeRows(index.row(), 1, ui->cameraList->currentIndex());
 	presetUpdateActions();
 }
 
 void PTZControls::on_actionPresetMoveUp_triggered()
 {
-	auto model = ui->presetListView->model();
 	auto index = ui->presetListView->currentIndex();
-	if (!model || !index.isValid())
+	auto parent = ui->cameraList->currentIndex();
+	if (!index.isValid())
 		return;
-	model->moveRow(QModelIndex(), index.row(), QModelIndex(), index.row() - 1);
+	ptzDeviceList.moveRow(parent, index.row(), parent, index.row() - 1);
 	presetUpdateActions();
 }
 
 void PTZControls::on_actionPresetMoveDown_triggered()
 {
-	auto model = ui->presetListView->model();
 	auto index = ui->presetListView->currentIndex();
-	if (!model || !index.isValid())
+	auto parent = ui->cameraList->currentIndex();
+	if (!index.isValid())
 		return;
-	model->moveRow(QModelIndex(), index.row(), QModelIndex(), index.row() + 2);
+	ptzDeviceList.moveRow(parent, index.row(), parent, index.row() + 2);
 	presetUpdateActions();
 }
 
 void PTZControls::on_actionPresetRename_triggered()
 {
-	auto model = ui->presetListView->model();
 	auto index = ui->presetListView->currentIndex();
-	if (!model || !index.isValid())
+	if (!index.isValid())
 		return;
 	ui->presetListView->edit(index);
 }
 
 void PTZControls::on_actionPresetSave_triggered()
 {
-	auto model = ui->presetListView->model();
 	auto index = ui->presetListView->currentIndex();
-	if (!model || !index.isValid())
+	if (!index.isValid())
 		return;
 	presetSet(presetIndexToId(index));
 }
 
 void PTZControls::on_actionPresetClear_triggered()
 {
-	auto model = ui->presetListView->model();
 	auto index = ui->presetListView->currentIndex();
-	if (!model || !index.isValid())
+	if (!index.isValid())
 		return;
 	presetReset(presetIndexToId(index));
-	ui->presetListView->model()->setData(index, "");
+	ptzDeviceList.setData(index, "");
 }
 
 PTZDeviceListDelegate::PTZDeviceListDelegate(QObject *parent) : QStyledItemDelegate(parent)
