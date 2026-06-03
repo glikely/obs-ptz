@@ -99,6 +99,8 @@ PTZSettings::PTZSettings() : QWidget(nullptr), ui(new Ui_PTZSettings)
 
 	ui->setupUi(this);
 
+	connect(&ptzDeviceList, &PTZListModel::dataChanged, this, &PTZSettings::settingsChanged);
+
 	ui->autoselectCheckBox->setChecked(PTZControls::getInstance()->autoselectEnabled());
 	connect(PTZControls::getInstance(), &PTZControls::autoselectEnabledChanged, ui->autoselectCheckBox,
 		&QCheckBox::setChecked);
@@ -457,15 +459,11 @@ void PTZSettings::on_applyButton_clicked()
 		ptz->update(propertiesView->GetSettings());
 }
 
-void PTZSettings::currentChanged(const QModelIndex &current, const QModelIndex &previous)
+void PTZSettings::currentChanged(const QModelIndex &current, const QModelIndex &)
 {
-	auto ptz = ptzDeviceList.getDevice(previous);
-	if (ptz)
-		ptz->disconnect(this);
-
 	obs_data_clear(settings);
 
-	ptz = ptzDeviceList.getDevice(current);
+	auto ptz = ptzDeviceList.getDevice(current);
 	if (ptz) {
 		ptz->save(settings);
 
@@ -473,19 +471,20 @@ void PTZSettings::currentChanged(const QModelIndex &current, const QModelIndex &
 		/* Use QJsonDocument for nice formatting */
 		auto json = QJsonDocument::fromJson(rawjson).toJson();
 		obs_data_set_string(settings, "debug_info", json.constData());
-
-		/* The settings dialog doesn't touch presets, so remove them */
-		obs_data_erase(settings, "presets");
-
-		ptz->connect(ptz, &PTZDevice::settingsChanged, this, &PTZSettings::settingsChanged);
 	}
 
 	propertiesView->ReloadProperties();
 }
 
-void PTZSettings::settingsChanged(OBSData changed)
+void PTZSettings::settingsChanged(const QModelIndex &topLeft, const QModelIndex &bottomRight)
 {
-	obs_data_apply(settings, changed);
+	auto idx = ui->deviceList->currentIndex();
+	QItemSelectionRange range(topLeft, bottomRight);
+	if (!range.contains(idx))
+		return;
+
+	PTZDevice *ptz = ptzDeviceList.getDevice(idx);
+	ptz->save(settings);
 	obs_data_erase(settings, "debug_info");
 	auto json = QJsonDocument::fromJson(obs_data_get_json(settings)).toJson();
 	obs_data_set_string(settings, "debug_info", json.constData());
