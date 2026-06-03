@@ -53,6 +53,9 @@ public:
 	QModelIndex indexFromName(const QString &name);
 	void renameDevice(QString new_name, QString prev_name);
 	void save(OBSDataArray configs) const;
+	void save(const QModelIndex &index, OBSData settings) const;
+	void update(const QModelIndex &index, OBSData settings);
+	obs_properties_t *getProperties(const QModelIndex &index) const;
 	void removeDevice(const QModelIndex &index);
 	void add(PTZDevice *ptz);
 	void remove(PTZDevice *ptz);
