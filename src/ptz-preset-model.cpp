@@ -70,10 +70,9 @@ bool PTZPresetListModel::moveRows(const QModelIndex &srcParent, int srcRow, int 
 	endMoveRows();
 	return true;
 }
-int PTZPresetListModel::rowCount(const QModelIndex &parent) const
+int PTZPresetListModel::rowCount(const QModelIndex &) const
 {
-	Q_UNUSED(parent);
-	return (int)ptz->m_presetsDisplayOrder.size();
+	return ptz->presetCount();
 }
 
 int PTZPresetListModel::getPresetId(const QModelIndex &index) const
@@ -81,7 +80,7 @@ int PTZPresetListModel::getPresetId(const QModelIndex &index) const
 	if (!index.isValid())
 		return -1;
 
-	if (index.row() >= ptz->m_presetsDisplayOrder.size()) {
+	if (index.row() >= ptz->presetCount()) {
 		blog(LOG_ERROR, "ERROR: Preset Row %i is not valid", index.row());
 		return -1;
 	}
