@@ -153,10 +153,3 @@ int PTZPresetListModel::newPreset()
 	endInsertRows();
 	return (int)id;
 }
-
-QVariant PTZPresetListModel::presetProperty(size_t id, QString key)
-{
-	/* Safe to derefernce unconditionally here. Both levels will return
-	 * default empty values without segfaulting */
-	return ptz->m_presets[id][key];
-}

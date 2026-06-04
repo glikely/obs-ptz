@@ -456,6 +456,13 @@ void PTZDevice::setPresetName(size_t id, QString name)
 	sanitizePreset(id);
 }
 
+QVariant PTZDevice::presetProperty(size_t id, QString key) const
+{
+	/* Safe to derefernce unconditionally here. Both levels will return
+	 * default empty values without segfaulting */
+	return m_presets[id][key];
+}
+
 bool PTZDevice::updatePreset(size_t id, const QVariantMap &map)
 {
 	if (!m_presets.contains(id))
