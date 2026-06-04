@@ -453,8 +453,10 @@ void PTZDevice::setPresetName(size_t id, QString name)
 }
 
 /* Insert a new preset and return the ID */
-int PTZDevice::newPreset()
+int PTZDevice::newPreset(int row)
 {
+	if ((row < 0) || (row > m_presets.size()))
+		row = m_presets.size();
 	size_t id = 0;
 	while (m_presets.contains(id))
 		id++;
@@ -465,7 +467,7 @@ int PTZDevice::newPreset()
 	map["id"] = (uint)id;
 	//FIXME: m_presetsModel.beginInsertRows(QModelIndex(), rowCount(), 1);
 	m_presets[id] = map;
-	m_presetsDisplayOrder.append(id);
+	m_presetsDisplayOrder.insert(row, id);
 	//FIXME: m_presetsModel.endInsertRows();
 	return (int)id;
 }

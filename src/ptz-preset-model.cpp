@@ -20,23 +20,10 @@ bool PTZPresetListModel::insertRows(int row, int count, const QModelIndex &paren
 {
 	if (row < 0 || row > rowCount())
 		return false;
-	size_t curr_id = 0;
-	QList<size_t> ids;
-	for (int i = 0; i < count; i++) {
-		while (ptz->m_presets.contains(curr_id))
-			curr_id++;
-		if (curr_id >= ptz->m_maxPresets)
-			return false;
-		ids.append(curr_id);
-	}
 
 	beginInsertRows(parent, row, count);
-	for (auto id : ids) {
-		QVariantMap map;
-		map["id"] = (uint)id;
-		ptz->m_presets[id] = map;
-		ptz->m_presetsDisplayOrder.insert(row++, id);
-	}
+	for (int i = 0; i < count; i++)
+		ptz->newPreset(row++);
 	endInsertRows();
 	return true;
 }
