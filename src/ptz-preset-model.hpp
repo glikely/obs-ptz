@@ -30,5 +30,4 @@ public:
 	/* PTZ Preset API */
 	int getPresetId(const QModelIndex &index) const;
 	int newPreset();
-	QVariant presetProperty(size_t id, QString key);
 };
