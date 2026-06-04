@@ -89,6 +89,7 @@ public:
 
 	QString presetName(size_t id);
 	void setPresetName(size_t id, QString name);
+	int findPreset(QString key, QVariant value) const;
 
 	/**
 	 * do_update() method is to be implemented by each driver as the way

@@ -456,6 +456,18 @@ void PTZDevice::setPresetName(size_t id, QString name)
 	sanitizePreset(id);
 }
 
+int PTZDevice::findPreset(QString key, QVariant value) const
+{
+	/* Search for the matching key/value pair in all presets.
+	 * This is an O(N) operation */
+	auto end = m_presets.cend();
+	for (auto i = m_presets.cbegin(); i != end; i++) {
+		if (i.value()[key] == value)
+			return (int)i.key();
+	}
+	return -1;
+}
+
 void PTZDevice::incrementStatistic(const char *name)
 {
 	obs_data_set_int(statistics, name, obs_data_get_int(statistics, name) + 1);
