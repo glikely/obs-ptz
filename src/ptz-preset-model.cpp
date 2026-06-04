@@ -160,11 +160,3 @@ QVariant PTZPresetListModel::presetProperty(size_t id, QString key)
 	 * default empty values without segfaulting */
 	return ptz->m_presets[id][key];
 }
-
-bool PTZPresetListModel::updatePreset(size_t id, const QVariantMap &map)
-{
-	if (!ptz->m_presets.contains(id))
-		return false;
-	ptz->m_presets[id].insert(map);
-	return true;
-}
