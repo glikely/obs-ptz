@@ -59,6 +59,7 @@ public:
 	QList<size_t> m_presetsDisplayOrder;
 protected:
 	PTZPresetListModel m_presetsModel;
+	void sanitizePreset(size_t id);
 
 	void setConnected(bool connected);
 	obs_properties_t *props;
