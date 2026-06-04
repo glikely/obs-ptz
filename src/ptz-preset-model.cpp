@@ -72,19 +72,18 @@ QVariant PTZPresetListModel::data(const QModelIndex &index, int role) const
 	auto id = getPresetId(index);
 	if (id < 0)
 		return QVariant();
-	auto preset = ptz->m_presets[id];
 	if (role == Qt::DisplayRole) {
-		QString name = preset["name"].toString();
+		auto name = ptz->presetName(id);
 		return (name != "") ? name : QString(obs_module_text("PTZ.PresetNum")).arg(id);
 	}
 	if (role == Qt::ToolTipRole) {
-		auto token = preset["token"].toString();
+		auto token = ptz->presetToken(id);
 		if (token != "")
 			return QString(obs_module_text("PTZ.Preset.Tooltip")).arg("'" + token + "'");
 		return QString(obs_module_text("PTZ.Preset.Tooltip")).arg(id);
 	}
 	if (role == Qt::EditRole)
-		return preset["name"].toString();
+		return ptz->presetName(id);
 	if (role == Qt::UserRole)
 		return id;
 	if (role == Qt::SizeHintRole)
