@@ -478,6 +478,13 @@ void PTZDevice::removePresetAtDisplayRow(int row)
 	m_presetsDisplayOrder.removeAt(row);
 }
 
+void PTZDevice::movePreset(int srcRow, int destRow)
+{
+	if (srcRow < destRow)
+		destRow--;
+	m_presetsDisplayOrder.move(srcRow, destRow);
+}
+
 int PTZDevice::presetAtDisplayRow(int row) const
 {
 	if (row < 0 || row >= presetCount())
