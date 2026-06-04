@@ -77,14 +77,7 @@ int PTZPresetListModel::rowCount(const QModelIndex &) const
 
 int PTZPresetListModel::getPresetId(const QModelIndex &index) const
 {
-	if (!index.isValid())
-		return -1;
-
-	if (index.row() >= ptz->presetCount()) {
-		blog(LOG_ERROR, "ERROR: Preset Row %i is not valid", index.row());
-		return -1;
-	}
-	return (int)ptz->m_presetsDisplayOrder[index.row()];
+	return checkIndex(index) ? ptz->presetAtDisplayRow(index.row()) : -1;
 }
 
 QVariant PTZPresetListModel::data(const QModelIndex &index, int role) const
