@@ -135,21 +135,3 @@ bool PTZPresetListModel::setData(const QModelIndex &index, const QVariant &value
 	}
 	return false;
 }
-
-/* Insert a new preset and return the ID */
-int PTZPresetListModel::newPreset()
-{
-	size_t id = 0;
-	while (ptz->m_presets.contains(id))
-		id++;
-	if (id >= ptz->m_maxPresets)
-		return -1;
-
-	QVariantMap map;
-	map["id"] = (uint)id;
-	beginInsertRows(QModelIndex(), rowCount(), 1);
-	ptz->m_presets[id] = map;
-	ptz->m_presetsDisplayOrder.append(id);
-	endInsertRows();
-	return (int)id;
-}

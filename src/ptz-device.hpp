@@ -87,6 +87,7 @@ public:
 	bool isLive() const { return live; }
 	void onSceneChanged();
 
+	int newPreset();
 	QString presetName(size_t id);
 	void setPresetName(size_t id, QString name);
 	QVariant presetProperty(size_t id, QString key) const;

@@ -29,5 +29,4 @@ public:
 
 	/* PTZ Preset API */
 	int getPresetId(const QModelIndex &index) const;
-	int newPreset();
 };

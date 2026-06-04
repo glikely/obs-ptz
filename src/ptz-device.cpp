@@ -456,6 +456,24 @@ void PTZDevice::setPresetName(size_t id, QString name)
 	sanitizePreset(id);
 }
 
+/* Insert a new preset and return the ID */
+int PTZDevice::newPreset()
+{
+	size_t id = 0;
+	while (m_presets.contains(id))
+		id++;
+	if (id >= m_maxPresets)
+		return -1;
+
+	QVariantMap map;
+	map["id"] = (uint)id;
+	//FIXME: m_presetsModel.beginInsertRows(QModelIndex(), rowCount(), 1);
+	m_presets[id] = map;
+	m_presetsDisplayOrder.append(id);
+	//FIXME: m_presetsModel.endInsertRows();
+	return (int)id;
+}
+
 QVariant PTZDevice::presetProperty(size_t id, QString key) const
 {
 	/* Safe to derefernce unconditionally here. Both levels will return
