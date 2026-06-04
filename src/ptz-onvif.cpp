@@ -267,7 +267,7 @@ void PTZOnvif::memory_reset(int i)
 	 * to update a token the camera doesn't know about. */
 	QVariantMap clear;
 	clear["token"] = QString();
-	m_presetsModel.updatePreset(i, clear);
+	updatePreset(i, clear);
 }
 
 void PTZOnvif::memory_recall(int i)
@@ -425,7 +425,7 @@ void PTZOnvif::handleSetPresetResponse(QDomDocument &doc)
 		return;
 	QVariantMap map;
 	map["token"] = newToken;
-	m_presetsModel.updatePreset(m_pendingSetPresetSlot, map);
+	updatePreset(m_pendingSetPresetSlot, map);
 	m_pendingSetPresetSlot = -1;
 }
 
@@ -531,7 +531,7 @@ void PTZOnvif::handleGetPresetsResponse(QDomDocument &doc)
 			continue;
 		if (name != "")
 			map["name"] = name;
-		m_presetsModel.updatePreset(psid, map);
+		updatePreset(psid, map);
 	}
 }
 
