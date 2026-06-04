@@ -453,6 +453,14 @@ void PTZDevice::setPresetName(size_t id, QString name)
 	sanitizePreset(id);
 }
 
+bool PTZDevice::updatePreset(size_t id, const QVariantMap &map)
+{
+	if (!m_presets.contains(id))
+		return false;
+	m_presets[id].insert(map);
+	return true;
+}
+
 int PTZDevice::findPreset(QString key, QVariant value) const
 {
 	/* Search for the matching key/value pair in all presets.
