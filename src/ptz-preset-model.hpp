@@ -15,9 +15,6 @@ class PTZDevice;
 class PTZPresetListModel : public QAbstractListModel {
 	Q_OBJECT
 
-protected:
-	void sanitize(size_t id);
-
 public:
 	PTZDevice *ptz;
 	/* QAbstractListModel overrides */
@@ -36,7 +33,4 @@ public:
 	QVariant presetProperty(size_t id, QString key);
 	bool updatePreset(size_t id, const QVariantMap &map);
 	int find(QString key, QVariant value);
-
-	void loadPresets(OBSDataArray preset_array);
-	OBSDataArray savePresets() const;
 };

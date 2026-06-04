@@ -122,18 +122,6 @@ Qt::ItemFlags PTZPresetListModel::flags(const QModelIndex &index) const
 	return f;
 }
 
-void PTZPresetListModel::sanitize(size_t id)
-{
-	if (!ptz->m_presets.contains(id))
-		return;
-	if (!ptz->m_presetsDisplayOrder.contains(id))
-		ptz->m_presetsDisplayOrder.append(id);
-	QVariantMap &preset = ptz->m_presets[id];
-	QString name = preset["name"].toString();
-	if (name == "" || name == QString(obs_module_text("PTZ.PresetNum")).arg(id))
-		preset.remove("name");
-}
-
 bool PTZPresetListModel::setData(const QModelIndex &index, const QVariant &value, int role)
 {
 	auto id = getPresetId(index);
@@ -141,9 +129,7 @@ bool PTZPresetListModel::setData(const QModelIndex &index, const QVariant &value
 		return false;
 
 	if (role == Qt::EditRole) {
-		QVariantMap &preset = ptz->m_presets[id];
-		preset["name"] = value.toString();
-		sanitize(id);
+		ptz->setPresetName(id, value.toString());
 		emit dataChanged(index, index);
 		return true;
 	}
@@ -193,34 +179,4 @@ int PTZPresetListModel::find(QString key, QVariant value)
 			return (int)i.key();
 	}
 	return -1;
-}
-
-void PTZPresetListModel::loadPresets(OBSDataArray preset_array)
-{
-	if (!preset_array)
-		return;
-	beginResetModel();
-	ptz->m_presets.clear();
-	ptz->m_presetsDisplayOrder.clear();
-	for (size_t i = 0; i < obs_data_array_count(preset_array); i++) {
-		OBSDataAutoRelease item = obs_data_array_item(preset_array, i);
-		auto id = obs_data_get_int(item, "id");
-		if (ptz->m_presetsDisplayOrder.contains(id))
-			continue;
-		QVariantMap preset = OBSDataToVariantMap(item.Get());
-		ptz->m_presets[id] = preset;
-		sanitize(id);
-	}
-	endResetModel();
-}
-
-OBSDataArray PTZPresetListModel::savePresets() const
-{
-	OBSDataArrayAutoRelease preset_array = obs_data_array_create();
-	for (auto id : ptz->m_presetsDisplayOrder) {
-		OBSDataAutoRelease data = variantMapToOBSData(ptz->m_presets[id]);
-		obs_data_set_int(data, "id", id);
-		obs_data_array_push_back(preset_array, data);
-	}
-	return preset_array.Get();
 }
