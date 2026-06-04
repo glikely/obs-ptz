@@ -42,14 +42,18 @@ bool PTZPresetListModel::removeRows(int row, int count, const QModelIndex &paren
 bool PTZPresetListModel::moveRows(const QModelIndex &srcParent, int srcRow, int count, const QModelIndex &destParent,
 				  int destChild)
 {
-	if (srcRow < 0 || srcRow >= rowCount() || destChild < 0 || destChild > rowCount() || count != 1)
+	if (!checkIndex(srcParent) || srcParent != destParent)
+		return false;
+	if (srcRow < 0 || srcRow >= rowCount())
+		return false;
+	if (destChild < 0 || destChild > rowCount())
+		return false;
+	if (count != 1)
 		return false;
 
 	if (!beginMoveRows(srcParent, srcRow, srcRow + count - 1, destParent, destChild))
 		return false;
-	if (srcRow < destChild)
-		destChild--;
-	ptz->m_presetsDisplayOrder.move(srcRow, destChild);
+	ptz->movePreset(srcRow, destChild);
 	endMoveRows();
 	return true;
 }
