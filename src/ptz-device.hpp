@@ -87,6 +87,7 @@ public:
 	bool isLive() const { return live; }
 	void onSceneChanged();
 
+	int presetCount() const { return m_presetsDisplayOrder.size(); }
 	int newPreset();
 	QString presetName(size_t id);
 	void setPresetName(size_t id, QString name);
