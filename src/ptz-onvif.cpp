@@ -219,8 +219,8 @@ void PTZOnvif::pantilt_set_home()
 
 void PTZOnvif::memory_set(int i)
 {
-	QString token = m_presetsModel.presetProperty(i, "token").toString();
-	QString name = m_presetsModel.presetProperty(i, "name").toString();
+	QString token = presetProperty(i, "token").toString();
+	QString name = presetProperty(i, "name").toString();
 	/* Remember which slot the response should be filed under, so we can
 	 * link the camera-assigned PresetToken back to the right local slot. */
 	m_pendingSetPresetSlot = i;
@@ -245,7 +245,7 @@ void PTZOnvif::memory_set(int i)
 
 void PTZOnvif::memory_reset(int i)
 {
-	QString token = m_presetsModel.presetProperty(i, "token").toString();
+	QString token = presetProperty(i, "token").toString();
 	if (token == "")
 		return;
 	QString msg;
@@ -272,7 +272,7 @@ void PTZOnvif::memory_reset(int i)
 
 void PTZOnvif::memory_recall(int i)
 {
-	QString token = m_presetsModel.presetProperty(i, "token").toString();
+	QString token = presetProperty(i, "token").toString();
 	if (token == "")
 		return;
 	QString msg;

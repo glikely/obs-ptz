@@ -88,6 +88,7 @@ public:
 
 	QString presetName(size_t id);
 	void setPresetName(size_t id, QString name);
+	QVariant presetProperty(size_t id, QString key) const;
 	bool updatePreset(size_t id, const QVariantMap &map);
 	int findPreset(QString key, QVariant value) const;
 
