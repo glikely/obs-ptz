@@ -33,12 +33,8 @@ bool PTZPresetListModel::removeRows(int row, int count, const QModelIndex &paren
 	if (row < 0 || row >= rowCount())
 		return false;
 	beginRemoveRows(parent, row, count);
-	QList<size_t> ids = ptz->m_presetsDisplayOrder.mid(row, count);
-	;
-	for (auto id : ids) {
-		ptz->m_presetsDisplayOrder.removeAt(row);
-		ptz->m_presets.remove(id);
-	}
+	for (int i = 0; i < count; i++)
+		ptz->removePresetAtDisplayRow(row);
 	endRemoveRows();
 	return true;
 }

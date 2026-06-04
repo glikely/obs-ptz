@@ -89,6 +89,7 @@ public:
 
 	int presetCount() const { return m_presetsDisplayOrder.size(); }
 	int newPreset(int row = -1);
+	void removePresetAtDisplayRow(int row);
 	int presetAtDisplayRow(int row) const;
 	QString presetName(size_t id);
 	void setPresetName(size_t id, QString name);
