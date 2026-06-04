@@ -91,7 +91,8 @@ public:
 	void removePresetAtDisplayRow(int row);
 	void movePreset(int srcRow, int destRow);
 	int presetAtDisplayRow(int row) const;
-	QString presetName(size_t id);
+	QString presetName(size_t id) const { return m_presets[id]["name"].toString(); }
+	QString presetToken(size_t id) const { return m_presets[id]["token"].toString(); }
 	void setPresetName(size_t id, QString name);
 	QVariant presetProperty(size_t id, QString key) const;
 	bool updatePreset(size_t id, const QVariantMap &map);
