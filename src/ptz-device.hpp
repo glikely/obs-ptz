@@ -50,14 +50,13 @@ protected:
 	bool focus_invert = false;
 	bool focus_changed = false;
 
-public:
+protected:
 	/* Collection of all presets, keyed by unique integer id.
 	 * On cameras that use preset numbers, the id is mapped 1:1 with the
 	 * preset number.  */
 	size_t m_maxPresets = 16;
 	QMap<size_t, QVariantMap> m_presets;
 	QList<size_t> m_presetsDisplayOrder;
-protected:
 	PTZPresetListModel m_presetsModel;
 	void sanitizePreset(size_t id);
 
