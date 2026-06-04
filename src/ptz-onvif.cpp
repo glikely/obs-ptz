@@ -524,7 +524,7 @@ void PTZOnvif::handleGetPresetsResponse(QDomDocument &doc)
 		QVariantMap map;
 		auto psid = findPreset("token", token);
 		if (psid < 0) {
-			psid = m_presetsModel.newPreset();
+			psid = newPreset();
 			map["token"] = token;
 		}
 		if (psid < 0)
