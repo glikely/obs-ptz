@@ -471,6 +471,13 @@ int PTZDevice::newPreset()
 	return (int)id;
 }
 
+int PTZDevice::presetAtDisplayRow(int row) const
+{
+	if (row < 0 || row >= presetCount())
+		return -1;
+	return (int)m_presetsDisplayOrder[row];
+}
+
 QVariant PTZDevice::presetProperty(size_t id, QString key) const
 {
 	/* Safe to derefernce unconditionally here. Both levels will return
