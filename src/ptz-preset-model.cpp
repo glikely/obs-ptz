@@ -168,15 +168,3 @@ bool PTZPresetListModel::updatePreset(size_t id, const QVariantMap &map)
 	ptz->m_presets[id].insert(map);
 	return true;
 }
-
-int PTZPresetListModel::find(QString key, QVariant value)
-{
-	/* Search for the matching key/value pair in all presets.
-	 * This is an O(N) operation */
-	auto end = ptz->m_presets.cend();
-	for (auto i = ptz->m_presets.cbegin(); i != end; i++) {
-		if (i.value()[key] == value)
-			return (int)i.key();
-	}
-	return -1;
-}
