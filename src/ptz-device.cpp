@@ -35,10 +35,6 @@
 			blog(LOG_ERROR, "PTZ proc_handler called without PTZDevice pointer"); \
 			return; \
 		} \
-		if (QThread::currentThread() != ptz->thread()) { \
-			blog(LOG_WARNING, "PTZDevice proc_handler '%s'->%s() call from non-GUI thread; ignored", QT_TO_UTF8(ptz->objectName()), #_method); \
-			return; \
-		} \
 		ptz->_method(cd); \
 	}
 
@@ -172,13 +168,13 @@ void PTZDevice::move(calldata_t *cd)
 	double p = 0, t = 0, z = 0, f = 0;
 
 	if (calldata_get_float(cd, "pan", &p) + calldata_get_float(cd, "tilt", &t))
-		pantilt(p, t);
+		QMetaObject::invokeMethod(this, "pantilt", Q_ARG(double, p), Q_ARG(double, t));
 
 	if (calldata_get_float(cd, "zoom", &z))
-		zoom(z);
+		QMetaObject::invokeMethod(this, "zoom", Q_ARG(double, z));
 
 	if (calldata_get_float(cd, "focus", &f))
-		focus(f);
+		QMetaObject::invokeMethod(this, "focus", Q_ARG(double, f));
 }
 
 void PTZDevice::move_abs(calldata_t *cd)
@@ -186,13 +182,13 @@ void PTZDevice::move_abs(calldata_t *cd)
 	double p = 0, t = 0, z = 0, f = 0;
 
 	if (calldata_get_float(cd, "pan", &p) + calldata_get_float(cd, "tilt", &t))
-		pantilt_abs(p, t);
+		QMetaObject::invokeMethod(this, "pantilt_abs", Q_ARG(double, p), Q_ARG(double, t));
 
 	if (calldata_get_float(cd, "zoom", &z))
-		zoom_abs(z);
+		QMetaObject::invokeMethod(this, "zoom_abs", Q_ARG(double, z));
 
 	if (calldata_get_float(cd, "focus", &f))
-		focus_abs(f);
+		QMetaObject::invokeMethod(this, "focus_abs", Q_ARG(double, f));
 }
 
 void PTZDevice::move_rel(calldata_t *cd)
@@ -200,11 +196,15 @@ void PTZDevice::move_rel(calldata_t *cd)
 	double p = 0, t = 0;
 
 	if (calldata_get_float(cd, "pan", &p) + calldata_get_float(cd, "tilt", &t))
-		pantilt_rel(p, t);
+		QMetaObject::invokeMethod(this, "pantilt_rel", Q_ARG(double, p), Q_ARG(double, t));
 }
 
 void PTZDevice::get(calldata_t *cd) const
 {
+	if (QThread::currentThread() != thread()) {
+		ptz_log(LOG_ERROR, "PTZDevice::get(calldata) called from non-GUI thread; ignored");
+		return;
+	}
 	QString arg = calldata_string(cd, "property");
 	if (arg == "power_on")
 		calldata_set_bool(cd, "power_on", obs_data_get_bool(settings, "power_on"));
@@ -217,31 +217,31 @@ void PTZDevice::set(calldata_t *cd)
 {
 	bool enable;
 	if (calldata_get_bool(cd, "focus_af_enabled", &enable))
-		set_autofocus(enable);
+		QMetaObject::invokeMethod(this, "set_autofocus", Q_ARG(bool, enable));
 	bool trigger;
 	if (calldata_get_bool(cd, "focus_onetouch_trigger", &trigger) && trigger)
-		focus_onetouch();
+		QMetaObject::invokeMethod(this, &PTZDevice::focus_onetouch);
 }
 
 void PTZDevice::preset_save(calldata_t *cd)
 {
 	long long id;
 	if (calldata_get_int(cd, "preset_id", &id))
-		memory_set(id);
+		QMetaObject::invokeMethod(this, "memory_set", Q_ARG(int, id));
 }
 
 void PTZDevice::preset_recall(calldata_t *cd)
 {
 	long long id;
 	if (calldata_get_int(cd, "preset_id", &id))
-		memory_recall(id);
+		QMetaObject::invokeMethod(this, "memory_recall", Q_ARG(int, id));
 }
 
 void PTZDevice::preset_clear(calldata_t *cd)
 {
 	long long id;
 	if (calldata_get_int(cd, "preset_id", &id))
-		memory_reset(id);
+		QMetaObject::invokeMethod(this, "memory_reset", Q_ARG(int, id));
 }
 
 void PTZDevice::getDefaults(OBSData config) const
