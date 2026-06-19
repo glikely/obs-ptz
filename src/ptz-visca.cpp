@@ -780,6 +780,10 @@ void PTZVisca::receive(const QByteArray &msg)
 
 void PTZVisca::get(calldata_t *cd) const
 {
+	if (QThread::currentThread() != thread()) {
+		ptz_log(LOG_ERROR, "PTZVisca::get(calldata) called from non-GUI thread; ignored");
+		return;
+	}
 	QString arg = calldata_string(cd, "property");
 	if (arg == "wb_mode")
 		calldata_set_int(cd, "wb_mode", obs_data_get_int(settings, "wb_mode"));
@@ -789,6 +793,10 @@ void PTZVisca::get(calldata_t *cd) const
 
 void PTZVisca::set(calldata_t *cd)
 {
+	if (QThread::currentThread() != thread()) {
+		ptz_log(LOG_ERROR, "PTZVisca::set(calldata) called from non-GUI thread; ignored");
+		return;
+	}
 	bool power_on;
 	if (calldata_get_bool(cd, "power_on", &power_on))
 		send(VISCA_CAM_Power, {power_on});

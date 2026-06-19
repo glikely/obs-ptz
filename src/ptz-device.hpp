@@ -109,7 +109,7 @@ public:
 	 * zoom: range[0.0, 1.0], 0.0 == wide angle, 1.0 == telephoto
 	 * focus: range[0.0, 1.0], 0.0 == far focus, 1.0 == near focus
 	 */
-protected:
+protected slots:
 	void stop();
 	void pantilt(double pan, double tilt);
 	virtual void pantilt_rel(double pan, double tilt)
@@ -142,10 +142,9 @@ protected:
 	virtual void memory_recall(int i) { Q_UNUSED(i); }
 	virtual void memory_reset(int i) { Q_UNUSED(i); }
 
-protected slots:
-	void stop(calldata_t *) { stop(); }
-	void pantilt_home(calldata_t *) { pantilt_home(); }
-	void pantilt_set_home(calldata_t *) { pantilt_set_home(); };
+	void stop(calldata_t *) { QMetaObject::invokeMethod(this, "stop"); }
+	void pantilt_home(calldata_t *) { QMetaObject::invokeMethod(this, "pantilt_home"); }
+	void pantilt_set_home(calldata_t *) { QMetaObject::invokeMethod(this, "pantilt_set_home"); }
 	void move(calldata_t *cd);
 	void move_abs(calldata_t *cd);
 	void move_rel(calldata_t *cd);
