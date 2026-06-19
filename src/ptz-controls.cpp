@@ -409,8 +409,8 @@ static obs_hotkey_id lookup_obs_hotkey_id(QString hotkey_name)
 	obs_enum_hotkeys(
 		[](void *data, obs_hotkey_id id, obs_hotkey_t *key) {
 			data_t &d = *static_cast<data_t *>(data);
-			if (get<0>(d) == obs_hotkey_get_name(key)) {
-				*get<1>(d) = id;
+			if (std::get<0>(d) == obs_hotkey_get_name(key)) {
+				*std::get<1>(d) = id;
 				return false;
 			}
 			return true;
