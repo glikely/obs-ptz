@@ -248,9 +248,9 @@ PTZJoyButtonMapper::PTZJoyButtonMapper(QWidget *parent, size_t _button) : QPushB
 			data_t &d = *static_cast<data_t *>(data);
 			if (obs_hotkey_get_registerer_type(key) != OBS_HOTKEY_REGISTERER_FRONTEND)
 				return true; /* todo: extra logic needed for other hotkey registerers */
-			auto a = get<0>(d)->addAction(obs_hotkey_get_description(key));
+			auto a = std::get<0>(d)->addAction(obs_hotkey_get_description(key));
 			a->setData(obs_hotkey_get_name(key));
-			connect(a, &QAction::triggered, get<1>(d), &PTZJoyButtonMapper::on_menuAction);
+			connect(a, &QAction::triggered, std::get<1>(d), &PTZJoyButtonMapper::on_menuAction);
 			return true;
 		},
 		&data);
@@ -282,8 +282,8 @@ void PTZJoyButtonMapper::on_hotkeyChanged(size_t _button, QString hotkey_name)
 	obs_enum_hotkeys(
 		[](void *data, obs_hotkey_id, obs_hotkey_t *key) {
 			data_t &d = *static_cast<data_t *>(data);
-			if (get<0>(d) == obs_hotkey_get_name(key)) {
-				get<1>(d)->setText(obs_hotkey_get_description(key));
+			if (std::get<0>(d) == obs_hotkey_get_name(key)) {
+				std::get<1>(d)->setText(obs_hotkey_get_description(key));
 				return false;
 			}
 			return true;
