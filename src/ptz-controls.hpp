@@ -58,6 +58,8 @@ private:
 	double focus_speed = 0.0;
 	double focus_accel = 0.0;
 	QTimer accel_timer;
+	QTimer autosave_timer;
+	bool config_dirty = false;
 
 	bool pantiltingFlag = false;
 	bool zoomingFlag = false;
@@ -66,6 +68,7 @@ private:
 	void copyActionsDynamicProperties();
 	void SaveConfig();
 	void LoadConfig();
+	void markConfigDirty();
 
 	void setZoom(double speed);
 	void setFocus(double speed);

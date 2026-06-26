@@ -193,6 +193,27 @@ PTZControls::PTZControls(QWidget *parent) : QFrame(parent), ui(new Ui::PTZContro
 
 	LoadConfig();
 
+	/* Periodically persist the configuration so that user changes are not
+	 * lost if OBS terminates abnormally. SaveConfig() is otherwise only
+	 * called on a clean OBS_FRONTEND_EVENT_EXIT. The timer only writes to
+	 * disk when something actually changed (config_dirty). */
+	config_dirty = false; /* loading must not count as a change */
+	autosave_timer.setInterval(30000);
+	connect(&autosave_timer, &QTimer::timeout, this, [this]() {
+		if (config_dirty) {
+			SaveConfig();
+			config_dirty = false;
+		}
+	});
+	autosave_timer.start();
+
+	/* Flag the configuration dirty from a single, central place by
+	 * reacting to the existing change signals, rather than sprinkling
+	 * markConfigDirty() calls throughout every setter. */
+	connect(this, &PTZControls::autoselectEnabledChanged, this, &PTZControls::markConfigDirty);
+	connect(this, &PTZControls::liveMoveLockEnabledChanged, this, &PTZControls::markConfigDirty);
+	connect(this, &PTZControls::speedRampEnabledChanged, this, &PTZControls::markConfigDirty);
+
 	/* Install an event filter to keep buttons square */
 	auto filter = new squareResizeFilter(this);
 	ui->movementControlsWidget->installEventFilter(filter);
@@ -499,6 +520,11 @@ void PTZControls::copyActionsDynamicProperties()
 /*
  * Save/Load configuration methods
  */
+void PTZControls::markConfigDirty()
+{
+	config_dirty = true;
+}
+
 void PTZControls::SaveConfig()
 {
 	char *file = obs_module_config_path("config.json");
@@ -948,6 +974,7 @@ void PTZControls::currentChanged(QModelIndex current, QModelIndex previous)
 			connect(selectionModel, &QItemSelectionModel::currentChanged, this,
 				&PTZControls::presetUpdateActions);
 		connect(ptz, &PTZDevice::settingsChanged, this, &PTZControls::settingsChanged);
+		connect(ptz, &PTZDevice::settingsChanged, this, &PTZControls::markConfigDirty);
 		settingsChanged();
 	}
 
