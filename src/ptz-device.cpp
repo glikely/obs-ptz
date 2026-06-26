@@ -79,8 +79,7 @@ PTZDevice::~PTZDevice()
 
 void PTZDevice::setObjectName(QString name)
 {
-	name = name.simplified();
-	if (name == "") {
+	if (name.simplified().isEmpty()) {
 		if (objectName().startsWith(obs_module_text("PTZ.Device.DefaultName")))
 			return;
 		name = obs_module_text("PTZ.Device.DefaultName");
