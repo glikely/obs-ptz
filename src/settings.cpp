@@ -240,7 +240,8 @@ PTZJoyButtonMapper::PTZJoyButtonMapper(QWidget *parent, size_t _button) : QPushB
 {
 	setCheckable(true);
 	auto m = new QMenu;
-	m->addAction(obs_module_text("None"));
+	auto none_action = m->addAction(obs_module_text("None"));
+	connect(none_action, &QAction::triggered, this, &PTZJoyButtonMapper::on_menuAction);
 	auto data = std::make_tuple(m, this);
 	using data_t = decltype(data);
 	obs_enum_hotkeys(
