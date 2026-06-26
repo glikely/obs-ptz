@@ -940,6 +940,9 @@ void PTZControls::currentChanged(QModelIndex current, QModelIndex previous)
 	focus_speed = focus_accel = 0.0;
 
 	ptz = ptzDeviceList.getDevice(current);
+	/* Show which camera is currently being controlled above the presets
+	 * (issue #123); particularly useful with auto-select. */
+	ui->cameraLabel->setText(ptz ? ptz->objectName() : QString());
 	if (ptz) {
 		ui->presetListView->setModel(ptz->presetModel());
 		presetUpdateActions();
