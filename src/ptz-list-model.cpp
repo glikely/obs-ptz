@@ -14,6 +14,9 @@
 #include "ptz-usb-cam.hpp"
 #include "ptz.h"
 #include "protocol-helpers.hpp"
+#include <QMimeData>
+#include <QDataStream>
+#include <QStringList>
 
 #if defined(ENABLE_SERIALPORT)
 #include "ptz-visca-uart.hpp"
@@ -56,8 +59,76 @@ int PTZListModel::rowCount(const QModelIndex &parent) const
 Qt::ItemFlags PTZListModel::flags(const QModelIndex &index) const
 {
 	if (!index.isValid())
-		return Qt::ItemIsEnabled;
-	return QAbstractListModel::flags(index) | Qt::ItemIsEditable;
+		return Qt::ItemIsEnabled | Qt::ItemIsDropEnabled;
+	return QAbstractListModel::flags(index) | Qt::ItemIsEditable | Qt::ItemIsDragEnabled | Qt::ItemIsDropEnabled;
+}
+
+Qt::DropActions PTZListModel::supportedDropActions() const
+{
+	return Qt::MoveAction;
+}
+
+QStringList PTZListModel::mimeTypes() const
+{
+	return {QStringLiteral("application/x-obs-ptz-device-row")};
+}
+
+QMimeData *PTZListModel::mimeData(const QModelIndexList &indexes) const
+{
+	if (indexes.isEmpty() || !indexes.first().isValid())
+		return nullptr;
+	auto *mime = new QMimeData;
+	QByteArray encoded;
+	QDataStream stream(&encoded, QIODevice::WriteOnly);
+	stream << indexes.first().row();
+	mime->setData(QStringLiteral("application/x-obs-ptz-device-row"), encoded);
+	return mime;
+}
+
+bool PTZListModel::canDropMimeData(const QMimeData *data, Qt::DropAction action, int, int, const QModelIndex &) const
+{
+	return action == Qt::MoveAction && data->hasFormat(QStringLiteral("application/x-obs-ptz-device-row"));
+}
+
+bool PTZListModel::dropMimeData(const QMimeData *data, Qt::DropAction action, int row, int, const QModelIndex &parent)
+{
+	if (action != Qt::MoveAction || !data->hasFormat(QStringLiteral("application/x-obs-ptz-device-row")))
+		return false;
+
+	QByteArray encoded = data->data(QStringLiteral("application/x-obs-ptz-device-row"));
+	QDataStream stream(&encoded, QIODevice::ReadOnly);
+	int srcRow = -1;
+	stream >> srcRow;
+
+	int destRow = row;
+	if (destRow < 0)
+		destRow = parent.isValid() ? parent.row() : (int)devices.size();
+
+	moveRows(QModelIndex(), srcRow, 1, QModelIndex(), destRow);
+
+	/* The reorder is carried out directly in moveRows(). Returning false
+	 * stops the view from also calling removeRows() on the source row,
+	 * which would corrupt the list and could delete a live device. */
+	return false;
+}
+
+bool PTZListModel::moveRows(const QModelIndex &srcParent, int srcRow, int count, const QModelIndex &destParent,
+			    int destChild)
+{
+	if (srcParent.isValid() || destParent.isValid() || count != 1)
+		return false;
+	if (srcRow < 0 || srcRow >= devices.size() || destChild < 0 || destChild > devices.size())
+		return false;
+	if (destChild == srcRow || destChild == srcRow + 1)
+		return false; /* no-op move */
+	if (!beginMoveRows(srcParent, srcRow, srcRow, destParent, destChild))
+		return false;
+	int dest = destChild;
+	if (srcRow < dest)
+		dest--;
+	devices.move(srcRow, dest);
+	endMoveRows();
+	return true;
 }
 
 QVariant PTZListModel::data(const QModelIndex &index, int role) const

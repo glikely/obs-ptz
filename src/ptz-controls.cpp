@@ -170,6 +170,11 @@ PTZControls::PTZControls(QWidget *parent) : QFrame(parent), ui(new Ui::PTZContro
 		this->setStyleSheet("margin-left: 0px; margin-right: 0px");
 
 	ui->cameraList->setModel(&ptzDeviceList);
+	/* Allow reordering the camera list by drag and drop (issue #55) */
+	ui->cameraList->setSelectionMode(QAbstractItemView::SingleSelection);
+	ui->cameraList->setDragDropMode(QAbstractItemView::InternalMove);
+	ui->cameraList->setDefaultDropAction(Qt::MoveAction);
+	ui->cameraList->setDragDropOverwriteMode(false);
 	ui->cameraList->setItemDelegate(new PTZDeviceListDelegate(ui->cameraList));
 	connect(&ptzDeviceList, &PTZListModel::dataChanged, this, &PTZControls::updateMoveControls);
 

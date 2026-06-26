@@ -10,9 +10,11 @@
 #include <QAbstractListModel>
 #include <QHash>
 #include <QList>
+#include <QStringList>
 #include "ptz.h"
 
 class PTZDevice;
+class QMimeData;
 
 class PTZListModel : public QAbstractListModel {
 	Q_OBJECT
@@ -39,6 +41,15 @@ public:
 	void do_reset();
 	void name_changed(PTZDevice *ptz);
 	Qt::ItemFlags flags(const QModelIndex &index) const override;
+	Qt::DropActions supportedDropActions() const override;
+	QStringList mimeTypes() const override;
+	QMimeData *mimeData(const QModelIndexList &indexes) const override;
+	bool canDropMimeData(const QMimeData *data, Qt::DropAction action, int row, int column,
+			     const QModelIndex &parent) const override;
+	bool dropMimeData(const QMimeData *data, Qt::DropAction action, int row, int column,
+			  const QModelIndex &parent) override;
+	bool moveRows(const QModelIndex &srcParent, int srcRow, int count, const QModelIndex &destParent,
+		      int destChild) override;
 	void onSceneChanged();
 
 	/* Data Model */
