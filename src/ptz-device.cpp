@@ -82,8 +82,15 @@ PTZDevice::~PTZDevice()
 
 void PTZDevice::setObjectName(QString name)
 {
-	name = name.simplified();
-	if (name == "") {
+	/* The device name must exactly match the associated OBS source name,
+	 * because the source is resolved via obs_get_source_by_name(). OBS
+	 * permits source names with leading, trailing or repeated whitespace,
+	 * so normalising the name here (previously QString::simplified())
+	 * silently broke that link and PTZ commands no longer reached the
+	 * camera. Keep the name verbatim and only use simplified() to detect an
+	 * effectively empty name.
+	 */
+	if (name.simplified().isEmpty()) {
 		if (objectName().startsWith(obs_module_text("PTZ.Device.DefaultName")))
 			return;
 		name = obs_module_text("PTZ.Device.DefaultName");
