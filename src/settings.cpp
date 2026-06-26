@@ -240,7 +240,13 @@ PTZJoyButtonMapper::PTZJoyButtonMapper(QWidget *parent, size_t _button) : QPushB
 {
 	setCheckable(true);
 	auto m = new QMenu;
-	m->addAction(obs_module_text("None"));
+	/* The "None" entry must be wired up like the hotkey entries below;
+	 * without a triggered connection clicking it did nothing, so a button
+	 * mapping could never be cleared (#269). The action carries no data, so
+	 * on_menuAction() passes an empty hotkey name, which
+	 * setJoystickButtonHotkey() interprets as "remove the mapping". */
+	auto none_action = m->addAction(obs_module_text("None"));
+	connect(none_action, &QAction::triggered, this, &PTZJoyButtonMapper::on_menuAction);
 	auto data = std::make_tuple(m, this);
 	using data_t = decltype(data);
 	obs_enum_hotkeys(
