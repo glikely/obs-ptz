@@ -6,6 +6,7 @@
  */
 
 #include <obs.hpp>
+#include <algorithm>
 #include "ptz-device.hpp"
 #include "ptz-list-model.hpp"
 #include "ptz-preset-model.hpp"
@@ -258,7 +259,10 @@ void PTZDevice::update(OBSData config)
 	getDefaults(config);
 
 	/* Update the list of preset names */
-	m_presetsModel.setMaxPresets((size_t)obs_data_get_int(config, "preset_max"));
+	/* Clamp to the same range enforced by the properties slider; a corrupt
+	 * or hand-edited config must not yield an absurd preset count. */
+	long long preset_max = std::clamp<long long>(obs_data_get_int(config, "preset_max"), 1, 128);
+	m_presetsModel.setMaxPresets((size_t)preset_max);
 	OBSDataArrayAutoRelease preset_array = obs_data_get_array(config, "presets");
 	m_presetsModel.loadPresets(preset_array.Get());
 
