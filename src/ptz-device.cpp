@@ -17,16 +17,13 @@
  * simplifies the registration of PTZDevice methods as targets for
  * proc_handler calls.
  *
- * In this current implementation, the proc_handler must be called from
- * the GUI thread. If called from another thread it will output a
- * warning and return without action. It is done this way because the
- * calldata_t* is transient and owned by the calling thread, but Qt
- * objects need to be called from their own thread, and calldata would
- * be stale if the call was queued with QMetaObject::invokeMethod()
- *
- * This isn't ideal, as there are places where other plugins may want to
- * make calls from their own threads. The rule can be relaxed on a call
- * by call basis if the method is made thread safe.
+ * In this current implementation, the proc_handler can be called from
+ * any thread, and the calldata method must decode the arguments and use
+ * invokeMethod to call the real target. invokeMethod will check if it
+ * was called from the object's thread. If it wasn't, and if the method
+ * doesn't return anything, then the call is queued on the correct
+ * thread. For methods that do return data, they aren't handled yet and
+ * will log an error when calling from a different thread.
  */
 #define ptz_ph_lambda(_method) [](void *p, calldata_t *cd) \
 	{ \
@@ -202,7 +199,7 @@ void PTZDevice::move_rel(calldata_t *cd)
 void PTZDevice::get(calldata_t *cd) const
 {
 	if (QThread::currentThread() != thread()) {
-		ptz_log(LOG_ERROR, "PTZDevice::get(calldata) called from non-GUI thread; ignored");
+		ptz_log(LOG_ERROR, "PTZDevice::get(calldata) called from wrong thread; ignored");
 		return;
 	}
 	QString arg = calldata_string(cd, "property");

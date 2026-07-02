@@ -794,7 +794,7 @@ void PTZVisca::get(calldata_t *cd) const
 void PTZVisca::set(calldata_t *cd)
 {
 	if (QThread::currentThread() != thread()) {
-		ptz_log(LOG_ERROR, "PTZVisca::set(calldata) called from non-GUI thread; ignored");
+		ptz_log(LOG_ERROR, "PTZVisca::set(calldata) called from wrong thread; ignored");
 		return;
 	}
 	bool power_on;
