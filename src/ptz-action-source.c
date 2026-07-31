@@ -226,7 +226,6 @@ static bool ptz_action_source_test_clicked_cb(obs_properties_t *props, obs_prope
 static obs_properties_t *ptz_action_source_get_properties(void *data)
 {
 	obs_properties_t *props = obs_properties_create();
-	UNUSED_PARAMETER(data);
 
 	/* List the possible trigger events */
 	obs_property_t *prop =
@@ -258,7 +257,7 @@ static obs_properties_t *ptz_action_source_get_properties(void *data)
 	obs_properties_add_list(props, "preset_id", "Preset", OBS_COMBO_TYPE_LIST, OBS_COMBO_FORMAT_INT);
 	obs_properties_add_float_slider(props, "pan_speed", "Pan Speed", -1.0, 1.0, 0.01);
 	obs_properties_add_float_slider(props, "tilt_speed", "Tilt Speed", -1.0, 1.0, 0.01);
-	obs_properties_add_button(props, "run_action", "Test Action", ptz_action_source_test_clicked_cb);
+	obs_properties_add_button2(props, "run_action", "Test Action", ptz_action_source_test_clicked_cb, data);
 
 	return props;
 }
