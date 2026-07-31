@@ -1,42 +1,42 @@
 {
     "dependencies": {
         "obs-studio": {
-            "version": "31.1.1",
+            "version": "32.2.1",
             "baseUrl": "https://github.com/obsproject/obs-studio/archive/refs/tags",
             "label": "OBS sources",
             "hashes": {
-                "macos": "39751f067bacc13d44b116c5138491b5f1391f91516d3d590d874edd21292291",
-                "windows-x64": "2c8427c10b55ac6d68008df2e9a3e82f4647aaad18f105e30d4713c2de678ccf"
+                "macos": "db034bc3d2c137ec7f1809cbef4fc90c8948652b90a860078410482457d8a574",
+                "windows-x64": "0cc1bd46a3d60c8f4317b38c27414fc0472e04609f4e67ad2142ed1598ef5462"
             }
         },
         "prebuilt": {
-            "version": "2025-07-11",
+            "version": "2026-07-15",
             "baseUrl": "https://github.com/obsproject/obs-deps/releases/download",
             "label": "Pre-Built obs-deps",
             "hashes": {
-                "macos": "495687e63383d1a287684b6e2e9bfe246bb8f156fe265926afb1a325af1edd2a",
-                "windows-x64": "c8c642c1070dc31ce9a0f1e4cef5bb992f4bff4882255788b5da12129e85caa7"
+                "macos": "4ecb4c598dfa853168df6c2a0c4e0ffec8495a81fbd1ba051ef88ecd5e0f7e53",
+                "windows-x64": "6f90e9598fa10cff5ad23cdcfae49b87868c07bf896b02cd464582b4ce2f2ba9"
             }
         },
         "qt6": {
-            "version": "2025-07-11",
+            "version": "2026-07-15",
             "baseUrl": "https://github.com/obsproject/obs-deps/releases/download",
             "label": "Pre-Built Qt6",
             "hashes": {
-                "macos": "d3f5f04b6ea486e032530bdf0187cbda9a54e0a49621a4c8ba984c5023998867",
-                "windows-x64": "0e76bf0555dd5382838850b748d3dcfab44a1e1058441309ab54e1a65b156d0a"
+                "macos": "d4b8058612a7067e44b2205fe7925ee24e9ec6b15ac8c29d3e6230c70030b102",
+                "windows-x64": "7c7f985711d80467bdc1795b6592275a27d5b0e5a2c7a61db1f2c1d08d6a5579"
             },
             "debugSymbols": {
-                "windows-x64": "11b7be92cf66a273299b8f3515c07a5cfb61614b59a4e67f7fc5ecba5e2bdf21"
+                "windows-x64": "471d0b2191c424a520a51d064f3741084f117e1ff6ee5af1d16aabcdbacc6659"
             }
         },
         "qtserialport": {
-            "version": "6.8.3",
-            "baseUrl": "https://download.qt.io/archive/qt/6.8/6.8.3/submodules",
+            "version": "6.11.1",
+            "baseUrl": "https://download.qt.io/archive/qt/6.11/6.11.1/submodules",
             "label": "Qt6SerialPort",
             "hashes": {
-                "macos": "c164a0392dc7cab3d072fa8fdcacc8fc4f3e685234b021b3128020719cdf5fa5",
-                "windows-x64": "d708acbf95cf7032e8c5549e680ee04b2a44f0510c1abf9405b6596b96230274"
+                "macos": "9af31a898ffd9a7e4faf6fed845d29e783c716885789055cbe319f3e072d3974",
+                "windows-x64": "c4eb4ff1e3ac1ca39630b4614028b225af1fc1cb9504389efdd3b0a7833a2c1f"
             }
         },
         "sdl": {
@@ -56,7 +56,7 @@
     },
     "name": "obs-ptz",
     "displayName": "PTZ Camera Control for OBS",
-    "version": "0.18.2",
+    "version": "0.18.3",
     "author": "Grant Likely",
     "website": "https://obsproject.com/forum/resources/ptz-controls.1284",
     "email": "grant.likely@secretlab.ca"
