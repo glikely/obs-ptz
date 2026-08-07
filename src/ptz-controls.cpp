@@ -317,6 +317,28 @@ PTZControls::PTZControls(QWidget *parent) : QFrame(parent), ui(new Ui::PTZContro
 		hotkey = registerHotkey(QT_TO_UTF8(name), QT_TO_UTF8(description), preset_set_cb, this);
 		preset_hotkey_map[hotkey] = i;
 	}
+
+	registerHotkey(
+		"PTZ.PresetPrev", obs_module_text("PTZ.Action.Preset.Prev"),
+		[](void *ptz_data, obs_hotkey_id, obs_hotkey_t *, bool pressed) {
+			if (pressed)
+				static_cast<PTZControls *>(ptz_data)->presetStep(-1);
+		},
+		this);
+	registerHotkey(
+		"PTZ.PresetNext", obs_module_text("PTZ.Action.Preset.Next"),
+		[](void *ptz_data, obs_hotkey_id, obs_hotkey_t *, bool pressed) {
+			if (pressed)
+				static_cast<PTZControls *>(ptz_data)->presetStep(1);
+		},
+		this);
+	registerHotkey(
+		"PTZ.PresetRecallSelected", obs_module_text("PTZ.Action.Preset.RecallSelected"),
+		[](void *ptz_data, obs_hotkey_id, obs_hotkey_t *, bool pressed) {
+			if (pressed)
+				static_cast<PTZControls *>(ptz_data)->presetRecallSelected();
+		},
+		this);
 }
 
 #if defined(ENABLE_JOYSTICK)
@@ -977,6 +999,38 @@ void PTZControls::presetRecall(long long preset_id)
 void PTZControls::presetReset(long long preset_id)
 {
 	callCurrentDevice("ptz_preset_clear", "preset_id", preset_id);
+}
+
+/* Move the preset selection without recalling anything, so that a controller
+ * can browse the preset list and then trigger it with a separate button. Wraps
+ * around at both ends; with nothing selected yet, step forwards from the top
+ * and backwards from the bottom. */
+void PTZControls::presetStep(int step)
+{
+	auto model = ui->presetListView->model();
+	if (!model)
+		return;
+	const int count = model->rowCount();
+	if (count < 1)
+		return;
+	const int current = ui->presetListView->currentIndex().row();
+	int next;
+	if (current < 0)
+		next = step > 0 ? 0 : count - 1;
+	else
+		next = ((current + step) % count + count) % count;
+	ui->presetListView->setCurrentIndex(model->index(next, 0));
+}
+
+/* Recall whatever preset is currently highlighted in the list. The numbered
+ * PTZ.Recall<n> hotkeys address a fixed preset; this one follows the
+ * selection, which is what makes browse-then-activate possible from a
+ * joystick or a keyboard. */
+void PTZControls::presetRecallSelected()
+{
+	auto id = presetIndexToId(ui->presetListView->currentIndex());
+	if (id >= 0)
+		presetRecall(id);
 }
 
 int PTZControls::presetIndexToId(QModelIndex index)

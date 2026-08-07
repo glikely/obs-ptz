@@ -75,6 +75,8 @@ private:
 	void presetSet(long long id);
 	void presetRecall(long long id);
 	void presetReset(long long id);
+	void presetStep(int step);
+	void presetRecallSelected();
 	void setAutofocusEnabled(bool autofocus_on);
 
 	bool callCurrentDevice(const char *method, calldata_t *cd = nullptr) const;
