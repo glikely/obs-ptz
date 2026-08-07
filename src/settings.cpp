@@ -196,7 +196,7 @@ void PTZSettings::joystickSetup()
 	ui->joystickNamesListView->setModel(&m_joystickNamesModel);
 	ui->joystickGroupBox->setChecked(controls->joystickEnabled());
 	ui->joystickSpeedSlider->setDoubleConstraints(0.25, 1.75, 0.05, controls->joystickSpeed());
-	ui->joystickDeadzoneSlider->setDoubleConstraints(0.01, 0.15, 0.01, controls->joystickDeadzone());
+	ui->joystickDeadzoneSlider->setDoubleConstraints(0.01, 0.5, 0.01, controls->joystickDeadzone());
 
 	connect(joysticks, &QJoysticks::countChanged, this, &PTZSettings::joystickUpdate);
 	connect(joysticks, &QJoysticks::axisEvent, this, &PTZSettings::joystickAxisEvent);
