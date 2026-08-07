@@ -317,6 +317,30 @@ PTZControls::PTZControls(QWidget *parent) : QFrame(parent), ui(new Ui::PTZContro
 		hotkey = registerHotkey(QT_TO_UTF8(name), QT_TO_UTF8(description), preset_set_cb, this);
 		preset_hotkey_map[hotkey] = i;
 	}
+
+	registerHotkey(
+		"PTZ.PresetPrev", obs_module_text("PTZ.Action.Preset.Prev"),
+		[](void *ptz_data, obs_hotkey_id, obs_hotkey_t *, bool pressed) {
+			if (pressed)
+				static_cast<PTZControls *>(ptz_data)->ui->presetListView->cursorUp();
+		},
+		this);
+	registerHotkey(
+		"PTZ.PresetNext", obs_module_text("PTZ.Action.Preset.Next"),
+		[](void *ptz_data, obs_hotkey_id, obs_hotkey_t *, bool pressed) {
+			if (pressed)
+				static_cast<PTZControls *>(ptz_data)->ui->presetListView->cursorDown();
+		},
+		this);
+	registerHotkey(
+		"PTZ.PresetRecallSelected", obs_module_text("PTZ.Action.Preset.RecallSelected"),
+		[](void *ptz_data, obs_hotkey_id, obs_hotkey_t *, bool pressed) {
+			if (ptz_data && pressed) {
+				auto ctrls = static_cast<PTZControls *>(ptz_data);
+				ctrls->on_presetListView_activated(ctrls->ui->presetListView->currentIndex());
+			}
+		},
+		this);
 }
 
 #if defined(ENABLE_JOYSTICK)
