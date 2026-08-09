@@ -154,6 +154,7 @@ PTZSettings::PTZSettings() : QWidget(nullptr), ui(new Ui_PTZSettings)
 					  "Trouffman",
 					  "Kaito Udagawa",
 					  "Jonatã Bolzan Loss",
+					  "Eddy Weiz",
 					  "Jim Hauxwell",
 					  "Jason Lanclos",
 					  "Eric Schmidt",
