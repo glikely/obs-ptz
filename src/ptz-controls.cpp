@@ -337,7 +337,9 @@ PTZControls::PTZControls(QWidget *parent) : QFrame(parent), ui(new Ui::PTZContro
 		[](void *ptz_data, obs_hotkey_id, obs_hotkey_t *, bool pressed) {
 			if (ptz_data && pressed) {
 				auto ctrls = static_cast<PTZControls *>(ptz_data);
-				ctrls->on_presetListView_activated(ctrls->ui->presetListView->currentIndex());
+				auto index = ctrls->ui->presetListView->currentIndex();
+				if (index.isValid())
+					ctrls->on_presetListView_activated(index);
 			}
 		},
 		this);
