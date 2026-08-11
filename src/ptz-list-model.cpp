@@ -109,10 +109,8 @@ bool PTZListModel::insertRows(int row, int count, const QModelIndex &parent)
 	if (row < 0 || count <= 0 || row > ptz->presetCount() || ptz->presetCount() + count > (int)ptz->maxPresets())
 		return false;
 
-	beginInsertRows(parent, row, row + count - 1);
 	for (int i = 0; i < count; i++)
 		ptz->newPreset(row++);
-	endInsertRows();
 	return true;
 }
 
@@ -123,10 +121,8 @@ bool PTZListModel::removeRows(int row, int count, const QModelIndex &parent)
 		return false;
 	if (row < 0 || count <= 0 || row + count - 1 >= ptz->presetCount())
 		return false;
-	beginRemoveRows(parent, row, row + count - 1);
 	for (int i = 0; i < count; i++)
 		ptz->removePresetAtDisplayRow(row);
-	endRemoveRows();
 	return true;
 }
 
@@ -145,10 +141,7 @@ bool PTZListModel::moveRows(const QModelIndex &srcParent, int srcRow, int count,
 	if (count != 1)
 		return false;
 
-	if (!beginMoveRows(srcParent, srcRow, srcRow + count - 1, destParent, destChild))
-		return false;
 	ptz->movePreset(srcRow, destChild);
-	endMoveRows();
 	return true;
 }
 
@@ -441,4 +434,35 @@ void PTZListModel::deviceSettingsChanged(OBSData)
 		return;
 	auto idx = index(row, 0);
 	emit dataChanged(idx, idx);
+}
+
+void PTZListModel::presetBeginInsert(PTZDevice *ptz, int row)
+{
+	beginInsertRows(indexFromDeviceId(ptz->getId()), row, row);
+}
+
+void PTZListModel::presetEndInsert(PTZDevice *)
+{
+	endInsertRows();
+}
+
+void PTZListModel::presetBeginRemove(PTZDevice *ptz, int row)
+{
+	beginRemoveRows(indexFromDeviceId(ptz->getId()), row, row);
+}
+
+void PTZListModel::presetEndRemove(PTZDevice *)
+{
+	endRemoveRows();
+}
+
+bool PTZListModel::presetBeginMove(PTZDevice *ptz, int srcRow, int destRow)
+{
+	auto parent = indexFromDeviceId(ptz->getId());
+	return beginMoveRows(parent, srcRow, srcRow, parent, destRow);
+}
+
+void PTZListModel::presetEndMove(PTZDevice *)
+{
+	endMoveRows();
 }

@@ -461,24 +461,32 @@ int PTZDevice::newPreset(int row)
 	if (id >= (int)m_maxPresets)
 		return -1;
 
+	ptzDeviceList.presetBeginInsert(this, row);
 	QVariantMap map;
 	map["id"] = (uint)id;
 	m_presets[id] = map;
 	m_presetsDisplayOrder.insert(row, id);
+	ptzDeviceList.presetEndInsert(this);
+
 	return id;
 }
 
 void PTZDevice::removePresetAtDisplayRow(int row)
 {
+	ptzDeviceList.presetBeginRemove(this, row);
 	m_presets.remove(m_presetsDisplayOrder[row]);
 	m_presetsDisplayOrder.removeAt(row);
+	ptzDeviceList.presetEndRemove(this);
 }
 
 void PTZDevice::movePreset(int srcRow, int destRow)
 {
+	if (!ptzDeviceList.presetBeginMove(this, srcRow, destRow))
+		return;
 	if (srcRow < destRow)
 		destRow--;
 	m_presetsDisplayOrder.move(srcRow, destRow);
+	ptzDeviceList.presetEndMove(this);
 }
 
 int PTZDevice::presetAtDisplayRow(int row) const

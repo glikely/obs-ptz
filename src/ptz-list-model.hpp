@@ -68,6 +68,15 @@ public:
 	void remove(PTZDevice *ptz);
 	void delete_all();
 
+	/* Called directly by PTZDevice preset mutators to bracket the change
+	 * with the appropriate QAbstractItemModel begin/end calls */
+	void presetBeginInsert(PTZDevice *ptz, int row);
+	void presetEndInsert(PTZDevice *ptz);
+	void presetBeginRemove(PTZDevice *ptz, int row);
+	void presetEndRemove(PTZDevice *ptz);
+	bool presetBeginMove(PTZDevice *ptz, int srcRow, int destRow);
+	void presetEndMove(PTZDevice *ptz);
+
 public slots:
 	void preset_recall(uint32_t device_id, int preset_id);
 	void preset_save(uint32_t device_id, int preset_id);
