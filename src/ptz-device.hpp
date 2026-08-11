@@ -34,6 +34,7 @@ protected:
 	bool connected = false;
 	bool locked = false;
 	bool live = false;
+	bool preview = false;
 	double pan_speed = 0;
 	double tilt_speed = 0;
 	double pantilt_speed_max = 1.0;
@@ -80,6 +81,7 @@ public:
 	void setObjectName(QString name);
 	virtual QString description();
 	bool isLive() const { return live; }
+	bool isPreview() const { return preview; }
 	void onSceneChanged();
 
 	size_t maxPresets() const { return m_maxPresets; }

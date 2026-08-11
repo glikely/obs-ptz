@@ -26,6 +26,7 @@ public:
 		DeviceIdRole = Qt::UserRole,
 		DescriptionRole,
 		IsLiveRole,
+		IsPreviewRole,
 		IsConnectedRole,
 		IsLockedRole,
 		SupportsSetHomeRole,

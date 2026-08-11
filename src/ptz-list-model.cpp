@@ -194,6 +194,9 @@ QVariant PTZListModel::data(const QModelIndex &index, int role) const
 	if (role == PTZListModel::IsLiveRole)
 		return ptz->isLive();
 
+	if (role == PTZListModel::IsPreviewRole)
+		return ptz->isPreview();
+
 	if (role == PTZListModel::IsConnectedRole)
 		return ptz->isConnected();
 

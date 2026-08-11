@@ -218,6 +218,7 @@ public:
 		QRect text;
 		QRect status;
 		QRect lock;
+		QRect tally;
 	};
 
 	PTZDeviceListDelegate(QObject *parent);

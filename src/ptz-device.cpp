@@ -108,6 +108,7 @@ void PTZDevice::onSceneChanged()
 {
 	locked = false;
 	live = false;
+	preview = false;
 	// Check if the device's source is in the active program scene
 	// If it is then disable the pan/tilt/zoom controls
 	auto source = obs_get_source_by_name(QT_TO_UTF8(objectName()));
@@ -115,6 +116,13 @@ void PTZDevice::onSceneChanged()
 		auto program = obs_frontend_get_current_scene();
 		locked = live = ptz_scene_is_source_active(program, source);
 		obs_source_release(program);
+
+		if (obs_frontend_preview_program_mode_active()) {
+			auto previewScene = obs_frontend_get_current_preview_scene();
+			preview = ptz_scene_is_source_active(previewScene, source);
+			obs_source_release(previewScene);
+		}
+
 		obs_source_release(source);
 	}
 }

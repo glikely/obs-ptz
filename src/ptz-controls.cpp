@@ -110,6 +110,7 @@ void PTZControls::handleFrontendEvent(enum obs_frontend_event event)
 			OBSSourceAutoRelease source = obs_frontend_get_current_scene();
 			autoselectDevice(source.Get());
 		}
+		ptzDeviceList.onSceneChanged();
 		updateMoveControls();
 		break;
 	case OBS_FRONTEND_EVENT_STUDIO_MODE_DISABLED:
@@ -118,6 +119,7 @@ void PTZControls::handleFrontendEvent(enum obs_frontend_event event)
 			OBSSourceAutoRelease source = obs_frontend_get_current_preview_scene();
 			autoselectDevice(source.Get());
 		}
+		ptzDeviceList.onSceneChanged();
 		updateMoveControls();
 		break;
 	case OBS_FRONTEND_EVENT_EXIT:
@@ -1207,11 +1209,19 @@ PTZDeviceListDelegate::CellLayout PTZDeviceListDelegate::layoutCell(const QModel
 	l.text = style->subElementRect(QStyle::SE_ItemViewItemText, &option, option.widget);
 	l.lock = QRect();
 	l.status = QRect();
+	l.tally = QRect();
 	const int iconMargin = 1;
 	const int textMargin = 2;
 	const int iconSize = l.text.height();
+	const int dotSize = qMax(6, iconSize / 2);
 	bool isLive = PTZControls::getInstance()->liveMoveLockActive() && index.data(PTZListModel::IsLiveRole).toBool();
 	bool isConnected = index.data(PTZListModel::IsConnectedRole).toBool();
+	bool isTallied = index.data(PTZListModel::IsLiveRole).toBool() ||
+			 index.data(PTZListModel::IsPreviewRole).toBool();
+
+	if (isTallied)
+		l.tally = QRect(l.text.left() + textMargin, l.text.top() + (l.text.height() - dotSize) / 2, dotSize,
+				dotSize);
 
 	if (isLive) {
 		l.lock = QRect(l.text.right() - iconSize + iconMargin, l.text.top() + iconMargin,
@@ -1224,7 +1234,7 @@ PTZDeviceListDelegate::CellLayout PTZDeviceListDelegate::layoutCell(const QModel
 		l.text = l.text.marginsRemoved(QMargins(0, 0, iconSize, 0));
 	}
 
-	l.text = l.text.marginsRemoved(QMargins(textMargin, 0, textMargin, 0));
+	l.text = l.text.marginsRemoved(QMargins(textMargin * 2 + dotSize, 0, textMargin, 0));
 	return l;
 }
 
@@ -1242,7 +1252,7 @@ void PTZDeviceListDelegate::paint(QPainter *painter, const QStyleOptionViewItem 
 	QStyle *style = opt.widget ? opt.widget->style() : QApplication::style();
 	style->drawPrimitive(QStyle::PE_PanelItemViewItem, &opt, painter, opt.widget);
 
-	/* Divide up the space into the label, status icon and lock icon */
+	/* Divide up the space into tally dot, the label, status icon and lock icon */
 	CellLayout l = layoutCell(index, opt);
 
 	auto icon = isLocked ? &lockedIcon : &unlockedIcon;
@@ -1250,6 +1260,18 @@ void PTZDeviceListDelegate::paint(QPainter *painter, const QStyleOptionViewItem 
 		icon->paint(painter, l.lock); /* Device is live, show the lock/unlock icon */
 	if (l.status.width())
 		disconnectedIcon.paint(painter, l.status); /* Device is disconnected, show '?' icon */
+
+	/* Tally: a colored visibility indictor - red for live, green for preview */
+	if (l.tally.width()) {
+		bool isProgramTally = index.data(PTZListModel::IsLiveRole).toBool();
+		QColor tallyColor = isProgramTally ? QColor(220, 50, 50) : QColor(60, 180, 60);
+		painter->save();
+		painter->setRenderHint(QPainter::Antialiasing);
+		painter->setPen(Qt::NoPen);
+		painter->setBrush(tallyColor);
+		painter->drawEllipse(l.tally);
+		painter->restore();
+	}
 
 	/* Finally, render the text in the space remaining */
 	style->drawItemText(painter, l.text, opt.displayAlignment, opt.palette, true, opt.text);
