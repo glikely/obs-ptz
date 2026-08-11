@@ -236,3 +236,26 @@ private:
 	QIcon unlockedIcon;
 	QIcon disconnectedIcon;
 };
+
+class PTZPresetListDelegate : public QStyledItemDelegate {
+	Q_OBJECT
+
+public:
+	struct CellLayout {
+		QRect text;
+		QRect recall;
+	};
+
+	PTZPresetListDelegate(QObject *parent);
+	virtual void paint(QPainter *painter, const QStyleOptionViewItem &option,
+			   const QModelIndex &index) const override;
+	virtual bool editorEvent(QEvent *event, QAbstractItemModel *model, const QStyleOptionViewItem &option,
+				 const QModelIndex &index) override;
+	virtual bool helpEvent(QHelpEvent *event, QAbstractItemView *view, const QStyleOptionViewItem &option,
+			       const QModelIndex &index) override;
+
+private:
+	CellLayout layoutCell(const QModelIndex &index, const QStyleOptionViewItem &option) const;
+
+	QIcon recallIcon;
+};

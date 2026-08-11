@@ -180,6 +180,7 @@ PTZControls::PTZControls(QWidget *parent) : QFrame(parent), ui(new Ui::PTZContro
 	connect(&accel_timer, &QTimer::timeout, this, &PTZControls::accelTimerHandler);
 
 	ui->presetListView->setModel(&ptzDeviceList);
+	ui->presetListView->setItemDelegate(new PTZPresetListDelegate(ui->presetListView));
 	ui->presetListView->setRootIndex(ptzDeviceList.index(0, 0));
 	selectionModel = ui->presetListView->selectionModel();
 	connect(selectionModel, &QItemSelectionModel::currentChanged, this, &PTZControls::presetUpdateActions);
@@ -1307,6 +1308,85 @@ bool PTZDeviceListDelegate::helpEvent(QHelpEvent *event, QAbstractItemView *view
 
 	if (l.status.contains(pos)) {
 		QToolTip::showText(event->globalPos(), obs_module_text("PTZ.Device.Status.Disconnected"), view);
+		return true;
+	}
+
+	return QStyledItemDelegate::helpEvent(event, view, option, index);
+}
+
+PTZPresetListDelegate::PTZPresetListDelegate(QObject *parent) : QStyledItemDelegate(parent)
+{
+	bool isDark = obs_frontend_is_theme_dark();
+	recallIcon = QIcon(isDark ? "theme:Dark/media/media_play.svg" : ":res/images/media/media_play.svg");
+}
+
+PTZPresetListDelegate::CellLayout PTZPresetListDelegate::layoutCell(const QModelIndex &,
+								    const QStyleOptionViewItem &option) const
+{
+	QStyle *style = option.widget ? option.widget->style() : QApplication::style();
+	CellLayout l;
+	l.text = style->subElementRect(QStyle::SE_ItemViewItemText, &option, option.widget);
+	const int iconMargin = 1;
+	const int textMargin = 2;
+	const int iconSize = l.text.height();
+
+	l.recall = QRect(l.text.right() - iconSize + iconMargin, l.text.top() + iconMargin, iconSize - 2 * iconMargin,
+			 iconSize - 2 * iconMargin);
+	l.text = l.text.marginsRemoved(QMargins(textMargin, 0, textMargin + iconSize, 0));
+	return l;
+}
+
+void PTZPresetListDelegate::paint(QPainter *painter, const QStyleOptionViewItem &option, const QModelIndex &index) const
+{
+	QStyleOptionViewItem opt(option);
+	initStyleOption(&opt, index);
+
+	/* Draw the background highlight */
+	QStyle *style = opt.widget ? opt.widget->style() : QApplication::style();
+	style->drawPrimitive(QStyle::PE_PanelItemViewItem, &opt, painter, opt.widget);
+
+	/* Divide up the space into the label and the recall button; the
+	 * button itself is only drawn while the row is hovered or selected
+	 * and the view is enabled (i.e. not locked), but the space is
+	 * always reserved so the text doesn't reflow */
+	CellLayout l = layoutCell(index, opt);
+	bool showRecall = (opt.state & QStyle::State_Enabled) &&
+			  (opt.state & (QStyle::State_MouseOver | QStyle::State_Selected));
+	if (showRecall)
+		recallIcon.paint(painter, l.recall);
+
+	/* Finally, render the text in the space remaining */
+	style->drawItemText(painter, l.text, opt.displayAlignment, opt.palette, true, opt.text);
+}
+
+bool PTZPresetListDelegate::editorEvent(QEvent *event, QAbstractItemModel *model, const QStyleOptionViewItem &option,
+					const QModelIndex &index)
+{
+	if (!event || !model || !index.isValid())
+		return false;
+
+	if (event->type() == QEvent::MouseButtonRelease) {
+		auto mouseEvent = static_cast<QMouseEvent *>(event);
+		const CellLayout l = layoutCell(index, option);
+		if (mouseEvent->button() == Qt::LeftButton && l.recall.contains(mouseEvent->pos())) {
+			uint32_t deviceId = index.parent().data(PTZListModel::DeviceIdRole).toUInt();
+			int presetId = index.data(Qt::UserRole).toInt();
+			ptzDeviceList.preset_recall(deviceId, presetId);
+			return true;
+		}
+	}
+	return QStyledItemDelegate::editorEvent(event, model, option, index);
+}
+
+bool PTZPresetListDelegate::helpEvent(QHelpEvent *event, QAbstractItemView *view, const QStyleOptionViewItem &option,
+				      const QModelIndex &index)
+{
+	if (!event || !view || !index.isValid())
+		return false;
+
+	const CellLayout l = layoutCell(index, option);
+	if (l.recall.contains(event->pos())) {
+		QToolTip::showText(event->globalPos(), obs_module_text("PTZ.Preset.Recall.Tooltip"), view);
 		return true;
 	}
 
