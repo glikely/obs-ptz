@@ -16,6 +16,28 @@ set(CPACK_PACKAGE_NAME "${CMAKE_PROJECT_NAME}")
 set(CPACK_PACKAGE_VERSION "${CMAKE_PROJECT_VERSION}")
 set(CPACK_PACKAGE_FILE_NAME "${CPACK_PACKAGE_NAME}-${CPACK_PACKAGE_VERSION}-${CMAKE_C_LIBRARY_ARCHITECTURE}")
 
+# Debian package dependencies (e.g. Qt6's "t64" library renaming) are tied to
+# the exact distro release they're built on, so tag the package file name
+# with the build machine's distro/version to avoid two incompatible builds
+# from colliding under the same file name.
+if(EXISTS "/etc/os-release")
+  file(STRINGS "/etc/os-release" _ptz_os_release_lines)
+  foreach(_ptz_os_release_line IN LISTS _ptz_os_release_lines)
+    if(_ptz_os_release_line MATCHES "^ID=\"?([^\"]*)\"?$")
+      set(_ptz_os_id "${CMAKE_MATCH_1}")
+    elseif(_ptz_os_release_line MATCHES "^VERSION_ID=\"?([^\"]*)\"?$")
+      set(_ptz_os_version_id "${CMAKE_MATCH_1}")
+    endif()
+  endforeach()
+  if(_ptz_os_id AND _ptz_os_version_id)
+    string(APPEND CPACK_PACKAGE_FILE_NAME "-${_ptz_os_id}${_ptz_os_version_id}")
+  endif()
+  unset(_ptz_os_release_lines)
+  unset(_ptz_os_release_line)
+  unset(_ptz_os_id)
+  unset(_ptz_os_version_id)
+endif()
+
 set(CPACK_GENERATOR "DEB")
 set(CPACK_DEBIAN_PACKAGE_SHLIBDEPS ON)
 set(CPACK_DEBIAN_PACKAGE_MAINTAINER "${PLUGIN_EMAIL}")
