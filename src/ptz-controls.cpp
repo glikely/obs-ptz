@@ -91,6 +91,16 @@ void PTZControls::onFrontendEvent(enum obs_frontend_event event, void *ptr)
 	controls->handleFrontendEvent(event);
 }
 
+void PTZControls::onFrontendSaveEvent(obs_data_t *save_data, bool saving, void *ptr)
+{
+	/* This plugin's configuration lives in its own file rather than the
+	 * scene collection's save_data, so only the "saving" direction is of
+	 * interest here; loading still happens once at startup in LoadConfig() */
+	Q_UNUSED(save_data);
+	if (saving)
+		reinterpret_cast<PTZControls *>(ptr)->SaveConfig();
+}
+
 void PTZControls::handleFrontendEvent(enum obs_frontend_event event)
 {
 	switch (event) {
@@ -121,11 +131,13 @@ void PTZControls::handleFrontendEvent(enum obs_frontend_event event)
 		updateMoveControls();
 		break;
 	case OBS_FRONTEND_EVENT_EXIT:
-		/* OBS is shutting down. Save the configuration and remove the PTZDevice instances */
-		SaveConfig();
+		/* OBS is shutting down. It has already run its own save pass (and
+		 * so has called onFrontendSaveEvent()) as part of its shutdown
+		 * sequence, so just remove the PTZDevice instances here */
 		while (!hotkeys.isEmpty())
 			obs_hotkey_unregister(hotkeys.takeFirst());
 		obs_frontend_remove_event_callback(onFrontendEvent, this);
+		obs_frontend_remove_save_callback(onFrontendSaveEvent, this);
 		ptzDeviceList.delete_all();
 		break;
 	default:
@@ -199,6 +211,7 @@ PTZControls::PTZControls(QWidget *parent) : QFrame(parent), ui(new Ui::PTZContro
 	ui->pantiltStack->installEventFilter(filter);
 
 	obs_frontend_add_event_callback(onFrontendEvent, this);
+	obs_frontend_add_save_callback(onFrontendSaveEvent, this);
 
 	hide();
 
