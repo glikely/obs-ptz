@@ -251,7 +251,14 @@ jobs:
 
   windows-build:
     name: Build for Windows 🪟
-    runs-on: windows-2022
+    strategy:
+      matrix:
+        include:
+          - target: x64
+            os: windows-2022
+          - target: arm64
+            os: windows-11-arm
+    runs-on: ${{ matrix.os }}
     needs: check-event
     defaults:
       run:
@@ -280,18 +287,18 @@ jobs:
       - name: Build Plugin 🧱
         uses: ./.github/actions/build-plugin
         with:
-          target: x64
+          target: ${{ matrix.target }}
           config: ${{ needs.check-event.outputs.config }}
 
       - name: Package Plugin 📀
         uses: ./.github/actions/package-plugin
         with:
-          target: x64
+          target: ${{ matrix.target }}
           config: ${{ needs.check-event.outputs.config }}
           package: ${{ fromJSON(needs.check-event.outputs.package) }}
 
       - name: Upload Artifacts 📡
         uses: actions/upload-artifact@v4
         with:
-          name: ${{ steps.setup.outputs.pluginName }}-${{ steps.setup.outputs.pluginVersion }}-windows-x64-${{ needs.check-event.outputs.commitHash }}
-          path: ${{ github.workspace }}/release/${{ steps.setup.outputs.pluginName }}-${{ steps.setup.outputs.pluginVersion }}-windows-x64*.*
+          name: ${{ steps.setup.outputs.pluginName }}-${{ steps.setup.outputs.pluginVersion }}-windows-${{ matrix.target }}-${{ needs.check-event.outputs.commitHash }}
+          path: ${{ github.workspace }}/release/${{ steps.setup.outputs.pluginName }}-${{ steps.setup.outputs.pluginVersion }}-windows-${{ matrix.target }}*.*

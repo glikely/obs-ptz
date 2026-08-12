@@ -6,7 +6,8 @@
             "label": "OBS sources",
             "hashes": {
                 "macos": "db034bc3d2c137ec7f1809cbef4fc90c8948652b90a860078410482457d8a574",
-                "windows-x64": "0cc1bd46a3d60c8f4317b38c27414fc0472e04609f4e67ad2142ed1598ef5462"
+                "windows-x64": "0cc1bd46a3d60c8f4317b38c27414fc0472e04609f4e67ad2142ed1598ef5462",
+                "windows-arm64": "0cc1bd46a3d60c8f4317b38c27414fc0472e04609f4e67ad2142ed1598ef5462"
             }
         },
         "prebuilt": {
@@ -15,7 +16,8 @@
             "label": "Pre-Built obs-deps",
             "hashes": {
                 "macos": "4ecb4c598dfa853168df6c2a0c4e0ffec8495a81fbd1ba051ef88ecd5e0f7e53",
-                "windows-x64": "6f90e9598fa10cff5ad23cdcfae49b87868c07bf896b02cd464582b4ce2f2ba9"
+                "windows-x64": "6f90e9598fa10cff5ad23cdcfae49b87868c07bf896b02cd464582b4ce2f2ba9",
+                "windows-arm64": "4e7d6835ae36dbc569bf6f88646cb6c4f1f0319b5c13d9d37ba3d19b25b1e240"
             }
         },
         "qt6": {
@@ -24,10 +26,12 @@
             "label": "Pre-Built Qt6",
             "hashes": {
                 "macos": "d4b8058612a7067e44b2205fe7925ee24e9ec6b15ac8c29d3e6230c70030b102",
-                "windows-x64": "7c7f985711d80467bdc1795b6592275a27d5b0e5a2c7a61db1f2c1d08d6a5579"
+                "windows-x64": "7c7f985711d80467bdc1795b6592275a27d5b0e5a2c7a61db1f2c1d08d6a5579",
+                "windows-arm64": "6d5047a04cad3ecc2615bf8b3df6eb22ec953a458b6cd89253bf131ee4981b90"
             },
             "debugSymbols": {
-                "windows-x64": "471d0b2191c424a520a51d064f3741084f117e1ff6ee5af1d16aabcdbacc6659"
+                "windows-x64": "471d0b2191c424a520a51d064f3741084f117e1ff6ee5af1d16aabcdbacc6659",
+                "windows-arm64": "ffe5b46f6abc81355a4161efdef6cbb2e8862eb053bd2211808c4d4833fcee78"
             }
         },
         "qtserialport": {
@@ -36,7 +40,8 @@
             "label": "Qt6SerialPort",
             "hashes": {
                 "macos": "9af31a898ffd9a7e4faf6fed845d29e783c716885789055cbe319f3e072d3974",
-                "windows-x64": "c4eb4ff1e3ac1ca39630b4614028b225af1fc1cb9504389efdd3b0a7833a2c1f"
+                "windows-x64": "c4eb4ff1e3ac1ca39630b4614028b225af1fc1cb9504389efdd3b0a7833a2c1f",
+                "windows-arm64": "c4eb4ff1e3ac1ca39630b4614028b225af1fc1cb9504389efdd3b0a7833a2c1f"
             }
         },
         "sdl": {
@@ -45,7 +50,8 @@
             "label": "sdl sources",
             "hashes": {
                 "macos": "8b8d4aef2038533da814965220f88f77d60dfa0f32685f80ead65e501337da7f",
-                "windows-x64": "a0b3e7ac5f708042683ff0f22e069bdf75563540c615f9854ecc9bc8913e2488"
+                "windows-x64": "a0b3e7ac5f708042683ff0f22e069bdf75563540c615f9854ecc9bc8913e2488",
+                "windows-arm64": "a0b3e7ac5f708042683ff0f22e069bdf75563540c615f9854ecc9bc8913e2488"
             }
         }
     },

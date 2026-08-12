@@ -145,7 +145,11 @@ function(_setup_obs_studio)
 
   if(OS_WINDOWS)
     set(_cmake_generator "${CMAKE_GENERATOR}")
-    set(_cmake_arch "-A ${arch},version=${CMAKE_VS_WINDOWS_TARGET_PLATFORM_VERSION}")
+    # obs-studio's own cmake/windows/architecture.cmake matches
+    # CMAKE_VS_PLATFORM_NAME against the case-sensitive pattern
+    # "(Win32|x64|ARM64)", so pass through the original-case platform name
+    # here rather than the lowercased `arch` used for dependency lookups.
+    set(_cmake_arch "-A ${CMAKE_VS_PLATFORM_NAME},version=${CMAKE_VS_WINDOWS_TARGET_PLATFORM_VERSION}")
     set(_cmake_extra "-DCMAKE_SYSTEM_VERSION=${CMAKE_SYSTEM_VERSION} -DCMAKE_ENABLE_SCRIPTING=OFF")
   elseif(OS_MACOS)
     set(_cmake_generator "Xcode")
