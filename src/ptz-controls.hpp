@@ -40,6 +40,7 @@ private:
 	static PTZControls *instance;
 	static void onFrontendEvent(enum obs_frontend_event event, void *ptr);
 	void handleFrontendEvent(enum obs_frontend_event event);
+	static void onFrontendSaveEvent(obs_data_t *save_data, bool saving, void *ptr);
 
 	std::unique_ptr<Ui::PTZControls> ui;
 	TouchControl *pantilt_widget;
