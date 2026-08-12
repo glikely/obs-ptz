@@ -37,13 +37,31 @@
      <property name="childrenCollapsible">
       <bool>true</bool>
      </property>
-     <widget class="QSplitter" name="vertsplitter">
-      <property name="orientation">
-       <enum>Qt::Orientation::Vertical</enum>
-      </property>
-      <property name="childrenCollapsible">
-       <bool>true</bool>
-      </property>
+     <widget class="QWidget" name="cameraColumn" native="true">
+      <layout class="QVBoxLayout" name="cameraColumnVerticalLayout">
+       <property name="spacing">
+        <number>0</number>
+       </property>
+       <property name="leftMargin">
+        <number>0</number>
+       </property>
+       <property name="topMargin">
+        <number>0</number>
+       </property>
+       <property name="rightMargin">
+        <number>0</number>
+       </property>
+       <property name="bottomMargin">
+        <number>0</number>
+       </property>
+       <item>
+        <widget class="QSplitter" name="vertsplitter">
+         <property name="orientation">
+          <enum>Qt::Orientation::Vertical</enum>
+         </property>
+         <property name="childrenCollapsible">
+          <bool>true</bool>
+         </property>
       <widget class="QWidget" name="movementControlsWidget" native="true">
        <property name="sizePolicy">
         <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
@@ -432,28 +450,62 @@
        </property>
       </widget>
      </widget>
-     <widget class="CircularListView" name="presetListView">
-      <property name="contextMenuPolicy">
-       <enum>Qt::ContextMenuPolicy::CustomContextMenu</enum>
-      </property>
-      <property name="editTriggers">
-       <set>QAbstractItemView::EditTrigger::EditKeyPressed</set>
-      </property>
+       </item>
+       <item>
+        <widget class="QToolBar" name="ptzToolbar">
+         <property name="iconSize">
+          <size>
+           <width>16</width>
+           <height>16</height>
+          </size>
+         </property>
+         <addaction name="actionProperties"/>
+        </widget>
+       </item>
+      </layout>
      </widget>
-    </widget>
-   </item>
-   <item>
-    <widget class="QToolBar" name="ptzToolbar">
-     <property name="iconSize">
-      <size>
-       <width>16</width>
-       <height>16</height>
-      </size>
-     </property>
-     <addaction name="actionProperties"/>
-     <addaction name="actionPresetAdd"/>
-     <addaction name="actionPresetMoveUp"/>
-     <addaction name="actionPresetMoveDown"/>
+     <widget class="QWidget" name="presetColumn" native="true">
+      <layout class="QVBoxLayout" name="presetColumnVerticalLayout">
+       <property name="spacing">
+        <number>0</number>
+       </property>
+       <property name="leftMargin">
+        <number>0</number>
+       </property>
+       <property name="topMargin">
+        <number>0</number>
+       </property>
+       <property name="rightMargin">
+        <number>0</number>
+       </property>
+       <property name="bottomMargin">
+        <number>0</number>
+       </property>
+       <item>
+        <widget class="CircularListView" name="presetListView">
+         <property name="contextMenuPolicy">
+          <enum>Qt::ContextMenuPolicy::CustomContextMenu</enum>
+         </property>
+         <property name="editTriggers">
+          <set>QAbstractItemView::EditTrigger::EditKeyPressed</set>
+         </property>
+        </widget>
+       </item>
+       <item>
+        <widget class="QToolBar" name="presetToolbar">
+         <property name="iconSize">
+          <size>
+           <width>16</width>
+           <height>16</height>
+          </size>
+         </property>
+         <addaction name="actionPresetAdd"/>
+         <addaction name="actionPresetMoveUp"/>
+         <addaction name="actionPresetMoveDown"/>
+        </widget>
+       </item>
+      </layout>
+     </widget>
     </widget>
    </item>
   </layout>

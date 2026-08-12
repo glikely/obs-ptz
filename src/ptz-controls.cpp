@@ -521,11 +521,13 @@ void PTZControls::setJoystickButtonHotkey(size_t button, QString hotkey_name)
 void PTZControls::copyActionsDynamicProperties()
 {
 	// Themes need the QAction dynamic properties
-	for (QAction *x : ui->ptzToolbar->actions()) {
-		QWidget *temp = ui->ptzToolbar->widgetForAction(x);
+	for (QToolBar *toolbar : {ui->ptzToolbar, ui->presetToolbar}) {
+		for (QAction *x : toolbar->actions()) {
+			QWidget *temp = toolbar->widgetForAction(x);
 
-		for (QByteArray &y : x->dynamicPropertyNames()) {
-			temp->setProperty(y, x->property(y));
+			for (QByteArray &y : x->dynamicPropertyNames()) {
+				temp->setProperty(y, x->property(y));
+			}
 		}
 	}
 }
@@ -1020,7 +1022,7 @@ void PTZControls::presetUpdateActions()
 	ui->actionPresetRemove->setEnabled(isValid);
 	ui->actionPresetMoveUp->setEnabled(isValid && count > 1 && presetIndex.row() > 0);
 	ui->actionPresetMoveDown->setEnabled(isValid && count > 1 && presetIndex.row() < count - 1);
-	RefreshToolBarStyling(ui->ptzToolbar);
+	RefreshToolBarStyling(ui->presetToolbar);
 }
 
 void PTZControls::on_presetListView_activated(QModelIndex index)
