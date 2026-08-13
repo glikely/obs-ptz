@@ -329,7 +329,8 @@ class ViscaDevice(asyncio.Protocol):
         for dg in datagrams:
             self.receive_datagram(dg)
 
-loop = asyncio.get_event_loop()
+loop = asyncio.new_event_loop()
+asyncio.set_event_loop(loop)
 coro = loop.create_server(ViscaDevice, '', 5678)
 server = loop.run_until_complete(coro)
 print('serving on', server.sockets[0].getsockname())
