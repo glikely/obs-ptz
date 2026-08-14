@@ -40,8 +40,8 @@ void ViscaUART::receive_datagram(const QByteArray &packet)
 		switch (packet[1] & 0x0f) { /* Decode Packet Socket Field */
 		case 0:
 			camera_count = (packet[2] & 0x7) - 1;
-			blog(LOG_INFO, "VISCA Interface %s: %i camera%s found", qPrintable(uart.portName()),
-			     camera_count, camera_count == 1 ? "" : "s");
+			blog(LOG_INFO, "VISCA Interface %s: %i camera%s found", qPrintable(portName()), camera_count,
+			     camera_count == 1 ? "" : "s");
 			send(VISCA_IF_CLEAR.cmd);
 			emit reset();
 			break;
