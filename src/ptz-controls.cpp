@@ -186,6 +186,7 @@ PTZControls::PTZControls(QWidget *parent) : QFrame(parent), ui(new Ui::PTZContro
 	ui->cameraList->setModel(&ptzDeviceList);
 	ui->cameraList->setItemDelegate(new PTZDeviceListDelegate(ui->cameraList));
 	connect(&ptzDeviceList, &PTZListModel::dataChanged, this, &PTZControls::settingsChanged);
+	connect(&ptzDeviceList, &PTZListModel::dataChanged, this, &PTZControls::updateCameraLabel);
 
 	copyActionsDynamicProperties();
 
@@ -978,6 +979,23 @@ void PTZControls::updateMoveControls()
 	calldata_free(&cd);
 }
 
+/* Show which camera is currently being controlled above the presets. With
+ * auto-select enabled the selection can change without the user touching
+ * anything, and the preset list on its own gives no clue which camera it
+ * belongs to. Driven by the selection and by PTZListModel::dataChanged, so
+ * that renaming the selected camera updates the label rather than leaving
+ * the old name on screen. */
+void PTZControls::updateCameraLabel()
+{
+	auto ptz = ptzDeviceList.getDevice(ui->cameraList->currentIndex());
+	const QString name = ptz ? ptz->objectName() : QString();
+
+	ui->cameraLabel->setText(name);
+	/* Hide the header while nothing is selected; an empty label would
+	 * otherwise still claim its margin at the top of the dock. */
+	ui->cameraLabel->setVisible(!name.isEmpty());
+}
+
 void PTZControls::currentChanged(QModelIndex current, QModelIndex previous)
 {
 	accel_timer.stop();
@@ -992,6 +1010,7 @@ void PTZControls::currentChanged(QModelIndex current, QModelIndex previous)
 	focus_speed = focus_accel = 0.0;
 
 	ui->presetListView->setRootIndex(current);
+	updateCameraLabel();
 	updateMoveControls();
 }
 

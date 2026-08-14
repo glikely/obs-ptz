@@ -90,6 +90,7 @@ public slots:
 	void autoselectDevice(OBSSource scene);
 private slots:
 	void updateMoveControls();
+	void updateCameraLabel();
 	void onHomeButtonContextMenu(const QPoint &pos);
 	void setPanTilt(double pan, double tilt, double pan_accel = 0, double tilt_accel = 0);
 	void keypressPanTilt(double pan, double tilt);
