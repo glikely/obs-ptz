@@ -1,6 +1,6 @@
 /* PTZUsbBackend's handling of cameras that lack controls, and of stepped ranges.
  *
- * SPDX-License-Identifier: GPLv2
+ * SPDX-License-Identifier: GPL-2.0-or-later
  */
 #include <catch_amalgamated.hpp>
 

@@ -5,7 +5,7 @@
  * below in its own ptz-usb-backend-<platform>.cpp; PTZUSBCam is platform
  * independent.
  *
- * SPDX-License-Identifier: GPLv2
+ * SPDX-License-Identifier: GPL-2.0-or-later
  */
 #pragma once
 

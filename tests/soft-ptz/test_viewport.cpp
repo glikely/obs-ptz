@@ -1,6 +1,6 @@
 /* SoftViewport: where the viewport is, and what part of the frame it shows.
  *
- * SPDX-License-Identifier: GPLv2
+ * SPDX-License-Identifier: GPL-2.0-or-later
  */
 #include <catch_amalgamated.hpp>
 

@@ -4,7 +4,7 @@
  * TestConfig::disconnectTrigger in test_config.hpp. The test body itself
  * is identical either way.
  *
- * SPDX-License-Identifier: GPLv2
+ * SPDX-License-Identifier: GPL-2.0-or-later
  */
 #include "test_config.hpp"
 #include "test_harness.hpp"

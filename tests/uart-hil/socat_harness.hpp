@@ -4,7 +4,7 @@
  * scripts/test-uart-disconnect.sh, ported to C++/QProcess so it can be
  * driven from inside the test binary instead of a wrapping shell script.
  *
- * SPDX-License-Identifier: GPLv2
+ * SPDX-License-Identifier: GPL-2.0-or-later
  *
  * This file (and only this file, plus its .cpp) is allowed to know "socat"
  * exists - it's a macOS/Linux-only, not-backend-specific concern, kept

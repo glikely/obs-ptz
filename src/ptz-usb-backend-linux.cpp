@@ -2,7 +2,7 @@
 	*
 	* Copyright 2025 Fabio Ferrari <fabioferrari@gmail.com>
 	*
-	* SPDX-License-Identifier: GPLv2
+	* SPDX-License-Identifier: GPL-2.0-or-later
 	*/
 
 #include <obs.h>

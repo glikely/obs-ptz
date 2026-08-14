@@ -1,7 +1,7 @@
 /* Own-main() Catch2 entry point (catch2_amalgamated is built with
  * CATCH_AMALGAMATED_CUSTOM_MAIN, see shared/catch2/CMakeLists.txt).
  *
- * SPDX-License-Identifier: GPLv2
+ * SPDX-License-Identifier: GPL-2.0-or-later
  */
 #include <catch_amalgamated.hpp>
 

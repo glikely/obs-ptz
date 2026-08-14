@@ -12,7 +12,7 @@
  * --home then sends the camera to pan, tilt and zoom 0 (its home), for
  * cleaning up after a test that stopped half way.
  *
- * SPDX-License-Identifier: GPLv2
+ * SPDX-License-Identifier: GPL-2.0-or-later
  */
 #include <cmath>
 #include <cstdio>

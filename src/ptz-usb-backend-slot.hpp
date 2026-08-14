@@ -12,7 +12,7 @@
  *
  * Self-contained (no OBS or Qt) so it can be unit tested with a fake factory.
  *
- * SPDX-License-Identifier: GPLv2
+ * SPDX-License-Identifier: GPL-2.0-or-later
  */
 #pragma once
 

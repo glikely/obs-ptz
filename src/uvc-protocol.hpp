@@ -5,7 +5,7 @@
  * parsing and the AVFoundation device id format. No I/O happens here, so this
  * can be unit tested without a camera.
  *
- * SPDX-License-Identifier: GPLv2
+ * SPDX-License-Identifier: GPL-2.0-or-later
  */
 #pragma once
 

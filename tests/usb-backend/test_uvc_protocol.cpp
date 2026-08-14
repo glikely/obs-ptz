@@ -1,6 +1,6 @@
 /* uvc-protocol.hpp: the platform independent pieces of talking UVC to a camera.
  *
- * SPDX-License-Identifier: GPLv2
+ * SPDX-License-Identifier: GPL-2.0-or-later
  */
 #include <catch_amalgamated.hpp>
 

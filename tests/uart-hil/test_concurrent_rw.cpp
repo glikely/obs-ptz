@@ -9,7 +9,7 @@
  * showing up in receiveBytes()) - a regression test for a real bug found
  * via this suite: see "UART read latency for small payloads" below.
  *
- * SPDX-License-Identifier: GPLv2
+ * SPDX-License-Identifier: GPL-2.0-or-later
  */
 #include "test_config.hpp"
 #include "test_harness.hpp"

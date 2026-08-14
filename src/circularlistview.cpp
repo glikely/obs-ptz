@@ -1,3 +1,10 @@
+/* Circular list view widget
+ *
+ * Copyright 2023 Grant Likely <grant.likely@secretlab.ca>
+ *
+ * SPDX-License-Identifier: GPL-2.0-or-later
+ */
+
 #include <QListView>
 #include <QDragEnterEvent>
 #include <QDragMoveEvent>

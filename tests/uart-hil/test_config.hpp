@@ -2,7 +2,7 @@
  * DisconnectTrigger implementation is active - populated once by main()
  * before Catch2's Session::run(), read by every TEST_CASE.
  *
- * SPDX-License-Identifier: GPLv2
+ * SPDX-License-Identifier: GPL-2.0-or-later
  */
 #pragma once
 

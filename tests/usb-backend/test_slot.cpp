@@ -1,6 +1,6 @@
 /* PTZUsbBackendSlot: which backend is kept, and when it is replaced or freed.
  *
- * SPDX-License-Identifier: GPLv2
+ * SPDX-License-Identifier: GPL-2.0-or-later
  */
 #include <catch_amalgamated.hpp>
 

@@ -16,7 +16,7 @@
  *
  * Self-contained (no OBS) so it can be unit tested with a fake backend.
  *
- * SPDX-License-Identifier: GPLv2
+ * SPDX-License-Identifier: GPL-2.0-or-later
  */
 #pragma once
 

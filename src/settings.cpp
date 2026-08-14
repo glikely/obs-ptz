@@ -1,3 +1,10 @@
+/* Pan Tilt Zoom settings window
+ *
+ * Copyright 2020 Grant Likely <grant.likely@secretlab.ca>
+ *
+ * SPDX-License-Identifier: GPL-2.0-or-later
+ */
+
 #include <QPlainTextEdit>
 #include <QComboBox>
 #include <QHBoxLayout>

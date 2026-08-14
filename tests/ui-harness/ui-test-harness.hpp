@@ -2,7 +2,7 @@
  *
  * Copyright 2026 Grant Likely <grant.likely@secretlab.ca>
  *
- * SPDX-License-Identifier: GPLv2
+ * SPDX-License-Identifier: GPL-2.0-or-later
  *
  * Drives UI-level integration tests against a live, running OBS
  * process from inside the plugin itself - see README.md for why this

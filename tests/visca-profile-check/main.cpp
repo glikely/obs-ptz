@@ -2,7 +2,7 @@
  *
  * Copyright 2026 Grant Likely <grant.likely@secretlab.ca>
  *
- * SPDX-License-Identifier: GPLv2
+ * SPDX-License-Identifier: GPL-2.0-or-later
  *
  * Reads each command set in the directories given (src/visca-profiles, by
  * default) with the plugin's own reader, as the plugin reads the ones shipped

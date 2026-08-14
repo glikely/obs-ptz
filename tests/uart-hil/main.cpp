@@ -1,7 +1,7 @@
 /* Hardware-in-the-loop test suite for PTZUARTWrapper - own-main() Catch2
  * entry point. See README.md for usage.
  *
- * SPDX-License-Identifier: GPLv2
+ * SPDX-License-Identifier: GPL-2.0-or-later
  */
 #include "socat_harness.hpp"
 #include "test_config.hpp"

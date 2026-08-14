@@ -5,7 +5,7 @@
  * endpoint. That needs the device opened, but not the interface claimed, so it
  * works while OBS's own capture source is streaming from the camera.
  *
- * SPDX-License-Identifier: GPLv2
+ * SPDX-License-Identifier: GPL-2.0-or-later
  */
 
 #include <algorithm>

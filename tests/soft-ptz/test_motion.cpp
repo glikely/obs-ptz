@@ -1,6 +1,6 @@
 /* SoftViewport: speeds, and eased moves.
  *
- * SPDX-License-Identifier: GPLv2
+ * SPDX-License-Identifier: GPL-2.0-or-later
  */
 #include <catch_amalgamated.hpp>
 

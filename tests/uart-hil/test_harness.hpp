@@ -1,6 +1,6 @@
 /* Test harness for the PTZUARTWrapper hardware-in-the-loop test suite.
  *
- * SPDX-License-Identifier: GPLv2
+ * SPDX-License-Identifier: GPL-2.0-or-later
  *
  * Touches only PTZUARTWrapper's public interface - no backend-specific
  * includes (no <serial_cpp/serial.h>, no <QSerialPort>, no

@@ -2,7 +2,7 @@
  *
  * Copyright 2020-2026 Grant Likely <grant.likely@secretlab.ca>
  *
- * SPDX-License-Identifier: GPLv2
+ * SPDX-License-Identifier: GPL-2.0-or-later
  */
 
 #include <algorithm>

@@ -13,7 +13,7 @@
  * libobs/util/text-lookup.c) - fine, since this suite never calls
  * addOBSProperties().
  *
- * SPDX-License-Identifier: GPLv2
+ * SPDX-License-Identifier: GPL-2.0-or-later
  */
 #include <obs-module.h>
 

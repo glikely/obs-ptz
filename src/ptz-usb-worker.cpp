@@ -1,6 +1,6 @@
 /* The thread that talks to one USB camera. See ptz-usb-worker.hpp.
  *
- * SPDX-License-Identifier: GPLv2
+ * SPDX-License-Identifier: GPL-2.0-or-later
  */
 #include "ptz-usb-worker.hpp"
 

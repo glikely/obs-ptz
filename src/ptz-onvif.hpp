@@ -2,7 +2,7 @@
  *
  * Copyright 2022 Jonatã Bolzan Loss <jonata@jonata.org>
  *
- * SPDX-License-Identifier: GPLv2
+ * SPDX-License-Identifier: GPL-2.0-or-later
  */
 #pragma once
 

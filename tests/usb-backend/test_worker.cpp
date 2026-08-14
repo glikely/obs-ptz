@@ -2,7 +2,7 @@
  * thread, without making the caller wait for it, and the things the worker
  * does on top of that (continuous moves, tracking whether the camera is there).
  *
- * SPDX-License-Identifier: GPLv2
+ * SPDX-License-Identifier: GPL-2.0-or-later
  */
 #include <catch_amalgamated.hpp>
 
