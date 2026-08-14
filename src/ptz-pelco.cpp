@@ -6,7 +6,6 @@
  * SPDX-License-Identifier: GPLv2
  */
 
-#include <QSerialPortInfo>
 #include "ptz-pelco.hpp"
 
 const QByteArray HOME = QByteArray::fromHex("0007002B");
