@@ -35,10 +35,14 @@ public:
 	inline IconLabel(QWidget *parent = nullptr) : QLabel(parent), m_icon(), m_iconSize(16) {}
 
 	inline QIcon icon() const { return m_icon; }
-	void setIcon(const QIcon &icon);
+	void setIcon(const QIcon &icon)
+	{
+		m_icon = icon;
+		QLabel::setPixmap(icon.pixmap(m_iconSize));
+	}
 
 	inline int iconSize() const { return m_iconSize; }
-	void setIconSize(int newSize);
+	void setIconSize(int newSize) { m_iconSize = newSize; }
 
 private:
 	QIcon m_icon;

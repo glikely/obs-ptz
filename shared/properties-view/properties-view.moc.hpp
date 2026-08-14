@@ -17,10 +17,7 @@
 
 static bool operator!=(const media_frames_per_second &a, const media_frames_per_second &b)
 {
-	// Compare fractions via cross multiplication, to avoid rounding or division
-	uint64_t lhs = (uint64_t)a.numerator * (uint64_t)b.denominator;
-	uint64_t rhs = (uint64_t)b.numerator * (uint64_t)a.denominator;
-	return lhs != rhs;
+	return a.numerator != b.numerator || a.denominator != b.denominator;
 }
 
 static bool operator==(const media_frames_per_second &a, const media_frames_per_second &b)

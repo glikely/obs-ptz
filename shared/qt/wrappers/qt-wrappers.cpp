@@ -88,9 +88,8 @@ void OBSMessageBox::information(QWidget *parent, const QString &title, const QSt
 void OBSMessageBox::warning(QWidget *parent, const QString &title, const QString &text, bool enableRichText)
 {
 	QMessageBox mb(QMessageBox::Warning, title, text, QMessageBox::NoButton, parent);
-	if (enableRichText) {
+	if (enableRichText)
 		mb.setTextFormat(Qt::RichText);
-	}
 	mb.addButton(tr("OK"), QMessageBox::AcceptRole);
 	mb.exec();
 }
@@ -106,28 +105,22 @@ uint32_t TranslateQtKeyboardEventModifiers(Qt::KeyboardModifiers mods)
 {
 	int obsModifiers = INTERACT_NONE;
 
-	if (mods.testFlag(Qt::ShiftModifier)) {
+	if (mods.testFlag(Qt::ShiftModifier))
 		obsModifiers |= INTERACT_SHIFT_KEY;
-	}
-	if (mods.testFlag(Qt::AltModifier)) {
+	if (mods.testFlag(Qt::AltModifier))
 		obsModifiers |= INTERACT_ALT_KEY;
-	}
 #ifdef __APPLE__
 	// Mac: Meta = Control, Control = Command
-	if (mods.testFlag(Qt::ControlModifier)) {
+	if (mods.testFlag(Qt::ControlModifier))
 		obsModifiers |= INTERACT_COMMAND_KEY;
-	}
-	if (mods.testFlag(Qt::MetaModifier)) {
+	if (mods.testFlag(Qt::MetaModifier))
 		obsModifiers |= INTERACT_CONTROL_KEY;
-	}
 #else
 	// Handle windows key? Can a browser even trap that key?
-	if (mods.testFlag(Qt::ControlModifier)) {
+	if (mods.testFlag(Qt::ControlModifier))
 		obsModifiers |= INTERACT_CONTROL_KEY;
-	}
-	if (mods.testFlag(Qt::MetaModifier)) {
+	if (mods.testFlag(Qt::MetaModifier))
 		obsModifiers |= INTERACT_COMMAND_KEY;
-	}
 
 #endif
 
@@ -180,15 +173,13 @@ QDataStream &operator>>(QDataStream &in, OBSSource &source)
 
 void DeleteLayout(QLayout *layout)
 {
-	if (!layout) {
+	if (!layout)
 		return;
-	}
 
 	for (;;) {
 		QLayoutItem *item = layout->takeAt(0);
-		if (!item) {
+		if (!item)
 			break;
-		}
 
 		QLayout *subLayout = item->layout();
 		if (subLayout) {
@@ -266,11 +257,10 @@ void EnableThreadedMessageBoxes(bool enable)
 
 void ExecThreadedWithoutBlocking(std::function<void()> func, const QString &title, const QString &text)
 {
-	if (!enable_message_boxes) {
+	if (!enable_message_boxes)
 		ExecuteFuncSafeBlock(func);
-	} else {
+	else
 		ExecuteFuncSafeBlockMsgBox(func, title, text);
-	}
 }
 
 bool LineEditCanceled(QEvent *event)
@@ -352,9 +342,8 @@ QStringList OpenFiles(QWidget *parent, QString title, QString path, QString exte
 
 static void SetLabelText(QLabel *label, const QString &newText)
 {
-	if (label->text() != newText) {
+	if (label->text() != newText)
 		label->setText(newText);
-	}
 }
 
 void TruncateLabel(QLabel *label, QString newText, int length)
@@ -377,9 +366,8 @@ void RefreshToolBarStyling(QToolBar *toolBar)
 	for (QAction *action : toolBar->actions()) {
 		QWidget *widget = toolBar->widgetForAction(action);
 
-		if (!widget) {
+		if (!widget)
 			continue;
-		}
 
 		widget->style()->unpolish(widget);
 		widget->style()->polish(widget);

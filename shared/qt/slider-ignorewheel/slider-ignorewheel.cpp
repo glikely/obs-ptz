@@ -13,11 +13,10 @@ SliderIgnoreScroll::SliderIgnoreScroll(Qt::Orientation orientation, QWidget *par
 
 void SliderIgnoreScroll::wheelEvent(QWheelEvent *event)
 {
-	if (!hasFocus()) {
+	if (!hasFocus())
 		event->ignore();
-	} else {
+	else
 		QSlider::wheelEvent(event);
-	}
 }
 
 void SliderIgnoreClick::mousePressEvent(QMouseEvent *event)

@@ -44,6 +44,17 @@ target_sources(
 )
 target_include_directories(properties-view INTERFACE "${CMAKE_CURRENT_SOURCE_DIR}")
 
+# properties-view.cpp mirrors OBS's own widget and still calls the
+# obs_data_*_autoselect_* API, which OBS 32 marks OBS_DEPRECATED. The calls
+# remain functional; silence only the deprecation diagnostic so the plugin
+# template's warnings-as-errors (/WX, -Werror) does not fail the build.
+target_compile_options(
+  properties-view
+  INTERFACE
+    $<$<COMPILE_LANG_AND_ID:CXX,MSVC>:/wd4996>
+    $<$<COMPILE_LANG_AND_ID:CXX,GNU,Clang,AppleClang>:-Wno-deprecated-declarations>
+)
+
 target_link_libraries(
   properties-view
   INTERFACE
