@@ -17,10 +17,10 @@ to trigger camera actions when scenes change.
 
 Features:
 
-- Adjuts camera Pan, Tilt, Zoom and Focus settings
+- Adjusts camera Pan, Tilt, Zoom and Focus settings
 - Toggle between manual and auto focus modes
 - Assign hotkeys to camera controls
-- Use a joystick to control comera position
+- Use a joystick to control camera position
 - Save and recall camera presets
 - Control multiple cameras from OBS
 - Auto select active camera based on active scene
@@ -43,8 +43,8 @@ Features:
 ## Installation
 
 Go to the releases page to find the latest binary release for your platform.
-Binaries are created for Windows (x64), MacOS (Arm, x86_64, and Universal),
-and Ubuntu Linux 24.04 (x86_64).
+Binaries are created for Windows (x64 and arm64), MacOS (Universal), and
+Ubuntu Linux 24.04 (x86_64).
 Download the package for your platform and install it.
 If you need support for a different platform (e.g. Linux Arm) then you'll need
 to follow the building from source instructions below.
@@ -98,14 +98,14 @@ button in the toolbar.
 ## Controlling Cameras
 
 Cameras are controlled with the arrow buttons in the control dock.
-To adjuat a camera, you needs to be selected from the camera list in the PTZ
+To adjust a camera, it needs to be selected from the camera list in the PTZ
 dock (bottom left of the control dock).
 By default (if `Auto Select Active Camera` is enabled in settings), then the
 plugin will automatically select the correct camera when the current scene
 changes.
 Then, clicking the camera control buttons will adjust the camera position.
 The arrow buttons will pan/tilt the camera,
-The magnifing glass buttons will zoom in and out,
+The magnifying glass buttons will zoom in and out,
 and the small/large buttons will change the focus.
 You can also toggle autofocus on and off with the `AF` button and trigger
 a one-touch refocus action.
@@ -152,14 +152,14 @@ the toolbar.
 
 The plugin can generate a large amount of debug data with all the protocol
 messages sent to and received by the cameras.
-Debug logs appear in the main obs-studio log, but are disable by default.
+Debug logs appear in the main obs-studio log, but are disabled by default.
 To enable debug logs, select `Write protocol trace to OBS log file` in the
 device settings, and run OBS Studio with the --verbose command line option.
 
 # Building from Source
 
 The build infrastructure for this project comes from the
-[OBS Plugin Template](https://https://github.com/obsproject/obs-plugintemplate]
+[OBS Plugin Template](https://github.com/obsproject/obs-plugintemplate)
 repo. To build this plugin, follow the instructions in the plugin template
 [README.md](doc/plugin-template-README.md)
 
@@ -181,7 +181,7 @@ plugin, which will also download and install all the build dependencies for you.
 
 ```
 $ ./.github/scripts/build-ubuntu
-$ cp release/RelWithDebInfo /usr/
+$ sudo cp -r release/RelWithDebInfo/* /usr/
 ```
 
 ## MacOS Quickstart
@@ -224,12 +224,12 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for more details.
 
 # Acknowledgements
 
-Thank you to everyone who has contributed to his project, either with filing issues,
+Thank you to everyone who has contributed to this project, either with filing issues,
 asking questions, or contributing to the code.
 All code and documentation contributors are listed in [AUTHORS](AUTHORS).
 
 Thank you also to the OBS Project developers, and the
-[OBS Plugin Template](https://https://github.com/obsproject/obs-plugintemplate]
+[OBS Plugin Template](https://github.com/obsproject/obs-plugintemplate)
 repo that they maintain. This plugin leans heavily on that project.
 
 Joystick support uses the
