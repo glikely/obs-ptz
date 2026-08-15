@@ -45,13 +45,13 @@
             }
         },
         "sdl": {
-            "version": "2.30.11",
-            "baseUrl": "https://github.com/libsdl-org/sdl/releases/download/release-2.30.11",
+            "version": "2.32.10",
+            "baseUrl": "https://github.com/libsdl-org/sdl/releases/download/release-2.32.10",
             "label": "sdl sources",
             "hashes": {
-                "macos": "8b8d4aef2038533da814965220f88f77d60dfa0f32685f80ead65e501337da7f",
-                "windows-x64": "a0b3e7ac5f708042683ff0f22e069bdf75563540c615f9854ecc9bc8913e2488",
-                "windows-arm64": "a0b3e7ac5f708042683ff0f22e069bdf75563540c615f9854ecc9bc8913e2488"
+                "macos": "5f5993c530f084535c65a6879e9b26ad441169b3e25d789d83287040a9ca5165",
+                "windows-x64": "12b2dc2eb8f2836100a7916b5d394a0c82f1f7e32693f95f98305403af242f08",
+                "windows-arm64": "12b2dc2eb8f2836100a7916b5d394a0c82f1f7e32693f95f98305403af242f08"
             }
         }
     },
