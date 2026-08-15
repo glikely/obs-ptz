@@ -33,6 +33,7 @@ future self can read the patch, but might not understand why a
 particular solution was implemented.
 
 Reported-by: whoever-reported-it
+Assisted-by: AGENT_NAME:MODEL_VERSION
 Signed-off-by: Your Name <you@example.com>
 ```
 
@@ -41,6 +42,39 @@ one line. That header line is what is shown by tools like gitk and shortlog,
 and should summarize the change in one readable line of text, independently of
 the longer explanation. Please use verbs in the imperative in the commit
 message, as in "Fix bug that...", "Add file/feature ...", or "Make plugin ..."
+
+AI-Assisted Contributions
+--------------------------
+
+AI tools (LLM-based coding assistants, agents, etc.) are welcome as an aid
+when preparing a contribution. If one was used to help write the code or
+find/fix a bug, acknowledge it with an `Assisted-by:` tag, next to
+`Signed-off-by:`, following the same format adopted by the Linux kernel
+([Documentation/process/coding-assistants.rst]):
+
+```
+Assisted-by: AGENT_NAME:MODEL_VERSION
+```
+
+- `AGENT_NAME:MODEL_VERSION` - the AI tool or framework and the specific
+  model version it used, colon-separated, e.g. `Claude:claude-sonnet-5`.
+
+For example:
+
+```
+Assisted-by: Claude:claude-sonnet-5
+```
+
+This doesn't change anything else about how a contribution is judged or
+accepted: your `Signed-off-by:` still certifies you have the right to
+submit the change under the DCO below, and you're still responsible for
+reviewing, understanding, and standing behind everything in the patch,
+AI-assisted or not. `Assisted-by:` is a record of how the patch was
+produced, not a transfer of that responsibility - and per the kernel's
+same policy, AI agents themselves must never add a `Signed-off-by:`; only
+a human can certify the DCO.
+
+[Documentation/process/coding-assistants.rst]: https://docs.kernel.org/process/coding-assistants.html
 
 DCO Attestation
 ---------------
