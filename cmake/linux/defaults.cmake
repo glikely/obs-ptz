@@ -15,24 +15,20 @@ set(CMAKE_FIND_PACKAGE_TARGETS_GLOBAL TRUE)
 set(CPACK_PACKAGE_NAME "${CMAKE_PROJECT_NAME}")
 set(CPACK_PACKAGE_VERSION "${CMAKE_PROJECT_VERSION}")
 
-# For Linux, work out the distro version so it can be included in the
-# release filename. Falls back to the old name if the file isn't there
-# (e.g. a minimal container).
-set(_pkg_distro_suffix "")
+# Use the Debian Policy-compliant name_version_arch.deb naming (DEB-DEFAULT),
+# with the distro codename folded into the version as a "~" suffix (the
+# convention Ubuntu PPAs use)
+# Falls back to the bare version if /etc/os-release isn't there
+set(CPACK_DEBIAN_FILE_NAME "DEB-DEFAULT")
 if(EXISTS "/etc/os-release")
-  file(STRINGS "/etc/os-release" _os_release_id REGEX "^ID=")
-  file(STRINGS "/etc/os-release" _os_release_version_id REGEX "^VERSION_ID=")
-  if(_os_release_id AND _os_release_version_id)
-    string(REGEX REPLACE "^ID=\"?([^\"]*)\"?$" "\\1" _os_id "${_os_release_id}")
-    string(REGEX REPLACE "^VERSION_ID=\"?([^\"]*)\"?$" "\\1" _os_version_id "${_os_release_version_id}")
-    set(_pkg_distro_suffix "-${_os_id}${_os_version_id}")
+  file(STRINGS "/etc/os-release" _os_release_codename REGEX "^VERSION_CODENAME=")
+  if(_os_release_codename)
+    string(REGEX REPLACE "^VERSION_CODENAME=\"?([^\"]*)\"?$" "\\1" _os_codename "${_os_release_codename}")
+    set(CPACK_DEBIAN_PACKAGE_VERSION "${CPACK_PACKAGE_VERSION}~${_os_codename}")
   endif()
 endif()
 
-set(
-  CPACK_PACKAGE_FILE_NAME
-  "${CPACK_PACKAGE_NAME}-${CPACK_PACKAGE_VERSION}-${CMAKE_C_LIBRARY_ARCHITECTURE}${_pkg_distro_suffix}"
-)
+set(CPACK_PACKAGE_FILE_NAME "${CPACK_PACKAGE_NAME}-${CPACK_PACKAGE_VERSION}-${CMAKE_C_LIBRARY_ARCHITECTURE}")
 
 set(CPACK_GENERATOR "DEB")
 set(CPACK_DEBIAN_PACKAGE_SHLIBDEPS ON)
