@@ -186,6 +186,12 @@ jobs:
           - target: aarch64
             os: ubuntu-24.04
             runner: ubuntu-24.04-arm
+          - target: x86_64
+            os: ubuntu-26.04
+            runner: ubuntu-26.04
+          - target: aarch64
+            os: ubuntu-26.04
+            runner: ubuntu-26.04-arm
     runs-on: ${{ matrix.runner }}
     needs: check-event
     defaults:
@@ -231,7 +237,7 @@ jobs:
           package: ${{ fromJSON(needs.check-event.outputs.package) }}
 
       - name: Upload Source Tarball 🗜️
-        if: matrix.target == 'x86_64'
+        if: matrix.os == 'ubuntu-24.04' && matrix.target == 'x86_64'
         uses: actions/upload-artifact@v7
         with:
           name: ${{ steps.setup.outputs.pluginName }}-${{ steps.setup.outputs.pluginVersion }}-${{ matrix.os }}-sources-${{ needs.check-event.outputs.commitHash }}

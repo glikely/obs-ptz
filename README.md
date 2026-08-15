@@ -44,7 +44,7 @@ Features:
 
 Go to the releases page to find the latest binary release for your platform.
 Binaries are created for Windows (x64), MacOS (Universal), and
-Ubuntu Linux 24.04 (x86_64 and aarch64).
+Ubuntu Linux 24.04 and 26.04 (x86_64 and aarch64).
 Download the package for your platform and install it.
 If you need support for a different platform or distro then you'll need
 to follow the building from source instructions below.
