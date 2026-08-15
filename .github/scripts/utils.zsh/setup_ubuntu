@@ -35,7 +35,11 @@ if (( ! (${skips[(Ie)all]} + ${skips[(Ie)deps]}) )) {
     sudo apt-get install ${apt_args} gcc-${${target##*-}//_/-}-linux-gnu g++-${${target##*-}//_/-}-linux-gnu
   }
 
-  sudo add-apt-repository --yes ppa:obsproject/obs-studio
+  # PPA from the obsproject. Uncomment the line below to build against
+  # the obsproject binary instead of the Ubuntu packaged version. You'll
+  # also need to remove libobs-dev from the apt line below.
+  #sudo add-apt-repository --yes ppa:obsproject/obs-studio
+
   sudo apt update
 
   sudo apt-get install ${apt_args} \
@@ -43,6 +47,7 @@ if (( ! (${skips[(Ie)all]} + ${skips[(Ie)deps]}) )) {
     libgles2-mesa-dev \
     libsimde-dev \
     obs-studio \
+    libobs-dev \
     libsdl2-dev
 
   local -a _qt_packages=()
