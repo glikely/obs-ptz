@@ -76,6 +76,7 @@ jobs:
             'windows-arm64;zip|exe'
             'macos-universal;tar.xz|pkg'
             'ubuntu-24.04-x86_64;tar.xz|deb|ddeb'
+            'ubuntu-24.04-aarch64;tar.xz|deb|ddeb'
             'sources;tar.xz'
           )
 
