@@ -14,7 +14,25 @@ set(CMAKE_FIND_PACKAGE_TARGETS_GLOBAL TRUE)
 
 set(CPACK_PACKAGE_NAME "${CMAKE_PROJECT_NAME}")
 set(CPACK_PACKAGE_VERSION "${CMAKE_PROJECT_VERSION}")
-set(CPACK_PACKAGE_FILE_NAME "${CPACK_PACKAGE_NAME}-${CPACK_PACKAGE_VERSION}-${CMAKE_C_LIBRARY_ARCHITECTURE}")
+
+# For Linux, work out the distro version so it can be included in the
+# release filename. Falls back to the old name if the file isn't there
+# (e.g. a minimal container).
+set(_pkg_distro_suffix "")
+if(EXISTS "/etc/os-release")
+  file(STRINGS "/etc/os-release" _os_release_id REGEX "^ID=")
+  file(STRINGS "/etc/os-release" _os_release_version_id REGEX "^VERSION_ID=")
+  if(_os_release_id AND _os_release_version_id)
+    string(REGEX REPLACE "^ID=\"?([^\"]*)\"?$" "\\1" _os_id "${_os_release_id}")
+    string(REGEX REPLACE "^VERSION_ID=\"?([^\"]*)\"?$" "\\1" _os_version_id "${_os_release_version_id}")
+    set(_pkg_distro_suffix "-${_os_id}${_os_version_id}")
+  endif()
+endif()
+
+set(
+  CPACK_PACKAGE_FILE_NAME
+  "${CPACK_PACKAGE_NAME}-${CPACK_PACKAGE_VERSION}-${CMAKE_C_LIBRARY_ARCHITECTURE}${_pkg_distro_suffix}"
+)
 
 set(CPACK_GENERATOR "DEB")
 set(CPACK_DEBIAN_PACKAGE_SHLIBDEPS ON)
