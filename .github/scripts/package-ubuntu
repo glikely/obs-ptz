@@ -160,6 +160,20 @@ ${_usage_host:-}"
     pushd ${project_root}
     cmake --build build_${target##*-} --config ${config} -t package ${cmake_args}
     popd
+
+    log_group "Fixing up the obs-studio dependency..."
+    # Rewrite the auto-detected libobs* dependency to obs-studio instead,
+    # keeping whatever minimum version dpkg-shlibdeps derived - a plain
+    # libobs dependency is unsatisfiable when OBS Studio came from the
+    # obsproject PPA rather than the distro archive.
+    local deb
+    for deb (${project_root}/release/*.deb) {
+      local workdir=$(mktemp -d)
+      dpkg-deb -R ${deb} ${workdir}
+      sed -i -E 's/\blibobs[A-Za-z0-9.+-]* \(/obs-studio (/' ${workdir}/DEBIAN/control
+      dpkg-deb -b ${workdir} ${deb}
+      rm -rf ${workdir}
+    }
   } else {
     log_group "Archiving ${product_name}..."
     local output_name="${product_name}-${product_version}-${target##*-}-ubuntu-gnu"
