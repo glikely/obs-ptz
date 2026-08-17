@@ -136,6 +136,10 @@ if(ENABLE_SERIALPORT)
   if(Qt6SerialPort_FOUND)
     add_compile_definitions(ENABLE_SERIALPORT)
     target_link_libraries(${CMAKE_PROJECT_NAME} PRIVATE Qt::SerialPort)
+    # No system package on any platform (see shared/serial/README.md) -
+    # vendor and statically link everywhere, unlike shared/libserialport.
+    add_subdirectory(shared/serial)
+    target_link_libraries(${CMAKE_PROJECT_NAME} PRIVATE serial_cpp)
     target_sources(
       ${CMAKE_PROJECT_NAME}
       PRIVATE
