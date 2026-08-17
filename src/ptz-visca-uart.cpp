@@ -26,12 +26,6 @@ bool ViscaUART::open()
 	return rc;
 }
 
-void ViscaUART::close()
-{
-	PTZUARTWrapper::close();
-	camera_count = 0;
-}
-
 void ViscaUART::receive_datagram(const QByteArray &packet)
 {
 	if (packet.size() < 3)
