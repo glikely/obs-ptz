@@ -22,7 +22,6 @@ private:
 public:
 	ViscaUART(QString &port_name);
 	bool open();
-	void close();
 	void receive_datagram(const QByteArray &packet);
 	void receiveBytes(const QByteArray &packet);
 
