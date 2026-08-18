@@ -24,7 +24,7 @@ runs:
       uses: ./.github/actions/check-changes
       id: checks
       with:
-        checkGlob: "'*.c' '*.h' '*.cpp' '*.hpp' '*.m' '*.mm'"
+        checkGlob: "'*.c' '*.h' '*.cpp' '*.hpp' '*.m' '*.mm' ':!shared/**'"
         diffFilter: 'ACM'
 
     - name: Install Dependencies 🛍️
