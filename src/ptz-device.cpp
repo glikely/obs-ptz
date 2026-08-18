@@ -584,9 +584,8 @@ obs_properties_t *PTZDevice::get_obs_properties()
 /**
  * Driver factory, dispatching on config["type"]. This is the one place that
  * needs to name every concrete PTZDevice subclass -- the PTZ Control
- * filter's own callbacks just call this (or ptz_devices_set_config() below,
- * used only by the legacy config.json load path) with an OBSData and never
- * see a driver header.
+ * filter's own callbacks just call this with an OBSData and never see a
+ * driver header.
  */
 PTZDevice *ptz_device_create(obs_data_t *config)
 {
@@ -775,19 +774,6 @@ obs_source_t *ptz_device_find_source_using_ptz_name(uint32_t device_id)
 	if (!ptz)
 		return NULL;
 	return obs_get_source_by_name(QT_TO_UTF8(ptz->objectName()));
-}
-
-void ptz_devices_set_config(obs_data_array_t *devices)
-{
-	if (!devices) {
-		blog(LOG_INFO, "No PTZ device configuration found");
-		return;
-	}
-	for (size_t i = 0; i < obs_data_array_count(devices); i++) {
-		OBSData ptzcfg = obs_data_array_item(devices, i);
-		obs_data_release(ptzcfg);
-		ptz_device_create(ptzcfg);
-	}
 }
 
 static proc_handler_t *ptz_ph = NULL;

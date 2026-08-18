@@ -28,9 +28,10 @@ extern void ptz_load_action_source(void);
 extern void ptz_load_controls(void);
 extern void ptz_load_settings(void);
 
+/* Live enumeration, not persistence -- see the comment on the definition in
+ * ptz-device.cpp. Used by ptz-action-source.c's properties dialog. */
 extern obs_data_array_t *ptz_devices_get_config(void);
 extern obs_source_t *ptz_device_find_source_using_ptz_name(uint32_t device_id);
-extern void ptz_devices_set_config(obs_data_array_t *devices);
 
 extern bool ptz_scene_is_source_active(obs_source_t *scene, obs_source_t *source);
 

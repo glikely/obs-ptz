@@ -599,9 +599,10 @@ void PTZControls::SaveConfig()
 		obs_data_set_int(savedata, "current_selected",
 				 ui->cameraList->currentIndex().data(PTZListModel::DeviceIdRole).toInt());
 
-	OBSDataArrayAutoRelease devices = obs_data_array_create();
-	ptzDeviceList->save(devices.Get());
-	obs_data_set_array(savedata, "devices", devices);
+	/* Per-device configuration is no longer saved here: each PTZ Control
+	 * filter now saves its own PTZDevice's state into its own filter
+	 * settings (ptz_filter_save() in ptz-device.cpp), persisted by OBS as
+	 * part of the scene collection along with every other filter. */
 
 	/* Save data structure to json */
 	if (!obs_data_save_json_pretty_safe(savedata, file, "tmp", "bak")) {
@@ -618,7 +619,6 @@ void PTZControls::SaveConfig()
 void PTZControls::LoadConfig()
 {
 	char *file = obs_module_config_path("config.json");
-	OBSDataArray array;
 
 	if (!file)
 		return;
@@ -680,9 +680,6 @@ void PTZControls::LoadConfig()
 		ui->vertsplitter->restoreState(splitterState);
 	}
 
-	array = obs_data_get_array(loaddata, "devices");
-	obs_data_array_release(array);
-	ptz_devices_set_config(array);
 	ui->cameraList->setCurrentIndex(
 		ptzDeviceList->indexFromDeviceId(obs_data_get_int(loaddata, "current_selected")));
 }
