@@ -583,11 +583,12 @@ obs_properties_t *PTZDevice::get_obs_properties()
 
 /**
  * Driver factory, dispatching on config["type"]. This is the one place that
- * needs to name every concrete PTZDevice subclass -- PTZListModel and
- * settings.cpp just call this (or ptz_devices_set_config() below) with an
- * OBSData and never see a driver header.
+ * needs to name every concrete PTZDevice subclass -- PTZListModel,
+ * settings.cpp, and the PTZ Control filter just call this (or
+ * ptz_devices_set_config() below) with an OBSData and never see a driver
+ * header.
  */
-void ptz_device_create(obs_data_t *config)
+PTZDevice *ptz_device_create(obs_data_t *config)
 {
 	std::string type = obs_data_get_string(config, "type");
 	PTZDevice *ptz = nullptr;
@@ -615,12 +616,151 @@ void ptz_device_create(obs_data_t *config)
 	 * -- see PTZDevice::announceCreated()'s comment. */
 	if (ptz)
 		ptz->announceCreated();
+	return ptz;
 }
 
 void ptz_device_destroy(uint32_t device_id)
 {
 	delete ptz_device_registry.value(device_id, nullptr);
 }
+
+/**
+ * "PTZ Control" -- an OBS filter that owns a PTZDevice for the lifetime of
+ * the filter, attached directly to the source it controls via that source's
+ * own Filters dialog. It has no video/audio processing callbacks: it exists
+ * purely to give a PTZDevice a well-defined lifecycle and a place to live in
+ * OBS's UI, the same "invisible filter" pattern other OBS plugins use to
+ * attach arbitrary state/behavior to a source without touching the frame
+ * pipeline.
+ */
+struct ptz_filter {
+	obs_source_t *source; /* this filter's own source, not the parent */
+	PTZDevice *ptz;
+};
+
+void PTZDevice::notify_properties_changed()
+{
+	if (ptzf && ptzf->source)
+		obs_source_update_properties(ptzf->source);
+}
+
+static const char *ptz_filter_getname(void *)
+{
+	return obs_module_text("PTZ.Filter.Name");
+}
+
+static void ptz_filter_get_defaults(obs_data_t *settings)
+{
+	obs_data_set_default_string(settings, "type", "");
+}
+
+static obs_properties_t *ptz_filter_get_properties(void *data)
+{
+	obs_properties_t *ppts = obs_properties_create();
+
+	auto type_prop = obs_properties_add_list(ppts, "type", obs_module_text("PTZ.Type"), OBS_COMBO_TYPE_LIST,
+						 OBS_COMBO_FORMAT_STRING);
+	obs_property_list_add_string(type_prop, obs_module_text("PTZ.Type.Unset"), "");
+#if defined(ENABLE_SERIALPORT)
+	obs_property_list_add_string(type_prop, obs_module_text("PTZ.Visca.Serial.Name"), "visca");
+#endif /* ENABLE_SERIALPORT */
+	obs_property_list_add_string(type_prop, obs_module_text("PTZ.Visca.UDP.Name"), "visca-over-ip");
+	obs_property_list_add_string(type_prop, obs_module_text("PTZ.Visca.TCP.Name"), "visca-over-tcp");
+#if defined(ENABLE_SERIALPORT)
+	/* Pelco-D vs Pelco-P is a separate "use_pelco_d" property on the
+	 * resulting PTZPelco device (surfaced below via the embedded device
+	 * properties group), not a distinct type here -- two entries both
+	 * mapping to "pelco" would be indistinguishable to the user and to
+	 * ptz_filter_update()'s type-change check. */
+	obs_property_list_add_string(type_prop, obs_module_text("PTZ.Pelco.Name"), "pelco");
+#endif /* ENABLE_SERIALPORT */
+#if defined(ENABLE_ONVIF)
+	obs_property_list_add_string(type_prop, obs_module_text("PTZ.ONVIF.Name"), "onvif");
+#endif /* ENABLE_ONVIF */
+#if defined(ENABLE_USB_CAM)
+	obs_property_list_add_string(type_prop, obs_module_text("PTZ.UVC.Name"), "usb-cam");
+#endif /* ENABLE_USB_CAM */
+
+	auto ptzf = static_cast<struct ptz_filter *>(data);
+	if (ptzf && ptzf->ptz) {
+		auto device_props = ptzf->ptz->get_obs_properties();
+		obs_properties_add_group(ppts, "device", obs_module_text("PTZ.Device.Connection"), OBS_GROUP_NORMAL,
+					 device_props);
+	}
+	return ppts;
+}
+
+static void ptz_filter_update(void *data, obs_data_t *settings)
+{
+	auto ptzf = static_cast<struct ptz_filter *>(data);
+	auto type = obs_data_get_string(settings, "type");
+	/* ptzf->ptz is null until a valid "type" has been picked (the default
+	 * is "", which ptz_device_create() doesn't match), so this must not
+	 * unconditionally dereference it. */
+	std::string oldtype = ptzf->ptz ? ptzf->ptz->getType() : std::string();
+	if (oldtype != type) {
+		delete ptzf->ptz;
+		ptzf->ptz = ptz_device_create(settings);
+		if (ptzf->ptz) {
+			ptzf->ptz->set_filter_pointer(ptzf);
+			/* Queued: this runs from inside .update(), and
+			 * obs_source_update_properties() rebuilds the
+			 * properties dialog that led here -- doing that
+			 * reentrantly, mid-update, is asking for trouble. */
+			QMetaObject::invokeMethod(ptzf->ptz, "notify_properties_changed", Qt::QueuedConnection);
+		}
+	}
+}
+
+static void *ptz_filter_create(obs_data_t *settings, obs_source_t *source)
+{
+	auto ptzf = new struct ptz_filter;
+	ptzf->source = source;
+	ptzf->ptz = ptz_device_create(settings);
+	if (ptzf->ptz)
+		ptzf->ptz->set_filter_pointer(ptzf);
+	return ptzf;
+}
+
+static void ptz_filter_destroy(void *data)
+{
+	auto ptzf = static_cast<struct ptz_filter *>(data);
+	delete ptzf->ptz;
+	delete ptzf;
+}
+
+static void ptz_filter_save(void *data, obs_data_t *settings)
+{
+	auto ptzf = static_cast<struct ptz_filter *>(data);
+	if (ptzf->ptz)
+		ptzf->ptz->save(settings);
+}
+
+static struct obs_source_info ptz_filter_info = {
+	.id = "PTZ Control",
+	.type = OBS_SOURCE_TYPE_FILTER,
+	/* No .filter_video/.video_render -- this filter carries no video
+	 * processing of its own, it exists purely to host a PTZDevice. But
+	 * OBS_SOURCE_VIDEO still has to be set: obs_register_source_s()
+	 * auto-ORs in OBS_SOURCE_ASYNC for any filter that omits it, and the
+	 * Filters-dialog "Add" menu then only offers async filters to
+	 * sources that are themselves async/audio -- which most video
+	 * sources (e.g. a plain camera) aren't, making the filter
+	 * unselectable there for exactly the sources it's meant to attach
+	 * to. libobs null-checks filter_video before calling it, so
+	 * declaring the flag without implementing the callback is a safe,
+	 * ordinary pass-through.
+	 */
+	.output_flags = OBS_SOURCE_VIDEO | OBS_SOURCE_DO_NOT_DUPLICATE,
+	.get_name = ptz_filter_getname,
+	.create = ptz_filter_create,
+	.destroy = ptz_filter_destroy,
+	.get_defaults = ptz_filter_get_defaults,
+	.get_properties = ptz_filter_get_properties,
+	.update = ptz_filter_update,
+	.save = ptz_filter_save,
+	.icon_type = OBS_ICON_TYPE_CAMERA,
+};
 
 /* C interface for non-QT parts of the plugin */
 obs_data_array_t *ptz_devices_get_config()
@@ -690,6 +830,8 @@ void ptz_load_devices()
 	 * its constructor happens at a well-defined point in the module load
 	 * instead of at plugin-library-load time -- see PTZListModel::create() */
 	PTZListModel::create();
+
+	obs_register_source(&ptz_filter_info);
 
 	/* Preset Recall/Save Callback */
 	auto ptz_cb = [](void *p, calldata_t *cd) {

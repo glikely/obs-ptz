@@ -33,9 +33,9 @@ extern obs_source_t *ptz_device_find_source_using_ptz_name(uint32_t device_id);
 extern void ptz_devices_set_config(obs_data_array_t *devices);
 
 /* Driver factory / teardown, dispatching by config["type"] / device_id.
- * The one place PTZListModel and settings.cpp need to reach an actual
- * PTZDevice subclass -- see ptz_device_create()'s comment in ptz-device.cpp. */
-extern void ptz_device_create(obs_data_t *config);
+ * The one place PTZListModel, settings.cpp, and the PTZ Control filter
+ * (ptz-device.cpp) need to reach an actual PTZDevice subclass -- see
+ * ptz_device_create()'s comment in ptz-device.cpp. */
 extern void ptz_device_destroy(uint32_t device_id);
 
 extern bool ptz_scene_is_source_active(obs_source_t *scene, obs_source_t *source);
@@ -45,6 +45,12 @@ extern signal_handler_t *ptz_get_signal_handler();
 
 #ifdef __cplusplus
 }
+
+/* C++-only: PTZDevice is a C++ class, not something ptz.c (a plain C file
+ * that also includes this header) can name, so this can't live in the
+ * extern "C" block above like ptz_device_destroy() does. */
+class PTZDevice;
+extern PTZDevice *ptz_device_create(obs_data_t *config);
 #endif
 
 #endif /* PTZ_H */

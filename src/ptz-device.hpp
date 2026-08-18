@@ -24,6 +24,8 @@
 	if (this->protocol_trace)    \
 	ptz_log(LOG_DEBUG, format, ##__VA_ARGS__)
 
+struct ptz_filter;
+
 class PTZDevice : public QObject {
 	Q_OBJECT
 
@@ -72,10 +74,20 @@ protected:
 	signal_handler_t *sigs = nullptr;
 	void notifySettingsChanged();
 
+	/* Set right after construction by ptz_make_device(), so that a type
+	 * change in the filter's own properties dialog (ptz_filter_update())
+	 * can ask the filter to refresh what it shows -- see
+	 * notify_properties_changed(). Not used for anything else yet (that's
+	 * a later phase); PTZDevice's own proc_handler/signal_handler are
+	 * still private to PTZDevice at this point. */
+	struct ptz_filter *ptzf = nullptr;
+
 public:
 	~PTZDevice();
 	PTZDevice(OBSData config);
 	uint32_t getId() const { return id; }
+	std::string getType() const { return type; }
+	void set_filter_pointer(struct ptz_filter *_ptzf) { ptzf = _ptzf; }
 	/* Fires the create signal PTZListModel discovers new devices through.
 	 * Called by ptz_device_create() once the full object (base and
 	 * derived) is constructed -- see the comment on the definition. */
@@ -177,6 +189,12 @@ protected slots:
 	void preset_save(calldata_t *cd);
 	void preset_recall(calldata_t *cd);
 	void preset_clear(calldata_t *cd);
+	/* Invoked (via a queued connection, since the type change that
+	 * triggers this happens off PTZDevice's own construction, inside
+	 * ptz_filter_update()) to ask the owning filter to refresh its
+	 * properties dialog after a type change swaps in a new PTZDevice --
+	 * see ptz_filter_update() in ptz-device.cpp. */
+	void notify_properties_changed();
 
 	/* calldata_t overloads of the query/config/preset-CRUD API below,
 	 * registered on the proc_handler so PTZListModel never has to call
