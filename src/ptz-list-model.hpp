@@ -72,14 +72,17 @@ public:
 	void remove(PTZDevice *ptz);
 	void delete_all();
 
-	/* Called directly by PTZDevice preset mutators to bracket the change
-	 * with the appropriate QAbstractItemModel begin/end calls */
-	void presetBeginInsert(PTZDevice *ptz, int row);
-	void presetEndInsert(PTZDevice *ptz);
-	void presetBeginRemove(PTZDevice *ptz, int row);
-	void presetEndRemove(PTZDevice *ptz);
-	bool presetBeginMove(PTZDevice *ptz, int srcRow, int destRow);
-	void presetEndMove(PTZDevice *ptz);
+	/* React to a preset list mutation PTZDevice reports *after* it
+	 * already happened, by wrapping the model's own (still-stale) cache
+	 * refresh in the appropriate QAbstractItemModel begin/end calls --
+	 * called from the per-device signal_handler trampolines in
+	 * ptz-list-model.cpp (see PTZListModel::add()) in response to
+	 * PTZDevice's preset_inserted/preset_removed/preset_moved signals.
+	 * All the begin/end bracketing lives here: PTZDevice just states
+	 * what changed once, it doesn't call back in two phases. */
+	void presetInserted(uint32_t device_id, int row);
+	void presetRemoved(uint32_t device_id, int row);
+	void presetMoved(uint32_t device_id, int srcRow, int destRow);
 
 	void deviceStateChanged(uint32_t device_id, OBSData changed);
 

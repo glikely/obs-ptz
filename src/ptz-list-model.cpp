@@ -69,6 +69,39 @@ static void device_state_changed_cb(void *data, calldata_t *cd)
 				  [ptzlm, device_id, changed] { ptzlm->deviceStateChanged(device_id, changed); });
 }
 
+/**
+ * Preset list mutation notifications. PTZDevice fires each of these once,
+ * after its preset list has already been mutated -- these trampolines
+ * route them to PTZListModel, which does the begin.../end...Rows()
+ * bracketing itself against its own (still-stale) cache.
+ */
+static void preset_inserted_cb(void *data, calldata_t *cd)
+{
+	auto ptzlm = static_cast<PTZListModel *>(data);
+	auto device_id = (uint32_t)calldata_int(cd, "device_id");
+	auto row = (int)calldata_int(cd, "row");
+	QMetaObject::invokeMethod(ptzlm, [ptzlm, device_id, row] { ptzlm->presetInserted(device_id, row); });
+}
+
+static void preset_removed_cb(void *data, calldata_t *cd)
+{
+	auto ptzlm = static_cast<PTZListModel *>(data);
+	auto device_id = (uint32_t)calldata_int(cd, "device_id");
+	auto row = (int)calldata_int(cd, "row");
+	QMetaObject::invokeMethod(ptzlm, [ptzlm, device_id, row] { ptzlm->presetRemoved(device_id, row); });
+}
+
+static void preset_moved_cb(void *data, calldata_t *cd)
+{
+	auto ptzlm = static_cast<PTZListModel *>(data);
+	auto device_id = (uint32_t)calldata_int(cd, "device_id");
+	auto src_row = (int)calldata_int(cd, "src_row");
+	auto dest_row = (int)calldata_int(cd, "dest_row");
+	QMetaObject::invokeMethod(ptzlm, [ptzlm, device_id, src_row, dest_row] {
+		ptzlm->presetMoved(device_id, src_row, dest_row);
+	});
+}
+
 PTZListModel::PTZListModel() : QAbstractItemModel()
 {
 	signal_handler_t *sh = obs_get_signal_handler();
@@ -190,6 +223,12 @@ bool PTZListModel::moveRows(const QModelIndex &srcParent, int srcRow, int count,
 		return false;
 	if (count != 1)
 		return false;
+	/* Same validity rule beginMoveRows() enforces (moving to a position
+	 * within, or immediately after, the moved range is a no-op) -- check
+	 * it here so the backend is never asked to perform a move
+	 * presetMoved() would then have to reject via beginMoveRows(). */
+	if (destChild == srcRow || destChild == srcRow + 1)
+		return false;
 
 	ptz->movePreset(srcRow, destChild);
 	return true;
@@ -297,7 +336,7 @@ void PTZListModel::do_reset()
 
 void PTZListModel::name_changed(PTZDevice *ptz)
 {
-	auto index = indexFromDeviceId(ptz->id);
+	auto index = indexFromDeviceId(ptz->getId());
 	if (index.isValid())
 		emit dataChanged(index, index);
 }
@@ -343,7 +382,7 @@ QStringList PTZListModel::getDeviceNames() const
 bool PTZListModel::callDevice(const QModelIndex &index, const char *method, calldata_t *cd)
 {
 	auto ptz = getDevice(index);
-	return ptz ? proc_handler_call(ptz->handler, method, cd) : false;
+	return ptz ? proc_handler_call(ptz->getProcHandler(), method, cd) : false;
 }
 
 /**
@@ -353,7 +392,7 @@ bool PTZListModel::callDevice(const QModelIndex &index, const char *method, call
 bool PTZListModel::callDevice(const char *method, calldata_t *cd)
 {
 	auto ptz = getDevice(calldata_int(cd, "device_id"));
-	return ptz ? proc_handler_call(ptz->handler, method, cd) : false;
+	return ptz ? proc_handler_call(ptz->getProcHandler(), method, cd) : false;
 }
 
 QModelIndex PTZListModel::indexFromDeviceId(uint32_t device_id)
@@ -411,13 +450,16 @@ void PTZListModel::add(PTZDevice *ptz)
 	uint32_t id = ptz->getId();
 	while (devicesById.contains(id) || id == 0)
 		id++;
-	ptz->id = id;
+	ptz->setId(id);
 	devices.append(ptz);
-	devicesById[ptz->id] = ptz;
+	devicesById[ptz->getId()] = ptz;
 	do_reset();
 
 	signal_handler_t *sh = ptz->getSignalHandler();
 	signal_handler_connect(sh, "state_changed", device_state_changed_cb, this);
+	signal_handler_connect(sh, "preset_inserted", preset_inserted_cb, this);
+	signal_handler_connect(sh, "preset_removed", preset_removed_cb, this);
+	signal_handler_connect(sh, "preset_moved", preset_moved_cb, this);
 }
 
 void PTZListModel::removeDevice(const QModelIndex &index)
@@ -465,16 +507,20 @@ void PTZListModel::delete_all()
 
 void PTZListModel::preset_recall(uint32_t device_id, int preset_id)
 {
-	PTZDevice *ptz = ptzDeviceList->getDevice(device_id);
-	if (ptz)
-		ptz->memory_recall(preset_id);
+	calldata_t cd = {};
+	calldata_set_int(&cd, "device_id", device_id);
+	calldata_set_int(&cd, "preset_id", preset_id);
+	callDevice("ptz_preset_recall", &cd);
+	calldata_free(&cd);
 }
 
 void PTZListModel::preset_save(uint32_t device_id, int preset_id)
 {
-	PTZDevice *ptz = getDevice(device_id);
-	if (ptz)
-		ptz->memory_set(preset_id);
+	calldata_t cd = {};
+	calldata_set_int(&cd, "device_id", device_id);
+	calldata_set_int(&cd, "preset_id", preset_id);
+	callDevice("ptz_preset_save", &cd);
+	calldata_free(&cd);
 }
 
 void PTZListModel::deviceStateChanged(uint32_t device_id, OBSData)
@@ -484,33 +530,27 @@ void PTZListModel::deviceStateChanged(uint32_t device_id, OBSData)
 		emit dataChanged(idx, idx);
 }
 
-void PTZListModel::presetBeginInsert(PTZDevice *ptz, int row)
+/**
+ * PTZDevice has already inserted the new preset into its own list by the
+ * time this fires -- beginInsertRows()/endInsertRows() bracket the model's
+ * own row-count change, not anything PTZDevice needs to know about.
+ */
+void PTZListModel::presetInserted(uint32_t device_id, int row)
 {
-	beginInsertRows(indexFromDeviceId(ptz->getId()), row, row);
-}
-
-void PTZListModel::presetEndInsert(PTZDevice *)
-{
+	beginInsertRows(indexFromDeviceId(device_id), row, row);
 	endInsertRows();
 }
 
-void PTZListModel::presetBeginRemove(PTZDevice *ptz, int row)
+void PTZListModel::presetRemoved(uint32_t device_id, int row)
 {
-	beginRemoveRows(indexFromDeviceId(ptz->getId()), row, row);
-}
-
-void PTZListModel::presetEndRemove(PTZDevice *)
-{
+	beginRemoveRows(indexFromDeviceId(device_id), row, row);
 	endRemoveRows();
 }
 
-bool PTZListModel::presetBeginMove(PTZDevice *ptz, int srcRow, int destRow)
+void PTZListModel::presetMoved(uint32_t device_id, int srcRow, int destRow)
 {
-	auto parent = indexFromDeviceId(ptz->getId());
-	return beginMoveRows(parent, srcRow, srcRow, parent, destRow);
-}
-
-void PTZListModel::presetEndMove(PTZDevice *)
-{
+	auto parent = indexFromDeviceId(device_id);
+	if (!beginMoveRows(parent, srcRow, srcRow, parent, destRow))
+		return;
 	endMoveRows();
 }
