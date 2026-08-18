@@ -55,6 +55,21 @@ static void device_destroy_cb(void *data, calldata_t *cd)
 		ptzlm->remove(ptz);
 }
 
+/**
+ * Per-device change notification -- connected to PTZDevice's single
+ * "state_changed" signal (see PTZListModel::add()) rather than a Qt signal,
+ * so it can only identify the device by the "device_id" calldata field --
+ * not by QObject::sender(). Status, rename, and settings changes alike all
+ * fire the same signal: none of them carry enough of a payload on their
+ * own to distinguish what changed, and PTZListModel doesn't need to -- it
+ * just re-reads straight off the PTZDevice* on the next data() call, so
+ * "something changed" is all this needs to mean.
+ */
+static void device_state_changed_cb(void *data, calldata_t *cd)
+{
+	static_cast<PTZListModel *>(data)->deviceStatusChanged((uint32_t)calldata_int(cd, "device_id"));
+}
+
 PTZListModel::PTZListModel() : QAbstractItemModel()
 {
 	signal_handler_t *sh = obs_get_signal_handler();
@@ -406,7 +421,8 @@ void PTZListModel::add(PTZDevice *ptz)
 	devicesById[ptz->id] = ptz;
 	do_reset();
 
-	connect(ptz, &PTZDevice::settingsChanged, this, &PTZListModel::deviceSettingsChanged);
+	signal_handler_t *sh = ptz->getSignalHandler();
+	signal_handler_connect(sh, "state_changed", device_state_changed_cb, this);
 }
 
 void PTZListModel::removeDevice(const QModelIndex &index)
@@ -470,13 +486,11 @@ void PTZListModel::preset_save(uint32_t device_id, int preset_id)
 		ptz->memory_set(preset_id);
 }
 
-void PTZListModel::deviceSettingsChanged(OBSData)
+void PTZListModel::deviceStatusChanged(uint32_t device_id)
 {
-	int row = devices.indexOf(qobject_cast<PTZDevice *>(sender()));
-	if (row < 0)
-		return;
-	auto idx = index(row, 0);
-	emit dataChanged(idx, idx);
+	auto idx = indexFromDeviceId(device_id);
+	if (idx.isValid())
+		emit dataChanged(idx, idx);
 }
 
 void PTZListModel::presetBeginInsert(PTZDevice *ptz, int row)

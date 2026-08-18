@@ -68,10 +68,14 @@ protected:
 	// Each PTZ device has a proc handler so methods can be called
 	// from other plugins
 	proc_handler_t *handler = nullptr;
+	// ...and a signal handler so status changes can be observed without a
+	// direct C++ reference to this class (see ptz-list-model.cpp)
+	signal_handler_t *sigs = nullptr;
+	void notifySettingsChanged();
 
-signals:
-	void settingsChanged(OBSData settings);
-	void connectionStatusChanged(bool connected);
+public:
+	proc_handler_t *getProcHandler() const { return handler; }
+	signal_handler_t *getSignalHandler() const { return sigs; }
 
 public:
 	~PTZDevice();

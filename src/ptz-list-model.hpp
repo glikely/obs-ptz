@@ -84,10 +84,15 @@ public:
 	bool presetBeginMove(PTZDevice *ptz, int srcRow, int destRow);
 	void presetEndMove(PTZDevice *ptz);
 
+	/* Called by the per-device signal_handler trampoline in
+	 * ptz-list-model.cpp when a device reports a status/settings change
+	 * or a rename; not a Qt slot since nothing emits a Qt signal for
+	 * these any more. */
+	void deviceStatusChanged(uint32_t device_id);
+
 public slots:
 	void preset_recall(uint32_t device_id, int preset_id);
 	void preset_save(uint32_t device_id, int preset_id);
-	void deviceSettingsChanged(OBSData changed);
 };
 
 /* A pointer rather than a plain global: a plain global's constructor would

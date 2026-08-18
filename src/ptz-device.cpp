@@ -58,6 +58,21 @@ PTZDevice::PTZDevice(OBSData config) : QObject()
 	proc_handler_add(handler, "void ptz_preset_recall()", ptz_ph_lambda(preset_recall), this);
 	proc_handler_add(handler, "void ptz_preset_clear()", ptz_ph_lambda(preset_clear), this);
 
+	/* A single change notification, broadcast on a per-device signal
+	 * handler so listeners never need a direct C++ reference to this
+	 * class -- see PTZListModel::add()/device_create_cb(). One signal
+	 * covers status, rename, and settings changes alike: none of them
+	 * carry enough of a payload on their own for a listener to patch
+	 * anything selectively, so there's nothing a separate signal per
+	 * change kind would let a listener do differently -- just device_id,
+	 * to say which device to re-query. */
+	sigs = signal_handler_create();
+	if (!sigs) {
+		blog(LOG_ERROR, "could not allocate signal_handler for %s", obs_data_get_string(config, "name"));
+	} else {
+		signal_handler_add(sigs, "void state_changed(int device_id)");
+	}
+
 	setObjectName(obs_data_get_string(config, "name"));
 	id = (int)obs_data_get_int(config, "id");
 	type = obs_data_get_string(config, "type");
@@ -85,6 +100,8 @@ PTZDevice::~PTZDevice()
 
 	proc_handler_destroy(handler);
 	handler = nullptr;
+	signal_handler_destroy(sigs);
+	sigs = nullptr;
 }
 
 void PTZDevice::setObjectName(QString name)
@@ -104,7 +121,11 @@ void PTZDevice::setObjectName(QString name)
 		new_name = name + " " + QString::number(i);
 	}
 	QObject::setObjectName(new_name);
-	ptzDeviceList->name_changed(this);
+
+	calldata_t cd = {};
+	calldata_set_int(&cd, "device_id", id);
+	signal_handler_signal(sigs, "state_changed", &cd);
+	calldata_free(&cd);
 }
 
 QString PTZDevice::description()
@@ -580,6 +601,18 @@ void PTZDevice::setConnected(bool _connected)
 {
 	bool was_connected = connected;
 	connected = _connected;
-	if (was_connected != connected)
-		emit connectionStatusChanged(connected);
+	if (was_connected != connected) {
+		calldata_t cd = {};
+		calldata_set_int(&cd, "device_id", id);
+		signal_handler_signal(sigs, "state_changed", &cd);
+		calldata_free(&cd);
+	}
+}
+
+void PTZDevice::notifySettingsChanged()
+{
+	calldata_t cd = {};
+	calldata_set_int(&cd, "device_id", id);
+	signal_handler_signal(sigs, "state_changed", &cd);
+	calldata_free(&cd);
 }
