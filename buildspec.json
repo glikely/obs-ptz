@@ -34,16 +34,6 @@
                 "windows-arm64": "ffe5b46f6abc81355a4161efdef6cbb2e8862eb053bd2211808c4d4833fcee78"
             }
         },
-        "qtserialport": {
-            "version": "6.11.1",
-            "baseUrl": "https://download.qt.io/archive/qt/6.11/6.11.1/submodules",
-            "label": "Qt6SerialPort",
-            "hashes": {
-                "macos": "9af31a898ffd9a7e4faf6fed845d29e783c716885789055cbe319f3e072d3974",
-                "windows-x64": "c4eb4ff1e3ac1ca39630b4614028b225af1fc1cb9504389efdd3b0a7833a2c1f",
-                "windows-arm64": "c4eb4ff1e3ac1ca39630b4614028b225af1fc1cb9504389efdd3b0a7833a2c1f"
-            }
-        },
         "sdl": {
             "version": "2.32.10",
             "baseUrl": "https://github.com/libsdl-org/sdl/releases/download/release-2.32.10",

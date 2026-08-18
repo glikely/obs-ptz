@@ -39,16 +39,7 @@ if(ENABLE_QT)
     foreach(
       _qt_target
       IN
-      ITEMS
-        Qt6::Core
-        Qt6::Widgets
-        Qt6::Svg
-        Qt6::Network
-        Qt6::Xml
-        Qt6::SerialPort
-        WrapOpenGL::WrapOpenGL
-        OpenGL::GL
-        OpenGL::GLU
+      ITEMS Qt6::Core Qt6::Widgets Qt6::Svg Qt6::Network Qt6::Xml WrapOpenGL::WrapOpenGL OpenGL::GL OpenGL::GLU
     )
       if(TARGET ${_qt_target})
         foreach(_qt_prop IN ITEMS INTERFACE_LINK_LIBRARIES INTERFACE_LINK_OPTIONS)
@@ -132,22 +123,21 @@ endif()
 
 option(ENABLE_SERIALPORT "Enable UART connected camera support" OFF)
 if(ENABLE_SERIALPORT)
-  find_package(Qt6 COMPONENTS SerialPort)
-  if(Qt6SerialPort_FOUND)
-    add_compile_definitions(ENABLE_SERIALPORT)
-    target_link_libraries(${CMAKE_PROJECT_NAME} PRIVATE Qt::SerialPort)
-    target_sources(
-      ${CMAKE_PROJECT_NAME}
-      PRIVATE
-        src/uart-wrapper.cpp
-        src/uart-wrapper.hpp
-        src/ptz-visca-uart.cpp
-        src/ptz-visca-uart.hpp
-        src/ptz-pelco.cpp
-        src/ptz-pelco.hpp
-    )
-    package_qt_library(${CMAKE_PROJECT_NAME} SerialPort)
-  endif()
+  add_compile_definitions(ENABLE_SERIALPORT)
+  # No system package on any platform (see shared/serial/README.md) -
+  # vendor and statically link everywhere, unlike shared/libserialport.
+  add_subdirectory(shared/serial)
+  target_link_libraries(${CMAKE_PROJECT_NAME} PRIVATE serial_cpp)
+  target_sources(
+    ${CMAKE_PROJECT_NAME}
+    PRIVATE
+      src/uart-wrapper.cpp
+      src/uart-wrapper.hpp
+      src/ptz-visca-uart.cpp
+      src/ptz-visca-uart.hpp
+      src/ptz-pelco.cpp
+      src/ptz-pelco.hpp
+  )
 endif()
 
 option(ENABLE_JOYSTICK "Enable Joystick support" OFF)
