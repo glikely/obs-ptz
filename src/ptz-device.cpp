@@ -67,12 +67,12 @@ PTZDevice::PTZDevice(OBSData config) : QObject()
 	obs_data_release(statistics);
 	obs_data_set_obj(settings, "statistics", statistics);
 	stale_settings = {"pan_pos", "tilt_pos", "zoom_pos", "focus_pos"};
-	ptzDeviceList.add(this);
+	ptzDeviceList->add(this);
 }
 
 PTZDevice::~PTZDevice()
 {
-	ptzDeviceList.remove(this);
+	ptzDeviceList->remove(this);
 	proc_handler_destroy(handler);
 	handler = nullptr;
 }
@@ -88,13 +88,13 @@ void PTZDevice::setObjectName(QString name)
 		return;
 	QString new_name = name;
 	for (int i = 1;; i++) {
-		PTZDevice *ptz = ptzDeviceList.getDeviceByName(new_name);
+		PTZDevice *ptz = ptzDeviceList->getDeviceByName(new_name);
 		if (!ptz)
 			break;
 		new_name = name + " " + QString::number(i);
 	}
 	QObject::setObjectName(new_name);
-	ptzDeviceList.name_changed(this);
+	ptzDeviceList->name_changed(this);
 }
 
 QString PTZDevice::description()
@@ -335,7 +335,7 @@ obs_properties_t *PTZDevice::get_obs_properties()
 	/* Add all sources not assigned to a camera */
 	QStringList srcnames;
 	obs_enum_sources(src_cb, &srcnames);
-	for (auto n : ptzDeviceList.getDeviceNames())
+	for (auto n : ptzDeviceList->getDeviceNames())
 		srcnames.removeAll(n);
 	for (auto n : srcnames)
 		obs_property_list_add_string(srcs_prop, QT_TO_UTF8(n), QT_TO_UTF8(n));
@@ -367,13 +367,13 @@ obs_properties_t *PTZDevice::get_obs_properties()
 obs_data_array_t *ptz_devices_get_config()
 {
 	obs_data_array_t *devices = obs_data_array_create();
-	ptzDeviceList.save(devices);
+	ptzDeviceList->save(devices);
 	return devices;
 }
 
 obs_source_t *ptz_device_find_source_using_ptz_name(uint32_t device_id)
 {
-	PTZDevice *ptz = ptzDeviceList.getDevice(device_id);
+	PTZDevice *ptz = ptzDeviceList->getDevice(device_id);
 	if (!ptz)
 		return NULL;
 	return obs_get_source_by_name(QT_TO_UTF8(ptz->objectName()));
@@ -388,7 +388,7 @@ void ptz_devices_set_config(obs_data_array_t *devices)
 	for (size_t i = 0; i < obs_data_array_count(devices); i++) {
 		OBSData ptzcfg = obs_data_array_item(devices, i);
 		obs_data_release(ptzcfg);
-		ptzDeviceList.make_device(ptzcfg);
+		ptzDeviceList->make_device(ptzcfg);
 	}
 }
 
@@ -406,9 +406,14 @@ void ptz_load_devices()
 	if (!ptz_ph)
 		return;
 
+	/* Constructed here rather than as a plain static-storage global so
+	 * its constructor happens at a well-defined point in the module load
+	 * instead of at plugin-library-load time -- see PTZListModel::create() */
+	PTZListModel::create();
+
 	/* Preset Recall/Save Callback */
 	auto ptz_cb = [](void *p, calldata_t *cd) {
-		ptzDeviceList.callDevice(static_cast<const char *>(p), cd);
+		ptzDeviceList->callDevice(static_cast<const char *>(p), cd);
 	};
 	proc_handler_add(ptz_ph, "void ptz_preset_save(int device_id, int preset_id)", ptz_cb,
 			 (void *)"ptz_preset_save");
@@ -436,6 +441,9 @@ void ptz_load_devices()
 
 void ptz_unload_devices(void)
 {
+	/* Reverse of construction order */
+	PTZListModel::destroy();
+
 	proc_handler_destroy(ptz_ph);
 	ptz_ph = nullptr;
 }
@@ -472,32 +480,32 @@ int PTZDevice::newPreset(int row)
 	if (id >= (int)m_maxPresets)
 		return -1;
 
-	ptzDeviceList.presetBeginInsert(this, row);
+	ptzDeviceList->presetBeginInsert(this, row);
 	QVariantMap map;
 	map["id"] = (uint)id;
 	m_presets[id] = map;
 	m_presetsDisplayOrder.insert(row, id);
-	ptzDeviceList.presetEndInsert(this);
+	ptzDeviceList->presetEndInsert(this);
 
 	return id;
 }
 
 void PTZDevice::removePresetAtDisplayRow(int row)
 {
-	ptzDeviceList.presetBeginRemove(this, row);
+	ptzDeviceList->presetBeginRemove(this, row);
 	m_presets.remove(m_presetsDisplayOrder[row]);
 	m_presetsDisplayOrder.removeAt(row);
-	ptzDeviceList.presetEndRemove(this);
+	ptzDeviceList->presetEndRemove(this);
 }
 
 void PTZDevice::movePreset(int srcRow, int destRow)
 {
-	if (!ptzDeviceList.presetBeginMove(this, srcRow, destRow))
+	if (!ptzDeviceList->presetBeginMove(this, srcRow, destRow))
 		return;
 	if (srcRow < destRow)
 		destRow--;
 	m_presetsDisplayOrder.move(srcRow, destRow);
-	ptzDeviceList.presetEndMove(this);
+	ptzDeviceList->presetEndMove(this);
 }
 
 int PTZDevice::presetAtDisplayRow(int row) const

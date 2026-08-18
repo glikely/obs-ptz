@@ -71,7 +71,7 @@ obs_properties_t *PTZSettings::getProperties(void)
 		return true;
 	};
 
-	auto props = ptzDeviceList.getProperties(ui->deviceList->currentIndex());
+	auto props = ptzDeviceList->getProperties(ui->deviceList->currentIndex());
 	auto debug = obs_properties_create();
 	obs_properties_add_text(debug, "debug_info", NULL, OBS_TEXT_INFO);
 	obs_properties_add_button2(debug, "dbgdump", "Write to OBS log", cb, settings);
@@ -81,7 +81,7 @@ obs_properties_t *PTZSettings::getProperties(void)
 
 void PTZSettings::updateProperties(OBSData, OBSData new_settings)
 {
-	ptzDeviceList.update(ui->deviceList->currentIndex(), new_settings);
+	ptzDeviceList->update(ui->deviceList->currentIndex(), new_settings);
 }
 
 PTZSettings::PTZSettings() : QWidget(nullptr), ui(new Ui_PTZSettings)
@@ -91,7 +91,7 @@ PTZSettings::PTZSettings() : QWidget(nullptr), ui(new Ui_PTZSettings)
 
 	ui->setupUi(this);
 
-	connect(&ptzDeviceList, &PTZListModel::dataChanged, this, &PTZSettings::settingsChanged);
+	connect(ptzDeviceList, &PTZListModel::dataChanged, this, &PTZSettings::settingsChanged);
 
 	ui->autoselectCheckBox->setChecked(PTZControls::getInstance()->autoselectEnabled());
 	connect(PTZControls::getInstance(), &PTZControls::autoselectEnabledChanged, ui->autoselectCheckBox,
@@ -112,7 +112,7 @@ PTZSettings::PTZSettings() : QWidget(nullptr), ui(new Ui_PTZSettings)
 		&PTZControls::setSpeedRampEnabled);
 
 	auto snd = new SourceNameDelegate(this);
-	ui->deviceList->setModel(&ptzDeviceList);
+	ui->deviceList->setModel(ptzDeviceList);
 	ui->deviceList->setItemDelegateForColumn(0, snd);
 
 	QItemSelectionModel *selectionModel = ui->deviceList->selectionModel();
@@ -388,7 +388,7 @@ void PTZSettings::on_addPTZ_clicked()
 		OBSData cfg = obs_data_create();
 		obs_data_release(cfg);
 		obs_data_set_string(cfg, "type", "visca");
-		ptzDeviceList.make_device(cfg);
+		ptzDeviceList->make_device(cfg);
 	}
 #endif
 	if (action == addViscaUDP) {
@@ -396,14 +396,14 @@ void PTZSettings::on_addPTZ_clicked()
 		obs_data_release(cfg);
 		obs_data_set_string(cfg, "type", "visca-over-ip");
 		obs_data_set_int(cfg, "port", 52381);
-		ptzDeviceList.make_device(cfg);
+		ptzDeviceList->make_device(cfg);
 	}
 	if (action == addViscaTCP) {
 		OBSData cfg = obs_data_create();
 		obs_data_release(cfg);
 		obs_data_set_string(cfg, "type", "visca-over-tcp");
 		obs_data_set_int(cfg, "port", 5678);
-		ptzDeviceList.make_device(cfg);
+		ptzDeviceList->make_device(cfg);
 	}
 #if defined(ENABLE_SERIALPORT)
 	if (action == addPelcoD) {
@@ -411,14 +411,14 @@ void PTZSettings::on_addPTZ_clicked()
 		obs_data_release(cfg);
 		obs_data_set_string(cfg, "type", "pelco");
 		obs_data_set_bool(cfg, "use_pelco_d", true);
-		ptzDeviceList.make_device(cfg);
+		ptzDeviceList->make_device(cfg);
 	}
 	if (action == addPelcoP) {
 		OBSData cfg = obs_data_create();
 		obs_data_release(cfg);
 		obs_data_set_string(cfg, "type", "pelco");
 		obs_data_set_bool(cfg, "use_pelco_d", false);
-		ptzDeviceList.make_device(cfg);
+		ptzDeviceList->make_device(cfg);
 	}
 #endif
 #if defined(ENABLE_ONVIF)
@@ -426,7 +426,7 @@ void PTZSettings::on_addPTZ_clicked()
 		OBSData cfg = obs_data_create();
 		obs_data_release(cfg);
 		obs_data_set_string(cfg, "type", "onvif");
-		ptzDeviceList.make_device(cfg);
+		ptzDeviceList->make_device(cfg);
 	}
 #endif
 #if defined(ENABLE_USB_CAM)
@@ -434,26 +434,26 @@ void PTZSettings::on_addPTZ_clicked()
 		OBSData cfg = obs_data_create();
 		obs_data_release(cfg);
 		obs_data_set_string(cfg, "type", "usb-cam");
-		ptzDeviceList.make_device(cfg);
+		ptzDeviceList->make_device(cfg);
 	}
 #endif
 }
 
 void PTZSettings::on_removePTZ_clicked()
 {
-	ptzDeviceList.removeDevice(ui->deviceList->currentIndex());
+	ptzDeviceList->removeDevice(ui->deviceList->currentIndex());
 }
 
 void PTZSettings::on_applyButton_clicked()
 {
-	ptzDeviceList.update(ui->deviceList->currentIndex(), propertiesView->GetSettings());
+	ptzDeviceList->update(ui->deviceList->currentIndex(), propertiesView->GetSettings());
 }
 
 void PTZSettings::currentChanged(const QModelIndex &current, const QModelIndex &)
 {
 	obs_data_clear(settings);
 
-	ptzDeviceList.save(current, settings);
+	ptzDeviceList->save(current, settings);
 	auto rawjson = obs_data_get_json(settings);
 	/* Use QJsonDocument for nice formatting */
 	auto json = QJsonDocument::fromJson(rawjson).toJson();
@@ -469,7 +469,7 @@ void PTZSettings::settingsChanged(const QModelIndex &topLeft, const QModelIndex 
 	if (!range.contains(idx))
 		return;
 
-	ptzDeviceList.save(idx, settings);
+	ptzDeviceList->save(idx, settings);
 	obs_data_erase(settings, "debug_info");
 	auto json = QJsonDocument::fromJson(obs_data_get_json(settings)).toJson();
 	obs_data_set_string(settings, "debug_info", json.constData());

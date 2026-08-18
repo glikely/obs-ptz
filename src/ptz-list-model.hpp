@@ -34,6 +34,12 @@ public:
 
 	PTZListModel();
 	~PTZListModel();
+	/* Constructs/destroys the ptzDeviceList singleton. Called from
+	 * ptz_load_devices()/ptz_unload_devices() so construction happens at
+	 * obs_module_load() time rather than at plugin-library-load (static
+	 * init) time -- see ptzDeviceList's extern declaration below. */
+	static void create();
+	static void destroy();
 	QModelIndex index(int row, int column, const QModelIndex &parent = QModelIndex()) const override;
 	QModelIndex parent(const QModelIndex &child) const override;
 	int rowCount(const QModelIndex &parent = QModelIndex()) const override;
@@ -84,4 +90,12 @@ public slots:
 	void deviceSettingsChanged(OBSData changed);
 };
 
-extern PTZListModel ptzDeviceList;
+/* A pointer rather than a plain global: a plain global's constructor would
+ * run at plugin-library-load time (static init), before obs_module_load()
+ * gets a chance to run anything -- notably before ptz_load_devices() sets
+ * up any state this class's constructor might one day need to depend on.
+ * PTZListModel::create() allocates it at the right time instead. It's valid
+ * for the plugin's entire lifetime after that (obs_module_load() calls
+ * create() before anything else that could touch it), so callers don't
+ * null-check it. */
+extern PTZListModel *ptzDeviceList;
