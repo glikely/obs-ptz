@@ -18,7 +18,7 @@ std::map<QString, PelcoUART *> PelcoUART::interfaces;
 
 void PelcoUART::receive_datagram(const QByteArray &packet)
 {
-	blog(LOG_DEBUG, "%s <-- %s", qPrintable(port_name), packet.toHex(':').data());
+	blog(LOG_DEBUG, "%s <-- %s", qPrintable(portName()), packet.toHex(':').data());
 
 	emit receive(packet);
 }
