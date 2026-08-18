@@ -27,7 +27,7 @@
 /**
  * The only place PTZDevice* pointers live outside the object itself. Used
  * for unique-id assignment and the handful of C-linkage entry points
- * (ptz_device_find_source_using_ptz_name(), ptz_devices_get_config(), the
+ * (ptz_device_find_source(), ptz_devices_get_config(), the
  * legacy scripting proc_handler) that need to reach a specific device
  * directly. PTZListModel never sees this -- it only ever gets a device_id
  * plus the proc_handler_t / signal_handler_t pointers handed to it over the
@@ -147,6 +147,34 @@ QString PTZDevice::description()
 }
 
 /**
+ * The source this device controls, found via the owning filter's real
+ * obs_filter_get_parent() association -- see the declaration in
+ * ptz-device.hpp for the ownership contract.
+ */
+obs_source_t *PTZDevice::getSource() const
+{
+	if (!filter_source)
+		return nullptr;
+	obs_source_t *parent = obs_filter_get_parent(filter_source);
+	return parent ? obs_source_get_ref(parent) : nullptr;
+}
+
+/**
+ * A freshly created filter has no name of its own yet (there's no more
+ * "associated source" combo to populate it from a pick) -- give it the
+ * parent's name once, right when the association is made, so it doesn't
+ * sit at the placeholder default until something else happens to rename
+ * it. Only touches the name if it's still at that default, so this is a
+ * no-op for a device loaded from saved settings (which already has a real
+ * name) or one that's already been manually renamed.
+ */
+void PTZDevice::onFilterAddedToSource(obs_source_t *parent)
+{
+	if (objectName().startsWith(obs_module_text("PTZ.Device.DefaultName")))
+		setObjectName(QT_UTF8(obs_source_get_name(parent)));
+}
+
+/**
  * Update state of the device when the frontend scene changes
  */
 void PTZDevice::onSceneChanged()
@@ -158,7 +186,7 @@ void PTZDevice::onSceneChanged()
 	preview = false;
 	// Check if the device's source is in the active program scene
 	// If it is then disable the pan/tilt/zoom controls
-	auto source = obs_get_source_by_name(QT_TO_UTF8(objectName()));
+	OBSSourceAutoRelease source = getSource();
 	if (source) {
 		auto program = obs_frontend_get_current_scene();
 		locked = live = ptz_scene_is_source_active(program, source);
@@ -169,8 +197,6 @@ void PTZDevice::onSceneChanged()
 			preview = ptz_scene_is_source_active(previewScene, source);
 			obs_source_release(previewScene);
 		}
-
-		obs_source_release(source);
 	}
 
 	/* PTZListModel's cache of live/preview/locked can only be refreshed
@@ -467,28 +493,6 @@ void PTZDevice::save(OBSData config) const
 obs_properties_t *PTZDevice::get_obs_properties()
 {
 	obs_properties_t *rtn_props = obs_properties_create();
-
-	/* Combo box list for associated OBS source */
-	auto src_cb = [](void *data, obs_source_t *src) {
-		auto srcnames = static_cast<QStringList *>(data);
-		if (obs_source_get_type(src) != OBS_SOURCE_TYPE_SCENE)
-			srcnames->append(obs_source_get_name(src));
-		return true;
-	};
-	auto srcs_prop = obs_properties_add_list(rtn_props, "name", obs_module_text("PTZ.Source"), OBS_COMBO_TYPE_LIST,
-						 OBS_COMBO_FORMAT_STRING);
-	obs_property_list_add_string(srcs_prop, obs_module_text("PTZ.Device.NoSource"), "");
-	/* Add current source to top list */
-	OBSSourceAutoRelease src = obs_get_source_by_name(QT_TO_UTF8(objectName()));
-	if (src)
-		obs_property_list_add_string(srcs_prop, QT_TO_UTF8(objectName()), QT_TO_UTF8(objectName()));
-	/* Add all sources not assigned to a camera */
-	QStringList srcnames;
-	obs_enum_sources(src_cb, &srcnames);
-	for (auto ptz : ptz_device_registry)
-		srcnames.removeAll(ptz->objectName());
-	for (auto n : srcnames)
-		obs_property_list_add_string(srcs_prop, QT_TO_UTF8(n), QT_TO_UTF8(n));
 
 	obs_properties_t *config = obs_properties_create();
 	obs_properties_add_group(rtn_props, "interface", obs_module_text("PTZ.Device.Connection"), OBS_GROUP_NORMAL,
@@ -833,6 +837,20 @@ static void ptz_filter_save(void *data, obs_data_t *settings)
 		ptzf->ptz->save(settings);
 }
 
+/**
+ * Fires once obs_source_filter_add() has actually attached this filter to
+ * a parent -- .create() runs before that attachment happens, so this is
+ * the earliest point obs_filter_get_parent() is valid. Used to give a
+ * freshly created device a real starting name; see
+ * PTZDevice::onFilterAddedToSource().
+ */
+static void ptz_filter_add(void *data, obs_source_t *parent)
+{
+	auto ptzf = static_cast<struct ptz_filter *>(data);
+	if (ptzf->ptz)
+		ptzf->ptz->onFilterAddedToSource(parent);
+}
+
 static struct obs_source_info ptz_filter_info = {
 	.id = "PTZ Control",
 	.type = OBS_SOURCE_TYPE_FILTER,
@@ -857,15 +875,17 @@ static struct obs_source_info ptz_filter_info = {
 	.update = ptz_filter_update,
 	.save = ptz_filter_save,
 	.icon_type = OBS_ICON_TYPE_CAMERA,
+	.filter_add = ptz_filter_add,
 };
 
-/* C interface for non-QT parts of the plugin */
-obs_source_t *ptz_device_find_source_using_ptz_name(uint32_t device_id)
+/* C interface for non-QT parts of the plugin. Addref'd -- caller must
+ * release, same contract as getSource() itself. */
+obs_source_t *ptz_device_find_source(uint32_t device_id)
 {
 	PTZDevice *ptz = ptz_device_registry.value(device_id, nullptr);
 	if (!ptz)
 		return NULL;
-	return obs_get_source_by_name(QT_TO_UTF8(ptz->objectName()));
+	return ptz->getSource();
 }
 
 /**

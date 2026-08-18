@@ -106,6 +106,18 @@ public:
 	bool isPreview() const { return preview; }
 	virtual bool supportsSetHome() const { return false; }
 	void onSceneChanged();
+	/* The source this device controls, found via the owning filter's real
+	 * association (obs_filter_get_parent()) rather than by matching names.
+	 * Addref'd like obs_get_source_by_name() -- caller must release.
+	 * Returns nullptr if the filter hasn't been attached to a parent yet
+	 * (e.g. mid ptz_filter_create(), before obs_source_filter_add() runs). */
+	obs_source_t *getSource() const;
+	/* Called once, right after the owning filter is attached to a parent
+	 * source (see ptz_filter_add() in ptz-device.cpp) -- gives a freshly
+	 * created device a real name instead of sitting at the placeholder
+	 * default forever, since there's no more "associated source" combo to
+	 * do this job. */
+	void onFilterAddedToSource(obs_source_t *parent);
 
 	size_t maxPresets() const { return m_maxPresets; }
 	int presetCount() const { return m_presetsDisplayOrder.size(); }
