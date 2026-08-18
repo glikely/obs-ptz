@@ -58,6 +58,21 @@ PTZDevice::PTZDevice(OBSData config) : QObject()
 	proc_handler_add(handler, "void ptz_preset_recall()", ptz_ph_lambda(preset_recall), this);
 	proc_handler_add(handler, "void ptz_preset_clear()", ptz_ph_lambda(preset_clear), this);
 
+	/* Query/config/preset-CRUD API for PTZListModel -- everything it
+	 * needs from a PTZDevice beyond movement/preset-recall control,
+	 * without calling PTZDevice methods directly */
+	proc_handler_add(handler, "ptr ptz_get_state()", ptz_ph_lambda(get_state), this);
+	proc_handler_add(handler, "void ptz_set_name(string name)", ptz_ph_lambda(setObjectName), this);
+	proc_handler_add(handler, "void ptz_set_locked(bool locked)", ptz_ph_lambda(setLock), this);
+	proc_handler_add(handler, "void ptz_get_config(ptr config)", ptz_ph_lambda(get_config), this);
+	proc_handler_add(handler, "void ptz_set_config(ptr config)", ptz_ph_lambda(set_config), this);
+	proc_handler_add(handler, "ptr ptz_get_properties()", ptz_ph_lambda(get_obs_properties), this);
+	proc_handler_add(handler, "ptr ptz_preset_get_list()", ptz_ph_lambda(preset_get_list), this);
+	proc_handler_add(handler, "int ptz_preset_new(int row)", ptz_ph_lambda(newPreset), this);
+	proc_handler_add(handler, "void ptz_preset_remove(int row)", ptz_ph_lambda(removePresetAtDisplayRow), this);
+	proc_handler_add(handler, "void ptz_preset_move(int src_row, int dest_row)", ptz_ph_lambda(movePreset), this);
+	proc_handler_add(handler, "void ptz_preset_set_name(int id, string name)", ptz_ph_lambda(setPresetName), this);
+
 	/* A single change notification, broadcast on a per-device signal
 	 * handler so listeners never need a direct C++ reference to this
 	 * class -- see PTZListModel::add()/device_create_cb(). One signal
@@ -290,6 +305,99 @@ void PTZDevice::preset_clear(calldata_t *cd)
 	long long id;
 	if (calldata_get_int(cd, "preset_id", &id))
 		QMetaObject::invokeMethod(this, "memory_reset", Q_ARG(int, id));
+}
+
+/**
+ * Returns a caller-owned obs_data_t snapshot of everything PTZListModel
+ * needs to display a device row without holding a PTZDevice* -- the caller
+ * is responsible for obs_data_release()ing it.
+ */
+void PTZDevice::get_state(calldata_t *cd)
+{
+	obs_data_t *state = obs_data_create();
+	obs_data_set_string(state, "name", QT_TO_UTF8(objectName()));
+	obs_data_set_string(state, "description", QT_TO_UTF8(description()));
+	obs_data_set_string(state, "type", type.c_str());
+	obs_data_set_bool(state, "connected", connected);
+	obs_data_set_bool(state, "live", live);
+	obs_data_set_bool(state, "preview", preview);
+	obs_data_set_bool(state, "locked", locked);
+	obs_data_set_bool(state, "supports_set_home", supportsSetHome());
+	obs_data_set_int(state, "max_presets", (long long)m_maxPresets);
+	calldata_set_ptr(cd, "return", state);
+}
+
+void PTZDevice::setObjectName(calldata_t *cd)
+{
+	setObjectName(QT_UTF8(calldata_string(cd, "name")));
+}
+
+void PTZDevice::setLock(calldata_t *cd)
+{
+	setLock(calldata_bool(cd, "locked"));
+}
+
+/**
+ * Fills the caller-owned obs_data_t passed in via the "config" calldata
+ * field, mirroring save(OBSData) const.
+ */
+void PTZDevice::get_config(calldata_t *cd) const
+{
+	auto config = static_cast<obs_data_t *>(calldata_ptr(cd, "config"));
+	if (config)
+		save(config);
+}
+
+void PTZDevice::set_config(calldata_t *cd)
+{
+	auto config = static_cast<obs_data_t *>(calldata_ptr(cd, "config"));
+	if (config)
+		update(config);
+}
+
+void PTZDevice::get_obs_properties(calldata_t *cd)
+{
+	calldata_set_ptr(cd, "return", get_obs_properties());
+}
+
+/**
+ * Returns a caller-owned obs_data_array_t of {id, name, token} entries in
+ * display order, the preset-list equivalent of get_state().
+ */
+void PTZDevice::preset_get_list(calldata_t *cd) const
+{
+	obs_data_array_t *list = obs_data_array_create();
+	for (auto id : m_presetsDisplayOrder) {
+		obs_data_t *item = obs_data_create();
+		obs_data_set_int(item, "id", id);
+		obs_data_set_string(item, "name", QT_TO_UTF8(presetName(id)));
+		obs_data_set_string(item, "token", QT_TO_UTF8(presetToken(id)));
+		obs_data_array_push_back(list, item);
+		obs_data_release(item);
+	}
+	calldata_set_ptr(cd, "return", list);
+}
+
+void PTZDevice::newPreset(calldata_t *cd)
+{
+	long long row = -1;
+	calldata_get_int(cd, "row", &row);
+	calldata_set_int(cd, "return", newPreset((int)row));
+}
+
+void PTZDevice::removePresetAtDisplayRow(calldata_t *cd)
+{
+	removePresetAtDisplayRow((int)calldata_int(cd, "row"));
+}
+
+void PTZDevice::movePreset(calldata_t *cd)
+{
+	movePreset((int)calldata_int(cd, "src_row"), (int)calldata_int(cd, "dest_row"));
+}
+
+void PTZDevice::setPresetName(calldata_t *cd)
+{
+	setPresetName((size_t)calldata_int(cd, "id"), QT_UTF8(calldata_string(cd, "name")));
 }
 
 void PTZDevice::getDefaults(OBSData config) const

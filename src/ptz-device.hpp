@@ -182,6 +182,21 @@ protected slots:
 	void preset_recall(calldata_t *cd);
 	void preset_clear(calldata_t *cd);
 
+	/* calldata_t overloads of the query/config/preset-CRUD API below,
+	 * registered on the proc_handler so PTZListModel never has to call
+	 * these directly -- see PTZDevice::PTZDevice() for registration */
+	void get_state(calldata_t *cd);
+	void setObjectName(calldata_t *cd);
+	void setLock(calldata_t *cd);
+	void get_config(calldata_t *cd) const;
+	void set_config(calldata_t *cd);
+	void get_obs_properties(calldata_t *cd);
+	void preset_get_list(calldata_t *cd) const;
+	void newPreset(calldata_t *cd);
+	void removePresetAtDisplayRow(calldata_t *cd);
+	void movePreset(calldata_t *cd);
+	void setPresetName(calldata_t *cd);
+
 public:
 	bool isLocked() const { return locked; };
 	bool isConnected() const { return connected; }
