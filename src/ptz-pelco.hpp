@@ -52,7 +52,7 @@ protected:
 	void receive(const QByteArray &msg);
 
 public:
-	PTZPelco(OBSData data);
+	PTZPelco(OBSData data, obs_source_t *source = nullptr);
 	~PTZPelco();
 	QString description() override;
 
@@ -67,3 +67,5 @@ public:
 	void memory_set(int i) override;
 	void memory_recall(int i) override;
 };
+
+void ptz_pelco_register_filter();

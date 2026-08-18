@@ -6,6 +6,7 @@
  */
 #pragma once
 
+#include <functional>
 #include <QObject>
 #include <QList>
 #include <QMap>
@@ -51,6 +52,8 @@ protected:
 	bool focus_changed = false;
 
 protected:
+	/* The OBS filter instance that owns this device, or empty for self-managed */
+	OBSWeakSource m_filter;
 	/* The OBS source this device controls. Weak because the device
 	 * doesn't own the source and the user can delete it at any time. */
 	mutable OBSWeakSource m_parentSource;
@@ -83,7 +86,7 @@ protected:
 
 public:
 	~PTZDevice();
-	PTZDevice(OBSData config);
+	PTZDevice(OBSData config, obs_source_t *filter = nullptr);
 	uint32_t getId() const { return id; }
 	/* Fires the create signal PTZListModel discovers new devices through.
 	 * Called by ptz_device_create() once the full object (base and
@@ -99,6 +102,7 @@ public:
 	obs_source_t *parentSource() const;
 	void setParentSource(obs_source_t *source);
 	void setParentSourceByName(const char *name);
+	bool isSelfManaged() const { return !m_filter; }
 	virtual QString description();
 	bool isLive() const { return live; }
 	bool isPreview() const { return preview; }
@@ -238,3 +242,12 @@ public:
 	/* Properties describe how to display the settings in a GUI dialog */
 	virtual obs_properties_t *get_obs_properties();
 };
+
+/* backend driver hooks that register themselves as an OBS filters */
+void *ptz_filter_create(const std::function<PTZDevice *()> &make);
+obs_properties_t *ptz_filter_get_properties(void *data);
+void ptz_filter_update(void *data, obs_data_t *settings);
+void ptz_filter_add(void *data, obs_source_t *parent);
+void ptz_filter_remove(void *data, obs_source_t *);
+void ptz_filter_destroy(void *data);
+void ptz_filter_save(void *data, obs_data_t *settings);

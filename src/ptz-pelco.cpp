@@ -137,7 +137,7 @@ void PTZPelco::zoom_speed_set(double speed)
 	send(0x00, 0x25, 0x00, abs(speed) * 0x33);
 }
 
-PTZPelco::PTZPelco(OBSData data) : PTZDevice(data), iface(NULL)
+PTZPelco::PTZPelco(OBSData data, obs_source_t *source) : PTZDevice(data, source), iface(NULL)
 {
 	getDefaults(data);
 	update(data);
@@ -269,4 +269,26 @@ void PTZPelco::memory_recall(int i)
 
 	send(0x00, 0x07, 0x00, i + 1);
 	ptz_debug("memory_recall");
+}
+
+void ptz_pelco_register_filter()
+{
+	struct obs_source_info info = {};
+	info.id = "ca.secretlab.obs-ptz.pelco";
+	info.type = OBS_SOURCE_TYPE_FILTER;
+	info.output_flags = OBS_SOURCE_DO_NOT_DUPLICATE;
+	info.get_name = [](void *) -> const char * {
+		return "PELCO PTZ Control";
+	};
+	info.create = [](obs_data_t *settings, obs_source_t *source) -> void * {
+		return ptz_filter_create([&]() -> PTZDevice * { return new PTZPelco(settings, source); });
+	};
+	info.destroy = ptz_filter_destroy;
+	info.get_properties = ptz_filter_get_properties;
+	info.update = ptz_filter_update;
+	info.save = ptz_filter_save;
+	info.filter_remove = ptz_filter_remove;
+	info.icon_type = OBS_ICON_TYPE_CAMERA;
+	info.filter_add = ptz_filter_add;
+	obs_register_source(&info);
 }
