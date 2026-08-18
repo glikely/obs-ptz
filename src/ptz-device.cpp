@@ -58,6 +58,20 @@ PTZDevice::PTZDevice(OBSData config) : QObject()
 	proc_handler_add(handler, "void ptz_preset_recall()", ptz_ph_lambda(preset_recall), this);
 	proc_handler_add(handler, "void ptz_preset_clear()", ptz_ph_lambda(preset_clear), this);
 
+	/* Query/config/preset-CRUD API for PTZListModel -- everything it
+	 * needs from a PTZDevice beyond movement/preset-recall control */
+	proc_handler_add(handler, "ptr ptz_get_state()", ptz_ph_lambda(get_state), this);
+	proc_handler_add(handler, "void ptz_set_name(string name)", ptz_ph_lambda(setObjectName), this);
+	proc_handler_add(handler, "void ptz_set_locked(bool locked)", ptz_ph_lambda(setLock), this);
+	proc_handler_add(handler, "void ptz_get_config(ptr config)", ptz_ph_lambda(get_config), this);
+	proc_handler_add(handler, "void ptz_set_config(ptr config)", ptz_ph_lambda(set_config), this);
+	proc_handler_add(handler, "ptr ptz_get_properties()", ptz_ph_lambda(get_obs_properties), this);
+	proc_handler_add(handler, "ptr ptz_preset_get_list()", ptz_ph_lambda(preset_get_list), this);
+	proc_handler_add(handler, "int ptz_preset_new(int row)", ptz_ph_lambda(newPreset), this);
+	proc_handler_add(handler, "void ptz_preset_remove(int row)", ptz_ph_lambda(removePresetAtDisplayRow), this);
+	proc_handler_add(handler, "void ptz_preset_move(int src_row, int dest_row)", ptz_ph_lambda(movePreset), this);
+	proc_handler_add(handler, "void ptz_preset_set_name(int id, string name)", ptz_ph_lambda(setPresetName), this);
+
 	/* Signal handler for notifying state & settings changes */
 	sigs = signal_handler_create();
 	if (!sigs) {
@@ -232,10 +246,8 @@ void PTZDevice::move_rel(calldata_t *cd)
 
 void PTZDevice::get(calldata_t *cd) const
 {
-	if (QThread::currentThread() != thread()) {
-		ptz_log(LOG_ERROR, "PTZDevice::get(calldata) called from wrong thread; ignored");
+	if (wrongThread("ptz_get"))
 		return;
-	}
 	QString arg = calldata_string(cd, "property");
 	if (arg == "power_on")
 		calldata_set_bool(cd, "power_on", obs_data_get_bool(state, "power_on"));
@@ -273,6 +285,125 @@ void PTZDevice::preset_clear(calldata_t *cd)
 	long long id;
 	if (calldata_get_int(cd, "preset_id", &id))
 		QMetaObject::invokeMethod(this, "memory_reset", Q_ARG(int, id));
+}
+
+/**
+ * Returns a caller-owned obs_data_t snapshot of everything PTZListModel
+ * needs to display a device row without holding a PTZDevice* -- the caller
+ * is responsible for obs_data_release()ing it.
+ */
+void PTZDevice::get_state(calldata_t *cd)
+{
+	if (wrongThread("ptz_get_state"))
+		return;
+	obs_data_t *state = obs_data_create();
+	obs_data_set_string(state, "name", QT_TO_UTF8(objectName()));
+	obs_data_set_string(state, "description", QT_TO_UTF8(description()));
+	obs_data_set_string(state, "type", type.c_str());
+	obs_data_set_bool(state, "connected", connected);
+	obs_data_set_bool(state, "live", live);
+	obs_data_set_bool(state, "preview", preview);
+	obs_data_set_bool(state, "locked", locked);
+	obs_data_set_bool(state, "supports_set_home", supportsSetHome());
+	calldata_set_ptr(cd, "return", state);
+}
+
+void PTZDevice::setObjectName(calldata_t *cd)
+{
+	if (wrongThread("ptz_set_name"))
+		return;
+	setObjectName(QT_UTF8(calldata_string(cd, "name")));
+}
+
+void PTZDevice::setLock(calldata_t *cd)
+{
+	if (wrongThread("ptz_set_locked"))
+		return;
+	setLock(calldata_bool(cd, "locked"));
+}
+
+/**
+ * Fills the caller-owned obs_data_t passed in via the "config" calldata
+ * field, mirroring save(OBSData) const.
+ */
+void PTZDevice::get_config(calldata_t *cd) const
+{
+	if (wrongThread("ptz_get_config"))
+		return;
+	auto config = static_cast<obs_data_t *>(calldata_ptr(cd, "config"));
+	if (config)
+		save(config);
+}
+
+void PTZDevice::set_config(calldata_t *cd)
+{
+	if (wrongThread("ptz_set_config"))
+		return;
+	auto config = static_cast<obs_data_t *>(calldata_ptr(cd, "config"));
+	if (config)
+		update(config);
+}
+
+void PTZDevice::get_obs_properties(calldata_t *cd)
+{
+	if (wrongThread("ptz_get_properties"))
+		return;
+	calldata_set_ptr(cd, "return", get_obs_properties());
+}
+
+/**
+ * Returns a caller-owned obs_data_array_t of {id, name, token} entries in
+ * display order, the preset-list equivalent of get_state() -- plus
+ * "max_presets" on the same calldata, since that's the configured *limit* on
+ * this list (the "preset_max" setting, see save()/update()), not
+ * transient device state, so it belongs with the presets functions rather
+ * than in get_state()'s snapshot.
+ */
+void PTZDevice::preset_get_list(calldata_t *cd) const
+{
+	if (wrongThread("ptz_preset_get_list"))
+		return;
+	obs_data_array_t *list = obs_data_array_create();
+	for (auto id : m_presetsDisplayOrder) {
+		obs_data_t *item = obs_data_create();
+		obs_data_set_int(item, "id", id);
+		obs_data_set_string(item, "name", QT_TO_UTF8(presetName(id)));
+		obs_data_set_string(item, "token", QT_TO_UTF8(presetToken(id)));
+		obs_data_array_push_back(list, item);
+		obs_data_release(item);
+	}
+	calldata_set_ptr(cd, "return", list);
+	calldata_set_int(cd, "max_presets", (long long)m_maxPresets);
+}
+
+void PTZDevice::newPreset(calldata_t *cd)
+{
+	if (wrongThread("ptz_preset_new"))
+		return;
+	long long row = -1;
+	calldata_get_int(cd, "row", &row);
+	calldata_set_int(cd, "return", newPreset((int)row));
+}
+
+void PTZDevice::removePresetAtDisplayRow(calldata_t *cd)
+{
+	if (wrongThread("ptz_preset_remove"))
+		return;
+	removePresetAtDisplayRow((int)calldata_int(cd, "row"));
+}
+
+void PTZDevice::movePreset(calldata_t *cd)
+{
+	if (wrongThread("ptz_preset_move"))
+		return;
+	movePreset((int)calldata_int(cd, "src_row"), (int)calldata_int(cd, "dest_row"));
+}
+
+void PTZDevice::setPresetName(calldata_t *cd)
+{
+	if (wrongThread("ptz_preset_set_name"))
+		return;
+	setPresetName((size_t)calldata_int(cd, "id"), QT_UTF8(calldata_string(cd, "name")));
 }
 
 void PTZDevice::getDefaults(OBSData config) const
@@ -612,6 +743,8 @@ void PTZDevice::incrementStatistic(const char *name)
 
 void PTZDevice::setConnected(bool _connected)
 {
+	if (wrongThread("setConnected"))
+		return;
 	if (connected == _connected)
 		return;
 	connected = _connected;
@@ -628,4 +761,12 @@ void PTZDevice::notifyStateChanged()
 	calldata_free(&cd);
 	/* Notification done; clear out the changes state cache */
 	obs_data_clear(stateChanged);
+}
+
+bool PTZDevice::wrongThread(const char *method) const
+{
+	if (QThread::currentThread() == thread())
+		return false;
+	ptz_log(LOG_ERROR, "%s called from wrong thread; ignored", method);
+	return true;
 }

@@ -72,6 +72,7 @@ protected:
 	// direct C++ reference to this class (see ptz-list-model.cpp)
 	signal_handler_t *sigs = nullptr;
 	void notifyStateChanged();
+	bool wrongThread(const char *method) const;
 
 public:
 	proc_handler_t *getProcHandler() const { return handler; }
@@ -182,6 +183,21 @@ protected slots:
 	void preset_save(calldata_t *cd);
 	void preset_recall(calldata_t *cd);
 	void preset_clear(calldata_t *cd);
+
+	/* calldata_t overloads of the query/config/preset-CRUD API below,
+	 * registered on the proc_handler so PTZListModel never has to call
+	 * these directly -- see PTZDevice::PTZDevice() for registration */
+	void get_state(calldata_t *cd);
+	void setObjectName(calldata_t *cd);
+	void setLock(calldata_t *cd);
+	void get_config(calldata_t *cd) const;
+	void set_config(calldata_t *cd);
+	void get_obs_properties(calldata_t *cd);
+	void preset_get_list(calldata_t *cd) const;
+	void newPreset(calldata_t *cd);
+	void removePresetAtDisplayRow(calldata_t *cd);
+	void movePreset(calldata_t *cd);
+	void setPresetName(calldata_t *cd);
 
 public:
 	bool isLocked() const { return locked; };
