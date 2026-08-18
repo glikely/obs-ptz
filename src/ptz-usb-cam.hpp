@@ -31,7 +31,7 @@ private:
 	void refreshDeviceId();
 
 public:
-	PTZUSBCam(OBSData config);
+	PTZUSBCam(OBSData config, obs_source_t *source = nullptr);
 	~PTZUSBCam();
 	void save(obs_data_t *settings) const;
 	QString description() override;
@@ -51,3 +51,8 @@ public:
 	void memory_set(int i) override;
 	void memory_recall(int i) override;
 };
+
+/* Registers the "USB Camera PTZ Control" OBS filter -- see
+ * ptz_load_devices() in ptz-device.cpp, and this file's obs_source_info for
+ * what it registers. */
+void ptz_usb_cam_register_filter();

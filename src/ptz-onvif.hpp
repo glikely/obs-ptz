@@ -113,7 +113,7 @@ private slots:
 	void requestFinished(QNetworkReply *reply);
 
 public:
-	PTZOnvif(OBSData config);
+	PTZOnvif(OBSData config, obs_source_t *source = nullptr);
 	QString description() override;
 
 	void getDefaults(OBSData config) const override;
@@ -134,3 +134,7 @@ public:
 	void memory_set(int i) override;
 	void memory_recall(int i) override;
 };
+
+/* Registers the "ONVIF PTZ Control" OBS filter -- see ptz_load_devices() in
+ * ptz-device.cpp, and this file's obs_source_info for what it registers. */
+void ptz_onvif_register_filter();

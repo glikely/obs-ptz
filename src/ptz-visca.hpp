@@ -20,6 +20,10 @@
 
 extern const PTZCmd VISCA_ENUMERATE;
 
+/* Registers the "VISCA PTZ Control" OBS filter -- see ptz_load_devices() in
+ * ptz-device.cpp, and this file's obs_source_info for what it registers. */
+void ptz_visca_register_filter();
+
 /*
  * Abstract transport that carries VISCA datagrams to and from a camera.
  * The wire protocol (command encoding, ack/completion handling, etc) is
@@ -107,7 +111,7 @@ protected slots:
 	void set(calldata_t *cd) override;
 
 public:
-	PTZVisca(OBSData config);
+	PTZVisca(OBSData config, obs_source_t *source = nullptr);
 	QString description() override;
 	obs_properties_t *get_obs_properties() override;
 

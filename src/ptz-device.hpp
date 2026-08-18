@@ -6,6 +6,7 @@
  */
 #pragma once
 
+#include <functional>
 #include <QObject>
 #include <QList>
 #include <QMap>
@@ -51,6 +52,14 @@ protected:
 	bool focus_changed = false;
 
 protected:
+	/* The OBS filter instance that owns this device, or empty for a
+	 * self-managed device. Weak on purpose: the filter's context.data
+	 * points at this object, so holding a strong ref back would form a
+	 * cycle and the filter's .destroy would never run. A filter-owned
+	 * device controls the source its filter is attached to, which it is
+	 * given by the filter's filter_add callback (never during .create),
+	 * and loses again in filter_remove. */
+	OBSWeakSource m_filter;
 	/* The OBS source this device controls. Weak because the device
 	 * doesn't own the source and the user can delete it at any time. */
 	mutable OBSWeakSource m_parentSource;
@@ -83,7 +92,7 @@ protected:
 
 public:
 	~PTZDevice();
-	PTZDevice(OBSData config);
+	PTZDevice(OBSData config, obs_source_t *filter = nullptr);
 	uint32_t getId() const { return id; }
 	/* Fires the create signal PTZListModel discovers new devices through.
 	 * Called by ptz_device_create() once the full object (base and
@@ -99,6 +108,9 @@ public:
 	obs_source_t *parentSource() const;
 	void setParentSource(obs_source_t *source);
 	void setParentSourceByName(const char *name);
+	/* Whether the device's lifetime is managed by whoever created it
+	 * (the device list), rather than by an OBS filter */
+	bool isSelfManaged() const { return !m_filter; }
 	virtual QString description();
 	bool isLive() const { return live; }
 	bool isPreview() const { return preview; }
@@ -238,3 +250,17 @@ public:
 	/* Properties describe how to display the settings in a GUI dialog */
 	virtual obs_properties_t *get_obs_properties();
 };
+
+/* Shared OBS filter plumbing (defined in ptz-device.cpp) for backend drivers
+ * that register themselves as an OBS filter, so a PTZDevice can be owned by
+ * a source's Filters list instead of the device list -- see e.g.
+ * ptz-visca.cpp's obs_source_info for how a driver builds its filter around
+ * these, and ptz_load_devices() for where each driver's own registration
+ * function (declared in that driver's own header) gets called. */
+void *ptz_filter_create(const std::function<PTZDevice *()> &make);
+obs_properties_t *ptz_filter_get_properties(void *data);
+void ptz_filter_update(void *data, obs_data_t *settings);
+void ptz_filter_add(void *data, obs_source_t *parent);
+void ptz_filter_remove(void *data, obs_source_t *);
+void ptz_filter_destroy(void *data);
+void ptz_filter_save(void *data, obs_data_t *settings);

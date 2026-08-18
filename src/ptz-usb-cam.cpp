@@ -14,7 +14,8 @@
 #include <obs.hpp>
 #include "ptz-usb-cam.hpp"
 
-PTZUSBCam::PTZUSBCam(OBSData config) : PTZDevice(config), worker_(new PTZUsbWorker(ptz_usb_backend_create))
+PTZUSBCam::PTZUSBCam(OBSData config, obs_source_t *source)
+	: PTZDevice(config, source), worker_(new PTZUsbWorker(ptz_usb_backend_create))
 {
 	getDefaults(config);
 	update(config);
@@ -184,4 +185,26 @@ void PTZUSBCam::memory_recall(int i)
 		return;
 	refreshDeviceId();
 	worker_->recall(presets[i]);
+}
+
+static struct obs_source_info ptz_usb_cam_filter_info = {
+	.id = "ca.secretlab.obs-ptz.usb-cam",
+	.type = OBS_SOURCE_TYPE_FILTER,
+	.output_flags = OBS_SOURCE_DO_NOT_DUPLICATE,
+	.get_name = [](void *) -> const char * { return "USB Camera PTZ Control"; },
+	.create = [](obs_data_t *settings, obs_source_t *source) -> void * {
+		return ptz_filter_create([&]() -> PTZDevice * { return new PTZUSBCam(settings, source); });
+	},
+	.destroy = ptz_filter_destroy,
+	.get_properties = ptz_filter_get_properties,
+	.update = ptz_filter_update,
+	.save = ptz_filter_save,
+	.filter_remove = ptz_filter_remove,
+	.icon_type = OBS_ICON_TYPE_CAMERA,
+	.filter_add = ptz_filter_add,
+};
+
+void ptz_usb_cam_register_filter()
+{
+	obs_register_source(&ptz_usb_cam_filter_info);
 }

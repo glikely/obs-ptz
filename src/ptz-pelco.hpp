@@ -52,7 +52,7 @@ protected:
 	void receive(const QByteArray &msg);
 
 public:
-	PTZPelco(OBSData data);
+	PTZPelco(OBSData data, obs_source_t *source = nullptr);
 	~PTZPelco();
 	QString description() override;
 
@@ -67,3 +67,7 @@ public:
 	void memory_set(int i) override;
 	void memory_recall(int i) override;
 };
+
+/* Registers the "PELCO PTZ Control" OBS filter -- see ptz_load_devices() in
+ * ptz-device.cpp, and this file's obs_source_info for what it registers. */
+void ptz_pelco_register_filter();

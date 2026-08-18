@@ -517,7 +517,7 @@ const QMap<QString, PTZInq> PTZVisca::inquires = {
 /*
  * PTZVisca Methods
  */
-PTZVisca::PTZVisca(OBSData config) : PTZDevice(config)
+PTZVisca::PTZVisca(OBSData config, obs_source_t *source) : PTZDevice(config, source)
 {
 	for (int i = 0; i < 8; i++)
 		active_cmd[i] = std::nullopt;
@@ -1057,4 +1057,27 @@ void PTZVisca::memory_set(int i)
 void PTZVisca::memory_recall(int i)
 {
 	send(VISCA_CAM_Memory_Recall, {i});
+}
+
+static struct obs_source_info ptz_visca_filter_info = {
+	.id = "ca.secretlab.obs-ptz.visca",
+	.type = OBS_SOURCE_TYPE_FILTER,
+	.output_flags = OBS_SOURCE_DO_NOT_DUPLICATE,
+	.get_name = [](void *) -> const char * { return "VISCA PTZ Control"; },
+	.create = [](obs_data_t *settings, obs_source_t *source) -> void * {
+		return ptz_filter_create([&]() -> PTZDevice * { return new PTZVisca(settings, source); });
+	},
+	.destroy = ptz_filter_destroy,
+	.get_defaults = [](obs_data_t *settings) { obs_data_set_default_string(settings, "type", "visca-over-ip"); },
+	.get_properties = ptz_filter_get_properties,
+	.update = ptz_filter_update,
+	.save = ptz_filter_save,
+	.filter_remove = ptz_filter_remove,
+	.icon_type = OBS_ICON_TYPE_CAMERA,
+	.filter_add = ptz_filter_add,
+};
+
+void ptz_visca_register_filter()
+{
+	obs_register_source(&ptz_visca_filter_info);
 }
