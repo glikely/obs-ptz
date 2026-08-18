@@ -81,10 +81,11 @@ public:
 	bool presetBeginMove(PTZDevice *ptz, int srcRow, int destRow);
 	void presetEndMove(PTZDevice *ptz);
 
+	void deviceStateChanged(uint32_t device_id, OBSData changed);
+
 public slots:
 	void preset_recall(uint32_t device_id, int preset_id);
 	void preset_save(uint32_t device_id, int preset_id);
-	void deviceStateChanged(OBSData changed);
 };
 
 extern PTZListModel *ptzDeviceList;

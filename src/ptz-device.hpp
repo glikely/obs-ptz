@@ -60,7 +60,8 @@ protected:
 	void sanitizePreset(size_t id);
 	void setConnected(bool connected);
 	obs_properties_t *props;
-	OBSData state; /* Transient state of the camera. Isn't saved */
+	OBSData state;        /* Transient state of the camera. Isn't saved */
+	OBSData stateChanged; /* changed state to be sent via the notify signal */
 	OBSData statistics;
 	QSet<QString> stale_state;
 	void incrementStatistic(const char *name);
@@ -68,10 +69,14 @@ protected:
 	// Each PTZ device has a proc handler so methods can be called
 	// from other plugins
 	proc_handler_t *handler = nullptr;
+	// ...and a signal handler so status changes can be observed without a
+	// direct C++ reference to this class (see ptz-list-model.cpp)
+	signal_handler_t *sigs = nullptr;
+	void notifyStateChanged();
 
-signals:
-	void stateChanged(OBSData state);
-	void connectionStatusChanged(bool connected);
+public:
+	proc_handler_t *getProcHandler() const { return handler; }
+	signal_handler_t *getSignalHandler() const { return sigs; }
 
 public:
 	~PTZDevice();

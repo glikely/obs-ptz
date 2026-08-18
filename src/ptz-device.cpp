@@ -58,11 +58,21 @@ PTZDevice::PTZDevice(OBSData config) : QObject()
 	proc_handler_add(handler, "void ptz_preset_recall()", ptz_ph_lambda(preset_recall), this);
 	proc_handler_add(handler, "void ptz_preset_clear()", ptz_ph_lambda(preset_clear), this);
 
+	/* Signal handler for notifying state & settings changes */
+	sigs = signal_handler_create();
+	if (!sigs) {
+		blog(LOG_ERROR, "could not allocate signal_handler for %s", obs_data_get_string(config, "name"));
+	} else {
+		signal_handler_add(sigs, "void state_changed(int device_id)");
+	}
+
 	setObjectName(obs_data_get_string(config, "name"));
 	id = (int)obs_data_get_int(config, "id");
 	type = obs_data_get_string(config, "type");
 	state = obs_data_create();
 	obs_data_release(state);
+	stateChanged = obs_data_create();
+	obs_data_release(stateChanged);
 	statistics = obs_data_create();
 	obs_data_release(statistics);
 	obs_data_set_obj(state, "statistics", statistics);
@@ -85,6 +95,8 @@ PTZDevice::~PTZDevice()
 
 	proc_handler_destroy(handler);
 	handler = nullptr;
+	signal_handler_destroy(sigs);
+	sigs = nullptr;
 }
 
 void PTZDevice::setObjectName(QString name)
@@ -104,7 +116,7 @@ void PTZDevice::setObjectName(QString name)
 		new_name = name + " " + QString::number(i);
 	}
 	QObject::setObjectName(new_name);
-	ptzDeviceList->name_changed(this);
+	notifyStateChanged();
 }
 
 QString PTZDevice::description()
@@ -578,8 +590,20 @@ void PTZDevice::incrementStatistic(const char *name)
 
 void PTZDevice::setConnected(bool _connected)
 {
-	bool was_connected = connected;
+	if (connected == _connected)
+		return;
 	connected = _connected;
-	if (was_connected != connected)
-		emit connectionStatusChanged(connected);
+	obs_data_set_bool(stateChanged, "connected", connected);
+	notifyStateChanged();
+}
+
+void PTZDevice::notifyStateChanged()
+{
+	calldata_t cd = {};
+	calldata_set_int(&cd, "device_id", id);
+	calldata_set_ptr(&cd, "changed", stateChanged);
+	signal_handler_signal(sigs, "state_changed", &cd);
+	calldata_free(&cd);
+	/* Notification done; clear out the changes state cache */
+	obs_data_clear(stateChanged);
 }
