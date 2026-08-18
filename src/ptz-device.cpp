@@ -67,12 +67,22 @@ PTZDevice::PTZDevice(OBSData config) : QObject()
 	obs_data_release(statistics);
 	obs_data_set_obj(state, "statistics", statistics);
 	stale_state = {"pan_pos", "tilt_pos", "zoom_pos", "focus_pos"};
-	ptzDeviceList->add(this);
+
+	calldata_t cd = {};
+	calldata_set_int(&cd, "device_id", id);
+	calldata_set_ptr(&cd, "device", this);
+	signal_handler_signal(ptz_get_signal_handler(), "ptz_device_create", &cd);
+	calldata_free(&cd);
 }
 
 PTZDevice::~PTZDevice()
 {
-	ptzDeviceList->remove(this);
+	calldata_t cd = {};
+	calldata_set_int(&cd, "device_id", id);
+	calldata_set_ptr(&cd, "device", this);
+	signal_handler_signal(ptz_get_signal_handler(), "ptz_device_destroy", &cd);
+	calldata_free(&cd);
+
 	proc_handler_destroy(handler);
 	handler = nullptr;
 }
@@ -393,18 +403,35 @@ void ptz_devices_set_config(obs_data_array_t *devices)
 }
 
 static proc_handler_t *ptz_ph = NULL;
+static signal_handler_t *ptz_sh = NULL;
 
 proc_handler_t *ptz_get_proc_handler()
 {
 	return ptz_ph;
 }
 
+signal_handler_t *ptz_get_signal_handler()
+{
+	return ptz_sh;
+}
+
 void ptz_load_devices()
 {
 	/* Register the proc handlers for issuing PTZ commands */
 	ptz_ph = proc_handler_create();
-	if (!ptz_ph)
+	if (!ptz_ph) {
+		blog(LOG_ERROR, "could not allocate proc_handler for PTZ devices");
 		return;
+	}
+
+	/* Register the signal handler used to announce device creation and destruction */
+	ptz_sh = signal_handler_create();
+	if (!ptz_sh) {
+		blog(LOG_ERROR, "could not allocate signal_handler for PTZ devices");
+		return;
+	}
+	signal_handler_add(ptz_sh, "void ptz_device_create(int device_id, ptr device)");
+	signal_handler_add(ptz_sh, "void ptz_device_destroy(int device_id, ptr device)");
 
 	/* Constructed here rather than as a plain static-storage global so
 	 * its constructor happens at a well-defined point in the module load
@@ -446,6 +473,8 @@ void ptz_unload_devices(void)
 
 	proc_handler_destroy(ptz_ph);
 	ptz_ph = nullptr;
+	signal_handler_destroy(ptz_sh);
+	ptz_sh = nullptr;
 }
 
 void PTZDevice::sanitizePreset(size_t id)

@@ -33,10 +33,34 @@ void PTZListModel::renameDevice(QString new_name, QString prev_name)
 		ptz->setObjectName(new_name);
 }
 
+/**
+ * Device lifetime is detected through the global PTZ signal_handler
+ * (see ptz_get_signal_handler() / ptz_load_devices())
+ */
+static void device_create_cb(void *data, calldata_t *cd)
+{
+	auto ptzlm = static_cast<PTZListModel *>(data);
+	auto ptz = static_cast<PTZDevice *>(calldata_ptr(cd, "device"));
+	if (ptz)
+		ptzlm->add(ptz);
+}
+
+static void device_destroy_cb(void *data, calldata_t *cd)
+{
+	auto ptzlm = static_cast<PTZListModel *>(data);
+	auto ptz = static_cast<PTZDevice *>(calldata_ptr(cd, "device"));
+	if (ptz)
+		ptzlm->remove(ptz);
+}
+
 PTZListModel::PTZListModel() : QAbstractItemModel()
 {
 	signal_handler_t *sh = obs_get_signal_handler();
 	signal_handler_connect(sh, "source_rename", source_rename_cb, this);
+
+	signal_handler_t *ptz_sh = ptz_get_signal_handler();
+	signal_handler_connect(ptz_sh, "ptz_device_create", device_create_cb, this);
+	signal_handler_connect(ptz_sh, "ptz_device_destroy", device_destroy_cb, this);
 }
 
 PTZListModel::~PTZListModel()
