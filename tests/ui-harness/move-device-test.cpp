@@ -30,7 +30,7 @@ void runMoveDeviceTest(const QMap<QString, QString> &params)
 		return;
 	}
 
-	QModelIndex index = ptzDeviceList.indexFromDeviceId(deviceId);
+	QModelIndex index = ptzDeviceList->indexFromDeviceId(deviceId);
 	if (!index.isValid()) {
 		blog(LOG_INFO, "[ptz-ui-test] move_device: device_id %u not found", deviceId);
 		return;
@@ -49,7 +49,7 @@ void runMoveDeviceTest(const QMap<QString, QString> &params)
 		calldata_set_float(&cd, "zoom", params.value(QStringLiteral("zoom")).toDouble());
 
 	const char *method = (mode == QStringLiteral("abs")) ? "ptz_move_abs" : "ptz_move_rel";
-	ptzDeviceList.callDevice(index, method, &cd);
+	ptzDeviceList->callDevice(index, method, &cd);
 	calldata_free(&cd);
 
 	blog(LOG_INFO, "[ptz-ui-test] move_device device_id=%u mode=%s", deviceId, qUtf8Printable(mode));

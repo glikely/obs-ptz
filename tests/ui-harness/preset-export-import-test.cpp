@@ -49,7 +49,7 @@ void runPresetIOTest(const QMap<QString, QString> &params, const char *methodNam
 		return;
 	}
 
-	QModelIndex index = ptzDeviceList.indexFromDeviceId(deviceId);
+	QModelIndex index = ptzDeviceList->indexFromDeviceId(deviceId);
 	if (!index.isValid()) {
 		blog(LOG_INFO, "[ptz-ui-test] %s: device_id %u not found", methodName, deviceId);
 		return;

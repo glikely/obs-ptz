@@ -33,7 +33,7 @@ void runSetDeviceTest(const QMap<QString, QString> &params)
 		return;
 	}
 
-	QModelIndex index = ptzDeviceList.indexFromDeviceId(deviceId);
+	QModelIndex index = ptzDeviceList->indexFromDeviceId(deviceId);
 	if (!index.isValid()) {
 		blog(LOG_INFO, "[ptz-ui-test] set_device: device_id %u not found", deviceId);
 		return;
@@ -51,7 +51,7 @@ void runSetDeviceTest(const QMap<QString, QString> &params)
 	if (params.contains(QStringLiteral("wb_mode")))
 		calldata_set_int(&cd, "wb_mode", params.value(QStringLiteral("wb_mode")).toLongLong());
 
-	ptzDeviceList.callDevice(index, "ptz_set", &cd);
+	ptzDeviceList->callDevice(index, "ptz_set", &cd);
 	calldata_free(&cd);
 
 	blog(LOG_INFO, "[ptz-ui-test] set_device device_id=%u", deviceId);

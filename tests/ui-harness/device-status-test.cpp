@@ -41,7 +41,7 @@ void runDeviceStatusTest(const QMap<QString, QString> &params)
 		return;
 	}
 
-	QModelIndex index = ptzDeviceList.indexFromDeviceId(deviceId);
+	QModelIndex index = ptzDeviceList->indexFromDeviceId(deviceId);
 	if (!index.isValid()) {
 		blog(LOG_INFO, "[ptz-ui-test] get_device_status: device_id %u not found", deviceId);
 		return;
@@ -49,21 +49,21 @@ void runDeviceStatusTest(const QMap<QString, QString> &params)
 
 	calldata cd = {};
 	calldata_set_string(&cd, "property", "power_on");
-	ptzDeviceList.callDevice(index, "ptz_get", &cd);
+	ptzDeviceList->callDevice(index, "ptz_get", &cd);
 	bool power_on = calldata_bool(&cd, "power_on");
 
 	calldata_set_string(&cd, "property", "focus_af_enabled");
-	ptzDeviceList.callDevice(index, "ptz_get", &cd);
+	ptzDeviceList->callDevice(index, "ptz_get", &cd);
 	bool focus_af_enabled = calldata_bool(&cd, "focus_af_enabled");
 
 	calldata_set_string(&cd, "property", "wb_mode");
-	ptzDeviceList.callDevice(index, "ptz_get", &cd);
+	ptzDeviceList->callDevice(index, "ptz_get", &cd);
 	long long wb_mode = calldata_int(&cd, "wb_mode");
 
 	calldata_free(&cd);
 
 	OBSDataAutoRelease result = obs_data_create();
-	obs_data_set_bool(result, "connected", ptzDeviceList.data(index, PTZListModel::IsConnectedRole).toBool());
+	obs_data_set_bool(result, "connected", ptzDeviceList->data(index, PTZListModel::IsConnectedRole).toBool());
 	obs_data_set_bool(result, "power_on", power_on);
 	obs_data_set_bool(result, "focus_af_enabled", focus_af_enabled);
 	obs_data_set_int(result, "wb_mode", wb_mode);

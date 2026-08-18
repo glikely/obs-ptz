@@ -79,9 +79,9 @@ void PTZControls::autoselectDevice(OBSSource scene)
 	auto active_src_cb = [](obs_source_t *, obs_source_t *child, void *data) {
 		auto index = static_cast<QModelIndex *>(data);
 		if (!index->isValid())
-			*index = ptzDeviceList.indexFromName(obs_source_get_name(child));
+			*index = ptzDeviceList->indexFromName(obs_source_get_name(child));
 	};
-	QModelIndex index = ptzDeviceList.indexFromName(obs_source_get_name(scene));
+	QModelIndex index = ptzDeviceList->indexFromName(obs_source_get_name(scene));
 	if (!index.isValid())
 		obs_source_enum_active_sources(scene, active_src_cb, &index);
 
@@ -116,7 +116,7 @@ void PTZControls::handleFrontendEvent(enum obs_frontend_event event)
 			OBSSourceAutoRelease source = obs_frontend_get_current_scene();
 			autoselectDevice(source.Get());
 		}
-		ptzDeviceList.onSceneChanged();
+		ptzDeviceList->onSceneChanged();
 		updateMoveControls();
 		break;
 	case OBS_FRONTEND_EVENT_STUDIO_MODE_ENABLED:
@@ -124,7 +124,7 @@ void PTZControls::handleFrontendEvent(enum obs_frontend_event event)
 			OBSSourceAutoRelease source = obs_frontend_get_current_scene();
 			autoselectDevice(source.Get());
 		}
-		ptzDeviceList.onSceneChanged();
+		ptzDeviceList->onSceneChanged();
 		updateMoveControls();
 		break;
 	case OBS_FRONTEND_EVENT_STUDIO_MODE_DISABLED:
@@ -133,7 +133,7 @@ void PTZControls::handleFrontendEvent(enum obs_frontend_event event)
 			OBSSourceAutoRelease source = obs_frontend_get_current_preview_scene();
 			autoselectDevice(source.Get());
 		}
-		ptzDeviceList.onSceneChanged();
+		ptzDeviceList->onSceneChanged();
 		updateMoveControls();
 		break;
 	case OBS_FRONTEND_EVENT_EXIT:
@@ -144,7 +144,7 @@ void PTZControls::handleFrontendEvent(enum obs_frontend_event event)
 			obs_hotkey_unregister(hotkeys.takeFirst());
 		obs_frontend_remove_event_callback(onFrontendEvent, this);
 		obs_frontend_remove_save_callback(onFrontendSaveEvent, this);
-		ptzDeviceList.delete_all();
+		ptzDeviceList->delete_all();
 		break;
 	case OBS_FRONTEND_EVENT_THEME_CHANGED:
 		/* Defer call with a singleShot to let all layout changes settle */
@@ -256,10 +256,10 @@ PTZControls::PTZControls(QWidget *parent) : QFrame(parent), ui(new Ui::PTZContro
 
 	refreshTheme();
 
-	ui->deviceList->setModel(&ptzDeviceList);
+	ui->deviceList->setModel(ptzDeviceList);
 	deviceDelegate = new PTZDeviceListDelegate(ui->deviceList);
 	ui->deviceList->setItemDelegate(deviceDelegate);
-	connect(&ptzDeviceList, &PTZListModel::dataChanged, this, &PTZControls::settingsChanged);
+	connect(ptzDeviceList, &PTZListModel::dataChanged, this, &PTZControls::settingsChanged);
 
 	copyActionsDynamicProperties();
 
@@ -267,10 +267,10 @@ PTZControls::PTZControls(QWidget *parent) : QFrame(parent), ui(new Ui::PTZContro
 	connect(selectionModel, &QItemSelectionModel::currentChanged, this, &PTZControls::currentChanged);
 	connect(&accel_timer, &QTimer::timeout, this, &PTZControls::accelTimerHandler);
 
-	ui->presetListView->setModel(&ptzDeviceList);
+	ui->presetListView->setModel(ptzDeviceList);
 	presetDelegate = new PTZPresetListDelegate(ui->presetListView);
 	ui->presetListView->setItemDelegate(presetDelegate);
-	ui->presetListView->setRootIndex(ptzDeviceList.index(0, 0));
+	ui->presetListView->setRootIndex(ptzDeviceList->index(0, 0));
 	selectionModel = ui->presetListView->selectionModel();
 	connect(selectionModel, &QItemSelectionModel::currentChanged, this, &PTZControls::presetUpdateActions);
 
@@ -674,7 +674,7 @@ void PTZControls::SaveConfig()
 				 ui->deviceList->currentIndex().data(PTZListModel::DeviceIdRole).toInt());
 
 	OBSDataArrayAutoRelease devices = obs_data_array_create();
-	ptzDeviceList.save(devices.Get());
+	ptzDeviceList->save(devices.Get());
 	obs_data_set_array(savedata, "devices", devices);
 
 	/* Save data structure to json */
@@ -758,7 +758,7 @@ void PTZControls::LoadConfig()
 	obs_data_array_release(array);
 	ptz_devices_set_config(array);
 	ui->deviceList->setCurrentIndex(
-		ptzDeviceList.indexFromDeviceId(obs_data_get_int(loaddata, "current_selected")));
+		ptzDeviceList->indexFromDeviceId(obs_data_get_int(loaddata, "current_selected")));
 }
 
 void PTZControls::setAutoselectEnabled(bool enabled)
@@ -801,7 +801,7 @@ void PTZControls::setSpeedRampEnabled(bool enabled)
  */
 bool PTZControls::callCurrentDevice(const char *method, calldata_t *cd) const
 {
-	return ptzDeviceList.callDevice(ui->deviceList->currentIndex(), method, cd);
+	return ptzDeviceList->callDevice(ui->deviceList->currentIndex(), method, cd);
 }
 
 bool PTZControls::callCurrentDevice(const char *method, const char *arg, long long val) const
@@ -1061,7 +1061,7 @@ void PTZControls::currentChanged(QModelIndex current, QModelIndex previous)
 {
 	accel_timer.stop();
 	if (pantiltingFlag || zoomingFlag || focusingFlag)
-		ptzDeviceList.callDevice(previous, "ptz_stop");
+		ptzDeviceList->callDevice(previous, "ptz_stop");
 	pantiltingFlag = false;
 	zoomingFlag = false;
 	focusingFlag = false;
@@ -1108,7 +1108,7 @@ void PTZControls::presetUpdateActions()
 {
 	auto presetIndex = ui->presetListView->currentIndex();
 	auto deviceIndex = ui->deviceList->currentIndex();
-	int count = ptzDeviceList.rowCount(deviceIndex);
+	int count = ptzDeviceList->rowCount(deviceIndex);
 	bool isValid = presetIndex.isValid() && deviceIndex.isValid();
 	ui->actionPresetAdd->setEnabled(deviceIndex.isValid());
 	ui->actionPresetRemove->setEnabled(isValid);
@@ -1171,13 +1171,13 @@ void PTZControls::on_deviceList_customContextMenuRequested(const QPoint &pos)
 	if (index.isValid()) {
 		calldata cd = {};
 		calldata_set_string(&cd, "property", "power_on");
-		ptzDeviceList.callDevice(index, "ptz_get", &cd);
+		ptzDeviceList->callDevice(index, "ptz_get", &cd);
 		power_on = calldata_bool(&cd, "power_on");
 		powerAction =
 			context.addAction(obs_module_text(power_on ? "PTZ.Action.PowerOff" : "PTZ.Action.PowerOn"));
 
 		calldata_set_string(&cd, "property", "wb_mode");
-		ptzDeviceList.callDevice(index, "ptz_get", &cd);
+		ptzDeviceList->callDevice(index, "ptz_get", &cd);
 		bool wb_onepush = (calldata_int(&cd, "wb_mode") == 3);
 		if (wb_onepush)
 			wbOnetouchAction = context.addAction(obs_module_text("PTZ.Action.WhiteBalance.OnePushTrigger"));
@@ -1203,12 +1203,12 @@ void PTZControls::on_deviceList_customContextMenuRequested(const QPoint &pos)
 	if (action == powerAction) {
 		calldata cd = {};
 		calldata_set_bool(&cd, "power_on", !power_on);
-		ptzDeviceList.callDevice(index, "ptz_set", &cd);
+		ptzDeviceList->callDevice(index, "ptz_set", &cd);
 		calldata_free(&cd);
 	} else if (action == wbOnetouchAction) {
 		calldata cd = {};
 		calldata_set_bool(&cd, "wb_onepush_trigger", true);
-		ptzDeviceList.callDevice(index, "ptz_set", &cd);
+		ptzDeviceList->callDevice(index, "ptz_set", &cd);
 		calldata_free(&cd);
 	}
 }
@@ -1221,9 +1221,9 @@ void PTZControls::on_actionProperties_triggered()
 void PTZControls::on_actionPresetAdd_triggered()
 {
 	auto parent = ui->deviceList->currentIndex();
-	auto row = ptzDeviceList.rowCount(parent);
-	ptzDeviceList.insertRows(row, 1, parent);
-	QModelIndex index = ptzDeviceList.index(row, 0, parent);
+	auto row = ptzDeviceList->rowCount(parent);
+	ptzDeviceList->insertRows(row, 1, parent);
+	QModelIndex index = ptzDeviceList->index(row, 0, parent);
 	if (index.isValid()) {
 		ui->presetListView->setCurrentIndex(index);
 		ui->presetListView->edit(index);
@@ -1236,7 +1236,7 @@ void PTZControls::on_actionPresetRemove_triggered()
 	auto index = ui->presetListView->currentIndex();
 	if (!index.isValid())
 		return;
-	ptzDeviceList.removeRows(index.row(), 1, ui->deviceList->currentIndex());
+	ptzDeviceList->removeRows(index.row(), 1, ui->deviceList->currentIndex());
 	presetUpdateActions();
 }
 
@@ -1246,7 +1246,7 @@ void PTZControls::on_actionPresetMoveUp_triggered()
 	auto parent = ui->deviceList->currentIndex();
 	if (!index.isValid())
 		return;
-	ptzDeviceList.moveRow(parent, index.row(), parent, index.row() - 1);
+	ptzDeviceList->moveRow(parent, index.row(), parent, index.row() - 1);
 	presetUpdateActions();
 }
 
@@ -1256,7 +1256,7 @@ void PTZControls::on_actionPresetMoveDown_triggered()
 	auto parent = ui->deviceList->currentIndex();
 	if (!index.isValid())
 		return;
-	ptzDeviceList.moveRow(parent, index.row(), parent, index.row() + 2);
+	ptzDeviceList->moveRow(parent, index.row(), parent, index.row() + 2);
 	presetUpdateActions();
 }
 
@@ -1282,7 +1282,7 @@ void PTZControls::on_actionPresetClear_triggered()
 	if (!index.isValid())
 		return;
 	presetReset(presetIndexToId(index));
-	ptzDeviceList.setData(index, "");
+	ptzDeviceList->setData(index, "");
 }
 
 void PTZControls::on_actionPresetExport_triggered(QString filename)
@@ -1292,7 +1292,7 @@ void PTZControls::on_actionPresetExport_triggered(QString filename)
 	if (!index.isValid())
 		return;
 
-	QString deviceName = ptzDeviceList.data(index, Qt::DisplayRole).toString();
+	QString deviceName = ptzDeviceList->data(index, Qt::DisplayRole).toString();
 	QString defaultName = QString(deviceName).replace(QLatin1Char('/'), QLatin1Char('_')) + " presets.json";
 	if (filename.isEmpty())
 		filename = QFileDialog::getSaveFileName(this, obs_module_text("PTZ.Action.Preset.Export"), defaultName,
@@ -1303,7 +1303,7 @@ void PTZControls::on_actionPresetExport_triggered(QString filename)
 	/* save() serializes the device's whole config; presets/preset_max are
 	 * just the subset of that we actually want in the exported file. */
 	OBSDataAutoRelease fullConfig = obs_data_create();
-	ptzDeviceList.save(index, fullConfig.Get());
+	ptzDeviceList->save(index, fullConfig.Get());
 
 	OBSDataAutoRelease data = obs_data_create();
 	obs_data_set_int(data, "obs-ptz-preset-format", 1);
@@ -1338,7 +1338,7 @@ void PTZControls::on_actionPresetImport_triggered(QString filename)
 	}
 
 	/* Save current selected device */
-	uint32_t deviceId = ptzDeviceList.data(index, PTZListModel::DeviceIdRole).toUInt();
+	uint32_t deviceId = ptzDeviceList->data(index, PTZListModel::DeviceIdRole).toUInt();
 
 	/* Merge just the presets/preset_max subset from the imported file
 	 * into the device's current full config, then update() with that --
@@ -1346,16 +1346,16 @@ void PTZControls::on_actionPresetImport_triggered(QString filename)
 	 * setting (pan/tilt speed, invert flags, ...) to its default, since
 	 * this file only ever has the two preset-related keys. */
 	OBSDataAutoRelease fullConfig = obs_data_create();
-	ptzDeviceList.save(index, fullConfig.Get());
+	ptzDeviceList->save(index, fullConfig.Get());
 	if (obs_data_has_user_value(data, "preset_max"))
 		obs_data_set_int(fullConfig, "preset_max", obs_data_get_int(data, "preset_max"));
 	OBSDataArrayAutoRelease presets = obs_data_get_array(data, "presets");
 	obs_data_set_array(fullConfig, "presets", presets);
 
-	ptzDeviceList.update(index, fullConfig.Get());
-	ptzDeviceList.do_reset();
+	ptzDeviceList->update(index, fullConfig.Get());
+	ptzDeviceList->do_reset();
 	/* restore selection after reset */
-	ui->deviceList->setCurrentIndex(ptzDeviceList.indexFromDeviceId(deviceId));
+	ui->deviceList->setCurrentIndex(ptzDeviceList->indexFromDeviceId(deviceId));
 	presetUpdateActions();
 }
 
@@ -1583,7 +1583,7 @@ bool PTZPresetListDelegate::editorEvent(QEvent *event, QAbstractItemModel *model
 		if (mouseEvent->button() == Qt::LeftButton && l.recall.contains(mouseEvent->pos())) {
 			uint32_t deviceId = index.parent().data(PTZListModel::DeviceIdRole).toUInt();
 			int presetId = index.data(Qt::UserRole).toInt();
-			ptzDeviceList.preset_recall(deviceId, presetId);
+			ptzDeviceList->preset_recall(deviceId, presetId);
 			return true;
 		}
 	}

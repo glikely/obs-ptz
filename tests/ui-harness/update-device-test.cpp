@@ -42,7 +42,7 @@ void runUpdateDeviceTest(const QMap<QString, QString> &params)
 		return;
 	}
 
-	QModelIndex index = ptzDeviceList.indexFromDeviceId(deviceId);
+	QModelIndex index = ptzDeviceList->indexFromDeviceId(deviceId);
 	if (!index.isValid()) {
 		blog(LOG_INFO, "[ptz-ui-test] update_device: device_id %u not found", deviceId);
 		return;
@@ -50,7 +50,7 @@ void runUpdateDeviceTest(const QMap<QString, QString> &params)
 
 	OBSData cfg = obs_data_create();
 	obs_data_release(cfg);
-	ptzDeviceList.save(index, cfg);
+	ptzDeviceList->save(index, cfg);
 
 	if (params.contains(QStringLiteral("type")))
 		obs_data_set_string(cfg, "type", qUtf8Printable(params.value(QStringLiteral("type"))));
@@ -77,7 +77,7 @@ void runUpdateDeviceTest(const QMap<QString, QString> &params)
 			obs_data_set_int(cfg, "address", address);
 	}
 
-	ptzDeviceList.update(index, cfg);
+	ptzDeviceList->update(index, cfg);
 
 	blog(LOG_INFO, "[ptz-ui-test] update_device device_id=%u", deviceId);
 }

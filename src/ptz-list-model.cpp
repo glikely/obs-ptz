@@ -18,7 +18,7 @@
 #include "ptz-pelco.hpp"
 #endif
 
-PTZListModel ptzDeviceList;
+PTZListModel *ptzDeviceList = nullptr;
 
 static void source_rename_cb(void *data, calldata_t *cd)
 {
@@ -43,6 +43,18 @@ PTZListModel::~PTZListModel()
 {
 	//signal_handler_t *sh = obs_get_signal_handler();
 	//signal_handler_disconnect(sh, "source_rename", source_rename_cb, this);
+}
+
+void PTZListModel::create()
+{
+	if (!ptzDeviceList)
+		ptzDeviceList = new PTZListModel();
+}
+
+void PTZListModel::destroy()
+{
+	delete ptzDeviceList;
+	ptzDeviceList = nullptr;
 }
 
 QModelIndex PTZListModel::index(int row, int column, const QModelIndex &parent) const
@@ -412,7 +424,7 @@ void PTZListModel::delete_all()
 
 void PTZListModel::preset_recall(uint32_t device_id, int preset_id)
 {
-	PTZDevice *ptz = ptzDeviceList.getDevice(device_id);
+	PTZDevice *ptz = ptzDeviceList->getDevice(device_id);
 	if (ptz)
 		ptz->memory_recall(preset_id);
 }

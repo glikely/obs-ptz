@@ -34,6 +34,9 @@ public:
 
 	PTZListModel();
 	~PTZListModel();
+	/* Constructs/destroys the ptzDeviceList singleton */
+	static void create();
+	static void destroy();
 	QModelIndex index(int row, int column, const QModelIndex &parent = QModelIndex()) const override;
 	QModelIndex parent(const QModelIndex &child) const override;
 	int rowCount(const QModelIndex &parent = QModelIndex()) const override;
@@ -84,4 +87,4 @@ public slots:
 	void deviceStateChanged(OBSData changed);
 };
 
-extern PTZListModel ptzDeviceList;
+extern PTZListModel *ptzDeviceList;
