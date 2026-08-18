@@ -137,7 +137,7 @@ void PTZPelco::zoom_speed_set(double speed)
 	send(0x00, 0x25, 0x00, abs(speed) * 0x33);
 }
 
-PTZPelco::PTZPelco(OBSData data) : PTZDevice(data), iface(NULL)
+PTZPelco::PTZPelco(OBSData data, obs_source_t *filter_source) : PTZDevice(data, filter_source), iface(NULL)
 {
 	getDefaults(data);
 	update(data);

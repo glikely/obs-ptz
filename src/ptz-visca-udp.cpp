@@ -91,7 +91,7 @@ ViscaUDPSocket *ViscaUDPSocket::get_interface(int port)
 	return iface;
 }
 
-PTZViscaOverIP::PTZViscaOverIP(OBSData config) : PTZVisca(config), iface(NULL)
+PTZViscaOverIP::PTZViscaOverIP(OBSData config, obs_source_t *filter_source) : PTZVisca(config, filter_source), iface(NULL)
 {
 	address = 1;
 	getDefaults(config);

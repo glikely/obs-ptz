@@ -7,7 +7,9 @@
 
 #include <obs.hpp>
 #include <algorithm>
+#include <QCoreApplication>
 #include <QHash>
+#include <QThread>
 #include "ptz-device.hpp"
 #include "ptz-list-model.hpp"
 #include "ptz-visca-udp.hpp"
@@ -25,7 +27,7 @@
 /**
  * The only place PTZDevice* pointers live outside the object itself. Used
  * for unique-id assignment and the handful of C-linkage entry points
- * (ptz_devices_get_config(), ptz_device_find_source_using_ptz_name(), the
+ * (ptz_device_find_source_using_ptz_name(), ptz_devices_get_config(), the
  * legacy scripting proc_handler) that need to reach a specific device
  * directly. PTZListModel never sees this -- it only ever gets a device_id
  * plus the proc_handler_t / signal_handler_t pointers handed to it over the
@@ -41,96 +43,24 @@ static PTZDevice *find_device_by_name(const QString &name)
 	return nullptr;
 }
 
-/**
- * Lambda factory macro for the PTZ proc_handler methods. This macro
- * simplifies the registration of PTZDevice methods as targets for
- * proc_handler calls.
- *
- * In this current implementation, the proc_handler can be called from
- * any thread, and the calldata method must decode the arguments and use
- * invokeMethod to call the real target. invokeMethod will check if it
- * was called from the object's thread. If it wasn't, and if the method
- * doesn't return anything, then the call is queued on the correct
- * thread. For methods that do return data, they aren't handled yet and
- * will log an error when calling from a different thread.
- */
-#define ptz_ph_lambda(_method) [](void *p, calldata_t *cd) \
-	{ \
-		auto ptz = static_cast<PTZDevice *>(p); \
-		if (!ptz) { \
-			blog(LOG_ERROR, "PTZ proc_handler called without PTZDevice pointer"); \
-			return; \
-		} \
-		ptz->_method(cd); \
-	}
-
-PTZDevice::PTZDevice(OBSData config) : QObject()
+PTZDevice::PTZDevice(OBSData config, obs_source_t *_filter_source) : QObject()
 {
-	/* Create and populate the proc handler methods */
-	handler = proc_handler_create();
-	if (!handler) {
-		blog(LOG_ERROR, "could not allocate proc_handler for %s", obs_data_get_string(config, "name"));
-		return;
-	}
-
-	/* The PTZ Device API. All these functions are prefixed with 'ptz_' so that they can
-	 * be added to an existing proc_handler with low risk of conflicts */
-	proc_handler_add(handler, "void ptz_stop()", ptz_ph_lambda(stop), this);
-	proc_handler_add(handler, "void ptz_home_recall()", ptz_ph_lambda(pantilt_home), this);
-	proc_handler_add(handler, "void ptz_home_save()", ptz_ph_lambda(pantilt_set_home), this);
-	proc_handler_add(handler, "void ptz_move()", ptz_ph_lambda(move), this);
-	proc_handler_add(handler, "void ptz_move_abs()", ptz_ph_lambda(move_abs), this);
-	proc_handler_add(handler, "void ptz_move_rel()", ptz_ph_lambda(move_rel), this);
-	proc_handler_add(handler, "void ptz_get()", ptz_ph_lambda(get), this);
-	proc_handler_add(handler, "void ptz_set()", ptz_ph_lambda(set), this);
-	proc_handler_add(handler, "void ptz_preset_save()", ptz_ph_lambda(preset_save), this);
-	proc_handler_add(handler, "void ptz_preset_recall()", ptz_ph_lambda(preset_recall), this);
-	proc_handler_add(handler, "void ptz_preset_clear()", ptz_ph_lambda(preset_clear), this);
-
-	/* Query/config/preset-CRUD API for PTZListModel -- everything it
-	 * needs from a PTZDevice beyond movement/preset-recall control,
-	 * without calling PTZDevice methods directly */
-	proc_handler_add(handler, "ptr ptz_get_state()", ptz_ph_lambda(get_state), this);
-	proc_handler_add(handler, "void ptz_set_name(string name)", ptz_ph_lambda(setObjectName), this);
-	proc_handler_add(handler, "void ptz_set_locked(bool locked)", ptz_ph_lambda(setLock), this);
-	proc_handler_add(handler, "void ptz_get_config(ptr config)", ptz_ph_lambda(get_config), this);
-	proc_handler_add(handler, "void ptz_set_config(ptr config)", ptz_ph_lambda(set_config), this);
-	proc_handler_add(handler, "ptr ptz_get_properties()", ptz_ph_lambda(get_obs_properties), this);
-	proc_handler_add(handler, "ptr ptz_preset_get_list()", ptz_ph_lambda(preset_get_list), this);
-	proc_handler_add(handler, "int ptz_preset_new(int row)", ptz_ph_lambda(newPreset), this);
-	proc_handler_add(handler, "void ptz_preset_remove(int row)", ptz_ph_lambda(removePresetAtDisplayRow), this);
-	proc_handler_add(handler, "void ptz_preset_move(int src_row, int dest_row)", ptz_ph_lambda(movePreset), this);
-	proc_handler_add(handler, "void ptz_preset_set_name(int id, string name)", ptz_ph_lambda(setPresetName), this);
-	proc_handler_add(handler, "void ptz_scene_changed()", ptz_ph_lambda(onSceneChanged), this);
-
-	/* A single change notification, broadcast on a per-device signal
-	 * handler so listeners never need a direct C++ reference to this
-	 * class -- see PTZListModel::deviceCreated()/device_create_cb(). One
-	 * signal covers status, rename, and settings changes alike: none of
-	 * them carry enough of a payload on their own for a listener to patch
-	 * anything selectively, so there's nothing a separate signal per
-	 * change kind would let a listener do differently -- just device_id,
-	 * to say which device to re-query. */
-	sigs = signal_handler_create();
-	if (!sigs) {
-		blog(LOG_ERROR, "could not allocate signal_handler for %s", obs_data_get_string(config, "name"));
-	} else {
-		signal_handler_add(sigs, "void state_changed(int device_id)");
-
-		/* Preset list mutations are bracketed by a before/after signal
-		 * pair, exactly like the QAbstractItemModel begin.../end...
-		 * calls they replace -- signal_handler_signal() dispatches to
-		 * connected callbacks synchronously, so PTZListModel's "before"
-		 * callback can still call beginInsertRows()/etc. ahead of the
-		 * mutation actually happening. */
-		signal_handler_add(sigs, "void preset_insert(int device_id, int row)");
-		signal_handler_add(sigs, "void preset_inserted(int device_id, int row)");
-		signal_handler_add(sigs, "void preset_remove(int device_id, int row)");
-		signal_handler_add(sigs, "void preset_removed(int device_id, int row)");
-		signal_handler_add(sigs, "bool preset_move(int device_id, int src_row, int dest_row)");
-		signal_handler_add(sigs, "void preset_moved(int device_id, int src_row, int dest_row)");
-		signal_handler_add(sigs, "void preset_renamed(int device_id, int id)");
-	}
+	/* Every obs_source_t -- filters included -- already comes with its own
+	 * proc_handler/signal_handler, managed by libobs for the source's
+	 * whole lifetime. Use those instead of allocating private ones: no
+	 * manual create/destroy needed, and it means external code can reach
+	 * a device's proc_handler/signal_handler through ordinary OBS filter
+	 * APIs (obs_source_get_proc_handler(), etc.) too. handler/sigs are
+	 * therefore *borrowed*, not owned -- see ~PTZDevice().
+	 *
+	 * Registering ptz_* proc_handler entries/signal declarations happens
+	 * once per *filter* (PTZDevice::registerFilterHandlers(), called from
+	 * ptz_filter_create()), not here per *device* instance -- see that
+	 * function's comment for why. This constructor just borrows the
+	 * pointers, it doesn't populate them. */
+	filter_source = _filter_source;
+	handler = obs_source_get_proc_handler(filter_source);
+	sigs = obs_source_get_signal_handler(filter_source);
 
 	setObjectName(obs_data_get_string(config, "name"));
 	type = obs_data_get_string(config, "type");
@@ -157,8 +87,11 @@ PTZDevice::PTZDevice(OBSData config) : QObject()
  * constructor body, which runs after PTZDevice's base constructor
  * completes, so a signal fired there would let PTZListModel seed its cache
  * (via ptz_get_state()/ptz_preset_get_list()) before presets/settings are
- * actually loaded. ptz_device_create() calls this once the full object
- * (base and derived) is constructed instead.
+ * actually loaded. Callers of ptz_device_create() (ptz_filter_create()/
+ * ptz_filter_update()) call this once the full object (base and derived)
+ * is constructed *and* assigned to ptzf->ptz -- not from inside
+ * ptz_device_create() itself, which returns before that assignment
+ * happens; see the comment on ptz_device_create()'s return statement.
  */
 void PTZDevice::announceCreated()
 {
@@ -179,10 +112,9 @@ PTZDevice::~PTZDevice()
 
 	ptz_device_registry.remove(id);
 
-	proc_handler_destroy(handler);
-	handler = nullptr;
-	signal_handler_destroy(sigs);
-	sigs = nullptr;
+	/* handler/sigs are borrowed from filter_source (see the constructor),
+	 * not owned -- OBS destroys them along with the filter source itself,
+	 * after this destructor returns. Nothing to release here. */
 }
 
 void PTZDevice::setObjectName(QString name)
@@ -587,35 +519,95 @@ obs_properties_t *PTZDevice::get_obs_properties()
  * filter's own callbacks just call this with an OBSData and never see a
  * driver header.
  */
-PTZDevice *ptz_device_create(obs_data_t *config)
+PTZDevice *ptz_device_create(obs_data_t *config, obs_source_t *filter_source)
 {
+	/* Driver constructors start QTimers (some directly in the constructor
+	 * body, e.g. PTZOnvif's m_statusTimer) -- a QTimer is only usable on
+	 * the thread it's started on, and that has to be a thread Qt itself
+	 * is actually running an event loop on. Force construction onto the
+	 * main thread unconditionally, however this function got called, so
+	 * every device's timers are consistently owned by the one thread
+	 * guaranteed to still have a running Qt event loop for their whole
+	 * lifetime. Safe to block on -- every caller of ptz_device_create()
+	 * is itself a synchronous OBS callback with no lock held that the
+	 * main thread could be waiting on. */
+	if (QThread::currentThread() != qApp->thread()) {
+		PTZDevice *ptz = nullptr;
+		QMetaObject::invokeMethod(
+			qApp, [&]() { ptz = ptz_device_create(config, filter_source); },
+			Qt::BlockingQueuedConnection);
+		return ptz;
+	}
+
 	std::string type = obs_data_get_string(config, "type");
 	PTZDevice *ptz = nullptr;
 
 #if defined(ENABLE_SERIALPORT)
 	if (type == "pelco" || type == "pelco-p")
-		ptz = new PTZPelco(config);
+		ptz = new PTZPelco(config, filter_source);
 	if (type == "visca")
-		ptz = new PTZViscaSerial(config);
+		ptz = new PTZViscaSerial(config, filter_source);
 #endif /* ENABLE_SERIALPORT */
 	if (type == "visca-over-ip")
-		ptz = new PTZViscaOverIP(config);
+		ptz = new PTZViscaOverIP(config, filter_source);
 	if (type == "visca-over-tcp")
-		ptz = new PTZViscaOverTCP(config);
+		ptz = new PTZViscaOverTCP(config, filter_source);
 #if defined(ENABLE_ONVIF)
 	if (type == "onvif")
-		ptz = new PTZOnvif(config);
+		ptz = new PTZOnvif(config, filter_source);
 #endif /* ENABLE_ONVIF */
 #if defined(ENABLE_USB_CAM)
 	if (type == "usb-cam")
-		ptz = new PTZUSBCam(config);
+		ptz = new PTZUSBCam(config, filter_source);
 #endif /* ENABLE_USB_CAM */
 
-	/* Only announce once the full (base + derived) object is constructed
-	 * -- see PTZDevice::announceCreated()'s comment. */
-	if (ptz)
-		ptz->announceCreated();
+	/* Deliberately does NOT call ptz->announceCreated() here, even
+	 * though the full (base + derived) object is already constructed at
+	 * this point -- announceCreated() fires the global create signal
+	 * synchronously, and PTZListModel's reaction to it can call straight
+	 * back into ptzf->source's proc_handler (e.g. to seed its cache via
+	 * ptz_get_state()). If that happened before this function returns,
+	 * it would land in the gap between the caller's ptz_device_destroy()
+	 * and `ptzf->ptz = ptz_device_create(...)` -- ptzf->ptz would still
+	 * be null/stale, and the call would hit registerFilterHandlers()'s
+	 * "called without an active PTZDevice" guard instead of the device
+	 * that very call is trying to reach. Each caller below assigns the
+	 * returned pointer first and calls announceCreated() itself once
+	 * that assignment has actually happened. */
 	return ptz;
+}
+
+/**
+ * Deletes a PTZDevice via deleteLater() rather than a raw `delete` -- the
+ * counterpart to ptz_device_create()'s main-thread guard above, and just as
+ * necessary: ~PTZDevice() destroys QTimer members (timeout_timer,
+ * update_timer, PTZOnvif's m_statusTimer, ...), and Qt requires a timer to
+ * be stopped from the same thread that started it. ptz_filter_destroy()/
+ * ptz_filter_update() run on the main thread for ordinary interactive
+ * filter add/remove/type-change, but OBS's shutdown teardown of every
+ * source and filter does not -- confirmed by Qt's own diagnostic
+ * ("QObject::~QObject: Timers cannot be stopped from another thread")
+ * appearing in the log immediately before a segfault this was chasing:
+ * deleting cross-thread there leaves the *main* thread's event dispatcher
+ * with a timer registration pointing at now-freed memory; the next time
+ * the main thread's run loop processes its timer list, it dereferences
+ * that stale pointer and crashes deep inside Qt's platform plugin, nowhere
+ * near any obs-ptz code.
+ *
+ * The first attempt at this fix forced the delete onto the main thread with
+ * a *blocking* queued call (mirroring ptz_device_create()'s approach) --
+ * that hung OBS on quit instead of crashing it: whatever thread OBS tears
+ * filters down from during shutdown, the main thread wound up synchronously
+ * waiting on it, so blocking that thread right back waiting on the main
+ * thread deadlocked both of them. deleteLater() is the correct tool here --
+ * it's documented as safe to call from any thread, and it doesn't block:
+ * it just posts the actual deletion to run later on ptz's own thread (the
+ * main thread, guaranteed by ptz_device_create()'s guard), whenever that
+ * thread's event loop next gets around to it. */
+static void ptz_device_destroy(PTZDevice *ptz)
+{
+	if (ptz)
+		ptz->deleteLater();
 }
 
 /**
@@ -632,10 +624,117 @@ struct ptz_filter {
 	PTZDevice *ptz;
 };
 
+/**
+ * Lambda factory macro for the PTZ proc_handler methods. Bound to a
+ * ptz_filter*, not a PTZDevice* -- proc_handler_add() silently rejects a
+ * second registration under a name that already exists (logs a warning,
+ * keeps the *old* one), and ptzf->source's proc_handler lives for the whole
+ * filter's lifetime, outliving any single PTZDevice instance attached to it
+ * (ptz_filter_update() deletes and replaces ptzf->ptz whenever the "type"
+ * property changes). Registering per-device, like a bare PTZDevice*-bound
+ * lambda would need to, would mean the second and every later device's
+ * methods silently never get registered at all -- calls would keep
+ * dispatching to the *first* device, freed after the first type change.
+ * Binding to the stable ptzf and resolving ptzf->ptz at call time instead
+ * means registration only ever needs to happen once, in
+ * PTZDevice::registerFilterHandlers() below (called once from
+ * ptz_filter_create(), not from PTZDevice's own constructor).
+ *
+ * In this current implementation, the proc_handler can be called from
+ * any thread, and the calldata method must decode the arguments and use
+ * invokeMethod to call the real target. invokeMethod will check if it
+ * was called from the object's thread. If it wasn't, and if the method
+ * doesn't return anything, then the call is queued on the correct
+ * thread. For methods that do return data, they aren't handled yet and
+ * will log an error when calling from a different thread.
+ */
+#define ptz_ph_lambda(_method) [](void *p, calldata_t *cd) \
+	{ \
+		auto ptzf = static_cast<struct ptz_filter *>(p); \
+		if (!ptzf || !ptzf->ptz) { \
+			blog(LOG_ERROR, "PTZ proc_handler called without an active PTZDevice"); \
+			return; \
+		} \
+		ptzf->ptz->_method(cd); \
+	}
+
+/**
+ * Registers every ptz_* proc_handler entry and declares every signal this
+ * class fires, once for ptzf->source's whole lifetime as a filter -- see
+ * the comment on ptz_ph_lambda above for why this can't happen per-device
+ * (in the constructor) instead, and PTZDevice::PTZDevice() for why it needs
+ * to be a static member rather than a free function (access to the
+ * protected calldata_t methods below).
+ */
+void PTZDevice::registerFilterHandlers(struct ptz_filter *ptzf)
+{
+	proc_handler_t *handler = obs_source_get_proc_handler(ptzf->source);
+	signal_handler_t *sigs = obs_source_get_signal_handler(ptzf->source);
+
+	/* The PTZ Device API. All these functions are prefixed with 'ptz_' so that they can
+	 * be added to an existing proc_handler with low risk of conflicts */
+	proc_handler_add(handler, "void ptz_stop()", ptz_ph_lambda(stop), ptzf);
+	proc_handler_add(handler, "void ptz_home_recall()", ptz_ph_lambda(pantilt_home), ptzf);
+	proc_handler_add(handler, "void ptz_home_save()", ptz_ph_lambda(pantilt_set_home), ptzf);
+	proc_handler_add(handler, "void ptz_move()", ptz_ph_lambda(move), ptzf);
+	proc_handler_add(handler, "void ptz_move_abs()", ptz_ph_lambda(move_abs), ptzf);
+	proc_handler_add(handler, "void ptz_move_rel()", ptz_ph_lambda(move_rel), ptzf);
+	proc_handler_add(handler, "void ptz_get()", ptz_ph_lambda(get), ptzf);
+	proc_handler_add(handler, "void ptz_set()", ptz_ph_lambda(set), ptzf);
+	proc_handler_add(handler, "void ptz_preset_save()", ptz_ph_lambda(preset_save), ptzf);
+	proc_handler_add(handler, "void ptz_preset_recall()", ptz_ph_lambda(preset_recall), ptzf);
+	proc_handler_add(handler, "void ptz_preset_clear()", ptz_ph_lambda(preset_clear), ptzf);
+
+	/* Query/config/preset-CRUD API for PTZListModel -- everything it
+	 * needs from a PTZDevice beyond movement/preset-recall control,
+	 * without calling PTZDevice methods directly */
+	proc_handler_add(handler, "ptr ptz_get_state()", ptz_ph_lambda(get_state), ptzf);
+	proc_handler_add(handler, "void ptz_set_name(string name)", ptz_ph_lambda(setObjectName), ptzf);
+	proc_handler_add(handler, "void ptz_set_locked(bool locked)", ptz_ph_lambda(setLock), ptzf);
+	proc_handler_add(handler, "void ptz_get_config(ptr config)", ptz_ph_lambda(get_config), ptzf);
+	proc_handler_add(handler, "void ptz_set_config(ptr config)", ptz_ph_lambda(set_config), ptzf);
+	proc_handler_add(handler, "ptr ptz_get_properties()", ptz_ph_lambda(get_obs_properties), ptzf);
+	proc_handler_add(handler, "ptr ptz_preset_get_list()", ptz_ph_lambda(preset_get_list), ptzf);
+	proc_handler_add(handler, "int ptz_preset_new(int row)", ptz_ph_lambda(newPreset), ptzf);
+	proc_handler_add(handler, "void ptz_preset_remove(int row)", ptz_ph_lambda(removePresetAtDisplayRow), ptzf);
+	proc_handler_add(handler, "void ptz_preset_move(int src_row, int dest_row)", ptz_ph_lambda(movePreset), ptzf);
+	proc_handler_add(handler, "void ptz_preset_set_name(int id, string name)", ptz_ph_lambda(setPresetName), ptzf);
+	proc_handler_add(handler, "void ptz_scene_changed()", ptz_ph_lambda(onSceneChanged), ptzf);
+
+	/* A single change notification is broadcast on that same signal
+	 * handler so listeners never need a direct C++ reference to this
+	 * class -- see PTZListModel::deviceCreated()/device_create_cb(). One
+	 * signal covers status, rename, and settings changes alike: none of
+	 * them carry enough of a payload on their own for a listener to patch
+	 * anything selectively, so there's nothing a separate signal per
+	 * change kind would let a listener do differently -- just device_id,
+	 * to say which device to re-query. No per-device data pointer needed
+	 * here: a signal *declaration* just registers the name/parameter
+	 * types, no data pointer, so (unlike proc_handler_add() above)
+	 * redeclaring one that already exists would be harmless -- but it
+	 * only needs to happen once regardless, so it lives here rather than
+	 * in the constructor for the same reason. */
+	signal_handler_add(sigs, "void state_changed(int device_id)");
+
+	/* Preset list mutations are bracketed by a before/after signal
+	 * pair, exactly like the QAbstractItemModel begin.../end...
+	 * calls they replace -- signal_handler_signal() dispatches to
+	 * connected callbacks synchronously, so PTZListModel's "before"
+	 * callback can still call beginInsertRows()/etc. ahead of the
+	 * mutation actually happening. */
+	signal_handler_add(sigs, "void preset_insert(int device_id, int row)");
+	signal_handler_add(sigs, "void preset_inserted(int device_id, int row)");
+	signal_handler_add(sigs, "void preset_remove(int device_id, int row)");
+	signal_handler_add(sigs, "void preset_removed(int device_id, int row)");
+	signal_handler_add(sigs, "bool preset_move(int device_id, int src_row, int dest_row)");
+	signal_handler_add(sigs, "void preset_moved(int device_id, int src_row, int dest_row)");
+	signal_handler_add(sigs, "void preset_renamed(int device_id, int id)");
+}
+
 void PTZDevice::notify_properties_changed()
 {
-	if (ptzf && ptzf->source)
-		obs_source_update_properties(ptzf->source);
+	if (filter_source)
+		obs_source_update_properties(filter_source);
 }
 
 static const char *ptz_filter_getname(void *)
@@ -693,10 +792,10 @@ static void ptz_filter_update(void *data, obs_data_t *settings)
 	 * unconditionally dereference it. */
 	std::string oldtype = ptzf->ptz ? ptzf->ptz->getType() : std::string();
 	if (oldtype != type) {
-		delete ptzf->ptz;
-		ptzf->ptz = ptz_device_create(settings);
+		ptz_device_destroy(ptzf->ptz);
+		ptzf->ptz = ptz_device_create(settings, ptzf->source);
 		if (ptzf->ptz) {
-			ptzf->ptz->set_filter_pointer(ptzf);
+			ptzf->ptz->announceCreated();
 			/* Queued: this runs from inside .update(), and
 			 * obs_source_update_properties() rebuilds the
 			 * properties dialog that led here -- doing that
@@ -710,16 +809,20 @@ static void *ptz_filter_create(obs_data_t *settings, obs_source_t *source)
 {
 	auto ptzf = new struct ptz_filter;
 	ptzf->source = source;
-	ptzf->ptz = ptz_device_create(settings);
+	ptzf->ptz = nullptr;
+	/* Once, before any device exists -- see registerFilterHandlers()'s
+	 * comment for why this can't happen in PTZDevice's own constructor. */
+	PTZDevice::registerFilterHandlers(ptzf);
+	ptzf->ptz = ptz_device_create(settings, source);
 	if (ptzf->ptz)
-		ptzf->ptz->set_filter_pointer(ptzf);
+		ptzf->ptz->announceCreated();
 	return ptzf;
 }
 
 static void ptz_filter_destroy(void *data)
 {
 	auto ptzf = static_cast<struct ptz_filter *>(data);
-	delete ptzf->ptz;
+	ptz_device_destroy(ptzf->ptz);
 	delete ptzf;
 }
 
@@ -757,6 +860,22 @@ static struct obs_source_info ptz_filter_info = {
 };
 
 /* C interface for non-QT parts of the plugin */
+obs_source_t *ptz_device_find_source_using_ptz_name(uint32_t device_id)
+{
+	PTZDevice *ptz = ptz_device_registry.value(device_id, nullptr);
+	if (!ptz)
+		return NULL;
+	return obs_get_source_by_name(QT_TO_UTF8(ptz->objectName()));
+}
+
+/**
+ * A live snapshot of every currently-registered device's config, keyed by
+ * id -- NOT persistence (each PTZ Control filter owns its own save/load
+ * now), just enumeration. The PTZ Action source (ptz-action-source.c, a
+ * plain C file that can't see PTZDevice/ptz_device_registry directly) uses
+ * this to populate its own "which camera / which preset" property
+ * dropdowns.
+ */
 obs_data_array_t *ptz_devices_get_config()
 {
 	obs_data_array_t *devices = obs_data_array_create();
@@ -766,14 +885,6 @@ obs_data_array_t *ptz_devices_get_config()
 		obs_data_array_push_back(devices, cfg);
 	}
 	return devices;
-}
-
-obs_source_t *ptz_device_find_source_using_ptz_name(uint32_t device_id)
-{
-	PTZDevice *ptz = ptz_device_registry.value(device_id, nullptr);
-	if (!ptz)
-		return NULL;
-	return obs_get_source_by_name(QT_TO_UTF8(ptz->objectName()));
 }
 
 static proc_handler_t *ptz_ph = NULL;

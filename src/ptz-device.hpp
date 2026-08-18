@@ -66,32 +66,39 @@ protected:
 	QSet<QString> stale_settings;
 	void incrementStatistic(const char *name);
 
-	// Each PTZ device has a proc handler so methods can be called
-	// from other plugins
+	/* The owning "PTZ Control" filter's own source -- never the parent.
+	 * Set at construction and never reassigned. handler/sigs below are
+	 * borrowed from this source's own proc_handler/signal_handler (every
+	 * obs_source_t has one), not separately allocated. */
+	obs_source_t *filter_source = nullptr;
+	// Each PTZ device is controlled via its filter source's proc handler,
+	// so methods can be called from other plugins
 	proc_handler_t *handler = nullptr;
-	// ...and a signal handler so status changes can be observed without a
-	// direct C++ reference to this class (see ptz-list-model.cpp)
+	// ...and observed via its filter source's signal handler, so status
+	// changes don't need a direct C++ reference to this class (see
+	// ptz-list-model.cpp)
 	signal_handler_t *sigs = nullptr;
 	void notifySettingsChanged();
 
-	/* Set right after construction by ptz_make_device(), so that a type
-	 * change in the filter's own properties dialog (ptz_filter_update())
-	 * can ask the filter to refresh what it shows -- see
-	 * notify_properties_changed(). Not used for anything else yet (that's
-	 * a later phase); PTZDevice's own proc_handler/signal_handler are
-	 * still private to PTZDevice at this point. */
-	struct ptz_filter *ptzf = nullptr;
-
 public:
 	~PTZDevice();
-	PTZDevice(OBSData config);
+	PTZDevice(OBSData config, obs_source_t *filter_source);
 	uint32_t getId() const { return id; }
 	std::string getType() const { return type; }
-	void set_filter_pointer(struct ptz_filter *_ptzf) { ptzf = _ptzf; }
 	/* Fires the create signal PTZListModel discovers new devices through.
-	 * Called by ptz_device_create() once the full object (base and
-	 * derived) is constructed -- see the comment on the definition. */
+	 * Called by ptz_device_create()'s caller once the returned object is
+	 * both fully constructed and assigned to ptzf->ptz -- see the
+	 * comment on the definition. */
 	void announceCreated();
+	/* Registers every ptz_* proc_handler entry and signal declaration on
+	 * ptzf->source's own proc_handler/signal_handler, once for the
+	 * filter's whole lifetime (called from ptz_filter_create(), not from
+	 * PTZDevice's own constructor) -- see the comment on the definition
+	 * for why a per-PTZDevice-instance registration would be unsafe. A
+	 * static member (not a free function) purely so its lambdas keep
+	 * access to the protected calldata_t methods below, the same way
+	 * they would from inside the constructor. */
+	static void registerFilterHandlers(struct ptz_filter *ptzf);
 
 	void setObjectName(QString name);
 	virtual QString description();

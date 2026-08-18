@@ -28,10 +28,10 @@ extern void ptz_load_action_source(void);
 extern void ptz_load_controls(void);
 extern void ptz_load_settings(void);
 
+extern obs_source_t *ptz_device_find_source_using_ptz_name(uint32_t device_id);
 /* Live enumeration, not persistence -- see the comment on the definition in
  * ptz-device.cpp. Used by ptz-action-source.c's properties dialog. */
 extern obs_data_array_t *ptz_devices_get_config(void);
-extern obs_source_t *ptz_device_find_source_using_ptz_name(uint32_t device_id);
 
 extern bool ptz_scene_is_source_active(obs_source_t *scene, obs_source_t *source);
 
@@ -48,7 +48,7 @@ extern signal_handler_t *ptz_get_signal_handler();
  * needs to reach an actual PTZDevice subclass; see the comment on its
  * definition. */
 class PTZDevice;
-extern PTZDevice *ptz_device_create(obs_data_t *config);
+extern PTZDevice *ptz_device_create(obs_data_t *config, obs_source_t *filter_source);
 #endif
 
 #endif /* PTZ_H */

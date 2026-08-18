@@ -30,7 +30,7 @@ private slots:
 	void on_socket_stateChanged(QAbstractSocket::SocketState);
 
 public:
-	PTZViscaOverTCP(OBSData config);
+	PTZViscaOverTCP(OBSData config, obs_source_t *filter_source);
 	QString description() override;
 
 	void getDefaults(OBSData ptz_data) const override;

@@ -55,7 +55,7 @@ public slots:
 	void lookup_host_callback(const QHostInfo hostinfo);
 
 public:
-	PTZViscaOverIP(OBSData config);
+	PTZViscaOverIP(OBSData config, obs_source_t *filter_source);
 	~PTZViscaOverIP();
 	QString description() override;
 

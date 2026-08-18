@@ -40,7 +40,7 @@ protected:
 	void reset();
 
 public:
-	PTZViscaSerial(OBSData config);
+	PTZViscaSerial(OBSData config, obs_source_t *filter_source);
 	~PTZViscaSerial();
 	QString description() override;
 

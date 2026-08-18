@@ -513,7 +513,7 @@ const QMap<QString, PTZInq> PTZVisca::inquires = {
 /*
  * PTZVisca Methods
  */
-PTZVisca::PTZVisca(OBSData config) : PTZDevice(config)
+PTZVisca::PTZVisca(OBSData config, obs_source_t *filter_source) : PTZDevice(config, filter_source)
 {
 	for (int i = 0; i < 8; i++)
 		active_cmd[i] = std::nullopt;

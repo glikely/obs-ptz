@@ -8,7 +8,7 @@
 #include <qt-wrappers.hpp>
 #include "ptz-visca-tcp.hpp"
 
-PTZViscaOverTCP::PTZViscaOverTCP(OBSData config) : PTZVisca(config)
+PTZViscaOverTCP::PTZViscaOverTCP(OBSData config, obs_source_t *filter_source) : PTZVisca(config, filter_source)
 {
 	address = 1;
 	getDefaults(config);

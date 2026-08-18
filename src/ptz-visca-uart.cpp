@@ -81,7 +81,7 @@ ViscaUART *ViscaUART::get_interface(QString port_name)
 	return iface;
 }
 
-PTZViscaSerial::PTZViscaSerial(OBSData config) : PTZVisca(config), iface(NULL)
+PTZViscaSerial::PTZViscaSerial(OBSData config, obs_source_t *filter_source) : PTZVisca(config, filter_source), iface(NULL)
 {
 	getDefaults(config);
 	update(config);

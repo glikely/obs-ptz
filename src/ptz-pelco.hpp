@@ -52,7 +52,7 @@ protected:
 	void receive(const QByteArray &msg);
 
 public:
-	PTZPelco(OBSData data);
+	PTZPelco(OBSData data, obs_source_t *filter_source);
 	~PTZPelco();
 	QString description() override;
 
