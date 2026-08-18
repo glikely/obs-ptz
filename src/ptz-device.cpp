@@ -7,10 +7,36 @@
 
 #include <obs.hpp>
 #include <algorithm>
+#include <QHash>
+#include <QMutex>
 #include "ptz-device.hpp"
 #include "ptz-list-model.hpp"
+#include "ptz-visca-udp.hpp"
+#include "ptz-visca-tcp.hpp"
+#include "ptz-onvif.hpp"
+#include "ptz-usb-cam.hpp"
 #include "ptz.h"
 #include "protocol-helpers.hpp"
+
+#if defined(ENABLE_SERIALPORT)
+#include "ptz-visca-uart.hpp"
+#include "ptz-pelco.hpp"
+#endif
+
+/* Lookup table of device_id to PTZDevice instances. Guarded by
+ * ptz_device_registry_mutex since ptz_device_create()/ptz_device_destroy()
+ * can be called from any thread */
+static QRecursiveMutex ptz_device_registry_mutex;
+static QHash<uint32_t, PTZDevice *> ptz_device_registry;
+
+static PTZDevice *find_device_by_name(const QString &name)
+{
+	QMutexLocker locker(&ptz_device_registry_mutex);
+	for (auto ptz : ptz_device_registry)
+		if (name == ptz->objectName())
+			return ptz;
+	return nullptr;
+}
 
 /**
  * Lambda factory macro for the PTZ proc_handler methods. This macro
@@ -71,6 +97,7 @@ PTZDevice::PTZDevice(OBSData config) : QObject()
 	proc_handler_add(handler, "void ptz_preset_remove(int row)", ptz_ph_lambda(removePresetAtDisplayRow), this);
 	proc_handler_add(handler, "void ptz_preset_move(int src_row, int dest_row)", ptz_ph_lambda(movePreset), this);
 	proc_handler_add(handler, "void ptz_preset_set_name(int id, string name)", ptz_ph_lambda(setPresetName), this);
+	proc_handler_add(handler, "void ptz_scene_changed()", ptz_ph_lambda(onSceneChanged), this);
 
 	/* Signal handler for notifying state & settings changes */
 	sigs = signal_handler_create();
@@ -83,10 +110,10 @@ PTZDevice::PTZDevice(OBSData config) : QObject()
 		signal_handler_add(sigs, "void preset_inserted(int device_id, int row)");
 		signal_handler_add(sigs, "void preset_removed(int device_id, int row)");
 		signal_handler_add(sigs, "void preset_moved(int device_id, int src_row, int dest_row)");
+		signal_handler_add(sigs, "void preset_renamed(int device_id, int id)");
 	}
 
 	setObjectName(obs_data_get_string(config, "name"));
-	id = (int)obs_data_get_int(config, "id");
 	type = obs_data_get_string(config, "type");
 	state = obs_data_create();
 	obs_data_release(state);
@@ -97,9 +124,30 @@ PTZDevice::PTZDevice(OBSData config) : QObject()
 	obs_data_set_obj(state, "statistics", statistics);
 	stale_state = {"pan_pos", "tilt_pos", "zoom_pos", "focus_pos"};
 
+	/* Assign a unique ID -- this is the one place a device's identity is
+	 * decided, so it happens here rather than in whatever happens to be
+	 * listening on the create signal that announceCreated() fires. Hold
+	 * the lock across the search *and* the insert so two concurrent
+	 * constructions can't settle on the same id. */
+	QMutexLocker locker(&ptz_device_registry_mutex);
+	uint32_t new_id = (uint32_t)obs_data_get_int(config, "id");
+	while (ptz_device_registry.contains(new_id) || new_id == 0)
+		new_id++;
+	id = new_id;
+	ptz_device_registry[id] = this;
+}
+
+/**
+ * Fires the "ptz_device_create" signal -- deliberately *not* done from the
+ * constructor so that subclasses of PTZDevice can finish their
+ * initialization before the announce is sent.
+ */
+void PTZDevice::announceCreated()
+{
 	calldata_t cd = {};
 	calldata_set_int(&cd, "device_id", id);
-	calldata_set_ptr(&cd, "device", this);
+	calldata_set_ptr(&cd, "proc_handler", handler);
+	calldata_set_ptr(&cd, "signal_handler", sigs);
 	signal_handler_signal(ptz_get_signal_handler(), "ptz_device_create", &cd);
 	calldata_free(&cd);
 }
@@ -108,9 +156,13 @@ PTZDevice::~PTZDevice()
 {
 	calldata_t cd = {};
 	calldata_set_int(&cd, "device_id", id);
-	calldata_set_ptr(&cd, "device", this);
 	signal_handler_signal(ptz_get_signal_handler(), "ptz_device_destroy", &cd);
 	calldata_free(&cd);
+
+	{
+		QMutexLocker locker(&ptz_device_registry_mutex);
+		ptz_device_registry.remove(id);
+	}
 
 	proc_handler_destroy(handler);
 	handler = nullptr;
@@ -129,7 +181,7 @@ void PTZDevice::setObjectName(QString name)
 		return;
 	QString new_name = name;
 	for (int i = 1;; i++) {
-		PTZDevice *ptz = ptzDeviceList->getDeviceByName(new_name);
+		PTZDevice *ptz = find_device_by_name(new_name);
 		if (!ptz)
 			break;
 		new_name = name + " " + QString::number(i);
@@ -148,6 +200,8 @@ QString PTZDevice::description()
  */
 void PTZDevice::onSceneChanged()
 {
+	bool was_locked = locked, was_live = live, was_preview = preview;
+
 	locked = false;
 	live = false;
 	preview = false;
@@ -166,6 +220,14 @@ void PTZDevice::onSceneChanged()
 		}
 
 		obs_source_release(source);
+	}
+
+	/* Notify the listeners if there was a state change */
+	if (locked != was_locked || live != was_live || preview != was_preview) {
+		obs_data_set_bool(stateChanged, "locked", locked);
+		obs_data_set_bool(stateChanged, "live", live);
+		obs_data_set_bool(stateChanged, "preview", preview);
+		notifyStateChanged();
 	}
 }
 
@@ -493,8 +555,11 @@ obs_properties_t *PTZDevice::get_obs_properties()
 	/* Add all sources not assigned to a camera */
 	QStringList srcnames;
 	obs_enum_sources(src_cb, &srcnames);
-	for (auto n : ptzDeviceList->getDeviceNames())
-		srcnames.removeAll(n);
+	{
+		QMutexLocker locker(&ptz_device_registry_mutex);
+		for (auto ptz : ptz_device_registry)
+			srcnames.removeAll(ptz->objectName());
+	}
 	for (auto n : srcnames)
 		obs_property_list_add_string(srcs_prop, QT_TO_UTF8(n), QT_TO_UTF8(n));
 
@@ -521,17 +586,61 @@ obs_properties_t *PTZDevice::get_obs_properties()
 	return rtn_props;
 }
 
+/**
+ * Driver factory, dispatching on config["type"]. This is the one place that
+ * needs to name every concrete PTZDevice subclass -- PTZListModel and
+ * settings.cpp just call this (or ptz_devices_set_config() below) with an
+ * OBSData and never see a driver header.
+ */
+void ptz_device_create(obs_data_t *config)
+{
+	std::string type = obs_data_get_string(config, "type");
+	PTZDevice *ptz = nullptr;
+
+#if defined(ENABLE_SERIALPORT)
+	if (type == "pelco" || type == "pelco-p")
+		ptz = new PTZPelco(config);
+#endif /* ENABLE_SERIALPORT */
+	if (type == "visca" || type == "visca-over-ip" || type == "visca-over-tcp")
+		ptz = new PTZVisca(config);
+#if defined(ENABLE_ONVIF)
+	if (type == "onvif")
+		ptz = new PTZOnvif(config);
+#endif /* ENABLE_ONVIF */
+#if defined(ENABLE_USB_CAM)
+	if (type == "usb-cam")
+		ptz = new PTZUSBCam(config);
+#endif /* ENABLE_USB_CAM */
+
+	/* Only announce once the full (base + derived) object is constructed
+	 * -- see PTZDevice::announceCreated()'s comment. */
+	if (ptz)
+		ptz->announceCreated();
+}
+
+void ptz_device_destroy(uint32_t device_id)
+{
+	QMutexLocker locker(&ptz_device_registry_mutex);
+	delete ptz_device_registry.value(device_id, nullptr);
+}
+
 /* C interface for non-QT parts of the plugin */
 obs_data_array_t *ptz_devices_get_config()
 {
 	obs_data_array_t *devices = obs_data_array_create();
-	ptzDeviceList->save(devices);
+	QMutexLocker locker(&ptz_device_registry_mutex);
+	for (auto ptz : ptz_device_registry) {
+		OBSDataAutoRelease cfg = obs_data_create();
+		ptz->save(cfg.Get());
+		obs_data_array_push_back(devices, cfg);
+	}
 	return devices;
 }
 
 obs_source_t *ptz_device_find_source_using_ptz_name(uint32_t device_id)
 {
-	PTZDevice *ptz = ptzDeviceList->getDevice(device_id);
+	QMutexLocker locker(&ptz_device_registry_mutex);
+	PTZDevice *ptz = ptz_device_registry.value(device_id, nullptr);
 	if (!ptz)
 		return NULL;
 	return obs_get_source_by_name(QT_TO_UTF8(ptz->objectName()));
@@ -546,7 +655,7 @@ void ptz_devices_set_config(obs_data_array_t *devices)
 	for (size_t i = 0; i < obs_data_array_count(devices); i++) {
 		OBSData ptzcfg = obs_data_array_item(devices, i);
 		obs_data_release(ptzcfg);
-		ptzDeviceList->make_device(ptzcfg);
+		ptz_device_create(ptzcfg);
 	}
 }
 
@@ -578,8 +687,8 @@ void ptz_load_devices()
 		blog(LOG_ERROR, "could not allocate signal_handler for PTZ devices");
 		return;
 	}
-	signal_handler_add(ptz_sh, "void ptz_device_create(int device_id, ptr device)");
-	signal_handler_add(ptz_sh, "void ptz_device_destroy(int device_id, ptr device)");
+	signal_handler_add(ptz_sh, "void ptz_device_create(int device_id, ptr proc_handler, ptr signal_handler)");
+	signal_handler_add(ptz_sh, "void ptz_device_destroy(int device_id)");
 
 	/* Constructed here rather than as a plain static-storage global so
 	 * its constructor happens at a well-defined point in the module load
@@ -644,6 +753,12 @@ void PTZDevice::setPresetName(size_t id, QString name)
 	QVariantMap &preset = m_presets[id];
 	preset["name"] = name;
 	sanitizePreset(id);
+
+	calldata_t cd = {};
+	calldata_set_int(&cd, "device_id", this->id);
+	calldata_set_int(&cd, "id", (long long)id);
+	signal_handler_signal(sigs, "preset_renamed", &cd);
+	calldata_free(&cd);
 }
 
 /* Insert a new preset and return the ID */
@@ -749,6 +864,15 @@ void PTZDevice::setConnected(bool _connected)
 		return;
 	connected = _connected;
 	obs_data_set_bool(stateChanged, "connected", connected);
+	notifyStateChanged();
+}
+
+void PTZDevice::setLock(bool state)
+{
+	if (locked == state)
+		return;
+	locked = state;
+	obs_data_set_bool(stateChanged, "locked", locked);
 	notifyStateChanged();
 }
 
