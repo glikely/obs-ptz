@@ -556,25 +556,6 @@ obs_properties_t *PTZListModel::getProperties(const QModelIndex &index) const
 	return props ? props : obs_properties_create();
 }
 
-void PTZListModel::removeDevice(const QModelIndex &index)
-{
-	auto entry = entryAt(index);
-	if (entry)
-		ptz_device_destroy(entry->id);
-}
-
-void PTZListModel::make_device(OBSData config)
-{
-	ptz_device_create(config);
-}
-
-void PTZListModel::delete_all()
-{
-	// Devices remove themselves when destroyed, so just loop until empty
-	while (!devices.isEmpty())
-		ptz_device_destroy(devices.first().id);
-}
-
 void PTZListModel::preset_recall(uint32_t device_id, int preset_id)
 {
 	calldata_t cd = {};

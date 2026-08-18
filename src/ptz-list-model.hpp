@@ -96,7 +96,6 @@ public:
 	void onSceneChanged();
 
 	/* Data Model */
-	void make_device(OBSData config);
 	QModelIndex indexFromDeviceId(uint32_t device_id) const;
 	QModelIndex indexFromName(const QString &name) const;
 	bool callDevice(const QModelIndex &index, const char *method, calldata_t *cd = nullptr);
@@ -106,8 +105,6 @@ public:
 	void save(const QModelIndex &index, OBSData settings) const;
 	void update(const QModelIndex &index, OBSData settings);
 	obs_properties_t *getProperties(const QModelIndex &index) const;
-	void removeDevice(const QModelIndex &index);
-	void delete_all();
 
 	/* Bracket a preset list mutation with the appropriate
 	 * QAbstractItemModel begin/end calls. Called from the per-device

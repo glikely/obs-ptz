@@ -583,10 +583,10 @@ obs_properties_t *PTZDevice::get_obs_properties()
 
 /**
  * Driver factory, dispatching on config["type"]. This is the one place that
- * needs to name every concrete PTZDevice subclass -- PTZListModel,
- * settings.cpp, and the PTZ Control filter just call this (or
- * ptz_devices_set_config() below) with an OBSData and never see a driver
- * header.
+ * needs to name every concrete PTZDevice subclass -- the PTZ Control
+ * filter's own callbacks just call this (or ptz_devices_set_config() below,
+ * used only by the legacy config.json load path) with an OBSData and never
+ * see a driver header.
  */
 PTZDevice *ptz_device_create(obs_data_t *config)
 {
@@ -617,11 +617,6 @@ PTZDevice *ptz_device_create(obs_data_t *config)
 	if (ptz)
 		ptz->announceCreated();
 	return ptz;
-}
-
-void ptz_device_destroy(uint32_t device_id)
-{
-	delete ptz_device_registry.value(device_id, nullptr);
 }
 
 /**
