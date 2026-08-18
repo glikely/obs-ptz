@@ -83,6 +83,48 @@ from just reading the code.
   symbol resolution works against whatever `libobs`/`libobs-frontend-api` is actually
   installed (distro vs. PPA).
 
+## PTZDevice / PTZListModel decoupling
+
+`PTZListModel` (`src/ptz-list-model.*`, the frontend Qt model) never holds a
+`PTZDevice*` or includes a driver header. It only knows a device by its
+integer `device_id`, plus the `proc_handler_t*`/`signal_handler_t*` pair
+handed to it once, on creation, over `ptz_get_signal_handler()`'s
+`"ptz_device_create"` signal. All control goes out through
+`proc_handler_call()`; all status/list-mutation notification comes back
+through `signal_handler_connect()` callbacks on that device's own signal
+handler (a single `state_changed` signal covering status/rename/settings
+changes alike, plus the paired `preset_insert`+`preset_inserted`-style
+before/after signals/etc. -- see `PTZDevice::PTZDevice()` for the full
+list). `PTZListModel` keeps a small
+per-device cache (name, status flags, preset list) purely so
+`QAbstractItemModel::data()` stays synchronous; the cache is seeded from a
+`ptz_get_state()`/`ptz_preset_get_list()` proc_handler call and kept in sync
+solely by those signals, never by a direct method call on a `PTZDevice`.
+- `ptzDeviceList` (the `PTZListModel` singleton) is constructed by
+  `PTZListModel::create()`, called from `ptz_load_devices()` -- i.e. at
+  `obs_module_load()` time, not as a plain static-storage global. A plain
+  global's constructor runs at plugin-library-load time, before
+  `obs_module_load()` gets to run anything, which would be a trap the first
+  time a `PTZListModel` constructor needs something module-load sets up
+  (as it now does: the PTZ signal_handler it connects to).
+- The real `PTZDevice*` objects, the id-uniqueness registry, and the driver
+  factory (`ptz_device_create()`/`ptz_device_destroy()`, dispatching on
+  `config["type"]`) all live in `src/ptz-device.cpp`, private to that
+  translation unit. `PTZListModel`/`settings.cpp` call the factory
+  functions by `OBSData`/`device_id`; they never `new` a driver class.
+- The begin/end preset-mutation signal pairs exist because
+  `signal_handler_signal()` dispatches to connected callbacks synchronously
+  (same thread, no queueing) -- exactly like the direct method calls they
+  replaced -- so `PTZListModel`'s "before" callback can still call
+  `beginInsertRows()`/etc. ahead of the mutation actually happening, and its
+  cache refresh on the "after" callback happens before `endInsertRows()`/etc.
+  return, satisfying `QAbstractItemModel`'s contract that row data is
+  already updated by the time `end*Rows()` is called.
+- Trap: don't write `begin*/end*` in a `/* */` block comment in this file --
+  the literal `*/` silently ends the comment early and the rest becomes
+  live (broken) code. Spell it `begin.../end...` instead. Hit this twice
+  while building this design.
+
 ## Git/PR conventions
 
 - Prefer a clean, minimal-diff, logically-ordered commit history over incremental

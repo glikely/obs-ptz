@@ -105,9 +105,9 @@ PTZDevice::PTZDevice(OBSData config) : QObject()
 
 	/* A single change notification, broadcast on a per-device signal
 	 * handler so listeners never need a direct C++ reference to this
-	 * class -- see PTZListModel::add()/device_create_cb(). One signal
-	 * covers status, rename, and settings changes alike: none of them
-	 * carry enough of a payload on their own for a listener to patch
+	 * class -- see PTZListModel::deviceCreated()/device_create_cb(). One
+	 * signal covers status, rename, and settings changes alike: none of
+	 * them carry enough of a payload on their own for a listener to patch
 	 * anything selectively, so there's nothing a separate signal per
 	 * change kind would let a listener do differently -- just device_id,
 	 * to say which device to re-query. */
