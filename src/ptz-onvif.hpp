@@ -113,7 +113,7 @@ private slots:
 	void requestFinished(QNetworkReply *reply);
 
 public:
-	PTZOnvif(OBSData config);
+	PTZOnvif(OBSData config, obs_source_t *source = nullptr);
 	QString description() override;
 
 	void getDefaults(OBSData config) const override;

@@ -50,6 +50,7 @@ protected:
 	bool focus_changed = false;
 
 protected:
+	obs_source_t *m_source = nullptr;
 	/* Collection of all presets, keyed by unique integer id.
 	 * On cameras that use preset numbers, the id is mapped 1:1 with the
 	 * preset number.  */
@@ -76,7 +77,7 @@ protected:
 
 public:
 	~PTZDevice();
-	PTZDevice(OBSData config);
+	PTZDevice(OBSData config, obs_source_t *source = nullptr);
 	uint32_t getId() const { return id; }
 	/* Fires the create signal PTZListModel discovers new devices through.
 	 * Called by ptz_device_create() once the full object (base and
@@ -85,6 +86,13 @@ public:
 
 	void setObjectName(QString name);
 	virtual QString description();
+	bool isSelfManaged() const { return m_source == nullptr; };
+	obs_source_t *source() const
+	{
+		if (m_source)
+			return obs_source_get_ref(m_source);
+		return obs_get_source_by_name(QT_TO_UTF8(objectName()));
+	};
 	bool isLive() const { return live; }
 	bool isPreview() const { return preview; }
 	virtual bool supportsSetHome() const { return false; }

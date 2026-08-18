@@ -109,7 +109,7 @@ protected:
 	void ptz_tick(float seconds);
 
 public:
-	PTZUSBCam(OBSData config);
+	PTZUSBCam(OBSData config, obs_source_t *source = nullptr);
 	~PTZUSBCam();
 	void save(obs_data_t *settings) const;
 	QString description() override;

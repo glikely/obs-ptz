@@ -107,7 +107,7 @@ protected slots:
 	void set(calldata_t *cd) override;
 
 public:
-	PTZVisca(OBSData config);
+	PTZVisca(OBSData config, obs_source_t *source = nullptr);
 	QString description() override;
 	obs_properties_t *get_obs_properties() override;
 

@@ -726,7 +726,7 @@ void PTZOnvif::requestFinished(QNetworkReply *reply)
 	do_update();
 }
 
-PTZOnvif::PTZOnvif(OBSData config) : PTZDevice(config)
+PTZOnvif::PTZOnvif(OBSData config, obs_source_t *source) : PTZDevice(config, source)
 {
 	// for digest authenticaton request
 	connect(&m_networkManager, &QNetworkAccessManager::authenticationRequired, this, &PTZOnvif::authRequired);

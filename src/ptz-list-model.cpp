@@ -525,7 +525,9 @@ void PTZListModel::save(OBSDataArray configs) const
 		calldata_set_ptr(&cd, "config", cfg.Get());
 		proc_handler_call(entry.ph, "ptz_get_config", &cd);
 		calldata_free(&cd);
-		obs_data_array_push_back(configs, cfg);
+		/* Only save device that are not attached as a filter */
+		if (obs_data_get_bool(cfg, "is-self-managed"))
+			obs_data_array_push_back(configs, cfg);
 	}
 }
 
@@ -589,9 +591,9 @@ void PTZListModel::make_device(OBSData config)
 
 void PTZListModel::delete_all()
 {
-	// Devices remove themselves when destroyed, so just loop until empty
-	while (!devices.isEmpty())
-		ptz_device_destroy(devices.first().id);
+	auto devices_copy = devices;
+	for (const auto &entry : devices_copy)
+		ptz_device_destroy(entry.id);
 }
 
 void PTZListModel::preset_recall(uint32_t device_id, int preset_id)

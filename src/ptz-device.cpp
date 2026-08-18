@@ -61,8 +61,10 @@ static PTZDevice *find_device_by_name(const QString &name)
 		ptz->_method(cd); \
 	}
 
-PTZDevice::PTZDevice(OBSData config) : QObject()
+PTZDevice::PTZDevice(OBSData config, obs_source_t *_source) : QObject(), m_source(_source)
 {
+	obs_source_get_ref(m_source);
+
 	/* Create and populate the proc handler methods */
 	handler = proc_handler_create();
 	if (!handler) {
@@ -168,6 +170,7 @@ PTZDevice::~PTZDevice()
 	handler = nullptr;
 	signal_handler_destroy(sigs);
 	sigs = nullptr;
+	obs_source_release(m_source);
 }
 
 void PTZDevice::setObjectName(QString name)
@@ -207,19 +210,18 @@ void PTZDevice::onSceneChanged()
 	preview = false;
 	// Check if the device's source is in the active program scene
 	// If it is then disable the pan/tilt/zoom controls
-	auto source = obs_get_source_by_name(QT_TO_UTF8(objectName()));
-	if (source) {
+	auto src = source();
+	if (src) {
 		auto program = obs_frontend_get_current_scene();
-		locked = live = ptz_scene_is_source_active(program, source);
+		locked = live = ptz_scene_is_source_active(program, src);
 		obs_source_release(program);
 
 		if (obs_frontend_preview_program_mode_active()) {
 			auto previewScene = obs_frontend_get_current_preview_scene();
-			preview = ptz_scene_is_source_active(previewScene, source);
+			preview = ptz_scene_is_source_active(previewScene, src);
 			obs_source_release(previewScene);
 		}
-
-		obs_source_release(source);
+		obs_source_release(src);
 	}
 
 	/* Notify the listeners if there was a state change */
@@ -513,9 +515,16 @@ void PTZDevice::update(OBSData config)
 
 void PTZDevice::save(OBSData config) const
 {
-	obs_data_set_string(config, "name", QT_TO_UTF8(objectName()));
+	obs_source_t *src = source();
+	if (src) {
+		obs_data_set_string(config, "name", obs_source_get_name(src));
+		obs_source_release(src);
+	} else {
+		obs_data_set_string(config, "name", QT_TO_UTF8(objectName()));
+	}
 	obs_data_set_int(config, "id", id);
 	obs_data_set_string(config, "type", type.c_str());
+	obs_data_set_bool(config, "is-self-managed", isSelfManaged());
 	obs_data_set_double(config, "pantilt_speed_max", pantilt_speed_max);
 	obs_data_set_double(config, "zoom_speed_max", zoom_speed_max);
 	obs_data_set_double(config, "focus_speed_max", focus_speed_max);
@@ -538,30 +547,33 @@ obs_properties_t *PTZDevice::get_obs_properties()
 {
 	obs_properties_t *rtn_props = obs_properties_create();
 
-	/* Combo box list for associated OBS source */
-	auto src_cb = [](void *data, obs_source_t *src) {
-		auto srcnames = static_cast<QStringList *>(data);
-		if (obs_source_get_type(src) != OBS_SOURCE_TYPE_SCENE)
-			srcnames->append(obs_source_get_name(src));
-		return true;
-	};
-	auto srcs_prop = obs_properties_add_list(rtn_props, "name", obs_module_text("PTZ.Source"), OBS_COMBO_TYPE_LIST,
-						 OBS_COMBO_FORMAT_STRING);
-	obs_property_list_add_string(srcs_prop, obs_module_text("PTZ.Device.NoSource"), "");
-	/* Add current source to top list */
-	OBSSourceAutoRelease src = obs_get_source_by_name(QT_TO_UTF8(objectName()));
-	if (src)
-		obs_property_list_add_string(srcs_prop, QT_TO_UTF8(objectName()), QT_TO_UTF8(objectName()));
-	/* Add all sources not assigned to a camera */
-	QStringList srcnames;
-	obs_enum_sources(src_cb, &srcnames);
-	{
-		QMutexLocker locker(&ptz_device_registry_mutex);
-		for (auto ptz : ptz_device_registry)
-			srcnames.removeAll(ptz->objectName());
+	/* For self-managed instances, provide a list of sources to bind to */
+	if (isSelfManaged()) {
+		/* Combo box list for associated OBS source */
+		auto src_cb = [](void *data, obs_source_t *src) {
+			auto srcnames = static_cast<QStringList *>(data);
+			if (obs_source_get_type(src) != OBS_SOURCE_TYPE_SCENE)
+				srcnames->append(obs_source_get_name(src));
+			return true;
+		};
+		auto srcs_prop = obs_properties_add_list(rtn_props, "name", obs_module_text("PTZ.Source"),
+							 OBS_COMBO_TYPE_LIST, OBS_COMBO_FORMAT_STRING);
+		obs_property_list_add_string(srcs_prop, obs_module_text("PTZ.Device.NoSource"), "");
+		/* Add current source to top list */
+		OBSSourceAutoRelease src = obs_get_source_by_name(QT_TO_UTF8(objectName()));
+		if (src)
+			obs_property_list_add_string(srcs_prop, QT_TO_UTF8(objectName()), QT_TO_UTF8(objectName()));
+		/* Add all sources not assigned to a camera */
+		QStringList srcnames;
+		obs_enum_sources(src_cb, &srcnames);
+		{
+			QMutexLocker locker(&ptz_device_registry_mutex);
+			for (auto ptz : ptz_device_registry)
+				srcnames.removeAll(ptz->objectName());
+		}
+		for (auto n : srcnames)
+			obs_property_list_add_string(srcs_prop, QT_TO_UTF8(n), QT_TO_UTF8(n));
 	}
-	for (auto n : srcnames)
-		obs_property_list_add_string(srcs_prop, QT_TO_UTF8(n), QT_TO_UTF8(n));
 
 	obs_properties_t *config = obs_properties_create();
 	obs_properties_add_group(rtn_props, "interface", obs_module_text("PTZ.Device.Connection"), OBS_GROUP_NORMAL,
@@ -621,7 +633,78 @@ void ptz_device_create(obs_data_t *config)
 void ptz_device_destroy(uint32_t device_id)
 {
 	QMutexLocker locker(&ptz_device_registry_mutex);
-	delete ptz_device_registry.value(device_id, nullptr);
+	auto ptz = ptz_device_registry.value(device_id, nullptr);
+	/* only self managed PTZDevices get deleted here */
+	if (ptz && ptz->isSelfManaged())
+		delete ptz;
+}
+
+static const char *ptz_filter_getname(void *data)
+{
+	auto ptz = static_cast<PTZDevice *>(data);
+	if (ptz)
+		return QT_TO_UTF8(ptz->objectName());
+	return obs_module_text("PTZ.Filter.Name");
+}
+
+static void ptz_filter_get_defaults(obs_data_t *settings)
+{
+	obs_data_set_string(settings, "type", "visca-over-ip");
+}
+
+static obs_properties_t *ptz_filter_get_properties(void *data)
+{
+	auto ptz = static_cast<PTZDevice *>(data);
+	if (ptz)
+		return ptz->get_obs_properties();
+	return nullptr;
+}
+
+static void ptz_filter_update(void *data, obs_data_t *settings)
+{
+	auto ptz = static_cast<PTZDevice *>(data);
+	if (ptz)
+		ptz->update(settings);
+}
+
+static void *ptz_filter_create_pelco(obs_data_t *settings, obs_source_t *source)
+{
+	if (QThread::currentThread() != qApp->thread()) {
+		blog(LOG_ERROR, "Trying to create from wrong thread");
+		return nullptr;
+	}
+	auto ptz = new PTZPelco(settings, source);
+	if (!ptz)
+		blog(LOG_ERROR, "Unable to create PELCO filter");
+	ptz->announceCreated();
+	return ptz;
+}
+
+static void *ptz_filter_create_visca(obs_data_t *settings, obs_source_t *source)
+{
+	if (QThread::currentThread() != qApp->thread()) {
+		blog(LOG_ERROR, "Trying to create from wrong thread");
+		return nullptr;
+	}
+	auto ptz = new PTZVisca(settings, source);
+	if (!ptz)
+		blog(LOG_ERROR, "Unable to create VISCA filter");
+	ptz->announceCreated();
+	return ptz;
+}
+
+static void ptz_filter_destroy(void *data)
+{
+	auto ptz = static_cast<PTZDevice *>(data);
+	if (ptz)
+		delete ptz;
+}
+
+static void ptz_filter_save(void *data, obs_data_t *settings)
+{
+	auto ptz = static_cast<PTZDevice *>(data);
+	if (ptz)
+		ptz->save(settings);
 }
 
 /* C interface for non-QT parts of the plugin */
@@ -643,7 +726,7 @@ obs_source_t *ptz_device_find_source_using_ptz_name(uint32_t device_id)
 	PTZDevice *ptz = ptz_device_registry.value(device_id, nullptr);
 	if (!ptz)
 		return NULL;
-	return obs_get_source_by_name(QT_TO_UTF8(ptz->objectName()));
+	return ptz->source();
 }
 
 void ptz_devices_set_config(obs_data_array_t *devices)
@@ -658,6 +741,54 @@ void ptz_devices_set_config(obs_data_array_t *devices)
 		ptz_device_create(ptzcfg);
 	}
 }
+
+static struct obs_source_info ptz_pelco_filter_info = {
+	.id = "ca.secretlab.obs-ptz.pelco",
+	.type = OBS_SOURCE_TYPE_FILTER,
+	.output_flags = OBS_SOURCE_DO_NOT_DUPLICATE,
+	.get_name = ptz_filter_getname,
+	.create = [](obs_data_t *settings, obs_source_t *source) -> void * {
+		if (QThread::currentThread() != qApp->thread()) {
+			blog(LOG_ERROR, "Trying to create from wrong thread");
+			return nullptr;
+		}
+		auto ptz = new PTZPelco(settings, source);
+		if (!ptz)
+			blog(LOG_ERROR, "Unable to create VISCA filter");
+		ptz->announceCreated();
+		return ptz;
+	},
+	.destroy = ptz_filter_destroy,
+	.get_defaults = ptz_filter_get_defaults,
+	.get_properties = ptz_filter_get_properties,
+	.update = ptz_filter_update,
+	.save = ptz_filter_save,
+	.icon_type = OBS_ICON_TYPE_CAMERA,
+};
+
+static struct obs_source_info ptz_visca_filter_info = {
+	.id = "ca.secretlab.obs-ptz.visca",
+	.type = OBS_SOURCE_TYPE_FILTER,
+	.output_flags = OBS_SOURCE_DO_NOT_DUPLICATE,
+	.get_name = ptz_filter_getname,
+	.create = [](obs_data_t *settings, obs_source_t *source) -> void * {
+		if (QThread::currentThread() != qApp->thread()) {
+			blog(LOG_ERROR, "Trying to create from wrong thread");
+			return nullptr;
+		}
+		auto ptz = new PTZVisca(settings, source);
+		if (!ptz)
+			blog(LOG_ERROR, "Unable to create VISCA filter");
+		ptz->announceCreated();
+		return ptz;
+	},
+	.destroy = ptz_filter_destroy,
+	.get_defaults = ptz_filter_get_defaults,
+	.get_properties = ptz_filter_get_properties,
+	.update = ptz_filter_update,
+	.save = ptz_filter_save,
+	.icon_type = OBS_ICON_TYPE_CAMERA,
+};
 
 static proc_handler_t *ptz_ph = NULL;
 static signal_handler_t *ptz_sh = NULL;
@@ -694,6 +825,9 @@ void ptz_load_devices()
 	 * its constructor happens at a well-defined point in the module load
 	 * instead of at plugin-library-load time -- see PTZListModel::create() */
 	PTZListModel::create();
+
+	obs_register_source(&ptz_pelco_filter_info);
+	obs_register_source(&ptz_visca_filter_info);
 
 	/* Preset Recall/Save Callback */
 	auto ptz_cb = [](void *p, calldata_t *cd) {
