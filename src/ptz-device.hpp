@@ -84,6 +84,10 @@ public:
 	 * PTZListModel::add()), so this needs to be settable without
 	 * granting friend access to every protected member. */
 	void setId(uint32_t new_id) { id = new_id; }
+	/* Fires the create signal PTZListModel discovers new devices through.
+	 * Called by ptz_device_create() once the full object (base and
+	 * derived) is constructed -- see the comment on the definition. */
+	void announceCreated();
 
 	void setObjectName(QString name);
 	virtual QString description();
@@ -184,7 +188,8 @@ protected slots:
 
 	/* calldata_t overloads of the query/config/preset-CRUD API below,
 	 * registered on the proc_handler so PTZListModel never has to call
-	 * these directly -- see PTZDevice::PTZDevice() for registration */
+	 * these directly -- see PTZDevice::PTZDevice() for registration and
+	 * PTZListModel::refreshDeviceState()/refreshPresetList() for callers */
 	void get_state(calldata_t *cd);
 	void setObjectName(calldata_t *cd);
 	void setLock(calldata_t *cd);
@@ -196,11 +201,12 @@ protected slots:
 	void removePresetAtDisplayRow(calldata_t *cd);
 	void movePreset(calldata_t *cd);
 	void setPresetName(calldata_t *cd);
+	void onSceneChanged(calldata_t *cd) { Q_UNUSED(cd); onSceneChanged(); }
 
 public:
 	bool isLocked() const { return locked; };
 	bool isConnected() const { return connected; }
-	void setLock(bool state) { locked = state; }
+	void setLock(bool state);
 	bool pantiltChanged() const { return pantilt_changed; }
 	bool zoomChanged() const { return zoom_changed; }
 	bool focusChanged() const { return focus_changed; }
