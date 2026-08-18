@@ -75,17 +75,9 @@ protected:
 	bool wrongThread(const char *method) const;
 
 public:
-	proc_handler_t *getProcHandler() const { return handler; }
-	signal_handler_t *getSignalHandler() const { return sigs; }
-
-public:
 	~PTZDevice();
 	PTZDevice(OBSData config);
 	uint32_t getId() const { return id; }
-	/* Unique-id assignment happens outside PTZDevice (see
-	 * PTZListModel::add()), so this needs to be settable without
-	 * granting friend access to every protected member. */
-	void setId(uint32_t new_id) { id = new_id; }
 	/* Fires the create signal PTZListModel discovers new devices through.
 	 * Called by ptz_device_create() once the full object (base and
 	 * derived) is constructed -- see the comment on the definition. */
