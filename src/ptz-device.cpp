@@ -71,6 +71,19 @@ PTZDevice::PTZDevice(OBSData config) : QObject()
 		blog(LOG_ERROR, "could not allocate signal_handler for %s", obs_data_get_string(config, "name"));
 	} else {
 		signal_handler_add(sigs, "void state_changed(int device_id)");
+
+		/* Preset list mutations are bracketed by a before/after signal
+		 * pair, exactly like the QAbstractItemModel begin.../end...
+		 * calls they replace -- signal_handler_signal() dispatches to
+		 * connected callbacks synchronously, so PTZListModel's "before"
+		 * callback can still call beginInsertRows()/etc. ahead of the
+		 * mutation actually happening. */
+		signal_handler_add(sigs, "void preset_insert(int device_id, int row)");
+		signal_handler_add(sigs, "void preset_inserted(int device_id, int row)");
+		signal_handler_add(sigs, "void preset_remove(int device_id, int row)");
+		signal_handler_add(sigs, "void preset_removed(int device_id, int row)");
+		signal_handler_add(sigs, "bool preset_move(int device_id, int src_row, int dest_row)");
+		signal_handler_add(sigs, "void preset_moved(int device_id, int src_row, int dest_row)");
 	}
 
 	setObjectName(obs_data_get_string(config, "name"));
@@ -530,32 +543,56 @@ int PTZDevice::newPreset(int row)
 	if (id >= (int)m_maxPresets)
 		return -1;
 
-	ptzDeviceList->presetBeginInsert(this, row);
+	calldata_t cd = {};
+	calldata_set_int(&cd, "device_id", this->id);
+	calldata_set_int(&cd, "row", row);
+	signal_handler_signal(sigs, "preset_insert", &cd);
+
 	QVariantMap map;
 	map["id"] = (uint)id;
 	m_presets[id] = map;
 	m_presetsDisplayOrder.insert(row, id);
-	ptzDeviceList->presetEndInsert(this);
+
+	signal_handler_signal(sigs, "preset_inserted", &cd);
+	calldata_free(&cd);
 
 	return id;
 }
 
 void PTZDevice::removePresetAtDisplayRow(int row)
 {
-	ptzDeviceList->presetBeginRemove(this, row);
+	calldata_t cd = {};
+	calldata_set_int(&cd, "device_id", this->id);
+	calldata_set_int(&cd, "row", row);
+	signal_handler_signal(sigs, "preset_remove", &cd);
+
 	m_presets.remove(m_presetsDisplayOrder[row]);
 	m_presetsDisplayOrder.removeAt(row);
-	ptzDeviceList->presetEndRemove(this);
+
+	signal_handler_signal(sigs, "preset_removed", &cd);
+	calldata_free(&cd);
 }
 
 void PTZDevice::movePreset(int srcRow, int destRow)
 {
-	if (!ptzDeviceList->presetBeginMove(this, srcRow, destRow))
+	calldata_t cd = {};
+	calldata_set_int(&cd, "device_id", this->id);
+	calldata_set_int(&cd, "src_row", srcRow);
+	calldata_set_int(&cd, "dest_row", destRow);
+	signal_handler_signal(sigs, "preset_move", &cd);
+	bool ok = calldata_bool(&cd, "return");
+	if (!ok) {
+		calldata_free(&cd);
 		return;
+	}
+
 	if (srcRow < destRow)
 		destRow--;
 	m_presetsDisplayOrder.move(srcRow, destRow);
-	ptzDeviceList->presetEndMove(this);
+
+	calldata_set_int(&cd, "dest_row", destRow);
+	signal_handler_signal(sigs, "preset_moved", &cd);
+	calldata_free(&cd);
 }
 
 int PTZDevice::presetAtDisplayRow(int row) const

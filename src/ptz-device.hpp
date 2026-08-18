@@ -26,7 +26,6 @@
 
 class PTZDevice : public QObject {
 	Q_OBJECT
-	friend class PTZListModel;
 
 protected:
 	uint32_t id = 0;
@@ -81,11 +80,16 @@ public:
 	~PTZDevice();
 	PTZDevice(OBSData config);
 	uint32_t getId() const { return id; }
+	/* Unique-id assignment happens outside PTZDevice (see
+	 * PTZListModel::add()), so this needs to be settable without
+	 * granting friend access to every protected member. */
+	void setId(uint32_t new_id) { id = new_id; }
 
 	void setObjectName(QString name);
 	virtual QString description();
 	bool isLive() const { return live; }
 	bool isPreview() const { return preview; }
+	virtual bool supportsSetHome() const { return false; }
 	void onSceneChanged();
 
 	size_t maxPresets() const { return m_maxPresets; }
@@ -156,7 +160,6 @@ protected slots:
 	 * hide the action entirely instead of presenting a dead control.
 	 */
 	virtual void pantilt_set_home() {}
-	virtual bool supportsSetHome() const { return false; }
 	void zoom(double speed);
 	virtual void zoom_abs(double pos) { Q_UNUSED(pos); };
 	virtual void set_autofocus(bool enabled) { Q_UNUSED(enabled); };

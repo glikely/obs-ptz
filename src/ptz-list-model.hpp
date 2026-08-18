@@ -75,14 +75,17 @@ public:
 	void remove(PTZDevice *ptz);
 	void delete_all();
 
-	/* Called directly by PTZDevice preset mutators to bracket the change
-	 * with the appropriate QAbstractItemModel begin/end calls */
-	void presetBeginInsert(PTZDevice *ptz, int row);
-	void presetEndInsert(PTZDevice *ptz);
-	void presetBeginRemove(PTZDevice *ptz, int row);
-	void presetEndRemove(PTZDevice *ptz);
-	bool presetBeginMove(PTZDevice *ptz, int srcRow, int destRow);
-	void presetEndMove(PTZDevice *ptz);
+	/* Bracket a preset list mutation with the appropriate
+	 * QAbstractItemModel begin/end calls. Called from the per-device
+	 * signal_handler trampolines in ptz-list-model.cpp (see
+	 * PTZListModel::add()) in response to PTZDevice's preset_insert/
+	 * preset_remove/preset_move signals, not directly by PTZDevice. */
+	void presetBeginInsert(uint32_t device_id, int row);
+	void presetEndInsert();
+	void presetBeginRemove(uint32_t device_id, int row);
+	void presetEndRemove();
+	bool presetBeginMove(uint32_t device_id, int srcRow, int destRow);
+	void presetEndMove();
 
 	/* Called by the per-device signal_handler trampoline in
 	 * ptz-list-model.cpp when a device reports a status/settings change
