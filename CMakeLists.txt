@@ -91,6 +91,7 @@ target_sources(
     src/ptz-controls.cpp
     src/ptz-device.cpp
     src/ptz-list-model.cpp
+    src/ptz-migration.cpp
     src/settings.cpp
     src/ptz-visca.cpp
     src/ptz-visca-udp.cpp

@@ -24,6 +24,8 @@ extern const char *ptz_plugin_version;
 
 extern void ptz_load_devices(void);
 extern void ptz_unload_devices(void);
+extern void ptz_load_migration(void);
+extern void ptz_unload_migration(void);
 extern void ptz_load_action_source(void);
 extern void ptz_load_controls(void);
 extern void ptz_load_settings(void);

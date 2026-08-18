@@ -20,6 +20,7 @@ bool obs_module_load()
 {
 	blog(LOG_INFO, "plugin loaded successfully (version %s)", ptz_plugin_version);
 	ptz_load_devices();
+	ptz_load_migration();
 	ptz_load_action_source();
 	ptz_load_controls();
 	ptz_load_settings();
@@ -28,6 +29,7 @@ bool obs_module_load()
 
 void obs_module_unload()
 {
+	ptz_unload_migration();
 	ptz_unload_devices();
 	blog(LOG_INFO, "plugin unloaded");
 }

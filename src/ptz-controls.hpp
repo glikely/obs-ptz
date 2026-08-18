@@ -7,6 +7,7 @@
 #pragma once
 
 #include "ptz.h"
+#include <QByteArray>
 #include <QTimer>
 #include <QStyledItemDelegate>
 #include <obs.hpp>
