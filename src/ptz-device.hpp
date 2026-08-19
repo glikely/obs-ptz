@@ -112,6 +112,13 @@ public:
 	 * Returns nullptr if the filter hasn't been attached to a parent yet
 	 * (e.g. mid ptz_filter_create(), before obs_source_filter_add() runs). */
 	obs_source_t *getSource() const;
+	/* The owning filter's own source (never the parent) -- borrowed, not
+	 * addref'd, matching filter_source's own ownership: valid for the
+	 * device's whole lifetime, no release needed. Used by
+	 * ptz_device_find_filter_source() to remove a device's filter via
+	 * obs_source_filter_remove(), which needs the filter itself, not
+	 * just its parent (that's what getSource() returns). */
+	obs_source_t *getFilterSource() const { return filter_source; }
 	/* Called once, right after the owning filter is attached to a parent
 	 * source (see ptz_filter_add() in ptz-device.cpp) -- gives a freshly
 	 * created device a real name instead of sitting at the placeholder

@@ -190,6 +190,61 @@
              </property>
             </widget>
            </item>
+           <item>
+            <layout class="QHBoxLayout" name="horizontalLayout_2">
+             <item>
+              <widget class="QPushButton" name="addPTZ">
+               <property name="toolTip">
+                <string>PTZ.AddDevice.Tooltip</string>
+               </property>
+               <property name="accessibleName">
+                <string>Add</string>
+               </property>
+               <property name="text">
+                <string notr="true"/>
+               </property>
+               <property name="flat">
+                <bool>true</bool>
+               </property>
+               <property name="class" stdset="0">
+                <string notr="true">icon-plus</string>
+               </property>
+              </widget>
+             </item>
+             <item>
+              <widget class="QPushButton" name="removePTZ">
+               <property name="toolTip">
+                <string>PTZ.RemoveDevice.Tooltip</string>
+               </property>
+               <property name="accessibleName">
+                <string>Remove</string>
+               </property>
+               <property name="text">
+                <string notr="true"/>
+               </property>
+               <property name="flat">
+                <bool>true</bool>
+               </property>
+               <property name="class" stdset="0">
+                <string notr="true">icon-trash</string>
+               </property>
+              </widget>
+             </item>
+             <item>
+              <spacer name="horizontalSpacer_2">
+               <property name="orientation">
+                <enum>Qt::Orientation::Horizontal</enum>
+               </property>
+               <property name="sizeHint" stdset="0">
+                <size>
+                 <width>40</width>
+                 <height>20</height>
+                </size>
+               </property>
+              </spacer>
+             </item>
+            </layout>
+           </item>
           </layout>
          </widget>
          <widget class="QWidget" name="widget" native="true">

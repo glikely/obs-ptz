@@ -1,5 +1,6 @@
 #include <QPlainTextEdit>
 #include <QComboBox>
+#include <QDialog>
 #include <QHBoxLayout>
 #include <QVBoxLayout>
 #include <QScrollBar>
@@ -7,6 +8,7 @@
 #include <QFontDatabase>
 #include <QFont>
 #include <QDialogButtonBox>
+#include <QLabel>
 #include <QResizeEvent>
 #include <QAction>
 #include <QMessageBox>
@@ -22,6 +24,7 @@
 #include <obs-frontend-api.h>
 #include <util/config-file.h>
 #include <obs-properties.h>
+#include <qt-wrappers.hpp>
 
 #include "ptz.h"
 #include "ptz-list-model.hpp"
@@ -61,6 +64,87 @@ public:
 		QStyle *style = option.widget ? option.widget->style() : QApplication::style();
 		return style->sizeFromContents(QStyle::CT_ItemViewItem, &opt, QSize(), option.widget);
 	}
+};
+
+/**
+ * Prompts for the two things a fresh "PTZ Control" filter needs that the
+ * Filters dialog would otherwise ask for one at a time (which source to
+ * attach to, via its own Filters dialog; which camera type, via the
+ * filter's own properties once added) -- this collects both up front so
+ * PTZSettings::on_addPTZ_clicked() can create an already-typed filter in
+ * one step. A filter created with no type set would construct no
+ * PTZDevice at all (see ptz_device_create()'s dispatch-by-type in
+ * ptz-device.cpp), and so wouldn't show up in this dialog's own device
+ * list -- leaving type selection for later would make the "+" button look
+ * like it silently did nothing.
+ *
+ * The type list duplicates ptz_filter_get_properties()'s "type" combo in
+ * ptz-device.cpp rather than sharing it: that function is static, returns
+ * an obs_properties_t tree (not a QComboBox), and conditionally embeds a
+ * whole device settings group -- reusing it here would be more machinery
+ * than copying this short, rarely-changed list once.
+ */
+class PTZAddDeviceDialog : public QDialog {
+	Q_DISABLE_COPY(PTZAddDeviceDialog)
+
+public:
+	PTZAddDeviceDialog(QWidget *parent) : QDialog(parent)
+	{
+		setWindowTitle(obs_module_text("PTZ.AddDevice.Title"));
+		auto layout = new QVBoxLayout(this);
+
+		layout->addWidget(new QLabel(obs_module_text("PTZ.AddDevice.SourceLabel"), this));
+		sourceCombo = new QComboBox(this);
+		layout->addWidget(sourceCombo);
+
+		auto src_cb = [](void *data, obs_source_t *src) {
+			auto combo = static_cast<QComboBox *>(data);
+			if (obs_source_get_type(src) != OBS_SOURCE_TYPE_SCENE)
+				combo->addItem(QT_UTF8(obs_source_get_name(src)));
+			return true;
+		};
+		obs_enum_sources(src_cb, sourceCombo);
+
+		if (sourceCombo->count() == 0) {
+			sourceCombo->setEnabled(false);
+			layout->addWidget(new QLabel(obs_module_text("PTZ.AddDevice.NoSources"), this));
+		}
+
+		layout->addWidget(new QLabel(obs_module_text("PTZ.AddDevice.TypeLabel"), this));
+		typeCombo = new QComboBox(this);
+		layout->addWidget(typeCombo);
+
+#if defined(ENABLE_SERIALPORT)
+		typeCombo->addItem(obs_module_text("PTZ.Visca.Serial.Name"), "visca");
+#endif
+		typeCombo->addItem(obs_module_text("PTZ.Visca.UDP.Name"), "visca-over-ip");
+		typeCombo->addItem(obs_module_text("PTZ.Visca.TCP.Name"), "visca-over-tcp");
+#if defined(ENABLE_SERIALPORT)
+		/* Pelco-D vs Pelco-P is a separate "use_pelco_d" property on the
+		 * resulting PTZPelco device, not a distinct type here -- same
+		 * reasoning as ptz_filter_get_properties()'s identical list. */
+		typeCombo->addItem(obs_module_text("PTZ.Pelco.Name"), "pelco");
+#endif
+#if defined(ENABLE_ONVIF)
+		typeCombo->addItem(obs_module_text("PTZ.ONVIF.Name"), "onvif");
+#endif
+#if defined(ENABLE_USB_CAM)
+		typeCombo->addItem(obs_module_text("PTZ.UVC.Name"), "usb-cam");
+#endif
+
+		auto buttons = new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel, this);
+		buttons->button(QDialogButtonBox::Ok)->setEnabled(sourceCombo->count() > 0);
+		connect(buttons, &QDialogButtonBox::accepted, this, &QDialog::accept);
+		connect(buttons, &QDialogButtonBox::rejected, this, &QDialog::reject);
+		layout->addWidget(buttons);
+	}
+
+	QString selectedSourceName() const { return sourceCombo->currentText(); }
+	QString selectedType() const { return typeCombo->currentData().toString(); }
+
+private:
+	QComboBox *sourceCombo;
+	QComboBox *typeCombo;
 };
 
 obs_properties_t *PTZSettings::getProperties(void)
@@ -362,6 +446,55 @@ void PTZSettings::joystickSetup()
 	ui->joystickGroupBox->setVisible(false);
 }
 #endif /* ENABLE_JOYSTICK */
+
+void PTZSettings::on_addPTZ_clicked()
+{
+	PTZAddDeviceDialog dialog(this);
+	if (dialog.exec() != QDialog::Accepted)
+		return;
+	QString type = dialog.selectedType();
+	if (type.isEmpty())
+		return;
+
+	OBSSourceAutoRelease parent = obs_get_source_by_name(QT_TO_UTF8(dialog.selectedSourceName()));
+	if (!parent)
+		return;
+
+	/* Only "type" needs to be set -- obs_source_create() always runs
+	 * .get_defaults()/PTZDevice::getDefaults() for whatever keys aren't
+	 * already present, the same mechanism the Filters-dialog-driven flow
+	 * already relies on when a type is picked from its own dropdown. */
+	OBSDataAutoRelease cfg = obs_data_create();
+	obs_data_set_string(cfg, "type", QT_TO_UTF8(type));
+
+	OBSSourceAutoRelease filter = obs_source_create("PTZ Control", obs_module_text("PTZ.Filter.Name"), cfg, nullptr);
+	if (filter)
+		obs_source_filter_add(parent, filter);
+}
+
+void PTZSettings::on_removePTZ_clicked()
+{
+	auto index = ui->deviceList->currentIndex();
+	if (!index.isValid())
+		return;
+	uint32_t device_id = index.data(PTZListModel::DeviceIdRole).toUInt();
+
+	QString name = index.data(Qt::DisplayRole).toString();
+	auto button = QMessageBox::question(this, obs_module_text("PTZ.RemoveDevice.Tooltip"),
+					    QString(obs_module_text("PTZ.RemoveDevice.ConfirmText")).arg(name));
+	if (button != QMessageBox::Yes)
+		return;
+
+	OBSSourceAutoRelease filter = ptz_device_find_filter_source(device_id);
+	if (!filter)
+		return;
+	/* obs_filter_get_parent() returns a borrowed pointer -- OBSSource's
+	 * converting constructor (unlike OBSSourceAutoRelease's) takes its
+	 * own new ref via obs_source_get_ref(), so this is safe to hold and
+	 * releases correctly when it goes out of scope. */
+	OBSSource parent = obs_filter_get_parent(filter);
+	obs_source_filter_remove(parent, filter);
+}
 
 void PTZSettings::on_applyButton_clicked()
 {

@@ -888,6 +888,20 @@ obs_source_t *ptz_device_find_source(uint32_t device_id)
 	return ptz->getSource();
 }
 
+/* Same idea as ptz_device_find_source(), but returns the device's own
+ * filter source rather than its parent -- what settings.cpp needs to call
+ * obs_source_filter_remove(parent, filter) for the "-" button, since that
+ * takes the filter itself, not just the source it's attached to. Addref'd
+ * -- caller must release. */
+obs_source_t *ptz_device_find_filter_source(uint32_t device_id)
+{
+	PTZDevice *ptz = ptz_device_registry.value(device_id, nullptr);
+	if (!ptz)
+		return NULL;
+	obs_source_t *filter_source = ptz->getFilterSource();
+	return filter_source ? obs_source_get_ref(filter_source) : NULL;
+}
+
 /**
  * A live snapshot of every currently-registered device's config, keyed by
  * id -- NOT persistence (each PTZ Control filter owns its own save/load

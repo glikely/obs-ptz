@@ -72,6 +72,8 @@ protected:
 #endif /* ENABLE_JOYSTICK */
 
 public slots:
+	void on_addPTZ_clicked();
+	void on_removePTZ_clicked();
 	void on_applyButton_clicked();
 
 	void currentChanged(const QModelIndex &current, const QModelIndex &previous);
