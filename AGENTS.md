@@ -125,6 +125,56 @@ solely by those signals, never by a direct method call on a `PTZDevice`.
   live (broken) code. Spell it `begin.../end...` instead. Hit this twice
   while building this design.
 
+## PTZ Control filter update path (Cameras tab / Filters dialog)
+
+`PTZSettings`'s Cameras tab and the "PTZ Control" filter's own native
+Filters-dialog properties are two different UI surfaces over the *same*
+underlying state, and getting the plumbing between them right had several
+non-obvious traps:
+
+- Key everything on the filter's `obs_source_t*` (via
+  `ptz_device_find_filter_source(device_id)`), not on `device_id`, for any
+  operation that might change the device's type. `device_id` is not a
+  stable identity across a type change: `ptz_filter_update()`
+  (`ptz-device.cpp`) destroys the old `PTZDevice` and constructs a new one
+  via `ptz_device_create()`, which -- since the old device isn't actually
+  gone yet (`deleteLater()`, so its id is still taken) -- assigns the
+  replacement a *different* id. A `device_id` captured before an
+  `obs_source_update()` call may already be stale by the time it returns.
+- `OBSPropertiesView`'s update callback (`update_cb`/`updateProperties()`)
+  is called with `new_settings` pointing at the *same* `OBSData` object the
+  view renders from -- the widget already wrote the new value into it
+  before the callback runs. Comparing "old" vs "new" by reading both out of
+  that object doesn't work; they're aliased. If you need the pre-edit
+  value, capture it earlier (e.g. when the row was selected), not inside
+  the update callback itself.
+- `ptz_filter_update()` must forward ordinary field edits (host, port,
+  speeds, ...) to the live device (`ptzf->ptz->update(settings)`) even when
+  `"type"` didn't change -- it originally only ever handled the type-change
+  case, so edits made while the type stayed the same were silently dropped
+  on the floor. Whichever surface (Filters dialog or `PTZSettings`) didn't
+  originate an edit is showing a stale settings snapshot afterward and
+  needs `obs_source_update_properties()` (via `PTZDevice::notify_properties_changed()`,
+  queued -- see the comment on why: calling it synchronously mid-`.update()`
+  reenters the properties dialog that's still on the call stack) to know to
+  refresh, regardless of which branch of `ptz_filter_update()` ran.
+- `PTZDevice::update()` needs to fire `notifySettingsChanged()` itself so
+  `PTZListModel`'s cache stays live for *any* caller, not just ones that
+  happen to remember to force a refresh afterward -- `PTZListModel::update()`
+  used to do that refresh manually as a caller-side workaround, and once it
+  was removed (nothing called it anymore) that workaround went with it, so
+  the signal has to come from `update()` itself or the row's cached values
+  go stale silently.
+- `QItemSelectionModel::reset()` -- which `QAbstractItemView::reset()`
+  runs automatically in response to a model's `modelReset` signal -- clears
+  the view's current index *without* emitting `currentChanged`. A slot
+  connected to `modelReset` that tries to reselect a row by name after a
+  device is destroyed-and-replaced (a type change) must explicitly call
+  its own refresh logic when there's nothing left to reselect (e.g. after
+  picking "unset"); relying on Qt to emit `currentChanged` on its own in
+  that case doesn't happen, and a properties panel is left showing stale
+  values for a device that's already gone.
+
 ## Git/PR conventions
 
 - Prefer a clean, minimal-diff, logically-ordered commit history over incremental
