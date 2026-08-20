@@ -67,6 +67,36 @@ public:
 };
 
 /**
+ * Camera-type entries shared by the "+" dialog's type picker and the
+ * Cameras tab's own type combo (used to change an existing device's type).
+ * Duplicates ptz_filter_get_properties()'s "type" list in ptz-device.cpp
+ * rather than sharing it -- that function is static, returns an
+ * obs_properties_t tree (not a QComboBox), and conditionally embeds a
+ * whole device settings group -- reusing it here would be more machinery
+ * than copying this short, rarely-changed list once.
+ */
+static void addDeviceTypeItems(QComboBox *combo)
+{
+#if defined(ENABLE_SERIALPORT)
+	combo->addItem(obs_module_text("PTZ.Visca.Serial.Name"), "visca");
+#endif
+	combo->addItem(obs_module_text("PTZ.Visca.UDP.Name"), "visca-over-ip");
+	combo->addItem(obs_module_text("PTZ.Visca.TCP.Name"), "visca-over-tcp");
+#if defined(ENABLE_SERIALPORT)
+	/* Pelco-D vs Pelco-P is a separate "use_pelco_d" property on the
+	 * resulting PTZPelco device, not a distinct type here -- same
+	 * reasoning as ptz_filter_get_properties()'s identical list. */
+	combo->addItem(obs_module_text("PTZ.Pelco.Name"), "pelco");
+#endif
+#if defined(ENABLE_ONVIF)
+	combo->addItem(obs_module_text("PTZ.ONVIF.Name"), "onvif");
+#endif
+#if defined(ENABLE_USB_CAM)
+	combo->addItem(obs_module_text("PTZ.UVC.Name"), "usb-cam");
+#endif
+}
+
+/**
  * Prompts for the two things a fresh "PTZ Control" filter needs that the
  * Filters dialog would otherwise ask for one at a time (which source to
  * attach to, via its own Filters dialog; which camera type, via the
@@ -77,12 +107,6 @@ public:
  * ptz-device.cpp), and so wouldn't show up in this dialog's own device
  * list -- leaving type selection for later would make the "+" button look
  * like it silently did nothing.
- *
- * The type list duplicates ptz_filter_get_properties()'s "type" combo in
- * ptz-device.cpp rather than sharing it: that function is static, returns
- * an obs_properties_t tree (not a QComboBox), and conditionally embeds a
- * whole device settings group -- reusing it here would be more machinery
- * than copying this short, rarely-changed list once.
  */
 class PTZAddDeviceDialog : public QDialog {
 	Q_DISABLE_COPY(PTZAddDeviceDialog)
@@ -113,24 +137,7 @@ public:
 		layout->addWidget(new QLabel(obs_module_text("PTZ.AddDevice.TypeLabel"), this));
 		typeCombo = new QComboBox(this);
 		layout->addWidget(typeCombo);
-
-#if defined(ENABLE_SERIALPORT)
-		typeCombo->addItem(obs_module_text("PTZ.Visca.Serial.Name"), "visca");
-#endif
-		typeCombo->addItem(obs_module_text("PTZ.Visca.UDP.Name"), "visca-over-ip");
-		typeCombo->addItem(obs_module_text("PTZ.Visca.TCP.Name"), "visca-over-tcp");
-#if defined(ENABLE_SERIALPORT)
-		/* Pelco-D vs Pelco-P is a separate "use_pelco_d" property on the
-		 * resulting PTZPelco device, not a distinct type here -- same
-		 * reasoning as ptz_filter_get_properties()'s identical list. */
-		typeCombo->addItem(obs_module_text("PTZ.Pelco.Name"), "pelco");
-#endif
-#if defined(ENABLE_ONVIF)
-		typeCombo->addItem(obs_module_text("PTZ.ONVIF.Name"), "onvif");
-#endif
-#if defined(ENABLE_USB_CAM)
-		typeCombo->addItem(obs_module_text("PTZ.UVC.Name"), "usb-cam");
-#endif
+		addDeviceTypeItems(typeCombo);
 
 		auto buttons = new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel, this);
 		buttons->button(QDialogButtonBox::Ok)->setEnabled(sourceCombo->count() > 0);
@@ -147,6 +154,16 @@ private:
 	QComboBox *typeCombo;
 };
 
+/**
+ * Sourced from the filter's own get_properties() (ptz_filter_get_properties()
+ * in ptz-device.cpp) rather than the device's get_obs_properties() alone, so
+ * this panel matches what the source's own Filters dialog shows: the "type"
+ * combo up top, plus the same per-driver connection fields underneath,
+ * nested in the same "device" group. Values still come from `settings`
+ * (kept in sync with the selected device via ptzDeviceList->save() in
+ * currentChanged()), so this only changes where the property *metadata*
+ * comes from, not where the values live.
+ */
 obs_properties_t *PTZSettings::getProperties(void)
 {
 	auto cb = [](obs_properties_t *, obs_property_t *, void *data_) {
@@ -155,7 +172,11 @@ obs_properties_t *PTZSettings::getProperties(void)
 		return true;
 	};
 
-	auto props = ptzDeviceList->getProperties(ui->deviceList->currentIndex());
+	auto index = ui->deviceList->currentIndex();
+	uint32_t device_id = index.data(PTZListModel::DeviceIdRole).toUInt();
+	OBSSourceAutoRelease filter = ptz_device_find_filter_source(device_id);
+	auto props = filter ? obs_source_properties(filter) : obs_properties_create();
+
 	auto debug = obs_properties_create();
 	obs_properties_add_text(debug, "debug_info", NULL, OBS_TEXT_INFO);
 	obs_properties_add_button2(debug, "dbgdump", "Write to OBS log", cb, settings);
@@ -163,9 +184,41 @@ obs_properties_t *PTZSettings::getProperties(void)
 	return props;
 }
 
+/**
+ * The single write path for the Cameras tab's properties panel -- scoped to
+ * the selected device's *filter* (obs_source_update(), same as the source's
+ * own Filters dialog), not to its device_id. device_id is not a stable
+ * identity to update against here: a "type" edit destroys the old PTZDevice
+ * and constructs a new one with a *different* device_id (see
+ * ptz_filter_update() in ptz-device.cpp), so a device_id captured before the
+ * call may already refer to a device that no longer exists by the time it
+ * returns. The filter itself doesn't get destroyed by a type change, only
+ * the PTZDevice it owns, so it's the right thing to key this on.
+ *
+ * ptz_filter_update() forwards ordinary field edits (host, port, speeds,
+ * ...) to the live device unchanged, and swaps the device out when "type"
+ * itself changed -- so this same call is correct either way, with no need
+ * to special-case a type change here. See restoreSelection() for why the
+ * selection needs restoring afterward when it does.
+ */
+void PTZSettings::applyToFilter(OBSData new_settings)
+{
+	auto index = ui->deviceList->currentIndex();
+	if (!index.isValid())
+		return;
+
+	uint32_t device_id = index.data(PTZListModel::DeviceIdRole).toUInt();
+	OBSSourceAutoRelease filter = ptz_device_find_filter_source(device_id);
+	if (!filter)
+		return;
+
+	m_selectedDeviceName = index.data(Qt::DisplayRole).toString();
+	obs_source_update(filter, new_settings);
+}
+
 void PTZSettings::updateProperties(OBSData, OBSData new_settings)
 {
-	ptzDeviceList->update(ui->deviceList->currentIndex(), new_settings);
+	applyToFilter(new_settings);
 }
 
 PTZSettings::PTZSettings() : QWidget(nullptr), ui(new Ui_PTZSettings)
@@ -201,6 +254,15 @@ PTZSettings::PTZSettings() : QWidget(nullptr), ui(new Ui_PTZSettings)
 
 	QItemSelectionModel *selectionModel = ui->deviceList->selectionModel();
 	connect(selectionModel, &QItemSelectionModel::currentChanged, this, &PTZSettings::currentChanged);
+
+	/* Changing a device's type (see updateProperties() below) destroys
+	 * and recreates it, which goes through the same device-create/
+	 * destroy signal pair add/remove already do -- each end resets
+	 * ptzDeviceList entirely (do_reset()), which clears ui->deviceList's
+	 * current index. Restore it by name once a reset settles, rather
+	 * than leaving the properties panel blank after what the user
+	 * experiences as an in-place edit. */
+	connect(ptzDeviceList, &QAbstractItemModel::modelReset, this, &PTZSettings::restoreSelection);
 
 	auto reload_cb = [](void *obj) {
 		return static_cast<PTZSettings *>(obj)->getProperties();
@@ -496,9 +558,42 @@ void PTZSettings::on_removePTZ_clicked()
 	obs_source_filter_remove(parent, filter);
 }
 
+/**
+ * A type change (in updateProperties() above) destroys the old PTZDevice
+ * and creates a new one, which -- like the "+"/"-" buttons -- goes through
+ * ptzDeviceList's device-create/destroy signals, each of which resets the
+ * whole model and so clears ui->deviceList's current index. Re-selects the
+ * device that was selected before the reset, by name, once one settles; a
+ * name that no longer exists (e.g. after a real removal) leaves the
+ * selection cleared, which is correct there.
+ */
+void PTZSettings::restoreSelection()
+{
+	if (m_selectedDeviceName.isEmpty())
+		return;
+
+	auto idx = ptzDeviceList->indexFromName(m_selectedDeviceName);
+	if (idx.isValid()) {
+		ui->deviceList->setCurrentIndex(idx);
+		return;
+	}
+
+	/* The device is genuinely gone -- e.g. after picking "unset" from
+	 * the type combo, which destroys the old PTZDevice with nothing to
+	 * replace it -- so there's no row left to reselect.
+	 * QAbstractItemView::reset() (run in response to the modelReset this
+	 * slot is connected to) already cleared ui->deviceList's own current
+	 * index via QItemSelectionModel::reset(), but that call is documented
+	 * to do so *without* emitting currentChanged. Without an explicit
+	 * call here, the properties panel is left showing stale values for a
+	 * device that no longer exists. */
+	m_selectedDeviceName.clear();
+	currentChanged(QModelIndex(), QModelIndex());
+}
+
 void PTZSettings::on_applyButton_clicked()
 {
-	ptzDeviceList->update(ui->deviceList->currentIndex(), propertiesView->GetSettings());
+	applyToFilter(propertiesView->GetSettings());
 }
 
 void PTZSettings::currentChanged(const QModelIndex &current, const QModelIndex &)
@@ -512,6 +607,8 @@ void PTZSettings::currentChanged(const QModelIndex &current, const QModelIndex &
 	obs_data_set_string(settings, "debug_info", json.constData());
 
 	propertiesView->ReloadProperties();
+
+	m_selectedDeviceName = current.isValid() ? current.data(Qt::DisplayRole).toString() : QString();
 }
 
 void PTZSettings::settingsChanged(const QModelIndex &topLeft, const QModelIndex &bottomRight)

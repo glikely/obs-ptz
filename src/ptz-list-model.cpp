@@ -527,35 +527,6 @@ void PTZListModel::save(const QModelIndex &index, OBSData settings) const
 	calldata_free(&cd);
 }
 
-void PTZListModel::update(const QModelIndex &index, OBSData settings)
-{
-	auto entry = entryAt(index);
-	if (!entry)
-		return;
-	calldata_t cd = {};
-	calldata_set_int(&cd, "device_id", entry->id);
-	calldata_set_ptr(&cd, "config", settings.Get());
-	proc_handler_call(entry->ph, "ptz_set_config", &cd);
-	calldata_free(&cd);
-
-	refreshDeviceState(entry);
-	auto idx = indexFromDeviceId(entry->id);
-	if (idx.isValid())
-		emit dataChanged(idx, idx);
-}
-
-obs_properties_t *PTZListModel::getProperties(const QModelIndex &index) const
-{
-	auto entry = entryAt(index);
-	if (!entry)
-		return obs_properties_create();
-	calldata_t cd = {};
-	proc_handler_call(entry->ph, "ptz_get_properties", &cd);
-	auto props = static_cast<obs_properties_t *>(calldata_ptr(&cd, "return"));
-	calldata_free(&cd);
-	return props ? props : obs_properties_create();
-}
-
 void PTZListModel::preset_recall(uint32_t device_id, int preset_id)
 {
 	calldata_t cd = {};

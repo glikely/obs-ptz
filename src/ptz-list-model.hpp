@@ -103,8 +103,6 @@ public:
 	void renameDevice(QString new_name, QString prev_name);
 	void save(OBSDataArray configs) const;
 	void save(const QModelIndex &index, OBSData settings) const;
-	void update(const QModelIndex &index, OBSData settings);
-	obs_properties_t *getProperties(const QModelIndex &index) const;
 
 	/* Bracket a preset list mutation with the appropriate
 	 * QAbstractItemModel begin/end calls. Called from the per-device

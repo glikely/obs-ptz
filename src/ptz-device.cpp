@@ -465,6 +465,16 @@ void PTZDevice::update(OBSData config)
 	tilt_invert = obs_data_get_bool(config, "tilt_invert");
 	zoom_invert = obs_data_get_bool(config, "zoom_invert");
 	focus_invert = obs_data_get_bool(config, "focus_invert");
+
+	/* PTZListModel's cache (used for the row it displays and for
+	 * anything else that reads state via get_state() rather than this
+	 * object directly) only refreshes in response to a signal -- harmless
+	 * here during initial construction (called from each subclass's own
+	 * constructor, before announceCreated() lets anything connect to
+	 * sigs), and necessary for every update() after that, whether reached
+	 * via set_config() or ptz_filter_update()'s forwarding of an ordinary
+	 * field edit. */
+	notifySettingsChanged();
 }
 
 void PTZDevice::save(OBSData config) const
@@ -806,6 +816,22 @@ static void ptz_filter_update(void *data, obs_data_t *settings)
 			 * reentrantly, mid-update, is asking for trouble. */
 			QMetaObject::invokeMethod(ptzf->ptz, "notify_properties_changed", Qt::QueuedConnection);
 		}
+	} else if (ptzf->ptz) {
+		/* Same type -- an ordinary field edit (host, port, speeds,
+		 * ...), not a driver swap. Forward it to the live device the
+		 * same way set_config() does, so obs_source_update() is a
+		 * complete counterpart to it: anything reachable through this
+		 * filter's own get_properties() (the source's Filters dialog,
+		 * or PTZSettings -- see PTZSettings::updateProperties()) takes
+		 * effect whether or not the type changed too. */
+		ptzf->ptz->update(settings);
+		/* Whichever of the two dialogs didn't originate this edit is
+		 * still showing the settings snapshot it had when it opened
+		 * -- tell it to refresh, same as the type-changed branch
+		 * above and for the same reason (queued: this runs from
+		 * inside .update(), and refreshing reentrantly, mid-update,
+		 * is asking for trouble). */
+		QMetaObject::invokeMethod(ptzf->ptz, "notify_properties_changed", Qt::QueuedConnection);
 	}
 }
 

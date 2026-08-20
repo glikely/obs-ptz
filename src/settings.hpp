@@ -43,7 +43,10 @@ private:
 	Ui_PTZSettings *ui;
 	OBSData settings;
 	OBSPropertiesView *propertiesView = nullptr;
+	QString m_selectedDeviceName;
 	void current_device_changed();
+	void restoreSelection();
+	void applyToFilter(OBSData new_settings);
 
 public:
 	PTZSettings();
