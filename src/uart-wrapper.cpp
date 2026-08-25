@@ -8,10 +8,14 @@
 #include "ptz.h"
 #include "uart-wrapper.hpp"
 
+// Q_OS_MACOS/Q_OS_WIN are only defined once a Qt header has been pulled
+// in (by uart-wrapper.hpp above), so this check has to come after it.
+#if defined(Q_OS_MACOS) || defined(Q_OS_WIN)
+#include <qserialportinfo.h>
+#else
 #include <QSerialPortInfo>
-#include <QSerialPort>
+#endif
 #include <QMetaEnum>
-#include "uart-wrapper.hpp"
 
 #include <obs-module.h>
 

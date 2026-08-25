@@ -9,7 +9,17 @@
 #include <QObject>
 #include <QTimer>
 #include <obs.hpp>
+
+// macOS/Windows use this project's own de-privatized, statically-linked
+// fork of QSerialPort (see shared/qtserialport/README.md for why); Linux
+// still uses real Qt QSerialPort (distro-packaged, never had the ABI
+// problem the fork solves). Same class name either way, so nothing below
+// this needs to know which one it's using.
+#if defined(Q_OS_MACOS) || defined(Q_OS_WIN)
+#include <qserialport.h>
+#else
 #include <QSerialPort>
+#endif
 
 /*
  * Protocol UART wrapper abstract base class

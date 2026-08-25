@@ -134,10 +134,27 @@ endif()
 
 option(ENABLE_SERIALPORT "Enable UART connected camera support" OFF)
 if(ENABLE_SERIALPORT)
-  find_package(Qt6 COMPONENTS SerialPort)
-  if(Qt6SerialPort_FOUND)
+  set(_serialport_ok FALSE)
+  if(APPLE OR WIN32)
+    # macOS/Windows: our own de-privatized, statically-linked QSerialPort
+    # fork (see shared/qtserialport/README.md) - real Qt::SerialPort pulls
+    # in Qt::CorePrivate, whose ABI breaks across every Qt point release.
+    add_subdirectory(shared/qtserialport)
+    target_link_libraries(${CMAKE_PROJECT_NAME} PRIVATE qtserialport)
+    set(_serialport_ok TRUE)
+  else()
+    # Linux: distro-packaged Qt6::SerialPort. Never had the ABI problem
+    # above (obs-ptz and OBS build against the same distro Qt6 there).
+    find_package(Qt6 COMPONENTS SerialPort)
+    if(Qt6SerialPort_FOUND)
+      target_link_libraries(${CMAKE_PROJECT_NAME} PRIVATE Qt::SerialPort)
+      package_qt_library(${CMAKE_PROJECT_NAME} SerialPort)
+      set(_serialport_ok TRUE)
+    endif()
+  endif()
+
+  if(_serialport_ok)
     add_compile_definitions(ENABLE_SERIALPORT)
-    target_link_libraries(${CMAKE_PROJECT_NAME} PRIVATE Qt::SerialPort)
     target_sources(
       ${CMAKE_PROJECT_NAME}
       PRIVATE
@@ -148,8 +165,8 @@ if(ENABLE_SERIALPORT)
         src/ptz-pelco.cpp
         src/ptz-pelco.hpp
     )
-    package_qt_library(${CMAKE_PROJECT_NAME} SerialPort)
   endif()
+  unset(_serialport_ok)
 endif()
 
 option(ENABLE_JOYSTICK "Enable Joystick support" OFF)
