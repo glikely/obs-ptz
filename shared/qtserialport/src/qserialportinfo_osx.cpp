@@ -8,7 +8,7 @@
 #include "qserialportinfo_p.h"
 #include "qserialport_p.h"
 
-#include "private/qcore_mac_p.h"
+#include "qtserialport_mac_compat_p.h"
 
 #include <sys/param.h>
 

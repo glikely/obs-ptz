@@ -438,7 +438,7 @@ bool QSerialPortPrivate::completeAsyncRead(qint64 bytesTransferred)
         return false;
     }
     if (bytesTransferred > 0)
-        buffer.append(readChunkBuffer.constData(), bytesTransferred);
+        buffer.appendBytes(readChunkBuffer.constData(), bytesTransferred);
 
     readStarted = false;
 
@@ -599,12 +599,19 @@ qint64 QSerialPortPrivate::writeData(const char *data, qint64 maxSize)
     if (writeBufferMaxSize && (writeBuffer.size() + toAppend > writeBufferMaxSize))
         toAppend = writeBufferMaxSize - writeBuffer.size();
 
-    writeBuffer.append(data, toAppend);
+    writeBuffer.appendBytes(data, toAppend);
 
     if (!writeBuffer.isEmpty() && !writeStarted) {
         if (!startAsyncWriteTimer) {
             startAsyncWriteTimer = new QTimer(q);
-            QObjectPrivate::connect(startAsyncWriteTimer, &QTimer::timeout, this, &QSerialPortPrivate::_q_startAsyncWrite);
+            // Was QObjectPrivate::connect(..., this,
+            // &QSerialPortPrivate::_q_startAsyncWrite) - that overload
+            // connects directly to a member function on a
+            // QObjectPrivate-derived Private instance; this class no
+            // longer derives from QObjectPrivate (see qserialport_p.h), so
+            // an ordinary lambda captures the equivalent call instead.
+            QSerialPortPrivate *dPtr = this;
+            QObject::connect(startAsyncWriteTimer, &QTimer::timeout, q, [dPtr] { dPtr->_q_startAsyncWrite(); });
             startAsyncWriteTimer->setSingleShot(true);
         }
         if (!startAsyncWriteTimer->isActive())
@@ -680,8 +687,16 @@ inline bool QSerialPortPrivate::initialize(QIODevice::OpenMode mode)
     }
 
     notifier = new QWinOverlappedIoNotifier(q);
-    QObjectPrivate::connect(notifier, &QWinOverlappedIoNotifier::notified,
-               this, &QSerialPortPrivate::_q_notified);
+    // Was QObjectPrivate::connect(..., this, &QSerialPortPrivate::_q_notified)
+    // - see the startAsyncWriteTimer connect above for why this is now a
+    // lambda instead.
+    {
+        QSerialPortPrivate *dPtr = this;
+        QObject::connect(notifier, &QWinOverlappedIoNotifier::notified, q,
+                          [dPtr](quint32 numberOfBytes, quint32 errorCode, OVERLAPPED *overlapped) {
+                              dPtr->_q_notified(numberOfBytes, errorCode, overlapped);
+                          });
+    }
     notifier->setHandle(handle);
     notifier->setEnabled(true);
 

@@ -12,8 +12,6 @@
 #include <qset.h>
 #include <qthread.h>
 #include <qt_windows.h>
-#include <private/qobject_p.h>
-#include <private/qiodevice_p.h>
 
 QT_BEGIN_NAMESPACE
 
@@ -78,10 +76,18 @@ struct IOResult
 
 class QWinIoCompletionPort;
 
-class QWinOverlappedIoNotifierPrivate : public QObjectPrivate
+// Deliberately *not* QObjectPrivate-derived - see qserialport_p.h's own
+// QSerialPortPrivate comment for why. q_func() below is hand-written
+// instead of Q_DECLARE_PUBLIC-generated, backed by an ordinary member
+// (QWinOverlappedIoNotifier::d, see qwinoverlappedionotifier_p.h) rather
+// than QObject's own d_ptr.
+class QWinOverlappedIoNotifierPrivate
 {
-    Q_DECLARE_PUBLIC(QWinOverlappedIoNotifier)
 public:
+    QWinOverlappedIoNotifier *q_ptr = nullptr;
+    inline QWinOverlappedIoNotifier *q_func() { return q_ptr; }
+    inline const QWinOverlappedIoNotifier *q_func() const { return q_ptr; }
+
     OVERLAPPED *waitForAnyNotified(QDeadlineTimer deadline);
     void notify(DWORD numberOfBytes, DWORD errorCode, OVERLAPPED *overlapped);
     void _q_notified();
@@ -222,8 +228,9 @@ private:
 
 
 QWinOverlappedIoNotifier::QWinOverlappedIoNotifier(QObject *parent)
-    : QObject(*new QWinOverlappedIoNotifierPrivate, parent)
+    : QObject(parent), d(std::make_unique<QWinOverlappedIoNotifierPrivate>())
 {
+    d->q_ptr = this;
     Q_D(QWinOverlappedIoNotifier);
     WaitForSingleObject(d->iocpInstanceLock, INFINITE);
     if (!d->iocp)
@@ -233,7 +240,18 @@ QWinOverlappedIoNotifier::QWinOverlappedIoNotifier(QObject *parent)
 
     d->hSemaphore = CreateSemaphore(NULL, 0, 255, NULL);
     d->hResultsMutex = CreateMutex(NULL, FALSE, NULL);
-    connect(this, SIGNAL(_q_notify()), this, SLOT(_q_notified()), Qt::QueuedConnection);
+    // Was connect(this, SIGNAL(_q_notify()), this, SLOT(_q_notified()), ...)
+    // - _q_notified() used to be a Q_PRIVATE_SLOT reaching into d_func(),
+    // which needed QObjectPrivate's moc-private-slot support. A lambda
+    // reaches the same QWinOverlappedIoNotifierPrivate::_q_notified() by
+    // an ordinary captured pointer instead - same cross-thread marshaling
+    // (notify(), called from the I/O completion port thread, can't safely
+    // emit notified() directly; _q_notify() queues onto this object's own
+    // thread via Qt::QueuedConnection, where _q_notified() then does the
+    // real dequeue-and-emit).
+    QWinOverlappedIoNotifierPrivate *dPtr = d;
+    connect(this, &QWinOverlappedIoNotifier::_q_notify, this, [dPtr] { dPtr->_q_notified(); },
+            Qt::QueuedConnection);
 }
 
 QWinOverlappedIoNotifier::~QWinOverlappedIoNotifier()
@@ -414,4 +432,9 @@ OVERLAPPED *QWinOverlappedIoNotifierPrivate::dispatchNextIoResult()
 
 QT_END_NAMESPACE
 
-#include "moc_qwinoverlappedionotifier_p.cpp"
+// Was #include "moc_qwinoverlappedionotifier_p.cpp" - upstream's qmake/CMake
+// build tracks moc output per-header explicitly and needs this private
+// header's moc'd code pulled in by hand; this fork's CMakeLists.txt just
+// lists qwinoverlappedionotifier_p.h as a regular AUTOMOC ON source (same
+// as qserialport.h), which generates and compiles it automatically -
+// including it again here would double-define the moc symbols.

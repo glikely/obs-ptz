@@ -11,8 +11,7 @@
 #include <QtCore/quuid.h>
 #include <QtCore/qpair.h>
 #include <QtCore/qstringlist.h>
-#include <QtCore/private/qwinregistry_p.h>
-#include <QtCore/private/quniquehandle_types_p.h>
+#include "qtserialport_win_compat_p.h"
 
 #include <vector>
 

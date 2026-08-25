@@ -14,7 +14,7 @@
 #include <QtCore/qsocketnotifier.h>
 #include <QtCore/qstandardpaths.h>
 
-#include <private/qcore_unix_p.h>
+#include "qtserialport_unix_compat_p.h"
 
 #include <errno.h>
 #include <fcntl.h>
@@ -783,10 +783,10 @@ bool QSerialPortPrivate::readNotification()
         }
     }
 
-    char *ptr = buffer.reserve(bytesToRead);
+    char *ptr = buffer.reserveBytes(bytesToRead);
     const qint64 readBytes = readFromPort(ptr, bytesToRead);
 
-    buffer.chop(bytesToRead - qMax(readBytes, qint64(0)));
+    buffer.chopBytes(bytesToRead - qMax(readBytes, qint64(0)));
 
     if (readBytes < 0) {
         QSerialPortErrorInfo error = getSystemError();
@@ -841,7 +841,7 @@ bool QSerialPortPrivate::startAsyncWrite()
         return false;
     }
 
-    writeBuffer.free(written);
+    writeBuffer.freeBytes(written);
     pendingBytesWritten += written;
     writeSequenceStarted = true;
 
@@ -928,7 +928,7 @@ qint64 QSerialPortPrivate::writeData(const char *data, qint64 maxSize)
     if (writeBufferMaxSize && (writeBuffer.size() + toAppend > writeBufferMaxSize))
         toAppend = writeBufferMaxSize - writeBuffer.size();
 
-    writeBuffer.append(data, toAppend);
+    writeBuffer.appendBytes(data, toAppend);
     if (!writeBuffer.isEmpty() && !isWriteNotificationEnabled())
         setWriteNotificationEnabled(true);
     return toAppend;

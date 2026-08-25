@@ -56,8 +56,14 @@ QSerialPortPrivate::QSerialPortPrivate()
     : readChunkBuffer(QSERIALPORT_BUFFERSIZE, 0)
 #endif
 {
-    writeBufferChunkSize = QSERIALPORT_BUFFERSIZE;
-    readBufferChunkSize = QSERIALPORT_BUFFERSIZE;
+    // Was: writeBufferChunkSize = QSERIALPORT_BUFFERSIZE; readBufferChunkSize
+    // = QSERIALPORT_BUFFERSIZE; - those two fields belong to
+    // QIODevicePrivate (inherited), tuning QRingBuffer's internal chunk
+    // allocation size. This class no longer derives from
+    // QIODevicePrivate (see qserialport_p.h), and the local QRingBuffer
+    // replacement (qtserialport_ringbuffer_compat_p.h) is a single flat
+    // QByteArray with no chunking to tune, so there's nothing left for
+    // these two lines to do.
 }
 
 void QSerialPortPrivate::setError(const QSerialPortErrorInfo &errorInfo)
@@ -65,8 +71,10 @@ void QSerialPortPrivate::setError(const QSerialPortErrorInfo &errorInfo)
     Q_Q(QSerialPort);
 
     q->setErrorString(errorInfo.errorString);
-    error.setValue(errorInfo.errorCode);
-    error.notify();
+    // Was: error.setValue(errorInfo.errorCode); error.notify(); - error
+    // is a plain field now, not a bindable QObjectCompatProperty (see
+    // qserialport_p.h's BINDABLE note).
+    error = errorInfo.errorCode;
     emit q->errorOccurred(error);
 }
 
@@ -337,9 +345,16 @@ void QSerialPortPrivate::setError(const QSerialPortErrorInfo &errorInfo)
 /*!
     Constructs a new serial port object with the given \a parent.
 */
+// Was: QIODevice(*new QSerialPortPrivate, parent) - that protected
+// constructor is what pulls in QIODevicePrivate's ABI-unstable layout
+// (see qserialport_p.h and ../README.md). QIODevice's ordinary public
+// constructor instead, with d constructed and wired up by hand exactly
+// as QObjectPrivate's own construction machinery would otherwise have
+// done for us.
 QSerialPort::QSerialPort(QObject *parent)
-    : QIODevice(*new QSerialPortPrivate, parent)
+    : QIODevice(parent), d(std::make_unique<QSerialPortPrivate>())
 {
+    d->q_ptr = this;
 }
 
 /*!
@@ -349,8 +364,9 @@ QSerialPort::QSerialPort(QObject *parent)
     The name should have a specific format; see the setPort() method.
 */
 QSerialPort::QSerialPort(const QString &name, QObject *parent)
-    : QIODevice(*new QSerialPortPrivate, parent)
+    : QIODevice(parent), d(std::make_unique<QSerialPortPrivate>())
 {
+    d->q_ptr = this;
     setPortName(name);
 }
 
@@ -360,8 +376,9 @@ QSerialPort::QSerialPort(const QString &name, QObject *parent)
     \a serialPortInfo.
 */
 QSerialPort::QSerialPort(const QSerialPortInfo &serialPortInfo, QObject *parent)
-    : QIODevice(*new QSerialPortPrivate, parent)
+    : QIODevice(parent), d(std::make_unique<QSerialPortPrivate>())
 {
+    d->q_ptr = this;
     setPort(serialPortInfo);
 }
 
@@ -487,7 +504,7 @@ void QSerialPort::close()
     }
 
     d->close();
-    d->isBreakEnabled.setValue(false);
+    d->isBreakEnabled = false;
     QIODevice::close();
 }
 
@@ -575,14 +592,14 @@ qint32 QSerialPort::baudRate(Directions directions) const
 bool QSerialPort::setDataBits(DataBits dataBits)
 {
     Q_D(QSerialPort);
-    d->dataBits.removeBindingUnlessInWrapper();
-    const auto currentDataBits = d->dataBits.valueBypassingBindings();
+    // Was: d->dataBits.removeBindingUnlessInWrapper(); ... a plain field
+    // now, not a bindable QObjectCompatProperty - see qserialport_p.h's
+    // BINDABLE note.
+    const auto currentDataBits = d->dataBits;
     if (!isOpen() || d->setDataBits(dataBits)) {
-        d->dataBits.setValueBypassingBindings(dataBits);
-        if (currentDataBits != dataBits) {
-            d->dataBits.notify();
+        d->dataBits = dataBits;
+        if (currentDataBits != dataBits)
             emit dataBitsChanged(dataBits);
-        }
         return true;
     }
     return false;
@@ -592,11 +609,6 @@ QSerialPort::DataBits QSerialPort::dataBits() const
 {
     Q_D(const QSerialPort);
     return d->dataBits;
-}
-
-QBindable<QSerialPort::DataBits> QSerialPort::bindableDataBits()
-{
-    return &d_func()->dataBits;
 }
 
 /*!
@@ -631,14 +643,11 @@ QBindable<QSerialPort::DataBits> QSerialPort::bindableDataBits()
 bool QSerialPort::setParity(Parity parity)
 {
     Q_D(QSerialPort);
-    d->parity.removeBindingUnlessInWrapper();
-    const auto currentParity = d->parity.valueBypassingBindings();
+    const auto currentParity = d->parity;
     if (!isOpen() || d->setParity(parity)) {
-        d->parity.setValueBypassingBindings(parity);
-        if (currentParity != parity) {
-            d->parity.notify();
+        d->parity = parity;
+        if (currentParity != parity)
             emit parityChanged(parity);
-        }
         return true;
     }
     return false;
@@ -648,11 +657,6 @@ QSerialPort::Parity QSerialPort::parity() const
 {
     Q_D(const QSerialPort);
     return d->parity;
-}
-
-QBindable<QSerialPort::Parity> QSerialPort::bindableParity()
-{
-    return &d_func()->parity;
 }
 
 /*!
@@ -681,14 +685,11 @@ QBindable<QSerialPort::Parity> QSerialPort::bindableParity()
 bool QSerialPort::setStopBits(StopBits stopBits)
 {
     Q_D(QSerialPort);
-    d->stopBits.removeBindingUnlessInWrapper();
-    const auto currentStopBits = d->stopBits.valueBypassingBindings();
+    const auto currentStopBits = d->stopBits;
     if (!isOpen() || d->setStopBits(stopBits)) {
-        d->stopBits.setValueBypassingBindings(stopBits);
-        if (currentStopBits != stopBits) {
-            d->stopBits.notify();
+        d->stopBits = stopBits;
+        if (currentStopBits != stopBits)
             emit stopBitsChanged(stopBits);
-        }
         return true;
     }
     return false;
@@ -698,11 +699,6 @@ QSerialPort::StopBits QSerialPort::stopBits() const
 {
     Q_D(const QSerialPort);
     return d->stopBits;
-}
-
-QBindable<QSerialPort::StopBits> QSerialPort::bindableStopBits(QT6_IMPL_NEW_OVERLOAD)
-{
-    return &d_func()->stopBits;
 }
 
 /*!
@@ -731,14 +727,11 @@ QBindable<QSerialPort::StopBits> QSerialPort::bindableStopBits(QT6_IMPL_NEW_OVER
 bool QSerialPort::setFlowControl(FlowControl flowControl)
 {
     Q_D(QSerialPort);
-    d->flowControl.removeBindingUnlessInWrapper();
-    const auto currentFlowControl = d->flowControl.valueBypassingBindings();
+    const auto currentFlowControl = d->flowControl;
     if (!isOpen() || d->setFlowControl(flowControl)) {
-        d->flowControl.setValueBypassingBindings(flowControl);
-        if (currentFlowControl != flowControl) {
-            d->flowControl.notify();
+        d->flowControl = flowControl;
+        if (currentFlowControl != flowControl)
             emit flowControlChanged(flowControl);
-        }
         return true;
     }
     return false;
@@ -748,11 +741,6 @@ QSerialPort::FlowControl QSerialPort::flowControl() const
 {
     Q_D(const QSerialPort);
     return d->flowControl;
-}
-
-QBindable<QSerialPort::FlowControl> QSerialPort::bindableFlowControl()
-{
-    return &d_func()->flowControl;
 }
 
 /*!
@@ -975,11 +963,6 @@ void QSerialPort::clearError()
     d->setError(QSerialPortErrorInfo(QSerialPort::NoError));
 }
 
-QBindable<QSerialPort::SerialPortError> QSerialPort::bindableError() const
-{
-    return &d_func()->error;
-}
-
 /*!
     \fn void QSerialPort::errorOccurred(SerialPortError error)
     \since 5.8
@@ -1102,7 +1085,12 @@ bool QSerialPort::isSequential() const
 */
 qint64 QSerialPort::bytesAvailable() const
 {
-    return QIODevice::bytesAvailable();
+    // Was: return QIODevice::bytesAvailable(); - that reads the base
+    // class's own internal buffer, which this class has no way to
+    // populate any more (see qserialport_p.h) and so is always empty;
+    // d->buffer (declared explicitly there now) is the real answer.
+    Q_D(const QSerialPort);
+    return d->buffer.size();
 }
 
 /*!
@@ -1116,9 +1104,13 @@ qint64 QSerialPort::bytesAvailable() const
 */
 qint64 QSerialPort::bytesToWrite() const
 {
-    qint64 pendingBytes = QIODevice::bytesToWrite();
+    // Was: qint64 pendingBytes = QIODevice::bytesToWrite(); - same reason
+    // as bytesAvailable() above: the base class's own buffer (which
+    // that call reads) is never populated any more, d->writeBuffer is.
+    Q_D(const QSerialPort);
+    qint64 pendingBytes = d->writeBuffer.size();
 #if defined(Q_OS_WIN32)
-    pendingBytes += d_func()->writeChunkBuffer.size();
+    pendingBytes += d->writeChunkBuffer.size();
 #endif
     return pendingBytes;
 }
@@ -1133,7 +1125,10 @@ qint64 QSerialPort::bytesToWrite() const
 */
 bool QSerialPort::canReadLine() const
 {
-    return QIODevice::canReadLine();
+    // Was: return QIODevice::canReadLine(); - same reason as
+    // bytesAvailable() above.
+    Q_D(const QSerialPort);
+    return d->buffer.indexOf('\n') != -1;
 }
 
 /*!
@@ -1204,15 +1199,12 @@ bool QSerialPort::waitForBytesWritten(int msecs)
 bool QSerialPort::setBreakEnabled(bool set)
 {
     Q_D(QSerialPort);
-    d->isBreakEnabled.removeBindingUnlessInWrapper();
-    const auto currentSet = d->isBreakEnabled.valueBypassingBindings();
+    const auto currentSet = d->isBreakEnabled;
     if (isOpen()) {
         if (d->setBreakEnabled(set)) {
-            d->isBreakEnabled.setValueBypassingBindings(set);
-            if (currentSet != set) {
-                d->isBreakEnabled.notify();
+            d->isBreakEnabled = set;
+            if (currentSet != set)
                 emit breakEnabledChanged(set);
-            }
             return true;
         }
     } else {
@@ -1226,11 +1218,6 @@ bool QSerialPort::isBreakEnabled() const
 {
     Q_D(const QSerialPort);
     return d->isBreakEnabled;
-}
-
-QBindable<bool> QSerialPort::bindableIsBreakEnabled()
-{
-    return &d_func()->isBreakEnabled;
 }
 
 /*!
@@ -1283,30 +1270,59 @@ void QSerialPort::setSettingsRestoredOnClose(bool restore)
     \reimp
 
     \omit
-    This function does not really read anything, as we use QIODevicePrivate's
-    buffer. The buffer will be read inside of QIODevice before this
-    method will be called.
+    Unlike upstream (see ../README.md), this function really does read:
+    upstream's version is a no-op because QIODevice has already drained
+    its own (QIODevicePrivate-inherited) buffer into the caller before
+    this method is even called. This class has no access to that buffer
+    any more, so d->buffer (declared explicitly in qserialport_p.h) is
+    the real, and only, source of truth for what's been received.
     \endomit
 */
 qint64 QSerialPort::readData(char *data, qint64 maxSize)
 {
-    Q_UNUSED(data);
-    Q_UNUSED(maxSize);
+    Q_D(QSerialPort);
+
+    const qint64 n = qMin(maxSize, d->buffer.size());
+    if (n > 0) {
+        memcpy(data, d->buffer.readPointer(), size_t(n));
+        d->buffer.freeBytes(n);
+    }
 
     // In any case we need to start the notifications if they were
     // disabled by the read handler. If enabled, next call does nothing.
-    d_func()->startAsyncRead();
+    d->startAsyncRead();
 
-    // return 0 indicating there may be more data in the future
-    return qint64(0);
+    return n;
 }
 
 /*!
     \reimp
+
+    \omit
+    Was: return QIODevice::readLineData(data, maxSize); - that also reads
+    QIODevice's own buffer (see readData() above), so this scans
+    d->buffer for the same thing that base implementation would have:
+    up to and including the first '\n', or maxSize bytes, whichever comes
+    first.
+    \endomit
 */
 qint64 QSerialPort::readLineData(char *data, qint64 maxSize)
 {
-    return QIODevice::readLineData(data, maxSize);
+    Q_D(QSerialPort);
+
+    const qint64 available = qMin(maxSize, d->buffer.size());
+    const char *src = d->buffer.readPointer();
+    qint64 lineLength = 0;
+    while (lineLength < available && src[lineLength] != '\n')
+        ++lineLength;
+    if (lineLength < available)
+        ++lineLength; // include the newline itself
+
+    if (lineLength > 0) {
+        memcpy(data, src, size_t(lineLength));
+        d->buffer.freeBytes(lineLength);
+    }
+    return lineLength;
 }
 
 /*!

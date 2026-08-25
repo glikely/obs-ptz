@@ -16,9 +16,10 @@
 // We mean it.
 //
 
-#include <QtCore/private/qglobal_p.h>
 #include <qobject.h>
 #include <qdeadlinetimer.h>
+
+#include <memory>
 
 typedef struct _OVERLAPPED OVERLAPPED;
 
@@ -30,8 +31,14 @@ class QWinOverlappedIoNotifier : public QObject
 {
     Q_OBJECT
     Q_DISABLE_COPY(QWinOverlappedIoNotifier)
-    Q_DECLARE_PRIVATE(QWinOverlappedIoNotifier)
-    Q_PRIVATE_SLOT(d_func(), void _q_notified())
+
+    // Was Q_DECLARE_PRIVATE(QWinOverlappedIoNotifier) - see
+    // qserialport.h's own d_func()/d comment for why this is hand-written
+    // instead, backed by the `d` member below rather than QObject::d_ptr.
+    inline QWinOverlappedIoNotifierPrivate *d_func() { return d.get(); }
+    inline const QWinOverlappedIoNotifierPrivate *d_func() const { return d.get(); }
+    friend class QWinOverlappedIoNotifierPrivate;
+
     friend class QWinIoCompletionPort;
 public:
     QWinOverlappedIoNotifier(QObject *parent = 0);
@@ -49,6 +56,14 @@ Q_SIGNALS:
 #if !defined(Q_QDOC)
     void _q_notify();
 #endif
+
+private:
+    // Was QObject::d_ptr (populated by QObject(*new
+    // QWinOverlappedIoNotifierPrivate, parent), the protected constructor
+    // this class no longer uses - see qwinoverlappedionotifier.cpp). An
+    // ordinary member instead, which is what d_func() above actually
+    // reaches into.
+    std::unique_ptr<QWinOverlappedIoNotifierPrivate> d;
 };
 
 QT_END_NAMESPACE

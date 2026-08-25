@@ -19,11 +19,10 @@
 //
 
 #include <QtCore/qstring.h>
-#include <QtCore/private/qglobal_p.h>
 
 QT_BEGIN_NAMESPACE
 
-class Q_AUTOTEST_EXPORT QSerialPortInfoPrivate
+class QSerialPortInfoPrivate
 {
 public:
     static QString portNameToSystemLocation(const QString &source);

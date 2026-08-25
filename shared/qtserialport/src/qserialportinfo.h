@@ -9,7 +9,8 @@
 #include <QtCore/qlist.h>
 #include <QtCore/qscopedpointer.h>
 
-#include <QtSerialPort/qserialportglobal.h>
+// Quoted - see qserialport.h's own comment on this same change.
+#include "qserialportglobal.h"
 
 QT_BEGIN_NAMESPACE
 

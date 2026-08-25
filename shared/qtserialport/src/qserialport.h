@@ -7,9 +7,19 @@
 #define QSERIALPORT_H
 
 #include <QtCore/qiodevice.h>
-#include <QtCore/qproperty.h>
 
-#include <QtSerialPort/qserialportglobal.h>
+// Quoted, not <QtSerialPort/qserialportglobal.h> - the angle-bracket form
+// resolves against whatever's on the include path, and the prebuilt Qt6
+// SDK this project vendors from (see ../README.md) ships its own real
+// QtSerialPort module headers alongside the ones actually used here,
+// under the same relative path. Angle brackets would silently pick up
+// that real Q_SERIALPORT_EXPORT (a dllimport on Windows) instead of this
+// file's own (empty - this is a static lib), which is a hard MSVC error
+// (declaration/definition dllimport mismatch) and a silent, latent bug
+// everywhere else. Quoting pins it to this directory's own file.
+#include "qserialportglobal.h"
+
+#include <memory>
 
 QT_BEGIN_NAMESPACE
 
@@ -19,22 +29,32 @@ class QSerialPortPrivate;
 class Q_SERIALPORT_EXPORT QSerialPort : public QIODevice
 {
     Q_OBJECT
-    Q_DECLARE_PRIVATE(QSerialPort)
+
+    // Was Q_DECLARE_PRIVATE(QSerialPort) - that macro's generated
+    // d_func() reinterpret_casts QObject's own d_ptr, which for a class
+    // built through QIODevice's public constructor (see qserialport.cpp)
+    // holds Qt's own real QIODevicePrivate, not a QSerialPortPrivate at
+    // all. d_func() below is hand-written instead, backed by the `d`
+    // member declared in the private: section further down (referencing
+    // it here, ahead of its declaration, is fine - an inline member
+    // function body is parsed as if it appeared after the complete class)
+    // - same name/signature as the macro-generated version, so every
+    // Q_D(QSerialPort) call site elsewhere needed no changes. See
+    // ../README.md.
+    inline QSerialPortPrivate *d_func() { return d.get(); }
+    inline const QSerialPortPrivate *d_func() const { return d.get(); }
+    friend class QSerialPortPrivate;
 
     Q_PROPERTY(qint32 baudRate READ baudRate WRITE setBaudRate NOTIFY baudRateChanged)
-    Q_PROPERTY(DataBits dataBits READ dataBits WRITE setDataBits NOTIFY dataBitsChanged
-                BINDABLE bindableDataBits)
-    Q_PROPERTY(Parity parity READ parity WRITE setParity NOTIFY parityChanged BINDABLE bindableParity)
-    Q_PROPERTY(StopBits stopBits READ stopBits WRITE setStopBits NOTIFY stopBitsChanged
-                BINDABLE bindableStopBits)
-    Q_PROPERTY(FlowControl flowControl READ flowControl WRITE setFlowControl NOTIFY flowControlChanged
-                BINDABLE bindableFlowControl)
+    Q_PROPERTY(DataBits dataBits READ dataBits WRITE setDataBits NOTIFY dataBitsChanged)
+    Q_PROPERTY(Parity parity READ parity WRITE setParity NOTIFY parityChanged)
+    Q_PROPERTY(StopBits stopBits READ stopBits WRITE setStopBits NOTIFY stopBitsChanged)
+    Q_PROPERTY(FlowControl flowControl READ flowControl WRITE setFlowControl NOTIFY flowControlChanged)
     Q_PROPERTY(bool dataTerminalReady READ isDataTerminalReady WRITE setDataTerminalReady
                 NOTIFY dataTerminalReadyChanged)
     Q_PROPERTY(bool requestToSend READ isRequestToSend WRITE setRequestToSend NOTIFY requestToSendChanged)
-    Q_PROPERTY(SerialPortError error READ error RESET clearError NOTIFY errorOccurred BINDABLE bindableError)
-    Q_PROPERTY(bool breakEnabled READ isBreakEnabled WRITE setBreakEnabled NOTIFY breakEnabledChanged
-                BINDABLE bindableIsBreakEnabled)
+    Q_PROPERTY(SerialPortError error READ error RESET clearError NOTIFY errorOccurred)
+    Q_PROPERTY(bool breakEnabled READ isBreakEnabled WRITE setBreakEnabled NOTIFY breakEnabledChanged)
     Q_PROPERTY(bool settingsRestoredOnClose READ settingsRestoredOnClose
                 WRITE setSettingsRestoredOnClose NOTIFY settingsRestoredOnCloseChanged
                 REVISION(6, 9))
@@ -145,22 +165,15 @@ public:
 
     bool setDataBits(DataBits dataBits);
     DataBits dataBits() const;
-    QBindable<DataBits> bindableDataBits();
 
     bool setParity(Parity parity);
     Parity parity() const;
-    QBindable<Parity> bindableParity();
 
     bool setStopBits(StopBits stopBits);
     StopBits stopBits() const;
-#if QT_SERIALPORT_REMOVED_SINCE(6, 7)
-    QBindable<bool> bindableStopBits();
-#endif
-    QBindable<StopBits> bindableStopBits(QT6_DECL_NEW_OVERLOAD);
 
     bool setFlowControl(FlowControl flowControl);
     FlowControl flowControl() const;
-    QBindable<FlowControl> bindableFlowControl();
 
     bool setDataTerminalReady(bool set);
     bool isDataTerminalReady();
@@ -175,7 +188,6 @@ public:
 
     SerialPortError error() const;
     void clearError();
-    QBindable<SerialPortError> bindableError() const;
 
     qint64 readBufferSize() const;
     void setReadBufferSize(qint64 size);
@@ -194,7 +206,6 @@ public:
 
     bool setBreakEnabled(bool set = true);
     bool isBreakEnabled() const;
-    QBindable<bool> bindableIsBreakEnabled();
 
     bool settingsRestoredOnClose() const;
     void setSettingsRestoredOnClose(bool restore);
@@ -221,10 +232,22 @@ protected:
 private:
     Q_DISABLE_COPY(QSerialPort)
 
-#if defined(Q_OS_WIN32)
-    Q_PRIVATE_SLOT(d_func(), bool _q_startAsyncWrite())
-    Q_PRIVATE_SLOT(d_func(), void _q_notified(quint32, quint32, OVERLAPPED*))
-#endif
+    // Was, on Windows:
+    //   Q_PRIVATE_SLOT(d_func(), bool _q_startAsyncWrite())
+    //   Q_PRIVATE_SLOT(d_func(), void _q_notified(quint32, quint32, OVERLAPPED*))
+    // Those existed so QObjectPrivate::connect() could target them as
+    // slots on a QObjectPrivate-derived Private instance. This class no
+    // longer derives that way (see qserialport_p.h), and
+    // qserialport_win.cpp's two connect() call sites now use ordinary
+    // lambdas instead, so neither is a real slot anymore - both are just
+    // plain member functions on QSerialPortPrivate, called directly or
+    // from those lambdas.
+
+    // Was QObject::d_ptr (populated by QIODevice(*new QSerialPortPrivate,
+    // parent), the protected constructor this class no longer uses - see
+    // qserialport.cpp). An ordinary member instead, which is what
+    // d_func() above actually reaches into.
+    std::unique_ptr<QSerialPortPrivate> d;
 };
 
 Q_DECLARE_OPERATORS_FOR_FLAGS(QSerialPort::Directions)

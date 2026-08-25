@@ -22,8 +22,12 @@
 
 #include <qdeadlinetimer.h>
 
-#include <private/qiodevice_p.h>
-#include <private/qproperty_p.h>
+// Local replacements for <private/qiodevice_p.h> (just QRingBuffer, the
+// type of the buffer/writeBuffer fields below - this class no longer
+// derives from QIODevicePrivate itself, see the class declaration below)
+// and <private/qproperty_p.h> (not needed at all - see the BINDABLE note
+// below). See qtserialport_ringbuffer_compat_p.h.
+#include "qtserialport_ringbuffer_compat_p.h"
 
 #include <memory>
 
@@ -89,12 +93,22 @@ public:
     QString errorString;
 };
 
-class QSerialPortPrivate : public QIODevicePrivate
+// Deliberately *not* QIODevicePrivate-derived - that's what pulls in
+// QIODevicePrivate's ABI-unstable layout (see ../README.md). d_func()/
+// q_func() below are hand-written instead of Q_DECLARE_PUBLIC-generated,
+// backed by an ordinary member (QSerialPort::d, see qserialport.h) rather
+// than QObject's own d_ptr - but with the same names/signatures, so the
+// Q_D(QSerialPort)/Q_Q(QSerialPort) call sites throughout qserialport.cpp/
+// qserialport_unix.cpp/qserialport_win.cpp (which just expand to a call
+// to d_func()/q_func()) needed no changes at all.
+class QSerialPortPrivate
 {
 public:
-    Q_DECLARE_PUBLIC(QSerialPort)
-
     QSerialPortPrivate();
+
+    QSerialPort *q_ptr = nullptr;
+    inline QSerialPort *q_func() { return q_ptr; }
+    inline const QSerialPort *q_func() const { return q_ptr; }
 
     bool open(QIODevice::OpenMode mode);
     void close();
@@ -133,41 +147,36 @@ public:
     qint64 readBufferMaxSize = 0;
     qint64 writeBufferMaxSize = 0;
 
-    void setBindableError(QSerialPort::SerialPortError error)
-    { setError(error); }
-    Q_OBJECT_COMPAT_PROPERTY_WITH_ARGS(QSerialPortPrivate, QSerialPort::SerialPortError, error,
-        &QSerialPortPrivate::setBindableError, QSerialPort::NoError)
+    // Upstream's QSerialPortPrivate has no buffer/writeBuffer fields of
+    // its own - it uses the ones it inherits from QIODevicePrivate. This
+    // class no longer inherits from QIODevicePrivate (see the class
+    // declaration above), so these need to be declared explicitly here
+    // instead. See qtserialport_ringbuffer_compat_p.h.
+    QRingBuffer buffer;
+    QRingBuffer writeBuffer;
+
+    // Plain fields instead of Q_OBJECT_COMPAT_PROPERTY_WITH_ARGS-declared
+    // QObjectCompatProperty<T> wrappers - those exist to back
+    // QBindable<T> support (qproperty_p.h), which needs a real QObject
+    // behind Q_OBJECT_BINDABLE_PROPERTY's metaobject wiring to be worth
+    // having; nothing in obs-ptz uses Qt's declarative property-binding
+    // system, so it's not carried over. Every setter below still updates
+    // its field and emits the same *Changed signal by hand, same as
+    // upstream's own setBindableX() callbacks did.
+    QSerialPort::SerialPortError error = QSerialPort::NoError;
 
     QString systemLocation;
     qint32 inputBaudRate = QSerialPort::Baud9600;
     qint32 outputBaudRate = QSerialPort::Baud9600;
 
-    bool setBindableDataBits(QSerialPort::DataBits dataBits)
-    { return q_func()->setDataBits(dataBits); }
-    Q_OBJECT_COMPAT_PROPERTY_WITH_ARGS(QSerialPortPrivate, QSerialPort::DataBits, dataBits,
-        &QSerialPortPrivate::setBindableDataBits, QSerialPort::Data8)
-
-    bool setBindableParity(QSerialPort::Parity parity)
-    { return q_func()->setParity(parity); }
-    Q_OBJECT_COMPAT_PROPERTY_WITH_ARGS(QSerialPortPrivate, QSerialPort::Parity, parity,
-        &QSerialPortPrivate::setBindableParity, QSerialPort::NoParity)
-
-    bool setBindableStopBits(QSerialPort::StopBits stopBits)
-    { return q_func()->setStopBits(stopBits); }
-    Q_OBJECT_COMPAT_PROPERTY_WITH_ARGS(QSerialPortPrivate, QSerialPort::StopBits, stopBits,
-        &QSerialPortPrivate::setBindableStopBits, QSerialPort::OneStop)
-
-    bool setBindableFlowControl(QSerialPort::FlowControl flowControl)
-    { return q_func()->setFlowControl(flowControl); }
-    Q_OBJECT_COMPAT_PROPERTY_WITH_ARGS(QSerialPortPrivate, QSerialPort::FlowControl, flowControl,
-        &QSerialPortPrivate::setBindableFlowControl, QSerialPort::NoFlowControl)
+    QSerialPort::DataBits dataBits = QSerialPort::Data8;
+    QSerialPort::Parity parity = QSerialPort::NoParity;
+    QSerialPort::StopBits stopBits = QSerialPort::OneStop;
+    QSerialPort::FlowControl flowControl = QSerialPort::NoFlowControl;
 
     bool settingsRestoredOnClose = true;
 
-    bool setBindableBreakEnabled(bool isBreakEnabled)
-    { return q_func()->setBreakEnabled(isBreakEnabled); }
-    Q_OBJECT_COMPAT_PROPERTY_WITH_ARGS(QSerialPortPrivate, bool, isBreakEnabled,
-        &QSerialPortPrivate::setBindableBreakEnabled, false)
+    bool isBreakEnabled = false;
 
     bool startAsyncRead();
 
