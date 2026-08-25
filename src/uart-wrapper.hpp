@@ -7,6 +7,7 @@
 #pragma once
 
 #include <QObject>
+#include <QTimer>
 #include <obs.hpp>
 #include <QSerialPort>
 
@@ -20,6 +21,11 @@ protected:
 	QString port_name;
 	QSerialPort uart;
 	QByteArray rxbuffer;
+
+private:
+	/* Reconnect handling */
+	QTimer reconnect_timer;
+	static constexpr int reconnect_poll_interval_ms = 2000;
 
 signals:
 	void receive(const QByteArray &packet);
@@ -40,4 +46,7 @@ public:
 
 public slots:
 	void poll();
+
+private slots:
+	void handleError(QSerialPort::SerialPortError error);
 };

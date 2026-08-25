@@ -18,15 +18,35 @@
 PTZUARTWrapper::PTZUARTWrapper(QString &port_name) : port_name(port_name)
 {
 	connect(&uart, &QSerialPort::readyRead, this, &PTZUARTWrapper::poll);
+	connect(&uart, &QSerialPort::errorOccurred, this, &PTZUARTWrapper::handleError);
 	uart.setPortName(port_name);
+
+	reconnect_timer.setInterval(reconnect_poll_interval_ms);
+	connect(&reconnect_timer, &QTimer::timeout, this, &PTZUARTWrapper::open);
 }
 
 bool PTZUARTWrapper::open()
 {
+	if (uart.isOpen()) {
+		reconnect_timer.stop();
+		return true;
+	}
+
 	bool rc = uart.open(QIODevice::ReadWrite);
-	if (!rc)
-		blog(LOG_INFO, "VISCA Unable to open UART %s", qPrintable(port_name));
-	return rc;
+	if (!rc) {
+		/* Kick off the reconnect timer to try again later */
+		if (!reconnect_timer.isActive()) {
+			blog(LOG_INFO, "Unable to open UART %s", qPrintable(port_name));
+			reconnect_timer.start();
+		}
+		return false;
+	}
+
+	if (reconnect_timer.isActive()) {
+		blog(LOG_INFO, "UART %s reconnected", qPrintable(port_name));
+		reconnect_timer.stop();
+	}
+	return true;
 }
 
 void PTZUARTWrapper::close()
@@ -96,3 +116,21 @@ void PTZUARTWrapper::poll()
 {
 	receiveBytes(uart.readAll());
 };
+
+void PTZUARTWrapper::handleError(QSerialPort::SerialPortError error)
+{
+	switch (error) {
+	case QSerialPort::ResourceError:
+	case QSerialPort::ReadError:
+	case QSerialPort::WriteError:
+		blog(LOG_INFO, "UART %s error: code=%d, \"%s\"", qPrintable(port_name), (int)error,
+		     qPrintable(uart.errorString()));
+		close();
+		/* Defer the reopen to reconnect_timer */
+		if (!reconnect_timer.isActive())
+			reconnect_timer.start();
+		break;
+	default:
+		return;
+	}
+}
