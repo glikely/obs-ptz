@@ -5,11 +5,15 @@
  * SPDX-License-Identifier: GPLv2
  */
 
+#include "ptz.h"
+#include "uart-wrapper.hpp"
+
 #include <QSerialPortInfo>
 #include <QSerialPort>
 #include <QMetaEnum>
 #include "uart-wrapper.hpp"
-#include "ptz-device.hpp"
+
+#include <obs-module.h>
 
 PTZUARTWrapper::PTZUARTWrapper(QString &port_name) : port_name(port_name)
 {
