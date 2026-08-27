@@ -68,7 +68,7 @@ struct termios2 {
 #endif
 
 [[maybe_unused]]
-Q_STATIC_LOGGING_CATEGORY(lcUnixWarnings, "qt.serialport.unix.warnings");
+Q_LOGGING_CATEGORY(lcUnixWarnings, "qt.serialport.unix.warnings");
 
 QT_BEGIN_NAMESPACE
 
