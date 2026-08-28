@@ -294,6 +294,16 @@ jobs:
           target: ${{ matrix.target }}
           config: ${{ needs.check-event.outputs.config }}
 
+      - name: Sign Plugin Binary 🔏
+        uses: ./.github/actions/sign-windows-signpath
+        if: fromJSON(needs.check-event.outputs.codesign)
+        with:
+          apiToken: ${{ secrets.SIGNPATH_API_TOKEN }}
+          organizationId: ${{ vars.SIGNPATH_ORGANIZATION_ID }}
+          signingPolicySlug: ${{ startsWith(github.ref, 'refs/tags/v') && 'release-signing' || 'test-signing' }}
+          artifactName: ${{ steps.setup.outputs.pluginName }}-windows-${{ matrix.target }}-${{ needs.check-event.outputs.commitHash }}
+          path: ${{ github.workspace }}/release/${{ needs.check-event.outputs.config }}
+
       - name: Package Plugin 📀
         uses: ./.github/actions/package-plugin
         with:

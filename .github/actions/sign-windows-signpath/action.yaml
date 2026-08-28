@@ -1,0 +1,61 @@
+name: Sign Windows binaries with SignPath
+description: Submits built Windows binaries to SignPath for Authenticode signing
+inputs:
+  apiToken:
+    description: SignPath API token
+    required: false
+  organizationId:
+    description: SignPath organization ID
+    required: false
+  signingPolicySlug:
+    description: SignPath signing policy slug (test-signing or release-signing)
+    required: true
+  artifactName:
+    description: Name to give the unsigned/signed workflow artifacts
+    required: true
+  path:
+    description: Directory tree containing binaries to sign (signed files overwrite in place)
+    required: true
+outputs:
+  haveSigningCredentials:
+    description: True if SignPath credentials were available
+    value: ${{ steps.check.outputs.haveSigningCredentials }}
+runs:
+  using: composite
+  steps:
+    - name: Check For Signing Credentials 🔍
+      id: check
+      shell: pwsh
+      run: |
+        # Check For Signing Credentials 🔍
+        $Have = ('${{ inputs.apiToken }}' -ne '') -and ('${{ inputs.organizationId }}' -ne '')
+        "haveSigningCredentials=$($Have.ToString().ToLower())" >> $env:GITHUB_OUTPUT
+
+    - name: Upload Unsigned Artifact 📤
+      if: fromJSON(steps.check.outputs.haveSigningCredentials)
+      id: upload-unsigned
+      uses: actions/upload-artifact@v7
+      with:
+        name: ${{ inputs.artifactName }}-unsigned
+        path: ${{ inputs.path }}
+        if-no-files-found: error
+
+    - name: Submit to SignPath ✍️
+      if: fromJSON(steps.check.outputs.haveSigningCredentials)
+      uses: signpath/github-action-submit-signing-request@v2
+      with:
+        api-token: ${{ inputs.apiToken }}
+        organization-id: ${{ inputs.organizationId }}
+        project-slug: obs-ptz
+        signing-policy-slug: ${{ inputs.signingPolicySlug }}
+        artifact-configuration-slug: windows-plugin
+        github-artifact-id: ${{ steps.upload-unsigned.outputs.artifact-id }}
+        wait-for-completion: true
+        output-artifact-directory: ${{ inputs.path }}-signed
+
+    - name: Replace With Signed Binaries 🔁
+      if: fromJSON(steps.check.outputs.haveSigningCredentials)
+      shell: pwsh
+      run: |
+        # Replace With Signed Binaries 🔁
+        Copy-Item -Path "${{ inputs.path }}-signed/*" -Destination "${{ inputs.path }}" -Recurse -Force
