@@ -2,7 +2,7 @@
  *
  * Copyright 2021 Grant Likely <grant.likely@secretlab.ca>
  *
- * SPDX-License-Identifier: GPLv2
+ * SPDX-License-Identifier: GPLv2+
  *
  * This file implements an OBS source plugin that triggers PTZ device actions,
  * like recalling a preset or initiating a camera move.
