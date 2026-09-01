@@ -76,6 +76,36 @@ public:
 	struct PtzUsbCamPos getPosition() const { return now_pos; }
 	std::string getDevicePath() { return device_path; }
 	virtual bool isValid() const = 0;
+
+	/* Cameras that only move relative to their current position.
+	 *
+	 * Logitech's conference cameras (PTZ Pro, PTZ Pro 2, Rally, GROUP,
+	 * CC3000e) do not implement PAN_ABSOLUTE or TILT_ABSOLUTE at all, so
+	 * the absolute path above fails on every write. They expose motion,
+	 * homing and presets through a vendor extension unit instead.
+	 *
+	 * Backends that support it override these; the default keeps the
+	 * absolute behaviour for everything else.
+	 */
+	virtual bool supportsRelative() const { return false; }
+	virtual bool moveRelative(double pan, double tilt)
+	{
+		UNUSED_PARAMETER(pan);
+		UNUSED_PARAMETER(tilt);
+		return false;
+	}
+	virtual bool moveHome() { return false; }
+	virtual bool supportsHardwarePresets() const { return false; }
+	virtual bool presetSave(int slot)
+	{
+		UNUSED_PARAMETER(slot);
+		return false;
+	}
+	virtual bool presetRecall(int slot)
+	{
+		UNUSED_PARAMETER(slot);
+		return false;
+	}
 };
 
 class PTZUSBCam : public PTZDevice {
