@@ -381,7 +381,7 @@ void PTZSettings::on_addPTZ_clicked()
 #if defined(ENABLE_USB_CAM)
 	QAction *addUsbCam = addPTZContext.addAction(obs_module_text("PTZ.UVC.Name"));
 #endif
-	QAction *action = addPTZContext.exec(QCursor::pos());
+	QAction *action = addPTZContext.exec(ui->addPTZ->mapToGlobal(QPoint(0, ui->addPTZ->height())));
 
 #if defined(ENABLE_SERIALPORT)
 	if (action == addViscaSerial) {
