@@ -27,7 +27,7 @@ Features:
 - Control camera power
 - Adjust camera whitebalance
 - Supports multiple camera control protocols, including:
-  - VISCA (RS232, RS422, UDP and TCP)
+  - VISCA (RS232, RS422, UDP and TCP, including Datavideo TCP framing)
   - Pelco-P
   - Pelco-D
   - ONVIF (experimental)
