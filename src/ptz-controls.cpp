@@ -513,8 +513,12 @@ void PTZControls::setJoystickAxisAction(size_t axis, ptz_joy_action_id action)
 		joystick_focus_axis = (int)axis;
 		joystick_focus_invert = action == PTZ_JOY_ACTION_FOCUS_INVERT;
 	}
-	if (old_axis != -1)
+	if (old_axis != -1) {
+		/* The UI was cleared, but leaving the old action in this map caused it
+		 * to be serialized and restored on the next launch. */
+		joystick_axis_actions.remove(old_axis);
 		emit joystickAxisActionChanged(old_axis, PTZ_JOY_ACTION_NONE);
+	}
 	emit joystickAxisActionChanged(axis, action);
 }
 
