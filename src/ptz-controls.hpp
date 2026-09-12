@@ -251,6 +251,7 @@ public:
 	PTZPresetListDelegate(QObject *parent);
 	virtual void paint(QPainter *painter, const QStyleOptionViewItem &option,
 			   const QModelIndex &index) const override;
+	virtual QSize sizeHint(const QStyleOptionViewItem &option, const QModelIndex &index) const override;
 	virtual bool editorEvent(QEvent *event, QAbstractItemModel *model, const QStyleOptionViewItem &option,
 				 const QModelIndex &index) override;
 	virtual bool helpEvent(QHelpEvent *event, QAbstractItemView *view, const QStyleOptionViewItem &option,
@@ -258,6 +259,7 @@ public:
 
 private:
 	CellLayout layoutCell(const QModelIndex &index, const QStyleOptionViewItem &option) const;
+	QFont scaledFont(const QStyleOptionViewItem &option) const;
 
 	QIcon recallIcon;
 };

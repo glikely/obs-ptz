@@ -13,4 +13,5 @@ public slots:
 
 protected:
 	QModelIndex moveCursor(QAbstractItemView::CursorAction action, Qt::KeyboardModifiers modifiers);
+	void resizeEvent(QResizeEvent *event) override;
 };

@@ -17,6 +17,7 @@
 #include <QResizeEvent>
 #include <QDockWidget>
 #include <QStylePainter>
+#include <QAbstractItemView>
 
 #include <qt-wrappers.hpp>
 #include "touch-control.hpp"
@@ -1373,10 +1374,43 @@ PTZPresetListDelegate::CellLayout PTZPresetListDelegate::layoutCell(const QModel
 	return l;
 }
 
+QFont PTZPresetListDelegate::scaledFont(const QStyleOptionViewItem &option) const
+{
+	/* Scale the preset text with the width of the list, in the same
+	 * spirit as the control buttons scaling their icons with their
+	 * size. Prefer the live viewport width so the text tracks the dock
+	 * as it is resized; fall back to the cell rect otherwise. Clamp so
+	 * the text stays legible in a narrow dock and doesn't grow absurd
+	 * in a wide one. */
+	int width = option.rect.width();
+	if (auto *view = qobject_cast<const QAbstractItemView *>(option.widget))
+		width = view->viewport()->width();
+
+	QFont font = option.font;
+	font.setPixelSize(qBound(11, width / 10, 40));
+	return font;
+}
+
+QSize PTZPresetListDelegate::sizeHint(const QStyleOptionViewItem &option, const QModelIndex &index) const
+{
+	QStyleOptionViewItem opt(option);
+	opt.font = scaledFont(option);
+	opt.fontMetrics = QFontMetrics(opt.font);
+
+	/* Base the height on the scaled font, with extra padding so the
+	 * rows stay comfortably clickable */
+	QSize size = QStyledItemDelegate::sizeHint(opt, index);
+	size.setHeight(qMax(size.height(), qRound(opt.fontMetrics.height() * 1.6)));
+	return size;
+}
+
 void PTZPresetListDelegate::paint(QPainter *painter, const QStyleOptionViewItem &option, const QModelIndex &index) const
 {
 	QStyleOptionViewItem opt(option);
 	initStyleOption(&opt, index);
+	opt.font = scaledFont(option);
+	opt.fontMetrics = QFontMetrics(opt.font);
+	painter->setFont(opt.font);
 
 	/* Draw the background highlight */
 	QStyle *style = opt.widget ? opt.widget->style() : QApplication::style();
