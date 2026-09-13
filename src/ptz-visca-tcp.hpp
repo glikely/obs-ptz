@@ -8,6 +8,7 @@
 
 #include <QObject>
 #include <QTcpSocket>
+#include "datavideo-visca-framing.hpp"
 #include "ptz-visca.hpp"
 
 class PTZViscaOverTCP : public PTZVisca {
@@ -18,6 +19,8 @@ private:
 	QByteArray rxbuffer;
 	QString host;
 	int port;
+	bool datavideo_framing = false;
+	DatavideoViscaFramer datavideo_framer;
 
 protected:
 	void send_immediate(const QByteArray &msg) override;
