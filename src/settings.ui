@@ -82,6 +82,16 @@
             </widget>
            </item>
            <item>
+            <widget class="QCheckBox" name="presetRecallVisibleCheckBox">
+             <property name="toolTip">
+              <string>PTZ.Settings.PresetRecallAlwaysVisible.Tooltip</string>
+             </property>
+             <property name="text">
+              <string>PTZ.Settings.PresetRecallAlwaysVisible</string>
+             </property>
+            </widget>
+           </item>
+           <item>
             <widget class="QGroupBox" name="joystickGroupBox">
              <property name="title">
               <string>PTZ.Settings.JoystickControl</string>

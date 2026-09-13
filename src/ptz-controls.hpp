@@ -48,6 +48,7 @@ private:
 	bool live_move_lock_enabled = true;
 	bool autoselect_enabled = false;
 	bool speed_ramp_enabled = false;
+	bool preset_recall_always_visible = false;
 
 	// Current status
 	double pan_speed = 0.0;
@@ -198,17 +199,20 @@ public:
 	bool liveMoveLockEnabled() { return live_move_lock_enabled; };
 	bool liveMoveLockActive() { return live_move_lock_enabled && obs_frontend_preview_program_mode_active(); };
 	bool speedRampEnabled() { return speed_ramp_enabled; };
+	bool presetRecallAlwaysVisible() { return preset_recall_always_visible; };
 	static PTZControls *getInstance() { return instance; };
 
 public slots:
 	void setAutoselectEnabled(bool enable);
 	void setLiveMoveLockEnabled(bool enable);
 	void setSpeedRampEnabled(bool enable);
+	void setPresetRecallAlwaysVisible(bool visible);
 
 signals:
 	void autoselectEnabledChanged(bool enabled);
 	void liveMoveLockEnabledChanged(bool enabled);
 	void speedRampEnabledChanged(bool enabled);
+	void presetRecallAlwaysVisibleChanged(bool visible);
 };
 
 class PTZDeviceListDelegate : public QStyledItemDelegate {
@@ -251,6 +255,7 @@ public:
 	PTZPresetListDelegate(QObject *parent);
 	virtual void paint(QPainter *painter, const QStyleOptionViewItem &option,
 			   const QModelIndex &index) const override;
+	virtual QSize sizeHint(const QStyleOptionViewItem &option, const QModelIndex &index) const override;
 	virtual bool editorEvent(QEvent *event, QAbstractItemModel *model, const QStyleOptionViewItem &option,
 				 const QModelIndex &index) override;
 	virtual bool helpEvent(QHelpEvent *event, QAbstractItemView *view, const QStyleOptionViewItem &option,
@@ -258,6 +263,7 @@ public:
 
 private:
 	CellLayout layoutCell(const QModelIndex &index, const QStyleOptionViewItem &option) const;
+	QFont scaledFont(const QStyleOptionViewItem &option) const;
 
 	QIcon recallIcon;
 };

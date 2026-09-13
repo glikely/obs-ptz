@@ -111,6 +111,12 @@ PTZSettings::PTZSettings() : QWidget(nullptr), ui(new Ui_PTZSettings)
 	connect(ui->speedRampCheckBox, &QCheckBox::clicked, PTZControls::getInstance(),
 		&PTZControls::setSpeedRampEnabled);
 
+	ui->presetRecallVisibleCheckBox->setChecked(PTZControls::getInstance()->presetRecallAlwaysVisible());
+	connect(PTZControls::getInstance(), &PTZControls::presetRecallAlwaysVisibleChanged, ui->presetRecallVisibleCheckBox,
+		&QCheckBox::setChecked);
+	connect(ui->presetRecallVisibleCheckBox, &QCheckBox::clicked, PTZControls::getInstance(),
+		&PTZControls::setPresetRecallAlwaysVisible);
+
 	auto snd = new SourceNameDelegate(this);
 	ui->deviceList->setModel(&ptzDeviceList);
 	ui->deviceList->setItemDelegateForColumn(0, snd);

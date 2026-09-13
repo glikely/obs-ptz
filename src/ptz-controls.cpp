@@ -17,6 +17,7 @@
 #include <QResizeEvent>
 #include <QDockWidget>
 #include <QStylePainter>
+#include <QAbstractItemView>
 
 #include <qt-wrappers.hpp>
 #include "touch-control.hpp"
@@ -562,6 +563,7 @@ void PTZControls::SaveConfig()
 	obs_data_set_bool(savedata, "live_moves_disabled", liveMoveLockEnabled());
 	obs_data_set_bool(savedata, "autoselect_enabled", autoselectEnabled());
 	obs_data_set_bool(savedata, "speed_ramp_enabled", speedRampEnabled());
+	obs_data_set_bool(savedata, "preset_recall_always_visible", presetRecallAlwaysVisible());
 	obs_data_set_bool(savedata, "onscreen_joystick_enabled", ui->pantiltStack->currentIndex() != 0);
 	obs_data_set_bool(savedata, "joystick_enable", m_joystick_enable);
 	obs_data_set_int(savedata, "joystick_id", m_joystick_id);
@@ -632,6 +634,7 @@ void PTZControls::LoadConfig()
 	obs_data_set_default_bool(loaddata, "live_moves_disabled", true);
 	obs_data_set_default_bool(loaddata, "autoselect_enabled", true);
 	obs_data_set_default_bool(loaddata, "speed_ramp_enabled", true);
+	obs_data_set_default_bool(loaddata, "preset_recall_always_visible", false);
 	obs_data_set_default_bool(loaddata, "onscreen_joystick_enabled", false);
 	obs_data_set_default_bool(loaddata, "joystick_enable", false);
 	obs_data_set_default_int(loaddata, "joystick_id", -1);
@@ -641,6 +644,7 @@ void PTZControls::LoadConfig()
 	live_move_lock_enabled = obs_data_get_bool(loaddata, "live_moves_disabled");
 	autoselect_enabled = obs_data_get_bool(loaddata, "autoselect_enabled");
 	speed_ramp_enabled = obs_data_get_bool(loaddata, "speed_ramp_enabled");
+	preset_recall_always_visible = obs_data_get_bool(loaddata, "preset_recall_always_visible");
 	ui->pantiltStack->setCurrentIndex(obs_data_get_bool(loaddata, "onscreen_joystick_enabled") ? 1 : 0);
 	m_joystick_enable = obs_data_get_bool(loaddata, "joystick_enable");
 	m_joystick_id = (int)obs_data_get_int(loaddata, "joystick_id");
@@ -705,6 +709,16 @@ void PTZControls::setSpeedRampEnabled(bool enabled)
 		return;
 	speed_ramp_enabled = enabled;
 	emit speedRampEnabledChanged(enabled);
+}
+
+void PTZControls::setPresetRecallAlwaysVisible(bool visible)
+{
+	if (visible == preset_recall_always_visible)
+		return;
+	preset_recall_always_visible = visible;
+	/* Repaint the preset list so the recall buttons appear/disappear */
+	ui->presetListView->viewport()->update();
+	emit presetRecallAlwaysVisibleChanged(visible);
 }
 
 /**
@@ -1072,6 +1086,11 @@ void PTZControls::on_presetListView_customContextMenuRequested(const QPoint &pos
 		presetContext.addAction(ui->actionPresetRemove);
 	}
 	presetContext.addAction(ui->actionPresetAdd);
+	presetContext.addSeparator();
+	QAction *recallVisibleAction = presetContext.addAction(obs_module_text("PTZ.Settings.PresetRecallAlwaysVisible"));
+	recallVisibleAction->setCheckable(true);
+	recallVisibleAction->setChecked(presetRecallAlwaysVisible());
+	connect(recallVisibleAction, &QAction::toggled, this, &PTZControls::setPresetRecallAlwaysVisible);
 	presetContext.exec(globalpos);
 }
 
@@ -1373,10 +1392,43 @@ PTZPresetListDelegate::CellLayout PTZPresetListDelegate::layoutCell(const QModel
 	return l;
 }
 
+QFont PTZPresetListDelegate::scaledFont(const QStyleOptionViewItem &option) const
+{
+	/* Scale the preset text with the width of the list, in the same
+	 * spirit as the control buttons scaling their icons with their
+	 * size. Prefer the live viewport width so the text tracks the dock
+	 * as it is resized; fall back to the cell rect otherwise. Clamp so
+	 * the text stays legible in a narrow dock and doesn't grow absurd
+	 * in a wide one. */
+	int width = option.rect.width();
+	if (auto *view = qobject_cast<const QAbstractItemView *>(option.widget))
+		width = view->viewport()->width();
+
+	QFont font = option.font;
+	font.setPixelSize(qBound(11, width / 10, 40));
+	return font;
+}
+
+QSize PTZPresetListDelegate::sizeHint(const QStyleOptionViewItem &option, const QModelIndex &index) const
+{
+	QStyleOptionViewItem opt(option);
+	opt.font = scaledFont(option);
+	opt.fontMetrics = QFontMetrics(opt.font);
+
+	/* Base the height on the scaled font, with extra padding so the
+	 * rows stay comfortably clickable */
+	QSize size = QStyledItemDelegate::sizeHint(opt, index);
+	size.setHeight(qMax(size.height(), qRound(opt.fontMetrics.height() * 1.6)));
+	return size;
+}
+
 void PTZPresetListDelegate::paint(QPainter *painter, const QStyleOptionViewItem &option, const QModelIndex &index) const
 {
 	QStyleOptionViewItem opt(option);
 	initStyleOption(&opt, index);
+	opt.font = scaledFont(option);
+	opt.fontMetrics = QFontMetrics(opt.font);
+	painter->setFont(opt.font);
 
 	/* Draw the background highlight */
 	QStyle *style = opt.widget ? opt.widget->style() : QApplication::style();
@@ -1385,10 +1437,13 @@ void PTZPresetListDelegate::paint(QPainter *painter, const QStyleOptionViewItem 
 	/* Divide up the space into the label and the recall button; the
 	 * button itself is only drawn while the row is hovered or selected
 	 * and the view is enabled (i.e. not locked), but the space is
-	 * always reserved so the text doesn't reflow */
+	 * always reserved so the text doesn't reflow. When the user has
+	 * opted to always show it, the hover/selection requirement is
+	 * dropped and it is drawn on every enabled row. */
 	CellLayout l = layoutCell(index, opt);
+	bool alwaysVisible = PTZControls::getInstance() && PTZControls::getInstance()->presetRecallAlwaysVisible();
 	bool showRecall = (opt.state & QStyle::State_Enabled) &&
-			  (opt.state & (QStyle::State_MouseOver | QStyle::State_Selected));
+			  (alwaysVisible || (opt.state & (QStyle::State_MouseOver | QStyle::State_Selected)));
 	if (showRecall)
 		recallIcon.paint(painter, l.recall);
 
