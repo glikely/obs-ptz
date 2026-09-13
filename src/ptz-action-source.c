@@ -162,6 +162,7 @@ static void *ptz_action_source_create(obs_data_t *settings, obs_source_t *source
 
 static void ptz_action_source_destroy(void *data)
 {
+	obs_frontend_remove_event_callback(ptz_action_source_fe_callback, data);
 	bfree(data);
 }
 
