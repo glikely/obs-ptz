@@ -1386,17 +1386,10 @@ void PTZPresetListDelegate::paint(QPainter *painter, const QStyleOptionViewItem 
 	QStyle *style = opt.widget ? opt.widget->style() : QApplication::style();
 	style->drawPrimitive(QStyle::PE_PanelItemViewItem, &opt, painter, opt.widget);
 
-	/* Divide up the space into the label and the recall button; the
-	 * button itself is only drawn while the row is hovered or selected
-	 * and the view is enabled (i.e. not locked), but the space is
-	 * always reserved so the text doesn't reflow */
+	/* Divide up the space into the label and the recall button */
 	CellLayout l = layoutCell(index, opt);
-	bool showRecall = (opt.state & QStyle::State_Enabled) &&
-			  (opt.state & (QStyle::State_MouseOver | QStyle::State_Selected));
-	if (showRecall)
-		recallIcon.paint(painter, l.recall);
-
-	/* Finally, render the text in the space remaining */
+	QIcon::Mode iconMode = (opt.state & QStyle::State_Enabled) ? QIcon::Normal : QIcon::Disabled;
+	recallIcon.paint(painter, l.recall, Qt::AlignCenter, iconMode);
 	style->drawItemText(painter, l.text, opt.displayAlignment, opt.palette, true, opt.text);
 }
 
