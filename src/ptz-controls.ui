@@ -445,6 +445,9 @@
        <property name="contextMenuPolicy">
         <enum>Qt::ContextMenuPolicy::CustomContextMenu</enum>
        </property>
+       <property name="frameShape">
+        <enum>QFrame::NoFrame</enum>
+       </property>
        <property name="editTriggers">
         <set>QAbstractItemView::EditTrigger::NoEditTriggers</set>
        </property>
@@ -485,6 +488,9 @@
         <widget class="CircularListView" name="presetListView">
          <property name="contextMenuPolicy">
           <enum>Qt::ContextMenuPolicy::CustomContextMenu</enum>
+         </property>
+         <property name="frameShape">
+          <enum>QFrame::NoFrame</enum>
          </property>
          <property name="editTriggers">
           <set>QAbstractItemView::EditTrigger::EditKeyPressed</set>
