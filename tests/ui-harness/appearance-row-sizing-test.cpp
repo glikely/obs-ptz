@@ -11,6 +11,7 @@
 
 #include <QWidget>
 #include <QListView>
+#include <QToolBar>
 #include <QAction>
 #include <QDialog>
 #include <QButtonGroup>
@@ -58,18 +59,45 @@ void logRowHeights()
 	logFirstRowHeight(mainWindow, "sources", "sources");
 }
 
+/* PTZControls::showEvent() (src/ptz-controls.cpp) pads ptzToolbar and
+ * presetToolbar's minimum height to match OBS's own dock toolbars
+ * (e.g. sourcesToolbar, on the Sources dock) - see that function's own
+ * comment for why a brute-force pad is needed at all. Measuring
+ * ->height() rather than ->sizeHint() checks what's actually on
+ * screen, not just what the widget would prefer to be. */
+void logToolbarHeight(QWidget *mainWindow, const char *objectName, const char *label)
+{
+	auto *toolbar = mainWindow ? mainWindow->findChild<QToolBar *>(QString::fromLatin1(objectName)) : nullptr;
+	if (!toolbar) {
+		blog(LOG_INFO, "[ptz-ui-test] %s: toolbar not available", label);
+		return;
+	}
+	blog(LOG_INFO, "[ptz-ui-test] %s toolbarHeight=%d", label, toolbar->height());
+}
+
+void logToolbarHeights()
+{
+	auto *mainWindow = static_cast<QWidget *>(obs_frontend_get_main_window());
+	/* "ptzToolbar"/"presetToolbar": src/ptz-controls.ui.
+	 * "sourcesToolbar": OBS's own frontend/forms/OBSBasic.ui. */
+	logToolbarHeight(mainWindow, "ptzToolbar", "ptzToolbar");
+	logToolbarHeight(mainWindow, "presetToolbar", "presetToolbar");
+	logToolbarHeight(mainWindow, "sourcesToolbar", "sourcesToolbar");
+}
+
 /* Waits for the theme-change reflow this test measures to actually
  * finish, instead of guessing a fixed delay: okButton->click() below
- * runs SetTheme() synchronously, but PTZPresetListDelegate's own
- * response to that is deferred (QTimer::singleShot(0, ...), see
- * ptz-controls.cpp), and the resulting row-size change reaches the
- * view through a further Qt::QueuedConnection on top of that
+ * runs SetTheme() synchronously, but PTZPresetListDelegate's and
+ * PTZControls's own response to that is deferred
+ * (QTimer::singleShot(0, ...), see ptz-controls.cpp), and the
+ * delegate's row-size change reaches the view through a further
+ * Qt::QueuedConnection on top of that
  * (QAbstractItemDelegate::sizeHintChanged() -> doItemsLayout()).
  * Rather than model that whole chain by hand (or guess how long it
- * takes), poll the preset row's own height at a short interval and
- * treat the reflow as done once it reads identically three times in a
- * row. Fast on the common case - most combinations settle within a
- * few polls, well under what a fixed delay long enough for the slow
+ * takes), poll the values this test cares about at a short interval
+ * and treat the reflow as done once they read identically three times
+ * in a row. Fast on the common case - most combinations settle within
+ * a few polls, well under what a fixed delay long enough for the slow
  * case would cost every time. The one combination known to
  * occasionally take close to a second of real event-loop time (a
  * Density switch, which restyles the whole application) just keeps
@@ -81,16 +109,26 @@ void waitForReflow(QWidget *mainWindow)
 	constexpr int kRequiredStableSamples = 3;
 	constexpr int kMaxWaitMs = 5000;
 
-	auto measure = [mainWindow]() -> int {
+	auto measure = [mainWindow]() -> QList<int> {
+		QList<int> state;
 		auto *view = mainWindow ? mainWindow->findChild<QListView *>("presetListView") : nullptr;
 		QModelIndex firstRow = view && view->model() ? view->model()->index(0, 0, view->rootIndex())
 							     : QModelIndex();
-		return firstRow.isValid() ? view->visualRect(firstRow).height() : -1;
+		state << (firstRow.isValid() ? view->visualRect(firstRow).height() : -1);
+
+		auto toolbarHeightOf = [mainWindow](const char *objectName) -> int {
+			auto *tb = mainWindow ? mainWindow->findChild<QToolBar *>(QString::fromLatin1(objectName))
+					      : nullptr;
+			return tb ? tb->height() : -1;
+		};
+		state << toolbarHeightOf("ptzToolbar");
+		state << toolbarHeightOf("presetToolbar");
+		return state;
 	};
 
 	QElapsedTimer overall;
 	overall.start();
-	int prev = measure();
+	QList<int> prev = measure();
 	int stableSamples = 0;
 
 	while (overall.elapsed() < kMaxWaitMs) {
@@ -98,7 +136,7 @@ void waitForReflow(QWidget *mainWindow)
 		QTimer::singleShot(kPollMs, &loop, &QEventLoop::quit);
 		loop.exec();
 
-		int cur = measure();
+		QList<int> cur = measure();
 		if (cur == prev) {
 			if (++stableSamples >= kRequiredStableSamples)
 				return;
@@ -107,7 +145,7 @@ void waitForReflow(QWidget *mainWindow)
 		}
 		prev = cur;
 	}
-	blog(LOG_INFO, "[ptz-ui-test] waitForReflow: gave up after %dms without the measured value settling",
+	blog(LOG_INFO, "[ptz-ui-test] waitForReflow: gave up after %dms without the measured values settling",
 	     kMaxWaitMs);
 }
 
@@ -179,6 +217,7 @@ void runAppearanceRowSizingTest(const QMap<QString, QString> &params)
 
 		waitForReflow(mainWindow);
 		logRowHeights();
+		logToolbarHeights();
 	});
 
 	settingsAction->trigger();
@@ -189,8 +228,8 @@ void runAppearanceRowSizingTest(const QMap<QString, QString> &params)
 /* Registers the "appearance_row_sizing" test with harness: opens the
  * real Settings dialog, sets the requested Density/FontScale, clicks
  * the real Ok button, then logs this plugin's preset row height and
- * the Sources dock's row height for scripts/test_preset_row_sizing.py
- * to compare.
+ * toolbar heights alongside the Sources dock's own row height and
+ * toolbar height, for scripts/test_preset_row_sizing.py to compare.
  *
  * Request params:
  *   density   - Settings > Appearance > Density's button group id

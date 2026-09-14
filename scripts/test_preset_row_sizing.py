@@ -2,8 +2,10 @@
 """Checks that PTZPresetListDelegate's row height
 (src/ptz-controls.cpp, PTZPresetListDelegate::refreshTheme()/
 rowHeightFor()/densityMetricsFor()) matches the real Sources dock's
-row height, across every Settings > Appearance > Density preset and
-every FontScale value reachable through the real Settings dialog.
+row height, and that ptzToolbar/presetToolbar's height
+(PTZControls::showEvent()'s pad) matches the Sources dock's own
+toolbar height, across every Settings > Appearance > Density preset
+and every FontScale value reachable through the real Settings dialog.
 
 Drives the "appearance_row_sizing" test in the UI test harness
 (tests/ui-harness/ - see its README.md for the harness itself, and
@@ -261,6 +263,14 @@ def parse_row_heights(content: str):
     return int(preset[-1]), int(sources[-1])
 
 
+def parse_toolbar_heights(content: str):
+    def last(label):
+        m = re.findall(rf"\[ptz-ui-test\] {re.escape(label)} toolbarHeight=(-?\d+)", content)
+        return int(m[-1]) if m else None
+
+    return last("ptzToolbar"), last("presetToolbar"), last("sourcesToolbar")
+
+
 def main():
     config_dir = obs_config_dir()
     cfg = config_dir / "user.ini"
@@ -329,7 +339,7 @@ def main():
 
         for density, fontscale in WARMUP_REQUESTS:
             run_ui_test(ws_port, ws_password, density, fontscale)
-            tail.wait_for(r"\[ptz-ui-test\] sources rowHeight=", timeout=30)
+            tail.wait_for(r"\[ptz-ui-test\] sourcesToolbar toolbarHeight=", timeout=30)
 
         for density in DENSITIES:
             for fontscale in FONT_SCALES:
@@ -352,21 +362,36 @@ def main():
                 # it - give it a generous margin before calling a
                 # combination stuck.
                 try:
-                    content = tail.wait_for(r"\[ptz-ui-test\] sources rowHeight=", timeout=30)
+                    content = tail.wait_for(r"\[ptz-ui-test\] sourcesToolbar toolbarHeight=", timeout=30)
                 except TestError:
                     print(f"FAIL {label}: no fresh measurement appeared in {logfile}")
                     failures += 1
                     continue
 
                 preset_height, sources_height = parse_row_heights(content)
-                if preset_height is None or sources_height is None:
+                ptz_toolbar, preset_toolbar, sources_toolbar = parse_toolbar_heights(content)
+
+                if preset_height is None or sources_height is None or sources_toolbar is None:
                     print(f"FAIL {label}: couldn't parse measurement from log content: {content!r}")
                     failures += 1
-                elif preset_height == sources_height:
-                    print(f"PASS {label}: preset={preset_height} sources={sources_height}")
+                    continue
+
+                mismatches = []
+                if preset_height != sources_height:
+                    mismatches.append(f"preset rows {preset_height} != sources rows {sources_height}")
+                if ptz_toolbar != sources_toolbar:
+                    mismatches.append(f"ptzToolbar {ptz_toolbar} != sourcesToolbar {sources_toolbar}")
+                if preset_toolbar != sources_toolbar:
+                    mismatches.append(f"presetToolbar {preset_toolbar} != sourcesToolbar {sources_toolbar}")
+
+                summary = (
+                    f"rows: preset={preset_height} sources={sources_height}; "
+                    f"toolbars: ptz={ptz_toolbar} preset={preset_toolbar} sources={sources_toolbar}"
+                )
+                if not mismatches:
+                    print(f"PASS {label}: {summary}")
                 else:
-                    diff = sources_height - preset_height
-                    print(f"FAIL {label}: preset={preset_height} sources={sources_height} (diff={diff}px)")
+                    print(f"FAIL {label}: {summary} ({'; '.join(mismatches)})")
                     failures += 1
     finally:
         # Restoring via config_set_int + relaunch rather than another
