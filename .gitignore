@@ -28,5 +28,9 @@
 # Exclude macOS legacy resource forks
 .DS_Store
 
+# Exclude Python bytecode cache
+__pycache__/
+*.pyc
+
 # Exclude CMake build number cache
 /cmake/.CMakeBuildNumber

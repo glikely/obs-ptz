@@ -16,8 +16,7 @@ PTZUITestHarness *g_harness = nullptr;
 
 PTZUITestHarness::PTZUITestHarness(QObject *parent) : QObject(parent)
 {
-	/* No built-in tests: register*Test(this) calls go here as tests
-	 * are added - see README.md's "Adding a new test" section. */
+	registerAppearanceRowSizingTest(this);
 }
 
 void PTZUITestHarness::registerTest(const QString &name, TestFn fn)

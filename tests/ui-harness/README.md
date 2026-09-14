@@ -8,8 +8,10 @@ windowed `OBS.app`, and a test that drives a dialog pops it open and
 closed for real - don't drive the mouse/keyboard while one runs) - link
 it in explicitly when you want to run it.
 
-Ships with no built-in tests - just the dispatcher and the
-obs-websocket plumbing to reach it. See "Adding a new test" below.
+Ships with one test, `appearance_row_sizing` (see
+`appearance-row-sizing-test.cpp` and its own driver,
+`scripts/test_preset_row_sizing.py`) - see "Adding a new test" below
+for how to add another.
 
 ## Why in-process, not a standalone test binary
 
@@ -18,10 +20,9 @@ running at all. UI tests need the opposite: real widgets, real dialogs,
 real OBS-internal state that only exists inside a running OBS process -
 much of it not reachable through `obs-frontend-api` from an external
 tool at all (there's no call to trigger a theme reload, for instance,
-which one of this harness's own tests needed - see the git history for
-`appearance-row-sizing-test.cpp` if it's not in this tree yet). So the
-harness has to be linked into the plugin binary itself and driven from
-inside.
+which `appearance-row-sizing-test.cpp` needed - see its own comment).
+So the harness has to be linked into the plugin binary itself and
+driven from inside.
 
 ## Why obs-websocket, not a polled file
 
@@ -81,7 +82,7 @@ enabled:
 ```
 python3 scripts/obs_ws_client.py --vendor obs-ptz --request-type ui_test_run \
     --password <server_password from obs-websocket's config.json> \
-    --data '{"cmd": "<name registered via registerTest()>", ...}'
+    --data '{"cmd": "appearance_row_sizing", "density": "-4", "fontscale": "10"}'
 ```
 
 `scripts/obs_ws_client.py` prints obs-websocket's own response (whether
@@ -89,8 +90,10 @@ the request was *accepted*), not a test's actual result - watch OBS's
 own log (`~/Library/Application Support/obs-studio/logs/` on macOS) for
 whatever a given test logs.
 
-There's no driver script in this tree until a test needs one - see
-"Adding a new test" below for what one should look like.
+`scripts/test_preset_row_sizing.py` is a full driver built on top of
+this: it launches OBS, sweeps `appearance_row_sizing` across every
+Density/FontScale combination, and compares the result against the
+real Sources dock. Use it as the template for a new test's own driver.
 
 ## Adding a new test
 

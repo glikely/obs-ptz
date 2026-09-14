@@ -61,3 +61,6 @@ private:
  * and obs-websocket needs to have already finished its own
  * obs_module_load() first. See ptz.c. */
 extern "C" void ptz_load_ui_tests(void);
+
+/* Test registration hooks */
+void registerAppearanceRowSizingTest(PTZUITestHarness *harness);
