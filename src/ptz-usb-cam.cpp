@@ -15,15 +15,196 @@
 #include "ptz-usb-cam.hpp"
 
 #ifdef __linux__
+#include <linux/usb/video.h>
+#include <linux/uvcvideo.h>
 #include <linux/v4l2-controls.h>
 #include <linux/videodev2.h>
 #include <sys/ioctl.h>
 #include <fcntl.h>
 #include <unistd.h>
 
+#include <algorithm>
+#include <chrono>
+#include <memory>
+#include <fstream>
+#include <iterator>
+#include <vector>
+
+/* Logitech UVC extension unit.
+ *
+ * Selector names and layout are documented in xMRi/PTZControl's
+ * ExtensionUnitDefines.h, the only public description of this unit.
+ */
+namespace {
+
+const uint8_t kLogitechPeripheralGuid[16] = {0x21, 0x2d, 0xe5, 0xff, 0x30, 0x80, 0x2c, 0x4e,
+					     0x82, 0xd9, 0xf5, 0x87, 0xd0, 0x05, 0x40, 0xbd};
+
+constexpr uint8_t kSelPanTiltRelative = 0x01;
+constexpr uint8_t kSelPanTiltMode = 0x02;
+
+constexpr uint8_t kModeResetBoth = 3;
+constexpr uint8_t kModePresetSaveBase = 4;
+constexpr uint8_t kModePresetRecallBase = 12;
+
+/* The motor takes 600-900ms to execute one command: 100-200ms of latency
+ * before it starts moving, then 400-700ms of travel. Travel time is nearly
+ * constant regardless of the magnitude requested, because the firmware varies
+ * speed rather than duration.
+ *
+ * Two consequences drive the design below. A single correctly sized command is
+ * both smoother and faster than a sequence of small ones, since the firmware
+ * already ramps acceleration. And issuing commands faster than the motor
+ * executes them wedges the controller: it keeps returning success from every
+ * ioctl and keeps streaming video, while silently ignoring all motion until
+ * the camera is power cycled.
+ *
+ * ptz_tick() asks for movement every 30ms, so requests are accumulated and
+ * emitted as one command per window instead of being passed straight through.
+ */
+constexpr auto kCommandWindow = std::chrono::milliseconds(700);
+
+class LogitechXU {
+public:
+	explicit LogitechXU(int fd, const std::string &device_path) : fd_(fd)
+	{
+		unit_ = find_unit_id(device_path);
+		if (unit_ == 0)
+			return;
+		if (!query_ranges())
+			unit_ = 0;
+	}
+
+	bool isValid() const { return unit_ != 0; }
+
+	/* Accumulate a normalised request and emit at most one command per
+	 * window. Returns true if the request was accepted, whether or not it
+	 * resulted in an immediate command.
+	 */
+	bool queueRelative(double pan, double tilt)
+	{
+		const auto now = std::chrono::steady_clock::now();
+		/* Drop anything left over from a previous gesture. Without this
+		 * a fraction of a window's worth of movement could sit pending
+		 * indefinitely and then be applied to an unrelated request.
+		 */
+		if (now - last_request_ > kCommandWindow)
+			pending_pan_ = pending_tilt_ = 0.0;
+		last_request_ = now;
+		pending_pan_ += pan;
+		pending_tilt_ += tilt;
+		return flush();
+	}
+
+	bool home()
+	{
+		pending_pan_ = pending_tilt_ = 0.0;
+		uint8_t v = kModeResetBoth;
+		return command(kSelPanTiltMode, UVC_SET_CUR, &v, sizeof(v));
+	}
+
+	bool presetSave(int slot) { return preset(kModePresetSaveBase, slot); }
+	bool presetRecall(int slot) { return preset(kModePresetRecallBase, slot); }
+
+private:
+	bool flush()
+	{
+		const auto now = std::chrono::steady_clock::now();
+		if (now - last_command_ < kCommandWindow)
+			return true;
+		if (pending_pan_ == 0.0 && pending_tilt_ == 0.0)
+			return true;
+
+		/* Sustaining full speed for one window travels the full range. */
+		const double window = std::chrono::duration<double>(kCommandWindow).count();
+		int16_t payload[2];
+		payload[0] = scale(pending_pan_ / window, pan_min_, pan_max_);
+		payload[1] = scale(pending_tilt_ / window, tilt_min_, tilt_max_);
+		pending_pan_ = pending_tilt_ = 0.0;
+		last_command_ = now;
+		return command(kSelPanTiltRelative, UVC_SET_CUR, payload, sizeof(payload));
+	}
+
+	static int16_t scale(double normalised, int lo, int hi)
+	{
+		const double range = normalised >= 0 ? hi : -lo;
+		return static_cast<int16_t>(std::clamp(normalised * range, double(lo), double(hi)));
+	}
+
+	bool preset(uint8_t base, int slot)
+	{
+		if (slot < 1 || slot > 8)
+			return false;
+		uint8_t v = static_cast<uint8_t>(base + slot - 1);
+		return command(kSelPanTiltMode, UVC_SET_CUR, &v, sizeof(v));
+	}
+
+	bool command(uint8_t selector, uint8_t request, void *data, uint16_t size)
+	{
+		struct uvc_xu_control_query q = {};
+		q.unit = unit_;
+		q.selector = selector;
+		q.query = request;
+		q.size = size;
+		q.data = static_cast<uint8_t *>(data);
+		if (ioctl(fd_, UVCIOC_CTRL_QUERY, &q) == -1) {
+			blog(LOG_ERROR, "Logitech XU selector 0x%02x failed", selector);
+			return false;
+		}
+		return true;
+	}
+
+	/* The byte preceding the GUID in the USB descriptors is the unit id.
+	 * There is no ioctl that reports it.
+	 */
+	uint8_t find_unit_id(const std::string &device_path)
+	{
+		const auto slash = device_path.find_last_of('/');
+		const std::string node = slash == std::string::npos ? device_path : device_path.substr(slash + 1);
+		std::ifstream f("/sys/class/video4linux/" + node + "/../../../descriptors", std::ios::binary);
+		if (!f)
+			return 0;
+		const std::vector<uint8_t> d((std::istreambuf_iterator<char>(f)), std::istreambuf_iterator<char>());
+		auto it = std::search(d.begin(), d.end(), std::begin(kLogitechPeripheralGuid),
+				      std::end(kLogitechPeripheralGuid));
+		if (it == d.end() || it == d.begin())
+			return 0;
+		return *(it - 1);
+	}
+
+	/* Ask the device for its limits rather than hardcoding them: they
+	 * differ per model, and the resolution is 1 rather than the handful of
+	 * fixed step sizes other tools expose.
+	 */
+	bool query_ranges()
+	{
+		int16_t lo[2] = {0, 0};
+		int16_t hi[2] = {0, 0};
+		if (!command(kSelPanTiltRelative, UVC_GET_MIN, lo, sizeof(lo)))
+			return false;
+		if (!command(kSelPanTiltRelative, UVC_GET_MAX, hi, sizeof(hi)))
+			return false;
+		pan_min_ = std::min(lo[0], hi[0]);
+		pan_max_ = std::max(lo[0], hi[0]);
+		tilt_min_ = std::min(lo[1], hi[1]);
+		tilt_max_ = std::max(lo[1], hi[1]);
+		return true;
+	}
+
+	int fd_;
+	uint8_t unit_ = 0;
+	int pan_min_ = 0, pan_max_ = 0, tilt_min_ = 0, tilt_max_ = 0;
+	double pending_pan_ = 0.0, pending_tilt_ = 0.0;
+	std::chrono::steady_clock::time_point last_command_{};
+	std::chrono::steady_clock::time_point last_request_{};
+};
+
+} // namespace
+
 class V4L2Control : public PTZControl {
 private:
 	int fd;
+	std::unique_ptr<LogitechXU> xu_;
 	int query_ctrl(unsigned int i, long *pmin, long *pmax)
 	{
 		if (fd == -1)
@@ -82,6 +263,12 @@ public:
 		now_pos.zoom = static_cast<double>(get_ctrl(V4L2_CID_ZOOM_ABSOLUTE)) / max.zoom;
 		now_pos.focus = static_cast<double>(get_ctrl(V4L2_CID_FOCUS_ABSOLUTE)) / max.focus;
 		now_pos.focusAuto = get_ctrl(V4L2_CID_FOCUS_AUTO);
+
+		xu_ = std::make_unique<LogitechXU>(fd, device_path);
+		if (xu_->isValid())
+			blog(LOG_INFO, "%s: using Logitech extension unit for pan/tilt", device_path.c_str());
+		else
+			xu_.reset();
 	}
 	bool internal_pan(long value) override { return set_ctrl(V4L2_CID_PAN_ABSOLUTE, value); }
 	bool internal_tilt(long value) override { return set_ctrl(V4L2_CID_TILT_ABSOLUTE, value); }
@@ -97,6 +284,13 @@ public:
 			return set_ctrl(V4L2_CID_FOCUS_ABSOLUTE, value);
 		}
 	}
+	bool supportsRelative() const override { return xu_ != nullptr; }
+	bool moveRelative(double pan, double tilt) override { return xu_ ? xu_->queueRelative(pan, tilt) : false; }
+	bool moveHome() override { return xu_ ? xu_->home() : false; }
+	bool supportsHardwarePresets() const override { return xu_ != nullptr; }
+	bool presetSave(int slot) override { return xu_ ? xu_->presetSave(slot) : false; }
+	bool presetRecall(int slot) override { return xu_ ? xu_->presetRecall(slot) : false; }
+
 	~V4L2Control() override
 	{
 		if (fd == -1)
@@ -485,11 +679,20 @@ void PTZUSBCam::memory_set(int i)
 	auto ptzctrl = get_ptz_control();
 	if (!ptzctrl)
 		return;
+	/* Prefer the camera's own presets where they exist. Storing a position
+	 * we cannot read back would save nothing useful, and hardware presets
+	 * also survive a reconnect.
+	 */
+	if (ptzctrl->supportsHardwarePresets() && ptzctrl->presetSave(i + 1))
+		return;
 	presets[i] = ptzctrl->getPosition();
 }
 
 void PTZUSBCam::memory_recall(int i)
 {
+	auto hwctrl = get_ptz_control();
+	if (hwctrl && hwctrl->supportsHardwarePresets() && hwctrl->presetRecall(i + 1))
+		return;
 	if (!presets.contains(i))
 		return;
 	auto now_pos = presets[i];
