@@ -175,6 +175,22 @@ if(ENABLE_UART_TESTS)
   add_subdirectory(tests/uart-hil)
 endif()
 
+option(
+  ENABLE_UI_TESTS
+  "Link in the UI test harness (tests/ui-harness), driven over obs-websocket; inert unless PTZ_UI_TEST_HARNESS=1 is also set at runtime. See tests/ui-harness/README.md."
+  OFF
+)
+if(ENABLE_UI_TESTS)
+  add_compile_definitions(ENABLE_UI_TESTS)
+  target_sources(
+    ${CMAKE_PROJECT_NAME}
+    PRIVATE
+      tests/ui-harness/ui-test-harness.cpp
+      tests/ui-harness/ui-test-harness.hpp
+      tests/ui-harness/obs-websocket-api.h
+  )
+endif()
+
 option(ENABLE_JOYSTICK "Enable Joystick support" OFF)
 if(ENABLE_JOYSTICK)
   add_subdirectory("${CMAKE_SOURCE_DIR}/shared/qjoysticks" "${CMAKE_BINARY_DIR}/shared/qjoysticks")

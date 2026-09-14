@@ -26,6 +26,11 @@ bool obs_module_load()
 	return true;
 }
 
+void obs_module_post_load(void)
+{
+	ptz_load_ui_tests();
+}
+
 void obs_module_unload()
 {
 	ptz_unload_devices();

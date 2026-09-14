@@ -27,6 +27,11 @@ extern void ptz_unload_devices(void);
 extern void ptz_load_action_source(void);
 extern void ptz_load_controls(void);
 extern void ptz_load_settings(void);
+#ifdef ENABLE_UI_TESTS
+extern void ptz_load_ui_tests(void);
+#else
+static inline void ptz_load_ui_tests(void) {};
+#endif
 
 extern obs_data_array_t *ptz_devices_get_config(void);
 extern obs_source_t *ptz_device_find_source_using_ptz_name(uint32_t device_id);
