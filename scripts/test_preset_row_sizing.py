@@ -2,10 +2,13 @@
 """Checks that PTZPresetListDelegate's row height
 (src/ptz-controls.cpp, PTZPresetListDelegate::refreshTheme()/
 rowHeightFor()/densityMetricsFor()) matches the real Sources dock's
-row height, and that ptzToolbar/presetToolbar's height
+row height, that ptzToolbar/presetToolbar's height
 (PTZControls::showEvent()'s pad) matches the Sources dock's own
-toolbar height, across every Settings > Appearance > Density preset
-and every FontScale value reachable through the real Settings dialog.
+toolbar height, and that the preset list's recall icon
+(PTZPresetListDelegate::iconSize) matches the Sources dock's own
+vis/lock checkbox-icon size, across every Settings > Appearance >
+Density preset and every FontScale value reachable through the
+real Settings dialog.
 
 Drives the "appearance_row_sizing" test in the UI test harness
 (tests/ui-harness/ - see its README.md for the harness itself, and
@@ -271,6 +274,14 @@ def parse_toolbar_heights(content: str):
     return last("ptzToolbar"), last("presetToolbar"), last("sourcesToolbar")
 
 
+def parse_icon_sizes(content: str):
+    preset = re.findall(r"\[ptz-ui-test\] preset recallIconSize=(-?\d+)", content)
+    sources = re.findall(r"\[ptz-ui-test\] sources .*checkboxIconSize=(-?\d+)", content)
+    if not preset or not sources:
+        return None, None
+    return int(preset[-1]), int(sources[-1])
+
+
 def main():
     config_dir = obs_config_dir()
     cfg = config_dir / "user.ini"
@@ -339,7 +350,7 @@ def main():
 
         for density, fontscale in WARMUP_REQUESTS:
             run_ui_test(ws_port, ws_password, density, fontscale)
-            tail.wait_for(r"\[ptz-ui-test\] sourcesToolbar toolbarHeight=", timeout=30)
+            tail.wait_for(r"\[ptz-ui-test\] sources .*checkboxIconSize=", timeout=30)
 
         for density in DENSITIES:
             for fontscale in FONT_SCALES:
@@ -362,7 +373,7 @@ def main():
                 # it - give it a generous margin before calling a
                 # combination stuck.
                 try:
-                    content = tail.wait_for(r"\[ptz-ui-test\] sourcesToolbar toolbarHeight=", timeout=30)
+                    content = tail.wait_for(r"\[ptz-ui-test\] sources .*checkboxIconSize=", timeout=30)
                 except TestError:
                     print(f"FAIL {label}: no fresh measurement appeared in {logfile}")
                     failures += 1
@@ -370,8 +381,9 @@ def main():
 
                 preset_height, sources_height = parse_row_heights(content)
                 ptz_toolbar, preset_toolbar, sources_toolbar = parse_toolbar_heights(content)
+                preset_icon, sources_icon = parse_icon_sizes(content)
 
-                if preset_height is None or sources_height is None or sources_toolbar is None:
+                if preset_height is None or sources_height is None or sources_toolbar is None or sources_icon is None:
                     print(f"FAIL {label}: couldn't parse measurement from log content: {content!r}")
                     failures += 1
                     continue
@@ -383,10 +395,13 @@ def main():
                     mismatches.append(f"ptzToolbar {ptz_toolbar} != sourcesToolbar {sources_toolbar}")
                 if preset_toolbar != sources_toolbar:
                     mismatches.append(f"presetToolbar {preset_toolbar} != sourcesToolbar {sources_toolbar}")
+                if preset_icon != sources_icon:
+                    mismatches.append(f"recallIcon {preset_icon} != checkboxIcon {sources_icon}")
 
                 summary = (
                     f"rows: preset={preset_height} sources={sources_height}; "
-                    f"toolbars: ptz={ptz_toolbar} preset={preset_toolbar} sources={sources_toolbar}"
+                    f"toolbars: ptz={ptz_toolbar} preset={preset_toolbar} sources={sources_toolbar}; "
+                    f"icons: preset={preset_icon} sources={sources_icon}"
                 )
                 if not mismatches:
                     print(f"PASS {label}: {summary}")

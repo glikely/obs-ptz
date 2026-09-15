@@ -11,6 +11,7 @@
 
 #include <QWidget>
 #include <QListView>
+#include <QAbstractItemDelegate>
 #include <QToolBar>
 #include <QAction>
 #include <QDialog>
@@ -22,6 +23,9 @@
 #include <QTimer>
 #include <QEventLoop>
 #include <QElapsedTimer>
+#include <QCheckBox>
+#include <QVariant>
+#include <QStyle>
 
 namespace {
 
@@ -85,6 +89,57 @@ void logToolbarHeights()
 	logToolbarHeight(mainWindow, "sourcesToolbar", "sourcesToolbar");
 }
 
+/* The preset list's recall icon (PTZPresetListDelegate::iconSize,
+ * src/ptz-controls.cpp) is meant to track the same real-world thing as
+ * the Sources dock's own row-level icons: its vis/lock checkboxes
+ * (styled ".checkbox-icon" in the theme) - not the fixed 16x16
+ * scene/source-type QLabel icon, which never changes size at all.
+ * Read from the delegate via QObject::property("iconSize")
+ * (PTZPresetListDelegate declares it as a real Q_PROPERTY) rather than
+ * a test-only accessor, so nothing in core code exists solely for this
+ * test to call.
+ *
+ * Measures the checkbox's actual drawn glyph - its ::indicator
+ * sub-control, via QStyle::PM_IndicatorHeight - not checkbox->height()
+ * (the checkbox *widget*'s own on-screen bounding box). The two look
+ * like they should be the same thing but aren't: the widget's box
+ * grows past the glyph's own size once FontScale pushes the row itself
+ * taller (QSizePolicy::Preferred lets the widget stretch to fill the
+ * extra row height, same as the checkboxes described in
+ * SourceTreeItem.cpp), but the glyph painted inside it - what a user
+ * actually sees as "the icon" - does not grow at all; it stays exactly
+ * OBS's own --icon_base value (max(2, obsPadding) + 12) at every
+ * FontScale. Comparing against checkbox->height() here previously
+ * masked a real bug: PTZPresetListDelegate::refreshTheme() had been
+ * fitted to grow the recall icon with FontScale to match that widget
+ * height, which was growing for a reason - the widget's own layout
+ * stretch - that has nothing to do with icon size. */
+void logIconSizes()
+{
+	auto *mainWindow = static_cast<QWidget *>(obs_frontend_get_main_window());
+
+	auto *presetView = mainWindow ? mainWindow->findChild<QListView *>("presetListView") : nullptr;
+	auto *delegate = presetView ? presetView->itemDelegate() : nullptr;
+	QVariant iconSize = delegate ? delegate->property("iconSize") : QVariant();
+	if (iconSize.isValid())
+		blog(LOG_INFO, "[ptz-ui-test] preset recallIconSize=%d", iconSize.toInt());
+	else
+		blog(LOG_INFO, "[ptz-ui-test] preset: delegate/iconSize property not available");
+
+	auto *sourcesView = mainWindow ? mainWindow->findChild<QListView *>("sources") : nullptr;
+	QModelIndex firstRow = sourcesView && sourcesView->model()
+				       ? sourcesView->model()->index(0, 0, sourcesView->rootIndex())
+				       : QModelIndex();
+	auto *item = firstRow.isValid() ? sourcesView->indexWidget(firstRow) : nullptr;
+	auto *checkbox = item ? item->findChild<QCheckBox *>() : nullptr;
+	if (checkbox) {
+		int indicatorHeight = checkbox->style()->pixelMetric(QStyle::PM_IndicatorHeight, nullptr, checkbox);
+		blog(LOG_INFO, "[ptz-ui-test] sources checkboxIconSize=%d", indicatorHeight);
+	} else {
+		blog(LOG_INFO, "[ptz-ui-test] sources: checkbox-icon not available");
+	}
+}
+
 /* Waits for the theme-change reflow this test measures to actually
  * finish, instead of guessing a fixed delay: okButton->click() below
  * runs SetTheme() synchronously, but PTZPresetListDelegate's and
@@ -123,6 +178,9 @@ void waitForReflow(QWidget *mainWindow)
 		};
 		state << toolbarHeightOf("ptzToolbar");
 		state << toolbarHeightOf("presetToolbar");
+
+		auto *delegate = view ? view->itemDelegate() : nullptr;
+		state << (delegate ? delegate->property("iconSize").toInt() : -1);
 		return state;
 	};
 
@@ -218,6 +276,7 @@ void runAppearanceRowSizingTest(const QMap<QString, QString> &params)
 		waitForReflow(mainWindow);
 		logRowHeights();
 		logToolbarHeights();
+		logIconSizes();
 	});
 
 	settingsAction->trigger();
@@ -227,9 +286,10 @@ void runAppearanceRowSizingTest(const QMap<QString, QString> &params)
 
 /* Registers the "appearance_row_sizing" test with harness: opens the
  * real Settings dialog, sets the requested Density/FontScale, clicks
- * the real Ok button, then logs this plugin's preset row height and
- * toolbar heights alongside the Sources dock's own row height and
- * toolbar height, for scripts/test_preset_row_sizing.py to compare.
+ * the real Ok button, then logs this plugin's preset row height,
+ * toolbar heights, and recall icon size alongside the Sources dock's
+ * own row height, toolbar height, and checkbox-icon size, for
+ * scripts/test_preset_row_sizing.py to compare.
  *
  * Request params:
  *   density   - Settings > Appearance > Density's button group id
