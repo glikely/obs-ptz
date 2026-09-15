@@ -213,6 +213,7 @@ signals:
 
 class PTZDeviceListDelegate : public QStyledItemDelegate {
 	Q_OBJECT
+	Q_PROPERTY(int iconSize READ iconSize)
 
 public:
 	struct CellLayout {
@@ -231,16 +232,20 @@ public:
 	virtual bool helpEvent(QHelpEvent *event, QAbstractItemView *view, const QStyleOptionViewItem &option,
 			       const QModelIndex &index) override;
 
+	int iconSize() const { return m_iconSize; }
+
 private:
 	CellLayout layoutCell(const QModelIndex &index, const QStyleOptionViewItem &option) const;
 
 	QIcon lockedIcon;
 	QIcon unlockedIcon;
 	QIcon disconnectedIcon;
+	mutable int m_iconSize = 0;
 };
 
 class PTZPresetListDelegate : public QStyledItemDelegate {
 	Q_OBJECT
+	Q_PROPERTY(int iconSize READ iconSize)
 
 public:
 	struct CellLayout {
@@ -256,8 +261,11 @@ public:
 	virtual bool helpEvent(QHelpEvent *event, QAbstractItemView *view, const QStyleOptionViewItem &option,
 			       const QModelIndex &index) override;
 
+	int iconSize() const { return m_iconSize; }
+
 private:
 	CellLayout layoutCell(const QModelIndex &index, const QStyleOptionViewItem &option) const;
 
 	QIcon recallIcon;
+	mutable int m_iconSize = 0;
 };

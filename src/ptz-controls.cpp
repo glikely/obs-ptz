@@ -1231,8 +1231,8 @@ PTZDeviceListDelegate::CellLayout PTZDeviceListDelegate::layoutCell(const QModel
 	l.tally = QRect();
 	const int iconMargin = 1;
 	const int textMargin = 2;
-	const int iconSize = l.text.height();
-	const int dotSize = qMax(6, iconSize / 2);
+	m_iconSize = l.text.height();
+	const int dotSize = qMax(6, m_iconSize / 2);
 	bool isLive = PTZControls::getInstance()->liveMoveLockActive() && index.data(PTZListModel::IsLiveRole).toBool();
 	bool isConnected = index.data(PTZListModel::IsConnectedRole).toBool();
 	bool isTallied = index.data(PTZListModel::IsLiveRole).toBool() ||
@@ -1243,14 +1243,14 @@ PTZDeviceListDelegate::CellLayout PTZDeviceListDelegate::layoutCell(const QModel
 				dotSize);
 
 	if (isLive) {
-		l.lock = QRect(l.text.right() - iconSize + iconMargin, l.text.top() + iconMargin,
-			       iconSize - 2 * iconMargin, iconSize - 2 * iconMargin);
-		l.text = l.text.marginsRemoved(QMargins(0, 0, iconSize, 0));
+		l.lock = QRect(l.text.right() - m_iconSize + iconMargin, l.text.top() + iconMargin,
+			       m_iconSize - 2 * iconMargin, m_iconSize - 2 * iconMargin);
+		l.text = l.text.marginsRemoved(QMargins(0, 0, m_iconSize, 0));
 	}
 	if (!isConnected) {
-		l.status = QRect(l.text.right() - iconSize + iconMargin, l.text.top() + iconMargin,
-				 iconSize - 2 * iconMargin, iconSize - 2 * iconMargin);
-		l.text = l.text.marginsRemoved(QMargins(0, 0, iconSize, 0));
+		l.status = QRect(l.text.right() - m_iconSize + iconMargin, l.text.top() + iconMargin,
+				 m_iconSize - 2 * iconMargin, m_iconSize - 2 * iconMargin);
+		l.text = l.text.marginsRemoved(QMargins(0, 0, m_iconSize, 0));
 	}
 
 	l.text = l.text.marginsRemoved(QMargins(textMargin * 2 + dotSize, 0, textMargin, 0));
@@ -1369,11 +1369,11 @@ PTZPresetListDelegate::CellLayout PTZPresetListDelegate::layoutCell(const QModel
 	l.text = style->subElementRect(QStyle::SE_ItemViewItemText, &option, option.widget);
 	const int iconMargin = 1;
 	const int textMargin = 2;
-	const int iconSize = l.text.height();
+	m_iconSize = l.text.height();
 
-	l.recall = QRect(l.text.right() - iconSize + iconMargin, l.text.top() + iconMargin, iconSize - 2 * iconMargin,
-			 iconSize - 2 * iconMargin);
-	l.text = l.text.marginsRemoved(QMargins(textMargin, 0, textMargin + iconSize, 0));
+	l.recall = QRect(l.text.right() - m_iconSize + iconMargin, l.text.top() + iconMargin,
+			 m_iconSize - 2 * iconMargin, m_iconSize - 2 * iconMargin);
+	l.text = l.text.marginsRemoved(QMargins(textMargin, 0, textMargin + m_iconSize, 0));
 	return l;
 }
 
