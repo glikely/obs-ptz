@@ -63,10 +63,11 @@ void logRowHeights()
 	logFirstRowHeight(mainWindow, "sources", "sources");
 }
 
-/* PTZControls::showEvent() (src/ptz-controls.cpp) pads ptzToolbar and
- * presetToolbar's minimum height to match OBS's own dock toolbars
- * (e.g. sourcesToolbar, on the Sources dock) - see that function's own
- * comment for why a brute-force pad is needed at all. Measuring
+/* PTZControls::refreshToolbarSizes() (src/ptz-controls.cpp) mirrors
+ * ptzToolbar/presetToolbar's minimum height directly from OBS's own
+ * dock toolbars (e.g. sourcesToolbar, on the Sources dock) - see that
+ * function's own comment for why matching it directly, rather than
+ * trusting either toolbar's own sizeHint(), is the point. Measuring
  * ->height() rather than ->sizeHint() checks what's actually on
  * screen, not just what the widget would prefer to be. */
 void logToolbarHeight(QWidget *mainWindow, const char *objectName, const char *label)
@@ -282,6 +283,21 @@ void runAppearanceRowSizingTest(const QMap<QString, QString> &params)
 	settingsAction->trigger();
 }
 
+/* Diagnostic-only: logs the current row/toolbar/icon geometry exactly
+ * as-is, with no Settings-dialog interaction at all - unlike
+ * runAppearanceRowSizingTest() below, which always drives a real
+ * Density/FontScale change first. Added to chase a startup-only bug:
+ * ptzToolbar/presetToolbar render at the wrong height on OBS's very
+ * first show, before any Settings > Appearance round trip, and the
+ * appearance_row_sizing sweep can never see that state since it always
+ * forces a settings change before measuring. */
+void runMeasureNowTest(const QMap<QString, QString> &)
+{
+	logRowHeights();
+	logToolbarHeights();
+	logIconSizes();
+}
+
 } // namespace
 
 /* Registers the "appearance_row_sizing" test with harness: opens the
@@ -300,4 +316,5 @@ void runAppearanceRowSizingTest(const QMap<QString, QString> &params)
 void registerAppearanceRowSizingTest(PTZUITestHarness *harness)
 {
 	harness->registerTest(QStringLiteral("appearance_row_sizing"), &runAppearanceRowSizingTest);
+	harness->registerTest(QStringLiteral("measure_now"), &runMeasureNowTest);
 }

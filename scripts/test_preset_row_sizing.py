@@ -235,6 +235,20 @@ class LogTail:
 REQUEST_STATUS_NOT_READY = 207
 
 
+def run_measure_now(ws_port, ws_password, timeout=30):
+    """Check widget measurements without changing theme"""
+    deadline = time.time() + timeout
+    while True:
+        result = obs_ws_client.call_vendor_request(
+            "127.0.0.1", ws_port, ws_password, "obs-ptz", "ui_test_run", {"cmd": "measure_now"}, timeout=10
+        )
+        if result.get("requestStatus", {}).get("code") != REQUEST_STATUS_NOT_READY:
+            return result
+        if time.time() >= deadline:
+            return result
+        time.sleep(0.5)
+
+
 def run_ui_test(ws_port, ws_password, density, fontscale, timeout=30):
     """Retries on RequestStatus::NotReady rather than a fixed sleep
     before the first request: how long OBS takes to consider itself
@@ -347,6 +361,33 @@ def main():
                 file=sys.stderr,
             )
             return 1
+
+        # Checked before anything else touches Settings: the sweep
+        # forces a Density/FontScale change, so do an initial check
+        # before changing anything.
+        total += 1
+        run_measure_now(ws_port, ws_password)
+        try:
+            content = tail.wait_for(r"\[ptz-ui-test\] sourcesToolbar toolbarHeight=", timeout=30)
+        except TestError:
+            print("FAIL pristine startup: no measurement appeared")
+            failures += 1
+        else:
+            ptz_toolbar, preset_toolbar, sources_toolbar = parse_toolbar_heights(content)
+            if sources_toolbar is None:
+                print(f"FAIL pristine startup: couldn't parse toolbar heights from log content: {content!r}")
+                failures += 1
+            elif ptz_toolbar != sources_toolbar or preset_toolbar != sources_toolbar:
+                print(
+                    f"FAIL pristine startup: toolbars: ptz={ptz_toolbar} preset={preset_toolbar} "
+                    f"sources={sources_toolbar}"
+                )
+                failures += 1
+            else:
+                print(
+                    f"PASS pristine startup: toolbars: ptz={ptz_toolbar} preset={preset_toolbar} "
+                    f"sources={sources_toolbar}"
+                )
 
         for density, fontscale in WARMUP_REQUESTS:
             run_ui_test(ws_port, ws_password, density, fontscale)
