@@ -17,6 +17,8 @@
 #include <QResizeEvent>
 #include <QDockWidget>
 #include <QStylePainter>
+#include <QLabel>
+#include <QCheckBox>
 
 #include <qt-wrappers.hpp>
 #include "touch-control.hpp"
@@ -142,9 +144,58 @@ void PTZControls::handleFrontendEvent(enum obs_frontend_event event)
 		obs_frontend_remove_save_callback(onFrontendSaveEvent, this);
 		ptzDeviceList.delete_all();
 		break;
+	case OBS_FRONTEND_EVENT_THEME_CHANGED:
+		/* Defer call with a singleShot to let all layout changes settle */
+		QTimer::singleShot(0, this, &PTZControls::refreshTheme);
+		break;
 	default:
 		break;
 	}
+}
+
+/* The theme has changed; recalculate the icon and list row heights to
+ * match the stock OBS theme */
+void PTZControls::refreshTheme()
+{
+	int densityId = -4;
+#if LIBOBS_API_VER >= MAKE_SEMANTIC_VERSION(31, 0, 0)
+	if (config_t *cfg = obs_frontend_get_user_config())
+#else
+	/* Fallback to deprecated API when building against older OBS */
+	if (config_t *cfg = obs_frontend_get_global_config())
+#endif
+		densityId = (int)config_get_int(cfg, "Appearance", "Density");
+
+	int rowHeightFloor, fontHeightOffset;
+	switch (densityId) {
+	case -2: /* Classic */
+		rowHeightFloor = 18;
+		fontHeightOffset = 2;
+		break;
+	case -3: /* Compact */
+		rowHeightFloor = 22;
+		fontHeightOffset = 4;
+		break;
+	case -5: /* Comfortable */
+		rowHeightFloor = 36;
+		fontHeightOffset = 10;
+		break;
+	case -4: /* Normal (default) */
+	default:
+		rowHeightFloor = 30;
+		fontHeightOffset = 8;
+		break;
+	}
+
+	QLabel fontProbe;
+	fontProbe.setFont(font());
+	fontProbe.setText(QStringLiteral("Ag"));
+	int fontHeight = fontProbe.sizeHint().height();
+	m_rowHeight = qMax(rowHeightFloor, fontHeight + fontHeightOffset);
+
+	QCheckBox iconProbe;
+	iconProbe.setProperty("class", "checkbox-icon");
+	m_iconSize = iconProbe.style()->pixelMetric(QStyle::PM_IndicatorHeight, nullptr, &iconProbe);
 }
 
 /* Helper funciton for changing currently selected OBS scene */
@@ -182,6 +233,8 @@ PTZControls::PTZControls(QWidget *parent) : QFrame(parent), ui(new Ui::PTZContro
 	 * style sheet to fix */
 	if (obs_get_version() < MAKE_SEMANTIC_VERSION(31, 1, 0))
 		this->setStyleSheet("margin-left: 0px; margin-right: 0px");
+
+	refreshTheme();
 
 	ui->deviceList->setModel(&ptzDeviceList);
 	ui->deviceList->setItemDelegate(new PTZDeviceListDelegate(ui->deviceList));

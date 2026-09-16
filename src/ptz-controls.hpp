@@ -41,6 +41,12 @@ private:
 	static void onFrontendEvent(enum obs_frontend_event event, void *ptr);
 	void handleFrontendEvent(enum obs_frontend_event event);
 	static void onFrontendSaveEvent(obs_data_t *save_data, bool saving, void *ptr);
+	/* The theme has changed (or the plugin has just started up);
+	 * recalculate the row height and icon size shared by every list in
+	 * this dock, to match the stock OBS theme. */
+	void refreshTheme();
+	int m_rowHeight = 0;
+	int m_iconSize = 0;
 
 	std::unique_ptr<Ui::PTZControls> ui;
 	TouchControl *pantilt_widget;
@@ -199,6 +205,8 @@ public:
 	bool liveMoveLockActive() { return live_move_lock_enabled && obs_frontend_preview_program_mode_active(); };
 	bool speedRampEnabled() { return speed_ramp_enabled; };
 	static PTZControls *getInstance() { return instance; };
+	int rowHeight() const { return m_rowHeight; }
+	int iconSize() const { return m_iconSize; }
 
 public slots:
 	void setAutoselectEnabled(bool enable);
