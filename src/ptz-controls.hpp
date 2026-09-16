@@ -34,6 +34,7 @@ typedef enum ptz_joy_action ptz_joy_action_t;
 extern const char *ptz_joy_action_axis_names[PTZ_JOY_ACTION_LAST_VALUE];
 
 class PTZPresetListDelegate;
+class PTZDeviceListDelegate;
 
 class PTZControls : public QFrame {
 	Q_OBJECT
@@ -53,6 +54,7 @@ private:
 	std::unique_ptr<Ui::PTZControls> ui;
 	TouchControl *pantilt_widget;
 	PTZPresetListDelegate *presetDelegate = nullptr;
+	PTZDeviceListDelegate *deviceDelegate = nullptr;
 
 	bool live_move_lock_enabled = true;
 	bool autoselect_enabled = false;
@@ -228,6 +230,8 @@ class PTZDeviceListDelegate : public QStyledItemDelegate {
 
 public:
 	struct CellLayout {
+		int iconMargin;
+		int tallyMargin;
 		QRect text;
 		QRect status;
 		QRect lock;
@@ -243,7 +247,8 @@ public:
 	virtual bool helpEvent(QHelpEvent *event, QAbstractItemView *view, const QStyleOptionViewItem &option,
 			       const QModelIndex &index) override;
 
-	int iconSize() const { return m_iconSize; }
+	int iconSize() const { return PTZControls::getInstance()->iconSize(); }
+	void refreshTheme();
 
 private:
 	CellLayout layoutCell(const QModelIndex &index, const QStyleOptionViewItem &option) const;
