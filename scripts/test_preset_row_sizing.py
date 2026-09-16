@@ -273,11 +273,11 @@ def run_ui_test(ws_port, ws_password, density, fontscale, timeout=30):
 
 
 def parse_row_heights(content: str):
-    preset = re.findall(r"\[ptz-ui-test\] preset rowHeight=(-?\d+)", content)
-    sources = re.findall(r"\[ptz-ui-test\] sources rowHeight=(-?\d+)", content)
-    if not preset or not sources:
-        return None, None
-    return int(preset[-1]), int(sources[-1])
+    def last(label):
+        m = re.findall(rf"\[ptz-ui-test\] {re.escape(label)} rowHeight=(-?\d+)", content)
+        return int(m[-1]) if m else None
+
+    return last("preset"), last("camera"), last("sources")
 
 
 def parse_toolbar_heights(content: str):
@@ -289,11 +289,14 @@ def parse_toolbar_heights(content: str):
 
 
 def parse_icon_sizes(content: str):
-    preset = re.findall(r"\[ptz-ui-test\] preset recallIconSize=(-?\d+)", content)
-    sources = re.findall(r"\[ptz-ui-test\] sources .*checkboxIconSize=(-?\d+)", content)
-    if not preset or not sources:
-        return None, None
-    return int(preset[-1]), int(sources[-1])
+    def last(pattern):
+        m = re.findall(pattern, content)
+        return int(m[-1]) if m else None
+
+    preset = last(r"\[ptz-ui-test\] preset recallIconSize=(-?\d+)")
+    camera = last(r"\[ptz-ui-test\] camera recallIconSize=(-?\d+)")
+    sources = last(r"\[ptz-ui-test\] sources .*checkboxIconSize=(-?\d+)")
+    return preset, camera, sources
 
 
 def main():
@@ -420,11 +423,17 @@ def main():
                     failures += 1
                     continue
 
-                preset_height, sources_height = parse_row_heights(content)
+                preset_height, camera_height, sources_height = parse_row_heights(content)
                 ptz_toolbar, preset_toolbar, sources_toolbar = parse_toolbar_heights(content)
-                preset_icon, sources_icon = parse_icon_sizes(content)
+                preset_icon, camera_icon, sources_icon = parse_icon_sizes(content)
 
-                if preset_height is None or sources_height is None or sources_toolbar is None or sources_icon is None:
+                if (
+                    preset_height is None
+                    or camera_height is None
+                    or sources_height is None
+                    or sources_toolbar is None
+                    or sources_icon is None
+                ):
                     print(f"FAIL {label}: couldn't parse measurement from log content: {content!r}")
                     failures += 1
                     continue
@@ -432,17 +441,21 @@ def main():
                 mismatches = []
                 if preset_height != sources_height:
                     mismatches.append(f"preset rows {preset_height} != sources rows {sources_height}")
+                if camera_height != sources_height:
+                    mismatches.append(f"camera rows {camera_height} != sources rows {sources_height}")
                 if ptz_toolbar != sources_toolbar:
                     mismatches.append(f"ptzToolbar {ptz_toolbar} != sourcesToolbar {sources_toolbar}")
                 if preset_toolbar != sources_toolbar:
                     mismatches.append(f"presetToolbar {preset_toolbar} != sourcesToolbar {sources_toolbar}")
                 if preset_icon != sources_icon:
                     mismatches.append(f"recallIcon {preset_icon} != checkboxIcon {sources_icon}")
+                if camera_icon != sources_icon:
+                    mismatches.append(f"cameraIcon {camera_icon} != checkboxIcon {sources_icon}")
 
                 summary = (
-                    f"rows: preset={preset_height} sources={sources_height}; "
+                    f"rows: preset={preset_height} camera={camera_height} sources={sources_height}; "
                     f"toolbars: ptz={ptz_toolbar} preset={preset_toolbar} sources={sources_toolbar}; "
-                    f"icons: preset={preset_icon} sources={sources_icon}"
+                    f"icons: preset={preset_icon} camera={camera_icon} sources={sources_icon}"
                 )
                 if not mismatches:
                     print(f"PASS {label}: {summary}")

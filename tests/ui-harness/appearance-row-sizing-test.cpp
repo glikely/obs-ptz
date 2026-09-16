@@ -57,9 +57,10 @@ void logFirstRowHeight(QWidget *mainWindow, const char *objectName, const char *
 void logRowHeights()
 {
 	auto *mainWindow = static_cast<QWidget *>(obs_frontend_get_main_window());
-	/* "presetListView": src/ptz-controls.ui. "sources": OBS's own
-	 * frontend/forms/OBSBasic.ui. */
+	/* "presetListView"/"deviceList": src/ptz-controls.ui. "sources":
+	 * OBS's own frontend/forms/OBSBasic.ui. */
 	logFirstRowHeight(mainWindow, "presetListView", "preset");
+	logFirstRowHeight(mainWindow, "deviceList", "camera");
 	logFirstRowHeight(mainWindow, "sources", "sources");
 }
 
@@ -115,17 +116,29 @@ void logToolbarHeights()
  * fitted to grow the recall icon with FontScale to match that widget
  * height, which was growing for a reason - the widget's own layout
  * stretch - that has nothing to do with icon size. */
+void logDelegateIconSize(QWidget *mainWindow, const char *viewName, const char *label)
+{
+	auto *view = mainWindow ? mainWindow->findChild<QListView *>(QString::fromLatin1(viewName)) : nullptr;
+	auto *delegate = view ? view->itemDelegate() : nullptr;
+	QVariant iconSize = delegate ? delegate->property("iconSize") : QVariant();
+	if (iconSize.isValid())
+		blog(LOG_INFO, "[ptz-ui-test] %s recallIconSize=%d", label, iconSize.toInt());
+	else
+		blog(LOG_INFO, "[ptz-ui-test] %s: delegate/iconSize property not available", label);
+}
+
 void logIconSizes()
 {
 	auto *mainWindow = static_cast<QWidget *>(obs_frontend_get_main_window());
 
-	auto *presetView = mainWindow ? mainWindow->findChild<QListView *>("presetListView") : nullptr;
-	auto *delegate = presetView ? presetView->itemDelegate() : nullptr;
-	QVariant iconSize = delegate ? delegate->property("iconSize") : QVariant();
-	if (iconSize.isValid())
-		blog(LOG_INFO, "[ptz-ui-test] preset recallIconSize=%d", iconSize.toInt());
-	else
-		blog(LOG_INFO, "[ptz-ui-test] preset: delegate/iconSize property not available");
+	/* "recallIconSize" in the log field name is a bit of a misnomer for
+	 * deviceList (its icon is a lock/status glyph, not a recall
+	 * button) - kept anyway so both share the exact same field name,
+	 * and scripts/test_preset_row_sizing.py's parsing only needs one
+	 * regex shape, parameterised by the leading label ("preset"/
+	 * "camera"). */
+	logDelegateIconSize(mainWindow, "presetListView", "preset");
+	logDelegateIconSize(mainWindow, "deviceList", "camera");
 
 	auto *sourcesView = mainWindow ? mainWindow->findChild<QListView *>("sources") : nullptr;
 	QModelIndex firstRow = sourcesView && sourcesView->model()
@@ -165,12 +178,21 @@ void waitForReflow(QWidget *mainWindow)
 	constexpr int kRequiredStableSamples = 3;
 	constexpr int kMaxWaitMs = 5000;
 
-	auto measure = [mainWindow]() -> QList<int> {
-		QList<int> state;
-		auto *view = mainWindow ? mainWindow->findChild<QListView *>("presetListView") : nullptr;
+	auto rowHeightOf = [mainWindow](const char *objectName) -> int {
+		auto *view = mainWindow ? mainWindow->findChild<QListView *>(QString::fromLatin1(objectName)) : nullptr;
 		QModelIndex firstRow = view && view->model() ? view->model()->index(0, 0, view->rootIndex())
 							     : QModelIndex();
-		state << (firstRow.isValid() ? view->visualRect(firstRow).height() : -1);
+		return firstRow.isValid() ? view->visualRect(firstRow).height() : -1;
+	};
+	auto iconSizeOf = [mainWindow](const char *objectName) -> int {
+		auto *view = mainWindow ? mainWindow->findChild<QListView *>(QString::fromLatin1(objectName)) : nullptr;
+		auto *delegate = view ? view->itemDelegate() : nullptr;
+		return delegate ? delegate->property("iconSize").toInt() : -1;
+	};
+	auto measure = [=]() -> QList<int> {
+		QList<int> state;
+		state << rowHeightOf("presetListView");
+		state << rowHeightOf("deviceList");
 
 		auto toolbarHeightOf = [mainWindow](const char *objectName) -> int {
 			auto *tb = mainWindow ? mainWindow->findChild<QToolBar *>(QString::fromLatin1(objectName))
@@ -180,8 +202,8 @@ void waitForReflow(QWidget *mainWindow)
 		state << toolbarHeightOf("ptzToolbar");
 		state << toolbarHeightOf("presetToolbar");
 
-		auto *delegate = view ? view->itemDelegate() : nullptr;
-		state << (delegate ? delegate->property("iconSize").toInt() : -1);
+		state << iconSizeOf("presetListView");
+		state << iconSizeOf("deviceList");
 		return state;
 	};
 
