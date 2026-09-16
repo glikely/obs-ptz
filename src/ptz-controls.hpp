@@ -33,6 +33,8 @@ enum ptz_joy_action {
 typedef enum ptz_joy_action ptz_joy_action_t;
 extern const char *ptz_joy_action_axis_names[PTZ_JOY_ACTION_LAST_VALUE];
 
+class PTZPresetListDelegate;
+
 class PTZControls : public QFrame {
 	Q_OBJECT
 
@@ -50,6 +52,7 @@ private:
 
 	std::unique_ptr<Ui::PTZControls> ui;
 	TouchControl *pantilt_widget;
+	PTZPresetListDelegate *presetDelegate = nullptr;
 
 	bool live_move_lock_enabled = true;
 	bool autoselect_enabled = false;
@@ -257,11 +260,13 @@ class PTZPresetListDelegate : public QStyledItemDelegate {
 
 public:
 	struct CellLayout {
+		int iconMargin;
 		QRect text;
 		QRect recall;
 	};
 
 	PTZPresetListDelegate(QObject *parent);
+	virtual QSize sizeHint(const QStyleOptionViewItem &option, const QModelIndex &index) const override;
 	virtual void paint(QPainter *painter, const QStyleOptionViewItem &option,
 			   const QModelIndex &index) const override;
 	virtual bool editorEvent(QEvent *event, QAbstractItemModel *model, const QStyleOptionViewItem &option,
@@ -269,11 +274,11 @@ public:
 	virtual bool helpEvent(QHelpEvent *event, QAbstractItemView *view, const QStyleOptionViewItem &option,
 			       const QModelIndex &index) override;
 
-	int iconSize() const { return m_iconSize; }
+	int iconSize() const { return PTZControls::getInstance()->iconSize(); }
+	void refreshTheme();
 
 private:
 	CellLayout layoutCell(const QModelIndex &index, const QStyleOptionViewItem &option) const;
 
 	QIcon recallIcon;
-	mutable int m_iconSize = 0;
 };

@@ -196,6 +196,9 @@ void PTZControls::refreshTheme()
 	QCheckBox iconProbe;
 	iconProbe.setProperty("class", "checkbox-icon");
 	m_iconSize = iconProbe.style()->pixelMetric(QStyle::PM_IndicatorHeight, nullptr, &iconProbe);
+
+	if (presetDelegate)
+		presetDelegate->refreshTheme();
 }
 
 /* Helper funciton for changing currently selected OBS scene */
@@ -247,7 +250,8 @@ PTZControls::PTZControls(QWidget *parent) : QFrame(parent), ui(new Ui::PTZContro
 	connect(&accel_timer, &QTimer::timeout, this, &PTZControls::accelTimerHandler);
 
 	ui->presetListView->setModel(&ptzDeviceList);
-	ui->presetListView->setItemDelegate(new PTZPresetListDelegate(ui->presetListView));
+	presetDelegate = new PTZPresetListDelegate(ui->presetListView);
+	ui->presetListView->setItemDelegate(presetDelegate);
 	ui->presetListView->setRootIndex(ptzDeviceList.index(0, 0));
 	selectionModel = ui->presetListView->selectionModel();
 	connect(selectionModel, &QItemSelectionModel::currentChanged, this, &PTZControls::presetUpdateActions);
@@ -1410,28 +1414,43 @@ bool PTZDeviceListDelegate::helpEvent(QHelpEvent *event, QAbstractItemView *view
 
 PTZPresetListDelegate::PTZPresetListDelegate(QObject *parent) : QStyledItemDelegate(parent)
 {
+	refreshTheme();
+}
+
+void PTZPresetListDelegate::refreshTheme()
+{
 	bool isDark = obs_frontend_is_theme_dark();
 	recallIcon = QIcon(isDark ? "theme:Dark/media/media_play.svg" : ":res/images/media/media_play.svg");
+
+	emit sizeHintChanged(QModelIndex());
+}
+
+QSize PTZPresetListDelegate::sizeHint(const QStyleOptionViewItem &option, const QModelIndex &index) const
+{
+	QSize size = QStyledItemDelegate::sizeHint(option, index);
+	size.setHeight(PTZControls::getInstance()->rowHeight());
+	return size;
 }
 
 PTZPresetListDelegate::CellLayout PTZPresetListDelegate::layoutCell(const QModelIndex &,
 								    const QStyleOptionViewItem &option) const
 {
 	QStyle *style = option.widget ? option.widget->style() : QApplication::style();
+	auto rect = style->subElementRect(QStyle::SE_ItemViewItemText, &option, option.widget);
 	CellLayout l;
-	l.text = style->subElementRect(QStyle::SE_ItemViewItemText, &option, option.widget);
-	const int iconMargin = 1;
-	const int textMargin = 2;
-	m_iconSize = l.text.height();
 
-	l.recall = QRect(l.text.right() - m_iconSize + iconMargin, l.text.top() + iconMargin,
-			 m_iconSize - 2 * iconMargin, m_iconSize - 2 * iconMargin);
-	l.text = l.text.marginsRemoved(QMargins(textMargin, 0, textMargin + m_iconSize, 0));
+	/* Margin between icons & text tracks the height of the cell */
+	l.iconMargin = qMax(0, (rect.height() - iconSize()) / 2);
+
+	int iconBoxWidth = iconSize() + l.iconMargin * 2;
+	l.text = rect.adjusted(0, 0, -iconBoxWidth, 0);
+	l.recall = rect.adjusted(rect.width() - iconBoxWidth, 0, 0, 0);
 	return l;
 }
 
 void PTZPresetListDelegate::paint(QPainter *painter, const QStyleOptionViewItem &option, const QModelIndex &index) const
 {
+	int textMargin = 2;
 	QStyleOptionViewItem opt(option);
 	initStyleOption(&opt, index);
 
@@ -1442,8 +1461,9 @@ void PTZPresetListDelegate::paint(QPainter *painter, const QStyleOptionViewItem 
 	/* Divide up the space into the label and the recall button */
 	CellLayout l = layoutCell(index, opt);
 	QIcon::Mode iconMode = (opt.state & QStyle::State_Enabled) ? QIcon::Normal : QIcon::Disabled;
-	recallIcon.paint(painter, l.recall, Qt::AlignCenter, iconMode);
-	style->drawItemText(painter, l.text, opt.displayAlignment, opt.palette, true, opt.text);
+	recallIcon.paint(painter, l.recall.adjusted(0, l.iconMargin, 0, -l.iconMargin), Qt::AlignCenter, iconMode);
+	style->drawItemText(painter, l.text.adjusted(textMargin, 0, 0, 0), opt.displayAlignment, opt.palette, true,
+			    opt.text);
 }
 
 bool PTZPresetListDelegate::editorEvent(QEvent *event, QAbstractItemModel *model, const QStyleOptionViewItem &option,
