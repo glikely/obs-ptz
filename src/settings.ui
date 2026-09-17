@@ -146,7 +146,7 @@
        </item>
       </layout>
      </widget>
-     <widget class="QWidget" name="camerasTab">
+     <widget class="QWidget" name="devicesTab">
       <attribute name="title">
        <string>PTZ.Cameras</string>
       </attribute>

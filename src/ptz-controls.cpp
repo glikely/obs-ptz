@@ -82,7 +82,7 @@ void PTZControls::autoselectDevice(OBSSource scene)
 		obs_source_enum_active_sources(scene, active_src_cb, &index);
 
 	if (index.isValid())
-		ui->cameraList->setCurrentIndex(index);
+		ui->deviceList->setCurrentIndex(index);
 }
 
 void PTZControls::onFrontendEvent(enum obs_frontend_event event, void *ptr)
@@ -183,13 +183,13 @@ PTZControls::PTZControls(QWidget *parent) : QFrame(parent), ui(new Ui::PTZContro
 	if (obs_get_version() < MAKE_SEMANTIC_VERSION(31, 1, 0))
 		this->setStyleSheet("margin-left: 0px; margin-right: 0px");
 
-	ui->cameraList->setModel(&ptzDeviceList);
-	ui->cameraList->setItemDelegate(new PTZDeviceListDelegate(ui->cameraList));
+	ui->deviceList->setModel(&ptzDeviceList);
+	ui->deviceList->setItemDelegate(new PTZDeviceListDelegate(ui->deviceList));
 	connect(&ptzDeviceList, &PTZListModel::dataChanged, this, &PTZControls::settingsChanged);
 
 	copyActionsDynamicProperties();
 
-	QItemSelectionModel *selectionModel = ui->cameraList->selectionModel();
+	QItemSelectionModel *selectionModel = ui->deviceList->selectionModel();
 	connect(selectionModel, &QItemSelectionModel::currentChanged, this, &PTZControls::currentChanged);
 	connect(&accel_timer, &QTimer::timeout, this, &PTZControls::accelTimerHandler);
 
@@ -297,8 +297,8 @@ PTZControls::PTZControls(QWidget *parent) : QFrame(parent), ui(new Ui::PTZContro
 	registerHotkey("PTZ.FocusNear", obs_module_text("PTZ.Action.FocusNear"), cb, ui->focusButton_far);
 	registerHotkey("PTZ.FocusFar", obs_module_text("PTZ.Action.FocusFar"), cb, ui->focusButton_near);
 	registerHotkey("PTZ.FocusOneTouch", obs_module_text("PTZ.Action.FocusOneTouch"), cb, ui->focusButton_onetouch);
-	registerHotkey("PTZ.SelectPrev", obs_module_text("PTZ.Action.SelectPrev"), prevcb, ui->cameraList);
-	registerHotkey("PTZ.SelectNext", obs_module_text("PTZ.Action.SelectNext"), nextcb, ui->cameraList);
+	registerHotkey("PTZ.SelectPrev", obs_module_text("PTZ.Action.SelectPrev"), prevcb, ui->deviceList);
+	registerHotkey("PTZ.SelectNext", obs_module_text("PTZ.Action.SelectNext"), nextcb, ui->deviceList);
 	registerHotkey(
 		"PTZ.ScenePrev", obs_module_text("PTZ.Action.ScenePrev"),
 		[](void *, obs_hotkey_id, obs_hotkey *, bool pressed) {
@@ -414,7 +414,7 @@ double PTZControls::readAxis(const QJoystickDevice *jd, int axis, bool invert)
 void PTZControls::joystickAxesChanged(const QJoystickDevice *jd, uint32_t updated)
 {
 	bool isLocked = liveMoveLockActive() &&
-			ui->cameraList->currentIndex().data(PTZListModel::IsLockedRole).toBool();
+			ui->deviceList->currentIndex().data(PTZListModel::IsLockedRole).toBool();
 	if (isLocked || !m_joystick_enable || !jd || jd->id != m_joystick_id)
 		return;
 	int panTiltMask = (1 << joystick_pan_axis) | (1 << joystick_tilt_axis);
@@ -594,9 +594,9 @@ void PTZControls::SaveConfig()
 		obs_data_array_push_back(button_actions, d);
 	}
 	obs_data_set_array(savedata, "joystick_button_hotkeys", button_actions);
-	if (ui->cameraList->currentIndex().isValid())
+	if (ui->deviceList->currentIndex().isValid())
 		obs_data_set_int(savedata, "current_selected",
-				 ui->cameraList->currentIndex().data(PTZListModel::DeviceIdRole).toInt());
+				 ui->deviceList->currentIndex().data(PTZListModel::DeviceIdRole).toInt());
 
 	OBSDataArrayAutoRelease devices = obs_data_array_create();
 	ptzDeviceList.save(devices.Get());
@@ -682,7 +682,7 @@ void PTZControls::LoadConfig()
 	array = obs_data_get_array(loaddata, "devices");
 	obs_data_array_release(array);
 	ptz_devices_set_config(array);
-	ui->cameraList->setCurrentIndex(
+	ui->deviceList->setCurrentIndex(
 		ptzDeviceList.indexFromDeviceId(obs_data_get_int(loaddata, "current_selected")));
 }
 
@@ -726,7 +726,7 @@ void PTZControls::setSpeedRampEnabled(bool enabled)
  */
 bool PTZControls::callCurrentDevice(const char *method, calldata_t *cd) const
 {
-	return ptzDeviceList.callDevice(ui->cameraList->currentIndex(), method, cd);
+	return ptzDeviceList.callDevice(ui->deviceList->currentIndex(), method, cd);
 }
 
 bool PTZControls::callCurrentDevice(const char *method, const char *arg, long long val) const
@@ -762,7 +762,7 @@ void PTZControls::accelTimerHandler()
 	uint8_t stack[128];
 	calldata_init_fixed(&cd, stack, sizeof(stack));
 
-	if (!ui->cameraList->currentIndex().isValid()) {
+	if (!ui->deviceList->currentIndex().isValid()) {
 		accel_timer.stop();
 		return;
 	}
@@ -895,7 +895,7 @@ void PTZControls::on_panTiltButton_home_released()
 
 void PTZControls::onHomeButtonContextMenu(const QPoint &pos)
 {
-	if (!ui->cameraList->currentIndex().data(PTZListModel::SupportsSetHomeRole).toBool())
+	if (!ui->deviceList->currentIndex().data(PTZListModel::SupportsSetHomeRole).toBool())
 		return;
 	QMenu menu(this);
 	QAction *setHome = menu.addAction(obs_module_text("PTZ.Action.SetHome"));
@@ -967,10 +967,10 @@ void PTZControls::setAutofocusEnabled(bool autofocus_on)
 void PTZControls::updateMoveControls()
 {
 	bool is_locked = liveMoveLockActive() &&
-			 ui->cameraList->currentIndex().data(PTZListModel::IsLockedRole).toBool();
+			 ui->deviceList->currentIndex().data(PTZListModel::IsLockedRole).toBool();
 
 	ui->movementControlsWidget->setEnabled(!is_locked);
-	ui->cameraList->update();
+	ui->deviceList->update();
 	ui->presetListView->setEnabled(!is_locked);
 
 	RefreshToolBarStyling(ui->ptzToolbar);
@@ -1001,7 +1001,7 @@ void PTZControls::currentChanged(QModelIndex current, QModelIndex previous)
 
 void PTZControls::settingsChanged(const QModelIndex &topLeft, const QModelIndex &bottomRight)
 {
-	auto index = ui->cameraList->currentIndex();
+	auto index = ui->deviceList->currentIndex();
 	QItemSelectionRange range(topLeft, bottomRight);
 	if (range.contains(index))
 		updateMoveControls();
@@ -1032,7 +1032,7 @@ int PTZControls::presetIndexToId(QModelIndex index)
 void PTZControls::presetUpdateActions()
 {
 	auto presetIndex = ui->presetListView->currentIndex();
-	auto deviceIndex = ui->cameraList->currentIndex();
+	auto deviceIndex = ui->deviceList->currentIndex();
 	int count = ptzDeviceList.rowCount(deviceIndex);
 	bool isValid = presetIndex.isValid() && deviceIndex.isValid();
 	ui->actionPresetAdd->setEnabled(deviceIndex.isValid());
@@ -1079,10 +1079,10 @@ void PTZControls::on_presetListView_customContextMenuRequested(const QPoint &pos
 	presetContext.exec(globalpos);
 }
 
-void PTZControls::on_cameraList_customContextMenuRequested(const QPoint &pos)
+void PTZControls::on_deviceList_customContextMenuRequested(const QPoint &pos)
 {
-	QPoint globalpos = ui->cameraList->mapToGlobal(pos);
-	QModelIndex index = ui->cameraList->indexAt(pos);
+	QPoint globalpos = ui->deviceList->mapToGlobal(pos);
+	QModelIndex index = ui->deviceList->indexAt(pos);
 	QMenu context;
 	QAction *powerAction = nullptr;
 	QAction *wbOnetouchAction = nullptr;
@@ -1135,12 +1135,12 @@ void PTZControls::on_cameraList_customContextMenuRequested(const QPoint &pos)
 
 void PTZControls::on_actionProperties_triggered()
 {
-	ptz_settings_show(ui->cameraList->currentIndex());
+	ptz_settings_show(ui->deviceList->currentIndex());
 }
 
 void PTZControls::on_actionPresetAdd_triggered()
 {
-	auto parent = ui->cameraList->currentIndex();
+	auto parent = ui->deviceList->currentIndex();
 	auto row = ptzDeviceList.rowCount(parent);
 	ptzDeviceList.insertRows(row, 1, parent);
 	QModelIndex index = ptzDeviceList.index(row, 0, parent);
@@ -1156,14 +1156,14 @@ void PTZControls::on_actionPresetRemove_triggered()
 	auto index = ui->presetListView->currentIndex();
 	if (!index.isValid())
 		return;
-	ptzDeviceList.removeRows(index.row(), 1, ui->cameraList->currentIndex());
+	ptzDeviceList.removeRows(index.row(), 1, ui->deviceList->currentIndex());
 	presetUpdateActions();
 }
 
 void PTZControls::on_actionPresetMoveUp_triggered()
 {
 	auto index = ui->presetListView->currentIndex();
-	auto parent = ui->cameraList->currentIndex();
+	auto parent = ui->deviceList->currentIndex();
 	if (!index.isValid())
 		return;
 	ptzDeviceList.moveRow(parent, index.row(), parent, index.row() - 1);
@@ -1173,7 +1173,7 @@ void PTZControls::on_actionPresetMoveUp_triggered()
 void PTZControls::on_actionPresetMoveDown_triggered()
 {
 	auto index = ui->presetListView->currentIndex();
-	auto parent = ui->cameraList->currentIndex();
+	auto parent = ui->deviceList->currentIndex();
 	if (!index.isValid())
 		return;
 	ptzDeviceList.moveRow(parent, index.row(), parent, index.row() + 2);

@@ -429,7 +429,7 @@
         </item>
        </layout>
       </widget>
-      <widget class="CircularListView" name="cameraList">
+      <widget class="CircularListView" name="deviceList">
        <property name="sizePolicy">
         <sizepolicy hsizetype="Expanding" vsizetype="Expanding">
          <horstretch>0</horstretch>

@@ -480,7 +480,7 @@ void PTZSettings::showDevice(const QModelIndex &index)
 {
 	if (index.isValid()) {
 		ui->deviceList->setCurrentIndex(index);
-		ui->tabWidget->setCurrentWidget(ui->camerasTab);
+		ui->tabWidget->setCurrentWidget(ui->devicesTab);
 	} else {
 		ui->tabWidget->setCurrentWidget(ui->generalTab);
 	}
