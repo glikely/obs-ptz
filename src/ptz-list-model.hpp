@@ -104,17 +104,17 @@ public:
 	void save(OBSDataArray configs) const;
 	void save(const QModelIndex &index, OBSData settings) const;
 
-	/* Bracket a preset list mutation with the appropriate
-	 * QAbstractItemModel begin/end calls. Called from the per-device
-	 * signal_handler trampolines in ptz-list-model.cpp (see
-	 * deviceCreated()) in response to PTZDevice's preset_insert/
-	 * preset_remove/preset_move signals, not directly by PTZDevice. */
-	void presetBeginInsert(uint32_t device_id, int row);
-	void presetEndInsert(uint32_t device_id);
-	void presetBeginRemove(uint32_t device_id, int row);
-	void presetEndRemove(uint32_t device_id);
-	bool presetBeginMove(uint32_t device_id, int srcRow, int destRow);
-	void presetEndMove(uint32_t device_id);
+	/* React to a preset list mutation PTZDevice reports *after* it
+	 * already happened, by wrapping the model's own (still-stale) cache
+	 * refresh in the appropriate QAbstractItemModel begin/end calls --
+	 * called from the per-device signal_handler trampolines in
+	 * ptz-list-model.cpp (see deviceCreated()) in response to PTZDevice's
+	 * preset_inserted/preset_removed/preset_moved signals. All the
+	 * begin/end bracketing lives here: PTZDevice just states what changed
+	 * once, it doesn't call back in two phases. */
+	void presetInserted(uint32_t device_id, int row);
+	void presetRemoved(uint32_t device_id, int row);
+	void presetMoved(uint32_t device_id, int srcRow, int destRow);
 
 	/* Called by the signal_handler trampolines in ptz-list-model.cpp;
 	 * not Qt slots since nothing emits a Qt signal for any of this. */

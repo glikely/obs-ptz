@@ -730,17 +730,17 @@ void PTZDevice::registerFilterHandlers(struct ptz_filter *ptzf)
 	 * in the constructor for the same reason. */
 	signal_handler_add(sigs, "void state_changed(int device_id)");
 
-	/* Preset list mutations are bracketed by a before/after signal
-	 * pair, exactly like the QAbstractItemModel begin.../end...
-	 * calls they replace -- signal_handler_signal() dispatches to
-	 * connected callbacks synchronously, so PTZListModel's "before"
-	 * callback can still call beginInsertRows()/etc. ahead of the
-	 * mutation actually happening. */
-	signal_handler_add(sigs, "void preset_insert(int device_id, int row)");
+	/* Preset list mutations fire a single signal each, after the
+	 * mutation is already complete -- these just state the fact of what
+	 * changed (a row was inserted/removed/moved, or a preset renamed).
+	 * Turning that into the begin.../end...Rows() pairs
+	 * QAbstractItemModel requires is entirely PTZListModel's job (its own
+	 * row cache hasn't been refreshed yet when the signal arrives, so it
+	 * can still open the begin...Rows() bracket against the old cache
+	 * before refreshing it) -- the driver and this proc_handler/signal_handler
+	 * API don't need to know that bracketing exists at all. */
 	signal_handler_add(sigs, "void preset_inserted(int device_id, int row)");
-	signal_handler_add(sigs, "void preset_remove(int device_id, int row)");
 	signal_handler_add(sigs, "void preset_removed(int device_id, int row)");
-	signal_handler_add(sigs, "bool preset_move(int device_id, int src_row, int dest_row)");
 	signal_handler_add(sigs, "void preset_moved(int device_id, int src_row, int dest_row)");
 	signal_handler_add(sigs, "void preset_renamed(int device_id, int id)");
 }
@@ -1062,16 +1062,14 @@ int PTZDevice::newPreset(int row)
 	if (id >= (int)m_maxPresets)
 		return -1;
 
-	calldata_t cd = {};
-	calldata_set_int(&cd, "device_id", this->id);
-	calldata_set_int(&cd, "row", row);
-	signal_handler_signal(sigs, "preset_insert", &cd);
-
 	QVariantMap map;
 	map["id"] = (uint)id;
 	m_presets[id] = map;
 	m_presetsDisplayOrder.insert(row, id);
 
+	calldata_t cd = {};
+	calldata_set_int(&cd, "device_id", this->id);
+	calldata_set_int(&cd, "row", row);
 	signal_handler_signal(sigs, "preset_inserted", &cd);
 	calldata_free(&cd);
 
@@ -1080,35 +1078,33 @@ int PTZDevice::newPreset(int row)
 
 void PTZDevice::removePresetAtDisplayRow(int row)
 {
-	calldata_t cd = {};
-	calldata_set_int(&cd, "device_id", this->id);
-	calldata_set_int(&cd, "row", row);
-	signal_handler_signal(sigs, "preset_remove", &cd);
-
 	m_presets.remove(m_presetsDisplayOrder[row]);
 	m_presetsDisplayOrder.removeAt(row);
 
+	calldata_t cd = {};
+	calldata_set_int(&cd, "device_id", this->id);
+	calldata_set_int(&cd, "row", row);
 	signal_handler_signal(sigs, "preset_removed", &cd);
 	calldata_free(&cd);
 }
 
+/* srcRow/destRow follow QAbstractItemModel::moveRows()'s own convention for
+ * destRow (the target index *before* the source row is plucked out) -- the
+ * same convention beginMoveRows() requires, so PTZListModel can pass this
+ * straight through without adjustment. QList::move() has a different
+ * convention (it wants the index *after* removal), so that adjustment is
+ * made here, purely as an implementation detail of updating
+ * m_presetsDisplayOrder -- it never reaches the signal. */
 void PTZDevice::movePreset(int srcRow, int destRow)
 {
+	int listMoveDest = destRow;
+	if (srcRow < listMoveDest)
+		listMoveDest--;
+	m_presetsDisplayOrder.move(srcRow, listMoveDest);
+
 	calldata_t cd = {};
 	calldata_set_int(&cd, "device_id", this->id);
 	calldata_set_int(&cd, "src_row", srcRow);
-	calldata_set_int(&cd, "dest_row", destRow);
-	signal_handler_signal(sigs, "preset_move", &cd);
-	bool ok = calldata_bool(&cd, "return");
-	if (!ok) {
-		calldata_free(&cd);
-		return;
-	}
-
-	if (srcRow < destRow)
-		destRow--;
-	m_presetsDisplayOrder.move(srcRow, destRow);
-
 	calldata_set_int(&cd, "dest_row", destRow);
 	signal_handler_signal(sigs, "preset_moved", &cd);
 	calldata_free(&cd);

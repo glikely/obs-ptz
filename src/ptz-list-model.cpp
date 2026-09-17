@@ -51,44 +51,28 @@ static void device_state_changed_cb(void *data, calldata_t *cd)
 }
 
 /**
- * Preset list mutation bracketing. PTZDevice fires the "before" signal
- * synchronously ahead of actually mutating its preset list, and the
- * "after" signal once the mutation is done -- these trampolines translate
- * that into the begin.../end... pairs QAbstractItemModel requires.
+ * Preset list mutation notifications. PTZDevice fires each of these once,
+ * after its preset list has already been mutated -- these trampolines
+ * route them to PTZListModel, which does the begin.../end...Rows()
+ * bracketing itself against its own (still-stale) cache.
  */
-static void preset_insert_cb(void *data, calldata_t *cd)
-{
-	auto ptzlm = static_cast<PTZListModel *>(data);
-	ptzlm->presetBeginInsert((uint32_t)calldata_int(cd, "device_id"), (int)calldata_int(cd, "row"));
-}
-
 static void preset_inserted_cb(void *data, calldata_t *cd)
 {
-	static_cast<PTZListModel *>(data)->presetEndInsert((uint32_t)calldata_int(cd, "device_id"));
-}
-
-static void preset_remove_cb(void *data, calldata_t *cd)
-{
 	auto ptzlm = static_cast<PTZListModel *>(data);
-	ptzlm->presetBeginRemove((uint32_t)calldata_int(cd, "device_id"), (int)calldata_int(cd, "row"));
+	ptzlm->presetInserted((uint32_t)calldata_int(cd, "device_id"), (int)calldata_int(cd, "row"));
 }
 
 static void preset_removed_cb(void *data, calldata_t *cd)
 {
-	static_cast<PTZListModel *>(data)->presetEndRemove((uint32_t)calldata_int(cd, "device_id"));
-}
-
-static void preset_move_cb(void *data, calldata_t *cd)
-{
 	auto ptzlm = static_cast<PTZListModel *>(data);
-	bool ok = ptzlm->presetBeginMove((uint32_t)calldata_int(cd, "device_id"), (int)calldata_int(cd, "src_row"),
-					  (int)calldata_int(cd, "dest_row"));
-	calldata_set_bool(cd, "return", ok);
+	ptzlm->presetRemoved((uint32_t)calldata_int(cd, "device_id"), (int)calldata_int(cd, "row"));
 }
 
 static void preset_moved_cb(void *data, calldata_t *cd)
 {
-	static_cast<PTZListModel *>(data)->presetEndMove((uint32_t)calldata_int(cd, "device_id"));
+	auto ptzlm = static_cast<PTZListModel *>(data);
+	ptzlm->presetMoved((uint32_t)calldata_int(cd, "device_id"), (int)calldata_int(cd, "src_row"),
+			    (int)calldata_int(cd, "dest_row"));
 }
 
 static void preset_renamed_cb(void *data, calldata_t *cd)
@@ -324,6 +308,12 @@ bool PTZListModel::moveRows(const QModelIndex &srcParent, int srcRow, int count,
 	if (destChild < 0 || destChild > rowCount(destParent))
 		return false;
 	if (count != 1)
+		return false;
+	/* Same validity rule beginMoveRows() enforces (moving to a position
+	 * within, or immediately after, the moved range is a no-op) -- check
+	 * it here so the backend is never asked to perform a move
+	 * presetMoved() would then have to reject via beginMoveRows(). */
+	if (destChild == srcRow || destChild == srcRow + 1)
 		return false;
 
 	calldata_t cd = {};
@@ -562,11 +552,8 @@ void PTZListModel::deviceCreated(uint32_t device_id, proc_handler_t *ph, signal_
 	do_reset();
 
 	signal_handler_connect(sh, "state_changed", device_state_changed_cb, this);
-	signal_handler_connect(sh, "preset_insert", preset_insert_cb, this);
 	signal_handler_connect(sh, "preset_inserted", preset_inserted_cb, this);
-	signal_handler_connect(sh, "preset_remove", preset_remove_cb, this);
 	signal_handler_connect(sh, "preset_removed", preset_removed_cb, this);
-	signal_handler_connect(sh, "preset_move", preset_move_cb, this);
 	signal_handler_connect(sh, "preset_moved", preset_moved_cb, this);
 	signal_handler_connect(sh, "preset_renamed", preset_renamed_cb, this);
 }
@@ -609,42 +596,43 @@ void PTZListModel::presetsChanged(uint32_t device_id)
 		emit dataChanged(tl, br);
 }
 
-void PTZListModel::presetBeginInsert(uint32_t device_id, int row)
-{
-	beginInsertRows(indexFromDeviceId(device_id), row, row);
-}
-
-void PTZListModel::presetEndInsert(uint32_t device_id)
+/**
+ * PTZDevice has already inserted the new preset into its own list by the
+ * time this fires; PTZListModel's cache (entry->presets) hasn't been
+ * touched yet, so it's still reflecting the pre-insert row count -- exactly
+ * what beginInsertRows() needs to see. Opening the begin/end bracket here,
+ * around the cache refresh, is what QAbstractItemModel actually requires;
+ * PTZDevice firing two calls instead of one wouldn't let it see anything
+ * different.
+ */
+void PTZListModel::presetInserted(uint32_t device_id, int row)
 {
 	auto entry = entryById(device_id);
-	if (entry)
-		refreshPresetList(entry);
+	if (!entry)
+		return;
+	beginInsertRows(indexFromDeviceId(device_id), row, row);
+	refreshPresetList(entry);
 	endInsertRows();
 }
 
-void PTZListModel::presetBeginRemove(uint32_t device_id, int row)
-{
-	beginRemoveRows(indexFromDeviceId(device_id), row, row);
-}
-
-void PTZListModel::presetEndRemove(uint32_t device_id)
+void PTZListModel::presetRemoved(uint32_t device_id, int row)
 {
 	auto entry = entryById(device_id);
-	if (entry)
-		refreshPresetList(entry);
+	if (!entry)
+		return;
+	beginRemoveRows(indexFromDeviceId(device_id), row, row);
+	refreshPresetList(entry);
 	endRemoveRows();
 }
 
-bool PTZListModel::presetBeginMove(uint32_t device_id, int srcRow, int destRow)
-{
-	auto parent = indexFromDeviceId(device_id);
-	return beginMoveRows(parent, srcRow, srcRow, parent, destRow);
-}
-
-void PTZListModel::presetEndMove(uint32_t device_id)
+void PTZListModel::presetMoved(uint32_t device_id, int srcRow, int destRow)
 {
 	auto entry = entryById(device_id);
-	if (entry)
-		refreshPresetList(entry);
+	if (!entry)
+		return;
+	auto parent = indexFromDeviceId(device_id);
+	if (!beginMoveRows(parent, srcRow, srcRow, parent, destRow))
+		return;
+	refreshPresetList(entry);
 	endMoveRows();
 }

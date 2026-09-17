@@ -153,10 +153,25 @@ connected once per device in `deviceCreated()`:
 | Signal | Meaning |
 | --- | --- |
 | `state_changed(int device_id)` | something about this device changed -- status, rename, or settings alike, one signal for all three (see below) |
-| `preset_insert`/`preset_inserted(int device_id, int row)` | before/after a preset insert |
-| `preset_remove`/`preset_removed(int device_id, int row)` | before/after a preset removal |
-| `preset_move(int device_id, int src_row, int dest_row)` (`bool return`) / `preset_moved(...)` | before/after a preset move; the "before" signal's `return` lets the caller veto, mirroring `beginMoveRows()`'s own bool result |
+| `preset_inserted(int device_id, int row)` | a preset was inserted at `row`, already done by the time this fires |
+| `preset_removed(int device_id, int row)` | a preset was removed from `row`, already done by the time this fires |
+| `preset_moved(int device_id, int src_row, int dest_row)` | a preset moved from `src_row` to `dest_row` (`dest_row` in `QAbstractItemModel::moveRows()`'s own convention -- the index *before* the source row is plucked out), already done by the time this fires |
 | `preset_renamed(int device_id, int id)` | a preset's name changed |
+
+Each of these fires exactly once, after `PTZDevice` has already applied the
+mutation to its own preset list -- there is no "before" counterpart and no
+veto. `PTZDevice`/the proc_handler API know nothing about
+`beginInsertRows()`/`endInsertRows()`/etc.; they just state the fact of
+what changed. `PTZListModel`'s cache (`entry->presets`) hasn't been
+refreshed yet when the signal arrives, so `PTZListModel::presetInserted()`/
+`presetRemoved()`/`presetMoved()` (`ptz-list-model.cpp`) can still open the
+`begin...Rows()` bracket against the stale cache, refresh it, and close the
+bracket with `end...Rows()` -- entirely on the model side. The one thing
+this shifts onto `PTZListModel::moveRows()` is validating the move *before*
+calling into the backend: it replicates `beginMoveRows()`'s own "moving to
+a position within, or immediately after, the moved range is a no-op" rule
+as a plain integer check (`destChild == srcRow || destChild == srcRow + 1`),
+since there's no longer a "before" signal for the backend to reject through.
 
 `status_changed`, `renamed`, and `settings_changed` used to be three
 separate signals; collapsed into the single `state_changed` above because
@@ -185,14 +200,16 @@ differently.
   creates or destroys the `PTZDevice` -- `PTZListModel` only ever finds out
   about it afterward, via the global `ptz_device_create`/`_destroy` signals
   above.
-- The begin/end preset-mutation signal pairs exist because
-  `signal_handler_signal()` dispatches to connected callbacks synchronously
-  (same thread, no queueing) -- exactly like the direct method calls they
-  replaced -- so `PTZListModel`'s "before" callback can still call
-  `beginInsertRows()`/etc. ahead of the mutation actually happening, and its
-  cache refresh on the "after" callback happens before `endInsertRows()`/etc.
-  return, satisfying `QAbstractItemModel`'s contract that row data is
-  already updated by the time `end*Rows()` is called.
+- `signal_handler_signal()` dispatches to connected callbacks synchronously
+  (same thread, no queueing), exactly like the direct method calls it
+  replaced. That's what lets `PTZListModel::presetInserted()`/etc. do the
+  entire `begin...Rows()` / cache-refresh / `end...Rows()` sequence
+  synchronously inside one signal callback and still satisfy
+  `QAbstractItemModel`'s contract: its own cache is untouched (still
+  reflecting the pre-mutation state) at the moment the signal arrives, so
+  `begin...Rows()` sees the right "before" row count even though
+  `PTZDevice`'s real preset list was already mutated before the signal was
+  fired.
 - Trap: don't write `begin*/end*` in a `/* */` block comment in this file --
   the literal `*/` silently ends the comment early and the rest becomes
   live (broken) code. Spell it `begin.../end...` instead. Hit this twice
