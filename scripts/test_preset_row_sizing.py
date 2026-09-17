@@ -340,7 +340,12 @@ def main():
 
         env = {**os.environ, "PTZ_UI_TEST_HARNESS": "1"}
         subprocess.Popen(
-            [str(obs_bin)], env=env, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, start_new_session=True
+            [str(obs_bin)],
+            env=env,
+            cwd=str(obs_bin.parent),
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            start_new_session=True,
         )
 
         before = latest_log_file(log_dir)
