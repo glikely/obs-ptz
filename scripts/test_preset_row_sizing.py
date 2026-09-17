@@ -25,7 +25,12 @@ running OBS to quit cleanly. Requires:
   - A real OBS install whose obs-ptz.plugin/.so/.dll is this checkout's
     dev build, built with -DENABLE_UI_TESTS=ON - rebuild that target
     before running this script if src/ptz-controls.cpp or
-    tests/ui-harness/* changed.
+    tests/ui-harness/* changed. Defaults to the platform's normal
+    install location (find_obs_binary()); set PTZ_TEST_OBS_BIN to an
+    explicit obs64.exe/OBS/obs path to target a different install
+    instead - e.g. to pick between multiple architectures' worth of
+    OBS on the same machine (see tests/ui-harness/README.md's Windows
+    section for how this repo's own Windows VM is set up for that).
   - obs-websocket (bundled with OBS) enabled, on the port/password in
     its own config.json (read automatically below - this only works
     because that file is on the same machine this script runs on,
@@ -115,6 +120,13 @@ def obs_config_dir() -> Path:
 
 
 def find_obs_binary() -> Path:
+    override = os.environ.get("PTZ_TEST_OBS_BIN")
+    if override:
+        path = Path(override)
+        if not path.exists():
+            raise TestError(f"PTZ_TEST_OBS_BIN={path} not found")
+        return path
+
     system = platform.system()
     if system == "Darwin":
         path = Path("/Applications/OBS.app/Contents/MacOS/OBS")

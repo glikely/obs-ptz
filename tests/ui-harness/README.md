@@ -95,6 +95,104 @@ this: it launches OBS, sweeps `appearance_row_sizing` across every
 Density/FontScale combination, and compares the result against the
 real Sources dock. Use it as the template for a new test's own driver.
 
+By default the driver launches whatever OBS install is normal for the
+platform (`/Applications/OBS.app` on macOS, `%ProgramFiles%\obs-studio`
+on Windows, `obs` on `$PATH` elsewhere). Set `PTZ_TEST_OBS_BIN` to an
+absolute path to point it at a different install instead - e.g. to
+choose between multiple architectures' worth of OBS on the same
+machine (see "Testing on Windows" below).
+
+## Testing on Windows
+
+Windows has no single "the installed OBS" the way macOS/Linux do here,
+and this repo builds for both `windows-arm64` and `windows-x64`
+(CMakePresets.json) - Recommended practice is to keep two
+separate OBS installs side by side instead of overwriting
+one with the other for each test run:
+
+- `C:\OBS-Test\arm64\` - official OBS Studio Windows-arm64 build
+- `C:\OBS-Test\x64\` - official OBS Studio Windows-x64 build
+
+Both are plain extractions of the `OBS-Studio-<version>-Windows-<arch>.zip`
+asset from an [obs-studio release](https://github.com/obsproject/obs-studio/releases)
+(obs-websocket is bundled, no separate install needed) - **not** the
+`-Installer.exe`, which installs to `Program Files` and fights with
+whatever's already there. Both share the same `%APPDATA%\obs-studio`
+profile (scene collection, obs-websocket password, etc.) - only the
+binary differs, and nothing about OBS's config is architecture-specific.
+
+`scripts/windows-build-and-test.bat <arm64|x64>` does the full cycle
+for one architecture: finds Visual Studio via `vswhere.exe`, configures
+and builds `obs-ptz` with `-DENABLE_UI_TESTS=ON` for that arch's preset,
+overlays the fresh `obs-ptz.dll`/data into that arch's `C:\OBS-Test\`
+tree, and runs `test_preset_row_sizing.py` against it (via
+`PTZ_TEST_OBS_BIN`). Run it from the repo root:
+
+```
+scripts\windows-build-and-test.bat arm64
+scripts\windows-build-and-test.bat x64
+```
+
+One-time setup this depends on:
+
+1. Create `C:\OBS-Test\arm64` and `C:\OBS-Test\x64` as described above.
+2. **Disable any system-wide obs-ptz install.** An installer-based
+   obs-ptz (e.g. under `C:\ProgramData\obs-studio\plugins\obs-ptz`) is
+   scanned by *every* OBS install on the machine regardless of where it
+   lives, architecture-permitting. If its architecture happens to match
+   the dev build under test, both get loaded, they race for
+   obs-websocket's `obs-ptz` vendor registration
+   (`WebSocketApi::vendor_register_cb`), and if the installed one wins,
+   the harness silently ends up running that *older* copy's test code
+   instead of the dev build's - confusing, since the symptom is
+   individual test commands the current code definitely has (e.g.
+   `measure_now`) logging `unknown cmd '...', ignoring`. Rename that
+   directory (e.g. append `.disabled`) rather than uninstalling, so
+   it's easy to tell it was intentional and to put back.
+3. A GUI process launched via `prlctl exec`'s default `nt authority\system`
+   context can't put a window on the interactive desktop (session 0
+   isolation) - OBS starts, sits there consuming no CPU, and never logs
+   past whatever needs a real window station. Use
+   `prlctl exec "<VM>" --current-user <cmd>` instead, which runs as the
+   already-logged-in interactive user with a real session - confirmed
+   with `prlctl capture "<VM>" --file out.png` (a real VM screenshot,
+   independent of any of this) while chasing this down.
+
+Gotchas specific to this setup:
+
+- **OBS's data-path resolution is cwd-relative on Windows**
+  (`GetDataFilePath()` in `frontend/utility/platform-windows.cpp` checks
+  `"data/obs-studio/..."` against the *launching process's* current
+  directory, not the exe's own folder. A one-off manual launch needs
+  `start /D "<install>\bin\64bit" "" obs64.exe` or it'll fail
+  `InitLocale()` and exit immediately with "Failed to load locale"
+- **Unclean-shutdown sentinel files can silently block a launch.**
+  Same mechanism as the macOS one in this repo's `CLAUDE.md` -
+  `%APPDATA%\obs-studio\.sentinel\run_<uuid>` marker files, one per
+  launch, deleted on clean shutdown. A force-killed OBS (`taskkill /F`,
+  or a crash) leaves one behind, and the *next* launch blocks forever
+  on the "Crash or unclean shutdown detected" modal dialog.  If a run
+  times out waiting for a fresh log or "harness active", check for stale
+  files there first and move (don't delete) any `run_*` aside before
+  retrying.
+- **A vendored obs-studio sub-build can come up missing a project.**
+  Every configure re-runs `cmake/common/buildspec_common.cmake`'s
+  `_setup_obs_studio()`, which builds `obs-frontend-api` out of a
+  vendored obs-studio checkout under `.deps/obs-studio-<version>/build_<arch>`
+  regardless of whether it's already built. This was observed to fail
+  reproducibly for `x64` specifically (arm64 unaffected) with
+  `MSBUILD : error MSB1009: Project file does not exist. Switch:
+  obs-frontend-api.vcxproj` - the generated `.sln` was simply missing
+  that project's entry, confirmed by grepping it directly. Root cause
+  not fully nailed down (didn't reproduce with the generator, VS
+  toolset, or CMake version, and a genuinely fresh regenerate always
+  came up correct - looked like corruption accumulating in that one
+  build tree over repeated incremental reconfigures rather than
+  anything x64-specific per se). If it recurs: delete
+  `.deps/obs-studio-<version>/build_<arch>` entirely (not just the
+  top-level `build_<arch>`) and reconfigure - confirmed to clear it and
+  stay clear across repeated runs afterward.
+
 ## Adding a new test
 
 1. Add `tests/ui-harness/<name>-test.hpp`/`.cpp`: a
