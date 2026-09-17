@@ -187,6 +187,34 @@ def write_ini_value(path: Path, key: str, value):
     path.write_text(new_text)
 
 
+def read_websocket_settings(config_dir: Path):
+    """Returns (port, password) for a running OBS's obs-websocket server"""
+    ws_cfg = config_dir / "plugin_config" / "obs-websocket" / "config.json"
+    if ws_cfg.exists():
+        ws_config = json.loads(ws_cfg.read_text())
+        if not ws_config.get("server_enabled"):
+            raise TestError(
+                f"obs-websocket's server_enabled is false in {ws_cfg} - "
+                "enable it in OBS's Tools > obs-websocket Settings"
+            )
+        return ws_config["server_port"], ws_config["server_password"]
+
+    # Fallback to older OBS where websocket config is in the global file
+    global_ini = config_dir / "global.ini"
+    if not global_ini.exists():
+        raise TestError(f"neither {ws_cfg} nor {global_ini} found")
+    if read_ini_value(global_ini, "ServerEnabled") != "true":
+        raise TestError(
+            f"obs-websocket's ServerEnabled is not true in {global_ini} - "
+            "enable it in OBS's Tools > obs-websocket Settings"
+        )
+    port = read_ini_value(global_ini, "ServerPort")
+    password = read_ini_value(global_ini, "ServerPassword")
+    if port is None or password is None:
+        raise TestError(f"ServerPort/ServerPassword not found in {global_ini}'s [OBSWebSocket] section")
+    return int(port), password
+
+
 def latest_log_file(log_dir: Path):
     logs = list(log_dir.glob("*.txt"))
     return max(logs, key=lambda p: p.stat().st_mtime) if logs else None
@@ -302,29 +330,22 @@ def parse_icon_sizes(content: str):
 def main():
     config_dir = obs_config_dir()
     cfg = config_dir / "user.ini"
-    ws_cfg = config_dir / "plugin_config" / "obs-websocket" / "config.json"
     log_dir = config_dir / "logs"
 
-    for f in (cfg, ws_cfg):
-        if not f.exists():
-            print(f"error: {f} not found", file=sys.stderr)
-            return 1
+    if not cfg.exists():
+        print(f"error: {cfg} not found", file=sys.stderr)
+        return 1
     try:
         obs_bin = find_obs_binary()
     except TestError as e:
         print(f"error: {e}", file=sys.stderr)
         return 1
 
-    ws_config = json.loads(ws_cfg.read_text())
-    if not ws_config.get("server_enabled"):
-        print(
-            f"error: obs-websocket's server_enabled is false in {ws_cfg} - "
-            "enable it in OBS's Tools > obs-websocket Settings",
-            file=sys.stderr,
-        )
+    try:
+        ws_port, ws_password = read_websocket_settings(config_dir)
+    except TestError as e:
+        print(f"error: {e}", file=sys.stderr)
         return 1
-    ws_port = ws_config["server_port"]
-    ws_password = ws_config["server_password"]
 
     orig_density = read_ini_value(cfg, "Density")
     orig_fontscale = read_ini_value(cfg, "FontScale")
