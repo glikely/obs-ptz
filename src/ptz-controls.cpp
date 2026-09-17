@@ -1275,7 +1275,7 @@ void PTZDeviceListDelegate::refreshTheme()
 	bool isDark = obs_frontend_is_theme_dark();
 	lockedIcon = QIcon(isDark ? "theme:Dark/locked.svg" : ":res/images/locked.svg");
 	unlockedIcon = QIcon(":res/images/unlocked.svg");
-	disconnectedIcon = QIcon(isDark ? "theme:Dark/no_sources.svg" : ":res/images/no_sources.svg");
+	disconnectedIcon = QIcon(isDark ? "theme:Dark/alert.svg" : ":res/images/alert.svg");
 
 	emit sizeHintChanged(QModelIndex());
 }
@@ -1431,7 +1431,7 @@ PTZPresetListDelegate::PTZPresetListDelegate(QObject *parent) : QStyledItemDeleg
 void PTZPresetListDelegate::refreshTheme()
 {
 	bool isDark = obs_frontend_is_theme_dark();
-	recallIcon = QIcon(isDark ? "theme:Dark/media/media_play.svg" : ":res/images/media/media_play.svg");
+	recallIcon = QIcon(isDark ? "theme:Dark/refresh.svg" : ":res/images/refresh.svg");
 
 	emit sizeHintChanged(QModelIndex());
 }
