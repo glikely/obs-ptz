@@ -93,6 +93,12 @@ class TestError(Exception):
     pass
 
 
+class AppearanceUIMissing(TestError):
+    """Raised by run_appearance_sweep() when this OBS's Settings dialog has
+    no Density/Font Size UI to drive - see DENSITY_BUTTON_NOT_FOUND_RE's own
+    comment."""
+
+
 def obs_config_dir() -> Path:
     system = platform.system()
     if system == "Darwin":
@@ -300,6 +306,17 @@ def run_ui_test(ws_port, ws_password, density, fontscale, timeout=30):
         time.sleep(0.5)
 
 
+# Settings dialog's Appearance > Density/Font Size UI (ui->appearanceDensityButtonGroup,
+# ui->appearanceFontScale in OBS's own frontend/settings/OBSBasicSettings_Appearance.cpp)
+# was only added in OBS 31.1.0 - tests/ui-harness/appearance-row-sizing-test.cpp logs these
+# two lines and otherwise proceeds (opens the dialog, clicks Ok) when it can't find them, so
+# an older OBS doesn't error out - it just has nothing for the test to actually change,
+# and every combination measures the same unchanged state. Detect that and skip the sweep
+# instead of reporting a wall of spurious failures.
+DENSITY_BUTTON_NOT_FOUND_RE = re.compile(r"\[ptz-ui-test\] density button id -?\d+ not found")
+FONTSCALE_SLIDER_NOT_FOUND_RE = re.compile(r"\[ptz-ui-test\] appearanceFontScale slider not found")
+
+
 def parse_row_heights(content: str):
     def last(label):
         m = re.findall(rf"\[ptz-ui-test\] {re.escape(label)} rowHeight=(-?\d+)", content)
@@ -325,6 +342,96 @@ def parse_icon_sizes(content: str):
     camera = last(r"\[ptz-ui-test\] camera recallIconSize=(-?\d+)")
     sources = last(r"\[ptz-ui-test\] sources .*checkboxIconSize=(-?\d+)")
     return preset, camera, sources
+
+
+def run_appearance_sweep(tail: LogTail, ws_port, ws_password, logfile) -> tuple[int, int]:
+    """Runs the Density/FontScale sweep, returning (total, failures).
+
+    Raises AppearanceUIMissing (during the warmup requests, before running
+    the real sweep) if this OBS's Settings dialog has nothing for the test
+    to drive - see DENSITY_BUTTON_NOT_FOUND_RE's own comment.
+    """
+    for density, fontscale in WARMUP_REQUESTS:
+        run_ui_test(ws_port, ws_password, density, fontscale)
+        content = tail.wait_for(r"\[ptz-ui-test\] sources .*checkboxIconSize=", timeout=30)
+        if DENSITY_BUTTON_NOT_FOUND_RE.search(content) and FONTSCALE_SLIDER_NOT_FOUND_RE.search(content):
+            raise AppearanceUIMissing(
+                "this OBS build's Settings dialog has no Appearance > Density/Font Size UI "
+                "(added in OBS 31.1.0) - nothing here for the test to change, so every "
+                "combination would just re-measure the same unchanged state instead of a "
+                "real comparison."
+            )
+
+    total = 0
+    failures = 0
+    for density in DENSITIES:
+        for fontscale in FONT_SCALES:
+            total += 1
+            label = f"Density={density} FontScale={fontscale}"
+
+            try:
+                result = run_ui_test(ws_port, ws_password, density, fontscale)
+            except (obs_ws_client.ObsWebSocketError, OSError) as e:
+                print(f"FAIL {label}: obs-websocket CallVendorRequest itself failed ({e})")
+                failures += 1
+                continue
+
+            if not result.get("requestStatus", {}).get("result"):
+                print(f"FAIL {label}: obs-websocket rejected the request: {result}")
+                failures += 1
+                continue
+
+            # The test pops a real modal dialog and clicks through
+            # it - give it a generous margin before calling a
+            # combination stuck.
+            try:
+                content = tail.wait_for(r"\[ptz-ui-test\] sources .*checkboxIconSize=", timeout=30)
+            except TestError:
+                print(f"FAIL {label}: no fresh measurement appeared in {logfile}")
+                failures += 1
+                continue
+
+            preset_height, camera_height, sources_height = parse_row_heights(content)
+            ptz_toolbar, preset_toolbar, sources_toolbar = parse_toolbar_heights(content)
+            preset_icon, camera_icon, sources_icon = parse_icon_sizes(content)
+
+            if (
+                preset_height is None
+                or camera_height is None
+                or sources_height is None
+                or sources_toolbar is None
+                or sources_icon is None
+            ):
+                print(f"FAIL {label}: couldn't parse measurement from log content: {content!r}")
+                failures += 1
+                continue
+
+            mismatches = []
+            if preset_height != sources_height:
+                mismatches.append(f"preset rows {preset_height} != sources rows {sources_height}")
+            if camera_height != sources_height:
+                mismatches.append(f"camera rows {camera_height} != sources rows {sources_height}")
+            if ptz_toolbar != sources_toolbar:
+                mismatches.append(f"ptzToolbar {ptz_toolbar} != sourcesToolbar {sources_toolbar}")
+            if preset_toolbar != sources_toolbar:
+                mismatches.append(f"presetToolbar {preset_toolbar} != sourcesToolbar {sources_toolbar}")
+            if preset_icon != sources_icon:
+                mismatches.append(f"recallIcon {preset_icon} != checkboxIcon {sources_icon}")
+            if camera_icon != sources_icon:
+                mismatches.append(f"cameraIcon {camera_icon} != checkboxIcon {sources_icon}")
+
+            summary = (
+                f"rows: preset={preset_height} camera={camera_height} sources={sources_height}; "
+                f"toolbars: ptz={ptz_toolbar} preset={preset_toolbar} sources={sources_toolbar}; "
+                f"icons: preset={preset_icon} camera={camera_icon} sources={sources_icon}"
+            )
+            if not mismatches:
+                print(f"PASS {label}: {summary}")
+            else:
+                print(f"FAIL {label}: {summary} ({'; '.join(mismatches)})")
+                failures += 1
+
+    return total, failures
 
 
 def main():
@@ -418,76 +525,13 @@ def main():
                     f"sources={sources_toolbar}"
                 )
 
-        for density, fontscale in WARMUP_REQUESTS:
-            run_ui_test(ws_port, ws_password, density, fontscale)
-            tail.wait_for(r"\[ptz-ui-test\] sources .*checkboxIconSize=", timeout=30)
-
-        for density in DENSITIES:
-            for fontscale in FONT_SCALES:
-                total += 1
-                label = f"Density={density} FontScale={fontscale}"
-
-                try:
-                    result = run_ui_test(ws_port, ws_password, density, fontscale)
-                except (obs_ws_client.ObsWebSocketError, OSError) as e:
-                    print(f"FAIL {label}: obs-websocket CallVendorRequest itself failed ({e})")
-                    failures += 1
-                    continue
-
-                if not result.get("requestStatus", {}).get("result"):
-                    print(f"FAIL {label}: obs-websocket rejected the request: {result}")
-                    failures += 1
-                    continue
-
-                # The test pops a real modal dialog and clicks through
-                # it - give it a generous margin before calling a
-                # combination stuck.
-                try:
-                    content = tail.wait_for(r"\[ptz-ui-test\] sources .*checkboxIconSize=", timeout=30)
-                except TestError:
-                    print(f"FAIL {label}: no fresh measurement appeared in {logfile}")
-                    failures += 1
-                    continue
-
-                preset_height, camera_height, sources_height = parse_row_heights(content)
-                ptz_toolbar, preset_toolbar, sources_toolbar = parse_toolbar_heights(content)
-                preset_icon, camera_icon, sources_icon = parse_icon_sizes(content)
-
-                if (
-                    preset_height is None
-                    or camera_height is None
-                    or sources_height is None
-                    or sources_toolbar is None
-                    or sources_icon is None
-                ):
-                    print(f"FAIL {label}: couldn't parse measurement from log content: {content!r}")
-                    failures += 1
-                    continue
-
-                mismatches = []
-                if preset_height != sources_height:
-                    mismatches.append(f"preset rows {preset_height} != sources rows {sources_height}")
-                if camera_height != sources_height:
-                    mismatches.append(f"camera rows {camera_height} != sources rows {sources_height}")
-                if ptz_toolbar != sources_toolbar:
-                    mismatches.append(f"ptzToolbar {ptz_toolbar} != sourcesToolbar {sources_toolbar}")
-                if preset_toolbar != sources_toolbar:
-                    mismatches.append(f"presetToolbar {preset_toolbar} != sourcesToolbar {sources_toolbar}")
-                if preset_icon != sources_icon:
-                    mismatches.append(f"recallIcon {preset_icon} != checkboxIcon {sources_icon}")
-                if camera_icon != sources_icon:
-                    mismatches.append(f"cameraIcon {camera_icon} != checkboxIcon {sources_icon}")
-
-                summary = (
-                    f"rows: preset={preset_height} camera={camera_height} sources={sources_height}; "
-                    f"toolbars: ptz={ptz_toolbar} preset={preset_toolbar} sources={sources_toolbar}; "
-                    f"icons: preset={preset_icon} camera={camera_icon} sources={sources_icon}"
-                )
-                if not mismatches:
-                    print(f"PASS {label}: {summary}")
-                else:
-                    print(f"FAIL {label}: {summary} ({'; '.join(mismatches)})")
-                    failures += 1
+        try:
+            sweep_total, sweep_failures = run_appearance_sweep(tail, ws_port, ws_password, logfile)
+        except AppearanceUIMissing as e:
+            print(f"SKIP appearance_row_sizing sweep: {e}")
+        else:
+            total += sweep_total
+            failures += sweep_failures
     finally:
         # Restoring via config_set_int + relaunch rather than another
         # Settings-dialog round trip: simpler, and correct even if
