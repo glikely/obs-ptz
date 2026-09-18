@@ -388,21 +388,22 @@ void PTZSettings::on_addPTZ_clicked()
 		OBSData cfg = obs_data_create();
 		obs_data_release(cfg);
 		obs_data_set_string(cfg, "type", "visca");
+		obs_data_set_string(cfg, "visca_interface", "serial");
 		ptzDeviceList.make_device(cfg);
 	}
 #endif
 	if (action == addViscaUDP) {
 		OBSData cfg = obs_data_create();
 		obs_data_release(cfg);
-		obs_data_set_string(cfg, "type", "visca-over-ip");
-		obs_data_set_int(cfg, "port", 52381);
+		obs_data_set_string(cfg, "type", "visca");
+		obs_data_set_string(cfg, "visca_interface", "udp");
 		ptzDeviceList.make_device(cfg);
 	}
 	if (action == addViscaTCP) {
 		OBSData cfg = obs_data_create();
 		obs_data_release(cfg);
-		obs_data_set_string(cfg, "type", "visca-over-tcp");
-		obs_data_set_int(cfg, "port", 5678);
+		obs_data_set_string(cfg, "type", "visca");
+		obs_data_set_string(cfg, "visca_interface", "tcp");
 		ptzDeviceList.make_device(cfg);
 	}
 #if defined(ENABLE_SERIALPORT)
