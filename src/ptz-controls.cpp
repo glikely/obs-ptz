@@ -19,6 +19,8 @@
 #include <QStylePainter>
 #include <QLabel>
 #include <QCheckBox>
+#include <QFileDialog>
+#include <QMessageBox>
 
 #include <qt-wrappers.hpp>
 #include "touch-control.hpp"
@@ -1099,6 +1101,8 @@ void PTZControls::presetUpdateActions()
 	ui->actionPresetRemove->setEnabled(isValid);
 	ui->actionPresetMoveUp->setEnabled(isValid && count > 1 && presetIndex.row() > 0);
 	ui->actionPresetMoveDown->setEnabled(isValid && count > 1 && presetIndex.row() < count - 1);
+	ui->actionPresetExport->setEnabled(deviceIndex.isValid() && count > 0);
+	ui->actionPresetImport->setEnabled(deviceIndex.isValid());
 	RefreshToolBarStyling(ui->presetToolbar);
 }
 
@@ -1136,6 +1140,9 @@ void PTZControls::on_presetListView_customContextMenuRequested(const QPoint &pos
 		presetContext.addAction(ui->actionPresetRemove);
 	}
 	presetContext.addAction(ui->actionPresetAdd);
+	presetContext.addSeparator();
+	presetContext.addAction(ui->actionPresetExport);
+	presetContext.addAction(ui->actionPresetImport);
 	presetContext.exec(globalpos);
 }
 
@@ -1263,6 +1270,51 @@ void PTZControls::on_actionPresetClear_triggered()
 		return;
 	presetReset(presetIndexToId(index));
 	ptzDeviceList.setData(index, "");
+}
+
+void PTZControls::on_actionPresetExport_triggered()
+{
+	PTZDevice *ptz = ptzDeviceList.getDevice(ui->deviceList->currentIndex());
+	if (!ptz)
+		return;
+
+	QString defaultName = ptz->objectName().replace(QLatin1Char('/'), QLatin1Char('_')) + ".json";
+	QString filename = QFileDialog::getSaveFileName(this, obs_module_text("PTZ.Action.Preset.Export"), defaultName,
+							obs_module_text("PTZ.Preset.FileFilter"));
+	if (filename.isEmpty())
+		return;
+
+	OBSDataAutoRelease data = obs_data_create();
+	obs_data_set_int(data, "obs-ptz-preset-format", 1);
+	obs_data_set_string(data, "device", QT_TO_UTF8(ptz->objectName()));
+	ptz->exportPresets(data);
+
+	if (!obs_data_save_json_pretty_safe(data, QT_TO_UTF8(filename), "tmp", "bak"))
+		QMessageBox::warning(this, obs_module_text("PTZ.Action.Preset.Export"),
+				     obs_module_text("PTZ.Preset.Export.Failed"));
+}
+
+void PTZControls::on_actionPresetImport_triggered()
+{
+	PTZDevice *ptz = ptzDeviceList.getDevice(ui->deviceList->currentIndex());
+	if (!ptz)
+		return;
+
+	QString filename = QFileDialog::getOpenFileName(this, obs_module_text("PTZ.Action.Preset.Import"), QString(),
+							obs_module_text("PTZ.Preset.FileFilter"));
+	if (filename.isEmpty())
+		return;
+
+	OBSDataAutoRelease data = obs_data_create_from_json_file(QT_TO_UTF8(filename));
+	if (!data || obs_data_get_int(data, "obs-ptz-preset-format") != 1) {
+		QMessageBox::warning(this, obs_module_text("PTZ.Action.Preset.Import"),
+				     obs_module_text("PTZ.Preset.Import.Failed"));
+		return;
+	}
+
+	ptz->importPresets(data);
+	ptzDeviceList.do_reset();
+	presetUpdateActions();
 }
 
 PTZDeviceListDelegate::PTZDeviceListDelegate(QObject *parent) : QStyledItemDelegate(parent)

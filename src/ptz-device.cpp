@@ -264,22 +264,7 @@ void PTZDevice::update(OBSData config)
 {
 	getDefaults(config);
 
-	/* Clamp to the same range enforced by the properties slider; a corrupt
-	 * or hand-edited config must not yield an absurd preset count. */
-	m_maxPresets = std::clamp<size_t>(obs_data_get_int(config, "preset_max"), 1, 128);
-	/* Update the list of preset names */
-	OBSDataArrayAutoRelease preset_array = obs_data_get_array(config, "presets");
-	m_presets.clear();
-	m_presetsDisplayOrder.clear();
-	for (size_t i = 0; i < obs_data_array_count(preset_array); i++) {
-		OBSDataAutoRelease item = obs_data_array_item(preset_array, i);
-		auto id = obs_data_get_int(item, "id");
-		if (m_presetsDisplayOrder.contains(id))
-			continue;
-		QVariantMap preset = OBSDataToVariantMap(item.Get());
-		m_presets[id] = preset;
-		sanitizePreset(id);
-	}
+	importPresets(config);
 
 	setObjectName(obs_data_get_string(config, "name"));
 	pantilt_speed_max = obs_data_get_double(config, "pantilt_speed_max");
@@ -303,6 +288,15 @@ void PTZDevice::save(OBSData config) const
 	obs_data_set_bool(config, "tilt_invert", tilt_invert);
 	obs_data_set_bool(config, "zoom_invert", zoom_invert);
 	obs_data_set_bool(config, "focus_invert", focus_invert);
+
+	exportPresets(config);
+}
+
+/* Serialize the full set of presets (and preset_max) into config, using the
+ * same "presets"/"preset_max" keys as save()/update() so an exported file
+ * can also be merged directly into a device's config. */
+void PTZDevice::exportPresets(OBSData config) const
+{
 	obs_data_set_int(config, "preset_max", m_maxPresets);
 
 	OBSDataArrayAutoRelease preset_array = obs_data_array_create();
@@ -312,6 +306,31 @@ void PTZDevice::save(OBSData config) const
 		obs_data_array_push_back(preset_array, data);
 	}
 	obs_data_set_array(config, "presets", preset_array);
+}
+
+/* Replace the current set of presets with the ones stored in config under
+ * "presets"/"preset_max". If preset_max is absent (e.g. a hand-edited or
+ * older export file) the device's current maximum is kept rather than
+ * clobbering it. */
+void PTZDevice::importPresets(OBSData config)
+{
+	obs_data_set_default_int(config, "preset_max", (long long)m_maxPresets);
+	/* Clamp to the same range enforced by the properties slider; a corrupt
+	 * or hand-edited config must not yield an absurd preset count. */
+	m_maxPresets = std::clamp<size_t>(obs_data_get_int(config, "preset_max"), 1, 128);
+
+	OBSDataArrayAutoRelease preset_array = obs_data_get_array(config, "presets");
+	m_presets.clear();
+	m_presetsDisplayOrder.clear();
+	for (size_t i = 0; i < obs_data_array_count(preset_array); i++) {
+		OBSDataAutoRelease item = obs_data_array_item(preset_array, i);
+		auto id = obs_data_get_int(item, "id");
+		if (m_presetsDisplayOrder.contains(id))
+			continue;
+		QVariantMap preset = OBSDataToVariantMap(item.Get());
+		m_presets[id] = preset;
+		sanitizePreset(id);
+	}
 }
 
 obs_properties_t *PTZDevice::get_obs_properties()

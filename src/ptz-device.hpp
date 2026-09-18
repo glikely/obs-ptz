@@ -96,6 +96,12 @@ public:
 	QVariant presetProperty(size_t id, QString key) const;
 	bool updatePreset(size_t id, const QVariantMap &map);
 	int findPreset(QString key, QVariant value) const;
+	/* Export/import the full set of presets (and preset_max) for this
+	 * device, independent of the rest of its configuration, so they can
+	 * be saved to or loaded from a standalone file (backups, migrating
+	 * to a new machine, copying presets between devices). */
+	void exportPresets(OBSData config) const;
+	void importPresets(OBSData config);
 
 	/**
 	 * do_update() method is to be implemented by each driver as the way
