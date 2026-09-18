@@ -371,6 +371,7 @@ void PTZSettings::on_addPTZ_clicked()
 #endif
 	QAction *addViscaUDP = addPTZContext.addAction(obs_module_text("PTZ.Visca.UDP.Name"));
 	QAction *addViscaTCP = addPTZContext.addAction(obs_module_text("PTZ.Visca.TCP.Name"));
+	QAction *addDataVideoTCP = addPTZContext.addAction(obs_module_text("PTZ.Visca.TCP.DataVideoName"));
 #if defined(ENABLE_SERIALPORT)
 	QAction *addPelcoD = addPTZContext.addAction(obs_module_text("PTZ.PelcoD.Name"));
 	QAction *addPelcoP = addPTZContext.addAction(obs_module_text("PTZ.PelcoP.Name"));
@@ -403,6 +404,14 @@ void PTZSettings::on_addPTZ_clicked()
 		obs_data_release(cfg);
 		obs_data_set_string(cfg, "type", "visca-over-tcp");
 		obs_data_set_int(cfg, "port", 5678);
+		ptzDeviceList.make_device(cfg);
+	}
+	if (action == addDataVideoTCP) {
+		OBSData cfg = obs_data_create();
+		obs_data_release(cfg);
+		obs_data_set_string(cfg, "type", "visca-over-tcp");
+		obs_data_set_int(cfg, "port", 5678);
+		obs_data_set_bool(cfg, "datavideo_framing", true);
 		ptzDeviceList.make_device(cfg);
 	}
 #if defined(ENABLE_SERIALPORT)

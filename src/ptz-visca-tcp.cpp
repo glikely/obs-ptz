@@ -53,7 +53,13 @@ void PTZViscaOverTCP::send_immediate(const QByteArray &msg)
 {
 	if (visca_socket.state() == QAbstractSocket::UnconnectedState)
 		connectSocket();
-	visca_socket.write(msg);
+	if (!datavideo_framing) {
+		visca_socket.write(msg);
+		return;
+	}
+	auto frame = DatavideoViscaFramer::encode(reinterpret_cast<const uint8_t *>(msg.constData()), msg.size());
+	if (!frame.empty())
+		visca_socket.write(reinterpret_cast<const char *>(frame.data()), frame.size());
 }
 
 void PTZViscaOverTCP::receive_datagram(const QByteArray &packet)
@@ -83,6 +89,18 @@ void PTZViscaOverTCP::receive_datagram(const QByteArray &packet)
 
 void PTZViscaOverTCP::poll()
 {
+	if (datavideo_framing) {
+		QByteArray data = visca_socket.readAll();
+		std::vector<std::vector<uint8_t>> frames;
+		if (!datavideo_framer.feed(reinterpret_cast<const uint8_t *>(data.constData()), data.size(), frames)) {
+			blog(LOG_WARNING, "VISCA-over-TCP %s received an invalid Datavideo frame", QT_TO_UTF8(objectName()));
+			visca_socket.disconnectFromHost();
+			return;
+		}
+		for (const auto &frame : frames)
+			receive_datagram(QByteArray(reinterpret_cast<const char *>(frame.data()), frame.size()));
+		return;
+	}
 	for (auto b : visca_socket.readAll()) {
 		rxbuffer += b;
 		if ((b & 0xff) == 0xff) {
@@ -97,6 +115,7 @@ void PTZViscaOverTCP::getDefaults(OBSData config) const
 {
 	PTZVisca::getDefaults(config);
 	obs_data_set_default_int(config, "port", 5678);
+	obs_data_set_default_bool(config, "datavideo_framing", false);
 }
 
 void PTZViscaOverTCP::update(OBSData config)
@@ -104,6 +123,8 @@ void PTZViscaOverTCP::update(OBSData config)
 	PTZVisca::update(config);
 	host = obs_data_get_string(config, "host");
 	port = (int)obs_data_get_int(config, "port");
+	datavideo_framing = obs_data_get_bool(config, "datavideo_framing");
+	datavideo_framer.clear();
 	connectSocket();
 }
 
@@ -112,6 +133,7 @@ void PTZViscaOverTCP::save(OBSData config) const
 	PTZVisca::save(config);
 	obs_data_set_string(config, "host", QT_TO_UTF8(host));
 	obs_data_set_int(config, "port", port);
+	obs_data_set_bool(config, "datavideo_framing", datavideo_framing);
 }
 
 obs_properties_t *PTZViscaOverTCP::get_obs_properties()
@@ -122,5 +144,6 @@ obs_properties_t *PTZViscaOverTCP::get_obs_properties()
 	obs_property_set_description(p, obs_module_text("PTZ.Visca.TCP.Description"));
 	obs_properties_add_text(config, "host", obs_module_text("PTZ.Device.Hostname"), OBS_TEXT_DEFAULT);
 	obs_properties_add_int(config, "port", obs_module_text("PTZ.Device.TCPPort"), 1, 65535, 1);
+	obs_properties_add_bool(config, "datavideo_framing", obs_module_text("PTZ.Visca.TCP.DataVideoFraming"));
 	return ptz_props;
 }
