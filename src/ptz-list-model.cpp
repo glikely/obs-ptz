@@ -8,15 +8,13 @@
 #include <obs.hpp>
 #include "ptz-list-model.hpp"
 #include "ptz-device.hpp"
-#include "ptz-visca-udp.hpp"
-#include "ptz-visca-tcp.hpp"
+#include "ptz-visca.hpp"
 #include "ptz-onvif.hpp"
 #include "ptz-usb-cam.hpp"
 #include "ptz.h"
 #include "protocol-helpers.hpp"
 
 #if defined(ENABLE_SERIALPORT)
-#include "ptz-visca-uart.hpp"
 #include "ptz-pelco.hpp"
 #endif
 
@@ -391,13 +389,12 @@ PTZDevice *PTZListModel::make_device(OBSData config)
 #if defined(ENABLE_SERIALPORT)
 	if (type == "pelco" || type == "pelco-p")
 		ptz = new PTZPelco(config);
-	if (type == "visca")
-		ptz = new PTZViscaSerial(config);
 #endif /* ENABLE_SERIALPORT */
-	if (type == "visca-over-ip")
-		ptz = new PTZViscaOverIP(config);
-	if (type == "visca-over-tcp")
-		ptz = new PTZViscaOverTCP(config);
+	/* All VISCA transports (serial/UDP/TCP) are handled by a single
+	 * PTZVisca object; "visca-over-ip" and "visca-over-tcp" are the
+	 * legacy per-transport type names kept for loading older configs. */
+	if (type == "visca" || type == "visca-over-ip" || type == "visca-over-tcp")
+		ptz = new PTZVisca(config);
 #if defined(ENABLE_ONVIF)
 	if (type == "onvif")
 		ptz = new PTZOnvif(config);

@@ -10,31 +10,29 @@
 #include <QTcpSocket>
 #include "ptz-visca.hpp"
 
-class PTZViscaOverTCP : public PTZVisca {
+class ViscaTCPTransport : public ViscaTransport {
 	Q_OBJECT
 
 private:
 	QTcpSocket visca_socket;
 	QByteArray rxbuffer;
 	QString host;
-	int port;
+	int port = 5678;
 
-protected:
-	void send_immediate(const QByteArray &msg) override;
-	void reset();
 	void receive_datagram(const QByteArray &packet);
-	void poll();
 
 private slots:
 	void connectSocket();
 	void on_socket_stateChanged(QAbstractSocket::SocketState);
+	void poll();
 
 public:
-	PTZViscaOverTCP(OBSData config);
-	QString description() override;
+	ViscaTCPTransport();
 
-	void getDefaults(OBSData ptz_data) const override;
-	void update(OBSData ptz_data) override;
+	QString description(unsigned int address) const override;
+	void update(OBSData config) override;
 	void save(OBSData config) const override;
-	obs_properties_t *get_obs_properties() override;
+	void send(const QByteArray &msg, unsigned int address) override;
+
+	static void add_obs_properties(obs_properties_t *props);
 };

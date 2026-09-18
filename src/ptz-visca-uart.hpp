@@ -28,24 +28,25 @@ public:
 	static ViscaUART *get_interface(QString port_name);
 };
 
-class PTZViscaSerial : public PTZVisca {
+/*
+ * VISCA-over-serial transport. Multiple PTZVisca objects on the same
+ * RS-422 bus share a single ViscaUART, distinguished by their bus address.
+ */
+class ViscaSerialTransport : public ViscaTransport {
 	Q_OBJECT
 
 private:
-	ViscaUART *iface;
+	ViscaUART *iface = nullptr;
 	void attach_interface(ViscaUART *iface);
 
-protected:
-	void send_immediate(const QByteArray &msg) override;
-	void reset();
-
 public:
-	PTZViscaSerial(OBSData config);
-	~PTZViscaSerial();
-	QString description() override;
+	ViscaSerialTransport() = default;
+	~ViscaSerialTransport() override;
 
-	void getDefaults(OBSData ptz_data) const override;
-	void update(OBSData ptz_data) override;
-	void save(OBSData ptz_data) const override;
-	obs_properties_t *get_obs_properties() override;
+	QString description(unsigned int address) const override;
+	void update(OBSData config) override;
+	void save(OBSData config) const override;
+	void send(const QByteArray &msg, unsigned int address) override;
+
+	static void add_obs_properties(obs_properties_t *props);
 };

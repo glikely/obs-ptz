@@ -6,8 +6,12 @@
  */
 
 #include <qt-wrappers.hpp>
-#include <QNetworkDatagram>
 #include "ptz-visca.hpp"
+#include "ptz-visca-udp.hpp"
+#include "ptz-visca-tcp.hpp"
+#if defined(ENABLE_SERIALPORT)
+#include "ptz-visca-uart.hpp"
+#endif
 #include <util/base.h>
 
 /* Visca specific datagram field classes */
@@ -515,10 +519,64 @@ const QMap<QString, PTZInq> PTZVisca::inquires = {
  */
 PTZVisca::PTZVisca(OBSData config) : PTZDevice(config)
 {
+	/* Older releases used a separate device "type" per transport
+	 * (visca / visca-over-ip / visca-over-tcp); normalize logging and
+	 * persistence to a single "visca" type now that the transport is
+	 * just a setting on this one class. */
+	type = "visca";
 	for (int i = 0; i < 8; i++)
 		active_cmd[i] = std::nullopt;
 	connect(&timeout_timer, &QTimer::timeout, this, &PTZVisca::timeout);
 	connect(&update_timer, &QTimer::timeout, this, &PTZVisca::update_timer_callback);
+
+	getDefaults(config);
+	update(config);
+}
+
+QString PTZVisca::description()
+{
+	return transport ? transport->description(address) : QString();
+}
+
+void PTZVisca::reset()
+{
+	cmd_get_camera_info();
+}
+
+void PTZVisca::setInterface(const QString &interface)
+{
+	if (transport && visca_interface == interface)
+		return;
+
+	if (transport) {
+		transport->disconnect(this);
+		delete transport;
+		transport = nullptr;
+	}
+
+	visca_interface = interface;
+#if defined(ENABLE_SERIALPORT)
+	if (interface == "serial")
+		transport = new ViscaSerialTransport();
+	else if (interface == "tcp")
+#else
+	if (interface == "tcp")
+#endif
+		transport = new ViscaTCPTransport();
+	else
+		transport = new ViscaUDPTransport();
+
+	connect(transport, &ViscaTransport::receive, this, &PTZVisca::receive);
+	connect(transport, &ViscaTransport::reset, this, &PTZVisca::reset);
+	connect(transport, &ViscaTransport::refresh, this, &PTZVisca::cmd_get_camera_info);
+	connect(transport, &ViscaTransport::statIncrement, this,
+		[this](const QString &name) { incrementStatistic(qPrintable(name)); });
+}
+
+void PTZVisca::send_immediate(const QByteArray &msg)
+{
+	if (transport)
+		transport->send(msg, address);
 }
 
 void PTZVisca::scan_commands()
@@ -560,6 +618,23 @@ void PTZVisca::write_replies_to_log()
 void PTZVisca::getDefaults(OBSData cfg) const
 {
 	PTZDevice::getDefaults(cfg);
+
+	/* Before the VISCA drivers were unified into a single class, the
+	 * transport was selected by device "type" (visca / visca-over-ip /
+	 * visca-over-tcp). Derive a matching default "visca_interface" so
+	 * that config saved by an older release keeps working unmodified. */
+	std::string legacy_type = obs_data_get_string(cfg, "type");
+	const char *default_interface = "udp";
+	if (legacy_type == "visca")
+		default_interface = "serial";
+	else if (legacy_type == "visca-over-tcp")
+		default_interface = "tcp";
+	obs_data_set_default_string(cfg, "visca_interface", default_interface);
+
+	obs_data_set_default_int(cfg, "address", 1);
+	obs_data_set_default_int(cfg, "udp_port", 52381);
+	obs_data_set_default_int(cfg, "tcp_port", 5678);
+
 	obs_data_set_default_int(cfg, "visca_pan_speed_max", 0x18);
 	obs_data_set_default_int(cfg, "visca_tilt_speed_max", 0x14);
 	obs_data_set_default_int(cfg, "visca_zoom_speed_max", 0x7);
@@ -570,26 +645,108 @@ void PTZVisca::getDefaults(OBSData cfg) const
 void PTZVisca::update(OBSData cfg)
 {
 	PTZDevice::update(cfg);
+
+	if (!obs_data_has_user_value(cfg, "visca_interface")) {
+		/* Migrate a config saved before the VISCA drivers were unified:
+		 * map the legacy per-transport "type" and its field names onto
+		 * today's "visca_interface" setting. */
+		std::string legacy_type = obs_data_get_string(cfg, "type");
+		if (legacy_type == "visca-over-ip") {
+			obs_data_set_string(cfg, "visca_interface", "udp");
+			obs_data_set_string(cfg, "udp_host", obs_data_get_string(cfg, "host"));
+			obs_data_set_int(cfg, "udp_port", obs_data_get_int(cfg, "port"));
+		} else if (legacy_type == "visca-over-tcp") {
+			obs_data_set_string(cfg, "visca_interface", "tcp");
+			obs_data_set_string(cfg, "tcp_host", obs_data_get_string(cfg, "host"));
+			obs_data_set_int(cfg, "tcp_port", obs_data_get_int(cfg, "port"));
+		} else {
+			obs_data_set_string(cfg, "visca_interface", "serial");
+		}
+	}
+
+	setInterface(obs_data_get_string(cfg, "visca_interface"));
+	address = (visca_interface == "serial") ? std::clamp((int)obs_data_get_int(cfg, "address"), 1, 7) : 1;
+
 	visca_pan_speed_max = (int)obs_data_get_int(cfg, "visca_pan_speed_max");
 	visca_tilt_speed_max = (int)obs_data_get_int(cfg, "visca_tilt_speed_max");
 	visca_zoom_speed_max = (int)obs_data_get_int(cfg, "visca_zoom_speed_max");
 	visca_focus_speed_max = (int)obs_data_get_int(cfg, "visca_focus_speed_max");
 	protocol_trace = obs_data_get_bool(cfg, "protocol_trace");
+
+	transport->update(cfg);
 }
 
 void PTZVisca::save(OBSData cfg) const
 {
 	PTZDevice::save(cfg);
+	obs_data_set_string(cfg, "visca_interface", QT_TO_UTF8(visca_interface));
+	obs_data_set_int(cfg, "address", address);
 	obs_data_set_int(cfg, "visca_pan_speed_max", visca_pan_speed_max);
 	obs_data_set_int(cfg, "visca_tilt_speed_max", visca_tilt_speed_max);
 	obs_data_set_int(cfg, "visca_zoom_speed_max", visca_zoom_speed_max);
 	obs_data_set_int(cfg, "visca_focus_speed_max", visca_focus_speed_max);
 	obs_data_set_bool(cfg, "protocol_trace", protocol_trace);
+	if (transport)
+		transport->save(cfg);
+}
+
+static void visca_set_group_visible(obs_properties_t *props, const char *name, bool visible)
+{
+	obs_property_t *p = obs_properties_get(props, name);
+	if (p)
+		obs_property_set_visible(p, visible);
+}
+
+static bool visca_interface_modified_cb(void *, obs_properties_t *props, obs_property_t *, obs_data_t *settings)
+{
+	QString iface = obs_data_get_string(settings, "visca_interface");
+#if defined(ENABLE_SERIALPORT)
+	visca_set_group_visible(props, "port", iface == "serial");
+	visca_set_group_visible(props, "baud_rate", iface == "serial");
+	visca_set_group_visible(props, "address", iface == "serial");
+#endif
+	visca_set_group_visible(props, "udp_host", iface == "udp");
+	visca_set_group_visible(props, "udp_port", iface == "udp");
+	visca_set_group_visible(props, "quirk_visca_udp_no_seq", iface == "udp");
+	visca_set_group_visible(props, "tcp_host", iface == "tcp");
+	visca_set_group_visible(props, "tcp_port", iface == "tcp");
+	return true;
 }
 
 obs_properties_t *PTZVisca::get_obs_properties()
 {
 	auto *ptz_props = PTZDevice::get_obs_properties();
+
+	obs_property_t *iface_group = obs_properties_get(ptz_props, "interface");
+	obs_properties_t *iface_props = obs_property_group_content(iface_group);
+	obs_property_set_description(iface_group, obs_module_text("PTZ.Visca.Description"));
+
+	obs_property_t *iface_list = obs_properties_add_list(iface_props, "visca_interface",
+							     obs_module_text("PTZ.Visca.Interface"),
+							     OBS_COMBO_TYPE_LIST, OBS_COMBO_FORMAT_STRING);
+#if defined(ENABLE_SERIALPORT)
+	obs_property_list_add_string(iface_list, obs_module_text("PTZ.Visca.Serial.Name"), "serial");
+#endif
+	obs_property_list_add_string(iface_list, obs_module_text("PTZ.Visca.UDP.Name"), "udp");
+	obs_property_list_add_string(iface_list, obs_module_text("PTZ.Visca.TCP.Name"), "tcp");
+	obs_property_set_modified_callback2(iface_list, visca_interface_modified_cb, nullptr);
+
+#if defined(ENABLE_SERIALPORT)
+	ViscaSerialTransport::add_obs_properties(iface_props);
+#endif
+	ViscaUDPTransport::add_obs_properties(iface_props);
+	ViscaTCPTransport::add_obs_properties(iface_props);
+
+#if defined(ENABLE_SERIALPORT)
+	visca_set_group_visible(iface_props, "port", visca_interface == "serial");
+	visca_set_group_visible(iface_props, "baud_rate", visca_interface == "serial");
+	visca_set_group_visible(iface_props, "address", visca_interface == "serial");
+#endif
+	visca_set_group_visible(iface_props, "udp_host", visca_interface == "udp");
+	visca_set_group_visible(iface_props, "udp_port", visca_interface == "udp");
+	visca_set_group_visible(iface_props, "quirk_visca_udp_no_seq", visca_interface == "udp");
+	visca_set_group_visible(iface_props, "tcp_host", visca_interface == "tcp");
+	visca_set_group_visible(iface_props, "tcp_port", visca_interface == "tcp");
 
 	auto *wbGroup = obs_properties_create();
 	obs_properties_add_group(ptz_props, "whitebalance", obs_module_text("PTZ.WhiteBalance"), OBS_GROUP_NORMAL,
