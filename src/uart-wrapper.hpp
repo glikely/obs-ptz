@@ -49,7 +49,7 @@ public:
 	int baudRate() const;
 	virtual void setConfig(OBSData config);
 	virtual void save(OBSData config) const;
-	virtual void addOBSProperties(obs_properties_t *props);
+	static void addOBSProperties(obs_properties_t *props);
 	virtual void send(const QByteArray &packet);
 	virtual void receiveBytes(const QByteArray &bytes) = 0;
 	QString portName() const { return port_name; }
