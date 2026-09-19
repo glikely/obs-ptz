@@ -4,22 +4,23 @@ Unified PTZ camera simulator for testing obs-ptz.
 
 One shared pan/tilt/zoom/focus model is exposed through pluggable
 protocol backends -- VISCA (TCP, UDP/"VISCA-over-IP", and an emulated
-serial port) and ONVIF -- and can optionally be paired with a live RTSP
-video feed so OBS has something to attach as a source. Moving the
-camera through any one protocol is reflected in all the others and, if
-enabled, in the video overlay.
+serial port), ONVIF, and Pelco-D/P (emulated serial) -- and can
+optionally be paired with a live RTSP video feed so OBS has something to
+attach as a source. Moving the camera through any one protocol is
+reflected in all the others and, if enabled, in the video overlay.
 
 Run modes
 ---------
     python3 scripts/ptzsim                       # everything, no video
     python3 scripts/ptzsim --with-video           # also stream a test pattern (needs ffmpeg + mediamtx in PATH)
-    python3 scripts/ptzsim --no-onvif             # VISCA only (all 3 transports)
+    python3 scripts/ptzsim --no-onvif --no-pelco  # VISCA only (all 3 transports)
     python3 scripts/ptzsim --no-visca-tcp --no-visca-serial   # VISCA/UDP only
     python3 scripts/ptzsim --host 0.0.0.0 --onvif-http-port 8899 --rtsp-port 8554
 
-The emulated VISCA serial port is a pty pair; point obs-ptz's serial
-device field at the printed path, or at the fixed symlink
-(--visca-serial-path) which stays stable across restarts.
+The emulated serial ports (VISCA and Pelco) are pty pairs; point obs-ptz's
+serial device field at the printed path, or at the fixed symlink
+(--visca-serial-path / --pelco-serial-path) which stays stable across
+restarts.
 
 End-to-end test with OBS
 ------------------------
@@ -29,14 +30,16 @@ End-to-end test with OBS
    - VISCA (TCP): host, port 5678
    - VISCA (UDP): host, port 52381
    - VISCA (Serial): the printed /tmp/ptzsim-visca-serial path
+   - Pelco: the printed /tmp/ptzsim-pelco-serial path, device ID 1
    - ONVIF (experimental): appears in discovery as obs-ptz-sim / SIM-PTZ-1;
      credentials aren't enforced, admin/admin is fine.
 4. Click "Use Selected Camera". With --with-video, the auto-created
    Media Source (ONVIF) plays the test pattern.
 5. Drag the pan/tilt joystick. The simulator's stdout logs every PTZ
    call and, with --with-video, the RTSP overlay updates pan/tilt/zoom
-   values in real time. Stop, Home, and presets all work over ONVIF;
-   VISCA exercises the same shared position/speed state without presets.
+   values in real time. Stop, Home, and presets all work over ONVIF and
+   Pelco; VISCA exercises the same shared position/speed state without
+   presets.
 
 Notes
 -----
@@ -59,6 +62,7 @@ import socket
 import threading
 
 from .backends.onvif import OnvifBackend
+from .backends.pelco import PelcoBackend
 from .backends.visca import ViscaBackend
 from .state import PTZState, run_ticker
 from .video import VideoFeed
@@ -79,8 +83,8 @@ def primary_ipv4():
 def parse_args():
     ap = argparse.ArgumentParser(
         description="Unified PTZ camera simulator exposing VISCA (TCP/UDP/"
-                    "serial) and ONVIF protocol backends, with an optional "
-                    "live RTSP video feed for OBS.")
+                    "serial), ONVIF and Pelco-D/P protocol backends, with an "
+                    "optional live RTSP video feed for OBS.")
     ap.add_argument("--host", default=primary_ipv4(),
                      help="IP advertised for ONVIF discovery/stream URIs (default: auto)")
 
@@ -99,6 +103,12 @@ def parse_args():
     ap.add_argument("--no-onvif", action="store_true", help="disable the ONVIF backend")
     ap.add_argument("--onvif-http-port", type=int, default=8899,
                      help="ONVIF SOAP/HTTP listen port")
+
+    ap.add_argument("--no-pelco", action="store_true", help="disable the Pelco-D/P backend")
+    ap.add_argument("--pelco-serial-path", default="/tmp/ptzsim-pelco-serial",
+                     help="symlink path for the emulated Pelco serial port")
+    ap.add_argument("--pelco-address", type=int, default=1,
+                     help="Pelco device address to respond to")
 
     ap.add_argument("--rtsp-port", type=int, default=8554,
                      help="RTSP port advertised/used for the video feed")
@@ -139,6 +149,11 @@ def main():
         onvif.start()
         backends.append(onvif)
         print(f"[sim] onvif uuid = {onvif.uuid}")
+
+    if not args.no_pelco:
+        pelco = PelcoBackend(state, args.pelco_serial_path, args.pelco_address)
+        pelco.start(loop)
+        backends.append(pelco)
 
     if not backends:
         print("[sim] warning: no backends are enabled, the camera can't be controlled")
