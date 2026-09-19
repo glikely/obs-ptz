@@ -173,8 +173,22 @@ if(ENABLE_UART_TESTS)
   if(NOT ENABLE_SERIALPORT)
     message(FATAL_ERROR "ENABLE_UART_TESTS requires ENABLE_SERIALPORT=ON (needs libserialport and src/uart-wrapper.*)")
   endif()
-  add_subdirectory(shared/catch2)
+  if(NOT TARGET catch2_amalgamated)
+    add_subdirectory(shared/catch2)
+  endif()
   add_subdirectory(tests/uart-hil)
+endif()
+
+option(
+  ENABLE_PRESET_IO_TESTS
+  "Build the preset export/import unit tests (pure OBSData round-trip logic - no hardware or running OBS needed; safe for CI)"
+  OFF
+)
+if(ENABLE_PRESET_IO_TESTS)
+  if(NOT TARGET catch2_amalgamated)
+    add_subdirectory(shared/catch2)
+  endif()
+  add_subdirectory(tests/preset-io)
 endif()
 
 option(
