@@ -22,6 +22,7 @@ add_executable(
   preset-io-tests
   main.cpp
   test_preset_io.cpp
+  test_preset_io_edge_cases.cpp
   "${CMAKE_SOURCE_DIR}/src/ptz-preset-io.hpp"
   "${CMAKE_SOURCE_DIR}/src/ptz-preset-io.cpp"
   "${CMAKE_SOURCE_DIR}/src/protocol-helpers.hpp"
