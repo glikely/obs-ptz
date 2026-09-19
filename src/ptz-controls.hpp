@@ -150,6 +150,8 @@ private slots:
 	void on_actionPresetSave_triggered();
 	void on_actionPresetClear_triggered();
 	void on_actionPresetRename_triggered();
+	void on_actionPresetExport_triggered(QString filename = "");
+	void on_actionPresetImport_triggered(QString filename = "");
 
 	void accelTimerHandler();
 

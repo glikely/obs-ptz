@@ -19,6 +19,8 @@
 #include <QStylePainter>
 #include <QLabel>
 #include <QCheckBox>
+#include <QFileDialog>
+#include <QMessageBox>
 
 #include <qt-wrappers.hpp>
 #include "touch-control.hpp"
@@ -1099,6 +1101,8 @@ void PTZControls::presetUpdateActions()
 	ui->actionPresetRemove->setEnabled(isValid);
 	ui->actionPresetMoveUp->setEnabled(isValid && count > 1 && presetIndex.row() > 0);
 	ui->actionPresetMoveDown->setEnabled(isValid && count > 1 && presetIndex.row() < count - 1);
+	ui->actionPresetExport->setEnabled(deviceIndex.isValid() && count > 0);
+	ui->actionPresetImport->setEnabled(deviceIndex.isValid());
 	RefreshToolBarStyling(ui->presetToolbar);
 }
 
@@ -1136,6 +1140,9 @@ void PTZControls::on_presetListView_customContextMenuRequested(const QPoint &pos
 		presetContext.addAction(ui->actionPresetRemove);
 	}
 	presetContext.addAction(ui->actionPresetAdd);
+	presetContext.addSeparator();
+	presetContext.addAction(ui->actionPresetExport);
+	presetContext.addAction(ui->actionPresetImport);
 	presetContext.exec(globalpos);
 }
 
@@ -1263,6 +1270,80 @@ void PTZControls::on_actionPresetClear_triggered()
 		return;
 	presetReset(presetIndexToId(index));
 	ptzDeviceList.setData(index, "");
+}
+
+void PTZControls::on_actionPresetExport_triggered(QString filename)
+{
+	auto fileExtension = QString("%1 (*.json)").arg(obs_module_text("PTZ.Preset.FileFilter"));
+	QModelIndex index = ui->deviceList->currentIndex();
+	if (!index.isValid())
+		return;
+
+	QString deviceName = ptzDeviceList.data(index, Qt::DisplayRole).toString();
+	QString defaultName = QString(deviceName).replace(QLatin1Char('/'), QLatin1Char('_')) + " presets.json";
+	if (filename.isEmpty())
+		filename = QFileDialog::getSaveFileName(this, obs_module_text("PTZ.Action.Preset.Export"), defaultName,
+							fileExtension);
+	if (filename.isEmpty())
+		return;
+
+	/* save() serializes the device's whole config; presets/preset_max are
+	 * just the subset of that we actually want in the exported file. */
+	OBSDataAutoRelease fullConfig = obs_data_create();
+	ptzDeviceList.save(index, fullConfig.Get());
+
+	OBSDataAutoRelease data = obs_data_create();
+	obs_data_set_int(data, "obs-ptz-preset-format", 1);
+	obs_data_set_string(data, "device", QT_TO_UTF8(deviceName));
+	obs_data_set_int(data, "preset_max", obs_data_get_int(fullConfig, "preset_max"));
+	OBSDataArrayAutoRelease presets = obs_data_get_array(fullConfig, "presets");
+	obs_data_set_array(data, "presets", presets);
+
+	if (!obs_data_save_json_pretty_safe(data, QT_TO_UTF8(filename), "tmp", "bak"))
+		QMessageBox::warning(this, obs_module_text("PTZ.Action.Preset.Export"),
+				     obs_module_text("PTZ.Preset.Export.Failed"));
+}
+
+void PTZControls::on_actionPresetImport_triggered(QString filename)
+{
+	auto fileExtension = QString("%1 (*.json)").arg(obs_module_text("PTZ.Preset.FileFilter"));
+	QModelIndex index = ui->deviceList->currentIndex();
+	if (!index.isValid())
+		return;
+
+	if (filename.isEmpty())
+		filename = QFileDialog::getOpenFileName(this, obs_module_text("PTZ.Action.Preset.Import"), QString(),
+							fileExtension);
+	if (filename.isEmpty())
+		return;
+
+	OBSDataAutoRelease data = obs_data_create_from_json_file(QT_TO_UTF8(filename));
+	if (!data || obs_data_get_int(data, "obs-ptz-preset-format") != 1) {
+		QMessageBox::warning(this, obs_module_text("PTZ.Action.Preset.Import"),
+				     obs_module_text("PTZ.Preset.Import.Failed"));
+		return;
+	}
+
+	/* Save current selected device */
+	uint32_t deviceId = ptzDeviceList.data(index, PTZListModel::DeviceIdRole).toUInt();
+
+	/* Merge just the presets/preset_max subset from the imported file
+	 * into the device's current full config, then update() with that --
+	 * update()'s own defaulting would otherwise reset every other
+	 * setting (pan/tilt speed, invert flags, ...) to its default, since
+	 * this file only ever has the two preset-related keys. */
+	OBSDataAutoRelease fullConfig = obs_data_create();
+	ptzDeviceList.save(index, fullConfig.Get());
+	if (obs_data_has_user_value(data, "preset_max"))
+		obs_data_set_int(fullConfig, "preset_max", obs_data_get_int(data, "preset_max"));
+	OBSDataArrayAutoRelease presets = obs_data_get_array(data, "presets");
+	obs_data_set_array(fullConfig, "presets", presets);
+
+	ptzDeviceList.update(index, fullConfig.Get());
+	ptzDeviceList.do_reset();
+	/* restore selection after reset */
+	ui->deviceList->setCurrentIndex(ptzDeviceList.indexFromDeviceId(deviceId));
+	presetUpdateActions();
 }
 
 PTZDeviceListDelegate::PTZDeviceListDelegate(QObject *parent) : QStyledItemDelegate(parent)

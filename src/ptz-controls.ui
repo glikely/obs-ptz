@@ -597,6 +597,22 @@
     <string>PTZ.Action.Preset.Clear.Tooltip</string>
    </property>
   </action>
+  <action name="actionPresetExport">
+   <property name="text">
+    <string>PTZ.Action.Preset.Export</string>
+   </property>
+   <property name="toolTip">
+    <string>PTZ.Action.Preset.Export.Tooltip</string>
+   </property>
+  </action>
+  <action name="actionPresetImport">
+   <property name="text">
+    <string>PTZ.Action.Preset.Import</string>
+   </property>
+   <property name="toolTip">
+    <string>PTZ.Action.Preset.Import.Tooltip</string>
+   </property>
+  </action>
  </widget>
  <customwidgets>
   <customwidget>
