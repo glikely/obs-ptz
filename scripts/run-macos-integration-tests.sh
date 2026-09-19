@@ -62,7 +62,7 @@ fi
 
 if [ "$SKIP_BUILD" -eq 0 ]; then
     echo "==> Building the plugin (cmake --preset macos)"
-    cmake --preset macos -DENABLE_SERIALPORT=ON -DENABLE_ONVIF=ON
+    cmake --preset macos -DENABLE_SERIALPORT=ON -DENABLE_ONVIF=ON -DENABLE_UI_TESTS=ON
     cmake --build --preset macos
 else
     echo "==> Skipping build (--skip-build)"

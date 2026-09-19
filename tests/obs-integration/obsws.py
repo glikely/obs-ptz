@@ -30,7 +30,7 @@ class ObsWebSocketError(RuntimeError):
 
 class Client:
     def __init__(self, url, password=None, timeout=10):
-        self._ws = connect(url, open_timeout=timeout)
+        self._ws = connect(url, open_timeout=timeout, legacy=True)
         self._ids = itertools.count(1)
 
         hello = json.loads(self._ws.recv(timeout=timeout))

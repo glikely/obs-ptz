@@ -45,6 +45,19 @@ DEVICE_IDS = {
 }
 
 
+def write_preset_file(path, presets, preset_max=16, device="unused"):
+    """Writes a preset export file in the shape PTZDevice::exportPresets()
+    produces (see on_actionPresetExport_triggered() in
+    src/ptz-controls.cpp), for test_preset_import_export.py to feed to
+    the real "Import Presets..." action via World.run_ui_test()."""
+    path.write_text(json.dumps({
+        "obs-ptz-preset-format": 1,
+        "device": device,
+        "preset_max": preset_max,
+        "presets": presets,
+    }))
+
+
 def free_port():
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
         s.bind(("127.0.0.1", 0))
@@ -187,6 +200,66 @@ class World:
             except ObsWebSocketError:
                 pass
 
+    def run_ui_test(self, cmd, **params):
+        """Dispatches a tests/ui-harness/ test by name (matching one of
+        its registerTest() calls) via the "obs-ptz" vendor's
+        "ui_test_run" request -- the same request scripts/
+        test_preset_row_sizing.py uses for the appearance_row_sizing/
+        measure_now tests. obs-websocket's vendorRequestCallback()
+        (tests/ui-harness/ui-test-harness.cpp) only ever reads params as
+        strings (obs_data_item_get_string on every field), so stringify
+        them here rather than relying on JSON's own int/float types.
+
+        This is fire-and-forget: the harness only acknowledges receipt
+        ("accepted": true) and runs the actual test later, queued onto
+        the GUI thread -- see vendorRequestCallback()'s own comment for
+        why. Callers that need to observe the test's effect (e.g. a file
+        it wrote) have to poll for it, e.g. with wait_for() below."""
+        response = self.ws.call("CallVendorRequest", {
+            "vendorName": "obs-ptz",
+            "requestType": "ui_test_run",
+            "requestData": {"cmd": cmd, **{k: str(v) for k, v in params.items()}},
+        })
+        return response["responseData"]
+
+    def export_and_wait(self, device_id, out_file, expected_presets, timeout=5, interval=0.1):
+        """Triggers the real "Export Presets..." action once (via
+        run_ui_test()) for device_id, writing to out_file, then waits for
+        it to show expected_presets -- run_ui_test()'s dispatch is queued
+        onto the GUI thread, not synchronous, so the file may not exist
+        yet the instant this returns. Returns the parsed file."""
+        self.run_ui_test("export_presets", device_id=device_id, filename=str(out_file))
+
+        def matches():
+            return out_file.exists() and json.loads(out_file.read_text()).get("presets") == expected_presets
+
+        self.wait_for(matches, timeout=timeout, interval=interval)
+        return json.loads(out_file.read_text())
+
+    def wait_for(self, predicate, timeout=5, interval=0.1):
+        """Generic poll-until-true, for waiting on the effect of an
+        asynchronous request like run_ui_test() -- unlike wait_for_state(),
+        which is specifically for polling ptzsim's own /state endpoint,
+        predicate takes no arguments and can check anything (a file's
+        contents, another obs-websocket call's result, ...). A predicate
+        that raises (e.g. a file that doesn't exist yet) is treated as
+        "not yet" rather than failing the wait outright, but the last such
+        exception is re-raised if the deadline is hit without success, so
+        a genuine bug in the predicate still surfaces instead of a bare
+        "timed out"."""
+        deadline = time.time() + timeout
+        last_exc = None
+        while time.time() < deadline:
+            try:
+                if predicate():
+                    return
+            except Exception as e:
+                last_exc = e
+            time.sleep(interval)
+        if last_exc is not None:
+            raise last_exc
+        raise AssertionError("condition never became true")
+
 
 @pytest.fixture(scope="session")
 def ptz_ports():
@@ -247,6 +320,11 @@ def obs_world(tmp_path_factory, ptzsim_process):
     env["OBS_WEBSOCKET_SERVER_ENABLE"] = "true"
     env["OBS_WEBSOCKET_SERVER_PORT"] = str(ws_port)
     env["OBS_WEBSOCKET_SERVER_PASSWORD"] = ws_password
+    # Activates tests/ui-harness/ (test_preset_import_export.py) when the
+    # plugin was built with -DENABLE_UI_TESTS=ON; a harmless no-op
+    # otherwise (ptz_load_ui_tests() is a stub in that case -- see
+    # src/ptz.h), so always setting it keeps this fixture usable either way.
+    env["PTZ_UI_TEST_HARNESS"] = "1"
 
     cmd = [obs_binary, "--disable-updater"]
     if platform.system() == "Linux" and not env.get("DISPLAY") and shutil.which("xvfb-run"):

@@ -17,6 +17,7 @@ PTZUITestHarness *g_harness = nullptr;
 PTZUITestHarness::PTZUITestHarness(QObject *parent) : QObject(parent)
 {
 	registerAppearanceRowSizingTest(this);
+	registerPresetExportImportTest(this);
 }
 
 void PTZUITestHarness::registerTest(const QString &name, TestFn fn)

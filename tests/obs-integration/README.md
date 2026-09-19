@@ -43,50 +43,65 @@ actually work end to end.
    point a joystick move or a hotkey uses.
 5. The test polls `ptzsim`'s `/state` endpoint until it sees the
    expected pan/tilt speed or position, or times out.
+6. `test_preset_import_export.py` covers the preset export/import feature.
+   It triggers the import/export context menu action. However, it passes
+   a filename at call time as the tests cannot drive the file dialog.
+   Needs the plugin built with `-DENABLE_UI_TESTS=ON` (`tests/ui-harness/`
+   is entirely inert otherwise) and OBS launched with
+   `PTZ_UI_TEST_HARNESS=1`, which `conftest.py`'s `obs_world` fixture
+   always sets -- a no-op if the binary wasn't built with that option, so
+   it doesn't affect the rest of the suite.
 
 ## Running locally
 
 Needs a real OBS Studio with this plugin built and installed into it --
 see the top-level `CMakeLists.txt` options; you'll want
 `-DENABLE_SERIALPORT=ON` so the VISCA-serial and Pelco device types
-exist at all (off by default). The CI workflow
-(`.github/workflows/ptz-emulator-tests.yml`) shows the exact steps for
-Ubuntu (`apt install obs-studio libobs-dev ...`, plain `cmake` build,
-`cmake --install` straight into `/usr`) and macOS (`brew install --cask
-obs`, `cmake --preset macos`, copy the built `.plugin` bundle into
-`~/Library/Application Support/obs-studio/plugins/`).
+exist at all (off by default), and `-DENABLE_UI_TESTS=ON` if you want
+`test_preset_import_export.py` to actually find anything to drive
+(`test_ptz_backends.py` works fine without it).
 
-Once OBS has the plugin installed:
+**macOS**: real OBS on macOS ignores every isolation mechanism this
+suite relies on and always loads your live profile, so don't run pytest
+against it directly -- use `scripts/run-macos-integration-tests.sh`
+instead, which builds the plugin, backs up and restores your whole OBS
+profile around the run, and redirects obs-ptz's/obs-websocket's config to
+where real OBS actually reads it (see that script's and
+`scripts/macos-integration-test-obs-wrapper.py`'s docstrings for why).
+Last verified end to end this way (20/20 passing, against OBS 32.2.1)
+before the preset export/import suite dropped its vendor-request tests
+in favor of testing only through the real UI action, and
+on_actionPresetImport_triggered() was fixed to restore device selection
+after its model reset (see `src/ptz-controls.cpp`'s own comment there) --
+not yet re-run against that change; expect 14/14 (the vendor-request
+tests are gone, see `test_preset_import_export.py`'s own docstring) if
+it holds.
+
+**Linux**: `$HOME` isolation actually works, so a plain
 
 ```
+apt install obs-studio libobs-dev  # or your distro's equivalents
+cmake --preset ubuntu-<arch> -DENABLE_SERIALPORT=ON -DENABLE_ONVIF=ON -DENABLE_UI_TESTS=ON
+cmake --build --preset ubuntu-<arch>
+cp build_<arch>/obs-ptz.so /usr/lib/<arch>-linux-gnu/obs-plugins/  # real file, not a symlink -- OBS's plugin scan skips symlinks
 pip install -r tests/obs-integration/requirements.txt
 PTZSIM_OBS_BINARY=obs pytest tests/obs-integration -v
 ```
+
+is enough -- no wrapper script needed. Verified end to end this way
+(14/14 passing) against Ubuntu 24.04's packaged OBS 30.0.2, run under a
+throwaway `Xvfb` (confirmed a viable fallback for this suite
+specifically, since every test here drives OBS purely over
+obs-websocket and never needs synthetic X11 input) in 22s; `Xvfb`'s
+software (`llvmpipe`) rendering is a known way to starve OBS's main
+thread on a low-core-count VM (see the top-level `CLAUDE.md`), so prefer
+a real accelerated GNOME/Xwayland session where one's available.
 
 `PTZSIM_OBS_BINARY` defaults to `obs` on Linux and OBS.app's real binary
 path on macOS; override it if yours lives elsewhere.
 
 ## Known limitations
 
-This suite was written by tracing the plugin's actual source (device
-config schema, `ptz_action_source`'s trigger behavior, the proc handler
-signatures) and obs-websocket's documented protocol, but **it has not
-been run against a real OBS Studio process** -- the environment this was
-developed in has no OBS binary or display server available. The parts
-most likely to need a first-run fix:
-
-- **A first-run OBS dialog** (auto-config wizard, "check for updates"
-  prompt, etc.) could block headless startup indefinitely. The fixture
-  fails with a clear timeout rather than hanging forever, but doesn't
-  attempt to suppress any such dialog -- OBS's exact first-run behavior
-  varies by version and wasn't verified here.
-- **The macOS plugin bundle path**: `cmake --preset macos` and the
-  `.plugin` bundle's exact output location under `build_macos/` were
-  read from `cmake/macos/helpers.cmake` and the existing
-  `.github/scripts/build-macos`/`package-macos` scripts, not built.
 - **Timing constants** (`wait_for_state` timeouts, the `time.sleep(0.5)`
   move durations in `test_preset_save_and_recall`) are reasonable
-  guesses, not tuned against real hardware timing.
-
-Treat the first CI run (or a local run) as the real validation pass, and
-expect to adjust the OBS bootstrap step if it doesn't come up cleanly.
+  guesses tuned against `ptzsim`, not real camera hardware timing.

@@ -8,10 +8,15 @@ windowed `OBS.app`, and a test that drives a dialog pops it open and
 closed for real - don't drive the mouse/keyboard while one runs) - link
 it in explicitly when you want to run it.
 
-Ships with one test, `appearance_row_sizing` (see
+Ships with two tests: `appearance_row_sizing` (see
 `appearance-row-sizing-test.cpp` and its own driver,
-`scripts/test_preset_row_sizing.py`) - see "Adding a new test" below
-for how to add another.
+`scripts/test_preset_row_sizing.py`), and `export_presets`/
+`import_presets` (see `preset-export-import-test.cpp` and its driver,
+`tests/obs-integration/test_preset_import_export.py` - a pytest module
+rather than a standalone script; see its own docstring and "Driving a
+test from pytest instead of a standalone script" below for why that
+one's different) - see "Adding a new test" below for how to add
+another.
 
 ## Why in-process, not a standalone test binary
 
@@ -101,6 +106,35 @@ on Windows, `obs` on `$PATH` elsewhere). Set `PTZ_TEST_OBS_BIN` to an
 absolute path to point it at a different install instead - e.g. to
 choose between multiple architectures' worth of OBS on the same
 machine (see "Testing on Windows" below).
+
+## Driving a test from pytest instead of a standalone script
+
+`test_preset_import_export.py` (`tests/obs-integration/`) drives
+`export_presets`/`import_presets` differently than
+`test_preset_row_sizing.py` drives `appearance_row_sizing`: rather than
+a standalone script that launches and tears down its own OBS process,
+it's a normal pytest module in the `tests/obs-integration` suite, using
+that suite's existing session-scoped `obs_world` fixture
+(`conftest.py`) - which was already managing one OBS + `ptzsim`
+instance for `test_ptz_backends.py` anyway, obs-websocket vendor and
+all, so there's no reason for a UI-driven test to launch a second,
+separate OBS just to reach the same vendor. `conftest.py`'s `obs_world`
+fixture always sets `PTZ_UI_TEST_HARNESS=1` in OBS's environment for
+exactly this - inert unless the binary was actually built with
+`-DENABLE_UI_TESTS=ON`, so it doesn't change anything for the rest of
+that suite.
+
+`World.run_ui_test(cmd, **params)` wraps the same `CallVendorRequest`
+call `scripts/obs_ws_client.py --vendor obs-ptz --request-type
+ui_test_run` makes; `World.wait_for(predicate)` is the generic
+poll-until-true helper for waiting on that dispatch's effect (a file it
+wrote, ...), since the request itself only confirms it was *accepted*,
+same caveat as everywhere else in this file. Prefer this pattern -
+reusing `obs_world` - for a new UI-harness test whose assertions fit
+naturally as pytest, and a standalone script
+(`test_preset_row_sizing.py`'s pattern) for one that needs to sweep many
+combinations against one long-lived OBS process outside of pytest, or
+that doesn't otherwise belong alongside `tests/obs-integration`.
 
 ## Testing on Windows
 
