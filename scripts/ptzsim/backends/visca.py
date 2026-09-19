@@ -244,6 +244,21 @@ class ViscaCameraLogic:
         self.state.set_position(pan=0.0, tilt=0.0)
         self.state.stop(pan_tilt=True, zoom=False)
 
+    def cmd01043f00(self, dg):
+        '''CAM_Memory Reset'''
+        self.state.remove_preset(str(dg[5] & 0x7f))
+        self.cmd_ack()
+
+    def cmd01043f01(self, dg):
+        '''CAM_Memory Set'''
+        self.state.set_preset(str(dg[5] & 0x7f), None)
+        self.cmd_ack()
+
+    def cmd01043f02(self, dg):
+        '''CAM_Memory Recall'''
+        self.state.goto_preset(str(dg[5] & 0x7f))
+        self.cmd_ack()
+
     def cmd090002(self, dg):
         '''CAM_VersionInq'''
         self.send_datagram(b'\x50\x00\x01\x05\x11\x00\x00\x02')
