@@ -141,7 +141,7 @@ class ViscaCameraLogic:
         if len(field) != 3 or field[2] < 1 or field[2] > 3:
             raise ValueError
         s = field[2]
-        return field[0] * ((s & 0x1) - ((s >> 1 & 0x1)))
+        return field[0] * (((s >> 1) & 0x1) - (s & 0x1))
 
     def decode_s16(self, field):
         '''VISCA 16 bit signed value [0Y 0Y 0Y 0Y]
@@ -213,7 +213,7 @@ class ViscaCameraLogic:
     def cmd010601(self, dg):
         '''Pan-tiltDrive-Move'''
         panspeed = self.decode_s9(dg[4:7])
-        tiltspeed = self.decode_s9(dg[5:8])
+        tiltspeed = -self.decode_s9(dg[5:8])
         self.state.set_pt_speed(to_shared_signed(panspeed, PT_SPEED_RANGE),
                                  to_shared_signed(tiltspeed, PT_SPEED_RANGE))
         self.cmd_ack()
