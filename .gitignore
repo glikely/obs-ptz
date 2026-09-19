@@ -25,6 +25,10 @@
 # Exclude lock files
 *.lock.json
 
+# Exclude Python bytecode caches
+__pycache__/
+*.pyc
+
 # Exclude macOS legacy resource forks
 .DS_Store
 
