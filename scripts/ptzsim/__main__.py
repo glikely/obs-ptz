@@ -64,6 +64,7 @@ import threading
 from .backends.onvif import OnvifBackend
 from .backends.pelco import PelcoBackend
 from .backends.visca import ViscaBackend
+from .debug_http import DebugHttpServer
 from .state import PTZState, run_ticker
 from .video import VideoFeed
 
@@ -119,6 +120,10 @@ def parse_args():
                      help="explicit path to the mediamtx binary (default: search $PATH)")
     ap.add_argument("--state-file", default="/tmp/ptzsim-state.txt",
                      help="path the video overlay text is written to")
+
+    ap.add_argument("--debug-http-port", type=int, default=0,
+                     help="serve GET /state as JSON on this port for test "
+                          "harnesses (0 disables it, the default)")
     return ap.parse_args()
 
 
@@ -158,6 +163,11 @@ def main():
     if not backends:
         print("[sim] warning: no backends are enabled, the camera can't be controlled")
 
+    debug_http = None
+    if args.debug_http_port:
+        debug_http = DebugHttpServer(state, args.host, args.debug_http_port)
+        debug_http.start()
+
     video = None
     if args.with_video:
         video = VideoFeed(state, args.host, args.rtsp_port, args.state_file, args.mediamtx)
@@ -170,6 +180,8 @@ def main():
         stop_event.set()
         if video:
             video.stop()
+        if debug_http:
+            debug_http.stop()
         for backend in backends:
             backend.stop()
         loop.stop()
