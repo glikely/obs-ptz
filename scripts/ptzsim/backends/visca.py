@@ -1,15 +1,24 @@
-"""VISCA-over-TCP protocol driver.
+"""VISCA protocol driver: TCP, UDP ("VISCA-over-IP"), and emulated serial.
 
-Speaks the wire protocol of viscaemu.py's original VISCA emulator, but
-reads/writes pan, tilt, zoom and focus on a shared PTZState instead of
-owning that state itself. Fields VISCA alone cares about (white balance,
-exposure, gain, ...) stay local to each connection since they're purely
-cosmetic for inquiry responses and aren't part of the shared PTZ model.
+All three transports share one ViscaCameraLogic instance's worth of wire
+protocol per link; only framing differs:
+
+- TCP and serial carry raw VISCA datagrams terminated by 0xff, exactly as
+  on the wire for ptz-visca-tcp.cpp / ptz-visca-uart.cpp.
+- UDP wraps each datagram in Sony's 8-byte VISCA-over-IP header (type,
+  length, sequence number), matching ptz-visca-udp.cpp.
+
+Pan, tilt, zoom and focus are read/written on a shared PTZState instead
+of being owned here. Fields VISCA alone cares about (white balance,
+exposure, gain, ...) stay local to each logic instance since they're
+purely cosmetic for inquiry responses and aren't part of the shared PTZ
+model.
 """
 
 import asyncio
 
 from .base import Backend
+from ..serial_port import DatagramFramer, EmulatedSerialPort
 
 # Position/speed ranges taken from the original VISCA emulator.
 PT_POS_RANGE = 0xe500      # pan/tilt position, signed
@@ -39,9 +48,17 @@ def sign_extend(val, bits):
     return (val & (sign_bit - 1)) - (val & sign_bit)
 
 
-class ViscaConnection(asyncio.Protocol):
+class ViscaCameraLogic:
+    """Transport-agnostic VISCA command decoder/encoder for one link.
+
+    Call handle_datagram() with one received VISCA datagram (without its
+    trailing 0xff); it returns a list of reply datagrams to send back
+    (each already including its trailing 0xff).
+    """
+
     def __init__(self, state):
         self.state = state
+        self._out = []
         # VISCA-only cosmetic inquiry fields; not part of the shared model.
         self.zoomnearlimit = 0
         self.rgain = 0
@@ -74,11 +91,16 @@ class ViscaConnection(asyncio.Protocol):
               f'{snap.zoom:.2f}{snap.zoom_speed:+.2f}, {snap.focus:.2f}{snap.focus_speed:+.2f}]',
               data1, data2)
 
-    def connection_made(self, transport):
-        peername = transport.get_extra_info('peername')
-        print('[visca] connection from', peername)
-        self.transport = transport
+    def hello(self):
+        """Greeting some transports send when a new link comes up."""
+        self._out = []
         self.send_broadcast(b'\x38')
+        return self._out
+
+    def handle_datagram(self, dg):
+        self._out = []
+        self.receive_datagram(dg)
+        return self._out
 
     def send_datagram(self, dg):
         self._send_datagram(b'\x90%b\xff' % dg)
@@ -87,7 +109,7 @@ class ViscaConnection(asyncio.Protocol):
         self._send_datagram(b'\x88%b\xff' % dg)
 
     def _send_datagram(self, dg):
-        self.transport.write(dg)
+        self._out.append(dg)
         self.print_state('<--', dg.hex())
 
     # VISCA protocol encode/decode helpers
@@ -315,13 +337,30 @@ class ViscaConnection(asyncio.Protocol):
                     return
                 break
 
+
+# ---------------------------------------------------------------------------
+# TCP transport: raw VISCA datagrams terminated by 0xff.
+# ---------------------------------------------------------------------------
+class ViscaTcpConnection(asyncio.Protocol):
+    def __init__(self, state):
+        self.logic = ViscaCameraLogic(state)
+        self.framer = DatagramFramer(self._on_datagram)
+
+    def connection_made(self, transport):
+        self.transport = transport
+        print('[visca-tcp] connection from', transport.get_extra_info('peername'))
+        for reply in self.logic.hello():
+            self.transport.write(reply)
+
     def data_received(self, data):
-        datagrams = data.split(b'\xff')
-        for dg in datagrams:
-            self.receive_datagram(dg)
+        self.framer.feed(data)
+
+    def _on_datagram(self, dg):
+        for reply in self.logic.handle_datagram(dg):
+            self.transport.write(reply)
 
 
-class ViscaBackend(Backend):
+class ViscaTcpServer:
     def __init__(self, state, host='', port=5678):
         self.state = state
         self.host = host
@@ -330,10 +369,128 @@ class ViscaBackend(Backend):
 
     async def start(self, loop):
         state = self.state
-        self._server = await loop.create_server(lambda: ViscaConnection(state),
+        self._server = await loop.create_server(lambda: ViscaTcpConnection(state),
                                                   self.host, self.port)
-        print(f'[visca] serving on {self._server.sockets[0].getsockname()}')
+        print(f'[visca-tcp] serving on {self._server.sockets[0].getsockname()}')
 
     def stop(self):
         if self._server:
             self._server.close()
+
+
+# ---------------------------------------------------------------------------
+# UDP transport: Sony "VISCA-over-IP", an 8-byte header (type, length, a
+# 32-bit sequence number) in front of the same raw VISCA datagram used by
+# TCP/serial. See src/ptz-visca-udp.cpp for the client side this mirrors.
+# ---------------------------------------------------------------------------
+VISCA_IP_COMMAND = 0x0100
+VISCA_IP_INQUIRY = 0x0110
+VISCA_IP_REPLY = 0x0111
+VISCA_IP_CONTROL_CMD = 0x0200
+VISCA_IP_CONTROL_REPLY = 0x0201
+VISCA_IP_RESET = 0x01
+
+
+class ViscaUdpProtocol(asyncio.DatagramProtocol):
+    def __init__(self, state):
+        self.logic = ViscaCameraLogic(state)
+
+    def connection_made(self, transport):
+        self.transport = transport
+
+    def datagram_received(self, data, addr):
+        if len(data) < 9:
+            return
+        ptype = (data[0] << 8) | data[1]
+        seq = int.from_bytes(data[4:8], 'big')
+        payload = data[8:]
+        if ptype in (VISCA_IP_COMMAND, VISCA_IP_INQUIRY):
+            dg = payload[:-1] if payload.endswith(b'\xff') else payload
+            for reply in self.logic.handle_datagram(dg):
+                self._send(addr, VISCA_IP_REPLY, seq, reply)
+        elif ptype == VISCA_IP_CONTROL_CMD:
+            if payload[:1] == bytes([VISCA_IP_RESET]):
+                self._send(addr, VISCA_IP_CONTROL_REPLY, seq, bytes([VISCA_IP_RESET]))
+        # Unrecognized control opcodes are silently ignored.
+
+    def _send(self, addr, ptype, seq, payload):
+        header = bytes([(ptype >> 8) & 0xff, ptype & 0xff,
+                         (len(payload) >> 8) & 0xff, len(payload) & 0xff]) + \
+            seq.to_bytes(4, 'big')
+        self.transport.sendto(header + payload, addr)
+
+
+class ViscaUdpServer:
+    def __init__(self, state, host='', port=52381):
+        self.state = state
+        self.host = host
+        self.port = port
+        self.transport = None
+
+    async def start(self, loop):
+        self.transport, _protocol = await loop.create_datagram_endpoint(
+            lambda: ViscaUdpProtocol(self.state), local_addr=(self.host or '0.0.0.0', self.port))
+        print(f'[visca-udp] serving on {self.transport.get_extra_info("sockname")}')
+
+    def stop(self):
+        if self.transport:
+            self.transport.close()
+
+
+# ---------------------------------------------------------------------------
+# Emulated serial transport: same raw framing as TCP, carried over a pty.
+# ---------------------------------------------------------------------------
+class ViscaSerialLink:
+    def __init__(self, state, symlink_path):
+        self.logic = ViscaCameraLogic(state)
+        self.port = EmulatedSerialPort(symlink_path)
+        self.framer = DatagramFramer(self._on_datagram)
+        self._loop = None
+
+    def start(self, loop):
+        self._loop = loop
+        self.port.register(loop, self.framer.feed)
+        print(f'[visca-serial] emulated serial port at {self.port.path}')
+        for reply in self.logic.hello():
+            self.port.write(reply)
+
+    def _on_datagram(self, dg):
+        for reply in self.logic.handle_datagram(dg):
+            self.port.write(reply)
+
+    def stop(self):
+        self.port.close(self._loop)
+
+
+class ViscaBackend(Backend):
+    """Umbrella backend: starts whichever VISCA transports are configured.
+    Pass a falsy port/path to skip that transport."""
+
+    def __init__(self, state, host='', tcp_port=5678, udp_port=52381, serial_path=None):
+        self.state = state
+        self.host = host
+        self.tcp_port = tcp_port
+        self.udp_port = udp_port
+        self.serial_path = serial_path
+        self._tcp = None
+        self._udp = None
+        self._serial = None
+
+    async def start(self, loop):
+        if self.tcp_port:
+            self._tcp = ViscaTcpServer(self.state, self.host, self.tcp_port)
+            await self._tcp.start(loop)
+        if self.udp_port:
+            self._udp = ViscaUdpServer(self.state, self.host, self.udp_port)
+            await self._udp.start(loop)
+        if self.serial_path:
+            self._serial = ViscaSerialLink(self.state, self.serial_path)
+            self._serial.start(loop)
+
+    def stop(self):
+        if self._tcp:
+            self._tcp.stop()
+        if self._udp:
+            self._udp.stop()
+        if self._serial:
+            self._serial.stop()
