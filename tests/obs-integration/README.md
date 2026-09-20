@@ -64,6 +64,12 @@ actually work end to end.
    `-DENABLE_UI_TESTS=ON` requirement as above) -- there's no
    `ptz_action_source` action type for either, so obs-websocket alone
    can't reach them.
+9. `test_autofocus_white_balance.py` covers autofocus on/off
+   (`PTZDevice::set_autofocus()`) and VISCA white balance mode
+   (`PTZVisca::set()`'s `"wb_mode"` handling), via
+   `tests/ui-harness/set-device-test.cpp`'s `set_device` test (same
+   `-DENABLE_UI_TESTS=ON` requirement as above), read back through
+   `get_device_status`.
 
 ## Running locally
 
