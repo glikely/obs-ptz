@@ -12,6 +12,7 @@ set(
 
 # Read build number from cache file or manual override
 if(NOT DEFINED PLUGIN_BUILD_NUMBER)
+  set(PLUGIN_BUILD_NUMBER "1")
   if(EXISTS "${_BUILD_NUMBER_CACHE}")
     file(READ "${_BUILD_NUMBER_CACHE}" PLUGIN_BUILD_NUMBER)
     math(EXPR PLUGIN_BUILD_NUMBER "${PLUGIN_BUILD_NUMBER}+1")
