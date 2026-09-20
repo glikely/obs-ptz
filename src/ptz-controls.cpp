@@ -234,6 +234,19 @@ PTZControls::PTZControls(QWidget *parent) : QFrame(parent), ui(new Ui::PTZContro
 	instance = this;
 	ui->setupUi(this);
 
+	/* The directional pan/tilt/zoom/focus buttons each have their own
+	 * translated tooltip describing the action, but all share the same
+	 * "held modifier key" hint. Append it here instead of repeating it
+	 * (and its markup) in every individual translation string. */
+	const QString modifierHint = QString("%1\n%2")
+					     .arg(obs_module_text("PTZ.Action.Movement.Tooltip.Fast"))
+					     .arg(obs_module_text("PTZ.Action.Movement.Tooltip.Slow"));
+	for (QWidget *w :
+	     {ui->panTiltButton_upleft, ui->panTiltButton_up, ui->panTiltButton_upright, ui->panTiltButton_left,
+	      ui->panTiltButton_right, ui->panTiltButton_downleft, ui->panTiltButton_down, ui->panTiltButton_downright,
+	      ui->zoomButton_wide, ui->zoomButton_tele, ui->focusButton_near, ui->focusButton_far})
+		w->setToolTip(w->toolTip() + "\n" + modifierHint);
+
 	/* Compatability: Before OBS Studio 31.1.0 the theme had left and right
 	 * margins on widgets which mess with the grid layout used by this
 	 * plugin. If the version is earlier than 31.1.0 then apply an extra

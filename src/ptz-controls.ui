@@ -119,7 +119,7 @@
                </sizepolicy>
               </property>
               <property name="toolTip">
-               <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Move camera up left&lt;br/&gt;&amp;lt;ctrl&amp;gt;+click: fast&lt;br/&gt;&amp;lt;shift&amp;gt;+click: slow&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+               <string>PTZ.Action.PanTiltUpLeft.Tooltip</string>
               </property>
               <property name="text">
                <string/>
@@ -139,7 +139,7 @@
                </sizepolicy>
               </property>
               <property name="toolTip">
-               <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Move camera up&lt;br/&gt;&amp;lt;ctrl&amp;gt;+click: fast&lt;br/&gt;&amp;lt;shift&amp;gt;+click: slow&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+               <string>PTZ.Action.PanTiltUp.Tooltip</string>
               </property>
               <property name="text">
                <string/>
@@ -159,7 +159,7 @@
                </sizepolicy>
               </property>
               <property name="toolTip">
-               <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Move camera down right&lt;br/&gt;&amp;lt;ctrl&amp;gt;+click: fast&lt;br/&gt;&amp;lt;shift&amp;gt;+click: slow&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+               <string>PTZ.Action.PanTiltDownRight.Tooltip</string>
               </property>
               <property name="text">
                <string/>
@@ -179,7 +179,7 @@
                </sizepolicy>
               </property>
               <property name="toolTip">
-               <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Move camera up right&lt;br/&gt;&amp;lt;ctrl&amp;gt;+click: fast&lt;br/&gt;&amp;lt;shift&amp;gt;+click: slow&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+               <string>PTZ.Action.PanTiltUpRight.Tooltip</string>
               </property>
               <property name="text">
                <string/>
@@ -216,7 +216,7 @@
                </sizepolicy>
               </property>
               <property name="toolTip">
-               <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Move camera left&lt;br/&gt;&amp;lt;ctrl&amp;gt;+click: fast&lt;br/&gt;&amp;lt;shift&amp;gt;+click: slow&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+               <string>PTZ.Action.PanTiltLeft.Tooltip</string>
               </property>
               <property name="text">
                <string/>
@@ -236,7 +236,7 @@
                </sizepolicy>
               </property>
               <property name="toolTip">
-               <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Move camera down&lt;br/&gt;&amp;lt;ctrl&amp;gt;+click: fast&lt;br/&gt;&amp;lt;shift&amp;gt;+click: slow&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+               <string>PTZ.Action.PanTiltDown.Tooltip</string>
               </property>
               <property name="text">
                <string/>
@@ -256,7 +256,7 @@
                </sizepolicy>
               </property>
               <property name="toolTip">
-               <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Move camera down left&lt;br/&gt;&amp;lt;ctrl&amp;gt;+click: fast&lt;br/&gt;&amp;lt;shift&amp;gt;+click: slow&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+               <string>PTZ.Action.PanTiltDownLeft.Tooltip</string>
               </property>
               <property name="text">
                <string/>
@@ -276,7 +276,7 @@
                </sizepolicy>
               </property>
               <property name="toolTip">
-               <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Move camera right&lt;br/&gt;&amp;lt;ctrl&amp;gt;+click: fast&lt;br/&gt;&amp;lt;shift&amp;gt;+click: slow&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+               <string>PTZ.Action.PanTiltRight.Tooltip</string>
               </property>
               <property name="text">
                <string/>
@@ -321,7 +321,7 @@
              </sizepolicy>
             </property>
             <property name="toolTip">
-             <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Zoom camera in&lt;br/&gt;&amp;lt;ctrl&amp;gt;+click: fast&lt;br/&gt;&amp;lt;shift&amp;gt;+click: slow&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+             <string>PTZ.Action.ZoomTele.Tooltip</string>
             </property>
             <property name="layoutDirection">
              <enum>Qt::LayoutDirection::LeftToRight</enum>
@@ -341,7 +341,7 @@
              </sizepolicy>
             </property>
             <property name="toolTip">
-             <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Zoom camera out&lt;br/&gt;&amp;lt;ctrl&amp;gt;+click: fast&lt;br/&gt;&amp;lt;shift&amp;gt;+click: slow&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+             <string>PTZ.Action.ZoomWide.Tooltip</string>
             </property>
             <property name="icon">
              <iconset resource="ptz-controls.qrc">
@@ -360,7 +360,7 @@
            </sizepolicy>
           </property>
           <property name="toolTip">
-           <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Toggle Autofocus On/Off&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+           <string>PTZ.Action.FocusAutoToggle.Tooltip</string>
           </property>
           <property name="icon">
            <iconset resource="ptz-controls.qrc">
@@ -380,7 +380,7 @@
            </sizepolicy>
           </property>
           <property name="toolTip">
-           <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Focus near&lt;br/&gt;&amp;lt;ctrl&amp;gt;+click: fast&lt;br/&gt;&amp;lt;shift&amp;gt;+click: slow&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+           <string>PTZ.Action.FocusNear.Tooltip</string>
           </property>
           <property name="icon">
            <iconset resource="ptz-controls.qrc">
@@ -397,7 +397,7 @@
            </sizepolicy>
           </property>
           <property name="toolTip">
-           <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Focus far&lt;br/&gt;&amp;lt;ctrl&amp;gt;+click: fast&lt;br/&gt;&amp;lt;shift&amp;gt;+click: slow&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+           <string>PTZ.Action.FocusFar.Tooltip</string>
           </property>
           <property name="layoutDirection">
            <enum>Qt::LayoutDirection::LeftToRight</enum>
@@ -417,7 +417,7 @@
            </sizepolicy>
           </property>
           <property name="toolTip">
-           <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;One-touch Autofocus&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+           <string>PTZ.Action.FocusOneTouch.Tooltip</string>
           </property>
           <property name="text">
            <string/>
