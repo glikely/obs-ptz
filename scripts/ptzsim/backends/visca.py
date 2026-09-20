@@ -228,6 +228,13 @@ class ViscaCameraLogic:
             self.af_enabled = not self.af_enabled
         self.cmd_ack()
 
+    def cmd010435(self, dg):
+        '''CAM_WB_Mode (also matches the fixed Auto/Indoor/Outdoor/
+        OnePush/AutoTracing/Manual variants, which just spell the mode
+        out in the command itself rather than as an argument)'''
+        self.wbmode = dg[4] & 0x0f
+        self.cmd_ack()
+
     def cmd010601(self, dg):
         '''Pan-tiltDrive-Move'''
         panspeed = self.decode_s9(dg[4:7])
