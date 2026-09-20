@@ -10,11 +10,11 @@
 #include <QTimer>
 #include <QStyledItemDelegate>
 #include <obs.hpp>
+#include <obs-frontend-api.h>
 #if defined(ENABLE_JOYSTICK)
 #include <QJoysticks.h>
 #endif
 #include "touch-control.hpp"
-#include "ptz-device.hpp"
 #include "ui_ptz-controls.h"
 
 typedef size_t ptz_joy_action_id;
