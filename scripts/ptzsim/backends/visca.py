@@ -44,7 +44,7 @@ def from_shared_unsigned(value, rng):
 
 
 def sign_extend(val, bits):
-    sign_bit = 1 << bits
+    sign_bit = 1 << (bits - 1)
     return (val & (sign_bit - 1)) - (val & sign_bit)
 
 
