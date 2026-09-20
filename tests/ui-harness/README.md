@@ -16,12 +16,13 @@ Ships with five tests: `appearance_row_sizing` (see
 rather than a standalone script; see its own docstring and "Driving a
 test from pytest instead of a standalone script" below for why that
 one's different), `get_device_status` (see `device-status-test.cpp` and
-its drivers, `tests/obs-integration/test_device_status.py` and
-`test_autofocus_white_balance.py` - also pytest modules, for the same
-reason), `move_device` (see `move-device-test.cpp` and its driver,
-`tests/obs-integration/test_absolute_relative_moves.py` - likewise a
-pytest module), and `set_device` (see `set-device-test.cpp` and its
-driver, `tests/obs-integration/test_autofocus_white_balance.py`) - see
+its drivers, `tests/obs-integration/test_device_status.py`,
+`test_autofocus_white_balance.py` and `test_power.py` - also pytest
+modules, for the same reason), `move_device` (see `move-device-test.cpp`
+and its driver, `tests/obs-integration/test_absolute_relative_moves.py`
+- likewise a pytest module), and `set_device` (see `set-device-test.cpp`
+and its drivers, `test_autofocus_white_balance.py` and `test_power.py`)
+- see
 "Adding a new test" below for how to add another.
 
 ## Why in-process, not a standalone test binary

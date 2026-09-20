@@ -18,9 +18,12 @@ namespace {
  * PTZControls::on_deviceList_customContextMenuRequested() and
  * PTZControls::getCurrentDeviceAutofocus() already make from inside the
  * UI (src/ptz-controls.cpp) -- for properties that have no
- * ptz_action_source action type of their own (its PTZ_ACTION_* enum,
- * src/ptz-action-source.c, only covers continuous pan/tilt, stop,
- * presets and power). */
+ * ptz_action_source action type of their own. PTZ_ACTION_POWER_OFF/
+ * PTZ_ACTION_POWER_ON exist in its PTZ_ACTION_* enum
+ * (src/ptz-action-source.c) but are never actually wired up in
+ * ptz_action_source_do_action() (default: break;) or exposed in its own
+ * "action" property list, so power is no more reachable over
+ * obs-websocket than autofocus/white balance are. */
 void runSetDeviceTest(const QMap<QString, QString> &params)
 {
 	bool deviceIdOk = false;
@@ -37,6 +40,10 @@ void runSetDeviceTest(const QMap<QString, QString> &params)
 	}
 
 	calldata cd = {};
+	if (params.contains(QStringLiteral("power_on"))) {
+		bool on = params.value(QStringLiteral("power_on")).toLower() == QStringLiteral("true");
+		calldata_set_bool(&cd, "power_on", on);
+	}
 	if (params.contains(QStringLiteral("focus_af_enabled"))) {
 		bool enabled = params.value(QStringLiteral("focus_af_enabled")).toLower() == QStringLiteral("true");
 		calldata_set_bool(&cd, "focus_af_enabled", enabled);
@@ -54,6 +61,7 @@ void runSetDeviceTest(const QMap<QString, QString> &params)
 
 /* Request params:
  *   device_id         - the target device's numeric id
+ *   power_on          - optional, "True"/"False" (Python's str(bool))
  *   focus_af_enabled  - optional, "True"/"False" (Python's str(bool))
  *   wb_mode           - optional, integer white-balance mode
  */
