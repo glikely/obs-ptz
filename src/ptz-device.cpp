@@ -214,6 +214,10 @@ void PTZDevice::get(calldata_t *cd) const
 		calldata_set_bool(cd, "power_on", obs_data_get_bool(settings, "power_on"));
 	else if (arg == "focus_af_enabled")
 		calldata_set_bool(cd, "focus_af_enabled", obs_data_get_bool(settings, "focus_af_enabled"));
+	else if (arg == "pan_pos")
+		calldata_set_int(cd, "pan_pos", obs_data_get_int(settings, "pan_pos"));
+	else if (arg == "tilt_pos")
+		calldata_set_int(cd, "tilt_pos", obs_data_get_int(settings, "tilt_pos"));
 	return;
 }
 
