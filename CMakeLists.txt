@@ -191,6 +191,7 @@ if(ENABLE_UI_TESTS)
       tests/ui-harness/appearance-row-sizing-test.cpp
       tests/ui-harness/preset-export-import-test.cpp
       tests/ui-harness/device-status-test.cpp
+      tests/ui-harness/move-device-test.cpp
   )
 endif()
 

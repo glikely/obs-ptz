@@ -66,3 +66,4 @@ extern "C" void ptz_load_ui_tests(void);
 void registerAppearanceRowSizingTest(PTZUITestHarness *harness);
 void registerPresetExportImportTest(PTZUITestHarness *harness);
 void registerDeviceStatusTest(PTZUITestHarness *harness);
+void registerMoveDeviceTest(PTZUITestHarness *harness);
