@@ -58,6 +58,12 @@ actually work end to end.
    instance a test can kill and restart -- rather than the session-scoped
    `ptzsim` every other test shares, since stopping *that* one would break
    the rest of the suite.
+8. `test_absolute_relative_moves.py` covers absolute/relative pan-tilt
+   moves and absolute zoom (`PTZDevice::move_abs()`/`move_rel()`), via
+   `tests/ui-harness/move-device-test.cpp`'s `move_device` test (same
+   `-DENABLE_UI_TESTS=ON` requirement as above) -- there's no
+   `ptz_action_source` action type for either, so obs-websocket alone
+   can't reach them.
 
 ## Running locally
 
