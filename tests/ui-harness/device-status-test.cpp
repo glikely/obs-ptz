@@ -13,8 +13,10 @@
 
 namespace {
 
-/* Reports a device's live PTZDevice::isConnected() state plus its
- * cached "pan_pos"/"tilt_pos"/"power_on"/"focus_af_enabled"/"wb_mode"
+/* Reports a device's live connection state (PTZListModel::
+ * IsConnectedRole, which wraps PTZDevice::isConnected() -- see
+ * ptz-list-model.cpp) plus its cached
+ * "pan_pos"/"tilt_pos"/"power_on"/"focus_af_enabled"/"wb_mode"
  * properties (populated from the camera's own inquiry replies -- see
  * PTZVisca::receive() in src/ptz-visca.cpp -- and readable generically
  * through the "ptz_get" proc handler, see PTZDevice::get()/
@@ -40,8 +42,7 @@ void runDeviceStatusTest(const QMap<QString, QString> &params)
 	}
 
 	QModelIndex index = ptzDeviceList.indexFromDeviceId(deviceId);
-	PTZDevice *ptz = ptzDeviceList.getDevice(index);
-	if (!ptz) {
+	if (!index.isValid()) {
 		blog(LOG_INFO, "[ptz-ui-test] get_device_status: device_id %u not found", deviceId);
 		return;
 	}
@@ -70,7 +71,7 @@ void runDeviceStatusTest(const QMap<QString, QString> &params)
 	calldata_free(&cd);
 
 	OBSDataAutoRelease result = obs_data_create();
-	obs_data_set_bool(result, "connected", ptz->isConnected());
+	obs_data_set_bool(result, "connected", ptzDeviceList.data(index, PTZListModel::IsConnectedRole).toBool());
 	obs_data_set_int(result, "pan_pos", pan_pos);
 	obs_data_set_int(result, "tilt_pos", tilt_pos);
 	obs_data_set_bool(result, "power_on", power_on);
