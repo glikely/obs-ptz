@@ -197,24 +197,29 @@ public:
 			return;
 		}
 		// blog(LOG_INFO, "Obtained DirectShow filter for device: %s", device_name.c_str());
-		long step, default_value, flags;
-		hr = cam_control_->GetRange(CameraControl_Pan, &min.pan, &max.pan, &step, &default_value, &flags);
+		long default_value, flags;
+		hr = cam_control_->GetRange(CameraControl_Pan, &min.pan, &max.pan, &step.pan, &default_value, &flags);
 		if (!FAILED(hr)) {
-			hr = cam_control_->GetRange(CameraControl_Tilt, &min.tilt, &max.tilt, &step, &default_value,
-						    &flags);
+			hr = cam_control_->GetRange(CameraControl_Tilt, &min.tilt, &max.tilt, &step.tilt, &default_value,
+							    &flags);
 		}
 		if (!FAILED(hr)) {
-			hr = cam_control_->GetRange(CameraControl_Zoom, &min.zoom, &max.zoom, &step, &default_value,
-						    &flags);
+			hr = cam_control_->GetRange(CameraControl_Zoom, &min.zoom, &max.zoom, &step.zoom, &default_value,
+							    &flags);
 		}
 		if (!FAILED(hr)) {
-			hr = cam_control_->GetRange(CameraControl_Focus, &min.focus, &max.focus, &step, &default_value,
-						    &flags);
+			hr = cam_control_->GetRange(CameraControl_Focus, &min.focus, &max.focus, &step.focus, &default_value,
+							    &flags);
 		}
 		if (FAILED(hr)) {
 			blog(LOG_ERROR, "Failed to get ranges: %ld", hr);
 			return;
 		}
+		blog(LOG_INFO,
+		     "UVC PTZ ranges: pan=%ld..%ld step=%ld, tilt=%ld..%ld step=%ld, zoom=%ld..%ld step=%ld, "
+		     "focus=%ld..%ld step=%ld",
+		     min.pan, max.pan, step.pan, min.tilt, max.tilt, step.tilt, min.zoom, max.zoom, step.zoom,
+		     min.focus, max.focus, step.focus);
 		long pan, tilt, zoom, focus;
 		cam_control_->Get(CameraControl_Pan, &pan, &flags);
 		now_pos.pan = static_cast<double>(pan) / max.pan;
