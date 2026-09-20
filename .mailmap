@@ -1,0 +1,13 @@
+# Canonicalizes contributor identities split across multiple emails or
+# name spellings in git history, so `git shortlog` (and
+# .github/scripts/update-contributors.py) count each person once.
+# See https://git-scm.com/docs/gitmailmap
+Grant Likely <grant.likely@secretlab.ca> <grant.likely@secretlab.com>
+Grant Likely <grant.likely@secretlab.ca> <grant.likely@arm.com>
+Grant Likely <grant.likely@secretlab.ca> <glikely@secretlab.ca>
+Jonatã Bolzan Loss <jonata@jonata.org>
+Patrick Heyer <PatTheMav@users.noreply.github.com>
+Stéphane Lepin <stephane.lepin@gmail.com> <contact@slepin.fr>
+Stéphane Lepin <stephane.lepin@gmail.com> <Palakis@users.noreply.github.com>
+Kaito Udagawa <umireon@kaito.tokyo> <umireon@gmail.com>
+Eddy Weiz <eddyweiz@gmail.com> <48769486+EdueskaWeiz@users.noreply.github.com>

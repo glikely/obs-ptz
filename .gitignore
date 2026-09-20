@@ -13,6 +13,7 @@
 !.clang-format
 !.gersemirc
 !.gitignore
+!.mailmap
 !buildspec.json
 !CMakeLists.txt
 !CMakePresets.json

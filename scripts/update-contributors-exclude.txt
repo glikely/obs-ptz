@@ -1,0 +1,17 @@
+# Commits to exclude from scripts/update-contributors.py's count, one full
+# SHA per line ('#' comments and blank lines ignored). --exclude-ref can't
+# catch these: a cherry-pick gets a new SHA on `main`, so it's never
+# "reachable from" the branch it was picked from.
+#
+# These are all template-maintenance commits cherry-picked from
+# obsproject/obs-plugintemplate onto main by the same person who authored
+# them upstream (verified by matching subject line + author against
+# template/master) - real work, just not an obs-ptz-specific contribution.
+
+de79f227b324d5344e27d8f17049b7cc6855eb64  # buildspec: Update build specification for OBS Studio 31.1.1 support
+d2c113db8b8e6ed95ec6a304ed3918f90d91a25b  # CI: Fix missing assignment of codesign team environment variable
+74eb75b32d29789b0403d08f54f660ae7dee8f78  # cmake: Increase macOS deployment target to macOS 12
+b6dffa38b7186f1ef3c4a64b93644498c363a88d  # CI: Remove macOS version check from shell script
+4f9e74263102552fa7db079185940f47370e1bb5  # CI: Update clang-format to clang-format-19
+7a8068549d9f7b00932aba6c7d611b43d9601004  # CI: Remove invalid options from .gersemirc
+839a7f4d5dc07c642d2150ef2952c892f4056c09  # CI: Add libsimde-dev for OBS 32 on Ubuntu
