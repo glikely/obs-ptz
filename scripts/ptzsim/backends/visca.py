@@ -199,6 +199,14 @@ class ViscaCameraLogic:
         '''IF_Clear'''
         self.send_datagram(b'\x50')  # slot 0 response only
 
+    def cmd010400(self, dg):
+        '''CAM_Power on/off'''
+        if dg[4] == 0x02:
+            self.state.set_power(True)
+        elif dg[4] == 0x03:
+            self.state.set_power(False)
+        self.cmd_ack()
+
     def cmd010407(self, dg):
         '''CAM_Zoom-Move'''
         speed = self.decode_s4(dg[4])

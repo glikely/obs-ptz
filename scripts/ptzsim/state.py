@@ -93,6 +93,10 @@ class PTZState:
         with self._lock:
             self.focus_speed = clamp(speed, -1.0, 1.0)
 
+    def set_power(self, power):
+        with self._lock:
+            self.power = power
+
     def stop(self, pan_tilt=True, zoom=True, focus=False):
         with self._lock:
             if pan_tilt:
