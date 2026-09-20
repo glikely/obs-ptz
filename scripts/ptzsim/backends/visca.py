@@ -210,6 +210,12 @@ class ViscaCameraLogic:
         self.state.set_focus_speed(to_shared_signed(speed, ZF_SPEED_RANGE))
         self.cmd_ack()
 
+    def cmd010447(self, dg):
+        '''CAM_Zoom-Direct (absolute)'''
+        zoom = self.decode_s16(dg[4:8])
+        self.state.set_position(zoom=to_shared_unsigned(zoom, ZF_POS_RANGE))
+        self.cmd_ack()
+
     def cmd010601(self, dg):
         '''Pan-tiltDrive-Move'''
         panspeed = self.decode_s9(dg[4:7])
