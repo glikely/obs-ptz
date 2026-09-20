@@ -104,6 +104,7 @@ target_sources(
     src/ptz-device.hpp
     src/ptz-list-model.hpp
     src/settings.hpp
+    src/contributors-generated.hpp
     src/translators-generated.hpp
     src/ptz-visca.hpp
     src/ptz-visca-udp.hpp

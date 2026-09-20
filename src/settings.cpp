@@ -27,6 +27,7 @@
 #include "ptz-list-model.hpp"
 #include "ptz-controls.hpp"
 #include "settings.hpp"
+#include "contributors-generated.hpp"
 #include "translators-generated.hpp"
 #include "ui_settings.h"
 
@@ -142,19 +143,8 @@ PTZSettings::PTZSettings() : QWidget(nullptr), ui(new Ui_PTZSettings)
 		url_format.arg("https://github.com/glikely/obs-ptz"),
 	};
 	const QString urls = QString("<p>%1</p>").arg(url_list.join("<br/>"));
-	const QStringList contrib_list = {obs_module_text("PTZ.About.Contributors"),
-					  "Fabio Ferrari",
-					  "Norihiro Kamae",
-					  "Luuk Verhagen",
-					  "Trouffman",
-					  "Kaito Udagawa",
-					  "Jonatã Bolzan Loss",
-					  "Eddy Weiz",
-					  "Jim Hauxwell",
-					  "Jason Lanclos",
-					  "Eric Schmidt",
-					  "BitRate27",
-					  "Anthony Roberts"};
+	QStringList contrib_list = {obs_module_text("PTZ.About.Contributors")};
+	contrib_list += ptz_code_contributors;
 	const QString contributors = QString("<p>%1</p>").arg(contrib_list.join("<br/>"));
 	QStringList translator_list = {obs_module_text("PTZ.About.Translators")};
 	translator_list += ptz_translator_credits;
