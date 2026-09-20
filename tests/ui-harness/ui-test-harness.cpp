@@ -18,6 +18,7 @@ PTZUITestHarness::PTZUITestHarness(QObject *parent) : QObject(parent)
 {
 	registerAppearanceRowSizingTest(this);
 	registerPresetExportImportTest(this);
+	registerDeviceStatusTest(this);
 }
 
 void PTZUITestHarness::registerTest(const QString &name, TestFn fn)

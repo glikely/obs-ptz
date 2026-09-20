@@ -190,6 +190,7 @@ if(ENABLE_UI_TESTS)
       tests/ui-harness/obs-websocket-api.h
       tests/ui-harness/appearance-row-sizing-test.cpp
       tests/ui-harness/preset-export-import-test.cpp
+      tests/ui-harness/device-status-test.cpp
   )
 endif()
 

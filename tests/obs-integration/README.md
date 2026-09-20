@@ -51,6 +51,13 @@ actually work end to end.
    `PTZ_UI_TEST_HARNESS=1`, which `conftest.py`'s `obs_world` fixture
    always sets -- a no-op if the binary wasn't built with that option, so
    it doesn't affect the rest of the suite.
+7. `test_device_status.py` covers camera connect/disconnect detection via
+   `tests/ui-harness/device-status-test.cpp`'s `get_device_status` test
+   (same `-DENABLE_UI_TESTS=ON` requirement as above), using its own
+   disposable `flaky_ptzsim` fixture -- a second, VISCA-TCP-only `ptzsim`
+   instance a test can kill and restart -- rather than the session-scoped
+   `ptzsim` every other test shares, since stopping *that* one would break
+   the rest of the suite.
 
 ## Running locally
 

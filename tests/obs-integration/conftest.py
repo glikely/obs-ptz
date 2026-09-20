@@ -42,6 +42,12 @@ DEVICE_IDS = {
     "visca-serial": 3,
     "pelco-d": 4,
     "pelco-p": 5,
+    # Points at flaky_ptzsim (see below) rather than the shared,
+    # session-scoped ptzsim_process -- test_device_status.py's
+    # connect/disconnect tests need to kill and restart the camera
+    # process underneath this device without disturbing the other
+    # devices above.
+    "visca-tcp-flaky": 6,
 }
 
 
@@ -133,6 +139,13 @@ def write_ptz_plugin_config(home: Path, ports, serial_paths):
             "port": str(serial_paths["pelco"]),
             "address": 1,
             "use_pelco_d": False,
+        },
+        {
+            "id": DEVICE_IDS["visca-tcp-flaky"],
+            "name": "sim-visca-tcp-flaky",
+            "type": "visca-over-tcp",
+            "host": "127.0.0.1",
+            "port": ports["visca_tcp_flaky"],
         },
     ]
     (config_dir / "config.json").write_text(json.dumps({"devices": devices}))
@@ -236,6 +249,34 @@ class World:
         self.wait_for(matches, timeout=timeout, interval=interval)
         return json.loads(out_file.read_text())
 
+    def device_status(self, device_id, out_file):
+        """Fetches device_id's live {"connected"} status via
+        tests/ui-harness/device-status-test.cpp's "get_device_status"
+        test -- the only way to observe PTZDevice::isConnected() from
+        outside the plugin, since obs-websocket has no device list or
+        property read of its own. Removes any stale out_file first so a
+        slow dispatch can never be mistaken for a fresh read, then waits
+        for the (re)written file before parsing it."""
+        if out_file.exists():
+            out_file.unlink()
+        self.run_ui_test("get_device_status", device_id=device_id, filename=str(out_file))
+        self.wait_for(out_file.exists)
+        return json.loads(out_file.read_text())
+
+    def wait_for_device_status(self, device_id, out_file, predicate, timeout=5, interval=0.2):
+        """Polls device_status() until predicate(status) is true,
+        re-dispatching get_device_status each time so out_file always
+        reflects a fresh read rather than one cached from an earlier
+        call."""
+        deadline = time.time() + timeout
+        last = None
+        while time.time() < deadline:
+            last = self.device_status(device_id, out_file)
+            if predicate(last):
+                return last
+            time.sleep(interval)
+        raise AssertionError(f"device {device_id} status never matched predicate; last seen: {last}")
+
     def wait_for(self, predicate, timeout=5, interval=0.1):
         """Generic poll-until-true, for waiting on the effect of an
         asynchronous request like run_ui_test() -- unlike wait_for_state(),
@@ -269,6 +310,7 @@ def ptz_ports():
         "onvif_http": free_port(),
         "debug_http": free_port(),
         "rtsp": free_port(),
+        "visca_tcp_flaky": free_port(),
     }
 
 
@@ -300,6 +342,56 @@ def ptzsim_process(tmp_path_factory, ptz_ports):
         proc.wait(timeout=5)
     except subprocess.TimeoutExpired:
         proc.kill()
+
+
+class FlakyPtzsim:
+    """A dedicated, VISCA-TCP-only ptzsim instance on its own fixed port
+    (ptz_ports["visca_tcp_flaky"], wired to device_id
+    DEVICE_IDS["visca-tcp-flaky"] by write_ptz_plugin_config()) that a
+    test can freely stop() and start() again -- unlike ptzsim_process
+    (session-scoped and shared by every other test in this suite),
+    killing this one doesn't disturb any other device.
+
+    obs-ptz's own automatic reconnect (PTZViscaOverTCP::
+    on_socket_stateChanged() retries connectToHost() every 1.9s, see
+    src/ptz-visca-tcp.cpp) picks a freshly (re)started listener back up
+    on its own; nothing here needs to poke the plugin to make that
+    happen."""
+
+    def __init__(self, port):
+        self.port = port
+        self.proc = None
+
+    def start(self):
+        if self.proc is not None:
+            return
+        cmd = [
+            sys.executable, "-m", "ptzsim",
+            "--host", "127.0.0.1",
+            "--visca-tcp-port", str(self.port),
+            "--no-visca-udp", "--no-visca-serial", "--no-onvif", "--no-pelco",
+        ]
+        self.proc = subprocess.Popen(cmd, cwd=REPO_ROOT / "scripts", stdout=subprocess.PIPE,
+                                      stderr=subprocess.STDOUT, text=True)
+        wait_for_port("127.0.0.1", self.port, timeout=10)
+
+    def stop(self):
+        if self.proc is None:
+            return
+        self.proc.terminate()
+        try:
+            self.proc.wait(timeout=5)
+        except subprocess.TimeoutExpired:
+            self.proc.kill()
+        self.proc = None
+
+
+@pytest.fixture
+def flaky_ptzsim(obs_world, ptz_ports):
+    sim = FlakyPtzsim(ptz_ports["visca_tcp_flaky"])
+    sim.start()
+    yield sim
+    sim.stop()
 
 
 @pytest.fixture(scope="session")
