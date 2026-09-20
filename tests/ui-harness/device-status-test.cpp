@@ -15,12 +15,19 @@ namespace {
 
 /* Reports a device's live connection state (PTZListModel::
  * IsConnectedRole, which wraps PTZDevice::isConnected() -- see
- * ptz-list-model.cpp) as JSON.
+ * ptz-list-model.cpp) plus its cached "focus_af_enabled"/"wb_mode"
+ * properties (populated from the camera's own inquiry replies -- see
+ * PTZVisca::receive() in src/ptz-visca.cpp -- and readable generically
+ * through the "ptz_get" proc handler, see PTZDevice::get()/
+ * PTZVisca::get() in src/ptz-device.cpp/src/ptz-visca.cpp) as JSON.
+ * "wb_mode" is VISCA-specific (PTZDevice::get() doesn't know it), so it
+ * always reads back 0 on non-VISCA devices.
  *
  * obs-websocket exposes no device list or property read of its own (see
  * conftest.py's own comment on DEVICE_IDS), so this is the only way
- * tests/obs-integration/test_device_status.py can observe camera
- * connect/disconnect behavior from outside the plugin. */
+ * tests/obs-integration/'s device-status-driven tests can observe
+ * camera connect/disconnect, autofocus and white balance behavior from
+ * outside the plugin. */
 void runDeviceStatusTest(const QMap<QString, QString> &params)
 {
 	bool deviceIdOk = false;
@@ -37,8 +44,21 @@ void runDeviceStatusTest(const QMap<QString, QString> &params)
 		return;
 	}
 
+	calldata cd = {};
+	calldata_set_string(&cd, "property", "focus_af_enabled");
+	ptzDeviceList.callDevice(index, "ptz_get", &cd);
+	bool focus_af_enabled = calldata_bool(&cd, "focus_af_enabled");
+
+	calldata_set_string(&cd, "property", "wb_mode");
+	ptzDeviceList.callDevice(index, "ptz_get", &cd);
+	long long wb_mode = calldata_int(&cd, "wb_mode");
+
+	calldata_free(&cd);
+
 	OBSDataAutoRelease result = obs_data_create();
 	obs_data_set_bool(result, "connected", ptzDeviceList.data(index, PTZListModel::IsConnectedRole).toBool());
+	obs_data_set_bool(result, "focus_af_enabled", focus_af_enabled);
+	obs_data_set_int(result, "wb_mode", wb_mode);
 
 	if (!obs_data_save_json_safe(result, qUtf8Printable(filename), "tmp", "bak"))
 		blog(LOG_INFO, "[ptz-ui-test] get_device_status: failed to write %s", qUtf8Printable(filename));
@@ -50,7 +70,8 @@ void runDeviceStatusTest(const QMap<QString, QString> &params)
  *   device_id - the target device's numeric id (PTZDevice::id, same
  *               space tests/obs-integration/conftest.py's device_ids
  *               uses)
- *   filename  - where to write the {"connected"} JSON result
+ *   filename  - where to write the {"connected", "focus_af_enabled",
+ *               "wb_mode"} JSON result
  */
 void registerDeviceStatusTest(PTZUITestHarness *harness)
 {

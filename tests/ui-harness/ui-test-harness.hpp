@@ -67,3 +67,4 @@ void registerAppearanceRowSizingTest(PTZUITestHarness *harness);
 void registerPresetExportImportTest(PTZUITestHarness *harness);
 void registerDeviceStatusTest(PTZUITestHarness *harness);
 void registerMoveDeviceTest(PTZUITestHarness *harness);
+void registerSetDeviceTest(PTZUITestHarness *harness);
