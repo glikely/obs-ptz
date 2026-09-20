@@ -72,6 +72,7 @@ class ViscaCameraLogic:
         self.brightpos = 0
         self.exposurecomppos = 0
         self.pictureeffectmode = 0
+        self.af_enabled = True
         self.camera_id = 0xfedc
         self.palsystem = True
         self.gamma = 0
@@ -216,6 +217,17 @@ class ViscaCameraLogic:
         self.state.set_position(zoom=to_shared_unsigned(zoom, ZF_POS_RANGE))
         self.cmd_ack()
 
+    def cmd010438(self, dg):
+        '''CAM_Focus Auto/Manual/AutoManual'''
+        mode = dg[4]
+        if mode == 0x02:
+            self.af_enabled = True
+        elif mode == 0x03:
+            self.af_enabled = False
+        elif mode == 0x10:
+            self.af_enabled = not self.af_enabled
+        self.cmd_ack()
+
     def cmd010601(self, dg):
         '''Pan-tiltDrive-Move'''
         panspeed = self.decode_s9(dg[4:7])
@@ -287,7 +299,7 @@ class ViscaCameraLogic:
             b'\x50' + self.encode_s16(from_shared_unsigned(snap.zoom, ZF_POS_RANGE)) +
             self.encode_s8(self.zoomnearlimit) +
             self.encode_s16(from_shared_unsigned(snap.focus, ZF_POS_RANGE)) +
-            b'\x00\x00\x00')
+            bytes([0x00, 0x01 if self.af_enabled else 0x00, 0x00]))
 
     def cmd097e7e01(self, dg):
         '''Camera Control System Inquiry'''
