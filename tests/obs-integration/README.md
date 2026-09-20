@@ -71,6 +71,13 @@ actually work end to end.
    `tests/ui-harness/set-device-test.cpp`'s `set_device` test (same
    `-DENABLE_UI_TESTS=ON` requirement as above), read back through
    `get_device_status`.
+10. `test_power.py` covers camera power on/off (`PTZVisca::set()`'s
+    `"power_on"` handling), the same way as autofocus/white balance --
+    `set_device` to set it, `get_device_status` to read it back.
+    `PTZ_ACTION_POWER_OFF`/`PTZ_ACTION_POWER_ON` exist in
+    `ptz_action_source`'s own action enum but are never actually wired
+    up or exposed in its properties, so obs-websocket alone can't reach
+    this either.
 
 ## Running locally
 
