@@ -32,3 +32,19 @@ jobs:
 
           # Visit https://crowdin.com/settings#api-key to create this token
           CROWDIN_PERSONAL_TOKEN: ${{ secrets.CROWDIN_PERSONAL_TOKEN }}
+
+      - name: Update translator credits from Crowdin
+        run: python3 .github/scripts/update-translators.py
+        env:
+          CROWDIN_PROJECT_ID: ${{ secrets.CROWDIN_PROJECT_ID }}
+          CROWDIN_PERSONAL_TOKEN: ${{ secrets.CROWDIN_PERSONAL_TOKEN }}
+
+      - name: Open PR for translator credits
+        uses: peter-evans/create-pull-request@v8
+        with:
+          token: ${{ secrets.GH_TOKEN }}
+          branch: crowdin-translator-credits
+          add-paths: src/translators-generated.hpp,AUTHORS
+          commit-message: 'Update translator credits from Crowdin'
+          title: 'Update translator credits'
+          body: "Regenerated from Crowdin's Top Members report via [PTZ Controls Project](https://crowdin.com/project/obs-ptz)."

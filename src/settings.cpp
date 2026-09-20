@@ -27,6 +27,7 @@
 #include "ptz-list-model.hpp"
 #include "ptz-controls.hpp"
 #include "settings.hpp"
+#include "translators-generated.hpp"
 #include "ui_settings.h"
 
 /* ----------------------------------------------------------------- */
@@ -155,21 +156,8 @@ PTZSettings::PTZSettings() : QWidget(nullptr), ui(new Ui_PTZSettings)
 					  "BitRate27",
 					  "Anthony Roberts"};
 	const QString contributors = QString("<p>%1</p>").arg(contrib_list.join("<br/>"));
-	const QStringList translator_list = {
-		obs_module_text("PTZ.About.Translators"),
-		"cassiopetry (Portuguese, Brazilian)",
-		"ETE-Design (Danish)",
-		"Manoah Tervoort (Dutch)",
-		"이지행(Korean)",
-		"Norman Hansen (German)",
-		"Giuseppe Chiodaroli (Italian)",
-		"arthur_fr (French)",
-		"alanfermtz (Spanish)",
-		"John Hanssen Kolstad (Norwegian)",
-		"danvoulez (Portuguese)",
-		"Luca Montibeller Nunes (Portuguese, Brazilian)",
-		"Valdinel Lankewicz (Portuguese)",
-	};
+	QStringList translator_list = {obs_module_text("PTZ.About.Translators")};
+	translator_list += ptz_translator_credits;
 	const QString translators = QString("<p>%1</p>").arg(translator_list.join("<br/>"));
 	ui->versionLabel->setText(QString("<html><head/><body>%1%2%3%4</body></html>")
 					  .arg(basic_info)
