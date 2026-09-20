@@ -32,7 +32,21 @@ class PTZControl {
 protected:
 	std::string device_path;
 	PtzUsbCamLimits min, max;
+	/* DirectShow/UVC controls may only accept values at a fixed increment. */
+	PtzUsbCamLimits step{1, 1, 1, 1};
 	PtzUsbCamPos now_pos;
+
+	static long clamp_to_step(long value, long minimum, long maximum, long increment)
+	{
+		value = std::clamp(value, minimum, maximum);
+		if (increment <= 1)
+			return value;
+
+		/* DirectShow defines the increment relative to the property's minimum. */
+		long offset = value - minimum;
+		long rounded = minimum + ((offset + increment / 2) / increment) * increment;
+		return std::clamp(rounded, minimum, maximum);
+	}
 
 public:
 	virtual ~PTZControl() {}
@@ -40,7 +54,7 @@ public:
 	bool pan(double value)
 	{
 		now_pos.pan = std::clamp(value, -1.0, 1.0);
-		long pan = std::clamp(static_cast<long>(now_pos.pan * max.pan), min.pan, max.pan);
+		long pan = clamp_to_step(static_cast<long>(now_pos.pan * max.pan), min.pan, max.pan, step.pan);
 		return internal_pan(pan);
 	}
 	double getPan() const { return now_pos.pan; }
@@ -48,7 +62,7 @@ public:
 	bool tilt(double value)
 	{
 		now_pos.tilt = std::clamp(value, -1.0, 1.0);
-		long tilt = std::clamp(static_cast<long>(now_pos.tilt * max.tilt), min.tilt, max.tilt);
+		long tilt = clamp_to_step(static_cast<long>(now_pos.tilt * max.tilt), min.tilt, max.tilt, step.tilt);
 		return internal_tilt(tilt);
 	}
 	double getTilt() const { return now_pos.tilt; }
@@ -56,7 +70,7 @@ public:
 	bool zoom(double value)
 	{
 		now_pos.zoom = std::clamp(value, 0.0, 1.0);
-		long zoom = std::clamp(static_cast<long>(now_pos.zoom * max.zoom), min.zoom, max.zoom);
+		long zoom = clamp_to_step(static_cast<long>(now_pos.zoom * max.zoom), min.zoom, max.zoom, step.zoom);
 		return internal_zoom(zoom);
 	}
 	double getZoom() const { return now_pos.zoom; }
@@ -64,13 +78,15 @@ public:
 	bool focus(double value)
 	{
 		now_pos.focus = std::clamp(value, 0.0, 1.0);
-		long focus = std::clamp(static_cast<long>(now_pos.focus * max.focus), min.focus, max.focus);
+		long focus =
+			clamp_to_step(static_cast<long>(now_pos.focus * max.focus), min.focus, max.focus, step.focus);
 		return internal_focus(false, focus);
 	}
 	double getFocus() const { return now_pos.focus; }
 	bool setAutoFocus(bool enabled)
 	{
-		long focus = std::clamp(static_cast<long>(now_pos.focus * max.focus), min.focus, max.focus);
+		long focus =
+			clamp_to_step(static_cast<long>(now_pos.focus * max.focus), min.focus, max.focus, step.focus);
 		return internal_focus(enabled, focus);
 	}
 	struct PtzUsbCamPos getPosition() const { return now_pos; }
