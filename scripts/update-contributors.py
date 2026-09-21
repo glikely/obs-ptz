@@ -54,8 +54,10 @@ HEADER_TEMPLATE = """\
 
 #include <QStringList>
 
+// clang-format off
 inline const QStringList ptz_code_contributors = {{
 {entries}}};
+// clang-format on
 """
 
 AUTHORS_SECTION_RE = re.compile(r"(?<=^Contributors:\n)(?: .*\n)+", re.MULTILINE)

@@ -8,6 +8,7 @@
 
 #include <QStringList>
 
+// clang-format off
 inline const QStringList ptz_code_contributors = {
 	"Fabio Ferrari",
 	"Norihiro Kamae",
@@ -22,3 +23,4 @@ inline const QStringList ptz_code_contributors = {
 	"BitRate27",
 	"Anthony Roberts",
 };
+// clang-format on
