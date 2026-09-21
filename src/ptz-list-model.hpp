@@ -81,7 +81,7 @@ public:
 public slots:
 	void preset_recall(uint32_t device_id, int preset_id);
 	void preset_save(uint32_t device_id, int preset_id);
-	void deviceSettingsChanged(OBSData changed);
+	void deviceStateChanged(OBSData changed);
 };
 
 extern PTZListModel ptzDeviceList;

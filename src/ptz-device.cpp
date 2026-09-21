@@ -61,12 +61,12 @@ PTZDevice::PTZDevice(OBSData config) : QObject()
 	setObjectName(obs_data_get_string(config, "name"));
 	id = (int)obs_data_get_int(config, "id");
 	type = obs_data_get_string(config, "type");
-	settings = obs_data_create();
-	obs_data_release(settings);
+	state = obs_data_create();
+	obs_data_release(state);
 	statistics = obs_data_create();
 	obs_data_release(statistics);
-	obs_data_set_obj(settings, "statistics", statistics);
-	stale_settings = {"pan_pos", "tilt_pos", "zoom_pos", "focus_pos"};
+	obs_data_set_obj(state, "statistics", statistics);
+	stale_state = {"pan_pos", "tilt_pos", "zoom_pos", "focus_pos"};
 	ptzDeviceList.add(this);
 }
 
@@ -211,9 +211,9 @@ void PTZDevice::get(calldata_t *cd) const
 	}
 	QString arg = calldata_string(cd, "property");
 	if (arg == "power_on")
-		calldata_set_bool(cd, "power_on", obs_data_get_bool(settings, "power_on"));
+		calldata_set_bool(cd, "power_on", obs_data_get_bool(state, "power_on"));
 	else if (arg == "focus_af_enabled")
-		calldata_set_bool(cd, "focus_af_enabled", obs_data_get_bool(settings, "focus_af_enabled"));
+		calldata_set_bool(cd, "focus_af_enabled", obs_data_get_bool(state, "focus_af_enabled"));
 	return;
 }
 

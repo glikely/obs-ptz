@@ -60,9 +60,15 @@ protected:
 	void sanitizePreset(size_t id);
 	void setConnected(bool connected);
 	obs_properties_t *props;
-	OBSData settings;
+	/* Live, camera-reported values (e.g. power_on, pan_pos/tilt_pos/
+	 * zoom_pos/focus_pos, wb_mode) queried/set through the generic
+	 * ptz_get()/ptz_set() proc_handler entries -- not persisted, and
+	 * entirely separate from getDefaults()/update()/save()'s config. This
+	 * is device state, not settings, hence stateChanged() below rather
+	 * than a name implying it's part of the persisted configuration. */
+	OBSData state;
 	OBSData statistics;
-	QSet<QString> stale_settings;
+	QSet<QString> stale_state;
 	void incrementStatistic(const char *name);
 
 	// Each PTZ device has a proc handler so methods can be called
@@ -70,7 +76,7 @@ protected:
 	proc_handler_t *handler = nullptr;
 
 signals:
-	void settingsChanged(OBSData settings);
+	void stateChanged(OBSData state);
 	void connectionStatusChanged(bool connected);
 
 public:

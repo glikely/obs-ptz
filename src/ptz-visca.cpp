@@ -684,11 +684,11 @@ void PTZVisca::timeout()
 void PTZVisca::update_timer_callback()
 {
 	if (pan_speed || tilt_speed)
-		stale_settings += "pan_pos";
+		stale_state += "pan_pos";
 	if (zoom_speed)
-		stale_settings += "zoom_pos";
+		stale_state += "zoom_pos";
 	if (focus_speed)
-		stale_settings += "focus_pos";
+		stale_state += "focus_pos";
 	send_pending();
 }
 
@@ -696,7 +696,7 @@ void PTZVisca::cmd_get_camera_info()
 {
 	setConnected(true);
 	for (auto key : inquires.keys())
-		stale_settings += key;
+		stale_state += key;
 	update_timer.start(1000);
 	send_pending();
 }
@@ -746,15 +746,15 @@ void PTZVisca::receive(const QByteArray &msg)
 			 * commands complete immediately. Only decode
 			 * response if the payload size is non-zero */
 			obs_data_t *rslt_props = active_cmd[0].value().decode(msg);
-			obs_data_apply(settings, rslt_props);
+			obs_data_apply(state, rslt_props);
 
 			/* Mark returned properties as clean */
 			for (auto item = obs_data_first(rslt_props); item; obs_data_item_next(&item))
-				stale_settings -= obs_data_item_get_name(item);
+				stale_state -= obs_data_item_get_name(item);
 
 			/* Data has been updated */
 			obs_data_set_obj(rslt_props, "statistics", statistics);
-			emit settingsChanged(rslt_props);
+			emit stateChanged(rslt_props);
 			obs_data_release(rslt_props);
 		}
 
@@ -765,7 +765,7 @@ void PTZVisca::receive(const QByteArray &msg)
 		/* This command failed, don't generate it again */
 		if (active_cmd[0].has_value()) {
 			for (auto rslt : active_cmd[0].value().results)
-				stale_settings -= rslt->name;
+				stale_state -= rslt->name;
 		}
 		ptz_debug("rx error: %s", msg.toHex(':').data());
 		active_cmd[0] = std::nullopt;
@@ -786,7 +786,7 @@ void PTZVisca::get(calldata_t *cd) const
 	}
 	QString arg = calldata_string(cd, "property");
 	if (arg == "wb_mode")
-		calldata_set_int(cd, "wb_mode", obs_data_get_int(settings, "wb_mode"));
+		calldata_set_int(cd, "wb_mode", obs_data_get_int(state, "wb_mode"));
 	else
 		PTZDevice::get(cd);
 }
@@ -836,7 +836,7 @@ void PTZVisca::send_pending()
 			cmd.encode({scale_speed(focus_speed, visca_focus_speed_max + 1)});
 			pending_cmds += cmd;
 		} else if (isConnected()) {
-			QSetIterator<QString> i(stale_settings);
+			QSetIterator<QString> i(stale_state);
 			while (i.hasNext()) {
 				QString prop = i.next();
 				if (inquires.contains(prop)) {
@@ -853,7 +853,7 @@ void PTZVisca::send_pending()
 	active_cmd[0] = pending_cmds.takeFirst();
 	auto affects = active_cmd[0].value().affects;
 	if (affects != "")
-		stale_settings += affects;
+		stale_state += affects;
 	send_packet(active_cmd[0].value().cmd);
 	timeout_retry = 0;
 }
@@ -891,7 +891,7 @@ void PTZVisca::zoom_abs(double pos_)
 void PTZVisca::set_autofocus(bool enabled)
 {
 	send(enabled ? VISCA_CAM_Focus_Auto : VISCA_CAM_Focus_Manual);
-	obs_data_set_bool(settings, "focus_af_enabled", enabled);
+	obs_data_set_bool(state, "focus_af_enabled", enabled);
 }
 
 void PTZVisca::focus_onetouch()
