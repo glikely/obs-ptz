@@ -60,13 +60,7 @@ protected:
 	void sanitizePreset(size_t id);
 	void setConnected(bool connected);
 	obs_properties_t *props;
-	/* Live, camera-reported values (e.g. power_on, pan_pos/tilt_pos/
-	 * zoom_pos/focus_pos, wb_mode) queried/set through the generic
-	 * ptz_get()/ptz_set() proc_handler entries -- not persisted, and
-	 * entirely separate from getDefaults()/update()/save()'s config. This
-	 * is device state, not settings, hence stateChanged() below rather
-	 * than a name implying it's part of the persisted configuration. */
-	OBSData state;
+	OBSData state; /* Transient state of the camera. Isn't saved */
 	OBSData statistics;
 	QSet<QString> stale_state;
 	void incrementStatistic(const char *name);
