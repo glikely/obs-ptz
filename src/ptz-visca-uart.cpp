@@ -81,80 +81,58 @@ ViscaUART *ViscaUART::get_interface(QString port_name)
 	return iface;
 }
 
-PTZViscaSerial::PTZViscaSerial(OBSData config) : PTZVisca(config), iface(NULL)
-{
-	getDefaults(config);
-	update(config);
-}
-
-PTZViscaSerial::~PTZViscaSerial()
+/*
+ * ViscaSerialTransport
+ */
+ViscaSerialTransport::~ViscaSerialTransport()
 {
 	attach_interface(nullptr);
 }
 
-QString PTZViscaSerial::description()
+QString ViscaSerialTransport::description(unsigned int address) const
 {
-	return QString("VISCA %1 id:%2").arg(iface->portName(), QString::number(address));
+	return QString("VISCA %1 id:%2").arg(iface ? iface->portName() : QString(), QString::number(address));
 }
 
-void PTZViscaSerial::attach_interface(ViscaUART *new_iface)
+void ViscaSerialTransport::attach_interface(ViscaUART *new_iface)
 {
 	if (iface)
 		iface->disconnect(this);
 	iface = new_iface;
 	if (iface) {
-		connect(iface, &ViscaUART::receive, this, &PTZViscaSerial::receive);
-		connect(iface, &ViscaUART::reset, this, &PTZViscaSerial::reset);
+		connect(iface, &ViscaUART::receive, this, &ViscaTransport::receive);
+		connect(iface, &ViscaUART::reset, this, &ViscaTransport::reset);
 	}
 }
 
-void PTZViscaSerial::reset()
+void ViscaSerialTransport::send(const QByteArray &msg_, unsigned int address)
 {
-	cmd_get_camera_info();
-}
-
-void PTZViscaSerial::send_immediate(const QByteArray &msg_)
-{
+	if (!iface)
+		return;
 	QByteArray msg = msg_;
 	msg[0] = (char)(0x80 | (address & 0x7)); // Set the camera address
 	iface->send(msg);
 }
 
-void PTZViscaSerial::getDefaults(OBSData config) const
+void ViscaSerialTransport::update(OBSData config)
 {
-	PTZVisca::getDefaults(config);
-	obs_data_set_default_int(config, "address", 1);
-}
-
-void PTZViscaSerial::update(OBSData config)
-{
-	PTZVisca::update(config);
 	const char *uart = obs_data_get_string(config, "port");
-	address = std::clamp((int)obs_data_get_int(config, "address"), 1, 7);
-	if (!uart)
+	if (!uart || !*uart)
 		return;
 
-	iface = ViscaUART::get_interface(uart);
-	iface->setConfig(config);
-	attach_interface(iface);
+	ViscaUART *ifc = ViscaUART::get_interface(uart);
+	ifc->setConfig(config);
+	attach_interface(ifc);
 }
 
-void PTZViscaSerial::save(OBSData config) const
+void ViscaSerialTransport::save(OBSData config) const
 {
-	PTZVisca::save(config);
-	iface->save(config);
-	obs_data_set_int(config, "address", address);
+	if (iface)
+		iface->save(config);
 }
 
-obs_properties_t *PTZViscaSerial::get_obs_properties()
+void ViscaSerialTransport::add_obs_properties(obs_properties_t *props)
 {
-	obs_properties_t *ptz_props = PTZVisca::get_obs_properties();
-	obs_property_t *p = obs_properties_get(ptz_props, "interface");
-	obs_properties_t *config = obs_property_group_content(p);
-	obs_property_set_description(p, obs_module_text("PTZ.Visca.Serial.Description"));
-
-	iface->addOBSProperties(config);
-	obs_properties_add_int(config, "address", obs_module_text("PTZ.Visca.ID"), 1, 7, 1);
-
-	return ptz_props;
+	PTZUARTWrapper::addOBSProperties(props);
+	obs_properties_add_int(props, "address", obs_module_text("PTZ.Visca.ID"), 1, 7, 1);
 }

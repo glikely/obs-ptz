@@ -6,8 +6,12 @@
  */
 
 #include <qt-wrappers.hpp>
-#include <QNetworkDatagram>
 #include "ptz-visca.hpp"
+#include "ptz-visca-udp.hpp"
+#include "ptz-visca-tcp.hpp"
+#if defined(ENABLE_SERIALPORT)
+#include "ptz-visca-uart.hpp"
+#endif
 #include <util/base.h>
 
 /* Visca specific datagram field classes */
@@ -519,6 +523,53 @@ PTZVisca::PTZVisca(OBSData config) : PTZDevice(config)
 		active_cmd[i] = std::nullopt;
 	connect(&timeout_timer, &QTimer::timeout, this, &PTZVisca::timeout);
 	connect(&update_timer, &QTimer::timeout, this, &PTZVisca::update_timer_callback);
+
+	getDefaults(config);
+	update(config);
+}
+
+QString PTZVisca::description()
+{
+	return transport ? transport->description(address) : QString();
+}
+
+void PTZVisca::reset()
+{
+	cmd_get_camera_info();
+}
+
+void PTZVisca::setInterface(const QString &interface)
+{
+	if (transport && visca_interface == interface)
+		return;
+
+	if (transport) {
+		transport->disconnect(this);
+		delete transport;
+		transport = nullptr;
+	}
+
+	visca_interface = interface;
+	if (interface == "tcp")
+		transport = new ViscaTCPTransport();
+#if defined(ENABLE_SERIALPORT)
+	else if (interface == "serial")
+		transport = new ViscaSerialTransport();
+#endif
+	else
+		transport = new ViscaUDPTransport();
+
+	connect(transport, &ViscaTransport::receive, this, &PTZVisca::receive);
+	connect(transport, &ViscaTransport::reset, this, &PTZVisca::reset);
+	connect(transport, &ViscaTransport::refresh, this, &PTZVisca::cmd_get_camera_info);
+	connect(transport, &ViscaTransport::statIncrement, this,
+		[this](const QString &name) { incrementStatistic(qPrintable(name)); });
+}
+
+void PTZVisca::send_immediate(const QByteArray &msg)
+{
+	if (transport)
+		transport->send(msg, address);
 }
 
 void PTZVisca::scan_commands()
@@ -560,6 +611,18 @@ void PTZVisca::write_replies_to_log()
 void PTZVisca::getDefaults(OBSData cfg) const
 {
 	PTZDevice::getDefaults(cfg);
+
+	/* The transport is selected by device "type" (visca / visca-over-ip /
+	 * visca-over-tcp), same as before the VISCA drivers were unified into
+	 * a single class; keep using those type strings and their original
+	 * "host"/"port"/"address" field names so the on-disk config format is
+	 * unchanged. */
+	std::string cfg_type = obs_data_get_string(cfg, "type");
+	if (cfg_type == "visca-over-tcp")
+		obs_data_set_default_int(cfg, "port", 5678);
+	else if (cfg_type != "visca-over-ip")
+		obs_data_set_default_int(cfg, "address", 1);
+
 	obs_data_set_default_int(cfg, "visca_pan_speed_max", 0x18);
 	obs_data_set_default_int(cfg, "visca_tilt_speed_max", 0x14);
 	obs_data_set_default_int(cfg, "visca_zoom_speed_max", 0x7);
@@ -570,26 +633,106 @@ void PTZVisca::getDefaults(OBSData cfg) const
 void PTZVisca::update(OBSData cfg)
 {
 	PTZDevice::update(cfg);
+
+	std::string cfg_type = obs_data_get_string(cfg, "type");
+	type = cfg_type;
+	QString interface = (cfg_type == "visca-over-ip") ? "udp" : (cfg_type == "visca-over-tcp") ? "tcp" : "serial";
+	setInterface(interface);
+	address = (visca_interface == "serial") ? std::clamp((int)obs_data_get_int(cfg, "address"), 1, 7) : 1;
+
 	visca_pan_speed_max = (int)obs_data_get_int(cfg, "visca_pan_speed_max");
 	visca_tilt_speed_max = (int)obs_data_get_int(cfg, "visca_tilt_speed_max");
 	visca_zoom_speed_max = (int)obs_data_get_int(cfg, "visca_zoom_speed_max");
 	visca_focus_speed_max = (int)obs_data_get_int(cfg, "visca_focus_speed_max");
 	protocol_trace = obs_data_get_bool(cfg, "protocol_trace");
+
+	transport->update(cfg);
 }
 
 void PTZVisca::save(OBSData cfg) const
 {
 	PTZDevice::save(cfg);
+	if (visca_interface == "serial")
+		obs_data_set_int(cfg, "address", address);
 	obs_data_set_int(cfg, "visca_pan_speed_max", visca_pan_speed_max);
 	obs_data_set_int(cfg, "visca_tilt_speed_max", visca_tilt_speed_max);
 	obs_data_set_int(cfg, "visca_zoom_speed_max", visca_zoom_speed_max);
 	obs_data_set_int(cfg, "visca_focus_speed_max", visca_focus_speed_max);
 	obs_data_set_bool(cfg, "protocol_trace", protocol_trace);
+	if (transport)
+		transport->save(cfg);
+}
+
+/* Add the connection fields for one VISCA transport type ("visca" /
+ * "visca-over-ip" / "visca-over-tcp", the same strings the "type" field has
+ * always used). Only one transport's fields are ever present in the
+ * properties dialog at a time, so they can reuse the original "host"/
+ * "port"/"address" field names without colliding with each other. */
+static void visca_add_interface_fields(obs_properties_t *props, const std::string &type)
+{
+	if (type == "visca-over-tcp")
+		ViscaTCPTransport::add_obs_properties(props);
+	else if (type == "visca-over-ip")
+		ViscaUDPTransport::add_obs_properties(props);
+#if defined(ENABLE_SERIALPORT)
+	else
+		ViscaSerialTransport::add_obs_properties(props);
+#endif
+}
+
+static const char *visca_interface_description(const std::string &type)
+{
+	if (type == "visca-over-tcp")
+		return obs_module_text("PTZ.Visca.TCP.Description");
+	if (type == "visca-over-ip")
+		return obs_module_text("PTZ.Visca.UDP.Description");
+	return obs_module_text("PTZ.Visca.Serial.Description");
+}
+
+/* Swap the transport-specific fields (and their widget types, e.g. the
+ * serial port combo vs the UDP/TCP numeric port spinner) when the user
+ * picks a different "type" from the Protocol list. Remove whichever set is
+ * currently present -- harmless no-op for any that aren't -- then add the
+ * ones for the newly selected type. */
+static bool visca_type_modified_cb(void *, obs_properties_t *props, obs_property_t *, obs_data_t *settings)
+{
+	obs_properties_remove_by_name(props, "host");
+	obs_properties_remove_by_name(props, "port");
+	obs_properties_remove_by_name(props, "quirk_visca_udp_no_seq");
+#if defined(ENABLE_SERIALPORT)
+	obs_properties_remove_by_name(props, "baud_rate");
+	obs_properties_remove_by_name(props, "address");
+#endif
+
+	std::string type = obs_data_get_string(settings, "type");
+
+	obs_property_t *iface_group = obs_properties_get(props, "interface");
+	if (iface_group) {
+		visca_add_interface_fields(obs_property_group_content(iface_group), type);
+		obs_property_set_description(iface_group, visca_interface_description(type));
+	}
+
+	return true;
 }
 
 obs_properties_t *PTZVisca::get_obs_properties()
 {
 	auto *ptz_props = PTZDevice::get_obs_properties();
+
+	obs_property_t *iface_group = obs_properties_get(ptz_props, "interface");
+	obs_properties_t *iface_props = obs_property_group_content(iface_group);
+	obs_property_set_description(iface_group, visca_interface_description(type));
+
+	obs_property_t *type_list = obs_properties_add_list(iface_props, "type", obs_module_text("PTZ.Visca.Interface"),
+							    OBS_COMBO_TYPE_LIST, OBS_COMBO_FORMAT_STRING);
+#if defined(ENABLE_SERIALPORT)
+	obs_property_list_add_string(type_list, obs_module_text("PTZ.Visca.Serial.Name"), "visca");
+#endif
+	obs_property_list_add_string(type_list, obs_module_text("PTZ.Visca.UDP.Name"), "visca-over-ip");
+	obs_property_list_add_string(type_list, obs_module_text("PTZ.Visca.TCP.Name"), "visca-over-tcp");
+	obs_property_set_modified_callback2(type_list, visca_type_modified_cb, nullptr);
+
+	visca_add_interface_fields(iface_props, type);
 
 	auto *wbGroup = obs_properties_create();
 	obs_properties_add_group(ptz_props, "whitebalance", obs_module_text("PTZ.WhiteBalance"), OBS_GROUP_NORMAL,
