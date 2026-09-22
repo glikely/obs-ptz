@@ -169,7 +169,11 @@ void ViscaUDPTransport::lookup_host_callback(const QHostInfo info)
 void ViscaUDPTransport::update(OBSData config)
 {
 	QString new_host = obs_data_get_string(config, "host");
-	auto port = obs_data_get_int(config, "port");
+	int port;
+	if (obs_data_has_user_value(config, "udp_port"))
+		port = obs_data_get_int(config, "udp_port");
+	else
+		port = obs_data_get_int(config, "port"); /* legacy schema */
 	if (new_host != host) {
 		ip_address.clear();
 		host = new_host;
@@ -188,13 +192,14 @@ void ViscaUDPTransport::update(OBSData config)
 void ViscaUDPTransport::save(OBSData config) const
 {
 	obs_data_set_string(config, "host", qPrintable(host));
-	obs_data_set_int(config, "port", iface ? iface->port() : 0);
+	obs_data_set_int(config, "udp_port", iface ? iface->port() : 0);
+	obs_data_set_int(config, "port", iface ? iface->port() : 0); /* legacy schema */
 	obs_data_set_bool(config, "quirk_visca_udp_no_seq", quirk_visca_udp_no_seq);
 }
 
 void ViscaUDPTransport::add_obs_properties(obs_properties_t *props)
 {
 	obs_properties_add_text(props, "host", obs_module_text("PTZ.Device.Hostname"), OBS_TEXT_DEFAULT);
-	obs_properties_add_int(props, "port", obs_module_text("PTZ.Device.UDPPort"), 1, 65535, 1);
+	obs_properties_add_int(props, "udp_port", obs_module_text("PTZ.Device.UDPPort"), 1, 65535, 1);
 	obs_properties_add_bool(props, "quirk_visca_udp_no_seq", obs_module_text("PTZ.Visca.UDP.QuirkNoSeq"));
 }

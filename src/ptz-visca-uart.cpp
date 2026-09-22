@@ -116,7 +116,9 @@ void ViscaSerialTransport::send(const QByteArray &msg_, unsigned int address)
 
 void ViscaSerialTransport::update(OBSData config)
 {
-	const char *uart = obs_data_get_string(config, "port");
+	const char *uart = obs_data_get_string(config, "serial_port");
+	if (!uart || !*uart)
+		uart = obs_data_get_string(config, "port"); /* legacy schema */
 	if (!uart || !*uart)
 		return;
 

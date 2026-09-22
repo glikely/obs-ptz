@@ -619,7 +619,7 @@ void PTZVisca::getDefaults(OBSData cfg) const
 	 * unchanged. */
 	std::string cfg_type = obs_data_get_string(cfg, "type");
 	if (cfg_type == "visca-over-tcp")
-		obs_data_set_default_int(cfg, "port", 5678);
+		obs_data_set_default_int(cfg, "tcp_port", 5678);
 	else if (cfg_type != "visca-over-ip")
 		obs_data_set_default_int(cfg, "address", 1);
 
@@ -697,9 +697,11 @@ static const char *visca_interface_description(const std::string &type)
 static bool visca_type_modified_cb(void *, obs_properties_t *props, obs_property_t *, obs_data_t *settings)
 {
 	obs_properties_remove_by_name(props, "host");
-	obs_properties_remove_by_name(props, "port");
+	obs_properties_remove_by_name(props, "udp_port");
+	obs_properties_remove_by_name(props, "tcp_port");
 	obs_properties_remove_by_name(props, "quirk_visca_udp_no_seq");
 #if defined(ENABLE_SERIALPORT)
+	obs_properties_remove_by_name(props, "serial_port");
 	obs_properties_remove_by_name(props, "baud_rate");
 	obs_properties_remove_by_name(props, "address");
 #endif

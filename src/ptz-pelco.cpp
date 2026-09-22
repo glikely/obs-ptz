@@ -158,11 +158,13 @@ void PTZPelco::getDefaults(OBSData config) const
 void PTZPelco::update(OBSData config)
 {
 	PTZDevice::update(config);
-	const char *uartt = obs_data_get_string(config, "port");
-	use_pelco_d = obs_data_get_bool(config, "use_pelco_d");
-	address = (unsigned int)obs_data_get_int(config, "address");
+	const char *uartt = obs_data_get_string(config, "serial_port");
+	if (!uartt)
+		uartt = obs_data_get_string(config, "port"); /* legacy schema */
 	if (!uartt)
 		return;
+	use_pelco_d = obs_data_get_bool(config, "use_pelco_d");
+	address = (unsigned int)obs_data_get_int(config, "address");
 
 	PelcoUART *ifc = PelcoUART::get_interface(uartt);
 	ifc->setConfig(config);

@@ -90,18 +90,22 @@ void ViscaTCPTransport::poll()
 void ViscaTCPTransport::update(OBSData config)
 {
 	host = obs_data_get_string(config, "host");
-	port = (int)obs_data_get_int(config, "port");
+	if (obs_data_has_user_value(config, "tcp_port"))
+		port = (int)obs_data_get_int(config, "tcp_port");
+	else
+		port = (int)obs_data_get_int(config, "port"); /* fallback to old config schema */
 	connectSocket();
 }
 
 void ViscaTCPTransport::save(OBSData config) const
 {
 	obs_data_set_string(config, "host", QT_TO_UTF8(host));
-	obs_data_set_int(config, "port", port);
+	obs_data_set_int(config, "tcp_port", port);
+	obs_data_set_int(config, "port", port); /* preserve older config schema */
 }
 
 void ViscaTCPTransport::add_obs_properties(obs_properties_t *props)
 {
 	obs_properties_add_text(props, "host", obs_module_text("PTZ.Device.Hostname"), OBS_TEXT_DEFAULT);
-	obs_properties_add_int(props, "port", obs_module_text("PTZ.Device.TCPPort"), 1, 65535, 1);
+	obs_properties_add_int(props, "tcp_port", obs_module_text("PTZ.Device.TCPPort"), 1, 65535, 1);
 }

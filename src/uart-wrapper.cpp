@@ -81,7 +81,8 @@ void PTZUARTWrapper::setConfig(OBSData config)
 
 void PTZUARTWrapper::save(OBSData config) const
 {
-	obs_data_set_string(config, "port", qPrintable(portName()));
+	obs_data_set_string(config, "serial_port", qPrintable(portName()));
+	obs_data_set_string(config, "port", qPrintable(portName())); /* legacy schema */
 	obs_data_set_int(config, "baud_rate", baudRate());
 }
 
@@ -90,8 +91,8 @@ void PTZUARTWrapper::addOBSProperties(obs_properties_t *props)
 {
 	obs_property_t *p;
 
-	p = obs_properties_add_list(props, "port", obs_module_text("PTZ.Device.SerialPort"), OBS_COMBO_TYPE_EDITABLE,
-				    OBS_COMBO_FORMAT_STRING);
+	p = obs_properties_add_list(props, "serial_port", obs_module_text("PTZ.Device.SerialPort"),
+				    OBS_COMBO_TYPE_EDITABLE, OBS_COMBO_FORMAT_STRING);
 	Q_FOREACH(auto port, QSerialPortInfo::availablePorts())
 	{
 		std::string name = port.portName().toStdString();
