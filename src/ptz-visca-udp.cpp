@@ -22,53 +22,6 @@ ViscaUDPSocket::ViscaUDPSocket(int port) : visca_port(port)
 	connect(&visca_socket, &QUdpSocket::readyRead, this, &ViscaUDPSocket::poll);
 }
 
-void ViscaUDPTransport::receive_datagram(const QNetworkDatagram &dg)
-{
-	if (!dg.senderAddress().isEqual(ip_address)) // Check if this packet is for us.
-		return;
-
-	QByteArray data = dg.data();
-	if (quirk_visca_udp_no_seq) {
-		// Prepend an empty sequence field
-		int s = data.size();
-		data = QByteArray::fromHex("0111000000000000") + dg.data();
-		data[3] = s;
-	}
-	if (data.size() < 9) {
-		blog(LOG_DEBUG, "VISCA UDP (too small) <-- %s", qPrintable(data.toHex(':')));
-		return;
-	}
-	uint16_t type = (uint8_t)data[0] << 8 | (uint8_t)data[1];
-	/*uint16_t size = (uint8_t)data[2] << 8 | (uint8_t)data[3];*/
-	uint32_t seq = (uint8_t)data[4] << 24 | (uint8_t)data[5] << 16 | (uint8_t)data[6] << 8 | (uint8_t)data[7];
-	uint8_t reply_code = data[9] & 0x70;
-	uint8_t slot = data[9] & 0x0f;
-
-	switch (type) {
-	case 0x0111:
-		if (seq != seq_state[0] && seq != seq_state[slot]) {
-			blog(LOG_DEBUG, "VISCA UDP out of seq; %i != [0]%i or [%i]%i) <-- %s", seq, seq_state[0], slot,
-			     seq_state[slot], qPrintable(data.toHex(':')));
-			emit statIncrement("visca_udp_outofseq_cmplt_count");
-			return;
-		}
-		/* if slot is nonzero, update or clear the sequence number for that slot */
-		if (slot)
-			seq_state[slot] = (reply_code == 0x40) ? seq_state[0] : 0;
-		emit receive(data.sliced(8));
-		break;
-	case 0x0200:
-	case 0x0201: /* Check for sequence number out of sync */
-		if (data[8] == (char)0x0f && data[8 + 1] == (char)1)
-			protocol_reset();
-		else if (data[8] == 0x01)
-			emit refresh();
-		break;
-	default:
-		blog(LOG_DEBUG, "VISCA UDP unrecognized type: %x", type);
-	}
-}
-
 void ViscaUDPSocket::send(QHostAddress ip_address, const QByteArray &packet)
 {
 	visca_socket.writeDatagram(packet, ip_address, visca_port);
@@ -127,6 +80,53 @@ void ViscaUDPTransport::protocol_reset()
 	if (iface)
 		iface->send(ip_address, QByteArray::fromHex("020000010000000001"));
 	emit reset();
+}
+
+void ViscaUDPTransport::receive_datagram(const QNetworkDatagram &dg)
+{
+	if (!dg.senderAddress().isEqual(ip_address)) // Check if this packet is for us.
+		return;
+
+	QByteArray data = dg.data();
+	if (quirk_visca_udp_no_seq) {
+		// Prepend an empty sequence field
+		int s = data.size();
+		data = QByteArray::fromHex("0111000000000000") + dg.data();
+		data[3] = s;
+	}
+	if (data.size() < 9) {
+		blog(LOG_DEBUG, "VISCA UDP (too small) <-- %s", qPrintable(data.toHex(':')));
+		return;
+	}
+	uint16_t type = (uint8_t)data[0] << 8 | (uint8_t)data[1];
+	/*uint16_t size = (uint8_t)data[2] << 8 | (uint8_t)data[3];*/
+	uint32_t seq = (uint8_t)data[4] << 24 | (uint8_t)data[5] << 16 | (uint8_t)data[6] << 8 | (uint8_t)data[7];
+	uint8_t reply_code = data[9] & 0x70;
+	uint8_t slot = data[9] & 0x0f;
+
+	switch (type) {
+	case 0x0111:
+		if (seq != seq_state[0] && seq != seq_state[slot]) {
+			blog(LOG_DEBUG, "VISCA UDP out of seq; %i != [0]%i or [%i]%i) <-- %s", seq, seq_state[0], slot,
+			     seq_state[slot], qPrintable(data.toHex(':')));
+			emit statIncrement("visca_udp_outofseq_cmplt_count");
+			return;
+		}
+		/* if slot is nonzero, update or clear the sequence number for that slot */
+		if (slot)
+			seq_state[slot] = (reply_code == 0x40) ? seq_state[0] : 0;
+		emit receive(data.sliced(8));
+		break;
+	case 0x0200:
+	case 0x0201: /* Check for sequence number out of sync */
+		if (data[8] == (char)0x0f && data[8 + 1] == (char)1)
+			protocol_reset();
+		else if (data[8] == 0x01)
+			emit refresh();
+		break;
+	default:
+		blog(LOG_DEBUG, "VISCA UDP unrecognized type: %x", type);
+	}
 }
 
 void ViscaUDPTransport::send(const QByteArray &msg, unsigned int address)
