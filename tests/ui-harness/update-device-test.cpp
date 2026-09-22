@@ -23,7 +23,7 @@ namespace {
  * how the "Protocol" list (PTZVisca::get_obs_properties(), see
  * src/ptz-visca.cpp) switches a live VISCA device between the
  * serial/UDP/TCP transports: set "type" to "visca"/"visca-over-ip"/
- * "visca-over-tcp" plus that transport's "host"/"port"/"address" fields,
+ * "visca-over-tcp" plus that transport's "host"/"*_port"/"address" fields,
  * reusing the same field names the properties dialog does (see
  * PTZVisca::update()'s "type" -> ViscaTransport switch and
  * ViscaUDPTransport::update()/ViscaTCPTransport::update()). Unlike
@@ -56,16 +56,19 @@ void runUpdateDeviceTest(const QMap<QString, QString> &params)
 		obs_data_set_string(cfg, "type", qUtf8Printable(params.value(QStringLiteral("type"))));
 	if (params.contains(QStringLiteral("host")))
 		obs_data_set_string(cfg, "host", qUtf8Printable(params.value(QStringLiteral("host"))));
-	if (params.contains(QStringLiteral("port"))) {
-		/* Numeric for VISCA UDP/TCP, but a serial device path (a
-		 * string, e.g. "/dev/ttyUSB0") when switching to "visca". */
-		QString portParam = params.value(QStringLiteral("port"));
-		bool portOk = false;
-		int port = portParam.toInt(&portOk);
-		if (portOk)
-			obs_data_set_int(cfg, "port", port);
-		else
-			obs_data_set_string(cfg, "port", qUtf8Printable(portParam));
+	if (params.contains(QStringLiteral("serial_port")))
+		obs_data_set_string(cfg, "serial_port", qUtf8Printable(params.value(QStringLiteral("serial_port"))));
+	if (params.contains(QStringLiteral("tcp_port"))) {
+		bool tcpPortOk = false;
+		int port = params.value(QStringLiteral("tcp_port")).toInt(&tcpPortOk);
+		if (tcpPortOk)
+			obs_data_set_int(cfg, "tcp_port", port);
+	}
+	if (params.contains(QStringLiteral("udp_port"))) {
+		bool udpPortOk = false;
+		int port = params.value(QStringLiteral("udp_port")).toInt(&udpPortOk);
+		if (udpPortOk)
+			obs_data_set_int(cfg, "udp_port", port);
 	}
 	if (params.contains(QStringLiteral("address"))) {
 		bool addressOk = false;

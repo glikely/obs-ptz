@@ -2,7 +2,7 @@
 the "Protocol" list in the properties dialog (PTZVisca::get_obs_properties()'s
 "type" list + PTZVisca::update()'s "type" -> ViscaTransport switch, see
 src/ptz-visca.cpp) -- and specifically that it persists using the original
-"type"/"host"/"port" field names (see the plugin's on-disk config format),
+"type"/"host"/"*_port" field names (see the plugin's on-disk config format),
 not a separate namespaced field per transport.
 
 Driven through tests/ui-harness/update-device-test.cpp's "update_device"
@@ -125,7 +125,7 @@ def restore_visca_tcp_device(obs_world, ptz_ports, tmp_path):
     device_id = obs_world.device_ids[VISCA_TCP]
     obs_world.run_ui_test(
         "update_device", device_id=device_id,
-        type="visca-over-tcp", host="127.0.0.1", port=ptz_ports["visca_tcp"],
+        type="visca-over-tcp", host="127.0.0.1", tcp_port=ptz_ports["visca_tcp"],
     )
     obs_world.wait_for_device_status(
         device_id, tmp_path / "restore-status.json",
@@ -151,7 +151,7 @@ def test_switch_visca_interface_across_all_transports(obs_world, ptz_ports, seri
     dead_port = free_port()
     obs_world.run_ui_test(
         "update_device", device_id=device_id,
-        type="visca-over-ip", host="127.0.0.1", port=dead_port,
+        type="visca-over-ip", host="127.0.0.1", udp_port=dead_port,
     )
     obs_world.trigger_action(device_id, ACTION_PAN_TILT, pan_speed=0.3)
     obs_world.wait_for_device_status(device_id, status_file, lambda s: s["connected"] is False, timeout=10)
@@ -164,20 +164,20 @@ def test_switch_visca_interface_across_all_transports(obs_world, ptz_ports, seri
     # back to anything else.
     obs_world.run_ui_test(
         "update_device", device_id=device_id,
-        type="visca-over-ip", host="127.0.0.1", port=ptz_ports["visca_udp"],
+        type="visca-over-ip", host="127.0.0.1", udp_port=ptz_ports["visca_udp"],
     )
     _connect_and_move(obs_world, device_id, status_file, shared_debug_url, pan_speed=0.5)
 
     # VISCA serial, pointed at its own dedicated ptzsim instance.
     obs_world.run_ui_test(
         "update_device", device_id=device_id,
-        type="visca", port=str(serial_ptzsim.serial_path), address=1,
+        type="visca", serial_port=str(serial_ptzsim.serial_path), address=1,
     )
     _connect_and_move(obs_world, device_id, status_file, serial_ptzsim.debug_url, pan_speed=0.6)
 
     # Back to VISCA-over-TCP, on the shared simulated camera again.
     obs_world.run_ui_test(
         "update_device", device_id=device_id,
-        type="visca-over-tcp", host="127.0.0.1", port=ptz_ports["visca_tcp"],
+        type="visca-over-tcp", host="127.0.0.1", tcp_port=ptz_ports["visca_tcp"],
     )
     _connect_and_move(obs_world, device_id, status_file, shared_debug_url, pan_speed=0.7)
