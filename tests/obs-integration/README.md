@@ -77,6 +77,23 @@ actually work end to end.
     `ptz_action_source`'s own action enum but are never actually wired
     up or exposed in its properties, so obs-websocket alone can't reach
     this either.
+11. `test_change_interface.py` covers switching an existing VISCA
+    device's transport live -- the "Protocol" list in the properties
+    dialog (`PTZVisca::get_obs_properties()`/`PTZVisca::update()`'s
+    `"type"` -> `ViscaTransport` switch, see `src/ptz-visca.cpp`) -- and
+    that it persists through the original `"type"`/`"host"`/`"port"`
+    field names rather than a separate field per transport. Walks one
+    device through all three transports (TCP -> UDP -> serial -> back to
+    TCP), confirming each one both connects and actually delivers a move
+    the simulated camera decodes; the serial leg uses its own dedicated
+    ptzsim instance rather than the shared "visca-serial" device's, since
+    ptzsim's simulated VISCA-serial camera only answers at bus address 1
+    and sharing it would mean two devices filtering the same address off
+    the same wire. Uses `tests/ui-harness/update-device-test.cpp`'s
+    `update_device` test (same `-DENABLE_UI_TESTS=ON` requirement as
+    above), which applies a
+    settings change to a device the same way the properties dialog's
+    Apply/OK does.
 
 ## Running locally
 

@@ -195,6 +195,7 @@ if(ENABLE_UI_TESTS)
       tests/ui-harness/device-status-test.cpp
       tests/ui-harness/move-device-test.cpp
       tests/ui-harness/set-device-test.cpp
+      tests/ui-harness/update-device-test.cpp
   )
 endif()
 
