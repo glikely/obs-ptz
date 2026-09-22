@@ -90,3 +90,5 @@ from just reading the code.
   don't rewrite history proactively.
 - Write commit messages that explain **why**, not just what as described
   in CONTRIBUTING.md.
+- Keep source comments short, and avoid rewording within a patch series.
+  Reworded patches cause conflicts when reordering commits
