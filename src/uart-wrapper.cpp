@@ -85,6 +85,7 @@ void PTZUARTWrapper::save(OBSData config) const
 	obs_data_set_int(config, "baud_rate", baudRate());
 }
 
+// static
 void PTZUARTWrapper::addOBSProperties(obs_properties_t *props)
 {
 	obs_property_t *p;
