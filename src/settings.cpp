@@ -344,14 +344,9 @@ void PTZSettings::joystickSetup()
 void PTZSettings::on_addPTZ_clicked()
 {
 	QMenu addPTZContext;
+	QAction *addVisca = addPTZContext.addAction(obs_module_text("PTZ.Visca.Name"));
 #if defined(ENABLE_SERIALPORT)
-	QAction *addViscaSerial = addPTZContext.addAction(obs_module_text("PTZ.Visca.Serial.Name"));
-#endif
-	QAction *addViscaUDP = addPTZContext.addAction(obs_module_text("PTZ.Visca.UDP.Name"));
-	QAction *addViscaTCP = addPTZContext.addAction(obs_module_text("PTZ.Visca.TCP.Name"));
-#if defined(ENABLE_SERIALPORT)
-	QAction *addPelcoD = addPTZContext.addAction(obs_module_text("PTZ.PelcoD.Name"));
-	QAction *addPelcoP = addPTZContext.addAction(obs_module_text("PTZ.PelcoP.Name"));
+	QAction *addPelco = addPTZContext.addAction(obs_module_text("PTZ.Pelco.Name"));
 #endif
 #if defined(ENABLE_ONVIF) // ONVIF disabled until code is reworked
 	QAction *addOnvif = addPTZContext.addAction(obs_module_text("PTZ.ONVIF.Name"));
@@ -361,41 +356,18 @@ void PTZSettings::on_addPTZ_clicked()
 #endif
 	QAction *action = addPTZContext.exec(ui->addPTZ->mapToGlobal(QPoint(0, ui->addPTZ->height())));
 
-#if defined(ENABLE_SERIALPORT)
-	if (action == addViscaSerial) {
-		OBSData cfg = obs_data_create();
-		obs_data_release(cfg);
-		obs_data_set_string(cfg, "type", "visca");
-		ptzDeviceList.make_device(cfg);
-	}
-#endif
-	if (action == addViscaUDP) {
+	if (action == addVisca) {
 		OBSData cfg = obs_data_create();
 		obs_data_release(cfg);
 		obs_data_set_string(cfg, "type", "visca-over-ip");
-		obs_data_set_int(cfg, "port", 52381);
-		ptzDeviceList.make_device(cfg);
-	}
-	if (action == addViscaTCP) {
-		OBSData cfg = obs_data_create();
-		obs_data_release(cfg);
-		obs_data_set_string(cfg, "type", "visca-over-tcp");
-		obs_data_set_int(cfg, "port", 5678);
 		ptzDeviceList.make_device(cfg);
 	}
 #if defined(ENABLE_SERIALPORT)
-	if (action == addPelcoD) {
+	if (action == addPelco) {
 		OBSData cfg = obs_data_create();
 		obs_data_release(cfg);
 		obs_data_set_string(cfg, "type", "pelco");
 		obs_data_set_bool(cfg, "use_pelco_d", true);
-		ptzDeviceList.make_device(cfg);
-	}
-	if (action == addPelcoP) {
-		OBSData cfg = obs_data_create();
-		obs_data_release(cfg);
-		obs_data_set_string(cfg, "type", "pelco");
-		obs_data_set_bool(cfg, "use_pelco_d", false);
 		ptzDeviceList.make_device(cfg);
 	}
 #endif
