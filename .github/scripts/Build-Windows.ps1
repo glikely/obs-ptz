@@ -48,6 +48,14 @@ function Build {
     Ensure-Location $ProjectRoot
 
     $CmakeArgs = @('--preset', "windows-ci-${Target}")
+
+    # CMakePresets.json pins the "Visual Studio 17 2022" generator. Runner
+    # images that only ship VS 2026 (VisualStudioVersion 18.x, set by vcvars)
+    # need the matching generator instead.
+    if ( $env:VisualStudioVersion -and [version]$env:VisualStudioVersion -ge [version]'18.0' ) {
+        $CmakeArgs += @('-G', 'Visual Studio 18 2026')
+    }
+
     $CmakeBuildArgs = @('--build')
     $CmakeInstallArgs = @()
 

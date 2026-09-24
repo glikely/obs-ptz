@@ -77,8 +77,18 @@ runs:
       if: runner.os == 'Windows'
       shell: pwsh
       run: |
+        # Locate Visual Studio with vswhere rather than hardcoding a version
+        # directory: hosted runner images move between VS releases (e.g. the
+        # windows-11-arm label switched from VS 2022 to VS 2026).
         $VcVars = if ('${{ inputs.target }}' -eq 'arm64') { 'vcvarsarm64.bat' } else { 'vcvars64.bat' }
-        cmd.exe /c "call `"C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Auxiliary\Build\$VcVars`" && set > %temp%\vcvars.txt"
+        $VsWhere = "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe"
+        $VsPath = & $VsWhere -latest -products * -property installationPath
+        if ( -not $VsPath ) { throw "vswhere could not find a Visual Studio installation" }
+        $VcVarsPath = Join-Path $VsPath "VC\Auxiliary\Build\$VcVars"
+        if ( -not (Test-Path $VcVarsPath) ) { throw "$VcVarsPath does not exist" }
+
+        cmd.exe /c "call `"$VcVarsPath`" && set > %temp%\vcvars.txt"
+        if ( $LASTEXITCODE -ne 0 ) { throw "$VcVars failed with exit code $LASTEXITCODE" }
         Get-Content "$env:temp\vcvars.txt" | Foreach-Object {
           if ($_ -match "^(.*?)=(.*)$") {
             Set-Content "env:\$($matches[1])" $matches[2]
