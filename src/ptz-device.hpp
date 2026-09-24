@@ -56,6 +56,7 @@ protected:
 	mutable OBSWeakSource m_parentSource;
 	QString m_parentSourceName;
 	mutable QMutex m_parentSourceMutex;
+	void watchParentSource(const OBSWeakSource &weak, bool watch) const;
 	/* Collection of all presets, keyed by unique integer id.
 	 * On cameras that use preset numbers, the id is mapped 1:1 with the
 	 * preset number.  */
@@ -90,9 +91,14 @@ public:
 	void announceCreated();
 
 	void setObjectName(QString name);
+	/* Refresh the device's name from its source -- the device's name is
+	 * always the name of its source (or the last one it had, while that
+	 * source doesn't exist), or the default name if it has never had one */
+	void syncName();
 	/* Returns a new reference to the device's source (release it with
 	 * obs_source_release()), or NULL if it has none. */
 	obs_source_t *parentSource() const;
+	void setParentSource(obs_source_t *source);
 	void setParentSourceByName(const char *name);
 	virtual QString description();
 	bool isLive() const { return live; }

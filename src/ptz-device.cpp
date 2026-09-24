@@ -114,7 +114,6 @@ PTZDevice::PTZDevice(OBSData config) : QObject()
 	}
 
 	setParentSourceByName(obs_data_get_string(config, "name"));
-	setObjectName(obs_data_get_string(config, "name"));
 	type = obs_data_get_string(config, "type");
 	state = obs_data_create();
 	obs_data_release(state);
@@ -165,6 +164,9 @@ PTZDevice::~PTZDevice()
 		ptz_device_registry.remove(id);
 	}
 
+	/* Stop watching the source */
+	watchParentSource(m_parentSource, false);
+
 	proc_handler_destroy(handler);
 	handler = nullptr;
 	signal_handler_destroy(sigs);
@@ -180,8 +182,10 @@ obs_source_t *PTZDevice::parentSource() const
 		obs_source_t *src = obs_weak_source_get_source(m_parentSource);
 		if (src && !obs_source_removed(src))
 			return src;
-		if (src)
+		if (src) {
+			watchParentSource(m_parentSource, false);
 			obs_source_release(src);
+		}
 		m_parentSource = OBSWeakSource(); /* parent source no longer valid; clear it */
 	}
 
@@ -195,18 +199,79 @@ obs_source_t *PTZDevice::parentSource() const
 		obs_source_release(src);
 		src = nullptr;
 	}
-	if (src)
+	if (src) {
 		m_parentSource = OBSGetWeakRef(src);
+		watchParentSource(m_parentSource, true);
+	}
 	return src;
+}
+
+/* The device's name is the name of its source, so it follows the source's
+ * renames. The signal fires on whatever thread did the rename, and syncName()
+ * notifies listeners, so hand it to the device's own thread. */
+static void ptz_source_renamed_cb(void *data, calldata_t *)
+{
+	auto ptz = static_cast<PTZDevice *>(data);
+	QMetaObject::invokeMethod(ptz, [ptz]() { ptz->syncName(); }, Qt::QueuedConnection);
+}
+
+/* Caller must hold m_parentSourceMutex, or be the destructor. Const because
+ * parentSource() binds lazily. */
+void PTZDevice::watchParentSource(const OBSWeakSource &weak, bool watch) const
+{
+	OBSSourceAutoRelease src = weak ? obs_weak_source_get_source(weak) : nullptr;
+	if (!src)
+		return;
+	auto sh = obs_source_get_signal_handler(src);
+	auto self = const_cast<PTZDevice *>(this);
+	if (watch)
+		signal_handler_connect(sh, "rename", ptz_source_renamed_cb, self);
+	else
+		signal_handler_disconnect(sh, "rename", ptz_source_renamed_cb, self);
+}
+
+void PTZDevice::setParentSource(obs_source_t *source)
+{
+	{
+		QMutexLocker locker(&m_parentSourceMutex);
+		watchParentSource(m_parentSource, false);
+		m_parentSource = source ? OBSGetWeakRef(source) : OBSWeakSource();
+		m_parentSourceName = source ? QT_UTF8(obs_source_get_name(source)) : QString();
+		watchParentSource(m_parentSource, true);
+	}
+	syncName();
+}
+
+void PTZDevice::syncName()
+{
+	OBSSourceAutoRelease src = parentSource();
+	QString name;
+	{
+		QMutexLocker locker(&m_parentSourceMutex);
+		if (src)
+			m_parentSourceName = QT_UTF8(obs_source_get_name(src));
+		name = m_parentSourceName;
+	}
+	/* Not under the lock: this notifies listeners, who may call back in */
+	setObjectName(name);
 }
 
 /* Assign the source by name. This just sets the name and clears the weak reference.
  * Actual lookup is lazy and happens when parentSource() is called. */
 void PTZDevice::setParentSourceByName(const char *name)
 {
-	QMutexLocker locker(&m_parentSourceMutex);
-	m_parentSourceName = name;
-	m_parentSource = OBSWeakSource();
+	OBSSourceAutoRelease src = (name && *name) ? obs_get_source_by_name(name) : nullptr;
+	if (src) {
+		setParentSource(src);
+		return;
+	}
+	{
+		QMutexLocker locker(&m_parentSourceMutex);
+		watchParentSource(m_parentSource, false);
+		m_parentSourceName = name;
+		m_parentSource = OBSWeakSource();
+	}
+	syncName();
 }
 
 void PTZDevice::setObjectName(QString name)
@@ -539,7 +604,6 @@ void PTZDevice::update(OBSData config)
 	}
 
 	setParentSourceByName(obs_data_get_string(config, "name"));
-	setObjectName(obs_data_get_string(config, "name"));
 	pantilt_speed_max = obs_data_get_double(config, "pantilt_speed_max");
 	zoom_speed_max = obs_data_get_double(config, "zoom_speed_max");
 	focus_speed_max = obs_data_get_double(config, "focus_speed_max");
@@ -551,7 +615,14 @@ void PTZDevice::update(OBSData config)
 
 void PTZDevice::save(OBSData config) const
 {
-	obs_data_set_string(config, "name", QT_TO_UTF8(objectName()));
+	/* Devices are identified by their source's name; "" for no source */
+	OBSSourceAutoRelease src = parentSource();
+	QString name;
+	{
+		QMutexLocker locker(&m_parentSourceMutex);
+		name = src ? QT_UTF8(obs_source_get_name(src)) : m_parentSourceName;
+	}
+	obs_data_set_string(config, "name", QT_TO_UTF8(name));
 	obs_data_set_int(config, "id", id);
 	obs_data_set_string(config, "type", type.c_str());
 	obs_data_set_double(config, "pantilt_speed_max", pantilt_speed_max);
@@ -589,7 +660,7 @@ obs_properties_t *PTZDevice::get_obs_properties()
 	/* Add current source to top list */
 	OBSSourceAutoRelease src = parentSource();
 	if (src)
-		obs_property_list_add_string(srcs_prop, QT_TO_UTF8(objectName()), QT_TO_UTF8(objectName()));
+		obs_property_list_add_string(srcs_prop, obs_source_get_name(src), obs_source_get_name(src));
 	/* Add all sources not assigned to a camera */
 	QStringList srcnames;
 	obs_enum_sources(src_cb, &srcnames);
