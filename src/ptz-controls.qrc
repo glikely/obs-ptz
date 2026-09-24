@@ -14,5 +14,7 @@
     <file>icons/pantilt_up.svg</file>
     <file>icons/pantilt_left.svg</file>
     <file>icons/pantilt_right.svg</file>
+    <file>icons/ptz_move_light.svg</file>
+    <file>icons/ptz_move_dark.svg</file>
   </qresource>
 </RCC>

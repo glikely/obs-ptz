@@ -263,6 +263,18 @@ static obs_properties_t *ptz_action_source_get_properties(void *data)
 	return props;
 }
 
+#if LIBOBS_API_VER >= MAKE_SEMANTIC_VERSION(32, 2, 0)
+static const char *ptz_filter_dark_icon(void *type_data)
+{
+	UNUSED_PARAMETER(type_data);
+	return bstrdup(":/icons/icons/ptz_move_dark.svg");
+}
+static const char *ptz_filter_light_icon(void *type_data)
+{
+	UNUSED_PARAMETER(type_data);
+	return bstrdup(":/icons/icons/ptz_move_light.svg");
+}
+#endif
 struct obs_source_info ptz_action_source = {
 	.id = "ptz_action_source",
 	.type = OBS_SOURCE_TYPE_INPUT,
@@ -272,6 +284,11 @@ struct obs_source_info ptz_action_source = {
 	.destroy = ptz_action_source_destroy,
 	.update = ptz_action_source_update,
 	.get_properties = ptz_action_source_get_properties,
+#if LIBOBS_API_VER >= MAKE_SEMANTIC_VERSION(32, 2, 0)
+	.icon_type = OBS_ICON_TYPE_CUSTOM,
+	.get_dark_icon = ptz_filter_dark_icon,
+	.get_light_icon = ptz_filter_light_icon,
+#endif
 };
 
 void ptz_load_action_source(void)
