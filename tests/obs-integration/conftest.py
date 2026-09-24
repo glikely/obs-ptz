@@ -48,6 +48,18 @@ DEVICE_IDS = {
     # process underneath this device without disturbing the other
     # devices above.
     "visca-tcp-flaky": 6,
+    # Devices for test_device_source_binding.py. Each is configured with
+    # the name of an OBS source that doesn't exist when OBS starts (the
+    # config is loaded before OBS loads its scene collection), which the
+    # test then creates, renames and removes. One device per test, since
+    # a device's binding state carries over from one test to the next.
+    "source-late": 7,
+    "source-rename": 8,
+    "source-recreate": 9,
+    "source-held": 10,
+    "source-held-replaced": 11,
+    # Configured with no name at all, so it's not bound to any source
+    "unnamed": 12,
 }
 
 
@@ -148,6 +160,23 @@ def write_ptz_plugin_config(home: Path, ports, serial_paths):
             "tcp_port": ports["visca_tcp_flaky"],
         },
     ]
+    # Nothing listens on these devices' UDP port: they only exist to be
+    # bound to sources, not to talk to a camera.
+    for key in ("source-late", "source-rename", "source-recreate", "source-held", "source-held-replaced"):
+        devices.append({
+            "id": DEVICE_IDS[key],
+            "name": f"sim-{key}",
+            "type": "visca-over-ip",
+            "host": "127.0.0.1",
+            "udp_port": ports["unused_udp"],
+        })
+    devices.append({
+        "id": DEVICE_IDS["unnamed"],
+        "name": "",
+        "type": "visca-over-ip",
+        "host": "127.0.0.1",
+        "udp_port": ports["unused_udp"],
+    })
     (config_dir / "config.json").write_text(json.dumps({"devices": devices}))
 
 
@@ -205,6 +234,51 @@ class World:
             },
         })
         self.ws.call("SetCurrentProgramScene", {"sceneName": scene})
+
+    def create_scene(self):
+        """Creates an empty scene that cleanup_scenes() removes again, and
+        returns its name."""
+        self._scene_counter += 1
+        scene = f"ptzsim-test-{self._scene_counter}"
+        self.ws.call("CreateScene", {"sceneName": scene})
+        return scene
+
+    def device_source(self, device_id, out_file):
+        """Fetches which OBS source device_id is bound to, and the
+        device's name, via tests/ui-harness/device-source-test.cpp's
+        "get_device_source" test. Like device_status(), removes any stale
+        out_file first and waits for the rewritten one. Note that asking
+        can itself bind the device to a source that has just appeared."""
+        if out_file.exists():
+            out_file.unlink()
+        self.run_ui_test("get_device_source", device_id=device_id, filename=str(out_file))
+        self.wait_for(out_file.exists)
+        return json.loads(out_file.read_text())
+
+    def hold_source(self, name, out_file, release=False):
+        """Takes (or, with release=True, drops) a strong reference to the
+        source called `name`, through tests/ui-harness/device-source-test.
+        cpp's "hold_source" test, and waits for it to have done so -- the
+        request is queued onto the GUI thread, so a caller that goes on to
+        remove the source over obs-websocket would otherwise race it."""
+        if out_file.exists():
+            out_file.unlink()
+        self.run_ui_test("hold_source", name=name, release="1" if release else "0", filename=str(out_file))
+        self.wait_for(out_file.exists)
+        assert json.loads(out_file.read_text())["ok"] is True
+
+    def wait_for_device_source(self, device_id, out_file, predicate, timeout=5, interval=0.2):
+        """Polls device_source() until predicate(result) is true -- name
+        changes and the device list's cached live/locked state reach it
+        asynchronously, via signals queued onto the GUI thread."""
+        deadline = time.time() + timeout
+        last = None
+        while time.time() < deadline:
+            last = self.device_source(device_id, out_file)
+            if predicate(last):
+                return last
+            time.sleep(interval)
+        raise AssertionError(f"device {device_id} source never matched predicate; last seen: {last}")
 
     def cleanup_scenes(self):
         for i in range(1, self._scene_counter + 1):
@@ -338,6 +412,7 @@ def ptz_ports():
         "debug_http": free_port(),
         "rtsp": free_port(),
         "visca_tcp_flaky": free_port(),
+        "unused_udp": free_port(),
     }
 
 

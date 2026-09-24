@@ -70,3 +70,4 @@ void registerMoveDeviceTest(PTZUITestHarness *harness);
 void registerSetDeviceTest(PTZUITestHarness *harness);
 void registerUpdateDeviceTest(PTZUITestHarness *harness);
 void registerPresetViewTest(PTZUITestHarness *harness);
+void registerDeviceSourceTest(PTZUITestHarness *harness);

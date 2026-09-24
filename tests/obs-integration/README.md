@@ -102,6 +102,24 @@ actually work end to end.
     `-DENABLE_UI_TESTS=ON` requirement as above), which can select a camera
     in the dock, or add or remove a device, and reports the rows the preset
     list is showing.
+13. `test_device_source_binding.py` covers how a `PTZDevice` binds to the
+    OBS source it controls (`PTZDevice::source()`, see
+    `src/ptz-device.cpp`): that it finds a source created after the
+    device config was loaded (the config is loaded before OBS loads its
+    scene collection, so a device can never bind at load time), follows
+    the source being renamed, and copes with the source being removed and
+    a new one of the same name created. Uses
+    `tests/ui-harness/device-source-test.cpp`'s `get_device_source` test
+    (same `-DENABLE_UI_TESTS=ON` requirement as above) to read back which
+    source a device holds and what it is called, and creates, renames and
+    removes the sources themselves over obs-websocket. Each test has its
+    own device (see `DEVICE_IDS` in `conftest.py`), configured with the
+    name of a source that doesn't exist yet and with no camera behind it.
+    They remove a source's scene item before the source, since otherwise
+    OBS keeps the source, and its name, until its scene is next drawn
+    (see `test_obs_removed_source.py`, below), which would leave the tests
+    that recreate a source under a removed one's name waiting, or, on
+    macOS, unable to run at all.
 
 ## Running locally
 

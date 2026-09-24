@@ -23,6 +23,7 @@ PTZUITestHarness::PTZUITestHarness(QObject *parent) : QObject(parent)
 	registerSetDeviceTest(this);
 	registerUpdateDeviceTest(this);
 	registerPresetViewTest(this);
+	registerDeviceSourceTest(this);
 }
 
 void PTZUITestHarness::registerTest(const QString &name, TestFn fn)
