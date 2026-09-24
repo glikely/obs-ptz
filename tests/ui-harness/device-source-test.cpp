@@ -17,6 +17,9 @@ namespace {
 /* Reports which OBS source a device is bound to, and what the device
  * itself is called, as JSON:
  *
+ *   found        - whether there is such a device; nothing else is there
+ *                  if not
+ *   device_id    - the device's id
  *   name         - the device's name as the device list shows it
  *                  (PTZListModel's DisplayRole)
  *   config_name  - the "name" the device would save to the config file
@@ -39,36 +42,70 @@ namespace {
  * appeared, so asking is not a neutral observation. */
 void runDeviceSourceTest(const QMap<QString, QString> &params)
 {
-	bool deviceIdOk = false;
-	uint32_t deviceId = params.value(QStringLiteral("device_id")).toUInt(&deviceIdOk);
 	QString filename = params.value(QStringLiteral("filename"));
-	if (!deviceIdOk || filename.isEmpty()) {
-		blog(LOG_INFO, "[ptz-ui-test] get_device_source: missing/invalid device_id or filename");
+	if (filename.isEmpty()) {
+		blog(LOG_INFO, "[ptz-ui-test] get_device_source: missing filename");
 		return;
 	}
 
-	QModelIndex index = ptzDeviceList->indexFromDeviceId(deviceId);
-	if (!index.isValid()) {
-		blog(LOG_INFO, "[ptz-ui-test] get_device_source: device_id %u not found", deviceId);
-		return;
+	QModelIndex index;
+	if (params.contains(QStringLiteral("device_id"))) {
+		bool deviceIdOk = false;
+		uint32_t id = params.value(QStringLiteral("device_id")).toUInt(&deviceIdOk);
+		if (!deviceIdOk) {
+			blog(LOG_INFO, "[ptz-ui-test] get_device_source: invalid device_id");
+			return;
+		}
+		index = ptzDeviceList->indexFromDeviceId(id);
+	} else {
+		index = ptzDeviceList->indexFromName(params.value(QStringLiteral("name")));
 	}
-
-	OBSDataAutoRelease config = obs_data_create();
-	ptzDeviceList->save(index, config.Get());
-
-	OBSSourceAutoRelease source = ptz_device_get_parent_source(deviceId);
 
 	OBSDataAutoRelease result = obs_data_create();
-	obs_data_set_string(result, "name", qUtf8Printable(ptzDeviceList->data(index, Qt::DisplayRole).toString()));
-	obs_data_set_string(result, "config_name", obs_data_get_string(config, "name"));
-	obs_data_set_bool(result, "bound", source != nullptr);
-	obs_data_set_string(result, "source", source ? obs_source_get_name(source) : "");
-	obs_data_set_string(result, "source_uuid", source ? obs_source_get_uuid(source) : "");
-	obs_data_set_bool(result, "live", ptzDeviceList->data(index, PTZListModel::IsLiveRole).toBool());
-	obs_data_set_bool(result, "locked", ptzDeviceList->data(index, PTZListModel::IsLockedRole).toBool());
+	obs_data_set_bool(result, "found", index.isValid());
+	if (index.isValid()) {
+		uint32_t deviceId = ptzDeviceList->data(index, PTZListModel::DeviceIdRole).toUInt();
+
+		OBSDataAutoRelease config = obs_data_create();
+		ptzDeviceList->save(index, config.Get());
+
+		OBSSourceAutoRelease source = ptz_device_get_parent_source(deviceId);
+
+		obs_data_set_int(result, "device_id", deviceId);
+		obs_data_set_string(result, "name",
+				    qUtf8Printable(ptzDeviceList->data(index, Qt::DisplayRole).toString()));
+		obs_data_set_string(result, "config_name", obs_data_get_string(config, "name"));
+		obs_data_set_bool(result, "bound", source != nullptr);
+		obs_data_set_string(result, "source", source ? obs_source_get_name(source) : "");
+		obs_data_set_string(result, "source_uuid", source ? obs_source_get_uuid(source) : "");
+		obs_data_set_bool(result, "live", ptzDeviceList->data(index, PTZListModel::IsLiveRole).toBool());
+		obs_data_set_bool(result, "locked", ptzDeviceList->data(index, PTZListModel::IsLockedRole).toBool());
+	}
 
 	if (!obs_data_save_json_safe(result, qUtf8Printable(filename), "tmp", "bak"))
 		blog(LOG_INFO, "[ptz-ui-test] get_device_source: failed to write %s", qUtf8Printable(filename));
+}
+
+/* Writes what the plugin would save as its device list, as
+ * {"devices": [<each device's saved config>]}: PTZListModel::save(), which
+ * PTZControls::SaveConfig() writes to the plugin's config file. A device
+ * that belongs to an OBS filter is saved with the filter instead, so it
+ * must not be in here. */
+void runSavedDevicesTest(const QMap<QString, QString> &params)
+{
+	QString filename = params.value(QStringLiteral("filename"));
+	if (filename.isEmpty()) {
+		blog(LOG_INFO, "[ptz-ui-test] get_saved_devices: missing filename");
+		return;
+	}
+
+	OBSDataArrayAutoRelease devices = obs_data_array_create();
+	ptzDeviceList->save(devices.Get());
+
+	OBSDataAutoRelease result = obs_data_create();
+	obs_data_set_array(result, "devices", devices);
+	if (!obs_data_save_json_safe(result, qUtf8Printable(filename), "tmp", "bak"))
+		blog(LOG_INFO, "[ptz-ui-test] get_saved_devices: failed to write %s", qUtf8Printable(filename));
 }
 
 /* Takes (or drops) a strong reference to a source, the way another plugin,
@@ -109,10 +146,17 @@ void runHoldSourceTest(const QMap<QString, QString> &params)
 
 } // namespace
 
-/* Request params:
- *   device_id - the target device's numeric id
- *   filename  - where to write the {"name", "config_name", "bound",
- *               "source", "source_uuid", "live", "locked"} JSON result
+/* get_device_source request params:
+ *   device_id - the target device's numeric id, or
+ *   name      - its name, for a device whose id isn't known ahead of time
+ *               (one an OBS filter created)
+ *   filename  - where to write the {"found", "device_id", "name",
+ *               "config_name", "bound", "source", "source_uuid", "live",
+ *               "locked"} JSON result. Only "found" is there if there is
+ *               no such device
+ *
+ * get_saved_devices request params:
+ *   filename  - where to write the {"devices"} JSON result
  *
  * hold_source request params:
  *   name      - the source's name
@@ -125,4 +169,5 @@ void registerDeviceSourceTest(PTZUITestHarness *harness)
 {
 	harness->registerTest(QStringLiteral("get_device_source"), &runDeviceSourceTest);
 	harness->registerTest(QStringLiteral("hold_source"), &runHoldSourceTest);
+	harness->registerTest(QStringLiteral("get_saved_devices"), &runSavedDevicesTest);
 }
