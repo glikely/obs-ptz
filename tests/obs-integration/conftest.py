@@ -243,29 +243,26 @@ class World:
         self.ws.call("CreateScene", {"sceneName": scene})
         return scene
 
+    def _query_device_source(self, out_file, **params):
+        if out_file.exists():
+            out_file.unlink()
+        self.run_ui_test("get_device_source", filename=str(out_file), **params)
+        self.wait_for(out_file.exists)
+        return json.loads(out_file.read_text())
+
     def device_source(self, device_id, out_file):
         """Fetches which OBS source device_id is bound to, and the
         device's name, via tests/ui-harness/device-source-test.cpp's
         "get_device_source" test. Like device_status(), removes any stale
         out_file first and waits for the rewritten one. Note that asking
         can itself bind the device to a source that has just appeared."""
-        if out_file.exists():
-            out_file.unlink()
-        self.run_ui_test("get_device_source", device_id=device_id, filename=str(out_file))
-        self.wait_for(out_file.exists)
-        return json.loads(out_file.read_text())
+        return self._query_device_source(out_file, device_id=device_id)
 
-    def hold_source(self, name, out_file, release=False):
-        """Takes (or, with release=True, drops) a strong reference to the
-        source called `name`, through tests/ui-harness/device-source-test.
-        cpp's "hold_source" test, and waits for it to have done so -- the
-        request is queued onto the GUI thread, so a caller that goes on to
-        remove the source over obs-websocket would otherwise race it."""
-        if out_file.exists():
-            out_file.unlink()
-        self.run_ui_test("hold_source", name=name, release="1" if release else "0", filename=str(out_file))
-        self.wait_for(out_file.exists)
-        assert json.loads(out_file.read_text())["ok"] is True
+    def device_by_name(self, name, out_file):
+        """device_source() for a device whose id isn't known ahead of
+        time, such as one an OBS filter created, found by its name.
+        Nothing but {"found": False} is there if there's no such device."""
+        return self._query_device_source(out_file, name=name)
 
     def wait_for_device_source(self, device_id, out_file, predicate, timeout=5, interval=0.2):
         """Polls device_source() until predicate(result) is true -- name
@@ -279,6 +276,38 @@ class World:
                 return last
             time.sleep(interval)
         raise AssertionError(f"device {device_id} source never matched predicate; last seen: {last}")
+
+    def wait_for_device_by_name(self, name, out_file, predicate, timeout=5, interval=0.2):
+        """wait_for_device_source() for a device found by name."""
+        deadline = time.time() + timeout
+        last = None
+        while time.time() < deadline:
+            last = self.device_by_name(name, out_file)
+            if predicate(last):
+                return last
+            time.sleep(interval)
+        raise AssertionError(f"device {name!r} never matched predicate; last seen: {last}")
+
+    def saved_devices(self, out_file):
+        """The device configs the plugin would save to its config file
+        (tests/ui-harness/device-source-test.cpp's "get_saved_devices")."""
+        if out_file.exists():
+            out_file.unlink()
+        self.run_ui_test("get_saved_devices", filename=str(out_file))
+        self.wait_for(out_file.exists)
+        return json.loads(out_file.read_text())["devices"]
+
+    def hold_source(self, name, out_file, release=False):
+        """Takes (or, with release=True, drops) a strong reference to the
+        source called `name`, through tests/ui-harness/device-source-test.
+        cpp's "hold_source" test, and waits for it to have done so -- the
+        request is queued onto the GUI thread, so a caller that goes on to
+        remove the source over obs-websocket would otherwise race it."""
+        if out_file.exists():
+            out_file.unlink()
+        self.run_ui_test("hold_source", name=name, release="1" if release else "0", filename=str(out_file))
+        self.wait_for(out_file.exists)
+        assert json.loads(out_file.read_text())["ok"] is True
 
     def cleanup_scenes(self):
         for i in range(1, self._scene_counter + 1):

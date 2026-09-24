@@ -120,6 +120,16 @@ actually work end to end.
     (see `test_obs_removed_source.py`, below), which would leave the tests
     that recreate a source under a removed one's name waiting, or, on
     macOS, unable to run at all.
+14. `test_filter_devices.py` covers PTZ devices that belong to an OBS
+    filter (`ptz_visca_filter_info`, see `src/ptz-device.cpp`): adding a
+    "VISCA PTZ Control" filter to a source creates a device for it,
+    named after and bound to the source, that connects to the camera and
+    can be driven like any other; it follows the source's rename and
+    shows as live with it; removing the filter removes the device; and it
+    is saved with the filter, not in the plugin's own device list. Each
+    test points its filters at a dedicated `ptzsim` instance, and finds
+    the device by name through the `get_device_source` test (a filter's
+    device is given its id by the plugin, not by the config file).
 
 ## Running locally
 
