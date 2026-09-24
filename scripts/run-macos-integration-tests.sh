@@ -38,7 +38,7 @@ REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 OBS_APP="${PTZSIM_OBS_APP:-/Applications/OBS.app}"
 OBS_BINARY="$OBS_APP/Contents/MacOS/OBS"
 CFG="$HOME/Library/Application Support/obs-studio"
-VENV="${TMPDIR:-/tmp}/obs-ptz-macos-integration-venv"
+VENV="${XDG_CACHE_HOME:-$HOME/Library/Caches}/obs-ptz-macos-integration-venv"
 WRAPPER="$REPO_ROOT/scripts/macos-integration-test-obs-wrapper.py"
 
 SKIP_BUILD=0
@@ -76,8 +76,9 @@ cp -R "$REPO_ROOT/build_macos/RelWithDebInfo/obs-ptz.plugin" "$PLUGIN_DIR/obs-pt
 xattr -cr "$PLUGIN_DIR/obs-ptz.plugin"
 
 echo "==> Setting up the Python test environment"
-if [ ! -x "$VENV/bin/pytest" ]; then
-    python3 -m venv "$VENV"
+if ! "$VENV/bin/python" -c "import pytest, websockets" >/dev/null 2>&1; then
+    # --clear: start over if there's a half-broken venv already there
+    python3 -m venv --clear "$VENV"
     "$VENV/bin/pip" install -q -r "$REPO_ROOT/tests/obs-integration/requirements.txt"
 fi
 
