@@ -51,7 +51,6 @@ _handed to listeners as `proc_handler` on the `ptz_device_create` signal._
 > Query/config/preset-CRUD API for PTZListModel -- everything it needs from a PTZDevice beyond movement/preset-recall control
 
 - `ptr ptz_get_state()`
-- `void ptz_set_name(string name)`
 - `void ptz_set_locked(bool locked)`
 - `void ptz_get_config(ptr config)`
 - `void ptz_set_config(ptr config)`

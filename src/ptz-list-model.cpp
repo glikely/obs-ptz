@@ -20,14 +20,6 @@ PTZListModel *ptzDeviceList = nullptr;
  * calldata arguments and uses QMetaObject::invokeMethod() to make the
  * method call on the correct thread.
  */
-static void source_rename_cb(void *data, calldata_t *cd)
-{
-	auto ptzlm = static_cast<PTZListModel *>(data);
-	QString new_name = calldata_string(cd, "new_name");
-	QString prev_name = calldata_string(cd, "prev_name");
-	QMetaObject::invokeMethod(ptzlm, [ptzlm, new_name, prev_name] { ptzlm->renameDevice(new_name, prev_name); });
-}
-
 /**
  * Device lifetime is detected through the global PTZ signal_handler
  * (see ptz_get_signal_handler() / ptz_load_devices())
@@ -108,19 +100,12 @@ static void preset_renamed_cb(void *data, calldata_t *cd)
 
 PTZListModel::PTZListModel() : QAbstractItemModel()
 {
-	signal_handler_t *sh = obs_get_signal_handler();
-	signal_handler_connect(sh, "source_rename", source_rename_cb, this);
-
 	signal_handler_t *ptz_sh = ptz_get_signal_handler();
 	signal_handler_connect(ptz_sh, "ptz_device_create", device_create_cb, this);
 	signal_handler_connect(ptz_sh, "ptz_device_destroy", device_destroy_cb, this);
 }
 
-PTZListModel::~PTZListModel()
-{
-	//signal_handler_t *sh = obs_get_signal_handler();
-	//signal_handler_disconnect(sh, "source_rename", source_rename_cb, this);
-}
+PTZListModel::~PTZListModel() {}
 
 void PTZListModel::create()
 {
@@ -502,20 +487,6 @@ QModelIndex PTZListModel::indexFromName(const QString &name) const
 		if (name == devices.at(row).name)
 			return index(row, 0);
 	return QModelIndex();
-}
-
-void PTZListModel::renameDevice(QString new_name, QString prev_name)
-{
-	for (const auto &entry : devices) {
-		if (entry.name != prev_name)
-			continue;
-		calldata_t cd = {};
-		calldata_set_int(&cd, "device_id", entry.id);
-		calldata_set_string(&cd, "name", QT_TO_UTF8(new_name));
-		proc_handler_call(entry.ph, "ptz_set_name", &cd);
-		calldata_free(&cd);
-		return;
-	}
 }
 
 void PTZListModel::save(OBSDataArray configs) const

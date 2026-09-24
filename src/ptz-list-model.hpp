@@ -97,7 +97,6 @@ public:
 	QModelIndex indexFromName(const QString &name) const;
 	bool callDevice(const QModelIndex &index, const char *method, calldata_t *cd = nullptr);
 	bool callDevice(const char *method, calldata_t *cd = nullptr);
-	void renameDevice(QString new_name, QString prev_name);
 	void save(OBSDataArray configs) const;
 	void save(const QModelIndex &index, OBSData settings) const;
 	void update(const QModelIndex &index, OBSData settings);

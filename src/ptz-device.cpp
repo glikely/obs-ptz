@@ -29,15 +29,6 @@
 static QRecursiveMutex ptz_device_registry_mutex;
 static QHash<uint32_t, PTZDevice *> ptz_device_registry;
 
-static PTZDevice *find_device_by_name(const QString &name)
-{
-	QMutexLocker locker(&ptz_device_registry_mutex);
-	for (auto ptz : ptz_device_registry)
-		if (name == ptz->objectName())
-			return ptz;
-	return nullptr;
-}
-
 /**
  * Lambda factory macro for the PTZ proc_handler methods. This macro
  * simplifies the registration of PTZDevice methods as targets for
@@ -87,7 +78,6 @@ PTZDevice::PTZDevice(OBSData config) : QObject()
 	/* Query/config/preset-CRUD API for PTZListModel -- everything it
 	 * needs from a PTZDevice beyond movement/preset-recall control */
 	proc_handler_add(handler, "ptr ptz_get_state()", ptz_ph_lambda(get_state), this);
-	proc_handler_add(handler, "void ptz_set_name(string name)", ptz_ph_lambda(setObjectName), this);
 	proc_handler_add(handler, "void ptz_set_locked(bool locked)", ptz_ph_lambda(setLock), this);
 	proc_handler_add(handler, "void ptz_get_config(ptr config)", ptz_ph_lambda(get_config), this);
 	proc_handler_add(handler, "void ptz_set_config(ptr config)", ptz_ph_lambda(set_config), this);
@@ -236,7 +226,6 @@ void PTZDevice::setParentSource(obs_source_t *source)
 		QMutexLocker locker(&m_parentSourceMutex);
 		watchParentSource(m_parentSource, false);
 		m_parentSource = source ? OBSGetWeakRef(source) : OBSWeakSource();
-		m_parentSourceName = source ? QT_UTF8(obs_source_get_name(source)) : QString();
 		watchParentSource(m_parentSource, true);
 	}
 	syncName();
@@ -245,15 +234,18 @@ void PTZDevice::setParentSource(obs_source_t *source)
 void PTZDevice::syncName()
 {
 	OBSSourceAutoRelease src = parentSource();
+	if (!src)
+		return;
 	QString name;
 	{
 		QMutexLocker locker(&m_parentSourceMutex);
-		if (src)
-			m_parentSourceName = QT_UTF8(obs_source_get_name(src));
-		name = m_parentSourceName;
+		name = QT_UTF8(obs_source_get_name(src));
+		if (name == m_parentSourceName)
+			return;
+		m_parentSourceName = name;
 	}
-	/* Not under the lock: this notifies listeners, who may call back in */
-	setObjectName(name);
+	obs_data_set_string(stateChanged, "name", QT_TO_UTF8(name));
+	notifyStateChanged();
 }
 
 /* Assign the source by name. This just sets the name and clears the weak reference.
@@ -272,26 +264,6 @@ void PTZDevice::setParentSourceByName(const char *name)
 		m_parentSource = OBSWeakSource();
 	}
 	syncName();
-}
-
-void PTZDevice::setObjectName(QString name)
-{
-	if (name.simplified().isEmpty()) {
-		if (objectName().startsWith(obs_module_text("PTZ.Device.DefaultName")))
-			return;
-		name = obs_module_text("PTZ.Device.DefaultName");
-	}
-	if (name == objectName())
-		return;
-	QString new_name = name;
-	for (int i = 1;; i++) {
-		PTZDevice *ptz = find_device_by_name(new_name);
-		if (!ptz)
-			break;
-		new_name = name + " " + QString::number(i);
-	}
-	QObject::setObjectName(new_name);
-	notifyStateChanged();
 }
 
 QString PTZDevice::description()
@@ -461,7 +433,7 @@ void PTZDevice::get_state(calldata_t *cd)
 	if (wrongThread("ptz_get_state"))
 		return;
 	obs_data_t *state = obs_data_create();
-	obs_data_set_string(state, "name", QT_TO_UTF8(objectName()));
+	obs_data_set_string(state, "name", QT_TO_UTF8(m_parentSourceName));
 	obs_data_set_string(state, "description", QT_TO_UTF8(description()));
 	obs_data_set_string(state, "type", type.c_str());
 	obs_data_set_bool(state, "connected", connected);
@@ -470,13 +442,6 @@ void PTZDevice::get_state(calldata_t *cd)
 	obs_data_set_bool(state, "locked", locked);
 	obs_data_set_bool(state, "supports_set_home", supportsSetHome());
 	calldata_set_ptr(cd, "return", state);
-}
-
-void PTZDevice::setObjectName(calldata_t *cd)
-{
-	if (wrongThread("ptz_set_name"))
-		return;
-	setObjectName(QT_UTF8(calldata_string(cd, "name")));
 }
 
 void PTZDevice::setLock(calldata_t *cd)
@@ -667,7 +632,7 @@ obs_properties_t *PTZDevice::get_obs_properties()
 	{
 		QMutexLocker locker(&ptz_device_registry_mutex);
 		for (auto ptz : ptz_device_registry)
-			srcnames.removeAll(ptz->objectName());
+			srcnames.removeAll(ptz->m_parentSourceName);
 	}
 	for (auto n : srcnames)
 		obs_property_list_add_string(srcs_prop, QT_TO_UTF8(n), QT_TO_UTF8(n));

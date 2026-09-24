@@ -18,7 +18,7 @@
 #include "ptz.h"
 
 #define ptz_log(level, format, ...) \
-	blog(level, "[%s/%.12s] " format, this->type.c_str(), QT_TO_UTF8(this->objectName()), ##__VA_ARGS__)
+	blog(level, "[%s/%.12s] " format, this->type.c_str(), QT_TO_UTF8(this->m_parentSourceName), ##__VA_ARGS__)
 #define ptz_info(format, ...) ptz_log(LOG_INFO, format, ##__VA_ARGS__)
 #define ptz_debug(format, ...) ptz_log(LOG_DEBUG, format, ##__VA_ARGS__)
 #define ptz_debug_trace(format, ...) \
@@ -90,7 +90,6 @@ public:
 	 * derived) is constructed -- see the comment on the definition. */
 	void announceCreated();
 
-	void setObjectName(QString name);
 	/* Refresh the device's name from its source -- the device's name is
 	 * always the name of its source (or the last one it had, while that
 	 * source doesn't exist), or the default name if it has never had one */
@@ -201,7 +200,6 @@ protected slots:
 	 * these directly -- see PTZDevice::PTZDevice() for registration and
 	 * PTZListModel::refreshDeviceState()/refreshPresetList() for callers */
 	void get_state(calldata_t *cd);
-	void setObjectName(calldata_t *cd);
 	void setLock(calldata_t *cd);
 	void get_config(calldata_t *cd) const;
 	void set_config(calldata_t *cd);
