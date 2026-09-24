@@ -9,6 +9,7 @@
 #include <QObject>
 #include <QList>
 #include <QMap>
+#include <QMutex>
 #include <QVariantMap>
 #include <obs.hpp>
 #include <obs-frontend-api.h>
@@ -50,6 +51,11 @@ protected:
 	bool focus_changed = false;
 
 protected:
+	/* The OBS source this device controls. Weak because the device
+	 * doesn't own the source and the user can delete it at any time. */
+	mutable OBSWeakSource m_parentSource;
+	QString m_parentSourceName;
+	mutable QMutex m_parentSourceMutex;
 	/* Collection of all presets, keyed by unique integer id.
 	 * On cameras that use preset numbers, the id is mapped 1:1 with the
 	 * preset number.  */
@@ -84,6 +90,10 @@ public:
 	void announceCreated();
 
 	void setObjectName(QString name);
+	/* Returns a new reference to the device's source (release it with
+	 * obs_source_release()), or NULL if it has none. */
+	obs_source_t *parentSource() const;
+	void setParentSourceByName(const char *name);
 	virtual QString description();
 	bool isLive() const { return live; }
 	bool isPreview() const { return preview; }

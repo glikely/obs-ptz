@@ -371,7 +371,7 @@ void PTZUSBCam::do_update()
 PTZControl *PTZUSBCam::get_ptz_control()
 {
 	std::string video_device_id = "";
-	OBSSourceAutoRelease src = obs_get_source_by_name(QT_TO_UTF8(objectName()));
+	OBSSourceAutoRelease src = parentSource();
 	if (src) {
 		OBSDataAutoRelease psettings = obs_source_get_settings(src);
 		if (psettings) {

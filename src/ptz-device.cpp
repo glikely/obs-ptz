@@ -113,6 +113,7 @@ PTZDevice::PTZDevice(OBSData config) : QObject()
 		signal_handler_add(sigs, "void preset_renamed(int device_id, int id)");
 	}
 
+	setParentSourceByName(obs_data_get_string(config, "name"));
 	setObjectName(obs_data_get_string(config, "name"));
 	type = obs_data_get_string(config, "type");
 	state = obs_data_create();
@@ -170,6 +171,44 @@ PTZDevice::~PTZDevice()
 	sigs = nullptr;
 }
 
+obs_source_t *PTZDevice::parentSource() const
+{
+	QMutexLocker locker(&m_parentSourceMutex);
+
+	/* Check if m_parentSource is still valid, and return it if true */
+	if (m_parentSource) {
+		obs_source_t *src = obs_weak_source_get_source(m_parentSource);
+		if (src && !obs_source_removed(src))
+			return src;
+		if (src)
+			obs_source_release(src);
+		m_parentSource = OBSWeakSource(); /* parent source no longer valid; clear it */
+	}
+
+	/* m_parentSource isn't valid. Either we're not bound yet, or the source went away.
+	 * Try looking it up via the source name. */
+	if (m_parentSourceName.isEmpty())
+		return nullptr;
+
+	obs_source_t *src = obs_get_source_by_name(QT_TO_UTF8(m_parentSourceName));
+	if (src && obs_source_removed(src)) {
+		obs_source_release(src);
+		src = nullptr;
+	}
+	if (src)
+		m_parentSource = OBSGetWeakRef(src);
+	return src;
+}
+
+/* Assign the source by name. This just sets the name and clears the weak reference.
+ * Actual lookup is lazy and happens when parentSource() is called. */
+void PTZDevice::setParentSourceByName(const char *name)
+{
+	QMutexLocker locker(&m_parentSourceMutex);
+	m_parentSourceName = name;
+	m_parentSource = OBSWeakSource();
+}
+
 void PTZDevice::setObjectName(QString name)
 {
 	if (name.simplified().isEmpty()) {
@@ -207,7 +246,7 @@ void PTZDevice::onSceneChanged()
 	preview = false;
 	// Check if the device's source is in the active program scene
 	// If it is then disable the pan/tilt/zoom controls
-	auto source = obs_get_source_by_name(QT_TO_UTF8(objectName()));
+	OBSSourceAutoRelease source = parentSource();
 	if (source) {
 		auto program = obs_frontend_get_current_scene();
 		locked = live = ptz_scene_is_source_active(program, source);
@@ -218,8 +257,6 @@ void PTZDevice::onSceneChanged()
 			preview = ptz_scene_is_source_active(previewScene, source);
 			obs_source_release(previewScene);
 		}
-
-		obs_source_release(source);
 	}
 
 	/* Notify the listeners if there was a state change */
@@ -501,6 +538,7 @@ void PTZDevice::update(OBSData config)
 		sanitizePreset(id);
 	}
 
+	setParentSourceByName(obs_data_get_string(config, "name"));
 	setObjectName(obs_data_get_string(config, "name"));
 	pantilt_speed_max = obs_data_get_double(config, "pantilt_speed_max");
 	zoom_speed_max = obs_data_get_double(config, "zoom_speed_max");
@@ -549,7 +587,7 @@ obs_properties_t *PTZDevice::get_obs_properties()
 						 OBS_COMBO_FORMAT_STRING);
 	obs_property_list_add_string(srcs_prop, obs_module_text("PTZ.Device.NoSource"), "");
 	/* Add current source to top list */
-	OBSSourceAutoRelease src = obs_get_source_by_name(QT_TO_UTF8(objectName()));
+	OBSSourceAutoRelease src = parentSource();
 	if (src)
 		obs_property_list_add_string(srcs_prop, QT_TO_UTF8(objectName()), QT_TO_UTF8(objectName()));
 	/* Add all sources not assigned to a camera */
@@ -643,7 +681,7 @@ obs_source_t *ptz_device_get_parent_source(uint32_t device_id)
 	PTZDevice *ptz = ptz_device_registry.value(device_id, nullptr);
 	if (!ptz)
 		return NULL;
-	return obs_get_source_by_name(QT_TO_UTF8(ptz->objectName()));
+	return ptz->parentSource();
 }
 
 void ptz_devices_set_config(obs_data_array_t *devices)
