@@ -130,6 +130,12 @@ actually work end to end.
     test points its filters at a dedicated `ptzsim` instance, and finds
     the device by name through the `get_device_source` test (a filter's
     device is given its id by the plugin, not by the config file).
+15. `test_obs_removed_source.py` has nothing to do with obs-ptz: it shows
+    libobs itself keeping a removed input, and so its name, until the scene
+    it was in next draws itself, which on macOS can be never. Marked as
+    expected failures; run it with `-rxX` to see which scenarios released the
+    name. It can also be run on its own against any OBS with its websocket
+    server enabled (`python3 test_obs_removed_source.py --help`).
 
 ## Running locally
 
