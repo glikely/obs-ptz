@@ -267,12 +267,14 @@ PTZControls::PTZControls(QWidget *parent) : QFrame(parent), ui(new Ui::PTZContro
 	connect(selectionModel, &QItemSelectionModel::currentChanged, this, &PTZControls::currentChanged);
 	connect(&accel_timer, &QTimer::timeout, this, &PTZControls::accelTimerHandler);
 
-	ui->presetListView->setModel(ptzDeviceList);
 	presetDelegate = new PTZPresetListDelegate(ui->presetListView);
 	ui->presetListView->setItemDelegate(presetDelegate);
-	ui->presetListView->setRootIndex(ptzDeviceList->index(0, 0));
-	selectionModel = ui->presetListView->selectionModel();
-	connect(selectionModel, &QItemSelectionModel::currentChanged, this, &PTZControls::presetUpdateActions);
+	updatePresetList();
+	/* A model reset makes the views throw away their root index, and the
+	 * camera list its selection, so the preset list has to be set up again.
+	 * Queued, so that it happens after the views have done that. */
+	connect(ptzDeviceList, &QAbstractItemModel::modelReset, this, &PTZControls::updatePresetList,
+		Qt::QueuedConnection);
 
 	connect(ui->panTiltTouch, &TouchControl::positionChanged, [this](double p, double t) { setPanTilt(p, t); });
 
@@ -1057,7 +1059,7 @@ void PTZControls::updateMoveControls()
 	calldata_free(&cd);
 }
 
-void PTZControls::currentChanged(QModelIndex current, QModelIndex previous)
+void PTZControls::currentChanged(QModelIndex, QModelIndex previous)
 {
 	accel_timer.stop();
 	if (pantiltingFlag || zoomingFlag || focusingFlag)
@@ -1070,8 +1072,34 @@ void PTZControls::currentChanged(QModelIndex current, QModelIndex previous)
 	zoom_speed = zoom_accel = 0.0;
 	focus_speed = focus_accel = 0.0;
 
-	ui->presetListView->setRootIndex(current);
+	updatePresetList();
 	updateMoveControls();
+}
+
+/**
+ * Make the preset list show the presets of the selected camera.
+ *
+ * The preset list is a view onto the same tree model as the camera list, rooted
+ * at the selected camera. A view rooted at an invalid index shows the top level
+ * of its model, though, which is the list of cameras, so with no camera selected
+ * there is nothing to root the preset list at. Take its model away instead, so
+ * that it shows nothing.
+ */
+void PTZControls::updatePresetList()
+{
+	auto *view = ui->presetListView;
+	auto device = ui->deviceList->currentIndex();
+
+	if (device.isValid() != (view->model() == ptzDeviceList)) {
+		view->setModel(device.isValid() ? ptzDeviceList : nullptr);
+		/* The new model has a new selection model */
+		disconnect(presetSelectionConnection);
+		presetSelectionConnection = connect(view->selectionModel(), &QItemSelectionModel::currentChanged, this,
+						    &PTZControls::presetUpdateActions);
+	}
+	if (device.isValid())
+		view->setRootIndex(device);
+	presetUpdateActions();
 }
 
 void PTZControls::settingsChanged(const QModelIndex &topLeft, const QModelIndex &bottomRight)

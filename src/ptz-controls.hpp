@@ -54,6 +54,7 @@ private:
 	std::unique_ptr<Ui::PTZControls> ui;
 	TouchControl *pantilt_widget;
 	PTZPresetListDelegate *presetDelegate = nullptr;
+	QMetaObject::Connection presetSelectionConnection;
 	PTZDeviceListDelegate *deviceDelegate = nullptr;
 
 	bool live_move_lock_enabled = true;
@@ -137,6 +138,7 @@ private slots:
 	void currentChanged(QModelIndex current, QModelIndex previous);
 	void settingsChanged(const QModelIndex &topleft, const QModelIndex &bottomRight);
 
+	void updatePresetList();
 	void presetUpdateActions();
 	void on_presetListView_activated(QModelIndex index);
 	void on_pantiltStack_customContextMenuRequested(const QPoint &pos);
