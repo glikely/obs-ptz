@@ -2,7 +2,7 @@
  *
  * Copyright 2022 Jonatã Bolzan Loss <jonata@jonata.org>
  *
- * SPDX-License-Identifier: GPLv2
+ * SPDX-License-Identifier: GPLv2+
  *
  * ONVIF support is experimental and needs rework to be non-blocking before it
  * can be enabled generically. This code is disabled by default. To use it
