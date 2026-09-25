@@ -386,7 +386,9 @@ QVariant PTZListModel::data(const QModelIndex &index, int role) const
 		return QVariant();
 
 	if (role == Qt::DisplayRole || role == Qt::EditRole)
-		return entry->name;
+		return entry->name.isEmpty()
+			       ? QString("%1 %2").arg(obs_module_text("PTZ.Device.DefaultName")).arg(entry->id)
+			       : entry->name;
 
 	if (role == PTZListModel::DeviceIdRole)
 		return entry->id;

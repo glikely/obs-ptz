@@ -9,6 +9,7 @@
  */
 #include <obs-module.h>
 #include <obs-frontend-api.h>
+#include <util/dstr.h>
 #include <callback/signal.h>
 #include "ptz.h"
 
@@ -240,11 +241,20 @@ static obs_properties_t *ptz_action_source_get_properties(void *data)
 	prop = obs_properties_add_list(props, "device_id", "Camera", OBS_COMBO_TYPE_LIST, OBS_COMBO_FORMAT_INT);
 	obs_property_set_modified_callback(prop, ptz_action_source_device_changed_cb);
 	obs_data_array_t *array = ptz_devices_get_config();
+	struct dstr label;
+	dstr_init(&label);
 	for (size_t i = 0; i < obs_data_array_count(array); i++) {
 		obs_data_t *config = obs_data_array_item(array, i);
-		obs_property_list_add_int(prop, obs_data_get_string(config, "name"), obs_data_get_int(config, "id"));
+		uint32_t id = (uint32_t)obs_data_get_int(config, "id");
+		const char *name = obs_data_get_string(config, "name");
+		if (!name || !*name) {
+			dstr_printf(&label, "%s %u", obs_module_text("PTZ.Device.DefaultName"), id);
+			name = label.array;
+		}
+		obs_property_list_add_int(prop, name, id);
 		obs_data_release(config);
 	}
+	dstr_free(&label);
 	obs_data_array_release(array);
 
 	/* List the possible actions */
