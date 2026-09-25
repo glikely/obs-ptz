@@ -637,7 +637,7 @@ obs_data_array_t *ptz_devices_get_config()
 	return devices;
 }
 
-obs_source_t *ptz_device_find_source_using_ptz_name(uint32_t device_id)
+obs_source_t *ptz_device_get_parent_source(uint32_t device_id)
 {
 	QMutexLocker locker(&ptz_device_registry_mutex);
 	PTZDevice *ptz = ptz_device_registry.value(device_id, nullptr);

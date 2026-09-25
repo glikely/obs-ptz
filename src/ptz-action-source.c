@@ -105,7 +105,7 @@ static bool is_ptz_in_preview(struct ptz_action_source_data *context)
 
 static bool is_ptz_device_id_active_in_program(uint32_t device_id)
 {
-	obs_source_t *cam_source = ptz_device_find_source_using_ptz_name(device_id);
+	obs_source_t *cam_source = ptz_device_get_parent_source(device_id);
 	if (!cam_source)
 		return false;
 

@@ -34,7 +34,7 @@ static inline void ptz_load_ui_tests(void) {};
 #endif
 
 extern obs_data_array_t *ptz_devices_get_config(void);
-extern obs_source_t *ptz_device_find_source_using_ptz_name(uint32_t device_id);
+extern obs_source_t *ptz_device_get_parent_source(uint32_t device_id);
 extern void ptz_devices_set_config(obs_data_array_t *devices);
 
 /* Driver factory / teardown, dispatching by config["type"] / device_id.
