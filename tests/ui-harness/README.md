@@ -8,7 +8,7 @@ windowed `OBS.app`, and a test that drives a dialog pops it open and
 closed for real - don't drive the mouse/keyboard while one runs) - link
 it in explicitly when you want to run it.
 
-Ships with five tests: `appearance_row_sizing` (see
+Ships with these tests: `appearance_row_sizing` (see
 `appearance-row-sizing-test.cpp` and its own driver,
 `scripts/test_preset_row_sizing.py`), `export_presets`/
 `import_presets` (see `preset-export-import-test.cpp` and its driver,
@@ -21,8 +21,9 @@ its drivers, `tests/obs-integration/test_device_status.py`,
 modules, for the same reason), `move_device` (see `move-device-test.cpp`
 and its driver, `tests/obs-integration/test_absolute_relative_moves.py`
 - likewise a pytest module), and `set_device` (see `set-device-test.cpp`
-and its drivers, `test_autofocus_white_balance.py` and `test_power.py`)
-- see
+and its drivers, `test_autofocus_white_balance.py` and `test_power.py`),
+and `get_preset_view` (see `preset-view-test.cpp` and its driver,
+`test_preset_view.py`) - see
 "Adding a new test" below for how to add another.
 
 ## Why in-process, not a standalone test binary

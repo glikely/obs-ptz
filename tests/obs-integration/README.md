@@ -94,6 +94,14 @@ actually work end to end.
     above), which applies a
     settings change to a device the same way the properties dialog's
     Apply/OK does.
+12. `test_preset_view.py` covers what the PTZ Controls dock's preset list
+    shows when there is no camera selected to show the presets of: nothing,
+    not the list of cameras -- including after the model resets, as it does
+    when a device is added or removed. Uses
+    `tests/ui-harness/preset-view-test.cpp`'s `get_preset_view` test (same
+    `-DENABLE_UI_TESTS=ON` requirement as above), which can select a camera
+    in the dock, or add or remove a device, and reports the rows the preset
+    list is showing.
 
 ## Running locally
 

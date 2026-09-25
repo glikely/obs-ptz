@@ -277,6 +277,33 @@ class World:
             time.sleep(interval)
         raise AssertionError(f"device {device_id} status never matched predicate; last seen: {last}")
 
+    def preset_view(self, out_file, select=None, add_device=None, remove_device=None):
+        """What the PTZ Controls dock's preset list is showing, via
+        tests/ui-harness/preset-view-test.cpp's "get_preset_view" test.
+        First, in this order, it can select a device in the camera list
+        (`select`: a device id, or "none" to clear the selection), add a
+        device with a given name (which resets the model), or remove a
+        device by name."""
+        if out_file.exists():
+            out_file.unlink()
+        params = {k: v for k, v in (("select", select), ("add_device", add_device),
+                                    ("remove_device", remove_device)) if v is not None}
+        self.run_ui_test("get_preset_view", filename=str(out_file), **params)
+        self.wait_for(out_file.exists)
+        return json.loads(out_file.read_text())
+
+    def wait_for_preset_view(self, out_file, predicate, timeout=5, interval=0.2):
+        """Polls preset_view() until predicate(view) is true -- the view
+        catches up with a model reset on a queued call."""
+        deadline = time.time() + timeout
+        last = None
+        while time.time() < deadline:
+            last = self.preset_view(out_file)
+            if predicate(last):
+                return last
+            time.sleep(interval)
+        raise AssertionError(f"preset view never matched predicate; last seen: {last}")
+
     def wait_for(self, predicate, timeout=5, interval=0.1):
         """Generic poll-until-true, for waiting on the effect of an
         asynchronous request like run_ui_test() -- unlike wait_for_state(),
