@@ -61,6 +61,8 @@ DEVICE_IDS = {
     "source-held-replaced": 11,
     # Configured with no name at all, so it's not bound to any source
     "unnamed": 12,
+    # Talks ONVIF to the shared ptzsim
+    "onvif": 13,
 }
 
 
@@ -171,6 +173,15 @@ def write_ptz_plugin_config(home: Path, ports, serial_paths):
             "host": "127.0.0.1",
             "udp_port": ports["unused_udp"],
         })
+    devices.append({
+        "id": DEVICE_IDS["onvif"],
+        "name": "sim-onvif",
+        "type": "onvif",
+        "host": "127.0.0.1",
+        "port": ports["onvif_http"],
+        "username": "admin",
+        "password": "",
+    })
     devices.append({
         "id": DEVICE_IDS["unnamed"],
         "name": "",
