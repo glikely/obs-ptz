@@ -13,7 +13,6 @@
 #include <QUrl>
 #include <QDesktopServices>
 #include <QStringList>
-#include <QJsonDocument>
 
 #include <string>
 
@@ -67,18 +66,7 @@ public:
 
 obs_properties_t *PTZSettings::getProperties(void)
 {
-	auto cb = [](obs_properties_t *, obs_property_t *, void *data_) {
-		auto data = static_cast<obs_data_t *>(data_);
-		blog(LOG_INFO, "%s", obs_data_get_string(data, "debug_info"));
-		return true;
-	};
-
-	auto props = ptzDeviceList->getProperties(ui->deviceList->currentIndex());
-	auto debug = obs_properties_create();
-	obs_properties_add_text(debug, "debug_info", NULL, OBS_TEXT_INFO);
-	obs_properties_add_button2(debug, "dbgdump", "Write to OBS log", cb, settings);
-	obs_properties_add_group(props, "debug", "Full Details", OBS_GROUP_NORMAL, debug);
-	return props;
+	return ptzDeviceList->getProperties(ui->deviceList->currentIndex());
 }
 
 void PTZSettings::updateProperties(OBSData, OBSData new_settings)
@@ -404,10 +392,6 @@ void PTZSettings::currentChanged(const QModelIndex &current, const QModelIndex &
 	obs_data_clear(settings);
 
 	ptzDeviceList->save(current, settings);
-	auto rawjson = obs_data_get_json(settings);
-	/* Use QJsonDocument for nice formatting */
-	auto json = QJsonDocument::fromJson(rawjson).toJson();
-	obs_data_set_string(settings, "debug_info", json.constData());
 
 	propertiesView->ReloadProperties();
 }
@@ -420,9 +404,6 @@ void PTZSettings::settingsChanged(const QModelIndex &topLeft, const QModelIndex 
 		return;
 
 	ptzDeviceList->save(idx, settings);
-	obs_data_erase(settings, "debug_info");
-	auto json = QJsonDocument::fromJson(obs_data_get_json(settings)).toJson();
-	obs_data_set_string(settings, "debug_info", json.constData());
 	QMetaObject::invokeMethod(propertiesView, "RefreshProperties", Qt::QueuedConnection);
 }
 
