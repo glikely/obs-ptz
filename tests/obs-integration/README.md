@@ -140,6 +140,12 @@ actually work end to end.
     keeps every other at its default. Uses `tests/ui-harness/device-settings-test.cpp`'s
     `get_device_settings` test. Pins VISCA's `wb_mode` as the one state
     value still in its settings properties.
+16. `test_device_state.py` covers the transient-state half of that split:
+    the `ptz_get_state` and `ptz_request_state` proc handlers
+    (`PTZDevice::saveState()`, `requestState()`). Uses
+    `tests/ui-harness/device-state-test.cpp`'s `get_device_state` and
+    `set_device_state` tests, checking that a request asks the camera for
+    just the values it holds, even one it already reports.
 
 ## Running locally
 

@@ -379,6 +379,27 @@ class World:
         keys["saved"] = raw.get("saved", {})
         return keys
 
+    def device_state(self, device_id, out_file):
+        """Fetches device_id's whole transient state ("state"), via
+        tests/ui-harness/device-state-test.cpp's "get_device_state" test.
+        Like device_status(), removes any stale out_file first."""
+        if out_file.exists():
+            out_file.unlink()
+        self.run_ui_test("get_device_state", device_id=device_id, filename=str(out_file))
+        self.wait_for(out_file.exists)
+        return json.loads(out_file.read_text())
+
+    def wait_for_device_state(self, device_id, out_file, predicate, timeout=5, interval=0.2):
+        """Polls device_state() until predicate(result) is true."""
+        deadline = time.time() + timeout
+        last = None
+        while time.time() < deadline:
+            last = self.device_state(device_id, out_file)
+            if predicate(last):
+                return last
+            time.sleep(interval)
+        raise AssertionError(f"device {device_id} state never matched predicate; last seen: {last}")
+
     def device_status(self, device_id, out_file):
         """Fetches device_id's live {"connected"} status via
         tests/ui-harness/device-status-test.cpp's "get_device_status"
