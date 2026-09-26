@@ -69,6 +69,17 @@ TEST_CASE("by default a backend is alive if it is valid", "[usb-backend]")
 	CHECK_FALSE(gone.checkAlive());
 }
 
+TEST_CASE("a backend can't read the camera's position unless it says so, and reports its ranges", "[usb-backend]")
+{
+	FakeBackend cam({-100, -50, 0, 0}, {100, 60, 200, 300}, {5, 1, 1, 1});
+
+	CHECK_FALSE(cam.refreshPosition());
+	CHECK(cam.getMin().pan == -100);
+	CHECK(cam.getMax().tilt == 60);
+	CHECK(cam.getMax().zoom == 200);
+	CHECK(cam.getStep().pan == 5);
+}
+
 TEST_CASE("ratio() does not divide by a missing range", "[usb-backend]")
 {
 	CHECK(FakeBackend::ratioOf(50, 100) == 0.5);
