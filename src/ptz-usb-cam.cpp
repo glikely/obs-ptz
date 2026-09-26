@@ -35,13 +35,25 @@ PTZUSBCam::PTZUSBCam(OBSData config, obs_source_t *source)
 			presets[id] = pos;
 		});
 
+	connect(worker_.get(), &PTZUsbWorker::stateCaptured, this,
+		[this](PtzUsbCamPos pos, bool hasPan, bool hasTilt, bool hasZoom, bool hasFocus) {
+			report_state(pos, hasPan, hasTilt, hasZoom, hasFocus);
+		});
+
 	connect(&device_id_timer_, &QTimer::timeout, this, &PTZUSBCam::refreshDeviceId);
 	device_id_timer_.start(250);
 	refreshDeviceId();
+
+	/* Where the camera is, for the device's transient state: the position
+	 * last sent to it (see PTZUsbWorker::captureState()), a few times a
+	 * second is plenty */
+	connect(&state_timer_, &QTimer::timeout, this, [this]() { worker_->captureState(); });
+	state_timer_.start(100);
 }
 
 PTZUSBCam::~PTZUSBCam()
 {
+	state_timer_.stop();
 	device_id_timer_.stop();
 	/* Waits for the worker's thread to finish, and closes the camera */
 	worker_.reset();
@@ -98,6 +110,24 @@ obs_properties_t *PTZUSBCam::get_obs_properties()
 	obs_properties_t *ptz_props = PTZDevice::get_obs_properties();
 	obs_properties_remove_by_name(ptz_props, "interface");
 	return ptz_props;
+}
+
+/* pos's axes are meaningful only where the matching hasX is true -- an axis
+ * the camera has no range for (a fixed-focus camera's focus, say) is left
+ * out of the state entirely, rather than reported as a position of 0. */
+void PTZUSBCam::report_state(PtzUsbCamPos pos, bool hasPan, bool hasTilt, bool hasZoom, bool hasFocus)
+{
+	bool changed = false;
+	if (hasPan)
+		changed |= setPosition("pan", pos.pan);
+	if (hasTilt)
+		changed |= setPosition("tilt", pos.tilt);
+	if (hasZoom)
+		changed |= setPosition("zoom", pos.zoom);
+	if (hasFocus)
+		changed |= setPosition("focus", pos.focus);
+	if (changed)
+		notifyStateChanged();
 }
 
 void PTZUSBCam::do_update()

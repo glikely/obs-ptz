@@ -145,6 +145,18 @@ void PTZUsbWorker::capturePosition(int id)
 	});
 }
 
+void PTZUsbWorker::captureState()
+{
+	post([this] {
+		auto *b = backend();
+		if (!b)
+			return;
+		PtzUsbCamLimits min = b->getMin(), max = b->getMax();
+		emit stateCaptured(b->getPosition(), max.pan > min.pan, max.tilt > min.tilt, max.zoom > min.zoom,
+				   max.focus > min.focus);
+	});
+}
+
 PTZUsbBackend *PTZUsbWorker::backend()
 {
 	auto *b = slot_.get(device_id_);

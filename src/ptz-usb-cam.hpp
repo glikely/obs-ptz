@@ -30,6 +30,11 @@ private:
 	QTimer device_id_timer_;
 	void refreshDeviceId();
 
+	/* Ask the worker where the camera is a few times a second, for the
+	 * device's transient state, and report what it says (report_state()) */
+	QTimer state_timer_;
+	void report_state(PtzUsbCamPos pos, bool hasPan, bool hasTilt, bool hasZoom, bool hasFocus);
+
 public:
 	PTZUSBCam(OBSData config, obs_source_t *source = nullptr);
 	~PTZUSBCam();

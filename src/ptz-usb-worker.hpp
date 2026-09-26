@@ -57,10 +57,18 @@ public:
 	void recall(const PtzUsbCamPos &pos);
 	/* Ask where the camera is; answered by positionCaptured() with the same id */
 	void capturePosition(int id);
+	/* Ask what the camera can report of itself for the device's transient
+	 * state: its position, and which axes it has a range for. Answered by
+	 * stateCaptured(). Does nothing if there is no camera. */
+	void captureState();
 
 signals:
 	void connectedChanged(bool connected);
 	void positionCaptured(int id, double pan, double tilt, double zoom, bool focusAuto, double focus);
+	/* pos's pan/tilt/zoom/focus are meaningful only where the matching hasX
+	 * is true -- an axis the camera has no range for is left out, not
+	 * reported as a position of 0 */
+	void stateCaptured(PtzUsbCamPos pos, bool hasPan, bool hasTilt, bool hasZoom, bool hasFocus);
 
 private:
 	/* Runs fn on the worker's thread, after everything posted before it */
