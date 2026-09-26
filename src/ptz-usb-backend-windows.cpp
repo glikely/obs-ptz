@@ -45,7 +45,7 @@ private:
 	}
 
 public:
-	DirectShowControl(const std::string &device)
+	DirectShowControl(const std::string &device, bool report)
 	{
 		device_path = device;
 		QString decoded_path = QString::fromStdString(device_path);
@@ -60,7 +60,8 @@ public:
 
 		HRESULT hr = CoInitialize(nullptr);
 		if (FAILED(hr) && hr != RPC_E_CHANGED_MODE) {
-			blog(LOG_ERROR, "Failed to initialize COM: %ld", hr);
+			if (report)
+				blog(LOG_ERROR, "Failed to initialize COM: %ld", hr);
 			return;
 		}
 
@@ -68,14 +69,16 @@ public:
 		hr = CoCreateInstance(CLSID_SystemDeviceEnum, nullptr, CLSCTX_INPROC_SERVER, IID_ICreateDevEnum,
 				      (void **)&dev_enum);
 		if (FAILED(hr)) {
-			blog(LOG_ERROR, "Failed to create device enumerator: %ld", hr);
+			if (report)
+				blog(LOG_ERROR, "Failed to create device enumerator: %ld", hr);
 			return;
 		}
 
 		IEnumMoniker *enum_moniker = nullptr;
 		hr = dev_enum->CreateClassEnumerator(CLSID_VideoInputDeviceCategory, &enum_moniker, 0);
 		if (FAILED(hr) || !enum_moniker) {
-			blog(LOG_ERROR, "Failed to enumerate video devices: %ld", hr);
+			if (report)
+				blog(LOG_ERROR, "Failed to enumerate video devices: %ld", hr);
 			dev_enum->Release();
 			return;
 		}
@@ -101,7 +104,9 @@ public:
 						hr = filter_->QueryInterface(IID_IAMCameraControl,
 									     (void **)&cam_control_);
 						if (FAILED(hr)) {
-							blog(LOG_ERROR, "Failed to get IAMCameraControl: %ld", hr);
+							if (report)
+								blog(LOG_ERROR, "Failed to get IAMCameraControl: %ld",
+								     hr);
 							filter_->Release();
 							filter_ = nullptr;
 						}
@@ -121,6 +126,9 @@ public:
 		dev_enum->Release();
 
 		if (cam_control_ == nullptr) {
+			if (report)
+				blog(LOG_WARNING, "USB camera %s not found, or it has no camera controls",
+				     device_path.c_str());
 			return;
 		}
 		// blog(LOG_INFO, "Obtained DirectShow filter for device: %s", device_name.c_str());
@@ -199,7 +207,7 @@ const char *ptz_usb_source_setting_key()
 	return "video_device_id";
 }
 
-std::unique_ptr<PTZUsbBackend> ptz_usb_backend_create(const std::string &device_id)
+std::unique_ptr<PTZUsbBackend> ptz_usb_backend_create(const std::string &device_id, bool report)
 {
-	return std::make_unique<DirectShowControl>(device_id);
+	return std::make_unique<DirectShowControl>(device_id, report);
 }

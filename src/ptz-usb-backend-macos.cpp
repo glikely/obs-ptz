@@ -9,9 +9,7 @@
  */
 
 #include <algorithm>
-#include <atomic>
 #include <cstring>
-#include <functional>
 #include <obs.h>
 #include <CoreFoundation/CoreFoundation.h>
 #include <IOKit/IOCFPlugIn.h>
@@ -24,11 +22,6 @@
 namespace {
 
 constexpr UInt32 REQUEST_TIMEOUT_MS = 250;
-
-/* PTZUSBCam retries creating the control on every tick while the camera is
- * missing or unusable, so only report a setup failure the first time it
- * happens for a given camera. */
-std::atomic<size_t> last_failed_id{0};
 
 bool registry_int(io_service_t service, CFStringRef key, int64_t *out)
 {
@@ -72,7 +65,7 @@ private:
 	UsbDevice **dev_ = nullptr;
 	bool opened_ = false;
 	bool valid_ = false;
-	bool report_ = true;
+	bool report_;
 	uvc::CameraTerminal terminal_{0, 0};
 
 	bool has_pantilt_ = false;
@@ -250,11 +243,9 @@ private:
 	}
 
 public:
-	IOKitUVCControl(const std::string &unique_id)
+	IOKitUVCControl(const std::string &unique_id, bool report) : report_(report)
 	{
 		device_path = unique_id;
-		size_t id_hash = std::hash<std::string>{}(unique_id);
-		report_ = last_failed_id.exchange(id_hash) != id_hash;
 		auto id = uvc::parse_avfoundation_unique_id(unique_id);
 		if (!id) {
 			if (report_)
@@ -270,7 +261,6 @@ public:
 			return;
 		}
 		valid_ = true;
-		last_failed_id = 0;
 
 		probe_pantilt();
 		has_zoom_ = probe_u16(uvc::CT_ZOOM_ABSOLUTE, &min.zoom, &max.zoom, &step.zoom, &now_pos.zoom);
@@ -331,7 +321,7 @@ const char *ptz_usb_source_setting_key()
 	return "device";
 }
 
-std::unique_ptr<PTZUsbBackend> ptz_usb_backend_create(const std::string &device_id)
+std::unique_ptr<PTZUsbBackend> ptz_usb_backend_create(const std::string &device_id, bool report)
 {
-	return std::make_unique<IOKitUVCControl>(device_id);
+	return std::make_unique<IOKitUVCControl>(device_id, report);
 }

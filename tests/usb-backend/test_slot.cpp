@@ -4,6 +4,8 @@
  */
 #include <catch_amalgamated.hpp>
 
+#include <vector>
+
 #include "ptz-usb-backend-slot.hpp"
 
 namespace {
@@ -11,8 +13,13 @@ namespace {
 struct Cameras {
 	int created = 0;
 	int alive = 0;
-	bool present = true; /* whether a camera can be opened at all */
+	bool present = true;        /* whether a camera can be opened at all */
+	std::vector<bool> reported; /* the report argument of each attempt */
 };
+
+using Clock = PTZUsbBackendSlot::Clock;
+using std::chrono::milliseconds;
+using std::chrono::seconds;
 
 class SlotFakeBackend : public PTZUsbBackend {
 public:
@@ -39,7 +46,8 @@ private:
 
 PTZUsbBackendSlot::Factory factoryFor(Cameras &cameras)
 {
-	return [&cameras](const std::string &id) -> std::unique_ptr<PTZUsbBackend> {
+	return [&cameras](const std::string &id, bool report) -> std::unique_ptr<PTZUsbBackend> {
+		cameras.reported.push_back(report);
 		return std::make_unique<SlotFakeBackend>(cameras, id, cameras.present);
 	};
 }
@@ -89,7 +97,7 @@ TEST_CASE("a camera that can't be opened gives no backend", "[usb-backend][slot]
 	cameras.present = false;
 	PTZUsbBackendSlot slot(factoryFor(cameras));
 
-	CHECK(slot.get("cam-a") == nullptr);
+	CHECK(slot.get("cam-a", Clock::now()) == nullptr);
 	CHECK(cameras.alive == 0); /* the failed backend isn't kept */
 }
 
@@ -97,17 +105,18 @@ TEST_CASE("a lost camera is reopened", "[usb-backend][slot]")
 {
 	Cameras cameras;
 	PTZUsbBackendSlot slot(factoryFor(cameras));
+	auto t = Clock::now();
 
-	auto *cam = static_cast<SlotFakeBackend *>(slot.get("cam-a"));
+	auto *cam = static_cast<SlotFakeBackend *>(slot.get("cam-a", t));
 	REQUIRE(cam != nullptr);
 	cam->unplug();
 
 	cameras.present = false;
-	CHECK(slot.get("cam-a") == nullptr);
+	CHECK(slot.get("cam-a", t) == nullptr);
 	CHECK(cameras.alive == 0);
 
 	cameras.present = true;
-	CHECK(slot.get("cam-a") != nullptr);
+	CHECK(slot.get("cam-a", t + seconds(1)) != nullptr);
 	CHECK(cameras.alive == 1);
 }
 

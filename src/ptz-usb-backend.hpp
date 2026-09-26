@@ -122,5 +122,7 @@ public:
 const char *ptz_usb_source_setting_key();
 
 /* Open the camera that ptz_usb_source_setting_key() named. The result may be
- * !isValid() (never nullptr). */
-std::unique_ptr<PTZUsbBackend> ptz_usb_backend_create(const std::string &device_id);
+ * !isValid() (never nullptr). If it fails, log why only when report is set: the
+ * caller keeps retrying a camera that isn't there, and doesn't want the same
+ * message every time. */
+std::unique_ptr<PTZUsbBackend> ptz_usb_backend_create(const std::string &device_id, bool report);

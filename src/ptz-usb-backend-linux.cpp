@@ -63,12 +63,13 @@ private:
 	}
 
 public:
-	V4L2Control(const std::string &device)
+	V4L2Control(const std::string &device, bool report)
 	{
 		device_path = device;
 		fd = open(device_path.c_str(), O_RDWR);
 		if (fd == -1) {
-			blog(LOG_ERROR, "Failed to open V4L2 device: %s", device_path.c_str());
+			if (report)
+				blog(LOG_ERROR, "Failed to open V4L2 device: %s", device_path.c_str());
 			return;
 		}
 		if (query_ctrl(V4L2_CID_PAN_ABSOLUTE, &min.pan, &max.pan, &step.pan))
@@ -108,7 +109,7 @@ const char *ptz_usb_source_setting_key()
 	return "device_id";
 }
 
-std::unique_ptr<PTZUsbBackend> ptz_usb_backend_create(const std::string &device_id)
+std::unique_ptr<PTZUsbBackend> ptz_usb_backend_create(const std::string &device_id, bool report)
 {
-	return std::make_unique<V4L2Control>(device_id);
+	return std::make_unique<V4L2Control>(device_id, report);
 }
