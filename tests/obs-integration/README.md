@@ -130,6 +130,16 @@ actually work end to end.
     test points its filters at a dedicated `ptzsim` instance, and finds
     the device by name through the `get_device_source` test (a filter's
     device is given its id by the plugin, not by the config file).
+15. `test_device_settings.py` covers the split between a device's
+    settings (persisted, edited through `PTZDevice::get_obs_properties()`,
+    which the PTZ settings dialog and OBS's Filters dialog both show) and
+    its transient state: every value the settings properties edit is one
+    `save()` also writes, a PTZ filter persists no runtime identity (device
+    id, name), settings sent through the plugin's own dialog path
+    reach the filter's settings, and a filter updated with just one setting
+    keeps every other at its default. Uses `tests/ui-harness/device-settings-test.cpp`'s
+    `get_device_settings` test. Pins VISCA's `wb_mode` as the one state
+    value still in its settings properties.
 
 ## Running locally
 

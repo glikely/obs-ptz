@@ -352,6 +352,22 @@ class World:
         self.wait_for(matches, timeout=timeout, interval=interval)
         return json.loads(out_file.read_text())
 
+    def device_settings(self, device_id, out_file):
+        """Fetches, as three sets of key names, what device_id's settings
+        properties edit ("property_keys"), what saving it writes
+        ("save_keys"), and what its PTZ filter (if it has one) would
+        persist ("filter_keys"), via tests/ui-harness/device-settings-test.cpp's
+        "get_device_settings" test. Also returns what saving it wrote, with
+        its values, as "saved"."""
+        if out_file.exists():
+            out_file.unlink()
+        self.run_ui_test("get_device_settings", device_id=device_id, filename=str(out_file))
+        self.wait_for(out_file.exists)
+        raw = json.loads(out_file.read_text())
+        keys = {name: {e["key"] for e in raw.get(name, [])} for name in ("property_keys", "save_keys", "filter_keys")}
+        keys["saved"] = raw.get("saved", {})
+        return keys
+
     def device_status(self, device_id, out_file):
         """Fetches device_id's live {"connected"} status via
         tests/ui-harness/device-status-test.cpp's "get_device_status"

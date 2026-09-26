@@ -1,0 +1,140 @@
+/* PTZ UI test harness: device settings vs. properties test
+ *
+ * Copyright 2026 Grant Likely <grant.likely@secretlab.ca>
+ *
+ * SPDX-License-Identifier: GPLv2
+ */
+#include "ui-test-harness.hpp"
+
+#include <obs.hpp>
+#include <obs-module.h>
+#include <QStringList>
+
+#include "ptz-list-model.hpp"
+#include "ptz.h"
+
+namespace {
+
+/* Adds the name of every property that holds a *value* -- not the groups
+ * around them, and not the buttons and info text that don't hold one -- to
+ * `keys`, descending into groups. */
+void collectValueKeys(obs_properties_t *props, QStringList &keys)
+{
+	for (obs_property_t *p = obs_properties_first(props); p; obs_property_next(&p)) {
+		switch (obs_property_get_type(p)) {
+		case OBS_PROPERTY_GROUP:
+			collectValueKeys(obs_property_group_content(p), keys);
+			break;
+		case OBS_PROPERTY_BUTTON:
+			break;
+		case OBS_PROPERTY_TEXT:
+			if (obs_property_text_type(p) == OBS_TEXT_INFO)
+				break;
+			[[fallthrough]];
+		default:
+			keys << obs_property_name(p);
+		}
+	}
+}
+
+/* The keys of the settings that would be persisted for a device's PTZ
+ * filter, after obs_source_save() has given the filter's .save its say:
+ * what the scene collection would hold. Adds nothing if the device isn't
+ * owned by a filter. */
+void collectFilterKeys(uint32_t deviceId, obs_data_array_t *out)
+{
+	struct Find {
+		obs_source_t *filter = nullptr;
+	} find;
+	OBSSourceAutoRelease parent = ptz_device_get_parent_source(deviceId);
+	if (!parent)
+		return;
+	obs_source_enum_filters(
+		parent,
+		[](obs_source_t *, obs_source_t *filter, void *data) {
+			auto f = static_cast<Find *>(data);
+			if (!f->filter && QString(obs_source_get_id(filter)).startsWith("ca.secretlab.obs-ptz."))
+				f->filter = filter;
+		},
+		&find);
+	if (!find.filter)
+		return;
+	obs_source_save(find.filter);
+	OBSDataAutoRelease settings = obs_source_get_settings(find.filter);
+	for (obs_data_item_t *item = obs_data_first(settings); item; obs_data_item_next(&item)) {
+		OBSDataAutoRelease entry = obs_data_create();
+		obs_data_set_string(entry, "key", obs_data_item_get_name(item));
+		obs_data_array_push_back(out, entry);
+	}
+}
+
+/* Reports which keys a device's settings properties tree edits
+ * ("property_keys", what the Filters dialog and PTZSettings both show, see
+ * PTZDevice::get_obs_properties()) against which keys the same device
+ * writes when saved ("save_keys", see PTZDevice::save()), as JSON. A
+ * property key that save() doesn't write is either not a setting at all,
+ * such as state that belongs on the camera's status page instead, or a
+ * setting that would be lost on the next save. */
+void runGetDeviceSettingsTest(const QMap<QString, QString> &params)
+{
+	bool deviceIdOk = false;
+	uint32_t deviceId = params.value(QStringLiteral("device_id")).toUInt(&deviceIdOk);
+	QString filename = params.value(QStringLiteral("filename"));
+	if (!deviceIdOk || filename.isEmpty()) {
+		blog(LOG_INFO, "[ptz-ui-test] get_device_settings: missing/invalid device_id or filename");
+		return;
+	}
+
+	QModelIndex index = ptzDeviceList->indexFromDeviceId(deviceId);
+	if (!index.isValid()) {
+		blog(LOG_INFO, "[ptz-ui-test] get_device_settings: device_id %u not found", deviceId);
+		return;
+	}
+
+	QStringList propertyKeys;
+	obs_properties_t *props = ptzDeviceList->getProperties(index);
+	collectValueKeys(props, propertyKeys);
+	obs_properties_destroy(props);
+
+	OBSDataAutoRelease saved = obs_data_create();
+	ptzDeviceList->save(index, saved.Get());
+	OBSDataArrayAutoRelease propertyArray = obs_data_array_create();
+	OBSDataArrayAutoRelease saveArray = obs_data_array_create();
+
+	for (const QString &key : propertyKeys) {
+		OBSDataAutoRelease item = obs_data_create();
+		obs_data_set_string(item, "key", qUtf8Printable(key));
+		obs_data_array_push_back(propertyArray, item);
+	}
+	for (obs_data_item_t *item = obs_data_first(saved); item; obs_data_item_next(&item)) {
+		OBSDataAutoRelease entry = obs_data_create();
+		obs_data_set_string(entry, "key", obs_data_item_get_name(item));
+		obs_data_array_push_back(saveArray, entry);
+	}
+
+	OBSDataArrayAutoRelease filterArray = obs_data_array_create();
+	collectFilterKeys(deviceId, filterArray);
+
+	OBSDataAutoRelease result = obs_data_create();
+	obs_data_set_array(result, "property_keys", propertyArray);
+	obs_data_set_array(result, "save_keys", saveArray);
+	obs_data_set_array(result, "filter_keys", filterArray);
+	obs_data_set_obj(result, "saved", saved);
+	if (!obs_data_save_json_safe(result, qUtf8Printable(filename), "tmp", "bak"))
+		blog(LOG_INFO, "[ptz-ui-test] get_device_settings: failed to write %s", qUtf8Printable(filename));
+}
+
+} // namespace
+
+/* Request params:
+ *   device_id - the target device's numeric id
+ *   filename  - where to write the {"property_keys": [{"key"}...],
+ *               "save_keys": [{"key"}...], "filter_keys": [{"key"}...],
+ *               "saved": {...what save() wrote, with its values}} JSON
+ *               result. filter_keys is empty unless a PTZ filter owns the
+ *               device
+ */
+void registerDeviceSettingsTest(PTZUITestHarness *harness)
+{
+	harness->registerTest(QStringLiteral("get_device_settings"), &runGetDeviceSettingsTest);
+}

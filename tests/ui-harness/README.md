@@ -25,7 +25,9 @@ and its drivers, `test_autofocus_white_balance.py` and `test_power.py`),
 `get_preset_view` (see `preset-view-test.cpp` and its driver,
 `test_preset_view.py`), and `get_device_source`/`hold_source`/
 `get_saved_devices` (see `device-source-test.cpp` and its drivers,
-`test_device_source_binding.py` and `test_filter_devices.py`)
+`test_device_source_binding.py` and `test_filter_devices.py`), and
+`get_device_settings` (see `device-settings-test.cpp` and its driver,
+`test_device_settings.py`)
 - see
 "Adding a new test" below for how to add another.
 
