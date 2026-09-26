@@ -845,13 +845,13 @@ void PTZVisca::receive(const QByteArray &msg)
 			 * response if the payload size is non-zero */
 			obs_data_t *rslt_props = active_cmd[0].value().decode(msg);
 			obs_data_apply(state, rslt_props);
+			obs_data_apply(stateChanged, rslt_props);
 
 			/* Mark returned properties as clean */
 			for (auto item = obs_data_first(rslt_props); item; obs_data_item_next(&item))
 				stale_state -= obs_data_item_get_name(item);
 
 			/* Data has been updated */
-			obs_data_set_obj(rslt_props, "statistics", statistics);
 			notifyStateChanged();
 			obs_data_release(rslt_props);
 		}

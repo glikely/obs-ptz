@@ -139,8 +139,8 @@ signals:
 	 * registered metatype, so they can't be queued. */
 	/* The device's settings changed, from anywhere */
 	void deviceSettingsUpdated(uint32_t device_id);
-	/* The device's state changed; `changed` holds just the values that did,
-	 * as of when it was reported */
+	/* The device's state changed; `changed` holds the values it reported
+	 * as new, as of when it reported them */
 	void deviceStateUpdated(uint32_t device_id, OBSData changed);
 
 public slots:
