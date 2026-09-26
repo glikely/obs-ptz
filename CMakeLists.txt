@@ -204,10 +204,17 @@ if(ENABLE_UART_TESTS)
   add_subdirectory(tests/uart-hil)
 endif()
 
-option(ENABLE_USB_TESTS "Build the unit tests for the USB camera backend logic (needs no camera or serial port)" OFF)
+option(
+  ENABLE_USB_TESTS
+  "Build the unit tests for the USB camera backend and worker thread (needs no camera or serial port)"
+  OFF
+)
 if(ENABLE_USB_TESTS)
   if(NOT TARGET catch2_amalgamated)
     add_subdirectory(shared/catch2)
+  endif()
+  if(NOT TARGET Qt6::Core)
+    find_package(Qt6 REQUIRED COMPONENTS Core)
   endif()
   add_subdirectory(tests/usb-backend)
 endif()
