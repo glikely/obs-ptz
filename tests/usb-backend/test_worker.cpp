@@ -35,6 +35,7 @@ struct Camera {
 	std::set<QThread *> threads; /* every thread that created, used or destroyed a backend */
 	int alive = 0;
 	std::atomic<bool> present{true}; /* false while the camera is unplugged */
+	std::atomic<int> probes{0};      /* how often the backend was asked if it's still there */
 	std::atomic<int> delay_ms{0};    /* how long each request takes */
 
 	size_t count()
@@ -81,7 +82,7 @@ struct Camera {
 
 class FakeBackend : public PTZUsbBackend {
 public:
-	FakeBackend(Camera &camera, const std::string &id) : camera_(camera)
+	FakeBackend(Camera &camera, const std::string &id) : camera_(camera), alive_(camera.present)
 	{
 		device_path = id;
 		min = {-100, -100, 0, 0};
@@ -102,13 +103,24 @@ public:
 	bool internal_tilt(long v) override { return record("tilt", v); }
 	bool internal_zoom(long v) override { return record("zoom", v); }
 	bool internal_focus(bool auto_focus, long v) override { return record(auto_focus ? "autofocus" : "focus", v); }
-	bool isValid() const override { return camera_.present; }
+	bool isValid() const override { return alive_; }
+	bool checkAlive() override
+	{
+		camera_.probes++;
+		if (!camera_.present)
+			alive_ = false;
+		return alive_;
+	}
 
 private:
 	bool record(const char *what, long value)
 	{
 		if (int ms = camera_.delay_ms)
 			QThread::msleep(ms);
+		if (!camera_.present) {
+			alive_ = false; /* the request failed, which is how a camera's absence shows */
+			return false;
+		}
 		std::lock_guard<std::mutex> lock(camera_.m);
 		camera_.calls.emplace_back(what, value);
 		camera_.threads.insert(QThread::currentThread());
@@ -116,6 +128,7 @@ private:
 	}
 
 	Camera &camera_;
+	bool alive_;
 };
 
 PTZUsbBackendSlot::Factory factoryFor(Camera &camera)
@@ -231,6 +244,41 @@ TEST_CASE("the worker says when the camera comes and goes", "[usb-backend][worke
 	camera.present = true;
 	REQUIRE(waitFor([&] { return states.size() == 3; }));
 	CHECK(states.back());
+}
+
+TEST_CASE("an idle camera that is unplugged is noticed", "[usb-backend][worker]")
+{
+	Camera camera;
+	PTZUsbWorker worker(factoryFor(camera), milliseconds(50));
+
+	QObject context;
+	std::vector<bool> states;
+	QObject::connect(&worker, &PTZUsbWorker::connectedChanged, &context, [&](bool c) { states.push_back(c); });
+
+	worker.setDeviceId("cam");
+	REQUIRE(waitFor([&] { return states.size() == 1; }));
+
+	camera.present = false;
+	REQUIRE(waitFor([&] { return states.size() == 2; }));
+	CHECK_FALSE(states.back());
+	/* nothing was sent to it: it was noticed by looking */
+	CHECK(camera.count() == 0);
+	CHECK(camera.probes > 0);
+}
+
+TEST_CASE("a camera being driven is not probed as well", "[usb-backend][worker]")
+{
+	Camera camera;
+	PTZUsbWorker worker(factoryFor(camera));
+	worker.setDeviceId("cam");
+	settle(300); /* a probe or two while idle */
+
+	worker.setSpeeds(1.0, 0, 0, 0);
+	REQUIRE(waitFor([&] { return camera.count() >= 3; }));
+	int probes = camera.probes;
+	settle(300);
+	CHECK(camera.probes == probes);
+	worker.setSpeeds(0, 0, 0, 0);
 }
 
 TEST_CASE("a continuous move covers ground with time, and stops when told to", "[usb-backend][worker]")

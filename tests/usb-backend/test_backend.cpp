@@ -57,6 +57,18 @@ public:
 
 } // namespace
 
+TEST_CASE("by default a backend is alive if it is valid", "[usb-backend]")
+{
+	struct Gone : FakeBackend {
+		bool isValid() const override { return false; }
+	};
+
+	FakeBackend here;
+	Gone gone;
+	CHECK(here.checkAlive());
+	CHECK_FALSE(gone.checkAlive());
+}
+
 TEST_CASE("ratio() does not divide by a missing range", "[usb-backend]")
 {
 	CHECK(FakeBackend::ratioOf(50, 100) == 0.5);
