@@ -31,7 +31,7 @@ Features:
   - Pelco-P
   - Pelco-D
   - ONVIF (experimental)
-  - USB Cameras (Windows and Linux only)
+  - USB Cameras (UVC)
 
 ## Websites
 - [OBS project resource page](https://obsproject.com/forum/resources/ptz-controls.1284/)

@@ -118,7 +118,10 @@ target_sources(
 option(ENABLE_USB_CAM "Enable USB camera support" ON)
 if(ENABLE_USB_CAM)
   # Each platform provides its own backend; see src/ptz-usb-backend.hpp
-  if(WIN32)
+  if(APPLE)
+    set(_usb_backend_sources src/ptz-usb-backend-macos.cpp src/uvc-protocol.hpp)
+    target_link_libraries(${CMAKE_PROJECT_NAME} PRIVATE "-framework IOKit" "-framework CoreFoundation")
+  elseif(WIN32)
     set(_usb_backend_sources src/ptz-usb-backend-windows.cpp)
   elseif(CMAKE_SYSTEM_NAME STREQUAL "Linux")
     set(_usb_backend_sources src/ptz-usb-backend-linux.cpp)
