@@ -288,14 +288,16 @@ TEST_CASE("a continuous move covers ground with time, and stops when told to", "
 	worker.setDeviceId("cam");
 
 	worker.setSpeeds(1.0, 0, 0, 0); /* the whole range of pan in a second */
-	REQUIRE(waitFor([&] { return camera.last("pan") >= 20; }));
+	REQUIRE(waitFor([&] { return camera.last("pan") >= 40; }));
 	CHECK(camera.last("pan") < 100); /* not there instantly */
 
-	/* it went there in steps */
+	/* it went there in steps. (A step counts for at most a quarter of a
+	 * second, however late it runs, so a machine that is very busy still
+	 * takes more than one.) */
 	size_t pans = 0;
 	for (auto &n : camera.names())
 		pans += n == "pan";
-	CHECK(pans >= 3);
+	CHECK(pans >= 2);
 
 	worker.setSpeeds(0, 0, 0, 0);
 	settle(150); /* a step in progress */

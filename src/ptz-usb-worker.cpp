@@ -8,8 +8,13 @@
 
 namespace {
 
-/* How often to move the camera while it is being driven. */
-constexpr int MOVE_INTERVAL_MS = 30;
+/* How often to move the camera while it is being driven. Every step is a
+ * request to the camera, and a camera can only be written to so fast. The
+ * BirdDog P1xx, on macOS and Windows alike, sometimes stops answering at 33
+ * requests a second or more (and can then go quiet for seconds), and lost none
+ * at 17 a second. About 16 a second is also finer than anyone drives a
+ * joystick. */
+constexpr int MOVE_INTERVAL_MS = 60;
 /* How often to check the camera is still there otherwise. */
 constexpr int IDLE_INTERVAL_MS = 250;
 /* A move never counts for more time than this, however long the last step took */
