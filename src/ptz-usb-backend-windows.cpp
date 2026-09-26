@@ -19,6 +19,7 @@ class DirectShowControl : public PTZUsbBackend {
 private:
 	IBaseFilter *filter_ = nullptr;
 	IAMCameraControl *cam_control_ = nullptr;
+	CO_MTA_USAGE_COOKIE mta_cookie_ = nullptr;
 	long last_focus = 0;
 
 	std::string decoded_path_;
@@ -83,21 +84,15 @@ private:
 			filter_->Release();
 			filter_ = nullptr;
 		}
+		if (mta_cookie_) {
+			CoDecrementMTAUsage(mta_cookie_);
+			mta_cookie_ = nullptr;
+		}
 	}
 
-	/* Whether the camera is still attached. Any thread can be asked, and it may
-	 * not have COM set up, so do it in a scope of its own. If we can't tell,
-	 * assume it is. */
-	bool still_attached()
-	{
-		HRESULT hr = CoInitializeEx(nullptr, COINIT_MULTITHREADED);
-		if (FAILED(hr) && hr != RPC_E_CHANGED_MODE)
-			return true;
-		bool attached = find_device(decoded_path_, nullptr, false);
-		if (SUCCEEDED(hr))
-			CoUninitialize();
-		return attached;
-	}
+	/* Whether the camera is still attached. Only asked while we hold the MTA,
+	 * so this works on any thread. */
+	bool still_attached() { return find_device(decoded_path_, nullptr, false); }
 
 	/* Errors that only mean the camera (or our handle to it) is gone */
 	static bool means_camera_gone(HRESULT hr)
@@ -168,8 +163,15 @@ public:
 		decoded_path_ = decoded_path.toStdString();
 		// blog(LOG_INFO, "PTZ-USB-CAM Device: %s", decoded_path_.c_str());
 
-		HRESULT hr = CoInitialize(nullptr);
-		if (FAILED(hr) && hr != RPC_E_CHANGED_MODE) {
+		/* This backend is created, used and destroyed on whichever thread the
+		 * driver is called from, so COM can't be tied to the creating thread with
+		 * CoInitialize(), which must be balanced by a CoUninitialize() on that
+		 * same thread. Keep the multithreaded apartment alive instead: threads
+		 * that haven't set up COM themselves are members of it, and it can be
+		 * let go of from any thread. */
+		HRESULT hr = CoIncrementMTAUsage(&mta_cookie_);
+		if (FAILED(hr)) {
+			mta_cookie_ = nullptr;
 			if (report)
 				blog(LOG_ERROR, "Failed to initialize COM: %ld", hr);
 			return;
