@@ -8,9 +8,11 @@
 
 #include <QObject>
 #include <QTcpSocket>
+#include <QTimer>
+#include <memory>
 #include "ptz-device.hpp"
 #include "ptz-usb-backend.hpp"
-#include "ptz-usb-backend-slot.hpp"
+#include "ptz-usb-worker.hpp"
 
 class PTZUSBCam : public PTZDevice {
 	Q_OBJECT
@@ -18,13 +20,15 @@ class PTZUSBCam : public PTZDevice {
 private:
 	QString m_PTZAddress{""};
 	QMap<int, PtzUsbCamPos> presets;
-	double tick_elapsed = 0.0f;
-	PTZUsbBackendSlot backend_slot_{ptz_usb_backend_create};
-	PTZUsbBackend *getBackend();
-
-protected:
-	static void ptz_tick_callback(void *param, float seconds);
-	void ptz_tick(float seconds);
+	/* All the talking to the camera happens on the worker's own thread. The
+	 * device only tells it what to do, and hears back through signals. */
+	std::unique_ptr<PTZUsbWorker> worker_;
+	/* Which camera the worker was told to use, and a timer to notice when the
+	 * source is pointed at another one (the source's settings can change at
+	 * any time). */
+	std::string device_id_;
+	QTimer device_id_timer_;
+	void refreshDeviceId();
 
 public:
 	PTZUSBCam(OBSData config);

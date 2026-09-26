@@ -139,6 +139,8 @@ if(ENABLE_USB_CAM)
       src/ptz-usb-cam.hpp
       src/ptz-usb-backend.hpp
       src/ptz-usb-backend-slot.hpp
+      src/ptz-usb-worker.cpp
+      src/ptz-usb-worker.hpp
       ${_usb_backend_sources}
   )
   unset(_usb_backend_sources)

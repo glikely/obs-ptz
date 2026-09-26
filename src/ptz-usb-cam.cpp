@@ -14,22 +14,36 @@
 #include <obs.hpp>
 #include "ptz-usb-cam.hpp"
 
-void PTZUSBCam::ptz_tick_callback(void *param, float seconds)
-{
-	PTZUSBCam *cam = static_cast<PTZUSBCam *>(param);
-	cam->ptz_tick(seconds);
-}
-
-PTZUSBCam::PTZUSBCam(OBSData config) : PTZDevice(config)
+PTZUSBCam::PTZUSBCam(OBSData config) : PTZDevice(config), worker_(new PTZUsbWorker(ptz_usb_backend_create))
 {
 	getDefaults(config);
 	update(config);
-	obs_add_tick_callback(ptz_tick_callback, this);
+
+	/* The worker's thread reports back through queued signals, which are
+	 * delivered here on the device's thread. */
+	connect(worker_.get(), &PTZUsbWorker::connectedChanged, this,
+		[this](bool connected) { setConnected(connected); });
+	connect(worker_.get(), &PTZUsbWorker::positionCaptured, this,
+		[this](int id, double pan, double tilt, double zoom, bool focusAuto, double focus) {
+			PtzUsbCamPos pos;
+			pos.pan = pan;
+			pos.tilt = tilt;
+			pos.zoom = zoom;
+			pos.focusAuto = focusAuto;
+			pos.focus = focus;
+			presets[id] = pos;
+		});
+
+	connect(&device_id_timer_, &QTimer::timeout, this, &PTZUSBCam::refreshDeviceId);
+	device_id_timer_.start(250);
+	refreshDeviceId();
 }
 
 PTZUSBCam::~PTZUSBCam()
 {
-	obs_remove_tick_callback(ptz_tick_callback, this);
+	device_id_timer_.stop();
+	/* Waits for the worker's thread to finish, and closes the camera */
+	worker_.reset();
 }
 
 QString PTZUSBCam::description()
@@ -87,12 +101,16 @@ obs_properties_t *PTZUSBCam::get_obs_properties()
 
 void PTZUSBCam::do_update()
 {
+	worker_->setSpeeds(pan_speed, tilt_speed, zoom_speed, focus_speed);
 	pantilt_changed = false;
 	zoom_changed = false;
 	focus_changed = false;
 }
 
-PTZUsbBackend *PTZUSBCam::getBackend()
+/* Find out which camera the source is set to, and tell the worker if that's
+ * changed. Nothing here talks to the camera, so it is fine to do on the
+ * device's thread, and before every command so none goes to a stale camera. */
+void PTZUSBCam::refreshDeviceId()
 {
 	std::string video_device_id = "";
 	OBSSourceAutoRelease src = parentSource();
@@ -103,49 +121,24 @@ PTZUsbBackend *PTZUSBCam::getBackend()
 		}
 	}
 
-	if (video_device_id != backend_slot_.deviceId()) {
-		blog(LOG_INFO, "Switching PTZ USBUVC device from %s to %s",
-		     backend_slot_.deviceId().empty() ? "null" : backend_slot_.deviceId().c_str(),
-		     video_device_id.empty() ? "null" : video_device_id.c_str());
-	}
-	return backend_slot_.get(video_device_id);
-}
-
-void PTZUSBCam::ptz_tick(float seconds)
-{
-	tick_elapsed += seconds;
-	if (tick_elapsed < 0.03f)
+	if (video_device_id == device_id_)
 		return;
-	if (pan_speed != 0.0 || tilt_speed != 0.0) {
-		pantilt_rel(pan_speed * tick_elapsed, tilt_speed * tick_elapsed);
-	}
-
-	auto ptzctrl = getBackend();
-	setConnected(ptzctrl != nullptr);
-	if (!ptzctrl)
-		return;
-	if (zoom_speed != 0.0)
-		zoom_abs(ptzctrl->getZoom() + zoom_speed * tick_elapsed);
-	if (focus_speed != 0.0)
-		focus_abs(ptzctrl->getFocus() + focus_speed * tick_elapsed);
-	tick_elapsed = 0.0f;
+	blog(LOG_INFO, "Switching PTZ USBUVC device from %s to %s", device_id_.empty() ? "null" : device_id_.c_str(),
+	     video_device_id.empty() ? "null" : video_device_id.c_str());
+	device_id_ = video_device_id;
+	worker_->setDeviceId(device_id_);
 }
 
 void PTZUSBCam::pantilt_abs(double pan, double tilt)
 {
-	auto ptzctrl = getBackend();
-	if (!ptzctrl)
-		return;
-	ptzctrl->pan(pan);
-	ptzctrl->tilt(tilt);
+	refreshDeviceId();
+	worker_->pantiltAbs(pan, tilt);
 }
 
 void PTZUSBCam::pantilt_rel(double pan, double tilt)
 {
-	auto ptzctrl = getBackend();
-	if (!ptzctrl)
-		return;
-	pantilt_abs(ptzctrl->getPan() + pan, ptzctrl->getTilt() + tilt);
+	refreshDeviceId();
+	worker_->pantiltRel(pan, tilt);
 }
 
 void PTZUSBCam::pantilt_home()
@@ -155,26 +148,20 @@ void PTZUSBCam::pantilt_home()
 
 void PTZUSBCam::zoom_abs(double pos)
 {
-	auto ptzctrl = getBackend();
-	if (!ptzctrl)
-		return;
-	ptzctrl->zoom(pos);
+	refreshDeviceId();
+	worker_->zoomAbs(pos);
 }
 
 void PTZUSBCam::focus_abs(double pos)
 {
-	auto ptzctrl = getBackend();
-	if (!ptzctrl)
-		return;
-	ptzctrl->focus(pos);
+	refreshDeviceId();
+	worker_->focusAbs(pos);
 }
 
 void PTZUSBCam::set_autofocus(bool enabled)
 {
-	auto ptzctrl = getBackend();
-	if (!ptzctrl)
-		return;
-	ptzctrl->setAutoFocus(enabled);
+	refreshDeviceId();
+	worker_->setAutoFocus(enabled);
 }
 
 void PTZUSBCam::memory_reset(int i)
@@ -186,20 +173,15 @@ void PTZUSBCam::memory_reset(int i)
 
 void PTZUSBCam::memory_set(int i)
 {
-	auto ptzctrl = getBackend();
-	if (!ptzctrl)
-		return;
-	presets[i] = ptzctrl->getPosition();
+	/* Answered by the positionCaptured signal, once the worker has got to it */
+	refreshDeviceId();
+	worker_->capturePosition(i);
 }
 
 void PTZUSBCam::memory_recall(int i)
 {
 	if (!presets.contains(i))
 		return;
-	auto now_pos = presets[i];
-	pantilt_abs(now_pos.pan, now_pos.tilt);
-	zoom_abs(now_pos.zoom);
-	set_autofocus(now_pos.focusAuto);
-	if (!now_pos.focusAuto)
-		focus_abs(now_pos.focus);
+	refreshDeviceId();
+	worker_->recall(presets[i]);
 }
