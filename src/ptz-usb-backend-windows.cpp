@@ -113,15 +113,27 @@ private:
 		if (!cam_control_)
 			return true;
 		if (!means_camera_gone(hr)) {
-			auto now = std::chrono::steady_clock::now();
-			if (now - last_presence_check_ < std::chrono::seconds(1))
-				return false;
-			last_presence_check_ = now;
-			if (still_attached())
+			if (!presence_check_due(std::chrono::seconds(1)) || still_attached())
 				return false;
 		}
+		lose_camera();
+		return true;
+	}
+
+	void lose_camera()
+	{
 		blog(LOG_WARNING, "USB camera %s was unplugged", device_path.c_str());
 		release();
+	}
+
+	/* Whether it has been long enough since the last look at the video devices
+	 * to make another; if so, this counts as a look. */
+	bool presence_check_due(std::chrono::seconds interval)
+	{
+		auto now = std::chrono::steady_clock::now();
+		if (now - last_presence_check_ < interval)
+			return false;
+		last_presence_check_ = now;
 		return true;
 	}
 
@@ -255,6 +267,14 @@ public:
 	}
 	~DirectShowControl() override { release(); }
 	bool isValid() const override { return cam_control_ != nullptr; }
+	bool checkAlive() override
+	{
+		/* There is nothing cheap to ask a DirectShow camera, so look for it
+		 * among the video devices, which is not free either: not too often. */
+		if (cam_control_ && presence_check_due(std::chrono::seconds(2)) && !still_attached())
+			lose_camera();
+		return cam_control_ != nullptr;
+	}
 };
 
 const char *ptz_usb_source_setting_key()

@@ -23,6 +23,9 @@ constexpr uint8_t GET_MIN = 0x82;
 constexpr uint8_t GET_MAX = 0x83;
 constexpr uint8_t GET_RES = 0x84;
 
+/* VideoControl interface control selectors (UVC 1.5 table A-9) */
+constexpr uint8_t VC_REQUEST_ERROR_CODE_CONTROL = 0x02;
+
 /* Camera Terminal control selectors (UVC 1.5 table A-12) */
 constexpr uint8_t CT_FOCUS_ABSOLUTE = 0x06;
 constexpr uint8_t CT_FOCUS_AUTO = 0x08;

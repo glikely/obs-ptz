@@ -116,6 +116,12 @@ public:
 	struct PtzUsbCamPos getPosition() const { return now_pos; }
 	std::string getDevicePath() { return device_path; }
 	virtual bool isValid() const = 0;
+	/* Check that the camera is still there, and return whether it is. isValid()
+	 * only knows what the backend has found out so far, and several can only
+	 * find out that a camera was unplugged by asking the camera or the OS. So
+	 * this is for when there is nothing else to send it: a cheap request that
+	 * any camera answers. */
+	virtual bool checkAlive() { return isValid(); }
 };
 
 /* Name of the OBS video capture source setting that identifies the camera. */

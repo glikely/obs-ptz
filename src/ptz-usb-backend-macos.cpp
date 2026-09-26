@@ -140,17 +140,19 @@ private:
 		return false;
 	}
 
-	/* Not every camera implements every control; unsupported ones stall, which
-	 * is expected while probing (quiet), but a failure to set is not. */
-	bool request(bool in, uint8_t request, uint8_t selector, uint8_t *data, uint16_t length, bool quiet = false)
+	/* Send a UVC class request to the VideoControl interface. wValue and wIndex
+	 * are as the UVC spec has them. If the camera is gone that is noticed here,
+	 * and the backend stops being valid. */
+	bool transfer(bool in, uint8_t request, uint16_t value, uint16_t index, uint8_t *data, uint16_t length,
+		      bool quiet)
 	{
 		if (!valid_)
 			return false;
 		IOUSBDevRequestTO req = {};
 		req.bmRequestType = USBmakebmRequestType(in ? kUSBIn : kUSBOut, kUSBClass, kUSBInterface);
 		req.bRequest = request;
-		req.wValue = uvc::control_value(selector);
-		req.wIndex = uvc::control_index(terminal_.terminal_id, terminal_.interface_number);
+		req.wValue = value;
+		req.wIndex = index;
 		req.wLength = length;
 		req.pData = data;
 		req.noDataTimeout = REQUEST_TIMEOUT_MS;
@@ -162,10 +164,20 @@ private:
 			blog(LOG_WARNING, "USB camera %s was unplugged", device_path.c_str());
 			valid_ = false;
 		} else if (!quiet) {
-			blog(LOG_ERROR, "UVC request 0x%02x selector 0x%02x failed for %s: 0x%x", request, selector,
+			blog(LOG_ERROR, "UVC request 0x%02x value 0x%04x failed for %s: 0x%x", request, value,
 			     device_path.c_str(), kr);
 		}
 		return false;
+	}
+
+	/* A request to a control of the Camera Terminal. Not every camera implements
+	 * every control; unsupported ones stall, which is expected while probing
+	 * (quiet), but a failure to set is not. */
+	bool request(bool in, uint8_t request, uint8_t selector, uint8_t *data, uint16_t length, bool quiet = false)
+	{
+		return transfer(in, request, uvc::control_value(selector),
+				uvc::control_index(terminal_.terminal_id, terminal_.interface_number), data, length,
+				quiet);
 	}
 
 	/* Fill in min, max and res for a control, returning whether it responded */
@@ -311,6 +323,16 @@ public:
 		return has_focus_ && set_u16(uvc::CT_FOCUS_ABSOLUTE, value);
 	}
 	bool isValid() const override { return valid_; }
+	bool checkAlive() override
+	{
+		/* Ask for the interface's error code, which every UVC camera has. It
+		 * doesn't matter whether it answers or stalls: only whether it is there
+		 * to do either. */
+		uint8_t error_code = 0;
+		transfer(true, uvc::GET_CUR, uvc::control_value(uvc::VC_REQUEST_ERROR_CODE_CONTROL),
+			 terminal_.interface_number, &error_code, 1, true);
+		return valid_;
+	}
 };
 
 } // namespace

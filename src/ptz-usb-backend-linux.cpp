@@ -119,6 +119,15 @@ public:
 		close(fd);
 	}
 	bool isValid() const override { return fd != -1; }
+	bool checkAlive() override
+	{
+		if (fd == -1)
+			return false;
+		struct v4l2_capability capability = {};
+		if (ioctl(fd, VIDIOC_QUERYCAP, &capability) == -1)
+			camera_lost(errno);
+		return fd != -1;
+	}
 };
 
 const char *ptz_usb_source_setting_key()

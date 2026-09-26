@@ -160,9 +160,15 @@ void PTZUsbWorker::refreshConnection()
 void PTZUsbWorker::tick()
 {
 	double elapsed = since_tick_.restart() / 1000.0;
-	refreshConnection();
-	if (!moving())
+	if (!moving()) {
+		/* Nothing is being sent that would show the camera gone. While it is
+		 * being driven, the requests do. */
+		if (auto *b = slot_.get(device_id_))
+			b->checkAlive();
+		refreshConnection();
 		return;
+	}
+	refreshConnection();
 	auto *b = slot_.get(device_id_);
 	if (!b)
 		return;
