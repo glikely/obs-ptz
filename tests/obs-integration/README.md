@@ -153,7 +153,12 @@ actually work end to end.
     reported, and settings changes, including ones that don't go through
     the model, such as OBS's Filters dialog and obs-websocket editing a
     filter. Uses `tests/ui-harness/device-signals-test.cpp`.
-18. `test_settings_dialog.py` covers the PTZ settings dialog showing a
+18. `test_onvif_position.py` covers ONVIF reporting where the camera is
+    (`PTZOnvif::handleGetStatusResponse()` in `src/ptz-onvif.cpp`) as the
+    generic position state, against the ONVIF backend of the shared
+    `ptzsim`: which axes it reports, a position in range, and that it
+    follows a move as it happens instead of at the slow poll's pace.
+19. `test_settings_dialog.py` covers the PTZ settings dialog showing a
     device's settings and its state apart, as a properties view and a
     `PTZStateView` stacked on one scrolling page rather than as tabs: what
     each holds, that a state change changes only the status view and a
