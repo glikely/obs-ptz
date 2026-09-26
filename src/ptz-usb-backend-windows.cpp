@@ -199,7 +199,7 @@ const char *ptz_usb_source_setting_key()
 	return "video_device_id";
 }
 
-PTZUsbBackend *ptz_usb_backend_create(const std::string &device_id)
+std::unique_ptr<PTZUsbBackend> ptz_usb_backend_create(const std::string &device_id)
 {
-	return new DirectShowControl(device_id);
+	return std::make_unique<DirectShowControl>(device_id);
 }

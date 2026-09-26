@@ -103,25 +103,12 @@ PTZUsbBackend *PTZUSBCam::getBackend()
 		}
 	}
 
-	// already have the device, and it didn't change: nothing to do
-	if (ptz_control_ != nullptr && ptz_control_->isValid() && ptz_control_->getDevicePath() == video_device_id) {
-		return ptz_control_;
+	if (video_device_id != backend_slot_.deviceId()) {
+		blog(LOG_INFO, "Switching PTZ USBUVC device from %s to %s",
+		     backend_slot_.deviceId().empty() ? "null" : backend_slot_.deviceId().c_str(),
+		     video_device_id.empty() ? "null" : video_device_id.c_str());
 	}
-	blog(LOG_INFO, "Switching PTZ USBUVC device from %s to %s",
-	     ptz_control_ == nullptr ? "null" : ptz_control_->getDevicePath().c_str(),
-	     video_device_id.empty() ? "null" : video_device_id.c_str());
-	if (ptz_control_ != nullptr) {
-		delete ptz_control_;
-		ptz_control_ = nullptr;
-	}
-	if (video_device_id.empty()) {
-		return nullptr;
-	}
-	ptz_control_ = ptz_usb_backend_create(video_device_id);
-	if (ptz_control_ == nullptr || !ptz_control_->isValid()) {
-		return nullptr;
-	}
-	return ptz_control_;
+	return backend_slot_.get(video_device_id);
 }
 
 void PTZUSBCam::ptz_tick(float seconds)

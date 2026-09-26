@@ -10,6 +10,7 @@
 #pragma once
 
 #include <algorithm>
+#include <memory>
 #include <string>
 
 struct PtzUsbCamLimits {
@@ -120,6 +121,6 @@ public:
 /* Name of the OBS video capture source setting that identifies the camera. */
 const char *ptz_usb_source_setting_key();
 
-/* Open the camera that ptz_usb_source_setting_key() named. The caller owns the
- * result, which may be !isValid() (never nullptr). */
-PTZUsbBackend *ptz_usb_backend_create(const std::string &device_id);
+/* Open the camera that ptz_usb_source_setting_key() named. The result may be
+ * !isValid() (never nullptr). */
+std::unique_ptr<PTZUsbBackend> ptz_usb_backend_create(const std::string &device_id);

@@ -331,7 +331,7 @@ const char *ptz_usb_source_setting_key()
 	return "device";
 }
 
-PTZUsbBackend *ptz_usb_backend_create(const std::string &device_id)
+std::unique_ptr<PTZUsbBackend> ptz_usb_backend_create(const std::string &device_id)
 {
-	return new IOKitUVCControl(device_id);
+	return std::make_unique<IOKitUVCControl>(device_id);
 }

@@ -134,7 +134,12 @@ if(ENABLE_USB_CAM)
   add_compile_definitions(ENABLE_USB_CAM)
   target_sources(
     ${CMAKE_PROJECT_NAME}
-    PRIVATE src/ptz-usb-cam.cpp src/ptz-usb-cam.hpp src/ptz-usb-backend.hpp ${_usb_backend_sources}
+    PRIVATE
+      src/ptz-usb-cam.cpp
+      src/ptz-usb-cam.hpp
+      src/ptz-usb-backend.hpp
+      src/ptz-usb-backend-slot.hpp
+      ${_usb_backend_sources}
   )
   unset(_usb_backend_sources)
 endif()

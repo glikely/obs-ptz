@@ -10,6 +10,7 @@
 #include <QTcpSocket>
 #include "ptz-device.hpp"
 #include "ptz-usb-backend.hpp"
+#include "ptz-usb-backend-slot.hpp"
 
 class PTZUSBCam : public PTZDevice {
 	Q_OBJECT
@@ -18,7 +19,7 @@ private:
 	QString m_PTZAddress{""};
 	QMap<int, PtzUsbCamPos> presets;
 	double tick_elapsed = 0.0f;
-	PTZUsbBackend *ptz_control_ = nullptr;
+	PTZUsbBackendSlot backend_slot_{ptz_usb_backend_create};
 	PTZUsbBackend *getBackend();
 
 protected:
