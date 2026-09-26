@@ -400,6 +400,31 @@ class World:
             time.sleep(interval)
         raise AssertionError(f"device {device_id} state never matched predicate; last seen: {last}")
 
+    def device_signals(self, device_id, out_file):
+        """Fetches how often PTZListModel's deviceSettingsUpdated() and
+        deviceStateUpdated() fired for device_id since watch_device_signals(),
+        and which state keys the latter reported as changed, via
+        tests/ui-harness/device-signals-test.cpp's "get_device_signals"
+        test."""
+        if out_file.exists():
+            out_file.unlink()
+        self.run_ui_test("get_device_signals", device_id=device_id, filename=str(out_file))
+        self.wait_for(out_file.exists)
+        raw = json.loads(out_file.read_text())
+        raw["state_keys"] = {e["key"] for e in raw.get("state_keys", [])}
+        return raw
+
+    def wait_for_device_signals(self, device_id, out_file, predicate, timeout=5, interval=0.2):
+        """Polls device_signals() until predicate(result) is true."""
+        deadline = time.time() + timeout
+        last = None
+        while time.time() < deadline:
+            last = self.device_signals(device_id, out_file)
+            if predicate(last):
+                return last
+            time.sleep(interval)
+        raise AssertionError(f"device {device_id} signals never matched predicate; last seen: {last}")
+
     def device_status(self, device_id, out_file):
         """Fetches device_id's live {"connected"} status via
         tests/ui-harness/device-status-test.cpp's "get_device_status"

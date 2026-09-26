@@ -73,3 +73,4 @@ void registerPresetViewTest(PTZUITestHarness *harness);
 void registerDeviceSourceTest(PTZUITestHarness *harness);
 void registerDeviceSettingsTest(PTZUITestHarness *harness);
 void registerDeviceStateTest(PTZUITestHarness *harness);
+void registerDeviceSignalsTest(PTZUITestHarness *harness);

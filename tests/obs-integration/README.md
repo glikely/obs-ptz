@@ -148,6 +148,11 @@ actually work end to end.
     the camera reports is among a filter's settings properties, and that
     VISCA advertises its diagnostics and scans the camera's inquiries when
     asked (`set_device`'s `trigger`).
+17. `test_device_signals.py` covers what `PTZListModel` tells a listener
+    (the settings dialog) about a device changing: the values a state change
+    reported, and settings changes, including ones that don't go through
+    the model, such as OBS's Filters dialog and obs-websocket editing a
+    filter. Uses `tests/ui-harness/device-signals-test.cpp`.
 
 ## Running locally
 

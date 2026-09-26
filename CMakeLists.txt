@@ -246,6 +246,7 @@ if(ENABLE_UI_TESTS)
       tests/ui-harness/device-source-test.cpp
       tests/ui-harness/device-settings-test.cpp
       tests/ui-harness/device-state-test.cpp
+      tests/ui-harness/device-signals-test.cpp
   )
 endif()
 
