@@ -117,8 +117,23 @@ target_sources(
 
 option(ENABLE_USB_CAM "Enable USB camera support" ON)
 if(ENABLE_USB_CAM)
+  # Each platform provides its own backend; see src/ptz-usb-backend.hpp
+  if(WIN32)
+    set(_usb_backend_sources src/ptz-usb-backend-windows.cpp)
+  elseif(CMAKE_SYSTEM_NAME STREQUAL "Linux")
+    set(_usb_backend_sources src/ptz-usb-backend-linux.cpp)
+  else()
+    message(WARNING "USB camera support is not available on ${CMAKE_SYSTEM_NAME}")
+    set(ENABLE_USB_CAM OFF)
+  endif()
+endif()
+if(ENABLE_USB_CAM)
   add_compile_definitions(ENABLE_USB_CAM)
-  target_sources(${CMAKE_PROJECT_NAME} PRIVATE src/ptz-usb-cam.cpp src/ptz-usb-cam.hpp)
+  target_sources(
+    ${CMAKE_PROJECT_NAME}
+    PRIVATE src/ptz-usb-cam.cpp src/ptz-usb-cam.hpp src/ptz-usb-backend.hpp ${_usb_backend_sources}
+  )
+  unset(_usb_backend_sources)
 endif()
 
 option(ENABLE_ONVIF "Enable ONVIF camera support" ON)
