@@ -23,22 +23,10 @@ from test_filter_devices import camera_sim, cameras  # noqa: F401
 
 IDENTITY_KEYS = {"id", "name", "is-self-managed"}
 
-# VISCA's white balance mode is camera state, but is still offered as a
-# setting; it moves to the camera's status properties. Pinned exactly, so
-# that whoever moves it has to drop this too.
-VISCA_STRAY = {"wb_mode"}
-
-
-@pytest.mark.parametrize("backend,stray", [
-    ("visca-tcp", VISCA_STRAY),
-    ("visca-udp", VISCA_STRAY),
-    ("visca-serial", VISCA_STRAY),
-    ("pelco-d", set()),
-    ("pelco-p", set()),
-])
-def test_settings_properties_are_all_saved(obs_world, backend, stray, tmp_path):
+@pytest.mark.parametrize("backend", ["visca-tcp", "visca-udp", "visca-serial", "pelco-d", "pelco-p"])
+def test_settings_properties_are_all_saved(obs_world, backend, tmp_path):
     keys = obs_world.device_settings(obs_world.device_ids[backend], tmp_path / "settings.json")
-    assert keys["property_keys"] - keys["save_keys"] == stray
+    assert keys["property_keys"] - keys["save_keys"] == set()
 
 
 def test_filter_settings_properties_are_all_saved(obs_world, cameras, tmp_path):  # noqa: F811
@@ -48,7 +36,7 @@ def test_filter_settings_properties_are_all_saved(obs_world, cameras, tmp_path):
     device_id = obs_world.wait_for_device_by_name("settings-cam", out, lambda r: r["found"] and r["bound"])["device_id"]
 
     keys = obs_world.device_settings(device_id, out)
-    assert keys["property_keys"] - keys["save_keys"] == VISCA_STRAY
+    assert keys["property_keys"] - keys["save_keys"] == set()
 
 
 def test_filter_persists_only_settings(obs_world, cameras, tmp_path):  # noqa: F811

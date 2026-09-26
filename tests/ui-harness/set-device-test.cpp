@@ -50,6 +50,9 @@ void runSetDeviceTest(const QMap<QString, QString> &params)
 	}
 	if (params.contains(QStringLiteral("wb_mode")))
 		calldata_set_int(&cd, "wb_mode", params.value(QStringLiteral("wb_mode")).toLongLong());
+	/* A one-shot action, such as a driver's diagnostics, by its name */
+	if (params.contains(QStringLiteral("trigger")))
+		calldata_set_bool(&cd, qUtf8Printable(params.value(QStringLiteral("trigger"))), true);
 
 	ptzDeviceList->callDevice(index, "ptz_set", &cd);
 	calldata_free(&cd);
@@ -64,6 +67,8 @@ void runSetDeviceTest(const QMap<QString, QString> &params)
  *   power_on          - optional, "True"/"False" (Python's str(bool))
  *   focus_af_enabled  - optional, "True"/"False" (Python's str(bool))
  *   wb_mode           - optional, integer white-balance mode
+ *   trigger           - optional, the name of a one-shot trigger to set,
+ *                       such as "scan_inquiries_trigger"
  */
 void registerSetDeviceTest(PTZUITestHarness *harness)
 {

@@ -138,14 +138,16 @@ actually work end to end.
     id, name), settings sent through the plugin's own dialog path
     reach the filter's settings, and a filter updated with just one setting
     keeps every other at its default. Uses `tests/ui-harness/device-settings-test.cpp`'s
-    `get_device_settings` test. Pins VISCA's `wb_mode` as the one state
-    value still in its settings properties.
+    `get_device_settings` test.
 16. `test_device_state.py` covers the transient-state half of that split:
     the `ptz_get_state` and `ptz_request_state` proc handlers
     (`PTZDevice::saveState()`, `requestState()`). Uses
     `tests/ui-harness/device-state-test.cpp`'s `get_device_state` and
     `set_device_state` tests, checking that a request asks the camera for
-    just the values it holds, even one it already reports.
+    just the values it holds, even one it already reports. Also that nothing
+    the camera reports is among a filter's settings properties, and that
+    VISCA advertises its diagnostics and scans the camera's inquiries when
+    asked (`set_device`'s `trigger`).
 
 ## Running locally
 
