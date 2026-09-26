@@ -114,6 +114,17 @@ public:
 		return internal_focus(enabled, focus);
 	}
 	struct PtzUsbCamPos getPosition() const { return now_pos; }
+	/* Where the camera can go, as the backend found out from the camera. An axis
+	 * the camera doesn't have has no range (see has_range()). */
+	PtzUsbCamLimits getMin() const { return min; }
+	PtzUsbCamLimits getMax() const { return max; }
+	PtzUsbCamLimits getStep() const { return step; }
+	/* Ask the camera where it is, rather than reporting where the backend last
+	 * told it to go (which is what getPosition() does until this is called).
+	 * Cameras answer as they like: some give the position of the motor, some
+	 * just the last position they were sent. Returns false if the backend
+	 * can't, or the camera is gone. */
+	virtual bool refreshPosition() { return false; }
 	std::string getDevicePath() { return device_path; }
 	virtual bool isValid() const = 0;
 	/* Check that the camera is still there, and return whether it is. isValid()

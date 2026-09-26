@@ -190,7 +190,7 @@ private:
 
 	void probe_pantilt()
 	{
-		uint8_t lo[uvc::PANTILT_LEN], hi[uvc::PANTILT_LEN], res[uvc::PANTILT_LEN], cur[uvc::PANTILT_LEN];
+		uint8_t lo[uvc::PANTILT_LEN], hi[uvc::PANTILT_LEN], res[uvc::PANTILT_LEN];
 		if (!get_range(uvc::CT_PANTILT_ABSOLUTE, uvc::PANTILT_LEN, lo, hi, res))
 			return;
 		min.pan = uvc::get_le32(lo);
@@ -199,30 +199,42 @@ private:
 		max.tilt = uvc::get_le32(hi + 4);
 		step.pan = valid_step(uvc::get_le32(res));
 		step.tilt = valid_step(uvc::get_le32(res + 4));
-		if (max.pan <= min.pan && max.tilt <= min.tilt)
-			return;
-		has_pantilt_ = true;
-		if (request(true, uvc::GET_CUR, uvc::CT_PANTILT_ABSOLUTE, cur, uvc::PANTILT_LEN, true)) {
-			pan_ = uvc::get_le32(cur);
-			tilt_ = uvc::get_le32(cur + 4);
-			now_pos.pan = std::clamp(ratio(pan_, max.pan), -1.0, 1.0);
-			now_pos.tilt = std::clamp(ratio(tilt_, max.tilt), -1.0, 1.0);
-		}
+		has_pantilt_ = max.pan > min.pan || max.tilt > min.tilt;
 	}
 
-	bool probe_u16(uint8_t selector, long *lo, long *hi, long *res, double *now)
+	bool probe_u16(uint8_t selector, long *lo, long *hi, long *res)
 	{
-		uint8_t l[uvc::ZOOM_LEN], h[uvc::ZOOM_LEN], r[uvc::ZOOM_LEN], c[uvc::ZOOM_LEN];
+		uint8_t l[uvc::ZOOM_LEN], h[uvc::ZOOM_LEN], r[uvc::ZOOM_LEN];
 		if (!get_range(selector, 2, l, h, r))
 			return false;
 		*lo = uvc::get_le16(l);
 		*hi = uvc::get_le16(h);
 		*res = valid_step(uvc::get_le16(r));
-		if (*hi <= *lo)
-			return false;
-		if (request(true, uvc::GET_CUR, selector, c, 2, true))
-			*now = std::clamp(ratio(uvc::get_le16(c), *hi), 0.0, 1.0);
-		return true;
+		return *hi > *lo;
+	}
+
+	/* Ask the camera where it is, for the axes it has */
+	void read_position()
+	{
+		if (has_pantilt_) {
+			uint8_t cur[uvc::PANTILT_LEN];
+			if (request(true, uvc::GET_CUR, uvc::CT_PANTILT_ABSOLUTE, cur, uvc::PANTILT_LEN, true)) {
+				pan_ = uvc::get_le32(cur);
+				tilt_ = uvc::get_le32(cur + 4);
+				now_pos.pan = std::clamp(ratio(pan_, max.pan), -1.0, 1.0);
+				now_pos.tilt = std::clamp(ratio(tilt_, max.tilt), -1.0, 1.0);
+				sent_pantilt_ = false; /* whatever was sent last, this is where it is now */
+			}
+		}
+		uint8_t c[2];
+		if (has_zoom_ && request(true, uvc::GET_CUR, uvc::CT_ZOOM_ABSOLUTE, c, 2, true))
+			now_pos.zoom = std::clamp(ratio(uvc::get_le16(c), max.zoom), 0.0, 1.0);
+		if (has_focus_ && request(true, uvc::GET_CUR, uvc::CT_FOCUS_ABSOLUTE, c, 2, true))
+			now_pos.focus = std::clamp(ratio(uvc::get_le16(c), max.focus), 0.0, 1.0);
+		uint8_t autofocus = 0;
+		if (has_focus_auto_ &&
+		    request(true, uvc::GET_CUR, uvc::CT_FOCUS_AUTO, &autofocus, uvc::FOCUS_AUTO_LEN, true))
+			now_pos.focusAuto = autofocus != 0;
 	}
 
 	bool set_u16(uint8_t selector, long value)
@@ -275,12 +287,12 @@ public:
 		valid_ = true;
 
 		probe_pantilt();
-		has_zoom_ = probe_u16(uvc::CT_ZOOM_ABSOLUTE, &min.zoom, &max.zoom, &step.zoom, &now_pos.zoom);
-		has_focus_ = probe_u16(uvc::CT_FOCUS_ABSOLUTE, &min.focus, &max.focus, &step.focus, &now_pos.focus);
+		has_zoom_ = probe_u16(uvc::CT_ZOOM_ABSOLUTE, &min.zoom, &max.zoom, &step.zoom);
+		has_focus_ = probe_u16(uvc::CT_FOCUS_ABSOLUTE, &min.focus, &max.focus, &step.focus);
 		uint8_t autofocus = 0;
 		has_focus_auto_ =
 			request(true, uvc::GET_CUR, uvc::CT_FOCUS_AUTO, &autofocus, uvc::FOCUS_AUTO_LEN, true);
-		now_pos.focusAuto = has_focus_auto_ ? autofocus != 0 : false;
+		read_position();
 
 		blog(LOG_INFO,
 		     "UVC PTZ ranges: pan=%ld..%ld step=%ld, tilt=%ld..%ld step=%ld, zoom=%ld..%ld step=%ld, "
@@ -323,6 +335,12 @@ public:
 		return has_focus_ && set_u16(uvc::CT_FOCUS_ABSOLUTE, value);
 	}
 	bool isValid() const override { return valid_; }
+	bool refreshPosition() override
+	{
+		if (valid_)
+			read_position();
+		return valid_;
+	}
 	bool checkAlive() override
 	{
 		/* Ask for the interface's error code, which every UVC camera has. It
