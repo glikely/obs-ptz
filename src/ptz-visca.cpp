@@ -917,36 +917,20 @@ void PTZVisca::receive(const QByteArray &msg)
 	send_pending();
 }
 
-void PTZVisca::get(calldata_t *cd) const
+void PTZVisca::requestState(OBSData requested)
 {
-	if (QThread::currentThread() != thread()) {
-		ptz_log(LOG_ERROR, "PTZVisca::get(calldata) called from non-GUI thread; ignored");
-		return;
-	}
-	QString arg = calldata_string(cd, "property");
-	if (arg == "wb_mode")
-		calldata_set_int(cd, "wb_mode", obs_data_get_int(state, "wb_mode"));
-	else
-		PTZDevice::get(cd);
+	if (obs_data_has_user_value(requested, "power_on"))
+		send(VISCA_CAM_Power, {(int)obs_data_get_bool(requested, "power_on")});
+	if (obs_data_has_user_value(requested, "wb_mode"))
+		send(VISCA_CAM_WB_Mode, {(int)obs_data_get_int(requested, "wb_mode")});
+	PTZDevice::requestState(requested);
 }
 
 void PTZVisca::set(calldata_t *cd)
 {
-	if (QThread::currentThread() != thread()) {
-		ptz_log(LOG_ERROR, "PTZVisca::set(calldata) called from wrong thread; ignored");
-		return;
-	}
-	bool power_on;
-	if (calldata_get_bool(cd, "power_on", &power_on))
-		send(VISCA_CAM_Power, {power_on});
-
-	long long wb_mode;
-	if (calldata_get_int(cd, "wb_mode", &wb_mode))
-		send(VISCA_CAM_WB_Mode, {(int)wb_mode});
-
 	bool trigger;
 	if (calldata_get_bool(cd, "wb_onepush_trigger", &trigger) && trigger)
-		send(VISCA_CAM_WB_OnePushTrigger);
+		QMetaObject::invokeMethod(this, [this]() { send(VISCA_CAM_WB_OnePushTrigger); });
 
 	PTZDevice::set(cd);
 }

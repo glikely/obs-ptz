@@ -55,6 +55,10 @@ _handed to listeners as `proc_handler` on the `ptz_device_create` signal._
 - `void ptz_get_config(ptr config)`
 - `void ptz_set_config(ptr config)`
 - `ptr ptz_get_properties()`
+
+> Transient state, which is never saved: a request to change some of it. ptz_get_state, above, reads all of it.
+
+- `void ptz_request_state(ptr state)`
 - `ptr ptz_preset_get_list()`
 - `int ptz_preset_new(int row)`
 - `void ptz_preset_remove(int row)`

@@ -197,7 +197,12 @@ protected slots:
 	void move(calldata_t *cd);
 	void move_abs(calldata_t *cd);
 	void move_rel(calldata_t *cd);
-	virtual void get(calldata_t *cd) const;
+	/* ptz_get / ptz_set: read one transient state value by name, and
+	 * request changes to some of them, one call at a time. Both are
+	 * thin calldata spellings of saveState() / requestState(); ptz_set
+	 * also carries the one-shot triggers (focus_onetouch_trigger, ...),
+	 * which aren't state and so have no place in requestState(). */
+	void get(calldata_t *cd) const;
 	virtual void set(calldata_t *cd);
 	void preset_save(calldata_t *cd);
 	void preset_recall(calldata_t *cd);
@@ -212,6 +217,7 @@ protected slots:
 	void get_config(calldata_t *cd) const;
 	void set_config(calldata_t *cd);
 	void get_obs_properties(calldata_t *cd);
+	void request_state(calldata_t *cd);
 	void preset_get_list(calldata_t *cd) const;
 	void newPreset(calldata_t *cd);
 	void removePresetAtDisplayRow(calldata_t *cd);
@@ -262,6 +268,25 @@ public:
 
 	/* Properties describe how to display the settings in a GUI dialog */
 	virtual obs_properties_t *get_obs_properties();
+
+	/* Transient state: what the camera and the host currently report,
+	 * never persisted. The parallel of the settings above:
+	 * `saveState()`: fills an OBSData with the device's whole current
+	 *     state -- name, connection, live/preview/locked, whatever the
+	 *     driver has read back from the camera, and "statistics".
+	 * `requestState()`: asks for some state to change. Only the keys
+	 *     present are acted on, each by issuing the command that should
+	 *     make the camera report it; the value isn't stored here, it
+	 *     becomes state when the camera says so (or, where a driver
+	 *     already does so, optimistically when the command is sent).
+	 *     Commandable keys: focus_af_enabled, and per driver power_on,
+	 *     wb_mode. Anything else is ignored, so a caller can hand back
+	 *     state it read, read-only parts and all.
+	 * Unlike the settings there is no properties tree for it: it isn't
+	 * bound to anything OBS persists, and changes many times a second.
+	 */
+	virtual void saveState(OBSData state) const;
+	virtual void requestState(OBSData requested);
 };
 
 /* backend driver hooks that register themselves as an OBS filters */

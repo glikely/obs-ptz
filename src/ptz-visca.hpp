@@ -103,13 +103,13 @@ protected:
 
 protected slots:
 	void receive(const QByteArray &msg);
-	void get(calldata_t *cd) const override;
 	void set(calldata_t *cd) override;
 
 public:
 	PTZVisca(OBSData config, obs_source_t *source = nullptr);
 	QString description() const override;
 	obs_properties_t *get_obs_properties() override;
+	void requestState(OBSData requested) override;
 
 	static void defaults(obs_data_t *config);
 	void update(OBSData config) override;

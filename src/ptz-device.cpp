@@ -89,6 +89,10 @@ PTZDevice::PTZDevice(OBSData config, obs_source_t *filter) : QObject()
 	proc_handler_add(handler, "void ptz_get_config(ptr config)", ptz_ph_lambda(get_config), this);
 	proc_handler_add(handler, "void ptz_set_config(ptr config)", ptz_ph_lambda(set_config), this);
 	proc_handler_add(handler, "ptr ptz_get_properties()", ptz_ph_lambda(get_obs_properties), this);
+
+	/* Transient state, which is never saved: a request to change some of it.
+	 * ptz_get_state, above, reads all of it. */
+	proc_handler_add(handler, "void ptz_request_state(ptr state)", ptz_ph_lambda(request_state), this);
 	proc_handler_add(handler, "ptr ptz_preset_get_list()", ptz_ph_lambda(preset_get_list), this);
 	proc_handler_add(handler, "int ptz_preset_new(int row)", ptz_ph_lambda(newPreset), this);
 	proc_handler_add(handler, "void ptz_preset_remove(int row)", ptz_ph_lambda(removePresetAtDisplayRow), this);
@@ -404,26 +408,120 @@ void PTZDevice::move_rel(calldata_t *cd)
 		QMetaObject::invokeMethod(this, "pantilt_rel", Q_ARG(double, p), Q_ARG(double, t));
 }
 
+/**
+ * Reads the one state value named by "property" into the calldata under that
+ * same name, typed as the state holds it. A value the device has no state
+ * for (yet) leaves the calldata alone, which reads back as false/0.
+ */
 void PTZDevice::get(calldata_t *cd) const
 {
 	if (wrongThread("ptz_get"))
 		return;
-	QString arg = calldata_string(cd, "property");
-	if (arg == "power_on")
-		calldata_set_bool(cd, "power_on", obs_data_get_bool(state, "power_on"));
-	else if (arg == "focus_af_enabled")
-		calldata_set_bool(cd, "focus_af_enabled", obs_data_get_bool(state, "focus_af_enabled"));
-	return;
+	const char *property = calldata_string(cd, "property");
+	if (!property)
+		return;
+	/* Own a copy: `property` points into cd's own buffer, and the
+	 * calldata_set_*() calls below write a new field into that same
+	 * buffer under this same name. If that write grows the buffer, a
+	 * pointer straight into it stops being valid mid-call -- writing
+	 * the field under a garbage name instead, which is silently never
+	 * seen again by anyone reading it back under the real name. */
+	const std::string name = property;
+	OBSDataAutoRelease snapshot = obs_data_create();
+	saveState(snapshot.Get());
+	obs_data_item_t *item = obs_data_item_byname(snapshot, name.c_str());
+	if (!item)
+		return;
+	switch (obs_data_item_gettype(item)) {
+	case OBS_DATA_BOOLEAN:
+		calldata_set_bool(cd, name.c_str(), obs_data_item_get_bool(item));
+		break;
+	case OBS_DATA_NUMBER:
+		if (obs_data_item_numtype(item) == OBS_DATA_NUM_INT)
+			calldata_set_int(cd, name.c_str(), obs_data_item_get_int(item));
+		else
+			calldata_set_float(cd, name.c_str(), obs_data_item_get_double(item));
+		break;
+	case OBS_DATA_STRING:
+		calldata_set_string(cd, name.c_str(), obs_data_item_get_string(item));
+		break;
+	default:
+		break;
+	}
+	obs_data_item_release(&item);
 }
 
+/**
+ * The commandable state keys, if given, go to requestState() -- always on the
+ * device's own thread, queued if this isn't it, since the proc_handler can be
+ * called from anywhere and requestState() talks to the camera. Then the
+ * triggers, which are actions, not state.
+ */
 void PTZDevice::set(calldata_t *cd)
 {
+	OBSDataAutoRelease requested = obs_data_create();
+	bool any = false;
 	bool enable;
-	if (calldata_get_bool(cd, "focus_af_enabled", &enable))
-		QMetaObject::invokeMethod(this, "set_autofocus", Q_ARG(bool, enable));
+	long long mode;
+	if (calldata_get_bool(cd, "focus_af_enabled", &enable)) {
+		obs_data_set_bool(requested, "focus_af_enabled", enable);
+		any = true;
+	}
+	if (calldata_get_bool(cd, "power_on", &enable)) {
+		obs_data_set_bool(requested, "power_on", enable);
+		any = true;
+	}
+	if (calldata_get_int(cd, "wb_mode", &mode)) {
+		obs_data_set_int(requested, "wb_mode", mode);
+		any = true;
+	}
+	if (any) {
+		OBSData request = requested.Get();
+		QMetaObject::invokeMethod(this, [this, request]() { requestState(request); });
+	}
+
 	bool trigger;
 	if (calldata_get_bool(cd, "focus_onetouch_trigger", &trigger) && trigger)
 		QMetaObject::invokeMethod(this, &PTZDevice::focus_onetouch);
+}
+
+void PTZDevice::saveState(OBSData out) const
+{
+	/* What the driver has read back from the camera... */
+	obs_data_apply(out, state);
+	/* ...and what the device itself knows, which wins */
+	{
+		QMutexLocker locker(&m_parentSourceMutex);
+		obs_data_set_string(out, "name", QT_TO_UTF8(m_parentSourceName));
+	}
+	obs_data_set_string(out, "description", QT_TO_UTF8(description()));
+	obs_data_set_string(out, "type", type.c_str());
+	obs_data_set_bool(out, "connected", connected);
+	obs_data_set_bool(out, "live", live);
+	obs_data_set_bool(out, "preview", preview);
+	obs_data_set_bool(out, "locked", locked);
+	obs_data_set_bool(out, "supports_set_home", supportsSetHome());
+}
+
+void PTZDevice::requestState(OBSData requested)
+{
+	if (obs_data_has_user_value(requested, "focus_af_enabled"))
+		set_autofocus(obs_data_get_bool(requested, "focus_af_enabled"));
+}
+
+/**
+ * Asks for the values in the caller's "state" object, passed to
+ * requestState(); only the keys present are acted on. (ptz_set is the older
+ * spelling, with a key per calldata field, and also carries the one-shot
+ * triggers.)
+ */
+void PTZDevice::request_state(calldata_t *cd)
+{
+	if (wrongThread("ptz_request_state"))
+		return;
+	auto requested = static_cast<obs_data_t *>(calldata_ptr(cd, "state"));
+	if (requested)
+		requestState(OBSData(requested));
 }
 
 void PTZDevice::preset_save(calldata_t *cd)
@@ -448,9 +546,7 @@ void PTZDevice::preset_clear(calldata_t *cd)
 }
 
 /**
- * Returns a caller-owned obs_data_t snapshot of everything PTZListModel
- * needs to display a device row without holding a PTZDevice* -- the caller
- * is responsible for obs_data_release()ing it.
+ * Fills the caller-owned obs_data_t with the device's whole transient state
  */
 void PTZDevice::get_state(calldata_t *cd) const
 {
@@ -459,14 +555,7 @@ void PTZDevice::get_state(calldata_t *cd) const
 	auto state = static_cast<obs_data_t *>(calldata_ptr(cd, "state"));
 	if (!state)
 		return;
-	obs_data_set_string(state, "name", QT_TO_UTF8(m_parentSourceName));
-	obs_data_set_string(state, "description", QT_TO_UTF8(description()));
-	obs_data_set_string(state, "type", type.c_str());
-	obs_data_set_bool(state, "connected", connected);
-	obs_data_set_bool(state, "live", live);
-	obs_data_set_bool(state, "preview", preview);
-	obs_data_set_bool(state, "locked", locked);
-	obs_data_set_bool(state, "supports_set_home", supportsSetHome());
+	saveState(state);
 }
 
 void PTZDevice::setLock(calldata_t *cd)
