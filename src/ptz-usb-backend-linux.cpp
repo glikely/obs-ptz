@@ -10,6 +10,7 @@
 #include "ptz-usb-backend.hpp"
 #include <linux/v4l2-controls.h>
 #include <linux/videodev2.h>
+#include <cerrno>
 #include <sys/ioctl.h>
 #include <fcntl.h>
 #include <unistd.h>
@@ -36,6 +37,20 @@ private:
 			*pstep = valid_step(queryctrl.step);
 		return true;
 	}
+	/* Once the camera is unplugged every ioctl on its fd fails with ENODEV. Give
+	 * up the fd so isValid() goes false and the driver looks for the camera
+	 * again. Takes the errno of the failed ioctl; true if that means it's gone. */
+	bool camera_lost(int err)
+	{
+		if (err != ENODEV)
+			return false;
+		if (fd != -1) {
+			blog(LOG_WARNING, "USB camera %s was unplugged", device_path.c_str());
+			close(fd);
+			fd = -1;
+		}
+		return true;
+	}
 	int set_ctrl(unsigned int i, long value)
 	{
 		if (fd == -1)
@@ -44,7 +59,8 @@ private:
 		control.id = i;
 		control.value = value;
 		if (ioctl(fd, VIDIOC_S_CTRL, &control) == -1) {
-			blog(LOG_ERROR, "Failed to set PTZ %d value", i);
+			if (!camera_lost(errno))
+				blog(LOG_ERROR, "Failed to set PTZ %d value", i);
 			return false;
 		}
 		return true;
@@ -56,7 +72,8 @@ private:
 		struct v4l2_control control = {};
 		control.id = i;
 		if (ioctl(fd, VIDIOC_G_CTRL, &control) == -1) {
-			blog(LOG_ERROR, "VIDIOC_G_CTRL failed for axis %d", i);
+			if (!camera_lost(errno))
+				blog(LOG_ERROR, "VIDIOC_G_CTRL failed for axis %d", i);
 			return 0;
 		}
 		return control.value;
