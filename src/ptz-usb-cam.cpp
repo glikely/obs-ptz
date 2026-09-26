@@ -21,7 +21,7 @@
 #include <fcntl.h>
 #include <unistd.h>
 
-class V4L2Control : public PTZControl {
+class V4L2Control : public PTZUsbBackend {
 private:
 	int fd;
 	int query_ctrl(unsigned int i, long *pmin, long *pmax)
@@ -111,7 +111,7 @@ public:
 #include <dshow.h>
 #pragma comment(lib, "strmiids.lib") // Linka com DirectShow no Windows
 
-class DirectShowControl : public PTZControl {
+class DirectShowControl : public PTZUsbBackend {
 private:
 	IBaseFilter *filter_ = nullptr;
 	IAMCameraControl *cam_control_ = nullptr;
@@ -368,7 +368,7 @@ void PTZUSBCam::do_update()
 	focus_changed = false;
 }
 
-PTZControl *PTZUSBCam::get_ptz_control()
+PTZUsbBackend *PTZUSBCam::getBackend()
 {
 	std::string video_device_id = "";
 	OBSSourceAutoRelease src = parentSource();
@@ -418,7 +418,7 @@ void PTZUSBCam::ptz_tick(float seconds)
 		pantilt_rel(pan_speed * tick_elapsed, tilt_speed * tick_elapsed);
 	}
 
-	auto ptzctrl = get_ptz_control();
+	auto ptzctrl = getBackend();
 	setConnected(ptzctrl != nullptr);
 	if (!ptzctrl)
 		return;
@@ -431,7 +431,7 @@ void PTZUSBCam::ptz_tick(float seconds)
 
 void PTZUSBCam::pantilt_abs(double pan, double tilt)
 {
-	auto ptzctrl = get_ptz_control();
+	auto ptzctrl = getBackend();
 	if (!ptzctrl)
 		return;
 	ptzctrl->pan(pan);
@@ -440,7 +440,7 @@ void PTZUSBCam::pantilt_abs(double pan, double tilt)
 
 void PTZUSBCam::pantilt_rel(double pan, double tilt)
 {
-	auto ptzctrl = get_ptz_control();
+	auto ptzctrl = getBackend();
 	if (!ptzctrl)
 		return;
 	pantilt_abs(ptzctrl->getPan() + pan, ptzctrl->getTilt() + tilt);
@@ -453,7 +453,7 @@ void PTZUSBCam::pantilt_home()
 
 void PTZUSBCam::zoom_abs(double pos)
 {
-	auto ptzctrl = get_ptz_control();
+	auto ptzctrl = getBackend();
 	if (!ptzctrl)
 		return;
 	ptzctrl->zoom(pos);
@@ -461,7 +461,7 @@ void PTZUSBCam::zoom_abs(double pos)
 
 void PTZUSBCam::focus_abs(double pos)
 {
-	auto ptzctrl = get_ptz_control();
+	auto ptzctrl = getBackend();
 	if (!ptzctrl)
 		return;
 	ptzctrl->focus(pos);
@@ -469,7 +469,7 @@ void PTZUSBCam::focus_abs(double pos)
 
 void PTZUSBCam::set_autofocus(bool enabled)
 {
-	auto ptzctrl = get_ptz_control();
+	auto ptzctrl = getBackend();
 	if (!ptzctrl)
 		return;
 	ptzctrl->setAutoFocus(enabled);
@@ -484,7 +484,7 @@ void PTZUSBCam::memory_reset(int i)
 
 void PTZUSBCam::memory_set(int i)
 {
-	auto ptzctrl = get_ptz_control();
+	auto ptzctrl = getBackend();
 	if (!ptzctrl)
 		return;
 	presets[i] = ptzctrl->getPosition();

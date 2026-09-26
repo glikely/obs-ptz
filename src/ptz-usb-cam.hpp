@@ -28,7 +28,7 @@ struct PtzUsbCamPos {
 	// double temperature = 0;
 };
 
-class PTZControl {
+class PTZUsbBackend {
 protected:
 	std::string device_path;
 	PtzUsbCamLimits min, max;
@@ -49,7 +49,7 @@ protected:
 	}
 
 public:
-	virtual ~PTZControl() {}
+	virtual ~PTZUsbBackend() {}
 	virtual bool internal_pan(long value) = 0;
 	bool pan(double value)
 	{
@@ -101,8 +101,8 @@ private:
 	QString m_PTZAddress{""};
 	QMap<int, PtzUsbCamPos> presets;
 	double tick_elapsed = 0.0f;
-	PTZControl *ptz_control_ = nullptr;
-	PTZControl *get_ptz_control();
+	PTZUsbBackend *ptz_control_ = nullptr;
+	PTZUsbBackend *getBackend();
 
 protected:
 	static void ptz_tick_callback(void *param, float seconds);
