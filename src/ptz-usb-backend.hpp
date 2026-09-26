@@ -38,6 +38,19 @@ protected:
 	PtzUsbCamLimits step{1, 1, 1, 1};
 	PtzUsbCamPos now_pos;
 
+	/* A camera that lacks a control reports no range for it (max == min, usually
+	 * both 0), and there is nothing to move. */
+	static bool has_range(long minimum, long maximum) { return maximum > minimum; }
+
+	/* Where a raw position sits relative to the range's maximum. */
+	static double ratio(long value, long maximum)
+	{
+		return maximum != 0 ? static_cast<double>(value) / maximum : 0.0;
+	}
+
+	/* Increments below 1 mean the camera didn't say; any value is accepted. */
+	static long valid_step(long increment) { return increment > 1 ? increment : 1; }
+
 	static long clamp_to_step(long value, long minimum, long maximum, long increment)
 	{
 		value = std::clamp(value, minimum, maximum);
@@ -55,6 +68,8 @@ public:
 	virtual bool internal_pan(long value) = 0;
 	bool pan(double value)
 	{
+		if (!has_range(min.pan, max.pan))
+			return false;
 		now_pos.pan = std::clamp(value, -1.0, 1.0);
 		long pan = clamp_to_step(static_cast<long>(now_pos.pan * max.pan), min.pan, max.pan, step.pan);
 		return internal_pan(pan);
@@ -63,6 +78,8 @@ public:
 	virtual bool internal_tilt(long value) = 0;
 	bool tilt(double value)
 	{
+		if (!has_range(min.tilt, max.tilt))
+			return false;
 		now_pos.tilt = std::clamp(value, -1.0, 1.0);
 		long tilt = clamp_to_step(static_cast<long>(now_pos.tilt * max.tilt), min.tilt, max.tilt, step.tilt);
 		return internal_tilt(tilt);
@@ -71,6 +88,8 @@ public:
 	virtual bool internal_zoom(long value) = 0;
 	bool zoom(double value)
 	{
+		if (!has_range(min.zoom, max.zoom))
+			return false;
 		now_pos.zoom = std::clamp(value, 0.0, 1.0);
 		long zoom = clamp_to_step(static_cast<long>(now_pos.zoom * max.zoom), min.zoom, max.zoom, step.zoom);
 		return internal_zoom(zoom);
@@ -79,6 +98,8 @@ public:
 	virtual bool internal_focus(bool auto_focus, long value) = 0;
 	bool focus(double value)
 	{
+		if (!has_range(min.focus, max.focus))
+			return false;
 		now_pos.focus = std::clamp(value, 0.0, 1.0);
 		long focus =
 			clamp_to_step(static_cast<long>(now_pos.focus * max.focus), min.focus, max.focus, step.focus);

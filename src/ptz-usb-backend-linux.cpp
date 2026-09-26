@@ -17,19 +17,24 @@
 class V4L2Control : public PTZUsbBackend {
 private:
 	int fd;
-	int query_ctrl(unsigned int i, long *pmin, long *pmax)
+	bool has_focus_auto_ = false;
+	/* Fill in the range of a control and return true if the camera has it. Most
+	 * webcams lack some of these, which is expected. */
+	bool query_ctrl(unsigned int i, long *pmin, long *pmax, long *pstep)
 	{
 		if (fd == -1)
 			return false;
 		struct v4l2_queryctrl queryctrl = {};
 		queryctrl.id = i;
-		if (ioctl(fd, VIDIOC_QUERYCTRL, &queryctrl) == -1) {
-			blog(LOG_ERROR, "VIDIOC_QUERYCTRL failed for axis %d", i);
-			return -1;
+		if (ioctl(fd, VIDIOC_QUERYCTRL, &queryctrl) == -1 || (queryctrl.flags & V4L2_CTRL_FLAG_DISABLED)) {
+			blog(LOG_INFO, "%s has no control 0x%x", device_path.c_str(), i);
+			return false;
 		}
 		*pmin = queryctrl.minimum;
 		*pmax = queryctrl.maximum;
-		return 0;
+		if (pstep)
+			*pstep = valid_step(queryctrl.step);
+		return true;
 	}
 	int set_ctrl(unsigned int i, long value)
 	{
@@ -66,29 +71,28 @@ public:
 			blog(LOG_ERROR, "Failed to open V4L2 device: %s", device_path.c_str());
 			return;
 		}
-		query_ctrl(V4L2_CID_PAN_ABSOLUTE, &min.pan, &max.pan);
-		query_ctrl(V4L2_CID_TILT_ABSOLUTE, &min.tilt, &max.tilt);
-		query_ctrl(V4L2_CID_ZOOM_ABSOLUTE, &min.zoom, &max.zoom);
-		query_ctrl(V4L2_CID_FOCUS_ABSOLUTE, &min.focus, &max.focus);
-		now_pos.pan = static_cast<double>(get_ctrl(V4L2_CID_PAN_ABSOLUTE)) / max.pan;
-		now_pos.tilt = static_cast<double>(get_ctrl(V4L2_CID_TILT_ABSOLUTE)) / max.tilt;
-		now_pos.zoom = static_cast<double>(get_ctrl(V4L2_CID_ZOOM_ABSOLUTE)) / max.zoom;
-		now_pos.focus = static_cast<double>(get_ctrl(V4L2_CID_FOCUS_ABSOLUTE)) / max.focus;
-		now_pos.focusAuto = get_ctrl(V4L2_CID_FOCUS_AUTO);
+		if (query_ctrl(V4L2_CID_PAN_ABSOLUTE, &min.pan, &max.pan, &step.pan))
+			now_pos.pan = ratio(get_ctrl(V4L2_CID_PAN_ABSOLUTE), max.pan);
+		if (query_ctrl(V4L2_CID_TILT_ABSOLUTE, &min.tilt, &max.tilt, &step.tilt))
+			now_pos.tilt = ratio(get_ctrl(V4L2_CID_TILT_ABSOLUTE), max.tilt);
+		if (query_ctrl(V4L2_CID_ZOOM_ABSOLUTE, &min.zoom, &max.zoom, &step.zoom))
+			now_pos.zoom = ratio(get_ctrl(V4L2_CID_ZOOM_ABSOLUTE), max.zoom);
+		if (query_ctrl(V4L2_CID_FOCUS_ABSOLUTE, &min.focus, &max.focus, &step.focus))
+			now_pos.focus = ratio(get_ctrl(V4L2_CID_FOCUS_ABSOLUTE), max.focus);
+		long auto_min, auto_max;
+		has_focus_auto_ = query_ctrl(V4L2_CID_FOCUS_AUTO, &auto_min, &auto_max, nullptr);
+		now_pos.focusAuto = has_focus_auto_ && get_ctrl(V4L2_CID_FOCUS_AUTO) != 0;
 	}
 	bool internal_pan(long value) override { return set_ctrl(V4L2_CID_PAN_ABSOLUTE, value); }
 	bool internal_tilt(long value) override { return set_ctrl(V4L2_CID_TILT_ABSOLUTE, value); }
 	bool internal_zoom(long value) override { return set_ctrl(V4L2_CID_ZOOM_ABSOLUTE, value); }
 	bool internal_focus(bool auto_focus, long value) override
 	{
-		if (auto_focus) {
-			return set_ctrl(V4L2_CID_FOCUS_AUTO, 1);
-		} else {
-			if (get_ctrl(V4L2_CID_FOCUS_AUTO) != 0) {
-				set_ctrl(V4L2_CID_FOCUS_AUTO, 0);
-			}
-			return set_ctrl(V4L2_CID_FOCUS_ABSOLUTE, value);
-		}
+		if (auto_focus)
+			return has_focus_auto_ && set_ctrl(V4L2_CID_FOCUS_AUTO, 1);
+		if (has_focus_auto_ && get_ctrl(V4L2_CID_FOCUS_AUTO) != 0)
+			set_ctrl(V4L2_CID_FOCUS_AUTO, 0);
+		return has_range(min.focus, max.focus) && set_ctrl(V4L2_CID_FOCUS_ABSOLUTE, value);
 	}
 	~V4L2Control() override
 	{

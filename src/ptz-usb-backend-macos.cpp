@@ -183,8 +183,6 @@ private:
 		       request(true, uvc::GET_RES, selector, res, length, true);
 	}
 
-	static long step_or_one(int32_t res) { return res > 1 ? res : 1; }
-
 	void probe_pantilt()
 	{
 		uint8_t lo[uvc::PANTILT_LEN], hi[uvc::PANTILT_LEN], res[uvc::PANTILT_LEN], cur[uvc::PANTILT_LEN];
@@ -194,16 +192,16 @@ private:
 		min.tilt = uvc::get_le32(lo + 4);
 		max.pan = uvc::get_le32(hi);
 		max.tilt = uvc::get_le32(hi + 4);
-		step.pan = step_or_one(uvc::get_le32(res));
-		step.tilt = step_or_one(uvc::get_le32(res + 4));
+		step.pan = valid_step(uvc::get_le32(res));
+		step.tilt = valid_step(uvc::get_le32(res + 4));
 		if (max.pan <= min.pan && max.tilt <= min.tilt)
 			return;
 		has_pantilt_ = true;
 		if (request(true, uvc::GET_CUR, uvc::CT_PANTILT_ABSOLUTE, cur, uvc::PANTILT_LEN, true)) {
 			pan_ = uvc::get_le32(cur);
 			tilt_ = uvc::get_le32(cur + 4);
-			now_pos.pan = std::clamp(max.pan ? static_cast<double>(pan_) / max.pan : 0.0, -1.0, 1.0);
-			now_pos.tilt = std::clamp(max.tilt ? static_cast<double>(tilt_) / max.tilt : 0.0, -1.0, 1.0);
+			now_pos.pan = std::clamp(ratio(pan_, max.pan), -1.0, 1.0);
+			now_pos.tilt = std::clamp(ratio(tilt_, max.tilt), -1.0, 1.0);
 		}
 	}
 
@@ -214,11 +212,11 @@ private:
 			return false;
 		*lo = uvc::get_le16(l);
 		*hi = uvc::get_le16(h);
-		*res = step_or_one(uvc::get_le16(r));
+		*res = valid_step(uvc::get_le16(r));
 		if (*hi <= *lo)
 			return false;
 		if (request(true, uvc::GET_CUR, selector, c, 2, true))
-			*now = std::clamp(static_cast<double>(uvc::get_le16(c)) / *hi, 0.0, 1.0);
+			*now = std::clamp(ratio(uvc::get_le16(c), *hi), 0.0, 1.0);
 		return true;
 	}
 

@@ -20,6 +20,30 @@ private:
 	IAMCameraControl *cam_control_ = nullptr;
 	long last_focus = 0;
 
+	/* Read one property's range and position. Cameras rarely have all four, so
+	 * a property that is missing (or can't move) is left at 0..0 with a step
+	 * of 1, and the base class then won't try to move it. Returns whether the
+	 * property has a usable range. */
+	bool probe(long property, long *pmin, long *pmax, long *pstep, double *pnow, bool *pauto = nullptr)
+	{
+		long lo, hi, increment, default_value, flags;
+		if (FAILED(cam_control_->GetRange(property, &lo, &hi, &increment, &default_value, &flags)))
+			return false;
+		long value;
+		if (SUCCEEDED(cam_control_->Get(property, &value, &flags))) {
+			if (pauto)
+				*pauto = (flags & CameraControl_Flags_Auto) != 0;
+			if (has_range(lo, hi))
+				*pnow = ratio(value, hi);
+		}
+		if (!has_range(lo, hi))
+			return false;
+		*pmin = lo;
+		*pmax = hi;
+		*pstep = valid_step(increment);
+		return true;
+	}
+
 public:
 	DirectShowControl(const std::string &device)
 	{
@@ -100,39 +124,15 @@ public:
 			return;
 		}
 		// blog(LOG_INFO, "Obtained DirectShow filter for device: %s", device_name.c_str());
-		long default_value, flags;
-		hr = cam_control_->GetRange(CameraControl_Pan, &min.pan, &max.pan, &step.pan, &default_value, &flags);
-		if (!FAILED(hr)) {
-			hr = cam_control_->GetRange(CameraControl_Tilt, &min.tilt, &max.tilt, &step.tilt,
-						    &default_value, &flags);
-		}
-		if (!FAILED(hr)) {
-			hr = cam_control_->GetRange(CameraControl_Zoom, &min.zoom, &max.zoom, &step.zoom,
-						    &default_value, &flags);
-		}
-		if (!FAILED(hr)) {
-			hr = cam_control_->GetRange(CameraControl_Focus, &min.focus, &max.focus, &step.focus,
-						    &default_value, &flags);
-		}
-		if (FAILED(hr)) {
-			blog(LOG_ERROR, "Failed to get ranges: %ld", hr);
-			return;
-		}
+		probe(CameraControl_Pan, &min.pan, &max.pan, &step.pan, &now_pos.pan);
+		probe(CameraControl_Tilt, &min.tilt, &max.tilt, &step.tilt, &now_pos.tilt);
+		probe(CameraControl_Zoom, &min.zoom, &max.zoom, &step.zoom, &now_pos.zoom);
+		probe(CameraControl_Focus, &min.focus, &max.focus, &step.focus, &now_pos.focus, &now_pos.focusAuto);
 		blog(LOG_INFO,
 		     "UVC PTZ ranges: pan=%ld..%ld step=%ld, tilt=%ld..%ld step=%ld, zoom=%ld..%ld step=%ld, "
 		     "focus=%ld..%ld step=%ld",
 		     min.pan, max.pan, step.pan, min.tilt, max.tilt, step.tilt, min.zoom, max.zoom, step.zoom,
 		     min.focus, max.focus, step.focus);
-		long pan, tilt, zoom, focus;
-		cam_control_->Get(CameraControl_Pan, &pan, &flags);
-		now_pos.pan = static_cast<double>(pan) / max.pan;
-		cam_control_->Get(CameraControl_Tilt, &tilt, &flags);
-		now_pos.tilt = static_cast<double>(tilt) / max.tilt;
-		cam_control_->Get(CameraControl_Zoom, &zoom, &flags);
-		now_pos.zoom = static_cast<double>(zoom) / max.zoom;
-		cam_control_->Get(CameraControl_Focus, &focus, &flags);
-		now_pos.focus = static_cast<double>(focus) / max.focus;
-		now_pos.focusAuto = (flags & CameraControl_Flags_Auto) != 0;
 	}
 	bool internal_pan(long value) override
 	{
@@ -170,6 +170,8 @@ public:
 	bool internal_focus(bool auto_focus, long focus) override
 	{
 		if (!cam_control_)
+			return false;
+		if (!auto_focus && !has_range(min.focus, max.focus))
 			return false;
 		auto focus_flag = auto_focus ? CameraControl_Flags_Auto : CameraControl_Flags_Manual;
 		HRESULT hr;
