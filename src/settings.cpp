@@ -13,6 +13,9 @@
 #include <QUrl>
 #include <QDesktopServices>
 #include <QStringList>
+#include <QTimer>
+#include <QApplication>
+#include <QLabel>
 
 #include <string>
 
@@ -26,6 +29,7 @@
 #include "ptz-list-model.hpp"
 #include "ptz-controls.hpp"
 #include "settings.hpp"
+#include "ptz-state-view.hpp"
 #include "contributors-generated.hpp"
 #include "translators-generated.hpp"
 #include "ui_settings.h"
@@ -74,6 +78,11 @@ void PTZSettings::updateProperties(OBSData, OBSData new_settings)
 	ptzDeviceList->update(ui->deviceList->currentIndex(), new_settings);
 }
 
+uint32_t PTZSettings::currentDeviceId() const
+{
+	return ui->deviceList->currentIndex().data(PTZListModel::DeviceIdRole).toUInt();
+}
+
 PTZSettings::PTZSettings() : QWidget(nullptr), ui(new Ui_PTZSettings)
 {
 	settings = obs_data_create();
@@ -81,7 +90,8 @@ PTZSettings::PTZSettings() : QWidget(nullptr), ui(new Ui_PTZSettings)
 
 	ui->setupUi(this);
 
-	connect(ptzDeviceList, &PTZListModel::dataChanged, this, &PTZSettings::settingsChanged);
+	connect(ptzDeviceList, &PTZListModel::deviceSettingsUpdated, this, &PTZSettings::deviceSettingsUpdated);
+	connect(ptzDeviceList, &PTZListModel::deviceStateUpdated, this, &PTZSettings::deviceStateUpdated);
 
 	ui->autoselectCheckBox->setChecked(PTZControls::getInstance()->autoselectEnabled());
 	connect(PTZControls::getInstance(), &PTZControls::autoselectEnabledChanged, ui->autoselectCheckBox,
@@ -116,7 +126,25 @@ PTZSettings::PTZSettings() : QWidget(nullptr), ui(new Ui_PTZSettings)
 	};
 	propertiesView = new OBSPropertiesView(settings, this, reload_cb, update_cb);
 	propertiesView->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
-	ui->propertiesLayout->insertWidget(0, propertiesView, 0);
+
+	/* The properties view does its own scrolling by default (it's a
+	 * QScrollArea itself); turn that off so it instead sizes itself to its
+	 * content, and stack it with the state view on the one page in
+	 * settings.ui, whose propertiesScroll is the only thing that scrolls. */
+	propertiesView->setScrolling(false);
+	ui->settingsViewLayout->addWidget(propertiesView);
+
+	/* What the user asks of the camera in the state view is a request, not
+	 * an update: the camera changes what it reports of itself once it has
+	 * done as asked, and that comes back as deviceStateUpdated() */
+	connect(ui->stateView, &PTZStateView::stateRequested, this,
+		[this](OBSData requested) { ptzDeviceList->setState(ui->deviceList->currentIndex(), requested); });
+	connect(ui->stateView, &PTZStateView::actionRequested, this, [this](const QString &action) {
+		calldata_t cd = {};
+		calldata_set_bool(&cd, qUtf8Printable(action), true);
+		ptzDeviceList->callDevice(ui->deviceList->currentIndex(), "ptz_set", &cd);
+		calldata_free(&cd);
+	});
 
 	joystickSetup();
 
@@ -390,21 +418,35 @@ void PTZSettings::on_applyButton_clicked()
 void PTZSettings::currentChanged(const QModelIndex &current, const QModelIndex &)
 {
 	obs_data_clear(settings);
-
 	ptzDeviceList->save(current, settings);
-
 	propertiesView->ReloadProperties();
+
+	OBSDataAutoRelease state = obs_data_create();
+	ptzDeviceList->saveState(current, state.Get());
+	ui->stateView->setState(state.Get());
 }
 
-void PTZSettings::settingsChanged(const QModelIndex &topLeft, const QModelIndex &bottomRight)
+/* Only the settings view hears about this: state changing all the time
+ * (connection, live, what the camera reports) used to have it re-save and
+ * refresh the settings under the user's cursor */
+void PTZSettings::deviceSettingsUpdated(uint32_t device_id)
 {
-	auto idx = ui->deviceList->currentIndex();
-	QItemSelectionRange range(topLeft, bottomRight);
-	if (!range.contains(idx))
+	if (device_id != currentDeviceId())
 		return;
 
-	ptzDeviceList->save(idx, settings);
+	ptzDeviceList->save(ui->deviceList->currentIndex(), settings);
 	QMetaObject::invokeMethod(propertiesView, "RefreshProperties", Qt::QueuedConnection);
+}
+
+/* Fold in only what the device says changed. The state view changes just
+ * the widgets that shows, in place, so it can take every change as it comes,
+ * however often the camera's position does. */
+void PTZSettings::deviceStateUpdated(uint32_t device_id, OBSData changed)
+{
+	if (device_id != currentDeviceId())
+		return;
+
+	ui->stateView->applyChanges(changed);
 }
 
 void PTZSettings::showDevice(const QModelIndex &index)

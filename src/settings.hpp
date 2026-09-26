@@ -41,9 +41,20 @@ class PTZSettings : public QWidget {
 
 private:
 	Ui_PTZSettings *ui;
+	/* A device's settings and its state are shown apart, one above the
+	 * other on one scrolling page rather than as two tabs. The settings
+	 * are edited in a properties view over `settings`, which is what the
+	 * device saves, and goes back through update() (in a filter's case,
+	 * the filter's own settings). It has its own internal scrolling turned
+	 * off (OBSPropertiesView::setScrolling(), which makes it size itself to
+	 * its content instead) so the outer VScrollArea is the only thing that
+	 * actually scrolls. The state, what the camera reports and never
+	 * persisted, is ui->stateView, a PTZStateView, which goes back as
+	 * requests (see PTZDevice::requestState()). */
 	OBSData settings;
 	OBSPropertiesView *propertiesView = nullptr;
 	void current_device_changed();
+	uint32_t currentDeviceId() const;
 
 public:
 	PTZSettings();
@@ -77,7 +88,8 @@ public slots:
 	void on_applyButton_clicked();
 
 	void currentChanged(const QModelIndex &current, const QModelIndex &previous);
-	void settingsChanged(const QModelIndex &topLeft, const QModelIndex &bottomRight);
+	void deviceSettingsUpdated(uint32_t device_id);
+	void deviceStateUpdated(uint32_t device_id, OBSData changed);
 	obs_properties_t *getProperties(void);
 	void updateProperties(OBSData old_settings, OBSData new_settings);
 	void showDevice(const QModelIndex &index);

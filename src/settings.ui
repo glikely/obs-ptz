@@ -248,10 +248,63 @@
           </layout>
          </widget>
          <widget class="QWidget" name="widget" native="true">
-          <layout class="QVBoxLayout" name="propertiesLayout" stretch="0">
+          <layout class="QVBoxLayout" name="propertiesLayout" stretch="1,0">
            <property name="sizeConstraint">
             <enum>QLayout::SizeConstraint::SetDefaultConstraint</enum>
            </property>
+           <item>
+            <widget class="VScrollArea" name="propertiesScroll">
+             <property name="widgetResizable">
+              <bool>true</bool>
+             </property>
+             <widget class="QWidget" name="propertiesStack">
+              <layout class="QVBoxLayout" name="propertiesStackLayout">
+               <property name="leftMargin">
+                <number>0</number>
+               </property>
+               <property name="topMargin">
+                <number>0</number>
+               </property>
+               <property name="rightMargin">
+                <number>0</number>
+               </property>
+               <property name="bottomMargin">
+                <number>0</number>
+               </property>
+               <item>
+                <widget class="QLabel" name="settingsLabel">
+                 <property name="font">
+                  <font>
+                   <bold>true</bold>
+                  </font>
+                 </property>
+                 <property name="text">
+                  <string>PTZ.Settings.DeviceSettings</string>
+                 </property>
+                </widget>
+               </item>
+               <item>
+                <layout class="QVBoxLayout" name="settingsViewLayout"/>
+               </item>
+               <item>
+                <widget class="QLabel" name="stateLabel">
+                 <property name="font">
+                  <font>
+                   <bold>true</bold>
+                  </font>
+                 </property>
+                 <property name="text">
+                  <string>PTZ.Settings.DeviceStatus</string>
+                 </property>
+                </widget>
+               </item>
+               <item>
+                <widget class="PTZStateView" name="stateView"/>
+               </item>
+              </layout>
+             </widget>
+            </widget>
+           </item>
            <item>
             <layout class="QHBoxLayout" name="horizontalLayout_4">
              <item>
@@ -314,6 +367,17 @@
    <class>DoubleSlider</class>
    <extends>QSlider</extends>
    <header>double-slider.hpp</header>
+  </customwidget>
+  <customwidget>
+   <class>PTZStateView</class>
+   <extends>QWidget</extends>
+   <header>ptz-state-view.hpp</header>
+  </customwidget>
+  <customwidget>
+   <class>VScrollArea</class>
+   <extends>QScrollArea</extends>
+   <header>vertical-scroll-area.hpp</header>
+   <container>1</container>
   </customwidget>
  </customwidgets>
  <resources/>
