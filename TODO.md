@@ -37,8 +37,6 @@ User Interface
   - Add gamepad configuration (enable/disable, select gamepads)
 - Show more of the camera's state on the settings dialog's status view (picture,
   exposure, etc). Connection, live/preview, position and white balance are there
-- Report the camera's position from the USB driver, which knows it, with
-  `setPosition()`, as VISCA and ONVIF do
 
 Wishlist
 --------
