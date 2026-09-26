@@ -217,6 +217,10 @@ if(ENABLE_USB_TESTS)
     find_package(Qt6 REQUIRED COMPONENTS Core)
   endif()
   add_subdirectory(tests/usb-backend)
+  if(APPLE)
+    # Needs a camera; run by tests/usb-e2e/run-macos.sh
+    add_subdirectory(tests/usb-e2e)
+  endif()
 endif()
 
 option(
