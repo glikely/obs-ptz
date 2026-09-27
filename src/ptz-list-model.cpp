@@ -29,10 +29,16 @@ static void device_create_cb(void *data, calldata_t *cd)
 	auto ptzlm = static_cast<PTZListModel *>(data);
 	auto ph = static_cast<proc_handler_t *>(calldata_ptr(cd, "proc_handler"));
 	auto sh = static_cast<signal_handler_t *>(calldata_ptr(cd, "signal_handler"));
+	auto weak_filter = static_cast<obs_weak_source_t *>(calldata_ptr(cd, "filter"));
 	auto device_id = (uint32_t)calldata_int(cd, "device_id");
 	if (!ph || !sh)
 		return;
-	QMetaObject::invokeMethod(ptzlm, [ptzlm, device_id, ph, sh] { ptzlm->deviceCreated(device_id, ph, sh); });
+	/* weak_filter is a borrowed pointer; only valid for the duration of this call.
+	 * Use it to create a new, safe OBSWeakSource before the invokeMethod() */
+	OBSWeakSource weakFilter = weak_filter;
+	QMetaObject::invokeMethod(ptzlm, [ptzlm, device_id, ph, sh, weakFilter] {
+		ptzlm->deviceCreated(device_id, ph, sh, weakFilter);
+	});
 }
 
 static void device_destroy_cb(void *data, calldata_t *cd)
@@ -166,6 +172,22 @@ const PTZListModel::PTZDeviceEntry *PTZListModel::entryById(uint32_t device_id) 
 }
 
 /**
+ * Promotes entry.weakFilter to a strong reference for the duration of the
+ * call, guaranteeing the proc_handler is valid on filter-owned devices.
+ * A self-managed device has no weakFilter and is always safe to call directly.
+ */
+bool PTZListModel::callEntry(const PTZDeviceEntry &entry, const char *method, calldata_t *cd) const
+{
+	if (entry.weakFilter) {
+		OBSSourceAutoRelease filter = obs_weak_source_get_source(entry.weakFilter);
+		if (!filter)
+			return false;
+		return proc_handler_call(entry.ph, method, cd);
+	}
+	return proc_handler_call(entry.ph, method, cd);
+}
+
+/**
  * Re-fetches everything data() needs to display a device row, via a single
  * ptz_get_state() proc_handler call. Called once to seed a new row, and
  * again whenever a state_changed signal says the cache may be stale.
@@ -173,7 +195,7 @@ const PTZListModel::PTZDeviceEntry *PTZListModel::entryById(uint32_t device_id) 
 void PTZListModel::refreshDeviceState(PTZDeviceEntry *entry)
 {
 	calldata_t cd = {};
-	proc_handler_call(entry->ph, "ptz_get_state", &cd);
+	callEntry(*entry, "ptz_get_state", &cd);
 	auto state = static_cast<obs_data_t *>(calldata_ptr(&cd, "return"));
 	if (state) {
 		entry->name = QT_UTF8(obs_data_get_string(state, "name"));
@@ -199,7 +221,7 @@ void PTZListModel::refreshPresetList(PTZDeviceEntry *entry)
 {
 	entry->presets.clear();
 	calldata_t cd = {};
-	proc_handler_call(entry->ph, "ptz_preset_get_list", &cd);
+	callEntry(*entry, "ptz_preset_get_list", &cd);
 	auto list = static_cast<obs_data_array_t *>(calldata_ptr(&cd, "return"));
 	if (list) {
 		for (size_t i = 0; i < obs_data_array_count(list); i++) {
@@ -280,7 +302,7 @@ bool PTZListModel::insertRows(int row, int count, const QModelIndex &parent)
 		calldata_t cd = {};
 		calldata_set_int(&cd, "device_id", entry->id);
 		calldata_set_int(&cd, "row", row++);
-		proc_handler_call(entry->ph, "ptz_preset_new", &cd);
+		callEntry(*entry, "ptz_preset_new", &cd);
 		calldata_free(&cd);
 	}
 	return true;
@@ -298,7 +320,7 @@ bool PTZListModel::removeRows(int row, int count, const QModelIndex &parent)
 		calldata_t cd = {};
 		calldata_set_int(&cd, "device_id", entry->id);
 		calldata_set_int(&cd, "row", row);
-		proc_handler_call(entry->ph, "ptz_preset_remove", &cd);
+		callEntry(*entry, "ptz_preset_remove", &cd);
 		calldata_free(&cd);
 	}
 	return true;
@@ -329,7 +351,7 @@ bool PTZListModel::moveRows(const QModelIndex &srcParent, int srcRow, int count,
 	calldata_set_int(&cd, "device_id", entry->id);
 	calldata_set_int(&cd, "src_row", srcRow);
 	calldata_set_int(&cd, "dest_row", destChild);
-	proc_handler_call(entry->ph, "ptz_preset_move", &cd);
+	callEntry(*entry, "ptz_preset_move", &cd);
 	calldata_free(&cd);
 	return true;
 }
@@ -411,7 +433,7 @@ bool PTZListModel::setData(const QModelIndex &index, const QVariant &value, int 
 			calldata_set_int(&cd, "device_id", entry->id);
 			calldata_set_int(&cd, "id", entry->presets.at(index.row()).id);
 			calldata_set_string(&cd, "name", QT_TO_UTF8(value.toString()));
-			proc_handler_call(entry->ph, "ptz_preset_set_name", &cd);
+			callEntry(*entry, "ptz_preset_set_name", &cd);
 			calldata_free(&cd);
 			/* cache refresh + dataChanged happen synchronously inside
 			 * that call, via the preset_renamed signal */
@@ -428,7 +450,7 @@ bool PTZListModel::setData(const QModelIndex &index, const QVariant &value, int 
 		calldata_t cd = {};
 		calldata_set_int(&cd, "device_id", entry->id);
 		calldata_set_bool(&cd, "locked", value.toBool());
-		proc_handler_call(entry->ph, "ptz_set_locked", &cd);
+		callEntry(*entry, "ptz_set_locked", &cd);
 		calldata_free(&cd);
 		/* cache refresh + dataChanged happen synchronously inside that
 		 * call, via the state_changed signal */
@@ -448,7 +470,7 @@ void PTZListModel::onSceneChanged()
 {
 	calldata_t cd = {};
 	for (const auto &entry : devices)
-		proc_handler_call(entry.ph, "ptz_scene_changed", &cd);
+		callEntry(entry, "ptz_scene_changed", &cd);
 	calldata_free(&cd);
 }
 
@@ -459,7 +481,7 @@ void PTZListModel::onSceneChanged()
 bool PTZListModel::callDevice(const QModelIndex &index, const char *method, calldata_t *cd)
 {
 	auto entry = entryAt(index);
-	return entry ? proc_handler_call(entry->ph, method, cd) : false;
+	return entry ? callEntry(*entry, method, cd) : false;
 }
 
 /**
@@ -469,7 +491,7 @@ bool PTZListModel::callDevice(const QModelIndex &index, const char *method, call
 bool PTZListModel::callDevice(const char *method, calldata_t *cd)
 {
 	auto entry = entryById((uint32_t)calldata_int(cd, "device_id"));
-	return entry ? proc_handler_call(entry->ph, method, cd) : false;
+	return entry ? callEntry(*entry, method, cd) : false;
 }
 
 QModelIndex PTZListModel::indexFromDeviceId(uint32_t device_id) const
@@ -496,7 +518,7 @@ void PTZListModel::save(OBSDataArray configs) const
 		calldata_t cd = {};
 		calldata_set_int(&cd, "device_id", entry.id);
 		calldata_set_ptr(&cd, "config", cfg.Get());
-		proc_handler_call(entry.ph, "ptz_get_config", &cd);
+		callEntry(entry, "ptz_get_config", &cd);
 		calldata_free(&cd);
 		/* Only save devices that are not attached as a filter */
 		if (obs_data_get_bool(cfg, "is-self-managed"))
@@ -512,7 +534,7 @@ void PTZListModel::save(const QModelIndex &index, OBSData settings) const
 	calldata_t cd = {};
 	calldata_set_int(&cd, "device_id", entry->id);
 	calldata_set_ptr(&cd, "config", settings.Get());
-	proc_handler_call(entry->ph, "ptz_get_config", &cd);
+	callEntry(*entry, "ptz_get_config", &cd);
 	calldata_free(&cd);
 }
 
@@ -524,7 +546,7 @@ void PTZListModel::update(const QModelIndex &index, OBSData settings)
 	calldata_t cd = {};
 	calldata_set_int(&cd, "device_id", entry->id);
 	calldata_set_ptr(&cd, "config", settings.Get());
-	proc_handler_call(entry->ph, "ptz_set_config", &cd);
+	callEntry(*entry, "ptz_set_config", &cd);
 	calldata_free(&cd);
 
 	refreshDeviceState(entry);
@@ -544,7 +566,7 @@ obs_properties_t *PTZListModel::getProperties(const QModelIndex &index) const
 	if (!entry)
 		return obs_properties_create();
 	calldata_t cd = {};
-	proc_handler_call(entry->ph, "ptz_get_properties", &cd);
+	callEntry(*entry, "ptz_get_properties", &cd);
 	auto props = static_cast<obs_properties_t *>(calldata_ptr(&cd, "return"));
 	calldata_free(&cd);
 	return props ? props : obs_properties_create();
@@ -587,12 +609,13 @@ void PTZListModel::preset_save(uint32_t device_id, int preset_id)
 	calldata_free(&cd);
 }
 
-void PTZListModel::deviceCreated(uint32_t device_id, proc_handler_t *ph, signal_handler_t *sh)
+void PTZListModel::deviceCreated(uint32_t device_id, proc_handler_t *ph, signal_handler_t *sh, OBSWeakSource weakFilter)
 {
 	PTZDeviceEntry entry;
 	entry.id = device_id;
 	entry.ph = ph;
 	entry.sh = sh;
+	entry.weakFilter = weakFilter;
 	devices.append(entry);
 	rebuildRowIndex();
 

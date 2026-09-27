@@ -75,12 +75,13 @@ protected:
 	QSet<QString> stale_state;
 	void incrementStatistic(const char *name);
 
-	// Each PTZ device has a proc handler so methods can be called
-	// from other plugins
+	/* Each PTZDevice has a proc handler so methods can be called
+	 * from other plugins -- the filter's own for a filter-owned device,
+	 * a private one for a self-managed device (see the constructor) */
 	proc_handler_t *handler = nullptr;
-	// ...and a signal handler so status changes can be observed without a
-	// direct C++ reference to this class (see ptz-list-model.cpp)
+	/* ...and likewise a signal handler so status changes can sent */
 	signal_handler_t *sigs = nullptr;
+	void signalDevice(const char *name, calldata_t *cd);
 	void notifyStateChanged();
 	bool wrongThread(const char *method) const;
 

@@ -6,6 +6,7 @@
  */
 #pragma once
 
+#include <obs.hpp>
 #include <QObject>
 #include <QAbstractItemModel>
 #include <QHash>
@@ -37,6 +38,8 @@ private:
 		uint32_t id = 0;
 		proc_handler_t *ph = nullptr;
 		signal_handler_t *sh = nullptr;
+		/* Reference to this device's filter. Empty on self-managed devices */
+		OBSWeakSource weakFilter;
 		QString name;
 		QString description;
 		bool connected = false;
@@ -60,6 +63,7 @@ private:
 	const PTZDeviceEntry *entryById(uint32_t device_id) const;
 	void refreshDeviceState(PTZDeviceEntry *entry);
 	void refreshPresetList(PTZDeviceEntry *entry);
+	bool callEntry(const PTZDeviceEntry &entry, const char *method, calldata_t *cd) const;
 
 public:
 	enum PTZListModelRole {
@@ -118,7 +122,7 @@ public:
 
 	/* Called by the signal_handler trampolines in ptz-list-model.cpp;
 	 * not Qt slots since nothing emits a Qt signal for any of this. */
-	void deviceCreated(uint32_t device_id, proc_handler_t *ph, signal_handler_t *sh);
+	void deviceCreated(uint32_t device_id, proc_handler_t *ph, signal_handler_t *sh, OBSWeakSource weakFilter);
 	void deviceDestroyed(uint32_t device_id);
 	void deviceStateChanged(uint32_t device_id, OBSData changed);
 	void presetsChanged(uint32_t device_id);

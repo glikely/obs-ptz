@@ -60,8 +60,9 @@ PTZDevice::PTZDevice(OBSData config, obs_source_t *filter) : QObject()
 	if (filter)
 		m_filter = OBSGetWeakRef(filter);
 
-	/* Create and populate the proc handler methods */
-	handler = proc_handler_create();
+	/* proc_handers for calling into the device. Comes from the filter on
+	 * filter-owned devices. Allocated new otherwise */
+	handler = filter ? obs_source_get_proc_handler(filter) : proc_handler_create();
 	if (!handler) {
 		blog(LOG_ERROR, "could not allocate proc_handler for %s", obs_data_get_string(config, "name"));
 		return;
@@ -95,8 +96,9 @@ PTZDevice::PTZDevice(OBSData config, obs_source_t *filter) : QObject()
 	proc_handler_add(handler, "void ptz_preset_set_name(int id, string name)", ptz_ph_lambda(setPresetName), this);
 	proc_handler_add(handler, "void ptz_scene_changed()", ptz_ph_lambda(onSceneChanged), this);
 
-	/* Signal handler for notifying state & settings changes */
-	sigs = signal_handler_create();
+	/* Signal handler for notifying state & settings changes. Shared with
+	 * the filter for a filter-owned device, same as handler above. */
+	sigs = filter ? obs_source_get_signal_handler(filter) : signal_handler_create();
 	if (!sigs) {
 		blog(LOG_ERROR, "could not allocate signal_handler for %s", obs_data_get_string(config, "name"));
 	} else {
@@ -145,6 +147,7 @@ void PTZDevice::announceCreated()
 	calldata_set_int(&cd, "device_id", id);
 	calldata_set_ptr(&cd, "proc_handler", handler);
 	calldata_set_ptr(&cd, "signal_handler", sigs);
+	calldata_set_ptr(&cd, "filter", m_filter.Get());
 	signal_handler_signal(ptz_get_signal_handler(), "ptz_device_create", &cd);
 	calldata_free(&cd);
 }
@@ -164,9 +167,13 @@ PTZDevice::~PTZDevice()
 	/* Stop watching the source */
 	watchParentSource(m_parentSource, false);
 
-	proc_handler_destroy(handler);
+	/* Only destroy proc/signal handlers for self-managed devices.
+	 * filter-owned devices use the filters handlers */
+	if (isSelfManaged()) {
+		proc_handler_destroy(handler);
+		signal_handler_destroy(sigs);
+	}
 	handler = nullptr;
-	signal_handler_destroy(sigs);
 	sigs = nullptr;
 }
 
@@ -928,7 +935,7 @@ void PTZDevice::setPresetName(size_t id, QString name)
 	calldata_t cd = {};
 	calldata_set_int(&cd, "device_id", this->id);
 	calldata_set_int(&cd, "id", (long long)id);
-	signal_handler_signal(sigs, "preset_renamed", &cd);
+	signalDevice("preset_renamed", &cd);
 	calldata_free(&cd);
 }
 
@@ -951,7 +958,7 @@ int PTZDevice::newPreset(int row)
 	calldata_t cd = {};
 	calldata_set_int(&cd, "device_id", this->id);
 	calldata_set_int(&cd, "row", row);
-	signal_handler_signal(sigs, "preset_inserted", &cd);
+	signalDevice("preset_inserted", &cd);
 	calldata_free(&cd);
 
 	return id;
@@ -965,7 +972,7 @@ void PTZDevice::removePresetAtDisplayRow(int row)
 	calldata_t cd = {};
 	calldata_set_int(&cd, "device_id", this->id);
 	calldata_set_int(&cd, "row", row);
-	signal_handler_signal(sigs, "preset_removed", &cd);
+	signalDevice("preset_removed", &cd);
 	calldata_free(&cd);
 }
 
@@ -984,7 +991,7 @@ void PTZDevice::movePreset(int srcRow, int destRow)
 	calldata_set_int(&cd, "device_id", this->id);
 	calldata_set_int(&cd, "src_row", srcRow);
 	calldata_set_int(&cd, "dest_row", destRow);
-	signal_handler_signal(sigs, "preset_moved", &cd);
+	signalDevice("preset_moved", &cd);
 	calldata_free(&cd);
 }
 
@@ -1047,12 +1054,24 @@ void PTZDevice::setLock(bool state)
 	notifyStateChanged();
 }
 
+/**
+ * Fires one of sigs' own signals. For a filter-owned device, first grab
+ * a strong reference to the filter to guarantee the signal handler is
+ * valid. Otherwise the filter could be destroyed in parallel, risking a
+ * use-after-free. */
+void PTZDevice::signalDevice(const char *name, calldata_t *cd)
+{
+	OBSSourceAutoRelease filter = obs_weak_source_get_source(m_filter);
+	if (filter || isSelfManaged())
+		signal_handler_signal(sigs, name, cd);
+}
+
 void PTZDevice::notifyStateChanged()
 {
 	calldata_t cd = {};
 	calldata_set_int(&cd, "device_id", id);
 	calldata_set_ptr(&cd, "changed", stateChanged);
-	signal_handler_signal(sigs, "state_changed", &cd);
+	signalDevice("state_changed", &cd);
 	calldata_free(&cd);
 	/* Notification done; clear out the changes state cache */
 	obs_data_clear(stateChanged);
