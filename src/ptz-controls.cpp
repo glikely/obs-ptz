@@ -1370,9 +1370,10 @@ void PTZControls::on_actionPresetImport_triggered(QString filename)
 
 	/* Merge just the presets/preset_max subset from the imported file
 	 * into the device's current full config, then update() with that --
-	 * update()'s own defaulting would otherwise reset every other
-	 * setting (pan/tilt speed, invert flags, ...) to its default, since
-	 * this file only ever has the two preset-related keys. */
+	 * update() takes a complete settings object, and would otherwise
+	 * read every other setting (pan/tilt speed, invert flags, ...) as
+	 * unset, since this file only ever has the two preset-related
+	 * keys. */
 	OBSDataAutoRelease fullConfig = obs_data_create();
 	ptzDeviceList->save(index, fullConfig.Get());
 	if (obs_data_has_user_value(data, "preset_max"))

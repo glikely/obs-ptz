@@ -232,11 +232,15 @@ public:
 
 	/* Device configuration methods
 	 * These match the pattern used by sources in OBS studio with the following methods:
-	 * `getDefaults()`: loads OBSData with default values for the device
-	 * `update()`: which informs the device of changes to the configuration
+	 * `defaults()`: loads OBSData with default values for the device. Static
+	 *     on each driver, and independent of any one device's settings.
+	 * `update()`: which informs the device of changes to the configuration.
+	 *     Must be handed a complete settings object, defaults included (a
+	 *     filter's own settings are, and so is what save() writes), and
+	 *     never modifies it or adds anything to it.
 	 * `save()`: Make sure device configuration is written to an OBSData
 	 */
-	virtual void getDefaults(OBSData defaults) const;
+	static void defaults(obs_data_t *defaults);
 	virtual void update(OBSData ptz_config);
 	virtual void save(OBSData ptz_config) const;
 

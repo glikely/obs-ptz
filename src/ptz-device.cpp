@@ -550,7 +550,7 @@ void PTZDevice::setPresetName(calldata_t *cd)
 	setPresetName((size_t)calldata_int(cd, "id"), QT_UTF8(calldata_string(cd, "name")));
 }
 
-void PTZDevice::getDefaults(OBSData config) const
+void PTZDevice::defaults(obs_data_t *config)
 {
 	obs_data_set_default_int(config, "preset_max", 16);
 	obs_data_set_default_double(config, "pantilt_speed_max", 1.0);
@@ -564,8 +564,6 @@ void PTZDevice::getDefaults(OBSData config) const
 
 void PTZDevice::update(OBSData config)
 {
-	getDefaults(config);
-
 	/* Clamp to the same range enforced by the properties slider; a corrupt
 	 * or hand-edited config must not yield an absurd preset count. */
 	m_maxPresets = std::clamp<size_t>(obs_data_get_int(config, "preset_max"), 1, 128);
@@ -692,18 +690,26 @@ void ptz_device_create(obs_data_t *config)
 	PTZDevice *ptz = nullptr;
 
 #if defined(ENABLE_SERIALPORT)
-	if (type == "pelco" || type == "pelco-p")
+	if (type == "pelco" || type == "pelco-p") {
+		PTZPelco::defaults(config);
 		ptz = new PTZPelco(config);
+	}
 #endif /* ENABLE_SERIALPORT */
-	if (type == "visca" || type == "visca-over-ip" || type == "visca-over-tcp")
+	if (type == "visca" || type == "visca-over-ip" || type == "visca-over-tcp") {
+		PTZVisca::defaults(config);
 		ptz = new PTZVisca(config);
+	}
 #if defined(ENABLE_ONVIF)
-	if (type == "onvif")
+	if (type == "onvif") {
+		PTZOnvif::defaults(config);
 		ptz = new PTZOnvif(config);
+	}
 #endif /* ENABLE_ONVIF */
 #if defined(ENABLE_USB_CAM)
-	if (type == "usb-cam")
+	if (type == "usb-cam") {
+		PTZUSBCam::defaults(config);
 		ptz = new PTZUSBCam(config);
+	}
 #endif /* ENABLE_USB_CAM */
 
 	/* Only announce once the full (base + derived) object is constructed
@@ -735,8 +741,12 @@ void ptz_filter_update(void *data, obs_data_t *settings)
 	if (!ptz)
 		return;
 	/* .update can be called from any thread. We need it on PTZDevice's thread.
-	 * Copy the data and use invokeMethod to get to the right thread. */
-	OBSDataAutoRelease copy = obs_data_create();
+	 * Copy the data and use invokeMethod to get to the right thread. The copy
+	 * starts from the defaults libobs put in the settings, made into values:
+	 * update() takes a complete settings object, but obs_data_apply() copies
+	 * only the values that were set, so a plain copy would leave update()
+	 * reading 0 for every setting nobody has changed. */
+	OBSDataAutoRelease copy = obs_data_get_defaults(settings);
 	obs_data_apply(copy, settings);
 	OBSData snapshot = copy.Get();
 	QMetaObject::invokeMethod(ptz, [ptz, snapshot]() { ptz->update(snapshot); });

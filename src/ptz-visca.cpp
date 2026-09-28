@@ -524,7 +524,6 @@ PTZVisca::PTZVisca(OBSData config, obs_source_t *source) : PTZDevice(config, sou
 	connect(&timeout_timer, &QTimer::timeout, this, &PTZVisca::timeout);
 	connect(&update_timer, &QTimer::timeout, this, &PTZVisca::update_timer_callback);
 
-	getDefaults(config);
 	update(config);
 }
 
@@ -608,16 +607,15 @@ void PTZVisca::write_replies_to_log()
 			 replyLast[key].toHex(':').data());
 }
 
-void PTZVisca::getDefaults(OBSData cfg) const
+void PTZVisca::defaults(obs_data_t *cfg)
 {
-	PTZDevice::getDefaults(cfg);
+	PTZDevice::defaults(cfg);
 
 	/* The transport is selected by device "type" (visca / visca-over-ip /
 	 * visca-over-tcp), same as before the VISCA drivers were unified into
 	 * a single class; keep using those type strings and their original
 	 * "host"/"port"/"address" field names so the on-disk config format is
 	 * unchanged. */
-	std::string cfg_type = obs_data_get_string(cfg, "type");
 	obs_data_set_default_int(cfg, "address", 1);
 	obs_data_set_default_int(cfg, "visca_pan_speed_max", 0x18);
 	obs_data_set_default_int(cfg, "visca_tilt_speed_max", 0x14);
@@ -1070,6 +1068,7 @@ void ptz_visca_register_filter()
 	info.destroy = ptz_filter_destroy;
 	info.get_defaults = [](obs_data_t *settings) {
 		obs_data_set_default_string(settings, "type", "visca-over-ip");
+		PTZVisca::defaults(settings);
 	};
 	info.get_properties = ptz_filter_get_properties;
 	info.update = ptz_filter_update;

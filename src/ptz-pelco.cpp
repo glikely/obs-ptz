@@ -139,7 +139,6 @@ void PTZPelco::zoom_speed_set(double speed)
 
 PTZPelco::PTZPelco(OBSData data, obs_source_t *source) : PTZDevice(data, source), iface(NULL)
 {
-	getDefaults(data);
 	update(data);
 	ptz_debug("pelco device created");
 }
@@ -149,9 +148,9 @@ PTZPelco::~PTZPelco()
 	attach_interface(nullptr);
 }
 
-void PTZPelco::getDefaults(OBSData config) const
+void PTZPelco::defaults(obs_data_t *config)
 {
-	PTZDevice::getDefaults(config);
+	PTZDevice::defaults(config);
 	obs_data_set_default_bool(config, "use_pelco_d", false);
 }
 
@@ -284,6 +283,9 @@ void ptz_pelco_register_filter()
 		return ptz_filter_create([&]() -> PTZDevice * { return new PTZPelco(settings, source); });
 	};
 	info.destroy = ptz_filter_destroy;
+	info.get_defaults = [](obs_data_t *settings) {
+		PTZPelco::defaults(settings);
+	};
 	info.get_properties = ptz_filter_get_properties;
 	info.update = ptz_filter_update;
 	info.save = ptz_filter_save;

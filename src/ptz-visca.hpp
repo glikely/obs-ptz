@@ -111,7 +111,7 @@ public:
 	QString description() const override;
 	obs_properties_t *get_obs_properties() override;
 
-	void getDefaults(OBSData config) const override;
+	static void defaults(obs_data_t *config);
 	void update(OBSData config) override;
 	void save(OBSData config) const override;
 

@@ -18,7 +18,6 @@ PTZUSBCam::PTZUSBCam(OBSData config, obs_source_t *source)
 	: PTZDevice(config, source),
 	  worker_(new PTZUsbWorker(ptz_usb_backend_create))
 {
-	getDefaults(config);
 	update(config);
 
 	/* The worker's thread reports back through queued signals, which are
@@ -201,6 +200,9 @@ void ptz_usb_cam_register_filter()
 		return ptz_filter_create([&]() -> PTZDevice * { return new PTZUSBCam(settings, source); });
 	};
 	info.destroy = ptz_filter_destroy;
+	info.get_defaults = [](obs_data_t *settings) {
+		PTZUSBCam::defaults(settings);
+	};
 	info.get_properties = ptz_filter_get_properties;
 	info.update = ptz_filter_update;
 	info.save = ptz_filter_save;

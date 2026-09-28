@@ -116,7 +116,7 @@ public:
 	PTZOnvif(OBSData config, obs_source_t *source = nullptr);
 	QString description() const override;
 
-	void getDefaults(OBSData config) const override;
+	static void defaults(obs_data_t *config);
 	void update(OBSData ptz_data) override;
 	void save(OBSData ptz_data) const override;
 

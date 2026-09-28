@@ -746,7 +746,6 @@ PTZOnvif::PTZOnvif(OBSData config, obs_source_t *source) : PTZDevice(config, sou
 		}
 	});
 	m_statusTimer.start();
-	getDefaults(config);
 	update(config);
 }
 
@@ -813,9 +812,9 @@ void PTZOnvif::zoom_abs(double pos)
 	absoluteMove(0.0, 0.0, pos);
 }
 
-void PTZOnvif::getDefaults(OBSData config) const
+void PTZOnvif::defaults(obs_data_t *config)
 {
-	PTZDevice::getDefaults(config);
+	PTZDevice::defaults(config);
 	obs_data_set_default_int(config, "port", 80);
 	obs_data_set_default_string(config, "username", "admin");
 	obs_data_set_default_string(config, "password", "");
@@ -902,6 +901,9 @@ void ptz_onvif_register_filter()
 		return ptz_filter_create([&]() -> PTZDevice * { return new PTZOnvif(settings, source); });
 	};
 	info.destroy = ptz_filter_destroy;
+	info.get_defaults = [](obs_data_t *settings) {
+		PTZOnvif::defaults(settings);
+	};
 	info.get_properties = ptz_filter_get_properties;
 	info.update = ptz_filter_update;
 	info.save = ptz_filter_save;
