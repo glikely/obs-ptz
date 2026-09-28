@@ -67,6 +67,7 @@ _handed to listeners as `proc_handler` on the `ptz_device_create` signal._
 _handed to listeners as `signal_handler` on the `ptz_device_create` signal._
 
 - `void state_changed(int device_id)`
+- `void settings_changed(int device_id)`
 
 > Preset modification signals
 

@@ -68,7 +68,6 @@ protected:
 	QList<size_t> m_presetsDisplayOrder;
 	void sanitizePreset(size_t id);
 	void setConnected(bool connected);
-	obs_properties_t *props;
 	OBSData state;        /* Transient state of the camera. Isn't saved */
 	OBSData stateChanged; /* changed state to be sent via the notify signal */
 	OBSData statistics;
@@ -101,6 +100,10 @@ public:
 	/* Returns a new reference to the device's source (release it with
 	 * obs_source_release()), or NULL if it has none. */
 	obs_source_t *parentSource() const;
+	/* Returns a new reference to the "PTZ Control" filter that owns this
+	 * device (release it with obs_source_release()), or NULL if it is
+	 * self-managed or its filter is gone. */
+	obs_source_t *filterSource() const;
 	void setParentSource(obs_source_t *source);
 	void setParentSourceByName(const char *name);
 	bool isSelfManaged() const { return !m_filter; }
@@ -238,11 +241,24 @@ public:
 	 *     Must be handed a complete settings object, defaults included (a
 	 *     filter's own settings are, and so is what save() writes), and
 	 *     never modifies it or adds anything to it.
-	 * `save()`: Make sure device configuration is written to an OBSData
+	 * `save()`: Make sure device configuration is written to an OBSData.
+	 *     Settings only, apart from the identity keys that stripIdentity()
+	 *     removes again before the filter persists the result.
 	 */
 	static void defaults(obs_data_t *defaults);
 	virtual void update(OBSData ptz_config);
 	virtual void save(OBSData ptz_config) const;
+
+	/* Apply new settings: update(), then announce it with the
+	 * "settings_changed" signal. The one place that fires that signal, so
+	 * the filter's .update and the dialog's ptz_set_config both go here.
+	 * `settings` must be complete, as update() requires. */
+	void applySettings(OBSData settings);
+	/* Remove the runtime identity keys save() adds ("name", "id",
+	 * "is-self-managed") from a settings object destined for persistence
+	 * in a filter, which already knows its own source, and whose device id
+	 * isn't stable across a driver change. */
+	static void stripIdentity(obs_data_t *settings);
 
 	/* Properties describe how to display the settings in a GUI dialog */
 	virtual obs_properties_t *get_obs_properties();

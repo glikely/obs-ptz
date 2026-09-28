@@ -103,6 +103,7 @@ PTZDevice::PTZDevice(OBSData config, obs_source_t *filter) : QObject()
 		blog(LOG_ERROR, "could not allocate signal_handler for %s", obs_data_get_string(config, "name"));
 	} else {
 		signal_handler_add(sigs, "void state_changed(int device_id)");
+		signal_handler_add(sigs, "void settings_changed(int device_id)");
 
 		/* Preset modification signals */
 		signal_handler_add(sigs, "void preset_inserted(int device_id, int row)");
@@ -232,6 +233,11 @@ void PTZDevice::watchParentSource(const OBSWeakSource &weak, bool watch) const
 		signal_handler_connect(sh, "rename", ptz_source_renamed_cb, self);
 	else
 		signal_handler_disconnect(sh, "rename", ptz_source_renamed_cb, self);
+}
+
+obs_source_t *PTZDevice::filterSource() const
+{
+	return m_filter ? obs_weak_source_get_source(m_filter) : nullptr;
 }
 
 void PTZDevice::setParentSource(obs_source_t *source)
@@ -479,13 +485,31 @@ void PTZDevice::get_config(calldata_t *cd) const
 		save(config);
 }
 
+/**
+ * A filter's settings are the persisted truth, so for a filter-owned device
+ * the new settings go in through obs_source_update(): libobs merges them into
+ * the filter's own settings, then calls the filter's .update (which ends up
+ * in applySettings()), and the Filters dialog sees the same values. Only a
+ * self-managed device, which has no filter, applies them directly.
+ */
 void PTZDevice::set_config(calldata_t *cd)
 {
 	if (wrongThread("ptz_set_config"))
 		return;
 	auto config = static_cast<obs_data_t *>(calldata_ptr(cd, "config"));
-	if (config)
-		update(config);
+	if (!config)
+		return;
+	if (isSelfManaged()) {
+		applySettings(config);
+		return;
+	}
+	OBSSourceAutoRelease filter = filterSource();
+	if (!filter)
+		return; /* filter is being destroyed */
+	OBSDataAutoRelease settings = obs_data_create();
+	obs_data_apply(settings, config);
+	stripIdentity(settings);
+	obs_source_update(filter, settings);
 }
 
 void PTZDevice::get_obs_properties(calldata_t *cd)
@@ -560,6 +584,22 @@ void PTZDevice::defaults(obs_data_t *config)
 	obs_data_set_default_bool(config, "tilt_invert", false);
 	obs_data_set_default_bool(config, "zoom_invert", false);
 	obs_data_set_default_bool(config, "focus_invert", false);
+}
+
+void PTZDevice::applySettings(OBSData settings)
+{
+	update(settings);
+	calldata_t cd = {};
+	calldata_set_int(&cd, "device_id", id);
+	signal_handler_signal(sigs, "settings_changed", &cd);
+	calldata_free(&cd);
+}
+
+void PTZDevice::stripIdentity(obs_data_t *settings)
+{
+	obs_data_erase(settings, "name");
+	obs_data_erase(settings, "id");
+	obs_data_erase(settings, "is-self-managed");
 }
 
 void PTZDevice::update(OBSData config)
@@ -749,7 +789,7 @@ void ptz_filter_update(void *data, obs_data_t *settings)
 	OBSDataAutoRelease copy = obs_data_get_defaults(settings);
 	obs_data_apply(copy, settings);
 	OBSData snapshot = copy.Get();
-	QMetaObject::invokeMethod(ptz, [ptz, snapshot]() { ptz->update(snapshot); });
+	QMetaObject::invokeMethod(ptz, [ptz, snapshot]() { ptz->applySettings(snapshot); });
 }
 
 void *ptz_filter_create(const std::function<PTZDevice *()> &make)
@@ -796,8 +836,13 @@ void ptz_filter_destroy(void *data)
 void ptz_filter_save(void *data, obs_data_t *settings)
 {
 	auto ptz = static_cast<PTZDevice *>(data);
-	if (ptz)
-		ptz->save(settings);
+	if (!ptz)
+		return;
+	ptz->save(settings);
+	/* The filter already knows its source, and a device id isn't stable
+	 * across a driver change; neither belongs in the scene collection.
+	 * Also clears them from collections saved before this was stripped. */
+	PTZDevice::stripIdentity(settings);
 }
 
 /* C interface for non-QT parts of the plugin */
