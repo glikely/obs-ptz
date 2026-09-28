@@ -48,7 +48,7 @@ PTZUSBCam::~PTZUSBCam()
 	worker_.reset();
 }
 
-QString PTZUSBCam::description()
+QString PTZUSBCam::description() const
 {
 	return QString(obs_module_text("PTZ.UVC.Name"));
 }

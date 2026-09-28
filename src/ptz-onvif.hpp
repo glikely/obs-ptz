@@ -114,7 +114,7 @@ private slots:
 
 public:
 	PTZOnvif(OBSData config, obs_source_t *source = nullptr);
-	QString description() override;
+	QString description() const override;
 
 	void getDefaults(OBSData config) const override;
 	void update(OBSData ptz_data) override;

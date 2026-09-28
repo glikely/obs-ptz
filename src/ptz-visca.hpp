@@ -108,7 +108,7 @@ protected slots:
 
 public:
 	PTZVisca(OBSData config, obs_source_t *source = nullptr);
-	QString description() override;
+	QString description() const override;
 	obs_properties_t *get_obs_properties() override;
 
 	void getDefaults(OBSData config) const override;

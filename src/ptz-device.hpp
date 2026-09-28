@@ -104,7 +104,7 @@ public:
 	void setParentSource(obs_source_t *source);
 	void setParentSourceByName(const char *name);
 	bool isSelfManaged() const { return !m_filter; }
-	virtual QString description();
+	virtual QString description() const;
 	bool isLive() const { return live; }
 	bool isPreview() const { return preview; }
 	virtual bool supportsSetHome() const { return false; }

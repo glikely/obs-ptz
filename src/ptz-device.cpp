@@ -281,7 +281,7 @@ void PTZDevice::setParentSourceByName(const char *name)
 	syncName();
 }
 
-QString PTZDevice::description()
+QString PTZDevice::description() const
 {
 	return QString::fromStdString(type);
 }

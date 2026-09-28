@@ -528,7 +528,7 @@ PTZVisca::PTZVisca(OBSData config, obs_source_t *source) : PTZDevice(config, sou
 	update(config);
 }
 
-QString PTZVisca::description()
+QString PTZVisca::description() const
 {
 	return transport ? transport->description(address) : QString();
 }

@@ -54,7 +54,7 @@ protected:
 public:
 	PTZPelco(OBSData data, obs_source_t *source = nullptr);
 	~PTZPelco();
-	QString description() override;
+	QString description() const override;
 
 	void getDefaults(OBSData config) const override;
 	void update(OBSData ptz_data) override;
