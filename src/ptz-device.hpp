@@ -207,7 +207,7 @@ protected slots:
 	 * registered on the proc_handler so PTZListModel never has to call
 	 * these directly -- see PTZDevice::PTZDevice() for registration and
 	 * PTZListModel::refreshDeviceState()/refreshPresetList() for callers */
-	void get_state(calldata_t *cd);
+	void get_state(calldata_t *cd) const;
 	void setLock(calldata_t *cd);
 	void get_config(calldata_t *cd) const;
 	void set_config(calldata_t *cd);

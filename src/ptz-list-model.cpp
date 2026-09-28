@@ -193,19 +193,19 @@ bool PTZListModel::callEntry(const PTZDeviceEntry &entry, const char *method, ca
  */
 void PTZListModel::refreshDeviceState(PTZDeviceEntry *entry)
 {
+	OBSDataAutoRelease state = obs_data_create();
+
 	calldata_t cd = {};
+	calldata_set_ptr(&cd, "state", state.Get());
 	callEntry(*entry, "ptz_get_state", &cd);
-	auto state = static_cast<obs_data_t *>(calldata_ptr(&cd, "return"));
-	if (state) {
-		entry->name = QT_UTF8(obs_data_get_string(state, "name"));
-		entry->description = QT_UTF8(obs_data_get_string(state, "description"));
-		entry->connected = obs_data_get_bool(state, "connected");
-		entry->live = obs_data_get_bool(state, "live");
-		entry->preview = obs_data_get_bool(state, "preview");
-		entry->locked = obs_data_get_bool(state, "locked");
-		entry->supportsSetHome = obs_data_get_bool(state, "supports_set_home");
-		obs_data_release(state);
-	}
+
+	entry->name = QT_UTF8(obs_data_get_string(state, "name"));
+	entry->description = QT_UTF8(obs_data_get_string(state, "description"));
+	entry->connected = obs_data_get_bool(state, "connected");
+	entry->live = obs_data_get_bool(state, "live");
+	entry->preview = obs_data_get_bool(state, "preview");
+	entry->locked = obs_data_get_bool(state, "locked");
+	entry->supportsSetHome = obs_data_get_bool(state, "supports_set_home");
 	calldata_free(&cd);
 }
 

@@ -84,7 +84,7 @@ PTZDevice::PTZDevice(OBSData config, obs_source_t *filter) : QObject()
 
 	/* Query/config/preset-CRUD API for PTZListModel -- everything it
 	 * needs from a PTZDevice beyond movement/preset-recall control */
-	proc_handler_add(handler, "ptr ptz_get_state()", ptz_ph_lambda(get_state), this);
+	proc_handler_add(handler, "ptr ptz_get_state(ptr state)", ptz_ph_lambda(get_state), this);
 	proc_handler_add(handler, "void ptz_set_locked(bool locked)", ptz_ph_lambda(setLock), this);
 	proc_handler_add(handler, "void ptz_get_config(ptr config)", ptz_ph_lambda(get_config), this);
 	proc_handler_add(handler, "void ptz_set_config(ptr config)", ptz_ph_lambda(set_config), this);
@@ -452,11 +452,13 @@ void PTZDevice::preset_clear(calldata_t *cd)
  * needs to display a device row without holding a PTZDevice* -- the caller
  * is responsible for obs_data_release()ing it.
  */
-void PTZDevice::get_state(calldata_t *cd)
+void PTZDevice::get_state(calldata_t *cd) const
 {
 	if (wrongThread("ptz_get_state"))
 		return;
-	obs_data_t *state = obs_data_create();
+	auto state = static_cast<obs_data_t *>(calldata_ptr(cd, "state"));
+	if (!state)
+		return;
 	obs_data_set_string(state, "name", QT_TO_UTF8(m_parentSourceName));
 	obs_data_set_string(state, "description", QT_TO_UTF8(description()));
 	obs_data_set_string(state, "type", type.c_str());
@@ -465,7 +467,6 @@ void PTZDevice::get_state(calldata_t *cd)
 	obs_data_set_bool(state, "preview", preview);
 	obs_data_set_bool(state, "locked", locked);
 	obs_data_set_bool(state, "supports_set_home", supportsSetHome());
-	calldata_set_ptr(cd, "return", state);
 }
 
 void PTZDevice::setLock(calldata_t *cd)
