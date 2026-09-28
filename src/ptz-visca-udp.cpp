@@ -169,11 +169,11 @@ void ViscaUDPTransport::lookup_host_callback(const QHostInfo info)
 void ViscaUDPTransport::update(OBSData config)
 {
 	QString new_host = obs_data_get_string(config, "host");
-	int port;
-	if (obs_data_has_user_value(config, "udp_port"))
-		port = obs_data_get_int(config, "udp_port");
-	else
+	int port = obs_data_get_int(config, "udp_port");
+	if (!port)
 		port = obs_data_get_int(config, "port"); /* legacy schema */
+	if (!port)
+		port = 52381;
 	if (new_host != host) {
 		ip_address.clear();
 		host = new_host;
@@ -183,8 +183,6 @@ void ViscaUDPTransport::update(OBSData config)
 				QHostInfo::lookupHost(host, this, &ViscaUDPTransport::lookup_host_callback);
 		}
 	}
-	if (!port)
-		port = 52381;
 	attach_interface(ViscaUDPSocket::get_interface(port));
 	quirk_visca_udp_no_seq = obs_data_get_bool(config, "quirk_visca_udp_no_seq");
 }

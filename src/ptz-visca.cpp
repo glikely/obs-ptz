@@ -618,11 +618,7 @@ void PTZVisca::getDefaults(OBSData cfg) const
 	 * "host"/"port"/"address" field names so the on-disk config format is
 	 * unchanged. */
 	std::string cfg_type = obs_data_get_string(cfg, "type");
-	if (cfg_type == "visca-over-tcp")
-		obs_data_set_default_int(cfg, "tcp_port", 5678);
-	else if (cfg_type != "visca-over-ip")
-		obs_data_set_default_int(cfg, "address", 1);
-
+	obs_data_set_default_int(cfg, "address", 1);
 	obs_data_set_default_int(cfg, "visca_pan_speed_max", 0x18);
 	obs_data_set_default_int(cfg, "visca_tilt_speed_max", 0x14);
 	obs_data_set_default_int(cfg, "visca_zoom_speed_max", 0x7);

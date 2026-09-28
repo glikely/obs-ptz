@@ -90,10 +90,12 @@ void ViscaTCPTransport::poll()
 void ViscaTCPTransport::update(OBSData config)
 {
 	host = obs_data_get_string(config, "host");
-	if (obs_data_has_user_value(config, "tcp_port"))
-		port = (int)obs_data_get_int(config, "tcp_port");
-	else
-		port = (int)obs_data_get_int(config, "port"); /* fallback to old config schema */
+	port = (int)obs_data_get_int(config, "tcp_port");
+	if (!port)
+		port = (int)obs_data_get_int(config, "port"); /* legacy schema */
+	if (!port)
+		port = 5678;
+
 	connectSocket();
 }
 
@@ -101,7 +103,7 @@ void ViscaTCPTransport::save(OBSData config) const
 {
 	obs_data_set_string(config, "host", QT_TO_UTF8(host));
 	obs_data_set_int(config, "tcp_port", port);
-	obs_data_set_int(config, "port", port); /* preserve older config schema */
+	obs_data_set_int(config, "port", port); /* legacy schema */
 }
 
 void ViscaTCPTransport::add_obs_properties(obs_properties_t *props)
