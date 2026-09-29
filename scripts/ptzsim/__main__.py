@@ -63,7 +63,7 @@ import threading
 
 from .backends.onvif import OnvifBackend
 from .backends.pelco import PelcoBackend
-from .backends.visca import ViscaBackend, SonyUdpQuirks
+from .backends.visca import ViscaBackend, ViscaCameraLogic, SonyUdpQuirks
 from .debug_http import DebugHttpServer
 from .state import PTZState, run_ticker
 from .video import VideoFeed
@@ -97,6 +97,10 @@ def parse_args():
     ap.add_argument("--visca-udp-port", type=int, default=52381,
                      help="VISCA-over-IP (UDP) listen port")
     ap.add_argument("--no-visca-udp", action="store_true", help="disable VISCA-over-IP")
+    ap.add_argument("--visca-no-block-inquiries", action="store_true",
+                     help="answer VISCA's \"7e 7e xx\" block inquiries and the version inquiry "
+                          "with a syntax error, as a BirdDog does: only the single-value "
+                          "inquiries work")
     ap.add_argument("--visca-udp-sony-quirks", action="store_true",
                      help="make VISCA-over-IP misbehave like a real Sony camera: drop requests "
                           "that come too soon after a reply, enforce strictly increasing "
@@ -142,6 +146,8 @@ def main():
 
     loop = asyncio.new_event_loop()
     asyncio.set_event_loop(loop)
+
+    ViscaCameraLogic.block_inquiries = not args.visca_no_block_inquiries
 
     backends = []
     if not args.no_visca:
