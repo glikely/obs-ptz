@@ -69,6 +69,11 @@ DEVICE_IDS = {
     # Talks VISCA-over-TCP to birddog_ptzsim, a camera with only the
     # single-value inquiries (see test_visca_no_block_inquiries.py)
     "visca-tcp-birddog": 15,
+    # Turn their camera on when OBS starts and off when it closes (see
+    # test_visca_power_at_obs_events.py). The first talks to power_ptzsim,
+    # which is there from the start; the second to a camera a test starts.
+    "visca-tcp-power": 16,
+    "visca-tcp-power-late": 17,
 }
 
 
@@ -193,6 +198,17 @@ def write_ptz_plugin_config(home: Path, ports, serial_paths):
         "host": "127.0.0.1",
         "tcp_port": ports["visca_tcp_birddog"],
     })
+    for key, port in (("visca-tcp-power", ports["visca_tcp_power"]),
+                      ("visca-tcp-power-late", ports["visca_tcp_power_late"])):
+        devices.append({
+            "id": DEVICE_IDS[key],
+            "name": f"sim-{key}",
+            "type": "visca-over-tcp",
+            "host": "127.0.0.1",
+            "tcp_port": port,
+            "power_on_at_startup": True,
+            "power_off_at_shutdown": True,
+        })
     devices.append({
         "id": DEVICE_IDS["onvif"],
         "name": "sim-onvif",
@@ -573,6 +589,12 @@ def ptz_ports():
         "visca_udp_sony": free_port(),
         "debug_http_sony": free_port(),
         "visca_tcp_birddog": free_port(),
+        "visca_tcp_power": free_port(),
+        "debug_http_power": free_port(),
+        "visca_tcp_power_late": free_port(),
+        "debug_http_power_late": free_port(),
+        "visca_tcp_power_filter": free_port(),
+        "debug_http_power_filter": free_port(),
     }
 
 
@@ -663,6 +685,77 @@ def birddog_ptzsim(ptz_ports):
         proc.kill()
 
 
+class StandbyPtzsim:
+    """A VISCA-over-TCP-only ptzsim that starts with the camera powered off,
+    on its own ports, that reports whether it is on. start() and stop() it
+    to have the camera there or not."""
+
+    def __init__(self, tcp_port, debug_port):
+        self.tcp_port = tcp_port
+        self.debug_port = debug_port
+        self.proc = None
+
+    def start(self):
+        cmd = [
+            sys.executable, "-m", "ptzsim",
+            "--host", "127.0.0.1",
+            "--visca-tcp-port", str(self.tcp_port),
+            "--no-visca-udp", "--no-visca-serial", "--no-onvif", "--no-pelco",
+            "--start-in-standby",
+            "--debug-http-port", str(self.debug_port),
+        ]
+        with output_log("ptzsim-standby") as out:
+            self.proc = subprocess.Popen(cmd, cwd=REPO_ROOT / "scripts", stdout=out, stderr=subprocess.STDOUT)
+        wait_for_port("127.0.0.1", self.debug_port, timeout=15)
+        wait_for_port("127.0.0.1", self.tcp_port, timeout=15)
+
+    def stop(self):
+        if self.proc is None:
+            return
+        self.proc.terminate()
+        try:
+            self.proc.wait(timeout=5)
+        except subprocess.TimeoutExpired:
+            self.proc.kill()
+        self.proc = None
+
+    def power(self):
+        url = f"http://127.0.0.1:{self.debug_port}/state"
+        with urllib.request.urlopen(url, timeout=2) as resp:
+            return json.load(resp)["power"]
+
+
+@pytest.fixture(scope="session")
+def power_ptzsim(ptz_ports):
+    """The camera DEVICE_IDS["visca-tcp-power"] talks to, powered off until
+    OBS turns it on. Started before OBS (see obs_world), and not stopped
+    until after it has exited, to see if it was turned off again."""
+    sim = StandbyPtzsim(ptz_ports["visca_tcp_power"], ptz_ports["debug_http_power"])
+    sim.start()
+    yield sim
+    sim.stop()
+
+
+@pytest.fixture(scope="session")
+def filter_power_ptzsim(ptz_ports):
+    """The camera a test's filter-owned device is pointed at (it is not
+    configured in advance, as the others are), powered off until then. Like
+    power_ptzsim, there before OBS starts and stopped after it has exited."""
+    sim = StandbyPtzsim(ptz_ports["visca_tcp_power_filter"], ptz_ports["debug_http_power_filter"])
+    sim.start()
+    yield sim
+    sim.stop()
+
+
+@pytest.fixture
+def late_power_ptzsim(obs_world, ptz_ports):
+    """The camera DEVICE_IDS["visca-tcp-power-late"] talks to, which is not
+    there until a test starts it."""
+    sim = StandbyPtzsim(ptz_ports["visca_tcp_power_late"], ptz_ports["debug_http_power_late"])
+    yield sim
+    sim.stop()
+
+
 class FlakyPtzsim:
     """A dedicated, VISCA-TCP-only ptzsim instance on its own fixed port
     (ptz_ports["visca_tcp_flaky"], wired to device_id
@@ -714,7 +807,7 @@ def flaky_ptzsim(obs_world, ptz_ports):
 
 
 @pytest.fixture(scope="session")
-def obs_world(tmp_path_factory, ptzsim_process, sony_ptzsim, birddog_ptzsim):
+def obs_world(tmp_path_factory, ptzsim_process, sony_ptzsim, birddog_ptzsim, power_ptzsim, filter_power_ptzsim):
     home = tmp_path_factory.mktemp("obs-home")
     write_ptz_plugin_config(home, ptzsim_process["ports"], ptzsim_process["serial_paths"])
 
@@ -794,8 +887,17 @@ def obs_world(tmp_path_factory, ptzsim_process, sony_ptzsim, birddog_ptzsim):
         proc.terminate()
         try:
             proc.wait(timeout=10)
+            exited_cleanly = True
         except subprocess.TimeoutExpired:
             proc.kill()
+            exited_cleanly = False
+    # A device set to turn its camera off when OBS closes has done so by now.
+    # Nothing else can see it happen: OBS is gone. Not if OBS had to be killed
+    # (it can hang on the way out on macOS), which is not what is being looked
+    # at.
+    if exited_cleanly:
+        assert power_ptzsim.power() is False, "OBS closed without turning the camera off"
+        assert filter_power_ptzsim.power() is False, "OBS closed without turning the filter's camera off"
 
 
 @pytest.fixture(autouse=True)

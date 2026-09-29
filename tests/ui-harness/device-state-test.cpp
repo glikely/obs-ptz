@@ -9,6 +9,7 @@
 #include <obs.hpp>
 #include <obs-module.h>
 
+#include "ptz-device.hpp"
 #include "ptz-list-model.hpp"
 
 namespace {
@@ -85,6 +86,27 @@ void runSetDeviceStateTest(const QMap<QString, QString> &params)
 	blog(LOG_INFO, "[ptz-ui-test] set_device_state device_id=%u", deviceId);
 }
 
+/* Hands one device the OBS frontend event it gets when OBS has finished
+ * loading, or is closing (see PTZDevice::onFrontendEvent()). OBS does that
+ * once, at startup and when it quits, so a test can't wait for it. */
+void runObsEventTest(const QMap<QString, QString> &params)
+{
+	bool deviceIdOk = false;
+	uint32_t deviceId = params.value(QStringLiteral("device_id")).toUInt(&deviceIdOk);
+	QString event = params.value(QStringLiteral("event"));
+	if (!deviceIdOk || (event != QStringLiteral("startup") && event != QStringLiteral("shutdown"))) {
+		blog(LOG_INFO, "[ptz-ui-test] obs_event: missing/invalid device_id or event");
+		return;
+	}
+
+	bool found = PTZDevice::deliverFrontendEvent(deviceId, event == QStringLiteral("startup")
+								       ? OBS_FRONTEND_EVENT_FINISHED_LOADING
+								       : OBS_FRONTEND_EVENT_SCRIPTING_SHUTDOWN);
+
+	blog(LOG_INFO, "[ptz-ui-test] obs_event device_id=%u event=%s%s", deviceId, qUtf8Printable(event),
+	     found ? "" : " (no such device)");
+}
+
 } // namespace
 
 /* get_device_state request params:
@@ -99,9 +121,14 @@ void runSetDeviceStateTest(const QMap<QString, QString> &params)
  *   tally_preview     - optional, "True"/"False"
  *   wb_mode           - optional, integer white-balance mode
  * A request with none of the optional params asks for nothing.
+ *
+ * obs_event request params:
+ *   device_id - the target device's numeric id
+ *   event     - "startup" or "shutdown"
  */
 void registerDeviceStateTest(PTZUITestHarness *harness)
 {
 	harness->registerTest(QStringLiteral("get_device_state"), &runGetDeviceStateTest);
 	harness->registerTest(QStringLiteral("set_device_state"), &runSetDeviceStateTest);
+	harness->registerTest(QStringLiteral("obs_event"), &runObsEventTest);
 }

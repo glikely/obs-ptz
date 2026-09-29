@@ -101,6 +101,8 @@ def parse_args():
                      help="answer VISCA's \"7e 7e xx\" block inquiries and the version inquiry "
                           "with a syntax error, as a BirdDog does: only the single-value "
                           "inquiries work")
+    ap.add_argument("--start-in-standby", action="store_true",
+                     help="start with the camera powered off")
     ap.add_argument("--visca-no-completions", action="store_true",
                      help="ACK VISCA commands but never send the completion, as a BirdDog "
                           "backpack does")
@@ -147,6 +149,8 @@ def main():
     args = parse_args()
 
     state = PTZState()
+    if args.start_in_standby:
+        state.power = False
     stop_event = threading.Event()
     threading.Thread(target=run_ticker, args=(state, stop_event), daemon=True).start()
 

@@ -190,6 +190,13 @@ actually work end to end.
     command sockets and says "command buffer full" when they are busy. It
     counts what it saw, and the tests read those counters from its
     `--debug-http-port` `/state` output.
+23. `test_visca_power_at_obs_events.py` covers VISCA's "power on at startup"
+    and "power off at shutdown" settings: a camera that starts off (a
+    `ptzsim` started with `--start-in-standby`) is on once OBS has loaded, one
+    that isn't there yet is turned on when it answers, and the `obs_event`
+    test in `tests/ui-harness/device-state-test.cpp` fires the shutdown event
+    at a device. Closing OBS ends the session, so that it turns the camera off
+    when it does is asserted when the `obs_world` fixture is torn down.
 
 ## Running locally
 
