@@ -82,6 +82,13 @@ protected:
 	signal_handler_t *sigs = nullptr;
 	void signalDevice(const char *name, calldata_t *cd);
 	void notifyStateChanged();
+	/* Record one position axis, where the camera is, in the state and in
+	 * what changed, in the units of the movement API (see the absolute
+	 * position commands below): "pan" and "tilt" in [-1.0, 1.0], "zoom" and
+	 * "focus" in [0.0, 1.0], clamped. Doesn't notify, so a driver can report
+	 * several at once with the notifyStateChanged() it makes anyway. A change
+	 * too small to show is not a change. */
+	void setPosition(const char *axis, double value);
 	bool wrongThread(const char *method) const;
 
 public:

@@ -99,6 +99,7 @@ protected:
 	void update_timer_callback();
 	void scan_commands();
 	void write_replies_to_log();
+	void update_position(OBSData decoded);
 	void reset();
 
 protected slots:

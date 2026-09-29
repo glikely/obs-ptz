@@ -168,6 +168,15 @@ public:
 	visca_u16(const char *name, int offset) : int_field(name, offset, 0x0f0f0f0f) {}
 };
 
+/* How far a camera moves and zooms, as the plugin assumes it, that 1.0 in the
+ * movement API stands for. Focus is 0x1000 at far focus and 0xf000 at near,
+ * as VISCA cameras usually have it; no command here sets it yet. */
+static constexpr int VISCA_PAN_RANGE = 0x1400;
+static constexpr int VISCA_TILT_RANGE = 0x500;
+static constexpr int VISCA_ZOOM_RANGE = 0x7ac0;
+static constexpr int VISCA_FOCUS_FAR = 0x1000;
+static constexpr int VISCA_FOCUS_NEAR = 0xf000;
+
 const PTZCmd VISCA_ENUMERATE("883001ff");
 
 const PTZInq VISCA_CAM_VersionInq("81090002ff",
@@ -746,6 +755,27 @@ obs_properties_t *PTZVisca::get_obs_properties()
 	return ptz_props;
 }
 
+/* Turn what a reply read back from the camera into the position state, in
+ * the units of the movement API. The scales are the ones the absolute move
+ * commands use, so a position that is shown is one that can be moved back
+ * to. Every camera has its own range, so these are the plugin's
+ * assumptions, and clamped. */
+void PTZVisca::update_position(OBSData decoded)
+{
+	auto has = [decoded](const char *key) {
+		return obs_data_has_user_value(decoded, key);
+	};
+	if (has("pan_pos"))
+		setPosition("pan", obs_data_get_int(state, "pan_pos") / (double)VISCA_PAN_RANGE);
+	if (has("tilt_pos"))
+		setPosition("tilt", obs_data_get_int(state, "tilt_pos") / (double)VISCA_TILT_RANGE);
+	if (has("zoom_pos"))
+		setPosition("zoom", obs_data_get_int(state, "zoom_pos") / (double)VISCA_ZOOM_RANGE);
+	if (has("focus_pos"))
+		setPosition("focus", (obs_data_get_int(state, "focus_pos") - VISCA_FOCUS_FAR) /
+					     (double)(VISCA_FOCUS_NEAR - VISCA_FOCUS_FAR));
+}
+
 void PTZVisca::send(PTZCmd cmd)
 {
 	pending_cmds.append(cmd);
@@ -846,6 +876,7 @@ void PTZVisca::receive(const QByteArray &msg)
 			obs_data_t *rslt_props = active_cmd[0].value().decode(msg);
 			obs_data_apply(state, rslt_props);
 			obs_data_apply(stateChanged, rslt_props);
+			update_position(rslt_props);
 
 			/* Mark returned properties as clean */
 			for (auto item = obs_data_first(rslt_props); item; obs_data_item_next(&item))
@@ -959,8 +990,8 @@ void PTZVisca::pantilt_rel(double pan_, double tilt_)
 
 void PTZVisca::pantilt_abs(double pan_, double tilt_)
 {
-	int pan = std::clamp(pan_, -1.0, 1.0) * 0x1400;
-	int tilt = std::clamp(tilt_, -1.0, 1.0) * 0x500;
+	int pan = std::clamp(pan_, -1.0, 1.0) * VISCA_PAN_RANGE;
+	int tilt = std::clamp(tilt_, -1.0, 1.0) * VISCA_TILT_RANGE;
 	send(VISCA_PanTilt_drive_abs, {0x0f, 0x0f, pan, tilt});
 }
 
@@ -971,7 +1002,7 @@ void PTZVisca::pantilt_home()
 
 void PTZVisca::zoom_abs(double pos_)
 {
-	int pos = std::clamp(pos_, 0.0, 1.0) * 0x7ac0;
+	int pos = std::clamp(pos_, 0.0, 1.0) * VISCA_ZOOM_RANGE;
 	send(VISCA_CAM_Zoom_Direct, {pos});
 }
 
