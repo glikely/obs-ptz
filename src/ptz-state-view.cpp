@@ -44,6 +44,13 @@ PTZStateView::PTZStateView(QWidget *parent) : QWidget(parent)
 	top->addRow(m_live);
 	top->addRow(m_preview);
 	top->addRow(m_locked);
+
+	m_power = new QCheckBox(obs_module_text("PTZ.Device.State.Power"));
+	m_focusAuto = new QCheckBox(obs_module_text("PTZ.Device.State.Autofocus"));
+	top->addRow(m_power);
+	top->addRow(m_focusAuto);
+	m_power->hide();
+	m_focusAuto->hide();
 	page->addLayout(top);
 
 	m_positionGroup = new QGroupBox(obs_module_text("PTZ.Device.State.Position"));
@@ -96,6 +103,20 @@ PTZStateView::PTZStateView(QWidget *parent) : QWidget(parent)
 		m_whiteBalanceSettle.start();
 	});
 	connect(m_onePush, &QPushButton::clicked, this, [this]() { emit actionRequested("wb_onepush_trigger"); });
+
+	/* clicked(), not toggled(): a programmatic setChecked() below (the
+	 * device catching up, or resetting to what it last reported) must not
+	 * feed back as a request */
+	connect(m_power, &QCheckBox::clicked, this, [this](bool checked) {
+		OBSDataAutoRelease requested = obs_data_create();
+		obs_data_set_bool(requested, "power_on", checked);
+		emit stateRequested(OBSData(requested.Get()));
+	});
+	connect(m_focusAuto, &QCheckBox::clicked, this, [this](bool checked) {
+		OBSDataAutoRelease requested = obs_data_create();
+		obs_data_set_bool(requested, "focus_af_enabled", checked);
+		emit stateRequested(OBSData(requested.Get()));
+	});
 
 	/* The list follows the camera, not the user: if the camera hasn't taken
 	 * up what was asked for by now, show what it says it is doing */
@@ -162,6 +183,28 @@ void PTZStateView::applyData(obs_data_t *data, bool all)
 	setFlag(m_preview, "preview");
 	setFlag(m_locked, "locked");
 
+	/* Commandable, unlike the indicators above: shown only while the
+	 * device reports the key at all, like an axis row */
+	auto setCommandableFlag = [&](QCheckBox *box, const char *key) {
+		bool shown = !box->isHidden();
+		if (has(key)) {
+			bool value = obs_data_get_bool(data, key);
+			if (box->isChecked() != value) {
+				box->setChecked(value);
+				changed = true;
+			}
+			if (!shown) {
+				box->show();
+				changed = true;
+			}
+		} else if (all && shown) {
+			box->hide();
+			changed = true;
+		}
+	};
+	setCommandableFlag(m_power, "power_on");
+	setCommandableFlag(m_focusAuto, "focus_af_enabled");
+
 	for (int i = 0; i < AxisCount; i++) {
 		const char *key = m_axisKeys[i];
 		bool shown = !m_axisLabels[i]->isHidden();
@@ -218,6 +261,10 @@ QVariantMap PTZStateView::shownValues() const
 	shown["live"] = m_live->isChecked();
 	shown["preview"] = m_preview->isChecked();
 	shown["locked"] = m_locked->isChecked();
+	if (!m_power->isHidden())
+		shown["power_on"] = m_power->isChecked();
+	if (!m_focusAuto->isHidden())
+		shown["focus_af_enabled"] = m_focusAuto->isChecked();
 	for (int i = 0; i < AxisCount; i++)
 		if (!m_axisLabels[i]->isHidden())
 			shown[m_axisKeys[i]] = m_axisValues[i]->text().toDouble();

@@ -19,8 +19,9 @@ class QPushButton;
 
 /* Shows what a device reports of itself (the "ptz_get_state" proc): its name,
  * whether it is connected, live, in the preview and locked, where the camera
- * is, and, for a camera that reports it, its white balance. For a device that
- * has them ("supports_diagnostics"), buttons for its diagnostics.
+ * is, and, for a camera that reports them, its power and autofocus state and
+ * its white balance. For a device that has them ("supports_diagnostics"),
+ * buttons for its diagnostics.
  *
  * Every widget is made once, and an update changes only the ones whose value
  * changed, so nothing is torn down and rebuilt as the state changes many
@@ -70,6 +71,12 @@ private:
 	QCheckBox *m_live;
 	QCheckBox *m_preview;
 	QCheckBox *m_locked;
+
+	/* Unlike the indicators above, these are commandable (PTZDevice::
+	 * requestState()): the user can click them, and the row hides while
+	 * the device doesn't report the key at all. */
+	QCheckBox *m_power;
+	QCheckBox *m_focusAuto;
 
 	QGroupBox *m_positionGroup;
 	const char *m_axisKeys[AxisCount] = {"pan", "tilt", "zoom", "focus"};
