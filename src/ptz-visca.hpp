@@ -109,6 +109,7 @@ public:
 	PTZVisca(OBSData config, obs_source_t *source = nullptr);
 	QString description() const override;
 	obs_properties_t *get_obs_properties() override;
+	bool supportsDiagnostics() const override { return true; }
 	void requestState(OBSData requested) override;
 
 	static void defaults(obs_data_t *config);

@@ -111,6 +111,10 @@ public:
 	bool isLive() const { return live; }
 	bool isPreview() const { return preview; }
 	virtual bool supportsSetHome() const { return false; }
+	/* Whether ptz_set takes the "scan_inquiries_trigger" and
+	 * "replies_to_log_trigger" diagnostics, for working out what a camera
+	 * supports */
+	virtual bool supportsDiagnostics() const { return false; }
 	void onSceneChanged();
 
 	size_t maxPresets() const { return m_maxPresets; }

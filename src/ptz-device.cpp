@@ -501,6 +501,7 @@ void PTZDevice::saveState(OBSData out) const
 	obs_data_set_bool(out, "preview", preview);
 	obs_data_set_bool(out, "locked", locked);
 	obs_data_set_bool(out, "supports_set_home", supportsSetHome());
+	obs_data_set_bool(out, "supports_diagnostics", supportsDiagnostics());
 }
 
 void PTZDevice::requestState(OBSData requested)

@@ -730,35 +730,6 @@ obs_properties_t *PTZVisca::get_obs_properties()
 
 	visca_add_interface_fields(iface_props, type);
 
-	auto *wbGroup = obs_properties_create();
-	obs_properties_add_group(ptz_props, "whitebalance", obs_module_text("PTZ.WhiteBalance"), OBS_GROUP_NORMAL,
-				 wbGroup);
-
-	auto *list = obs_properties_add_list(wbGroup, "wb_mode", obs_module_text("PTZ.WhiteBalance.Mode"),
-					     OBS_COMBO_TYPE_LIST, OBS_COMBO_FORMAT_INT);
-	obs_property_list_add_int(list, obs_module_text("PTZ.WhiteBalance.Auto"), 0);
-	obs_property_list_add_int(list, obs_module_text("PTZ.WhiteBalance.Indoor"), 1);
-	obs_property_list_add_int(list, obs_module_text("PTZ.WhiteBalance.Outdoor"), 2);
-	obs_property_list_add_int(list, obs_module_text("PTZ.WhiteBalance.OnePush"), 3);
-	obs_property_list_add_int(list, obs_module_text("PTZ.WhiteBalance.AutoTrace"), 4);
-	obs_property_list_add_int(list, obs_module_text("PTZ.WhiteBalance.Manual"), 5);
-	auto wb_modified_cb = [](void *_ptz, obs_properties_t *, obs_property_t *, obs_data_t *settings) -> bool {
-		PTZVisca *ptz = static_cast<PTZVisca *>(_ptz);
-		ptz->send(VISCA_CAM_WB_Mode, {(int)obs_data_get_int(settings, "wb_mode")});
-		return false;
-	};
-	obs_property_set_modified_callback2(list, wb_modified_cb, (void *)this);
-
-	auto clicked_cb = [](obs_properties_t *pps, obs_property_t *property, void *data) {
-		Q_UNUSED(pps);
-		Q_UNUSED(property);
-		PTZVisca *ptz = static_cast<PTZVisca *>(data);
-		ptz->send(VISCA_CAM_WB_OnePushTrigger);
-		return false;
-	};
-	obs_properties_add_button2(wbGroup, "one-push", obs_module_text("PTZ.WhiteBalance.OnePushButton"), clicked_cb,
-				   this);
-
 	auto visca_grp = obs_properties_create();
 	obs_properties_add_group(ptz_props, "visca_advanced", obs_module_text("PTZ.Settings.Advanced"),
 				 OBS_GROUP_CHECKABLE, visca_grp);
@@ -772,18 +743,6 @@ obs_properties_t *PTZVisca::get_obs_properties()
 				      7, 1);
 	obs_properties_add_bool(visca_grp, "protocol_trace", obs_module_text("PTZ.Device.ProtocolTraceToLog"));
 
-	auto scan_inquiries_clicked_cb = [](obs_properties_t *, obs_property_t *, void *data) {
-		static_cast<PTZVisca *>(data)->scan_commands();
-		return false;
-	};
-	obs_properties_add_button2(visca_grp, "scan_inquiries", obs_module_text("PTZ.Visca.Debug.ScanInquiries"),
-				   scan_inquiries_clicked_cb, this);
-	auto replies_to_log_clicked_cb = [](obs_properties_t *, obs_property_t *, void *data) {
-		static_cast<PTZVisca *>(data)->write_replies_to_log();
-		return false;
-	};
-	obs_properties_add_button2(visca_grp, "replies_to_log", obs_module_text("PTZ.Visca.Debug.RepliesToLog"),
-				   replies_to_log_clicked_cb, this);
 	return ptz_props;
 }
 
@@ -931,6 +890,11 @@ void PTZVisca::set(calldata_t *cd)
 	bool trigger;
 	if (calldata_get_bool(cd, "wb_onepush_trigger", &trigger) && trigger)
 		QMetaObject::invokeMethod(this, [this]() { send(VISCA_CAM_WB_OnePushTrigger); });
+	/* Diagnostics, for working out what a camera supports */
+	if (calldata_get_bool(cd, "scan_inquiries_trigger", &trigger) && trigger)
+		QMetaObject::invokeMethod(this, [this]() { scan_commands(); });
+	if (calldata_get_bool(cd, "replies_to_log_trigger", &trigger) && trigger)
+		QMetaObject::invokeMethod(this, [this]() { write_replies_to_log(); });
 
 	PTZDevice::set(cd);
 }

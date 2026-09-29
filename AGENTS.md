@@ -71,6 +71,28 @@ from just reading the code.
   human review, not just pulled down. If a locale file has a block that needs human
   review, comment it as such so it's easy to find later.
 
+## PTZDevice settings vs. state
+
+A `PTZDevice` has two separate halves, each with its own data, hooks and proc
+handlers (see `docs/ptz-device-api.md`):
+
+- **Settings**: persisted, in the "PTZ Control" filter's own settings, the way
+  any `obs_source_info` does it. `defaults()`, `update()`, `save()`,
+  `get_obs_properties()`. `update()` is handed a complete settings object and
+  doesn't modify it. `save()` may add runtime identity (name, id) for the
+  plugin's own use; the filter's `.save` strips it again.
+- **State**: transient, never saved. `saveState()` (read through the
+  `ptz_get_state` proc) and `requestState()` (through `ptz_request_state`),
+  which issues the camera command and lets the camera's report make it state.
+  It has no properties tree: nothing OBS persists may be bound to it.
+
+Never put state, or a button that acts on the camera, in
+`get_obs_properties()`: that tree is also shown in OBS's Filters dialog, bound
+to the persisted filter settings, so OBS would save whatever it edits and hand
+it back to `update()` on load. An action on the camera that isn't a state
+change (a one-push white balance, a diagnostic) is a trigger on the `ptz_set`
+proc instead.
+
 ## Verification practices
 
 - Prefer testing real built artifacts over reasoning about CMake/CPack behavior from
