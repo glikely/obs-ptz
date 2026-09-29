@@ -177,6 +177,15 @@ static constexpr int VISCA_ZOOM_RANGE = 0x7ac0;
 static constexpr int VISCA_FOCUS_FAR = 0x1000;
 static constexpr int VISCA_FOCUS_NEAR = 0xf000;
 
+/* How long to wait for the reply to a request before sending it again. Cameras
+ * take up to ~130ms to answer, so this must be well over that. */
+static constexpr int VISCA_REPLY_TIMEOUT_MS = 250;
+
+/* Error reply "command buffer full", and how to deal with it */
+static constexpr int VISCA_ERROR_BUFFER_FULL = 0x03;
+static constexpr int VISCA_BUSY_BACKOFF_MS = 50;
+static constexpr unsigned int VISCA_BUSY_RETRIES_MAX = 20;
+
 const PTZCmd VISCA_ENUMERATE("883001ff");
 
 const PTZInq VISCA_CAM_VersionInq("81090002ff",
@@ -531,6 +540,8 @@ PTZVisca::PTZVisca(OBSData config, obs_source_t *source) : PTZDevice(config, sou
 	for (int i = 0; i < 8; i++)
 		active_cmd[i] = std::nullopt;
 	connect(&timeout_timer, &QTimer::timeout, this, &PTZVisca::timeout);
+	gap_timer.setSingleShot(true);
+	connect(&gap_timer, &QTimer::timeout, this, &PTZVisca::send_pending);
 	connect(&update_timer, &QTimer::timeout, this, &PTZVisca::update_timer_callback);
 
 	update(config);
@@ -794,11 +805,15 @@ void PTZVisca::send_packet(const QByteArray &packet)
 	incrementStatistic("visca_sent_count");
 	send_immediate(packet);
 	timeout_timer.setSingleShot(true);
-	timeout_timer.start(1000 / 20); // Update 20 times a second
+	timeout_timer.start(VISCA_REPLY_TIMEOUT_MS);
 }
 
 void PTZVisca::timeout()
 {
+	/* Only a request waiting for its first reply can time out. An ACKed
+	 * command is waiting on its completion, which can take seconds. */
+	if (!active_cmd[0].has_value())
+		return;
 	if (isConnected() && active_cmd[0].has_value() && (timeout_retry < 3)) {
 		send_packet(active_cmd[0].value().cmd);
 		timeout_retry++;
@@ -837,10 +852,13 @@ void PTZVisca::receive(const QByteArray &msg)
 	incrementStatistic("visca_recv_count");
 	int slot = msg[1] & 0x7;
 	QByteArray inq;
+	since_last_rx.start();
 
 	switch (msg[1] & 0xf0) {
 	case VISCA_RESPONSE_ACK:
 		setConnected(true);
+		busy_retries = 0;
+		busy_backoff_ms = 0;
 		if (slot != 0) {
 			active_cmd[slot] = active_cmd[0];
 			active_cmd[0] = std::nullopt;
@@ -848,8 +866,8 @@ void PTZVisca::receive(const QByteArray &msg)
 		break;
 	case VISCA_RESPONSE_COMPLETED:
 		setConnected(true);
-		if (slot == 0)
-			timeout_timer.stop(); /* timer is only for slot 0 */
+		busy_retries = 0;
+		busy_backoff_ms = 0;
 		if (!active_cmd[slot].has_value()) {
 			if (active_cmd[0].has_value()) {
 				// Slot is empty, but some cameras reply without an ack first. Handle that case
@@ -891,6 +909,19 @@ void PTZVisca::receive(const QByteArray &msg)
 		break;
 	case VISCA_RESPONSE_ERROR:
 		timeout_timer.stop();
+		/* A camera has only a couple of command sockets; when they are
+		 * all busy it answers "command buffer full" to anything sent,
+		 * inquiries included. That is not a failure: send the request
+		 * again once it has had a moment to free one up. */
+		if (slot == 0 && msg.size() > 2 && msg[2] == VISCA_ERROR_BUFFER_FULL && active_cmd[0].has_value() &&
+		    busy_retries < VISCA_BUSY_RETRIES_MAX) {
+			busy_retries++;
+			busy_backoff_ms = VISCA_BUSY_BACKOFF_MS;
+			pending_cmds.prepend(active_cmd[0].value());
+			ptz_debug("rx busy, retrying: %s", msg.toHex(':').data());
+			active_cmd[0] = std::nullopt;
+			break;
+		}
 		/* This command failed, don't generate it again */
 		if (active_cmd[0].has_value()) {
 			for (auto rslt : active_cmd[0].value().results)
@@ -904,6 +935,10 @@ void PTZVisca::receive(const QByteArray &msg)
 		ptz_debug("rx unknown: %s", msg.toHex(':').data());
 		break;
 	}
+	/* The timer guards the request in slot 0; once that has been answered
+	 * (ACK, completion, or error) there is nothing left to time out. */
+	if (!active_cmd[0].has_value())
+		timeout_timer.stop();
 	send_pending();
 }
 
@@ -934,6 +969,17 @@ void PTZVisca::send_pending()
 {
 	if (active_cmd[0].has_value())
 		return;
+
+	/* Give the camera time to settle after its last reply before sending
+	 * the next request; it may drop the request otherwise */
+	if (transport && since_last_rx.isValid()) {
+		int wait = std::max(transport->minRequestGapMs(), busy_backoff_ms) - (int)since_last_rx.elapsed();
+		if (wait > 0) {
+			if (!gap_timer.isActive())
+				gap_timer.start(wait);
+			return;
+		}
+	}
 
 	if (pending_cmds.isEmpty()) {
 		if (pantilt_changed) {

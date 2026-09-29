@@ -9,6 +9,7 @@
 #include <optional>
 #include <QObject>
 #include <QTimer>
+#include <QElapsedTimer>
 #include "protocol-helpers.hpp"
 #include "ptz-device.hpp"
 
@@ -43,6 +44,10 @@ public:
 	virtual void update(OBSData config) = 0;
 	virtual void save(OBSData config) const = 0;
 	virtual void send(const QByteArray &msg, unsigned int address) = 0;
+	/* Least time, in ms, the camera needs between its last reply and the
+	 * next request. Some cameras silently drop a request that comes too
+	 * soon after a reply. */
+	virtual int minRequestGapMs() const { return 0; }
 
 signals:
 	/* A decoded VISCA reply datagram, with transport framing removed */
@@ -71,6 +76,8 @@ public:
 
 protected:
 	unsigned int timeout_retry = 0;
+	unsigned int busy_retries = 0;
+	int busy_backoff_ms = 0;
 	unsigned int address = 1;
 	bool protocol_trace = false;
 	QMap<QByteArray, QByteArray> replyLast;
@@ -78,6 +85,8 @@ protected:
 	QList<PTZCmd> pending_cmds;
 	std::optional<PTZCmd> active_cmd[8];
 	QTimer timeout_timer;
+	QTimer gap_timer;
+	QElapsedTimer since_last_rx;
 	QTimer update_timer;
 
 	QString visca_interface;

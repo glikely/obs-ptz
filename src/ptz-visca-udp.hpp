@@ -39,7 +39,12 @@ class ViscaUDPTransport : public ViscaTransport {
 	Q_OBJECT
 
 private:
-	uint32_t seq_state[8] = {};
+	/* Sequence number of the last request sent. A reply carries the
+	 * sequence number of the request it answers, and is accepted for any of
+	 * the last SEQ_WINDOW requests: a slow camera can answer a request after
+	 * a retry has been sent. */
+	static constexpr uint32_t SEQ_WINDOW = 16;
+	uint32_t seq_last = 0;
 	QString host;
 	QHostAddress ip_address;
 	ViscaUDPSocket *iface = nullptr;
@@ -57,6 +62,9 @@ public:
 	void update(OBSData config) override;
 	void save(OBSData config) const override;
 	void send(const QByteArray &msg, unsigned int address) override;
+	/* Sony cameras were seen to drop about half of the requests that came
+	 * within 3ms of their last reply, and almost none after 10ms */
+	int minRequestGapMs() const override { return 15; }
 
 	static void add_obs_properties(obs_properties_t *props);
 

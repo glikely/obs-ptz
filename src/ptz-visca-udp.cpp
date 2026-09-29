@@ -74,8 +74,7 @@ void ViscaUDPTransport::attach_interface(ViscaUDPSocket *new_iface)
 
 void ViscaUDPTransport::protocol_reset()
 {
-	for (int i = 0; i < 8; i++)
-		seq_state[i] = 0;
+	seq_last = 0;
 	emit statIncrement("visca_udp_reset_count");
 	if (iface)
 		iface->send(ip_address, QByteArray::fromHex("020000010000000001"));
@@ -101,20 +100,15 @@ void ViscaUDPTransport::receive_datagram(const QNetworkDatagram &dg)
 	uint16_t type = (uint8_t)data[0] << 8 | (uint8_t)data[1];
 	/*uint16_t size = (uint8_t)data[2] << 8 | (uint8_t)data[3];*/
 	uint32_t seq = (uint8_t)data[4] << 24 | (uint8_t)data[5] << 16 | (uint8_t)data[6] << 8 | (uint8_t)data[7];
-	uint8_t reply_code = data[9] & 0x70;
-	uint8_t slot = data[9] & 0x0f;
 
 	switch (type) {
 	case 0x0111:
-		if (seq != seq_state[0] && seq != seq_state[slot]) {
-			blog(LOG_DEBUG, "VISCA UDP out of seq; %i != [0]%i or [%i]%i) <-- %s", seq, seq_state[0], slot,
-			     seq_state[slot], qPrintable(data.toHex(':')));
+		if (data.size() < 10 || seq_last - seq >= SEQ_WINDOW) {
+			blog(LOG_DEBUG, "VISCA UDP out of seq; %u not in last %u of %u <-- %s", seq, SEQ_WINDOW,
+			     seq_last, qPrintable(data.toHex(':')));
 			emit statIncrement("visca_udp_outofseq_cmplt_count");
 			return;
 		}
-		/* if slot is nonzero, update or clear the sequence number for that slot */
-		if (slot)
-			seq_state[slot] = (reply_code == 0x40) ? seq_state[0] : 0;
 		emit receive(data.sliced(8));
 		break;
 	case 0x0200:
@@ -142,13 +136,13 @@ void ViscaUDPTransport::send(const QByteArray &msg, unsigned int address)
 		return;
 	}
 	QByteArray p = QByteArray::fromHex("0100000000000000") + msg;
-	seq_state[0]++;
+	seq_last++;
 	p[1] = (0x9 == msg[1]) ? 0x10 : 0x00;
 	p[3] = msg.size();
-	p[4] = (seq_state[0] >> 24) & 0xff;
-	p[5] = (seq_state[0] >> 16) & 0xff;
-	p[6] = (seq_state[0] >> 8) & 0xff;
-	p[7] = seq_state[0] & 0xff;
+	p[4] = (seq_last >> 24) & 0xff;
+	p[5] = (seq_last >> 16) & 0xff;
+	p[6] = (seq_last >> 8) & 0xff;
+	p[7] = seq_last & 0xff;
 	p[8] = '\x81';
 	iface->send(ip_address, p);
 	emit statIncrement("visca_udp_sent_count");
