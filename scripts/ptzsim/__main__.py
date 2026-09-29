@@ -63,7 +63,7 @@ import threading
 
 from .backends.onvif import OnvifBackend
 from .backends.pelco import PelcoBackend
-from .backends.visca import ViscaBackend
+from .backends.visca import ViscaBackend, SonyUdpQuirks
 from .debug_http import DebugHttpServer
 from .state import PTZState, run_ticker
 from .video import VideoFeed
@@ -97,6 +97,12 @@ def parse_args():
     ap.add_argument("--visca-udp-port", type=int, default=52381,
                      help="VISCA-over-IP (UDP) listen port")
     ap.add_argument("--no-visca-udp", action="store_true", help="disable VISCA-over-IP")
+    ap.add_argument("--visca-udp-sony-quirks", action="store_true",
+                     help="make VISCA-over-IP misbehave like a real Sony camera: drop requests "
+                          "that come too soon after a reply, enforce strictly increasing "
+                          "sequence numbers, answer slowly, and have only two command sockets "
+                          "(see SonyUdpQuirks in backends/visca.py). Its counters are added to "
+                          "the --debug-http-port /state output")
     ap.add_argument("--visca-serial-path", default="/tmp/ptzsim-visca-serial",
                      help="symlink path for the emulated VISCA serial port")
     ap.add_argument("--no-visca-serial", action="store_true", help="disable emulated VISCA serial")
@@ -143,7 +149,9 @@ def main():
         udp_port = 0 if args.no_visca_udp else args.visca_udp_port
         serial_path = None if args.no_visca_serial else args.visca_serial_path
         if tcp_port or udp_port or serial_path:
-            visca = ViscaBackend(state, args.host, tcp_port, udp_port, serial_path)
+            quirks = SonyUdpQuirks() if args.visca_udp_sony_quirks else None
+            state.visca_udp_stats = quirks.stats if quirks else None
+            visca = ViscaBackend(state, args.host, tcp_port, udp_port, serial_path, quirks)
             loop.run_until_complete(visca.start(loop))
             backends.append(visca)
         else:

@@ -183,6 +183,13 @@ actually work end to end.
     would through
     `tests/ui-harness/api-version-test.cpp`, and that
     `docs/ptz-device-api.md` states it.
+22. `test_visca_udp_sony.py` covers how VISCA-over-IP copes with a camera
+    that behaves like a real Sony one, against a session-scoped `sony_ptzsim`
+    fixture: a `ptzsim` started with `--visca-udp-sony-quirks`, which drops
+    requests that come too soon after a reply, answers slowly, has only two
+    command sockets and says "command buffer full" when they are busy. It
+    counts what it saw, and the tests read those counters from its
+    `--debug-http-port` `/state` output.
 
 ## Running locally
 

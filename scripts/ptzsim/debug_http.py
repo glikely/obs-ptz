@@ -32,6 +32,8 @@ class DebugHandler(BaseHTTPRequestHandler):
             "zoom_speed": snap.zoom_speed,
             "focus_speed": snap.focus_speed,
             "power": snap.power,
+            # Counters of the VISCA-over-IP server's Sony quirks, if it has any
+            "visca_udp_quirks": getattr(self.state, "visca_udp_stats", None),
             "presets": {
                 token: {
                     "name": preset.name,

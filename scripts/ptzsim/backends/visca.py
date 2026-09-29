@@ -439,9 +439,55 @@ VISCA_IP_CONTROL_REPLY = 0x0201
 VISCA_IP_RESET = 0x01
 
 
+class SonyUdpQuirks:
+    """Makes the UDP server behave the way a real Sony SRG-120DH was
+    measured to over VISCA-over-IP (see src/ptz-visca.cpp), so a client's
+    handling of those quirks can be tested:
+
+    - a request that arrives within min_gap of the last reply sent is
+      silently dropped (the camera measured dropping about half of the
+      requests sent within 3ms of a reply);
+    - sequence numbers must strictly increase after a reset; anything else
+      gets a 0x0200 "0f 01" error reply;
+    - inquiries are answered after inquiry_latency, longer than a client's
+      naive reply timeout;
+    - there are only `sockets` command sockets, each busy from the ACK until
+      the command completes. A pan/tilt move completes after move_time;
+      every other command completes right after its ACK. When every socket
+      is busy, any request, inquiries included, gets "command buffer full"
+      (90 60 03 ff).
+
+    `stats` counts what happened, for a test to read back through the
+    --debug-http-port /state endpoint.
+    """
+
+    def __init__(self, min_gap=0.008, inquiry_latency=0.07, ack_latency=0.02, move_time=0.15, sockets=2):
+        self.min_gap = min_gap
+        self.inquiry_latency = inquiry_latency
+        self.ack_latency = ack_latency
+        self.move_time = move_time
+        self.sockets = sockets
+        self.stats = {
+            'requests': 0,
+            'dropped_too_soon': 0,
+            'seq_errors': 0,
+            'buffer_full': 0,
+            # An inquiry sent again while the same one still awaited its reply
+            'retried_requests': 0,
+            'commands_executed': 0,
+            'pan_tilt_abs_executed': 0,
+            'zoom_direct_executed': 0,
+        }
+
+
 class ViscaUdpProtocol(asyncio.DatagramProtocol):
-    def __init__(self, state):
+    def __init__(self, state, quirks=None):
         self.logic = ViscaCameraLogic(state)
+        self.quirks = quirks
+        self._last_seq = 0
+        self._last_reply = float('-inf')
+        self._busy_sockets = set()
+        self._awaiting = {}
 
     def connection_made(self, transport):
         self.transport = transport
@@ -454,10 +500,14 @@ class ViscaUdpProtocol(asyncio.DatagramProtocol):
         payload = data[8:]
         if ptype in (VISCA_IP_COMMAND, VISCA_IP_INQUIRY):
             dg = payload[:-1] if payload.endswith(b'\xff') else payload
+            if self.quirks:
+                self._sony_request(addr, seq, dg)
+                return
             for reply in self.logic.handle_datagram(dg):
                 self._send(addr, VISCA_IP_REPLY, seq, reply)
         elif ptype == VISCA_IP_CONTROL_CMD:
             if payload[:1] == bytes([VISCA_IP_RESET]):
+                self._last_seq = 0
                 self._send(addr, VISCA_IP_CONTROL_REPLY, seq, bytes([VISCA_IP_RESET]))
         # Unrecognized control opcodes are silently ignored.
 
@@ -467,17 +517,73 @@ class ViscaUdpProtocol(asyncio.DatagramProtocol):
             seq.to_bytes(4, 'big')
         self.transport.sendto(header + payload, addr)
 
+    def _sony_reply(self, addr, seq, reply, awaited=None):
+        if awaited is not None:
+            self._awaiting[awaited] -= 1
+        self._last_reply = asyncio.get_running_loop().time()
+        self._send(addr, VISCA_IP_REPLY, seq, reply)
+
+    def _sony_request(self, addr, seq, dg):
+        q = self.quirks
+        loop = asyncio.get_running_loop()
+        q.stats['requests'] += 1
+
+        if loop.time() - self._last_reply < q.min_gap:
+            q.stats['dropped_too_soon'] += 1
+            return
+        if seq <= self._last_seq:
+            q.stats['seq_errors'] += 1
+            self._send(addr, VISCA_IP_CONTROL_CMD, seq, b'\x0f\x01')
+            return
+        self._last_seq = seq
+
+        is_inquiry = len(dg) > 1 and dg[1] == 0x09
+        if is_inquiry and self._awaiting.get(dg):
+            q.stats['retried_requests'] += 1
+        if len(self._busy_sockets) >= q.sockets:
+            q.stats['buffer_full'] += 1
+            self._sony_reply(addr, seq, b'\x90\x60\x03\xff')
+            return
+
+        replies = self.logic.handle_datagram(dg)
+        if is_inquiry:
+            self._awaiting[dg] = self._awaiting.get(dg, 0) + 1
+            for reply in replies:
+                loop.call_later(q.inquiry_latency, self._sony_reply, addr, seq, reply, dg)
+            return
+        if not (len(replies) == 2 and replies[0][1] == 0x41 and replies[1][1] == 0x51):
+            for reply in replies:
+                self._sony_reply(addr, seq, reply)
+            return
+
+        q.stats['commands_executed'] += 1
+        if dg[1:4] == b'\x01\x06\x02':
+            q.stats['pan_tilt_abs_executed'] += 1
+        if dg[1:4] == b'\x01\x04\x47':
+            q.stats['zoom_direct_executed'] += 1
+        moves = dg[1:4] in (b'\x01\x06\x02', b'\x01\x06\x03')
+        sock = min(set(range(1, q.sockets + 1)) - self._busy_sockets)
+        self._busy_sockets.add(sock)
+        done = q.ack_latency + (q.move_time if moves else 0)
+        loop.call_later(q.ack_latency, self._sony_reply, addr, seq, bytes([0x90, 0x40 | sock, 0xff]))
+        loop.call_later(done, self._sony_complete, addr, seq, sock)
+
+    def _sony_complete(self, addr, seq, sock):
+        self._busy_sockets.discard(sock)
+        self._sony_reply(addr, seq, bytes([0x90, 0x50 | sock, 0xff]))
+
 
 class ViscaUdpServer:
-    def __init__(self, state, host='', port=52381):
+    def __init__(self, state, host='', port=52381, quirks=None):
         self.state = state
+        self.quirks = quirks
         self.host = host
         self.port = port
         self.transport = None
 
     async def start(self, loop):
         self.transport, _protocol = await loop.create_datagram_endpoint(
-            lambda: ViscaUdpProtocol(self.state), local_addr=(self.host or '0.0.0.0', self.port))
+            lambda: ViscaUdpProtocol(self.state, self.quirks), local_addr=(self.host or '0.0.0.0', self.port))
         print(f'[visca-udp] serving on {self.transport.get_extra_info("sockname")}')
 
     def stop(self):
@@ -514,8 +620,9 @@ class ViscaBackend(Backend):
     """Umbrella backend: starts whichever VISCA transports are configured.
     Pass a falsy port/path to skip that transport."""
 
-    def __init__(self, state, host='', tcp_port=5678, udp_port=52381, serial_path=None):
+    def __init__(self, state, host='', tcp_port=5678, udp_port=52381, serial_path=None, udp_quirks=None):
         self.state = state
+        self.udp_quirks = udp_quirks
         self.host = host
         self.tcp_port = tcp_port
         self.udp_port = udp_port
@@ -529,7 +636,7 @@ class ViscaBackend(Backend):
             self._tcp = ViscaTcpServer(self.state, self.host, self.tcp_port)
             await self._tcp.start(loop)
         if self.udp_port:
-            self._udp = ViscaUdpServer(self.state, self.host, self.udp_port)
+            self._udp = ViscaUdpServer(self.state, self.host, self.udp_port, self.udp_quirks)
             await self._udp.start(loop)
         if self.serial_path:
             self._serial = ViscaSerialLink(self.state, self.serial_path)
