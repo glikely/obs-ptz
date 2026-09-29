@@ -35,8 +35,10 @@ User Interface
   - Add cycling through cameras
   - Add pan/tilt speed control
   - Add gamepad configuration (enable/disable, select gamepads)
-- Show more of the camera's state on the settings dialog's status view (pan, tilt,
-  picture, focus, etc). Connection, live/preview and white balance are there
+- Show more of the camera's state on the settings dialog's status view (picture,
+  exposure, etc). Connection, live/preview, position and white balance are there
+- Report the camera's position from the other drivers: ONVIF already reads it
+  (`m_position_*`) and USB knows it, so both only need `setPosition()`
 
 Wishlist
 --------

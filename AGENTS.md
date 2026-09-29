@@ -86,6 +86,11 @@ handlers (see `docs/ptz-device-api.md`):
   which issues the camera command and lets the camera's report make it state.
   It has no properties tree: nothing OBS persists may be bound to it.
 
+Where the camera is pointing is state too, and not a driver's own: the state has
+"pan" and "tilt" in [-1, 1] and "zoom" and "focus" in [0, 1], the units of the
+movement API. A driver that can read a position back records it with
+`setPosition()`; one that can't leaves those keys out.
+
 Never put state, or a button that acts on the camera, in
 `get_obs_properties()`: that tree is also shown in OBS's Filters dialog, bound
 to the persisted filter settings, so OBS would save whatever it edits and hand
