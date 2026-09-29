@@ -35,7 +35,8 @@ User Interface
   - Add cycling through cameras
   - Add pan/tilt speed control
   - Add gamepad configuration (enable/disable, select gamepads)
-- Display current camera info in settings dialog (pan, tilt, picture, focus, etc)
+- Show more of the camera's state on the settings dialog's status view (pan, tilt,
+  picture, focus, etc). Connection, live/preview and white balance are there
 
 Wishlist
 --------

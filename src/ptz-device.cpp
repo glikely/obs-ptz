@@ -82,10 +82,14 @@ PTZDevice::PTZDevice(OBSData config, obs_source_t *filter) : QObject()
 	proc_handler_add(handler, "void ptz_preset_recall()", ptz_ph_lambda(preset_recall), this);
 	proc_handler_add(handler, "void ptz_preset_clear()", ptz_ph_lambda(preset_clear), this);
 
-	/* Query/config/preset-CRUD API for PTZListModel -- everything it
-	 * needs from a PTZDevice beyond movement/preset-recall control */
+	/* The device's whole state and what describes it (what PTZListModel
+	 * shows a device row with, too), and locking it */
 	proc_handler_add(handler, "ptr ptz_get_state(ptr state)", ptz_ph_lambda(get_state), this);
 	proc_handler_add(handler, "void ptz_set_locked(bool locked)", ptz_ph_lambda(setLock), this);
+
+	/* Settings, which are persisted, in the PTZ Control filter's own settings:
+	 * what save() writes, applying new ones (through the filter, if there is
+	 * one), and the properties that edit them */
 	proc_handler_add(handler, "void ptz_get_config(ptr config)", ptz_ph_lambda(get_config), this);
 	proc_handler_add(handler, "void ptz_set_config(ptr config)", ptz_ph_lambda(set_config), this);
 	proc_handler_add(handler, "ptr ptz_get_properties()", ptz_ph_lambda(get_obs_properties), this);
@@ -93,11 +97,15 @@ PTZDevice::PTZDevice(OBSData config, obs_source_t *filter) : QObject()
 	/* Transient state, which is never saved: a request to change some of it.
 	 * ptz_get_state, above, reads all of it. */
 	proc_handler_add(handler, "void ptz_request_state(ptr state)", ptz_ph_lambda(request_state), this);
+
+	/* Preset list CRUD */
 	proc_handler_add(handler, "ptr ptz_preset_get_list()", ptz_ph_lambda(preset_get_list), this);
 	proc_handler_add(handler, "int ptz_preset_new(int row)", ptz_ph_lambda(newPreset), this);
 	proc_handler_add(handler, "void ptz_preset_remove(int row)", ptz_ph_lambda(removePresetAtDisplayRow), this);
 	proc_handler_add(handler, "void ptz_preset_move(int src_row, int dest_row)", ptz_ph_lambda(movePreset), this);
 	proc_handler_add(handler, "void ptz_preset_set_name(int id, string name)", ptz_ph_lambda(setPresetName), this);
+
+	/* The program or preview scene changed: re-check whether the device is live */
 	proc_handler_add(handler, "void ptz_scene_changed()", ptz_ph_lambda(onSceneChanged), this);
 
 	/* Signal handler for notifying state & settings changes. Shared with
@@ -106,10 +114,13 @@ PTZDevice::PTZDevice(OBSData config, obs_source_t *filter) : QObject()
 	if (!sigs) {
 		blog(LOG_ERROR, "could not allocate signal_handler for %s", obs_data_get_string(config, "name"));
 	} else {
-		/* "changed" holds the values that changed. A listener may keep a
-		 * reference to it, but not change it: every listener gets the same
-		 * one, and the device never touches it again. */
+		/* The device's state changed. "changed" holds the values that
+		 * changed; a listener may keep a reference to it, but not change it:
+		 * every listener gets the same one, and the device never touches it
+		 * again. */
 		signal_handler_add(sigs, "void state_changed(int device_id, ptr changed)");
+
+		/* The device's settings were applied, from anywhere */
 		signal_handler_add(sigs, "void settings_changed(int device_id)");
 
 		/* Preset modification signals */

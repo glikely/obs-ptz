@@ -48,10 +48,13 @@ _handed to listeners as `proc_handler` on the `ptz_device_create` signal._
 - `void ptz_preset_recall()`
 - `void ptz_preset_clear()`
 
-> Query/config/preset-CRUD API for PTZListModel -- everything it needs from a PTZDevice beyond movement/preset-recall control
+> The device's whole state and what describes it (what PTZListModel shows a device row with, too), and locking it
 
 - `ptr ptz_get_state(ptr state)`
 - `void ptz_set_locked(bool locked)`
+
+> Settings, which are persisted, in the PTZ Control filter's own settings: what save() writes, applying new ones (through the filter, if there is one), and the properties that edit them
+
 - `void ptz_get_config(ptr config)`
 - `void ptz_set_config(ptr config)`
 - `ptr ptz_get_properties()`
@@ -59,20 +62,29 @@ _handed to listeners as `proc_handler` on the `ptz_device_create` signal._
 > Transient state, which is never saved: a request to change some of it. ptz_get_state, above, reads all of it.
 
 - `void ptz_request_state(ptr state)`
+
+> Preset list CRUD
+
 - `ptr ptz_preset_get_list()`
 - `int ptz_preset_new(int row)`
 - `void ptz_preset_remove(int row)`
 - `void ptz_preset_move(int src_row, int dest_row)`
 - `void ptz_preset_set_name(int id, string name)`
+
+> The program or preview scene changed: re-check whether the device is live
+
 - `void ptz_scene_changed()`
 
 ## Per-device signal_handler
 
 _handed to listeners as `signal_handler` on the `ptz_device_create` signal._
 
-> "changed" holds the values that changed. A listener may keep a reference to it, but not change it: every listener gets the same one, and the device never touches it again.
+> The device's state changed. "changed" holds the values that changed; a listener may keep a reference to it, but not change it: every listener gets the same one, and the device never touches it again.
 
 - `void state_changed(int device_id, ptr changed)`
+
+> The device's settings were applied, from anywhere
+
 - `void settings_changed(int device_id)`
 
 > Preset modification signals
