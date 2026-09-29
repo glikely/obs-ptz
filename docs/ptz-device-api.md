@@ -66,7 +66,9 @@ _handed to listeners as `proc_handler` on the `ptz_device_create` signal._
 
 _handed to listeners as `signal_handler` on the `ptz_device_create` signal._
 
-- `void state_changed(int device_id)`
+> "changed" holds the values that changed. A listener may keep a reference to it, but not change it: every listener gets the same one, and the device never touches it again.
+
+- `void state_changed(int device_id, ptr changed)`
 - `void settings_changed(int device_id)`
 
 > Preset modification signals

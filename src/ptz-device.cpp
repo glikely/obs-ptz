@@ -102,7 +102,10 @@ PTZDevice::PTZDevice(OBSData config, obs_source_t *filter) : QObject()
 	if (!sigs) {
 		blog(LOG_ERROR, "could not allocate signal_handler for %s", obs_data_get_string(config, "name"));
 	} else {
-		signal_handler_add(sigs, "void state_changed(int device_id)");
+		/* "changed" holds the values that changed. A listener may keep a
+		 * reference to it, but not change it: every listener gets the same
+		 * one, and the device never touches it again. */
+		signal_handler_add(sigs, "void state_changed(int device_id, ptr changed)");
 		signal_handler_add(sigs, "void settings_changed(int device_id)");
 
 		/* Preset modification signals */
@@ -1128,8 +1131,11 @@ void PTZDevice::notifyStateChanged()
 	calldata_set_ptr(&cd, "changed", stateChanged);
 	signalDevice("state_changed", &cd);
 	calldata_free(&cd);
-	/* Notification done; clear out the changes state cache */
-	obs_data_clear(stateChanged);
+	/* Notification done. Start a new object for what changes next, rather
+	 * than clearing this one: a listener may keep a reference to what it
+	 * was told changed. */
+	OBSDataAutoRelease next = obs_data_create();
+	stateChanged = next.Get();
 }
 
 bool PTZDevice::wrongThread(const char *method) const

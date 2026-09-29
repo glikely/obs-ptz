@@ -55,10 +55,9 @@ static void device_state_changed_cb(void *data, calldata_t *cd)
 {
 	auto ptzlm = static_cast<PTZListModel *>(data);
 	auto device_id = (uint32_t)calldata_int(cd, "device_id");
-	/* OBSData addrefs on construction, so the copy captured below keeps
-	 * PTZDevice's "changed" snapshot alive even though the device may
-	 * obs_data_clear() its own copy (stateChanged) before a queued call
-	 * runs. */
+	/* The device never touches "changed" again once it has signalled it, so
+	 * a reference to it, taken here, still holds what changed when the
+	 * queued call runs */
 	OBSData changed = static_cast<obs_data_t *>(calldata_ptr(cd, "changed"));
 	QMetaObject::invokeMethod(ptzlm,
 				  [ptzlm, device_id, changed] { ptzlm->deviceStateChanged(device_id, changed); });
