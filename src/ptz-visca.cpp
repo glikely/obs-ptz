@@ -454,6 +454,31 @@ const PTZCmd VISCA_CAM_LowLatency_On("81017e015a02ff");
 const PTZCmd VISCA_CAM_LowLatency_Off("81017e015a03ff");
 const PTZInq VISCA_CAM_LowLatencyInq("81097e015aff", {new visca_flag("lowlatency", 2)});
 
+/* Tally lamp on/off, an extension outside Sony's own manual for this
+ * camera that Sony's broadcast/interchangeable-lens VISCA cameras and most
+ * third-party VISCA PTZ cameras (PTZOptics, BirdDog, Avonic, ...) share */
+const PTZCmd VISCA_CAM_Tally_On("81017e010a0002ff", "tally_on");
+const PTZCmd VISCA_CAM_Tally_Off("81017e010a0003ff", "tally_on");
+const PTZInq VISCA_CAM_TallyInq("81097e010aff", {new visca_flag("tally_on", 2)});
+
+/* The green tally lamp, which BirdDog documents for its X4 series (a P100
+ * answers it with a syntax error), so it is not on every camera that has
+ * the red one above. Neither has an inquiry on a BirdDog, so nothing reads
+ * a lamp back: see PTZVisca::receive() for how the state follows them. */
+const PTZCmd VISCA_CAM_TallyGreen_On("81017e041a0002ff");
+const PTZCmd VISCA_CAM_TallyGreen_Off("81017e041a0003ff");
+
+/* The state a tally lamp command sets, if it is one: red is "tally_on", the
+ * program lamp; green is "tally_preview". */
+static const char *visca_tally_key(const QByteArray &cmd)
+{
+	if (cmd == VISCA_CAM_Tally_On.cmd || cmd == VISCA_CAM_Tally_Off.cmd)
+		return "tally_on";
+	if (cmd == VISCA_CAM_TallyGreen_On.cmd || cmd == VISCA_CAM_TallyGreen_Off.cmd)
+		return "tally_preview";
+	return nullptr;
+}
+
 const PTZCmd VISCA_SYSMenu_Off("8101060603ff");
 const PTZInq VISCA_SYSMenuInq("81090606ff", {new visca_flag("menumode", 2)});
 
@@ -542,6 +567,7 @@ const QMap<QString, PTZInq> PTZVisca::inquires = {
 	{"defog_mode", VISCA_EnlargementFunction2Inq},
 	{"color_hue", VISCA_EnlargementFunction3Inq},
 	{"pantilt_move_status", VISCA_PanTilt_ModeInq},
+	{"tally_on", VISCA_CAM_TallyInq},
 };
 
 /* What to ask for, one value at a time, when a camera answers the block
@@ -665,6 +691,7 @@ void PTZVisca::defaults(obs_data_t *cfg)
 	obs_data_set_default_int(cfg, "visca_zoom_speed_max", 0x7);
 	obs_data_set_default_int(cfg, "visca_focus_speed_max", 0x7);
 	obs_data_set_default_bool(cfg, "protocol_trace", false);
+	obs_data_set_default_bool(cfg, "tally_auto", true);
 }
 
 void PTZVisca::update(OBSData cfg)
@@ -682,9 +709,10 @@ void PTZVisca::update(OBSData cfg)
 	visca_zoom_speed_max = (int)obs_data_get_int(cfg, "visca_zoom_speed_max");
 	visca_focus_speed_max = (int)obs_data_get_int(cfg, "visca_focus_speed_max");
 	protocol_trace = obs_data_get_bool(cfg, "protocol_trace");
+	tally_auto = obs_data_get_bool(cfg, "tally_auto");
 
 	transport->update(cfg);
-	unsupported_inquiries.clear();
+	unsupported_requests.clear();
 }
 
 void PTZVisca::save(OBSData cfg) const
@@ -697,6 +725,7 @@ void PTZVisca::save(OBSData cfg) const
 	obs_data_set_int(cfg, "visca_zoom_speed_max", visca_zoom_speed_max);
 	obs_data_set_int(cfg, "visca_focus_speed_max", visca_focus_speed_max);
 	obs_data_set_bool(cfg, "protocol_trace", protocol_trace);
+	obs_data_set_bool(cfg, "tally_auto", tally_auto);
 	if (transport)
 		transport->save(cfg);
 }
@@ -773,6 +802,8 @@ obs_properties_t *PTZVisca::get_obs_properties()
 	obs_property_set_modified_callback2(type_list, visca_type_modified_cb, nullptr);
 
 	visca_add_interface_fields(iface_props, type);
+
+	obs_properties_add_bool(ptz_props, "tally_auto", obs_module_text("PTZ.Visca.TallyAuto"));
 
 	auto visca_grp = obs_properties_create();
 	obs_properties_add_group(ptz_props, "visca_advanced", obs_module_text("PTZ.Settings.Advanced"),
@@ -868,6 +899,22 @@ void PTZVisca::cmd_get_camera_info()
 	send_pending();
 }
 
+/* There is no reading a tally lamp back from every camera that has one, so
+ * it is what the last tally command that the camera took set it to. That is
+ * when it is ACKed: some cameras never say it has completed. A camera that
+ * can be asked overrides it with what it says. */
+void PTZVisca::update_tally_state(const QByteArray &cmd)
+{
+	const char *tally = visca_tally_key(cmd);
+	if (!tally)
+		return;
+	OBSDataAutoRelease lamp = obs_data_create();
+	obs_data_set_bool(lamp, tally, cmd[6] == 0x02);
+	obs_data_apply(state, lamp);
+	obs_data_apply(stateChanged, lamp);
+	notifyStateChanged();
+}
+
 void PTZVisca::receive(const QByteArray &msg)
 {
 	if (VISCA_PACKET_SENDER(msg) != address || (msg.size() < 3))
@@ -881,6 +928,8 @@ void PTZVisca::receive(const QByteArray &msg)
 	switch (msg[1] & 0xf0) {
 	case VISCA_RESPONSE_ACK:
 		setConnected(true);
+		if (active_cmd[0].has_value())
+			update_tally_state(active_cmd[0]->cmd);
 		busy_retries = 0;
 		busy_backoff_ms = 0;
 		if (slot != 0) {
@@ -907,6 +956,8 @@ void PTZVisca::receive(const QByteArray &msg)
 		 * has completed, so read it again now */
 		if (!active_cmd[slot]->affects.isEmpty())
 			stale_state += active_cmd[slot]->affects;
+
+		update_tally_state(active_cmd[slot]->cmd);
 
 		/* Log Inquiry Replies */
 		inq = active_cmd[slot]->cmd;
@@ -957,9 +1008,11 @@ void PTZVisca::receive(const QByteArray &msg)
 				stale_state -= rslt->name;
 			/* An inquiry the camera doesn't have: read what it
 			 * covers with the single-value inquiries instead */
+			if (visca_tally_key(active_cmd[0]->cmd) && msg.size() > 2 && msg[2] == VISCA_ERROR_SYNTAX)
+				unsupported_requests.insert(active_cmd[0]->cmd);
 			if (active_cmd[0]->cmd[1] == 0x09 && msg.size() > 2 && msg[2] == VISCA_ERROR_SYNTAX) {
 				const QByteArray unsupported = active_cmd[0]->cmd;
-				unsupported_inquiries.insert(unsupported);
+				unsupported_requests.insert(unsupported);
 				for (auto prop : inquiresFallback.keys()) {
 					if (inquires.value(prop).cmd == unsupported)
 						stale_state += prop;
@@ -987,7 +1040,38 @@ void PTZVisca::requestState(OBSData requested)
 		send(VISCA_CAM_Power, {(int)obs_data_get_bool(requested, "power_on")});
 	if (obs_data_has_user_value(requested, "wb_mode"))
 		send(VISCA_CAM_WB_Mode, {(int)obs_data_get_int(requested, "wb_mode")});
+	if (obs_data_has_user_value(requested, "tally_on"))
+		sendTally(false, obs_data_get_bool(requested, "tally_on"));
+	if (obs_data_has_user_value(requested, "tally_preview"))
+		sendTally(true, obs_data_get_bool(requested, "tally_preview"));
 	PTZDevice::requestState(requested);
+}
+
+/* Turns a tally lamp on or off, the green one if `green`, the red one if
+ * not. Not if the camera has said it doesn't have it. */
+void PTZVisca::sendTally(bool green, bool on)
+{
+	const PTZCmd &cmd = green ? (on ? VISCA_CAM_TallyGreen_On : VISCA_CAM_TallyGreen_Off)
+				  : (on ? VISCA_CAM_Tally_On : VISCA_CAM_Tally_Off);
+	if (!unsupported_requests.contains(cmd.cmd))
+		send(cmd);
+}
+
+/* Lights the red tally lamp while the source is in the program scene, and
+ * the green one while it is in the preview scene and not in the program
+ * scene, unless "tally_auto" is off for whoever already drives them another
+ * way. A manual request (requestState() above) still goes through, but the
+ * next time the source changes scene, this overrides it again. */
+void PTZVisca::onSceneChanged()
+{
+	bool was_red = live, was_green = preview && !live;
+	PTZDevice::onSceneChanged();
+	if (!tally_auto)
+		return;
+	if (live != was_red)
+		sendTally(false, live);
+	if ((preview && !live) != was_green)
+		sendTally(true, preview && !live);
 }
 
 bool PTZVisca::runTrigger(const QString &name)
@@ -1045,9 +1129,9 @@ void PTZVisca::send_pending()
 				if (!inquires.contains(prop))
 					continue;
 				PTZInq inq = inquires[prop];
-				if (unsupported_inquiries.contains(inq.cmd) && inquiresFallback.contains(prop))
+				if (unsupported_requests.contains(inq.cmd) && inquiresFallback.contains(prop))
 					inq = inquiresFallback[prop];
-				if (unsupported_inquiries.contains(inq.cmd)) {
+				if (unsupported_requests.contains(inq.cmd)) {
 					/* Nothing to read it with */
 					stale_state -= prop;
 					continue;

@@ -121,7 +121,10 @@ public:
 	/* Whether ptz_trigger takes the "scan_inquiries" and "replies_to_log"
 	 * diagnostics, for working out what a camera supports */
 	virtual bool supportsDiagnostics() const { return false; }
-	void onSceneChanged();
+	/* Updates live/preview/locked from the frontend's current scenes.
+	 * Virtual so a driver that can act on going live or off it (a tally
+	 * light, say) can do so around the base implementation. */
+	virtual void onSceneChanged();
 
 	size_t maxPresets() const { return m_maxPresets; }
 	int presetCount() const { return m_presetsDisplayOrder.size(); }
@@ -285,8 +288,8 @@ public:
 	 *     becomes state when the camera says so (or, where a driver
 	 *     already does so, optimistically when the command is sent).
 	 *     Commandable keys: focus_af_enabled, and per driver power_on,
-	 *     wb_mode. Anything else is ignored, so a caller can hand back
-	 *     state it read, read-only parts and all.
+	 *     wb_mode, tally_on, tally_preview. Anything else is ignored, so a caller can
+	 *     hand back state it read, read-only parts and all.
 	 * Unlike the settings there is no properties tree for it: it isn't
 	 * bound to anything OBS persists, and changes many times a second.
 	 */
