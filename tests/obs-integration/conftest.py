@@ -63,6 +63,9 @@ DEVICE_IDS = {
     "unnamed": 12,
     # Talks ONVIF to the shared ptzsim
     "onvif": 13,
+    # Talks VISCA-over-IP to sony_ptzsim, which misbehaves the way a real
+    # Sony camera does (see test_visca_udp_sony.py)
+    "visca-udp-sony": 14,
 }
 
 
@@ -173,6 +176,13 @@ def write_ptz_plugin_config(home: Path, ports, serial_paths):
             "host": "127.0.0.1",
             "udp_port": ports["unused_udp"],
         })
+    devices.append({
+        "id": DEVICE_IDS["visca-udp-sony"],
+        "name": "sim-visca-udp-sony",
+        "type": "visca-over-ip",
+        "host": "127.0.0.1",
+        "udp_port": ports["visca_udp_sony"],
+    })
     devices.append({
         "id": DEVICE_IDS["onvif"],
         "name": "sim-onvif",
@@ -550,6 +560,8 @@ def ptz_ports():
         "rtsp": free_port(),
         "visca_tcp_flaky": free_port(),
         "unused_udp": free_port(),
+        "visca_udp_sony": free_port(),
+        "debug_http_sony": free_port(),
     }
 
 
@@ -576,6 +588,40 @@ def ptzsim_process(tmp_path_factory, ptz_ports):
         proc = subprocess.Popen(cmd, cwd=REPO_ROOT / "scripts", stdout=out, stderr=subprocess.STDOUT)
     wait_for_port("127.0.0.1", ptz_ports["debug_http"], timeout=15)
     yield {"proc": proc, "ports": ptz_ports, "serial_paths": serial_paths}
+    proc.terminate()
+    try:
+        proc.wait(timeout=5)
+    except subprocess.TimeoutExpired:
+        proc.kill()
+
+
+@pytest.fixture(scope="session")
+def sony_ptzsim(ptz_ports):
+    """A VISCA-over-IP-only ptzsim that behaves like a real Sony camera
+    (--visca-udp-sony-quirks), on its own ports, wired to DEVICE_IDS
+    ["visca-udp-sony"]. Session-scoped, and started before OBS (see
+    obs_world) so the device's startup handshake is against a camera that
+    is there. Its counters are read back with stats(), of which a test
+    should take a difference: they count everything since it started."""
+    cmd = [
+        sys.executable, "-m", "ptzsim",
+        "--host", "127.0.0.1",
+        "--visca-udp-port", str(ptz_ports["visca_udp_sony"]),
+        "--visca-udp-sony-quirks",
+        "--no-visca-tcp", "--no-visca-serial", "--no-onvif", "--no-pelco",
+        "--debug-http-port", str(ptz_ports["debug_http_sony"]),
+    ]
+    with output_log("ptzsim-sony") as out:
+        proc = subprocess.Popen(cmd, cwd=REPO_ROOT / "scripts", stdout=out, stderr=subprocess.STDOUT)
+    wait_for_port("127.0.0.1", ptz_ports["debug_http_sony"], timeout=15)
+
+    class SonySim:
+        def stats(self):
+            url = f"http://127.0.0.1:{ptz_ports['debug_http_sony']}/state"
+            with urllib.request.urlopen(url, timeout=2) as resp:
+                return json.load(resp)["visca_udp_quirks"]
+
+    yield SonySim()
     proc.terminate()
     try:
         proc.wait(timeout=5)
@@ -634,7 +680,7 @@ def flaky_ptzsim(obs_world, ptz_ports):
 
 
 @pytest.fixture(scope="session")
-def obs_world(tmp_path_factory, ptzsim_process):
+def obs_world(tmp_path_factory, ptzsim_process, sony_ptzsim):
     home = tmp_path_factory.mktemp("obs-home")
     write_ptz_plugin_config(home, ptzsim_process["ports"], ptzsim_process["serial_paths"])
 
