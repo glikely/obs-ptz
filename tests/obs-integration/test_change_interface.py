@@ -38,7 +38,7 @@ import urllib.request
 
 import pytest
 
-from conftest import REPO_ROOT, free_port, wait_for_port
+from conftest import REPO_ROOT, free_port, output_log, wait_for_port
 
 ACTION_PAN_TILT = 3
 ACTION_STOP = 4
@@ -96,8 +96,8 @@ class _SerialOnlyPtzsim:
             "--no-visca-tcp", "--no-visca-udp", "--no-onvif", "--no-pelco",
             "--debug-http-port", str(self.debug_port),
         ]
-        self.proc = subprocess.Popen(cmd, cwd=REPO_ROOT / "scripts", stdout=subprocess.PIPE,
-                                      stderr=subprocess.STDOUT, text=True)
+        with output_log("ptzsim-serial") as out:
+            self.proc = subprocess.Popen(cmd, cwd=REPO_ROOT / "scripts", stdout=out, stderr=subprocess.STDOUT)
         wait_for_port("127.0.0.1", self.debug_port, timeout=15)
 
     def stop(self):

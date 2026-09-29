@@ -34,7 +34,7 @@ import urllib.request
 import pytest
 from obsws import ObsWebSocketError
 
-from conftest import REPO_ROOT, free_port, wait_for_port
+from conftest import REPO_ROOT, free_port, output_log, wait_for_port
 
 FILTER_KIND = "ca.secretlab.obs-ptz.visca"
 
@@ -61,8 +61,8 @@ class FilterPtzsim:
             "--no-visca-udp", "--no-visca-serial", "--no-onvif", "--no-pelco",
             "--debug-http-port", str(self.debug_port),
         ]
-        self.proc = subprocess.Popen(cmd, cwd=REPO_ROOT / "scripts", stdout=subprocess.PIPE,
-                                      stderr=subprocess.STDOUT, text=True)
+        with output_log("ptzsim-filter") as out:
+            self.proc = subprocess.Popen(cmd, cwd=REPO_ROOT / "scripts", stdout=out, stderr=subprocess.STDOUT)
         wait_for_port("127.0.0.1", self.debug_port, timeout=15)
         wait_for_port("127.0.0.1", self.tcp_port, timeout=15)
 

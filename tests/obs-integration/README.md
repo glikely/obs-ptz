@@ -189,6 +189,11 @@ a real accelerated GNOME/Xwayland session where one's available.
 `PTZSIM_OBS_BINARY` defaults to `obs` on Linux and OBS.app's real binary
 path on macOS; override it if yours lives elsewhere.
 
+What OBS and each `ptzsim` print goes to its own file in the temp directory
+(`obs-*.log`, `ptzsim-*.log`), not to a pipe: nothing reads the pipe, and once
+it filled up OBS's main thread or a whole `ptzsim` would block on its next
+write, and every later test would time out.
+
 ## Known limitations
 
 - **Timing constants** (`wait_for_state` timeouts, the `time.sleep(0.5)`

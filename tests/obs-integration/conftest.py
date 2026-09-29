@@ -21,6 +21,7 @@ import shutil
 import socket
 import subprocess
 import sys
+import tempfile
 import time
 import urllib.request
 from pathlib import Path
@@ -178,6 +179,16 @@ def write_ptz_plugin_config(home: Path, ports, serial_paths):
         "udp_port": ports["unused_udp"],
     })
     (config_dir / "config.json").write_text(json.dumps({"devices": devices}))
+
+
+def output_log(name):
+    """Where a child process's output goes: a file, kept for looking at after
+    a failure. Not a pipe: nothing reads one, so once it fills up the child
+    blocks on its next write -- a whole ptzsim, or OBS's main thread, logging
+    -- and the tests time out waiting for it. Close it after starting the
+    child, which has its own copy."""
+    fd, path = tempfile.mkstemp(prefix=f"{name}-", suffix=".log")
+    return os.fdopen(fd, "w")
 
 
 def wait_for_port(host, port, timeout):
@@ -480,8 +491,8 @@ def ptzsim_process(tmp_path_factory, ptz_ports):
         "--rtsp-port", str(ptz_ports["rtsp"]),
         "--debug-http-port", str(ptz_ports["debug_http"]),
     ]
-    proc = subprocess.Popen(cmd, cwd=REPO_ROOT / "scripts", stdout=subprocess.PIPE,
-                             stderr=subprocess.STDOUT, text=True)
+    with output_log("ptzsim") as out:
+        proc = subprocess.Popen(cmd, cwd=REPO_ROOT / "scripts", stdout=out, stderr=subprocess.STDOUT)
     wait_for_port("127.0.0.1", ptz_ports["debug_http"], timeout=15)
     yield {"proc": proc, "ports": ptz_ports, "serial_paths": serial_paths}
     proc.terminate()
@@ -518,8 +529,8 @@ class FlakyPtzsim:
             "--visca-tcp-port", str(self.port),
             "--no-visca-udp", "--no-visca-serial", "--no-onvif", "--no-pelco",
         ]
-        self.proc = subprocess.Popen(cmd, cwd=REPO_ROOT / "scripts", stdout=subprocess.PIPE,
-                                      stderr=subprocess.STDOUT, text=True)
+        with output_log("ptzsim-flaky") as out:
+            self.proc = subprocess.Popen(cmd, cwd=REPO_ROOT / "scripts", stdout=out, stderr=subprocess.STDOUT)
         wait_for_port("127.0.0.1", self.port, timeout=10)
 
     def stop(self):
@@ -569,8 +580,8 @@ def obs_world(tmp_path_factory, ptzsim_process):
     if platform.system() == "Linux" and not env.get("DISPLAY") and shutil.which("xvfb-run"):
         cmd = ["xvfb-run", "-a"] + cmd
 
-    proc = subprocess.Popen(cmd, cwd=home, env=env, stdout=subprocess.PIPE,
-                             stderr=subprocess.STDOUT, text=True)
+    with output_log("obs") as out:
+        proc = subprocess.Popen(cmd, cwd=home, env=env, stdout=out, stderr=subprocess.STDOUT)
 
     ws = None
     try:
