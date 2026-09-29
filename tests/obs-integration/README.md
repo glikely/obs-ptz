@@ -177,6 +177,12 @@ actually work end to end.
     them that work, and that the dialog copes with its device being removed
     or changing interface while it is open. Opens the real dialog through
     `tests/ui-harness/settings-dialog-test.cpp`.
+21. `test_api_version.py` covers the PTZ API's version: that
+    `ptz_get_api_version`, on OBS's proc_handler and on each device's,
+    reports the version `src/ptz.h` declares, called the way another plugin
+    would through
+    `tests/ui-harness/api-version-test.cpp`, and that
+    `docs/ptz-device-api.md` states it.
 
 ## Running locally
 

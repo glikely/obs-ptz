@@ -33,7 +33,9 @@ and its driver, `tests/obs-integration/test_absolute_relative_moves.py`
 `watch_device_signals`/`get_device_signals` (see `device-signals-test.cpp`
 and its driver, `test_device_signals.py`), and `open_settings_dialog`/
 `get_settings_dialog`/`edit_dialog_state`/`press_dialog_button` (see
-`settings-dialog-test.cpp` and its driver, `test_settings_dialog.py`)
+`settings-dialog-test.cpp` and its driver, `test_settings_dialog.py`), and
+`get_api_version` (see `api-version-test.cpp` and its driver,
+`test_api_version.py`)
 - see
 "Adding a new test" below for how to add another.
 
