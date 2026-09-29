@@ -48,6 +48,16 @@ extern bool ptz_scene_is_source_active(obs_source_t *scene, obs_source_t *source
 extern proc_handler_t *ptz_get_proc_handler();
 extern signal_handler_t *ptz_get_signal_handler();
 
+/* The version of the PTZ API that ptz_get_api_version reports, on OBS's
+ * proc_handler and on each of this plugin's devices: the procs and
+ * signals in docs/ptz-device-api.md, and the keys and names they take. Bump
+ * the minor version for a change an existing caller can't notice (something
+ * added), and the major version, resetting the minor, for one it can
+ * (something removed, renamed or changing meaning). Then regenerate the doc,
+ * which states it. */
+#define PTZ_API_VERSION_MAJOR 1
+#define PTZ_API_VERSION_MINOR 0
+
 #ifdef __cplusplus
 }
 #endif

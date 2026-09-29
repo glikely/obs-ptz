@@ -68,6 +68,16 @@ PTZDevice::PTZDevice(OBSData config, obs_source_t *filter) : QObject()
 		return;
 	}
 
+	auto get_api_version = [](void *, calldata_t *cd) {
+		calldata_set_int(cd, "major", PTZ_API_VERSION_MAJOR);
+		calldata_set_int(cd, "minor", PTZ_API_VERSION_MINOR);
+	};
+	/* The version of the PTZ API this device implements. A device may come
+	 * from another plugin, at another version than the ptz_get_api_version
+	 * on OBS's proc_handler reports, so a caller checks each device's own
+	 * before relying on anything else it has. */
+	proc_handler_add(handler, "void ptz_get_api_version(out int major, out int minor)", get_api_version, nullptr);
+
 	/* The PTZ Device API. All these functions are prefixed with 'ptz_' so that they can
 	 * be added to an existing proc_handler with low risk of conflicts */
 	proc_handler_add(handler, "void ptz_stop()", ptz_ph_lambda(stop), this);
@@ -1013,6 +1023,14 @@ void ptz_load_devices()
 		calldata_set_ptr(cd, "return", ptz_ph);
 	};
 	proc_handler_add(ph, "ptr ptz_get_proc_handler()", ptz_get_proc_handler, NULL);
+
+	auto ptz_get_api_version = [](void *, calldata_t *cd) {
+		calldata_set_int(cd, "major", PTZ_API_VERSION_MAJOR);
+		calldata_set_int(cd, "minor", PTZ_API_VERSION_MINOR);
+	};
+	/* The version of the PTZ API (PTZ_API_VERSION_* in ptz.h), for a caller
+	 * to check before it relies on anything else here */
+	proc_handler_add(ph, "void ptz_get_api_version(out int major, out int minor)", ptz_get_api_version, NULL);
 
 	/* Deprecated pantilt callback for compatibility with existing plugins */
 	proc_handler_add(ph, "void ptz_pantilt(int device_id, float pan, float tilt, float zoom, float focus)", ptz_cb,

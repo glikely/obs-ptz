@@ -98,6 +98,18 @@ it back to `update()` on load. An action on the camera that isn't a state
 change (a one-push white balance, a diagnostic) goes through the `ptz_trigger`
 proc instead.
 
+## PTZ API version
+
+The procs and signals in `docs/ptz-device-api.md` are an API other plugins
+and scripts call, versioned by `PTZ_API_VERSION_MAJOR`/`_MINOR` in
+`src/ptz.h` and reported by the `ptz_get_api_version` proc, both on OBS's
+proc_handler and on each device's own (another plugin can implement the
+per-device API, at another version, so callers check per device). Any change to
+them, or to the calldata fields, state keys or trigger names they take,
+bumps it: the minor version for an addition, the major version (minor back
+to 0) for a removal, rename or change of meaning. Then rerun
+`scripts/gen-api-docs.py`, which writes the version into the doc.
+
 ## Verification practices
 
 - Prefer testing real built artifacts over reasoning about CMake/CPack behavior from
