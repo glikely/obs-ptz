@@ -1052,11 +1052,9 @@ void PTZControls::updateMoveControls()
 
 	RefreshToolBarStyling(ui->ptzToolbar);
 
-	calldata cd = {};
-	calldata_set_string(&cd, "property", "focus_af_enabled");
-	callCurrentDevice("ptz_get", &cd);
-	setAutofocusEnabled(calldata_bool(&cd, "focus_af_enabled"));
-	calldata_free(&cd);
+	OBSDataAutoRelease state = obs_data_create();
+	ptzDeviceList->saveState(ui->deviceList->currentIndex(), state.Get());
+	setAutofocusEnabled(obs_data_get_bool(state, "focus_af_enabled"));
 }
 
 void PTZControls::currentChanged(QModelIndex, QModelIndex previous)
@@ -1197,21 +1195,16 @@ void PTZControls::on_deviceList_customContextMenuRequested(const QPoint &pos)
 	bool power_on = false;
 
 	if (index.isValid()) {
-		calldata cd = {};
-		calldata_set_string(&cd, "property", "power_on");
-		ptzDeviceList->callDevice(index, "ptz_get", &cd);
-		power_on = calldata_bool(&cd, "power_on");
+		OBSDataAutoRelease state = obs_data_create();
+		ptzDeviceList->saveState(index, state.Get());
+		power_on = obs_data_get_bool(state, "power_on");
 		powerAction =
 			context.addAction(obs_module_text(power_on ? "PTZ.Action.PowerOff" : "PTZ.Action.PowerOn"));
 
-		calldata_set_string(&cd, "property", "wb_mode");
-		ptzDeviceList->callDevice(index, "ptz_get", &cd);
-		bool wb_onepush = (calldata_int(&cd, "wb_mode") == 3);
+		bool wb_onepush = (obs_data_get_int(state, "wb_mode") == 3);
 		if (wb_onepush)
 			wbOnetouchAction = context.addAction(obs_module_text("PTZ.Action.WhiteBalance.OnePushTrigger"));
 		context.addSeparator();
-
-		calldata_free(&cd);
 	}
 	QAction *autoselectAction = context.addAction(obs_module_text("PTZ.Settings.CameraAutoselect"));
 	autoselectAction->setCheckable(true);

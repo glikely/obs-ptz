@@ -208,12 +208,11 @@ protected slots:
 	void move(calldata_t *cd);
 	void move_abs(calldata_t *cd);
 	void move_rel(calldata_t *cd);
-	/* ptz_get / ptz_set: read one transient state value by name, and
-	 * request changes to some of them, one call at a time. Both are
-	 * thin calldata spellings of saveState() / requestState(); ptz_set
+	/* ptz_set: request changes to some transient state values, one
+	 * calldata field each, the older spelling of ptz_request_state; it
 	 * also carries the one-shot triggers (focus_onetouch_trigger, ...),
-	 * which aren't state and so have no place in requestState(). */
-	void get(calldata_t *cd) const;
+	 * which aren't state and so have no place in requestState(). Reading
+	 * state is ptz_get_state. */
 	virtual void set(calldata_t *cd);
 	void preset_save(calldata_t *cd);
 	void preset_recall(calldata_t *cd);

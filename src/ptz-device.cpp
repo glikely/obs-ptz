@@ -76,7 +76,6 @@ PTZDevice::PTZDevice(OBSData config, obs_source_t *filter) : QObject()
 	proc_handler_add(handler, "void ptz_move()", ptz_ph_lambda(move), this);
 	proc_handler_add(handler, "void ptz_move_abs()", ptz_ph_lambda(move_abs), this);
 	proc_handler_add(handler, "void ptz_move_rel()", ptz_ph_lambda(move_rel), this);
-	proc_handler_add(handler, "void ptz_get()", ptz_ph_lambda(get), this);
 	proc_handler_add(handler, "void ptz_set()", ptz_ph_lambda(set), this);
 	proc_handler_add(handler, "void ptz_preset_save()", ptz_ph_lambda(preset_save), this);
 	proc_handler_add(handler, "void ptz_preset_recall()", ptz_ph_lambda(preset_recall), this);
@@ -417,49 +416,6 @@ void PTZDevice::move_rel(calldata_t *cd)
 
 	if (calldata_get_float(cd, "pan", &p) + calldata_get_float(cd, "tilt", &t))
 		QMetaObject::invokeMethod(this, "pantilt_rel", Q_ARG(double, p), Q_ARG(double, t));
-}
-
-/**
- * Reads the one state value named by "property" into the calldata under that
- * same name, typed as the state holds it. A value the device has no state
- * for (yet) leaves the calldata alone, which reads back as false/0.
- */
-void PTZDevice::get(calldata_t *cd) const
-{
-	if (wrongThread("ptz_get"))
-		return;
-	const char *property = calldata_string(cd, "property");
-	if (!property)
-		return;
-	/* Own a copy: `property` points into cd's own buffer, and the
-	 * calldata_set_*() calls below write a new field into that same
-	 * buffer under this same name. If that write grows the buffer, a
-	 * pointer straight into it stops being valid mid-call -- writing
-	 * the field under a garbage name instead, which is silently never
-	 * seen again by anyone reading it back under the real name. */
-	const std::string name = property;
-	OBSDataAutoRelease snapshot = obs_data_create();
-	saveState(snapshot.Get());
-	obs_data_item_t *item = obs_data_item_byname(snapshot, name.c_str());
-	if (!item)
-		return;
-	switch (obs_data_item_gettype(item)) {
-	case OBS_DATA_BOOLEAN:
-		calldata_set_bool(cd, name.c_str(), obs_data_item_get_bool(item));
-		break;
-	case OBS_DATA_NUMBER:
-		if (obs_data_item_numtype(item) == OBS_DATA_NUM_INT)
-			calldata_set_int(cd, name.c_str(), obs_data_item_get_int(item));
-		else
-			calldata_set_float(cd, name.c_str(), obs_data_item_get_double(item));
-		break;
-	case OBS_DATA_STRING:
-		calldata_set_string(cd, name.c_str(), obs_data_item_get_string(item));
-		break;
-	default:
-		break;
-	}
-	obs_data_item_release(&item);
 }
 
 /**
