@@ -153,6 +153,16 @@ actually work end to end.
     reported, and settings changes, including ones that don't go through
     the model, such as OBS's Filters dialog and obs-websocket editing a
     filter. Uses `tests/ui-harness/device-signals-test.cpp`.
+18. `test_settings_dialog.py` covers the PTZ settings dialog showing a
+    device's settings and its state apart, as a properties view and a
+    `PTZStateView` stacked on one scrolling page rather than as tabs: what
+    each holds, that a state change changes only the status view and a
+    settings change only the settings view, that the status view is updated
+    in place (the same widgets before and after, none replaced) rather than
+    redrawn, that picking a white balance in the status view changes the
+    camera, and that a camera with diagnostics, and only one, has buttons
+    for them that work. Opens the real dialog through
+    `tests/ui-harness/settings-dialog-test.cpp`.
 
 ## Running locally
 

@@ -30,7 +30,9 @@ and its drivers, `test_autofocus_white_balance.py` and `test_power.py`),
 `test_device_settings.py`), and `get_device_state`/`set_device_state` (see
 `device-state-test.cpp` and its driver, `test_device_state.py`), and
 `watch_device_signals`/`get_device_signals` (see `device-signals-test.cpp`
-and its driver, `test_device_signals.py`)
+and its driver, `test_device_signals.py`), and `open_settings_dialog`/
+`get_settings_dialog`/`edit_dialog_state`/`press_dialog_button` (see
+`settings-dialog-test.cpp` and its driver, `test_settings_dialog.py`)
 - see
 "Adding a new test" below for how to add another.
 

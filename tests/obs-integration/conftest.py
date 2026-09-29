@@ -425,6 +425,30 @@ class World:
             time.sleep(interval)
         raise AssertionError(f"device {device_id} signals never matched predicate; last seen: {last}")
 
+    def settings_dialog(self, out_file):
+        """Fetches what the open PTZ settings dialog's two views hold, via
+        tests/ui-harness/settings-dialog-test.cpp's "get_settings_dialog"
+        test (open it first, with run_ui_test("open_settings_dialog"))."""
+        if out_file.exists():
+            out_file.unlink()
+        self.run_ui_test("get_settings_dialog", filename=str(out_file))
+        self.wait_for(out_file.exists)
+        raw = json.loads(out_file.read_text())
+        for name in ("settings_keys", "state_keys"):
+            raw[name] = {e["key"] for e in raw.get(name, [])}
+        return raw
+
+    def wait_for_settings_dialog(self, out_file, predicate, timeout=5, interval=0.2):
+        """Polls settings_dialog() until predicate(result) is true."""
+        deadline = time.time() + timeout
+        last = None
+        while time.time() < deadline:
+            last = self.settings_dialog(out_file)
+            if predicate(last):
+                return last
+            time.sleep(interval)
+        raise AssertionError(f"settings dialog never matched predicate; last seen: {last}")
+
     def device_status(self, device_id, out_file):
         """Fetches device_id's live {"connected"} status via
         tests/ui-harness/device-status-test.cpp's "get_device_status"
