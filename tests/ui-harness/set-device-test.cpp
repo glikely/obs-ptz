@@ -50,9 +50,6 @@ void runSetDeviceTest(const QMap<QString, QString> &params)
 	}
 	if (params.contains(QStringLiteral("wb_mode")))
 		calldata_set_int(&cd, "wb_mode", params.value(QStringLiteral("wb_mode")).toLongLong());
-	/* A one-shot action, such as a driver's diagnostics, by its name */
-	if (params.contains(QStringLiteral("trigger")))
-		calldata_set_bool(&cd, qUtf8Printable(params.value(QStringLiteral("trigger"))), true);
 
 	ptzDeviceList->callDevice(index, "ptz_set", &cd);
 	calldata_free(&cd);
@@ -60,17 +57,38 @@ void runSetDeviceTest(const QMap<QString, QString> &params)
 	blog(LOG_INFO, "[ptz-ui-test] set_device device_id=%u", deviceId);
 }
 
+/* Drives PTZDevice::trigger() (the "ptz_trigger" proc handler): a one-shot
+ * action, by its name */
+void runTriggerDeviceTest(const QMap<QString, QString> &params)
+{
+	bool deviceIdOk = false;
+	uint32_t deviceId = params.value(QStringLiteral("device_id")).toUInt(&deviceIdOk);
+	QModelIndex index = deviceIdOk ? ptzDeviceList->indexFromDeviceId(deviceId) : QModelIndex();
+	if (!index.isValid()) {
+		blog(LOG_INFO, "[ptz-ui-test] trigger_device: missing/invalid device_id");
+		return;
+	}
+
+	calldata cd = {};
+	calldata_set_string(&cd, "name", qUtf8Printable(params.value(QStringLiteral("name"))));
+	ptzDeviceList->callDevice(index, "ptz_trigger", &cd);
+	calldata_free(&cd);
+}
+
 } // namespace
 
-/* Request params:
+/* set_device request params:
  *   device_id         - the target device's numeric id
  *   power_on          - optional, "True"/"False" (Python's str(bool))
  *   focus_af_enabled  - optional, "True"/"False" (Python's str(bool))
  *   wb_mode           - optional, integer white-balance mode
- *   trigger           - optional, the name of a one-shot trigger to set,
- *                       such as "scan_inquiries_trigger"
+ *
+ * trigger_device request params:
+ *   device_id - the target device's numeric id
+ *   name      - the one-shot action, such as "scan_inquiries"
  */
 void registerSetDeviceTest(PTZUITestHarness *harness)
 {
 	harness->registerTest(QStringLiteral("set_device"), &runSetDeviceTest);
+	harness->registerTest(QStringLiteral("trigger_device"), &runTriggerDeviceTest);
 }

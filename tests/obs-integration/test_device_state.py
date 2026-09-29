@@ -49,37 +49,66 @@ def test_requested_white_balance_mode_is_picked_up(obs_world, backend, mode, tmp
     obs_world.wait_for_device_state(device_id, out, lambda r: r["state"]["wb_mode"] == mode, timeout=5)
 
 
-def test_a_request_asks_for_just_what_it_holds(obs_world, tmp_path):
-    device_id = obs_world.device_ids["visca-tcp"]
-    out = tmp_path / "state.json"
-
+def settled_sent_count(obs_world, device_id, out):
+    """How many commands the device has sent, once it has stopped sending
+    (the follow-up inquiries of whatever came before)"""
     def sent():
         return obs_world.device_state(device_id, out)["state"]["statistics"].get("visca_sent_count", 0)
 
-    obs_world.wait_for_device_state(device_id, out, lambda r: r["state"].get("connected") is True, timeout=10)
-    obs_world.run_ui_test("set_device_state", device_id=device_id, wb_mode=1)
-    obs_world.wait_for_device_state(device_id, out, lambda r: r["state"]["wb_mode"] == 1, timeout=5)
-
-    # let the follow-up inquiries finish, so nothing else is being sent
     before = sent()
     for _ in range(15):
         time.sleep(0.7)
         now = sent()
         if now == before:
-            break
+            return now
         before = now
-    else:
-        raise AssertionError("the device never stopped sending")
+    raise AssertionError("the device never stopped sending")
+
+
+def visca_sent_count(obs_world, device_id, out):
+    return obs_world.device_state(device_id, out)["state"]["statistics"].get("visca_sent_count", 0)
+
+
+def test_a_request_asks_for_just_what_it_holds(obs_world, tmp_path):
+    device_id = obs_world.device_ids["visca-tcp"]
+    out = tmp_path / "state.json"
+
+    obs_world.wait_for_device_state(device_id, out, lambda r: r["state"].get("connected") is True, timeout=10)
+    obs_world.run_ui_test("set_device_state", device_id=device_id, wb_mode=1)
+    obs_world.wait_for_device_state(device_id, out, lambda r: r["state"]["wb_mode"] == 1, timeout=5)
+    before = settled_sent_count(obs_world, device_id, out)
 
     # an empty request asks for nothing
     obs_world.run_ui_test("set_device_state", device_id=device_id)
     time.sleep(1.0)
-    assert sent() == before
+    assert visca_sent_count(obs_world, device_id, out) == before
 
     # a value is asked for even if it is what the camera already reports,
     # which may not be what it is doing any more
     obs_world.run_ui_test("set_device_state", device_id=device_id, wb_mode=1)
-    obs_world.wait_for(lambda: sent() > before, timeout=5)
+    obs_world.wait_for(lambda: visca_sent_count(obs_world, device_id, out) > before, timeout=5)
+
+
+@pytest.mark.parametrize("name", ["focus_onetouch", "wb_onepush"])
+def test_a_trigger_sends_its_command(obs_world, name, tmp_path):
+    device_id = obs_world.device_ids["visca-tcp"]
+    out = tmp_path / "state.json"
+    obs_world.wait_for_device_state(device_id, out, lambda r: r["state"].get("connected") is True, timeout=10)
+    before = settled_sent_count(obs_world, device_id, out)
+
+    obs_world.run_ui_test("trigger_device", device_id=device_id, name=name)
+    obs_world.wait_for(lambda: visca_sent_count(obs_world, device_id, out) > before, timeout=5)
+
+
+def test_an_unknown_trigger_does_nothing(obs_world, tmp_path):
+    device_id = obs_world.device_ids["visca-tcp"]
+    out = tmp_path / "state.json"
+    obs_world.wait_for_device_state(device_id, out, lambda r: r["state"].get("connected") is True, timeout=10)
+    before = settled_sent_count(obs_world, device_id, out)
+
+    obs_world.run_ui_test("trigger_device", device_id=device_id, name="no_such_trigger")
+    time.sleep(1.0)
+    assert visca_sent_count(obs_world, device_id, out) == before
 
 
 @pytest.mark.parametrize("backend", VISCA_BACKENDS)
@@ -146,7 +175,7 @@ def test_scanning_inquiries_asks_the_camera_everything(obs_world, cameras, tmp_p
 
     obs_world.wait_for_device_state(device_id, out, lambda r: r["state"].get("connected") is True, timeout=10)
     before = sent()
-    obs_world.run_ui_test("set_device", device_id=device_id, trigger="scan_inquiries_trigger")
+    obs_world.run_ui_test("trigger_device", device_id=device_id, name="scan_inquiries")
     # one inquiry for each of the 0x7e camera inquiry numbers, and more, on
     # top of the device's own polling
     obs_world.wait_for(lambda: sent() >= before + 0x7e, timeout=20)

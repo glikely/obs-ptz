@@ -146,8 +146,9 @@ actually work end to end.
     `set_device_state` tests, checking that a request asks the camera for
     just the values it holds, even one it already reports. Also that nothing
     the camera reports is among a filter's settings properties, and that
-    VISCA advertises its diagnostics and scans the camera's inquiries when
-    asked (`set_device`'s `trigger`).
+    VISCA advertises its diagnostics, and that the `ptz_trigger` actions
+    send their commands (through the harness's `trigger_device`) and an
+    unknown one sends nothing.
 17. `test_device_signals.py` covers what `PTZListModel` tells a listener
     (the settings dialog) about a device changing: the values a state change
     reported, and settings changes, including ones that don't go through
