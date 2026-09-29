@@ -10,6 +10,9 @@ conftest.py).
 
 import time
 
+ACTION_PAN_TILT = 3
+ACTION_STOP = 4
+
 # The filter fixtures live in test_filter_devices.py
 from test_filter_devices import camera_sim, cameras  # noqa: F401
 
@@ -34,6 +37,22 @@ def test_status_view_shows_the_cameras_real_state(obs_world, tmp_path):
     assert "wb_mode" in dialog["state_keys"]
     # both views are showing at once, not one at a time behind a tab
     assert dialog["apply_visible"] is True
+
+
+def test_status_view_shows_where_the_camera_is(obs_world, tmp_path):
+    device_id = obs_world.device_ids["visca-tcp"]
+    out = tmp_path / "dialog.json"
+    open_dialog(obs_world, device_id)
+    before = obs_world.wait_for_settings_dialog(
+        out, lambda r: {"pan", "tilt", "zoom", "focus"} <= r["state_keys"])["pan"]
+
+    # away from wherever it was, whichever end earlier tests left it at
+    obs_world.trigger_action(device_id, ACTION_PAN_TILT, pan_speed=-0.6 if before > 0 else 0.6, tilt_speed=0.0)
+    time.sleep(0.5)
+    obs_world.trigger_action(device_id, ACTION_STOP)
+
+    # where the camera then reports itself to be
+    obs_world.wait_for_settings_dialog(out, lambda r: r["pan"] != before, timeout=10)
 
 
 def test_settings_view_holds_only_settings(obs_world, tmp_path):
@@ -93,10 +112,13 @@ def test_status_view_updates_in_place(obs_world, tmp_path):
     before = obs_world.wait_for_settings_dialog(out, lambda r: r["connected"] and "wb_mode" in r["state_keys"])
     assert before["wb_widget"], "the status view has no white balance list"
 
-    # What changes as a camera works: what it reports of itself
+    # What changes as a camera works: what it reports of itself, and where it is
     for mode in (1, 2, 1):
         obs_world.run_ui_test("set_device_state", device_id=device_id, wb_mode=mode)
         obs_world.wait_for_settings_dialog(out, lambda r, m=mode: r["wb_mode"] == m)
+    obs_world.trigger_action(device_id, ACTION_PAN_TILT, pan_speed=0.6, tilt_speed=0.0)
+    time.sleep(0.5)
+    obs_world.trigger_action(device_id, ACTION_STOP)
 
     # It changed, and every widget is the one that was there, none replaced
     after = obs_world.wait_for_settings_dialog(out, lambda r: r["state_updates"] >= 3)

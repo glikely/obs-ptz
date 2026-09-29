@@ -82,11 +82,29 @@ def test_a_request_asks_for_just_what_it_holds(obs_world, tmp_path):
     obs_world.wait_for(lambda: sent() > before, timeout=5)
 
 
+@pytest.mark.parametrize("backend", VISCA_BACKENDS)
+def test_position_is_reported_in_the_units_of_the_movement_api(obs_world, backend, tmp_path):
+    """The raw positions VISCA reads back, over the ranges its absolute moves
+    use (src/ptz-visca.cpp), clamped: pan and tilt to [-1, 1], zoom and focus
+    to [0, 1]."""
+    state = obs_world.wait_for_device_state(
+        obs_world.device_ids[backend], tmp_path / "state.json",
+        lambda r: {"pan", "tilt", "zoom", "focus"} <= set(r["state"]), timeout=10)["state"]
+
+    def clamp(value, low):
+        return max(low, min(1.0, value))
+
+    assert state["pan"] == pytest.approx(clamp(state["pan_pos"] / 0x1400, -1.0), abs=1e-3)
+    assert state["tilt"] == pytest.approx(clamp(state["tilt_pos"] / 0x500, -1.0), abs=1e-3)
+    assert state["zoom"] == pytest.approx(clamp(state["zoom_pos"] / 0x7ac0, 0.0), abs=1e-3)
+    assert state["focus"] == pytest.approx(clamp((state["focus_pos"] - 0x1000) / (0xf000 - 0x1000), 0.0), abs=1e-3)
+
+
 @pytest.mark.parametrize("backend", ["pelco-d", "pelco-p"])
-def test_pelco_state_has_no_white_balance(obs_world, backend, tmp_path):
+def test_pelco_state_has_no_white_balance_or_position(obs_world, backend, tmp_path):
     state = obs_world.device_state(obs_world.device_ids[backend], tmp_path / "state.json")["state"]
     assert BASE_STATE_KEYS <= set(state)
-    assert "wb_mode" not in state
+    assert not {"wb_mode", "pan", "tilt", "zoom", "focus"} & set(state)
 
 
 # What describes the device rather than what it reports, which ptz_get_state
