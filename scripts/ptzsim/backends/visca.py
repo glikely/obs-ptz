@@ -60,6 +60,13 @@ class ViscaCameraLogic:
     # understood. A BirdDog answers them all with a syntax error and has
     # only the single-value inquiries; __main__ clears this to imitate one.
     block_inquiries = True
+    # Whether there is a green tally lamp to command. Sony's own manual has
+    # none, and a BirdDog P100 has only the red one, answering the green
+    # command with a syntax error; BirdDog's X4 series has both.
+    green_tally = True
+    # Whether a command that is ACKed is then completed. A BirdDog backpack
+    # ACKs and never completes.
+    completions = True
 
     def __init__(self, state):
         self.state = state
@@ -179,7 +186,8 @@ class ViscaCameraLogic:
 
     def cmd_ack(self):
         self.send_datagram(b'\x41')
-        self.send_datagram(b'\x51')
+        if self.completions:
+            self.send_datagram(b'\x51')
 
     def cmd_error(self):
         self.send_datagram(b'\x60\x01')
@@ -304,6 +312,19 @@ class ViscaCameraLogic:
     def cmd090400(self, dg):
         '''CAM_PowerInq'''
         self.send_datagram(b'\x50' + self.encode_bool(self.state.snapshot().power))
+
+    def cmd017e010a(self, dg):
+        '''Tally lamp, red (program): 8x 01 7e 01 0a 00 0p, p = 2 on, 3 off'''
+        self.state.tally['red'] = dg[6] == 0x02
+        self.cmd_ack()
+
+    def cmd017e041a(self, dg):
+        '''Tally lamp, green (preview): 8x 01 7e 04 1a 00 0p, p = 2 on, 3 off'''
+        if not self.green_tally:
+            self.send_datagram(b'\x60\x02')
+            return
+        self.state.tally['green'] = dg[6] == 0x02
+        self.cmd_ack()
 
     def cmd090447(self, dg):
         '''CAM_ZoomPosInq'''

@@ -101,6 +101,12 @@ def parse_args():
                      help="answer VISCA's \"7e 7e xx\" block inquiries and the version inquiry "
                           "with a syntax error, as a BirdDog does: only the single-value "
                           "inquiries work")
+    ap.add_argument("--visca-no-completions", action="store_true",
+                     help="ACK VISCA commands but never send the completion, as a BirdDog "
+                          "backpack does")
+    ap.add_argument("--visca-no-green-tally", action="store_true",
+                     help="answer VISCA's green tally lamp command with a syntax error, as a "
+                          "BirdDog P100 does; only the red lamp works")
     ap.add_argument("--visca-udp-sony-quirks", action="store_true",
                      help="make VISCA-over-IP misbehave like a real Sony camera: drop requests "
                           "that come too soon after a reply, enforce strictly increasing "
@@ -148,6 +154,8 @@ def main():
     asyncio.set_event_loop(loop)
 
     ViscaCameraLogic.block_inquiries = not args.visca_no_block_inquiries
+    ViscaCameraLogic.green_tally = not args.visca_no_green_tally
+    ViscaCameraLogic.completions = not args.visca_no_completions
 
     backends = []
     if not args.no_visca:

@@ -70,6 +70,8 @@ class PTZState:
         self.zoom_speed = 0.0
         self.focus_speed = 0.0
         self.power = True
+        # Tally lamps a protocol can light, by colour
+        self.tally = {'red': False, 'green': False}
         self.home = Position()
         self.presets = {}
         self._next_preset_id = 1
