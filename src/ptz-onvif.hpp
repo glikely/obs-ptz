@@ -71,9 +71,9 @@ private:
 	void ensureCapabilitiesRequested();
 
 	QTimer m_statusTimer;
-	double m_position_pan = 0.0;
-	double m_position_tilt = 0.0;
-	double m_position_zoom = 0.0;
+	/* Read the position again shortly, once a move has had time to start
+	 * and again to finish, rather than at the timer's slow pace */
+	void pollStatusSoon();
 	/* Consecutive request failures since the last good response. When
 	 * this crosses a threshold we flip the dock indicator to red and
 	 * kick a full reconnect attempt on the next timer tick. */

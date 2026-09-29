@@ -521,14 +521,15 @@ void PTZDevice::requestState(OBSData requested)
 		set_autofocus(obs_data_get_bool(requested, "focus_af_enabled"));
 }
 
-void PTZDevice::setPosition(const char *axis, double value)
+bool PTZDevice::setPosition(const char *axis, double value)
 {
 	const bool signedAxis = !strcmp(axis, "pan") || !strcmp(axis, "tilt");
 	value = std::clamp(value, signedAxis ? -1.0 : 0.0, 1.0);
 	if (obs_data_has_user_value(state, axis) && fabs(obs_data_get_double(state, axis) - value) < 0.0005)
-		return;
+		return false;
 	obs_data_set_double(state, axis, value);
 	obs_data_set_double(stateChanged, axis, value);
+	return true;
 }
 
 /**

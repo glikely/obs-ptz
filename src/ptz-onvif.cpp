@@ -155,11 +155,13 @@ void PTZOnvif::continuousMove(double x, double y, double z)
 void PTZOnvif::absoluteMove(double x, double y, double z)
 {
 	genericMove("AbsoluteMove", "Position", x, y, z);
+	pollStatusSoon();
 }
 
 void PTZOnvif::relativeMove(double x, double y, double z)
 {
 	genericMove("RelativeMove", "Translation", x, y, z);
+	pollStatusSoon();
 }
 
 void PTZOnvif::stop()
@@ -196,6 +198,7 @@ void PTZOnvif::goToHomePosition()
 	s.writeEndElement(); // Envelope
 	s.writeEndDocument();
 	sendRequest(m_PTZAddress, msg);
+	pollStatusSoon();
 }
 
 void PTZOnvif::pantilt_set_home()
@@ -362,6 +365,18 @@ void PTZOnvif::handleResponse(QString response)
 		handleGetStatusResponse(nl.at(i));
 }
 
+void PTZOnvif::pollStatusSoon()
+{
+	for (int delay_ms : {500, 2000})
+		QTimer::singleShot(delay_ms, this, [this]() {
+			if (isConnected())
+				getStatus();
+		});
+}
+
+/* ONVIF reports the position in the units the movement API uses (pan and
+ * tilt in [-1, 1], zoom in [0, 1]) as long as the camera uses the generic
+ * coordinate spaces, which setPosition() clamps to */
 void PTZOnvif::handleGetStatusResponse(QDomNode node)
 {
 	auto statusEl = node.toElement().firstChildElement("PTZStatus", nsOnvifPtz);
@@ -370,15 +385,19 @@ void PTZOnvif::handleGetStatusResponse(QDomNode node)
 	auto posEl = statusEl.firstChildElement("Position", nsOnvifSchema);
 	if (posEl.isNull())
 		return;
+	bool changed = false;
 	auto ptEl = posEl.firstChildElement("PanTilt", nsOnvifSchema);
 	if (!ptEl.isNull()) {
-		m_position_pan = ptEl.attribute("x").toDouble();
-		m_position_tilt = ptEl.attribute("y").toDouble();
+		changed |= setPosition("pan", ptEl.attribute("x").toDouble());
+		changed |= setPosition("tilt", ptEl.attribute("y").toDouble());
 	}
 	auto zoomEl = posEl.firstChildElement("Zoom", nsOnvifSchema);
 	if (!zoomEl.isNull())
-		m_position_zoom = zoomEl.attribute("x").toDouble();
-	ptz_debug("status: pan=%.3f tilt=%.3f zoom=%.3f", m_position_pan, m_position_tilt, m_position_zoom);
+		changed |= setPosition("zoom", zoomEl.attribute("x").toDouble());
+	ptz_debug("status: pan=%.3f tilt=%.3f zoom=%.3f", obs_data_get_double(state, "pan"),
+		  obs_data_get_double(state, "tilt"), obs_data_get_double(state, "zoom"));
+	if (changed)
+		notifyStateChanged();
 }
 
 void PTZOnvif::handleGetSystemDateAndTimeResponse(QDomNode node)
@@ -765,6 +784,16 @@ void PTZOnvif::connectCamera()
 
 void PTZOnvif::do_update()
 {
+	/* Follow the position closely only while it is moving, and read it once
+	 * more as it stops, for where it ended up */
+	const bool moving = pan_speed != 0.0 || tilt_speed != 0.0 || zoom_speed != 0.0;
+	const int interval = moving ? 500 : 5000;
+	if (m_statusTimer.interval() != interval) {
+		m_statusTimer.setInterval(interval);
+		if (!moving)
+			pollStatusSoon();
+	}
+
 	if (pantilt_changed || zoom_changed) {
 		if (pan_speed == 0.0 && tilt_speed == 0.0 && zoom_speed == 0.0) {
 			pantilt_changed = false;

@@ -87,8 +87,8 @@ protected:
 	 * position commands below): "pan" and "tilt" in [-1.0, 1.0], "zoom" and
 	 * "focus" in [0.0, 1.0], clamped. Doesn't notify, so a driver can report
 	 * several at once with the notifyStateChanged() it makes anyway. A change
-	 * too small to show is not a change. */
-	void setPosition(const char *axis, double value);
+	 * too small to show is not a change; says whether there was one. */
+	bool setPosition(const char *axis, double value);
 	bool wrongThread(const char *method) const;
 
 public:
