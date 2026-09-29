@@ -51,6 +51,11 @@ protected:
 	bool focus_invert = false;
 	bool focus_changed = false;
 
+private:
+	bool m_frontendCallback = false;
+	void onFrontendEvent(enum obs_frontend_event event);
+	static void frontendEventCallback(enum obs_frontend_event event, void *data);
+
 protected:
 	/* The OBS filter instance that owns this device, or empty for self-managed */
 	OBSWeakSource m_filter;
@@ -125,6 +130,18 @@ public:
 	 * Virtual so a driver that can act on going live or off it (a tally
 	 * light, say) can do so around the base implementation. */
 	virtual void onSceneChanged();
+	/* OBS has finished loading, or is closing and has not yet cleared its
+	 * scenes (which destroys the filters that own devices). No-ops here; a
+	 * driver that can act on the app itself starting or stopping (turning
+	 * the camera's power on or off, say) overrides one or both. A device
+	 * hears of both from OBS itself, not through the UI, so it works the
+	 * same wherever the device is made. */
+	virtual void onOBSStartup() {}
+	virtual void onOBSShutdown() {}
+	/* Hands one device an OBS frontend event, as OBS does all of them. For
+	 * tests, which can't make OBS finish loading again. False if there is no
+	 * such device. */
+	static bool deliverFrontendEvent(uint32_t device_id, enum obs_frontend_event event);
 
 	size_t maxPresets() const { return m_maxPresets; }
 	int presetCount() const { return m_presetsDisplayOrder.size(); }

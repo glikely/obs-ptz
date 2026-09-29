@@ -182,6 +182,9 @@ static constexpr int VISCA_FOCUS_NEAR = 0xf000;
 static constexpr int VISCA_REPLY_TIMEOUT_MS = 250;
 
 /* Error reply "command buffer full", and how to deal with it */
+/* How long a power-on at startup waits for the camera to answer */
+static constexpr int VISCA_POWER_ON_WAIT_MS = 60000;
+
 static constexpr int VISCA_ERROR_SYNTAX = 0x02;
 static constexpr int VISCA_ERROR_BUFFER_FULL = 0x03;
 static constexpr int VISCA_BUSY_BACKOFF_MS = 50;
@@ -603,6 +606,7 @@ QString PTZVisca::description() const
 
 void PTZVisca::reset()
 {
+	link_answered = false;
 	cmd_get_camera_info();
 }
 
@@ -692,6 +696,8 @@ void PTZVisca::defaults(obs_data_t *cfg)
 	obs_data_set_default_int(cfg, "visca_focus_speed_max", 0x7);
 	obs_data_set_default_bool(cfg, "protocol_trace", false);
 	obs_data_set_default_bool(cfg, "tally_auto", true);
+	obs_data_set_default_bool(cfg, "power_on_at_startup", false);
+	obs_data_set_default_bool(cfg, "power_off_at_shutdown", false);
 }
 
 void PTZVisca::update(OBSData cfg)
@@ -710,6 +716,8 @@ void PTZVisca::update(OBSData cfg)
 	visca_focus_speed_max = (int)obs_data_get_int(cfg, "visca_focus_speed_max");
 	protocol_trace = obs_data_get_bool(cfg, "protocol_trace");
 	tally_auto = obs_data_get_bool(cfg, "tally_auto");
+	power_on_at_startup = obs_data_get_bool(cfg, "power_on_at_startup");
+	power_off_at_shutdown = obs_data_get_bool(cfg, "power_off_at_shutdown");
 
 	transport->update(cfg);
 	unsupported_requests.clear();
@@ -726,6 +734,8 @@ void PTZVisca::save(OBSData cfg) const
 	obs_data_set_int(cfg, "visca_focus_speed_max", visca_focus_speed_max);
 	obs_data_set_bool(cfg, "protocol_trace", protocol_trace);
 	obs_data_set_bool(cfg, "tally_auto", tally_auto);
+	obs_data_set_bool(cfg, "power_on_at_startup", power_on_at_startup);
+	obs_data_set_bool(cfg, "power_off_at_shutdown", power_off_at_shutdown);
 	if (transport)
 		transport->save(cfg);
 }
@@ -804,6 +814,8 @@ obs_properties_t *PTZVisca::get_obs_properties()
 	visca_add_interface_fields(iface_props, type);
 
 	obs_properties_add_bool(ptz_props, "tally_auto", obs_module_text("PTZ.Visca.TallyAuto"));
+	obs_properties_add_bool(ptz_props, "power_on_at_startup", obs_module_text("PTZ.Visca.PowerOnAtStartup"));
+	obs_properties_add_bool(ptz_props, "power_off_at_shutdown", obs_module_text("PTZ.Visca.PowerOffAtShutdown"));
 
 	auto visca_grp = obs_properties_create();
 	obs_properties_add_group(ptz_props, "visca_advanced", obs_module_text("PTZ.Settings.Advanced"),
@@ -924,6 +936,7 @@ void PTZVisca::receive(const QByteArray &msg)
 	int slot = msg[1] & 0x7;
 	QByteArray inq;
 	since_last_rx.start();
+	link_answered = true;
 
 	switch (msg[1] & 0xf0) {
 	case VISCA_RESPONSE_ACK:
@@ -1031,6 +1044,7 @@ void PTZVisca::receive(const QByteArray &msg)
 	 * (ACK, completion, or error) there is nothing left to time out. */
 	if (!active_cmd[0].has_value())
 		timeout_timer.stop();
+	powerOnAtStartup();
 	send_pending();
 }
 
@@ -1072,6 +1086,47 @@ void PTZVisca::onSceneChanged()
 		sendTally(false, live);
 	if ((preview && !live) != was_green)
 		sendTally(true, preview && !live);
+}
+
+/* Powers the camera on once OBS itself has finished loading, for anyone
+ * who'd rather it not sit in standby whenever OBS isn't the one running it.
+ * The link to the camera may not be up yet: a TCP connection can still be
+ * being made, or a host name looked up, and what is sent then goes nowhere.
+ * So wait for the camera to answer something, for up to
+ * VISCA_POWER_ON_WAIT_MS. */
+void PTZVisca::onOBSStartup()
+{
+	if (!power_on_at_startup)
+		return;
+	power_on_pending = true;
+	power_on_requested.start();
+	if (link_answered)
+		powerOnAtStartup();
+}
+
+void PTZVisca::powerOnAtStartup()
+{
+	if (!power_on_pending)
+		return;
+	power_on_pending = false;
+	if (power_on_requested.elapsed() < VISCA_POWER_ON_WAIT_MS)
+		send(VISCA_CAM_Power, {1});
+}
+
+/* Sent as OBS is closing, with the transport about to go away along with
+ * everything else, so it can't go through the queue, which sends when the
+ * camera has answered what is in front of it and the event loop has run.
+ * Send it now. Best-effort still: nothing waits for the camera to take it,
+ * and a serial port has no way to be flushed. */
+void PTZVisca::onOBSShutdown()
+{
+	if (!power_off_at_shutdown)
+		return;
+	PTZCmd cmd = VISCA_CAM_Power;
+	cmd.encode({0});
+	send_immediate(cmd.cmd);
+	if (transport)
+		transport->flush();
 }
 
 bool PTZVisca::runTrigger(const QString &name)

@@ -42,6 +42,12 @@ void ViscaTCPTransport::on_socket_stateChanged(QAbstractSocket::SocketState stat
 	}
 }
 
+void ViscaTCPTransport::flush()
+{
+	if (visca_socket.state() == QAbstractSocket::ConnectedState)
+		visca_socket.waitForBytesWritten(100);
+}
+
 void ViscaTCPTransport::send(const QByteArray &msg, unsigned int address)
 {
 	Q_UNUSED(address);

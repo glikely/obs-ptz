@@ -48,6 +48,9 @@ public:
 	 * next request. Some cameras silently drop a request that comes too
 	 * soon after a reply. */
 	virtual int minRequestGapMs() const { return 0; }
+	/* Gets what has been sent on its way now, rather than when the event
+	 * loop next runs, for a last message before the transport goes away */
+	virtual void flush() {}
 
 signals:
 	/* A decoded VISCA reply datagram, with transport framing removed */
@@ -102,6 +105,14 @@ protected:
 	unsigned int visca_zoom_speed_max = 7;
 	unsigned int visca_focus_speed_max = 7;
 	bool tally_auto = true;
+	bool power_on_at_startup = false;
+	bool power_off_at_shutdown = false;
+	/* Whether the camera has answered since the link came up, and a
+	 * power-on that is waiting for it to (see onOBSStartup()) */
+	bool link_answered = false;
+	bool power_on_pending = false;
+	QElapsedTimer power_on_requested;
+	void powerOnAtStartup();
 
 	void sendTally(bool green, bool on);
 	void update_tally_state(const QByteArray &cmd);
@@ -129,6 +140,8 @@ public:
 	bool supportsDiagnostics() const override { return true; }
 	void requestState(OBSData requested) override;
 	void onSceneChanged() override;
+	void onOBSStartup() override;
+	void onOBSShutdown() override;
 
 	static void defaults(obs_data_t *config);
 	void update(OBSData config) override;

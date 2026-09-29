@@ -33,6 +33,7 @@ public:
 	void update(OBSData config) override;
 	void save(OBSData config) const override;
 	void send(const QByteArray &msg, unsigned int address) override;
+	void flush() override;
 
 	static void add_obs_properties(obs_properties_t *props);
 };
