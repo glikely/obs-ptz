@@ -47,10 +47,16 @@ PTZStateView::PTZStateView(QWidget *parent) : QWidget(parent)
 
 	m_power = new QCheckBox(obs_module_text("PTZ.Device.State.Power"));
 	m_focusAuto = new QCheckBox(obs_module_text("PTZ.Device.State.Autofocus"));
+	m_tally = new QCheckBox(obs_module_text("PTZ.Device.State.Tally"));
+	m_tallyPreview = new QCheckBox(obs_module_text("PTZ.Device.State.TallyPreview"));
 	top->addRow(m_power);
 	top->addRow(m_focusAuto);
+	top->addRow(m_tally);
+	top->addRow(m_tallyPreview);
 	m_power->hide();
 	m_focusAuto->hide();
+	m_tally->hide();
+	m_tallyPreview->hide();
 	page->addLayout(top);
 
 	m_positionGroup = new QGroupBox(obs_module_text("PTZ.Device.State.Position"));
@@ -115,6 +121,16 @@ PTZStateView::PTZStateView(QWidget *parent) : QWidget(parent)
 	connect(m_focusAuto, &QCheckBox::clicked, this, [this](bool checked) {
 		OBSDataAutoRelease requested = obs_data_create();
 		obs_data_set_bool(requested, "focus_af_enabled", checked);
+		emit stateRequested(OBSData(requested.Get()));
+	});
+	connect(m_tally, &QCheckBox::clicked, this, [this](bool checked) {
+		OBSDataAutoRelease requested = obs_data_create();
+		obs_data_set_bool(requested, "tally_on", checked);
+		emit stateRequested(OBSData(requested.Get()));
+	});
+	connect(m_tallyPreview, &QCheckBox::clicked, this, [this](bool checked) {
+		OBSDataAutoRelease requested = obs_data_create();
+		obs_data_set_bool(requested, "tally_preview", checked);
 		emit stateRequested(OBSData(requested.Get()));
 	});
 
@@ -204,6 +220,8 @@ void PTZStateView::applyData(obs_data_t *data, bool all)
 	};
 	setCommandableFlag(m_power, "power_on");
 	setCommandableFlag(m_focusAuto, "focus_af_enabled");
+	setCommandableFlag(m_tally, "tally_on");
+	setCommandableFlag(m_tallyPreview, "tally_preview");
 
 	for (int i = 0; i < AxisCount; i++) {
 		const char *key = m_axisKeys[i];
@@ -265,6 +283,10 @@ QVariantMap PTZStateView::shownValues() const
 		shown["power_on"] = m_power->isChecked();
 	if (!m_focusAuto->isHidden())
 		shown["focus_af_enabled"] = m_focusAuto->isChecked();
+	if (!m_tally->isHidden())
+		shown["tally_on"] = m_tally->isChecked();
+	if (!m_tallyPreview->isHidden())
+		shown["tally_preview"] = m_tallyPreview->isChecked();
 	for (int i = 0; i < AxisCount; i++)
 		if (!m_axisLabels[i]->isHidden())
 			shown[m_axisKeys[i]] = m_axisValues[i]->text().toDouble();

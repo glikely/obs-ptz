@@ -81,8 +81,9 @@ protected:
 	int busy_backoff_ms = 0;
 	unsigned int address = 1;
 	bool protocol_trace = false;
-	/* Inquiries the camera answered with a syntax error: it doesn't have them */
-	QSet<QByteArray> unsupported_inquiries;
+	/* Inquiries, and tally lamp commands, the camera answered with a syntax
+	 * error: it doesn't have them */
+	QSet<QByteArray> unsupported_requests;
 	QMap<QByteArray, QByteArray> replyLast;
 	QMap<QByteArray, int> replyCount;
 	QList<PTZCmd> pending_cmds;
@@ -100,7 +101,10 @@ protected:
 	unsigned int visca_tilt_speed_max = 0x14;
 	unsigned int visca_zoom_speed_max = 7;
 	unsigned int visca_focus_speed_max = 7;
+	bool tally_auto = true;
 
+	void sendTally(bool green, bool on);
+	void update_tally_state(const QByteArray &cmd);
 	bool send_pantilt();
 	void send_immediate(const QByteArray &msg);
 	void send_packet(const QByteArray &msg);
@@ -124,6 +128,7 @@ public:
 	obs_properties_t *get_obs_properties() override;
 	bool supportsDiagnostics() const override { return true; }
 	void requestState(OBSData requested) override;
+	void onSceneChanged() override;
 
 	static void defaults(obs_data_t *config);
 	void update(OBSData config) override;
