@@ -158,7 +158,14 @@ actually work end to end.
     generic position state, against the ONVIF backend of the shared
     `ptzsim`: which axes it reports, a position in range, and that it
     follows a move as it happens instead of at the slow poll's pace.
-19. `test_settings_dialog.py` covers the PTZ settings dialog showing a
+19. The USB (UVC) driver reporting where the camera is
+    (`PTZUSBCam::report_state()`, `PTZUsbWorker::captureState()` in
+    `src/ptz-usb-cam.cpp`/`src/ptz-usb-worker.cpp`) has no test here: there is
+    no camera to drive through a live OBS, so it is covered at the worker
+    level instead, in `tests/usb-backend/test_worker.cpp` ("the worker reports
+    its state, for the axes the camera has", and a camera with no focus
+    range), the same way the rest of the USB driver is tested.
+20. `test_settings_dialog.py` covers the PTZ settings dialog showing a
     device's settings and its state apart, as a properties view and a
     `PTZStateView` stacked on one scrolling page rather than as tabs: what
     each holds, that a state change changes only the status view and a

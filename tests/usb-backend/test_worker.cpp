@@ -34,9 +34,10 @@ struct Camera {
 	std::vector<Call> calls;
 	std::set<QThread *> threads; /* every thread that created, used or destroyed a backend */
 	int alive = 0;
-	std::atomic<bool> present{true}; /* false while the camera is unplugged */
-	std::atomic<int> probes{0};      /* how often the backend was asked if it's still there */
-	std::atomic<int> delay_ms{0};    /* how long each request takes */
+	std::atomic<bool> present{true};   /* false while the camera is unplugged */
+	std::atomic<int> probes{0};        /* how often the backend was asked if it's still there */
+	std::atomic<int> delay_ms{0};      /* how long each request takes */
+	std::atomic<bool> no_focus{false}; /* like a fixed-focus camera: no focus range */
 
 	size_t count()
 	{
@@ -86,7 +87,7 @@ public:
 	{
 		device_path = id;
 		min = {-100, -100, 0, 0};
-		max = {100, 100, 100, 100};
+		max = {100, 100, 100, camera.no_focus ? 0 : 100};
 		step = {1, 1, 1, 1};
 		std::lock_guard<std::mutex> lock(camera_.m);
 		camera_.alive++;
@@ -344,6 +345,78 @@ TEST_CASE("the worker reports where the camera is", "[usb-backend][worker]")
 	CHECK(answer.pan == 0.5);
 	CHECK(answer.tilt == 0.25);
 	CHECK(answer.zoom == 0.75);
+}
+
+TEST_CASE("the worker reports its state, for the axes the camera has", "[usb-backend][worker]")
+{
+	Camera camera;
+	PTZUsbWorker worker(factoryFor(camera));
+
+	QObject context;
+	struct Answer {
+		PtzUsbCamPos pos;
+		bool hasPan = false, hasTilt = false, hasZoom = false, hasFocus = false;
+	} answer;
+	bool answered = false;
+	QObject::connect(&worker, &PTZUsbWorker::stateCaptured, &context,
+			 [&](PtzUsbCamPos pos, bool hasPan, bool hasTilt, bool hasZoom, bool hasFocus) {
+				 answer = {pos, hasPan, hasTilt, hasZoom, hasFocus};
+				 answered = true;
+			 });
+
+	worker.setDeviceId("cam");
+	worker.pantiltAbs(0.5, 0.25);
+	worker.zoomAbs(0.75);
+	worker.focusAbs(0.4);
+	worker.captureState();
+	REQUIRE(waitFor([&] { return answered; }));
+
+	CHECK(answer.hasPan);
+	CHECK(answer.hasTilt);
+	CHECK(answer.hasZoom);
+	CHECK(answer.hasFocus);
+	CHECK(answer.pos.pan == 0.5);
+	CHECK(answer.pos.tilt == 0.25);
+	CHECK(answer.pos.zoom == 0.75);
+	CHECK(answer.pos.focus == 0.4);
+}
+
+TEST_CASE("a camera without a focus range reports no focus in its state", "[usb-backend][worker]")
+{
+	Camera camera;
+	camera.no_focus = true;
+	PTZUsbWorker worker(factoryFor(camera));
+
+	bool hasFocus = true;
+	bool answered = false;
+	QObject context;
+	QObject::connect(&worker, &PTZUsbWorker::stateCaptured, &context,
+			 [&](PtzUsbCamPos, bool, bool, bool, bool focus) {
+				 hasFocus = focus;
+				 answered = true;
+			 });
+
+	worker.setDeviceId("cam");
+	worker.captureState();
+	REQUIRE(waitFor([&] { return answered; }));
+	CHECK_FALSE(hasFocus);
+}
+
+TEST_CASE("captureState does nothing without a camera", "[usb-backend][worker]")
+{
+	Camera camera;
+	PTZUsbWorker worker(factoryFor(camera));
+
+	bool answered = false;
+	QObject context;
+	QObject::connect(&worker, &PTZUsbWorker::stateCaptured, &context,
+			 [&](PtzUsbCamPos, bool, bool, bool, bool) { answered = true; });
+
+	/* no setDeviceId(): there is no camera to ask */
+	worker.captureState();
+	QThread::msleep(100);
+	QCoreApplication::processEvents();
+	CHECK_FALSE(answered);
 }
 
 TEST_CASE("a saved position is recalled axis by axis", "[usb-backend][worker]")
