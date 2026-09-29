@@ -206,7 +206,7 @@ const PTZInq VISCA_CameraControlInq(
 	"81097e7e01ff", {new visca_u8("r_gain", 2), new visca_u8("b_gain", 4), new visca_u4("wb_mode", 6),
 			 new visca_u4("aperature_gain", 7), new visca_u4("exposure_mode", 8),
 			 new bool_field("high_resolution", 9, 0b00100000), new bool_field("wide_d", 9, 0b00010000),
-			 new bool_field("back_light", 9, 0b1000), new bool_field("exposure_comp", 9, 0b1000),
+			 new bool_field("back_light", 9, 0b0100), new bool_field("exposure_comp", 9, 0b0010),
 			 new bool_field("slow_shutter", 9, 0b0001), new int_field("shutter_pos", 10, 0x1f),
 			 new int_field("iris_pos", 11, 0x1f), new int_field("gain_pos", 12, 0x1f),
 			 new int_field("bright_pos", 13, 0x1f), new int_field("exposure_comp_pos", 14, 0x0f)});
@@ -455,7 +455,7 @@ const PTZCmd VISCA_CAM_LowLatency_Off("81017e015a03ff");
 const PTZInq VISCA_CAM_LowLatencyInq("81097e015aff", {new visca_flag("lowlatency", 2)});
 
 const PTZCmd VISCA_SYSMenu_Off("8101060603ff");
-const PTZInq VISCA_SYSMenuInq("81010606ff", {new visca_flag("menumode", 2)});
+const PTZInq VISCA_SYSMenuInq("81090606ff", {new visca_flag("menumode", 2)});
 
 const PTZCmd VISCA_CAM_InfoDisplay_On("81017e011802ff");
 const PTZCmd VISCA_CAM_InfoDisplay_Off("81017e011803ff");
@@ -491,6 +491,13 @@ const PTZCmd VISCA_PanTilt_drive_rel("8101060300000000000000000000ff",
 const PTZCmd VISCA_PanTilt_Home("81010604ff", "pan_pos");
 const PTZCmd VISCA_PanTilt_Reset("81010605ff", "pan_pos");
 const PTZInq VISCA_PanTilt_PosInq("81090612ff", {new visca_s16("pan_pos", 2), new visca_s16("tilt_pos", 6)});
+
+const PTZInq VISCA_PanTilt_ModeInq(
+	"81090610ff",
+	{new int_field("pantilt_init_status", 2, 0b00110000), new int_field("pantilt_move_status", 2, 0b00001100),
+	 new int_field("pantilt_tilt_correct", 2, 0b00000011), new int_field("pantilt_pan_correct", 3, 0b00110000),
+	 new bool_field("pantilt_at_left_limit", 3, 0b0001), new bool_field("pantilt_at_right_limit", 3, 0b0010),
+	 new bool_field("pantilt_at_upper_limit", 3, 0b0100), new bool_field("pantilt_at_lower_limit", 3, 0b1000)});
 
 const PTZCmd VISCA_PanTilt_LimitSetUpRight("8101060700010000000000000000ff",
 					   {new visca_u16("pan_limit_right", 6), new visca_u16("tilt_limit_up", 10)});
@@ -534,6 +541,7 @@ const QMap<QString, PTZInq> PTZVisca::inquires = {
 	{"dzoom_pos", VISCA_EnlargementFunction1Inq},
 	{"defog_mode", VISCA_EnlargementFunction2Inq},
 	{"color_hue", VISCA_EnlargementFunction3Inq},
+	{"pantilt_move_status", VISCA_PanTilt_ModeInq},
 };
 
 /* What to ask for, one value at a time, when a camera answers the block
