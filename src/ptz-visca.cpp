@@ -182,6 +182,7 @@ static constexpr int VISCA_FOCUS_NEAR = 0xf000;
 static constexpr int VISCA_REPLY_TIMEOUT_MS = 250;
 
 /* Error reply "command buffer full", and how to deal with it */
+static constexpr int VISCA_ERROR_SYNTAX = 0x02;
 static constexpr int VISCA_ERROR_BUFFER_FULL = 0x03;
 static constexpr int VISCA_BUSY_BACKOFF_MS = 50;
 static constexpr unsigned int VISCA_BUSY_RETRIES_MAX = 20;
@@ -253,10 +254,12 @@ const PTZCmd VISCA_CAM_Zoom_WideVar("8101040730ff",
 					    new visca_u4("zoom_speed", 4),
 				    },
 				    "zoom_pos");
-const PTZCmd VISCA_CAM_Zoom_Direct("8101044700000000ff", {
-								 new visca_s16("zoom_pos", 4),
-							 });
-const PTZInq VISCA_CAM_ZoomPosInq("81090447ff", {new visca_s16("zoom_pos", 2)});
+const PTZCmd VISCA_CAM_Zoom_Direct("8101044700000000ff",
+				   {
+					   new visca_s16("zoom_pos", 4),
+				   },
+				   "zoom_pos");
+const PTZInq VISCA_CAM_ZoomPosInq("81090447ff", {new visca_u16("zoom_pos", 2)});
 
 const PTZCmd VISCA_CAM_DZoom_On("8101040602ff", "dzoom_on");
 const PTZCmd VISCA_CAM_DZoom_Off("8101040603ff", "dzoom_on");
@@ -294,7 +297,7 @@ const PTZCmd VISCA_CAM_FocusPos("8101044800000000ff",
 					new visca_s16("focus_pos", 4),
 				},
 				"focus_pos");
-const PTZInq VISCA_CAM_FocusPosInq("81090448ff", {new visca_s16("focus_pos", 2)});
+const PTZInq VISCA_CAM_FocusPosInq("81090448ff", {new visca_u16("focus_pos", 2)});
 
 const PTZCmd VISCA_CAM_Focus_NearLimit("8101042800000000ff", {new visca_s16("focus_nearlimit", 4)});
 const PTZInq VISCA_CAM_FocusNearLimitInq("81090428ff", {new visca_s16("focus_near_limit", 2)});
@@ -523,6 +526,7 @@ const QMap<QString, PTZInq> PTZVisca::inquires = {
 	{"tilt_pos", VISCA_PanTilt_PosInq},
 	{"focus_pos", VISCA_LensControlInq},
 	{"zoom_pos", VISCA_LensControlInq},
+	{"focus_af_enabled", VISCA_LensControlInq},
 	{"wb_mode", VISCA_CameraControlInq},
 	{"iris_pos", VISCA_CameraControlInq},
 	{"gain_pos", VISCA_CameraControlInq},
@@ -530,6 +534,17 @@ const QMap<QString, PTZInq> PTZVisca::inquires = {
 	{"dzoom_pos", VISCA_EnlargementFunction1Inq},
 	{"defog_mode", VISCA_EnlargementFunction2Inq},
 	{"color_hue", VISCA_EnlargementFunction3Inq},
+};
+
+/* What to ask for, one value at a time, when a camera answers the block
+ * inquiry a property is normally read with (above) with a syntax error. A
+ * BirdDog has none of the "7e 7e xx" block inquiries. Only properties whose
+ * single-value inquiry reads the same value are here. */
+const QMap<QString, PTZInq> PTZVisca::inquiresFallback = {
+	{"zoom_pos", VISCA_CAM_ZoomPosInq},
+	{"focus_pos", VISCA_CAM_FocusPosInq},
+	{"focus_af_enabled", VISCA_CAM_Focus_AFEnabledInq},
+	{"wb_mode", VISCA_CAM_WBModeInq},
 };
 
 /*
@@ -661,6 +676,7 @@ void PTZVisca::update(OBSData cfg)
 	protocol_trace = obs_data_get_bool(cfg, "protocol_trace");
 
 	transport->update(cfg);
+	unsupported_inquiries.clear();
 }
 
 void PTZVisca::save(OBSData cfg) const
@@ -879,6 +895,11 @@ void PTZVisca::receive(const QByteArray &msg)
 			}
 		}
 
+		/* What the command changed is only where it is going until it
+		 * has completed, so read it again now */
+		if (!active_cmd[slot]->affects.isEmpty())
+			stale_state += active_cmd[slot]->affects;
+
 		/* Log Inquiry Replies */
 		inq = active_cmd[slot]->cmd;
 		if (inq[1] == 0x09) {
@@ -926,6 +947,16 @@ void PTZVisca::receive(const QByteArray &msg)
 		if (active_cmd[0].has_value()) {
 			for (auto rslt : active_cmd[0].value().results)
 				stale_state -= rslt->name;
+			/* An inquiry the camera doesn't have: read what it
+			 * covers with the single-value inquiries instead */
+			if (active_cmd[0]->cmd[1] == 0x09 && msg.size() > 2 && msg[2] == VISCA_ERROR_SYNTAX) {
+				const QByteArray unsupported = active_cmd[0]->cmd;
+				unsupported_inquiries.insert(unsupported);
+				for (auto prop : inquiresFallback.keys()) {
+					if (inquires.value(prop).cmd == unsupported)
+						stale_state += prop;
+				}
+			}
 		}
 		ptz_debug("rx error: %s", msg.toHex(':').data());
 		active_cmd[0] = std::nullopt;
@@ -1003,10 +1034,18 @@ void PTZVisca::send_pending()
 			QSetIterator<QString> i(stale_state);
 			while (i.hasNext()) {
 				QString prop = i.next();
-				if (inquires.contains(prop)) {
-					pending_cmds += inquires[prop];
-					break;
+				if (!inquires.contains(prop))
+					continue;
+				PTZInq inq = inquires[prop];
+				if (unsupported_inquiries.contains(inq.cmd) && inquiresFallback.contains(prop))
+					inq = inquiresFallback[prop];
+				if (unsupported_inquiries.contains(inq.cmd)) {
+					/* Nothing to read it with */
+					stale_state -= prop;
+					continue;
 				}
+				pending_cmds += inq;
+				break;
 			}
 		}
 	}

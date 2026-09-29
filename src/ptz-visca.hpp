@@ -73,6 +73,7 @@ public:
 	static const QMap<int, std::string> viscaVendors;
 	static const QMap<int, std::string> viscaModels;
 	static const QMap<QString, PTZInq> inquires;
+	static const QMap<QString, PTZInq> inquiresFallback;
 
 protected:
 	unsigned int timeout_retry = 0;
@@ -80,6 +81,8 @@ protected:
 	int busy_backoff_ms = 0;
 	unsigned int address = 1;
 	bool protocol_trace = false;
+	/* Inquiries the camera answered with a syntax error: it doesn't have them */
+	QSet<QByteArray> unsupported_inquiries;
 	QMap<QByteArray, QByteArray> replyLast;
 	QMap<QByteArray, int> replyCount;
 	QList<PTZCmd> pending_cmds;
