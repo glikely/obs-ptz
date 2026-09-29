@@ -27,8 +27,8 @@ namespace {
  * reusing the same field names the properties dialog does (see
  * PTZVisca::update()'s "type" -> ViscaTransport switch and
  * ViscaUDPTransport::update()/ViscaTCPTransport::update()). Unlike
- * set_device/move_device (which go through narrow calldata-based proc
- * handlers for individual properties), this always seeds from the
+ * move_device (which goes through a narrow calldata-based proc handler
+ * for individual values), this always seeds from the
  * device's current full settings first so fields the caller doesn't
  * override keep their existing values instead of resetting to defaults,
  * matching how the properties dialog itself is always pre-populated

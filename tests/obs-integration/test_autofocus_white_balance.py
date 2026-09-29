@@ -1,13 +1,13 @@
 """End-to-end tests for autofocus mode (PTZDevice::set_autofocus(),
-"focus_af_enabled") and white balance mode ("wb_mode") -- both settable
-via the "ptz_set" proc handler and readable in the "ptz_get_state" state
+"focus_af_enabled") and white balance mode ("wb_mode") -- both requested
+through the "ptz_request_state" proc handler and readable in the "ptz_get_state" state
 (src/ptz-device.cpp/src/ptz-visca.cpp), the same ones PTZControls uses from
 inside the UI (src/ptz-controls.cpp).
 
 Neither has a ptz_action_source action type of its own -- its own
 PTZ_ACTION_* enum (src/ptz-action-source.c) only covers continuous
 pan/tilt, stop, presets and power -- so both are driven through
-tests/ui-harness/set-device-test.cpp's "set_device" test and read back
+tests/ui-harness/device-state-test.cpp's "set_device_state" test and read back
 through device-status-test.cpp's "get_device_status" test (see
 World.device_status()/wait_for_device_status() in conftest.py), the
 same way as test_device_status.py.
@@ -36,11 +36,11 @@ def test_autofocus_toggle(obs_world, backend, tmp_path):
     device_id = obs_world.device_ids[backend]
     status_file = tmp_path / "status.json"
 
-    obs_world.run_ui_test("set_device", device_id=device_id, focus_af_enabled=False)
+    obs_world.run_ui_test("set_device_state", device_id=device_id, focus_af_enabled=False)
     obs_world.wait_for_device_status(
         device_id, status_file, lambda s: s["focus_af_enabled"] is False, timeout=5)
 
-    obs_world.run_ui_test("set_device", device_id=device_id, focus_af_enabled=True)
+    obs_world.run_ui_test("set_device_state", device_id=device_id, focus_af_enabled=True)
     obs_world.wait_for_device_status(
         device_id, status_file, lambda s: s["focus_af_enabled"] is True, timeout=5)
 
@@ -51,5 +51,5 @@ def test_white_balance_mode(obs_world, backend, mode, tmp_path):
     device_id = obs_world.device_ids[backend]
     status_file = tmp_path / "status.json"
 
-    obs_world.run_ui_test("set_device", device_id=device_id, wb_mode=mode)
+    obs_world.run_ui_test("set_device_state", device_id=device_id, wb_mode=mode)
     obs_world.wait_for_device_status(device_id, status_file, lambda s: s["wb_mode"] == mode, timeout=5)

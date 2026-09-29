@@ -20,16 +20,16 @@ its drivers, `tests/obs-integration/test_device_status.py`,
 `test_autofocus_white_balance.py` and `test_power.py` - also pytest
 modules, for the same reason), `move_device` (see `move-device-test.cpp`
 and its driver, `tests/obs-integration/test_absolute_relative_moves.py`
-- likewise a pytest module), and `set_device`/`trigger_device` (see
-`set-device-test.cpp` and its drivers, `test_autofocus_white_balance.py`,
-`test_power.py` and `test_device_state.py`),
+- likewise a pytest module), and `trigger_device` (see
+`set-device-test.cpp` and its driver, `test_device_state.py`),
 `get_preset_view` (see `preset-view-test.cpp` and its driver,
 `test_preset_view.py`), and `get_device_source`/`hold_source`/
 `get_saved_devices` (see `device-source-test.cpp` and its drivers,
 `test_device_source_binding.py` and `test_filter_devices.py`), and
 `get_device_settings` (see `device-settings-test.cpp` and its driver,
 `test_device_settings.py`), and `get_device_state`/`set_device_state` (see
-`device-state-test.cpp` and its driver, `test_device_state.py`), and
+`device-state-test.cpp` and its drivers, `test_device_state.py`,
+`test_autofocus_white_balance.py` and `test_power.py`), and
 `watch_device_signals`/`get_device_signals` (see `device-signals-test.cpp`
 and its driver, `test_device_signals.py`), and `open_settings_dialog`/
 `get_settings_dialog`/`edit_dialog_state`/`press_dialog_button` (see

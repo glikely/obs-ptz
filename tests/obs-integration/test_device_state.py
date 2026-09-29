@@ -8,8 +8,7 @@ Driven through tests/ui-harness/device-state-test.cpp's "get_device_state"
 and "set_device_state" tests (see World.device_state() in conftest.py).
 
 VISCA-only where the state is: "wb_mode" and "focus_af_enabled" are what
-a VISCA camera reports (see test_autofocus_white_balance.py, which drives
-the older calldata spelling, "ptz_set", of the same requests).
+a VISCA camera reports (see test_autofocus_white_balance.py).
 """
 
 import time

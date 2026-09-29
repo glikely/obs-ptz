@@ -66,13 +66,13 @@ actually work end to end.
    can't reach them.
 9. `test_autofocus_white_balance.py` covers autofocus on/off
    (`PTZDevice::set_autofocus()`) and VISCA white balance mode
-   (`PTZVisca::set()`'s `"wb_mode"` handling), via
-   `tests/ui-harness/set-device-test.cpp`'s `set_device` test (same
+   (`PTZVisca::requestState()`'s `"wb_mode"` handling), via
+   `tests/ui-harness/device-state-test.cpp`'s `set_device_state` test (same
    `-DENABLE_UI_TESTS=ON` requirement as above), read back through
    `get_device_status`.
-10. `test_power.py` covers camera power on/off (`PTZVisca::set()`'s
-    `"power_on"` handling), the same way as autofocus/white balance --
-    `set_device` to set it, `get_device_status` to read it back.
+10. `test_power.py` covers camera power on/off
+    (`PTZVisca::requestState()`'s `"power_on"` handling), the same way as
+    autofocus/white balance -- `set_device_state` to request it, `get_device_status` to read it back.
     `PTZ_ACTION_POWER_OFF`/`PTZ_ACTION_POWER_ON` exist in
     `ptz_action_source`'s own action enum but are never actually wired
     up or exposed in its properties, so obs-websocket alone can't reach
