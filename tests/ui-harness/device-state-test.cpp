@@ -69,6 +69,11 @@ void runSetDeviceStateTest(const QMap<QString, QString> &params)
 	if (params.contains(QStringLiteral("focus_af_enabled")))
 		obs_data_set_bool(state, "focus_af_enabled",
 				  params.value(QStringLiteral("focus_af_enabled")).toLower() == "true");
+	if (params.contains(QStringLiteral("tally_on")))
+		obs_data_set_bool(state, "tally_on", params.value(QStringLiteral("tally_on")).toLower() == "true");
+	if (params.contains(QStringLiteral("tally_preview")))
+		obs_data_set_bool(state, "tally_preview",
+				  params.value(QStringLiteral("tally_preview")).toLower() == "true");
 	if (params.contains(QStringLiteral("wb_mode")))
 		obs_data_set_int(state, "wb_mode", params.value(QStringLiteral("wb_mode")).toLongLong());
 
@@ -90,6 +95,8 @@ void runSetDeviceStateTest(const QMap<QString, QString> &params)
  *   device_id         - the target device's numeric id
  *   power_on          - optional, "True"/"False"
  *   focus_af_enabled  - optional, "True"/"False"
+ *   tally_on          - optional, "True"/"False"
+ *   tally_preview     - optional, "True"/"False"
  *   wb_mode           - optional, integer white-balance mode
  * A request with none of the optional params asks for nothing.
  */
