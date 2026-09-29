@@ -64,6 +64,17 @@ static void device_state_changed_cb(void *data, calldata_t *cd)
 }
 
 /**
+ * device settings change callback-- connected to PTZDevice "settings_changed"
+ * signal
+ */
+static void device_settings_changed_cb(void *data, calldata_t *cd)
+{
+	auto ptzlm = static_cast<PTZListModel *>(data);
+	auto device_id = (uint32_t)calldata_int(cd, "device_id");
+	QMetaObject::invokeMethod(ptzlm, [ptzlm, device_id] { ptzlm->deviceSettingsChanged(device_id); });
+}
+
+/**
  * Preset list mutation notifications. PTZDevice fires each of these once,
  * after its preset list has already been mutated -- these trampolines
  * route them to PTZListModel, which does the begin.../end...Rows()
@@ -559,6 +570,33 @@ void PTZListModel::update(const QModelIndex &index, OBSData settings)
 		emit dataChanged(idx, idx);
 }
 
+/**
+ * The state half of save()/update(): the device's whole transient state,
+ * and a request to change some of it. See PTZDevice::saveState()/
+ * requestState().
+ */
+void PTZListModel::saveState(const QModelIndex &index, OBSData state) const
+{
+	auto entry = entryAt(index);
+	if (!entry)
+		return;
+	calldata_t cd = {};
+	calldata_set_ptr(&cd, "state", state.Get());
+	callEntry(*entry, "ptz_get_state", &cd);
+	calldata_free(&cd);
+}
+
+void PTZListModel::setState(const QModelIndex &index, OBSData state)
+{
+	auto entry = entryAt(index);
+	if (!entry)
+		return;
+	calldata_t cd = {};
+	calldata_set_ptr(&cd, "state", state.Get());
+	callEntry(*entry, "ptz_request_state", &cd);
+	calldata_free(&cd);
+}
+
 obs_properties_t *PTZListModel::getProperties(const QModelIndex &index) const
 {
 	auto entry = entryAt(index);
@@ -626,6 +664,7 @@ void PTZListModel::deviceCreated(uint32_t device_id, proc_handler_t *ph, signal_
 	do_reset();
 
 	signal_handler_connect(sh, "state_changed", device_state_changed_cb, this);
+	signal_handler_connect(sh, "settings_changed", device_settings_changed_cb, this);
 	signal_handler_connect(sh, "preset_inserted", preset_inserted_cb, this);
 	signal_handler_connect(sh, "preset_removed", preset_removed_cb, this);
 	signal_handler_connect(sh, "preset_moved", preset_moved_cb, this);
@@ -642,7 +681,7 @@ void PTZListModel::deviceDestroyed(uint32_t device_id)
 	do_reset();
 }
 
-void PTZListModel::deviceStateChanged(uint32_t device_id, OBSData)
+void PTZListModel::deviceStateChanged(uint32_t device_id, OBSData changed)
 {
 	auto entry = entryById(device_id);
 	if (!entry)
@@ -651,6 +690,23 @@ void PTZListModel::deviceStateChanged(uint32_t device_id, OBSData)
 	auto idx = indexFromDeviceId(device_id);
 	if (idx.isValid())
 		emit dataChanged(idx, idx);
+	emit deviceStateUpdated(device_id, changed);
+}
+
+/* The settings can change behind the model's back -- OBS's Filters dialog
+ * and obs-websocket both edit a filter's settings without asking it -- so
+ * this is where it finds out, whether or not update() below was the cause. */
+void PTZListModel::deviceSettingsChanged(uint32_t device_id)
+{
+	auto entry = entryById(device_id);
+	if (!entry)
+		return;
+	refreshDeviceState(entry);
+	refreshPresetList(entry);
+	auto idx = indexFromDeviceId(device_id);
+	if (idx.isValid())
+		emit dataChanged(idx, idx);
+	emit deviceSettingsUpdated(device_id);
 }
 
 void PTZListModel::presetsChanged(uint32_t device_id)

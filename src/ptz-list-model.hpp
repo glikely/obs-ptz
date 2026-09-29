@@ -105,6 +105,8 @@ public:
 	void save(const QModelIndex &index, OBSData settings) const;
 	void update(const QModelIndex &index, OBSData settings);
 	obs_properties_t *getProperties(const QModelIndex &index) const;
+	void saveState(const QModelIndex &index, OBSData state) const;
+	void setState(const QModelIndex &index, OBSData state);
 	void removeDevice(const QModelIndex &index);
 	void delete_all();
 
@@ -121,11 +123,25 @@ public:
 	void presetMoved(uint32_t device_id, int srcRow, int destRow);
 
 	/* Called by the signal_handler trampolines in ptz-list-model.cpp;
-	 * not Qt slots since nothing emits a Qt signal for any of this. */
+	 * not Qt slots, they bring the cache up to date and then, for the
+	 * two below, tell listeners with the signals of the same name. */
 	void deviceCreated(uint32_t device_id, proc_handler_t *ph, signal_handler_t *sh, OBSWeakSource weakFilter);
 	void deviceDestroyed(uint32_t device_id);
 	void deviceStateChanged(uint32_t device_id, OBSData changed);
+	void deviceSettingsChanged(uint32_t device_id);
 	void presetsChanged(uint32_t device_id);
+
+signals:
+	/* For whoever shows a device's settings or state as more than a row
+	 * (the settings dialog): dataChanged() says a row needs redrawing, and
+	 * can't tell which half of the device changed, or how. Emitted after the
+	 * cache above is current. Connect these directly: OBSData isn't a
+	 * registered metatype, so they can't be queued. */
+	/* The device's settings changed, from anywhere */
+	void deviceSettingsUpdated(uint32_t device_id);
+	/* The device's state changed; `changed` holds just the values that did,
+	 * as of when it was reported */
+	void deviceStateUpdated(uint32_t device_id, OBSData changed);
 
 public slots:
 	void preset_recall(uint32_t device_id, int preset_id);
