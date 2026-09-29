@@ -207,10 +207,6 @@ protected slots:
 	void move(calldata_t *cd);
 	void move_abs(calldata_t *cd);
 	void move_rel(calldata_t *cd);
-	/* ptz_set: request changes to some transient state values, one
-	 * calldata field each, the older spelling of ptz_request_state.
-	 * Reading state is ptz_get_state. */
-	virtual void set(calldata_t *cd);
 	/* ptz_trigger: a one-shot action, see runTrigger() */
 	void trigger(calldata_t *cd);
 	void preset_save(calldata_t *cd);

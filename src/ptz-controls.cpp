@@ -824,15 +824,6 @@ bool PTZControls::callCurrentDevice(const char *method, const char *arg, double 
 	return callCurrentDevice(method, &cd);
 }
 
-bool PTZControls::callCurrentDevice(const char *method, const char *arg, bool val) const
-{
-	calldata cd;
-	uint8_t stack[128];
-	calldata_init_fixed(&cd, stack, sizeof(stack));
-	calldata_set_bool(&cd, arg, val);
-	return callCurrentDevice(method, &cd);
-}
-
 void PTZControls::accelTimerHandler()
 {
 	calldata cd;
@@ -1005,7 +996,9 @@ void PTZControls::on_zoomButton_wide_released()
 void PTZControls::on_focusButton_auto_clicked(bool checked)
 {
 	setAutofocusEnabled(checked);
-	callCurrentDevice("ptz_set", "focus_af_enabled", checked);
+	OBSDataAutoRelease request = obs_data_create();
+	obs_data_set_bool(request, "focus_af_enabled", checked);
+	ptzDeviceList->setState(ui->deviceList->currentIndex(), request.Get());
 }
 
 void PTZControls::on_focusButton_near_pressed()
@@ -1225,10 +1218,9 @@ void PTZControls::on_deviceList_customContextMenuRequested(const QPoint &pos)
 	if (action == nullptr)
 		return;
 	if (action == powerAction) {
-		calldata cd = {};
-		calldata_set_bool(&cd, "power_on", !power_on);
-		ptzDeviceList->callDevice(index, "ptz_set", &cd);
-		calldata_free(&cd);
+		OBSDataAutoRelease request = obs_data_create();
+		obs_data_set_bool(request, "power_on", !power_on);
+		ptzDeviceList->setState(index, request.Get());
 	} else if (action == wbOnetouchAction) {
 		calldata cd = {};
 		calldata_set_string(&cd, "name", "wb_onepush");

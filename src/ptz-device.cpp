@@ -76,7 +76,6 @@ PTZDevice::PTZDevice(OBSData config, obs_source_t *filter) : QObject()
 	proc_handler_add(handler, "void ptz_move()", ptz_ph_lambda(move), this);
 	proc_handler_add(handler, "void ptz_move_abs()", ptz_ph_lambda(move_abs), this);
 	proc_handler_add(handler, "void ptz_move_rel()", ptz_ph_lambda(move_rel), this);
-	proc_handler_add(handler, "void ptz_set()", ptz_ph_lambda(set), this);
 	proc_handler_add(handler, "void ptz_preset_save()", ptz_ph_lambda(preset_save), this);
 	proc_handler_add(handler, "void ptz_preset_recall()", ptz_ph_lambda(preset_recall), this);
 	proc_handler_add(handler, "void ptz_preset_clear()", ptz_ph_lambda(preset_clear), this);
@@ -422,46 +421,6 @@ void PTZDevice::move_rel(calldata_t *cd)
 }
 
 /**
- * The commandable state keys, if given, go to requestState() -- always on the
- * device's own thread, queued if this isn't it, since the proc_handler can be
- * called from anywhere and requestState() talks to the camera. Then the
- * triggers, which are actions, not state.
- */
-void PTZDevice::set(calldata_t *cd)
-{
-	OBSDataAutoRelease requested = obs_data_create();
-	bool any = false;
-	bool enable;
-	long long mode;
-	if (calldata_get_bool(cd, "focus_af_enabled", &enable)) {
-		obs_data_set_bool(requested, "focus_af_enabled", enable);
-		any = true;
-	}
-	if (calldata_get_bool(cd, "power_on", &enable)) {
-		obs_data_set_bool(requested, "power_on", enable);
-		any = true;
-	}
-	if (calldata_get_int(cd, "wb_mode", &mode)) {
-		obs_data_set_int(requested, "wb_mode", mode);
-		any = true;
-	}
-	if (any) {
-		OBSData request = requested.Get();
-		QMetaObject::invokeMethod(this, [this, request]() { requestState(request); });
-	}
-
-	/* The triggers' old spelling, until ptz_trigger has taken them over */
-	for (const char *name : {"focus_onetouch", "wb_onepush", "scan_inquiries", "replies_to_log"}) {
-		bool trigger;
-		QString key = QString("%1_trigger").arg(name);
-		if (calldata_get_bool(cd, qUtf8Printable(key), &trigger) && trigger) {
-			QString action = name;
-			QMetaObject::invokeMethod(this, [this, action]() { runTrigger(action); });
-		}
-	}
-}
-
-/**
  * Runs the one-shot action named by "name" (see runTrigger()) on the device's
  * own thread, whichever thread the proc handler is called from.
  */
@@ -524,9 +483,7 @@ bool PTZDevice::setPosition(const char *axis, double value)
 
 /**
  * Asks for the values in the caller's "state" object, passed to
- * requestState(); only the keys present are acted on. (ptz_set is the older
- * spelling, with a key per calldata field, and also carries the one-shot
- * triggers.)
+ * requestState(); only the keys present are acted on.
  */
 void PTZDevice::request_state(calldata_t *cd)
 {

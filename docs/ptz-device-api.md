@@ -42,7 +42,6 @@ _handed to listeners as `proc_handler` on the `ptz_device_create` signal._
 - `void ptz_move()`
 - `void ptz_move_abs()`
 - `void ptz_move_rel()`
-- `void ptz_set()`
 - `void ptz_preset_save()`
 - `void ptz_preset_recall()`
 - `void ptz_preset_clear()`

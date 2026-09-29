@@ -93,7 +93,6 @@ private:
 	bool callCurrentDevice(const char *method, calldata_t *cd = nullptr) const;
 	bool callCurrentDevice(const char *method, const char *arg, long long val) const;
 	bool callCurrentDevice(const char *method, const char *arg, double val) const;
-	bool callCurrentDevice(const char *method, const char *arg, bool val) const;
 
 	QList<obs_hotkey_id> hotkeys;
 	QMap<obs_hotkey_id, int> preset_hotkey_map;
