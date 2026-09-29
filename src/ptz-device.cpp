@@ -164,6 +164,34 @@ PTZDevice::PTZDevice(OBSData config, obs_source_t *filter) : QObject()
 		new_id++;
 	id = new_id;
 	ptz_device_registry[id] = this;
+
+	/* Hear of OBS finishing loading and closing directly, not from the UI
+	 * that would otherwise have to pass it on. A device is made and
+	 * destroyed on the main thread, where OBS sends these. */
+	obs_frontend_add_event_callback(frontendEventCallback, this);
+	m_frontendCallback = true;
+}
+
+void PTZDevice::frontendEventCallback(enum obs_frontend_event event, void *data)
+{
+	static_cast<PTZDevice *>(data)->onFrontendEvent(event);
+}
+
+void PTZDevice::onFrontendEvent(enum obs_frontend_event event)
+{
+	switch (event) {
+	case OBS_FRONTEND_EVENT_FINISHED_LOADING:
+		onOBSStartup();
+		break;
+	case OBS_FRONTEND_EVENT_SCRIPTING_SHUTDOWN:
+		/* OBS is closing, and has not yet cleared its scenes, which
+		 * destroys the filters that own devices: EXIT comes after that.
+		 * This is the last time every device is still there. */
+		onOBSShutdown();
+		break;
+	default:
+		break;
+	}
 }
 
 /**
@@ -193,6 +221,9 @@ PTZDevice::~PTZDevice()
 		QMutexLocker locker(&ptz_device_registry_mutex);
 		ptz_device_registry.remove(id);
 	}
+
+	if (m_frontendCallback)
+		obs_frontend_remove_event_callback(frontendEventCallback, this);
 
 	/* Stop watching the source */
 	watchParentSource(m_parentSource, false);
