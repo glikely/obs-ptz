@@ -1435,12 +1435,12 @@ PTZDeviceListDelegate::CellLayout PTZDeviceListDelegate::layoutCell(const QModel
 	l.tally = l.text.adjusted(0, 0, -(l.text.width() - tallyBoxWidth), 0);
 	l.text.adjust(tallyBoxWidth, 0, 0, 0);
 
+	/* The disconnected indicator shares the tally slot instead of taking its own */
+	if (!isConnected)
+		l.status = l.tally;
+
 	if (isLive) {
 		l.lock = l.text.adjusted(l.text.width() - iconBoxWidth, 0, 0, 0);
-		l.text.adjust(0, 0, -iconBoxWidth, 0);
-	}
-	if (!isConnected) {
-		l.status = l.text.adjusted(l.text.width() - iconBoxWidth, 0, 0, 0);
 		l.text.adjust(0, 0, -iconBoxWidth, 0);
 	}
 	return l;
@@ -1460,21 +1460,33 @@ void PTZDeviceListDelegate::paint(QPainter *painter, const QStyleOptionViewItem 
 	QStyle *style = opt.widget ? opt.widget->style() : QApplication::style();
 	style->drawPrimitive(QStyle::PE_PanelItemViewItem, &opt, painter, opt.widget);
 
-	/* Divide up the space into tally dot, the label, status icon and lock icon */
+	/* Divide up the space into tally dot (or status icon), the label and lock icon */
 	CellLayout l = layoutCell(index, opt);
 
 	if (l.lock.width()) {
 		auto icon = isLocked ? &lockedIcon : &unlockedIcon;
 		icon->paint(painter, l.lock.adjusted(l.iconMargin, 0, -l.iconMargin, 0));
 	}
-	if (l.status.width())
-		disconnectedIcon.paint(painter, l.status.adjusted(l.iconMargin, 0, -l.iconMargin, 0));
 
 	/* Tally: a colored visibility indictor - red for live, green for preview */
 	const bool isLiveTally = index.data(PTZListModel::IsLiveRole).toBool();
 	const bool isPreviewTally = index.data(PTZListModel::IsPreviewRole).toBool();
-	if (isLiveTally || isPreviewTally) {
-		QColor tallyColor = isLiveTally ? QColor(220, 50, 50) : QColor(60, 180, 60);
+	const QColor tallyColor = isLiveTally ? QColor(220, 50, 50) : QColor(60, 180, 60);
+	if (l.status.width()) {
+		/* Disconnected: draw the alert icon in the tally slot, tinted with the tally color if visible */
+		const QRect iconRect = l.status.adjusted(l.iconMargin, l.iconMargin, -l.iconMargin, -l.iconMargin);
+		if (isLiveTally || isPreviewTally) {
+			const qreal dpr = painter->device() ? painter->device()->devicePixelRatioF() : 1.0;
+			QPixmap pixmap = disconnectedIcon.pixmap(iconRect.size(), dpr);
+			QPainter tint(&pixmap);
+			tint.setCompositionMode(QPainter::CompositionMode_SourceIn);
+			tint.fillRect(pixmap.rect(), tallyColor);
+			tint.end();
+			painter->drawPixmap(iconRect, pixmap);
+		} else {
+			disconnectedIcon.paint(painter, iconRect);
+		}
+	} else if (isLiveTally || isPreviewTally) {
 		painter->save();
 		painter->setRenderHint(QPainter::Antialiasing);
 		painter->setPen(Qt::NoPen);
