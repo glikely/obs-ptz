@@ -55,8 +55,8 @@ signals:
 	/* The user asked for these values, as a state object with just them in it
 	 * (see PTZDevice::requestState()) */
 	void stateRequested(OBSData requested);
-	/* The user asked for an action that isn't a state (the "wb_onepush_trigger"
-	 * of "ptz_set", say) */
+	/* The user asked for a one-shot action that isn't a state, by its
+	 * ptz_trigger name ("wb_onepush", say) */
 	void actionRequested(const QString &action);
 
 private:

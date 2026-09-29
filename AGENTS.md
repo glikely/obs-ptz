@@ -95,7 +95,7 @@ Never put state, or a button that acts on the camera, in
 `get_obs_properties()`: that tree is also shown in OBS's Filters dialog, bound
 to the persisted filter settings, so OBS would save whatever it edits and hand
 it back to `update()` on load. An action on the camera that isn't a state
-change (a one-push white balance, a diagnostic) is a trigger on the `ptz_set`
+change (a one-push white balance, a diagnostic) goes through the `ptz_trigger`
 proc instead.
 
 ## Verification practices

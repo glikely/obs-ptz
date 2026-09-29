@@ -88,8 +88,8 @@ PTZStateView::PTZStateView(QWidget *parent) : QWidget(parent)
 		diagnostics->addWidget(button);
 		connect(button, &QPushButton::clicked, this, [this, trigger]() { emit actionRequested(trigger); });
 	};
-	addAction("scanInquiries", "PTZ.Visca.Debug.ScanInquiries", "scan_inquiries_trigger");
-	addAction("repliesToLog", "PTZ.Visca.Debug.RepliesToLog", "replies_to_log_trigger");
+	addAction("scanInquiries", "PTZ.Visca.Debug.ScanInquiries", "scan_inquiries");
+	addAction("repliesToLog", "PTZ.Visca.Debug.RepliesToLog", "replies_to_log");
 	m_diagnosticsGroup->hide();
 	page->addWidget(m_diagnosticsGroup);
 	page->addStretch(1);
@@ -102,7 +102,7 @@ PTZStateView::PTZStateView(QWidget *parent) : QWidget(parent)
 		emit stateRequested(OBSData(requested.Get()));
 		m_whiteBalanceSettle.start();
 	});
-	connect(m_onePush, &QPushButton::clicked, this, [this]() { emit actionRequested("wb_onepush_trigger"); });
+	connect(m_onePush, &QPushButton::clicked, this, [this]() { emit actionRequested("wb_onepush"); });
 
 	/* clicked(), not toggled(): a programmatic setChecked() below (the
 	 * device catching up, or resetting to what it last reported) must not

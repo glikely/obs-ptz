@@ -97,6 +97,9 @@ PTZDevice::PTZDevice(OBSData config, obs_source_t *filter) : QObject()
 	 * ptz_get_state, above, reads all of it. */
 	proc_handler_add(handler, "void ptz_request_state(ptr state)", ptz_ph_lambda(request_state), this);
 
+	/* One-shot actions on the camera, which aren't state */
+	proc_handler_add(handler, "void ptz_trigger(string name)", ptz_ph_lambda(trigger), this);
+
 	/* Preset list CRUD */
 	proc_handler_add(handler, "ptr ptz_preset_get_list()", ptz_ph_lambda(preset_get_list), this);
 	proc_handler_add(handler, "int ptz_preset_new(int row)", ptz_ph_lambda(newPreset), this);
@@ -447,9 +450,40 @@ void PTZDevice::set(calldata_t *cd)
 		QMetaObject::invokeMethod(this, [this, request]() { requestState(request); });
 	}
 
-	bool trigger;
-	if (calldata_get_bool(cd, "focus_onetouch_trigger", &trigger) && trigger)
-		QMetaObject::invokeMethod(this, &PTZDevice::focus_onetouch);
+	/* The triggers' old spelling, until ptz_trigger has taken them over */
+	for (const char *name : {"focus_onetouch", "wb_onepush", "scan_inquiries", "replies_to_log"}) {
+		bool trigger;
+		QString key = QString("%1_trigger").arg(name);
+		if (calldata_get_bool(cd, qUtf8Printable(key), &trigger) && trigger) {
+			QString action = name;
+			QMetaObject::invokeMethod(this, [this, action]() { runTrigger(action); });
+		}
+	}
+}
+
+/**
+ * Runs the one-shot action named by "name" (see runTrigger()) on the device's
+ * own thread, whichever thread the proc handler is called from.
+ */
+void PTZDevice::trigger(calldata_t *cd)
+{
+	const char *name = calldata_string(cd, "name");
+	if (!name)
+		return;
+	QString action = QString::fromUtf8(name);
+	QMetaObject::invokeMethod(this, [this, action]() {
+		if (!runTrigger(action))
+			ptz_debug("no such trigger: %s", QT_TO_UTF8(action));
+	});
+}
+
+bool PTZDevice::runTrigger(const QString &name)
+{
+	if (name == "focus_onetouch") {
+		focus_onetouch();
+		return true;
+	}
+	return false;
 }
 
 void PTZDevice::saveState(OBSData out) const

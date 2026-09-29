@@ -916,18 +916,18 @@ void PTZVisca::requestState(OBSData requested)
 	PTZDevice::requestState(requested);
 }
 
-void PTZVisca::set(calldata_t *cd)
+bool PTZVisca::runTrigger(const QString &name)
 {
-	bool trigger;
-	if (calldata_get_bool(cd, "wb_onepush_trigger", &trigger) && trigger)
-		QMetaObject::invokeMethod(this, [this]() { send(VISCA_CAM_WB_OnePushTrigger); });
+	if (name == "wb_onepush")
+		send(VISCA_CAM_WB_OnePushTrigger);
 	/* Diagnostics, for working out what a camera supports */
-	if (calldata_get_bool(cd, "scan_inquiries_trigger", &trigger) && trigger)
-		QMetaObject::invokeMethod(this, [this]() { scan_commands(); });
-	if (calldata_get_bool(cd, "replies_to_log_trigger", &trigger) && trigger)
-		QMetaObject::invokeMethod(this, [this]() { write_replies_to_log(); });
-
-	PTZDevice::set(cd);
+	else if (name == "scan_inquiries")
+		scan_commands();
+	else if (name == "replies_to_log")
+		write_replies_to_log();
+	else
+		return PTZDevice::runTrigger(name);
+	return true;
 }
 
 void PTZVisca::send_pending()

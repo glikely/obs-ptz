@@ -62,6 +62,10 @@ _handed to listeners as `proc_handler` on the `ptz_device_create` signal._
 
 - `void ptz_request_state(ptr state)`
 
+> One-shot actions on the camera, which aren't state
+
+- `void ptz_trigger(string name)`
+
 > Preset list CRUD
 
 - `ptr ptz_preset_get_list()`

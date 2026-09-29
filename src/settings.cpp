@@ -141,8 +141,8 @@ PTZSettings::PTZSettings() : QWidget(nullptr), ui(new Ui_PTZSettings)
 		[this](OBSData requested) { ptzDeviceList->setState(ui->deviceList->currentIndex(), requested); });
 	connect(ui->stateView, &PTZStateView::actionRequested, this, [this](const QString &action) {
 		calldata_t cd = {};
-		calldata_set_bool(&cd, qUtf8Printable(action), true);
-		ptzDeviceList->callDevice(ui->deviceList->currentIndex(), "ptz_set", &cd);
+		calldata_set_string(&cd, "name", qUtf8Printable(action));
+		ptzDeviceList->callDevice(ui->deviceList->currentIndex(), "ptz_trigger", &cd);
 		calldata_free(&cd);
 	});
 

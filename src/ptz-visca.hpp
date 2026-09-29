@@ -104,7 +104,7 @@ protected:
 
 protected slots:
 	void receive(const QByteArray &msg);
-	void set(calldata_t *cd) override;
+	bool runTrigger(const QString &name) override;
 
 public:
 	PTZVisca(OBSData config, obs_source_t *source = nullptr);

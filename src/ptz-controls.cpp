@@ -1030,7 +1030,10 @@ void PTZControls::on_focusButton_far_released()
 
 void PTZControls::on_focusButton_onetouch_clicked()
 {
-	callCurrentDevice("ptz_set", "focus_onetouch_trigger", true);
+	calldata cd = {};
+	calldata_set_string(&cd, "name", "focus_onetouch");
+	callCurrentDevice("ptz_trigger", &cd);
+	calldata_free(&cd);
 }
 
 void PTZControls::setAutofocusEnabled(bool autofocus_on)
@@ -1228,8 +1231,8 @@ void PTZControls::on_deviceList_customContextMenuRequested(const QPoint &pos)
 		calldata_free(&cd);
 	} else if (action == wbOnetouchAction) {
 		calldata cd = {};
-		calldata_set_bool(&cd, "wb_onepush_trigger", true);
-		ptzDeviceList->callDevice(index, "ptz_set", &cd);
+		calldata_set_string(&cd, "name", "wb_onepush");
+		ptzDeviceList->callDevice(index, "ptz_trigger", &cd);
 		calldata_free(&cd);
 	}
 }

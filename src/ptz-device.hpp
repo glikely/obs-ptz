@@ -118,9 +118,8 @@ public:
 	bool isLive() const { return live; }
 	bool isPreview() const { return preview; }
 	virtual bool supportsSetHome() const { return false; }
-	/* Whether ptz_set takes the "scan_inquiries_trigger" and
-	 * "replies_to_log_trigger" diagnostics, for working out what a camera
-	 * supports */
+	/* Whether ptz_trigger takes the "scan_inquiries" and "replies_to_log"
+	 * diagnostics, for working out what a camera supports */
 	virtual bool supportsDiagnostics() const { return false; }
 	void onSceneChanged();
 
@@ -209,11 +208,11 @@ protected slots:
 	void move_abs(calldata_t *cd);
 	void move_rel(calldata_t *cd);
 	/* ptz_set: request changes to some transient state values, one
-	 * calldata field each, the older spelling of ptz_request_state; it
-	 * also carries the one-shot triggers (focus_onetouch_trigger, ...),
-	 * which aren't state and so have no place in requestState(). Reading
-	 * state is ptz_get_state. */
+	 * calldata field each, the older spelling of ptz_request_state.
+	 * Reading state is ptz_get_state. */
 	virtual void set(calldata_t *cd);
+	/* ptz_trigger: a one-shot action, see runTrigger() */
+	void trigger(calldata_t *cd);
 	void preset_save(calldata_t *cd);
 	void preset_recall(calldata_t *cd);
 	void preset_clear(calldata_t *cd);
@@ -297,6 +296,12 @@ public:
 	 */
 	virtual void saveState(OBSData state) const;
 	virtual void requestState(OBSData requested);
+
+	/* One-shot actions on the camera, which aren't state and so have no
+	 * place in requestState(), by name: "focus_onetouch" here, and per
+	 * driver "wb_onepush" and the diagnostics. Run on the device's own
+	 * thread; says whether the device knows the name. */
+	virtual bool runTrigger(const QString &name);
 };
 
 /* backend driver hooks that register themselves as an OBS filters */
