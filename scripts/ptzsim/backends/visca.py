@@ -56,6 +56,11 @@ class ViscaCameraLogic:
     (each already including its trailing 0xff).
     """
 
+    # Whether the "7e 7e xx" block inquiries (and the version inquiry) are
+    # understood. A BirdDog answers them all with a syntax error and has
+    # only the single-value inquiries; __main__ clears this to imitate one.
+    block_inquiries = True
+
     def __init__(self, state):
         self.state = state
         self._out = []
@@ -300,6 +305,22 @@ class ViscaCameraLogic:
         '''CAM_PowerInq'''
         self.send_datagram(b'\x50' + self.encode_bool(self.state.snapshot().power))
 
+    def cmd090447(self, dg):
+        '''CAM_ZoomPosInq'''
+        self.send_datagram(b'\x50' + self.encode_s16(from_shared_unsigned(self.state.snapshot().zoom, ZF_POS_RANGE)))
+
+    def cmd090448(self, dg):
+        '''CAM_FocusPosInq'''
+        self.send_datagram(b'\x50' + self.encode_s16(from_shared_unsigned(self.state.snapshot().focus, ZF_POS_RANGE)))
+
+    def cmd090438(self, dg):
+        '''CAM_FocusAFModeInq'''
+        self.send_datagram(b'\x50' + (b'\x02' if self.af_enabled else b'\x03'))
+
+    def cmd090435(self, dg):
+        '''CAM_WBModeInq'''
+        self.send_datagram(b'\x50' + bytes([self.wbmode]))
+
     def cmd090612(self, dg):
         '''Pan-tiltPosInq'''
         snap = self.state.snapshot()
@@ -371,6 +392,10 @@ class ViscaCameraLogic:
 
         if dg[0] != 0x81:  # Ignore messages not addressed properly
             print("[visca] malformed", dg.hex(), dg[0])
+            return
+
+        if not self.block_inquiries and (dg[1:3] == b'\x09\x7e' or dg[1:4] == b'\x09\x00\x02'):
+            self.send_datagram(b'\x60\x02')
             return
 
         # Find the command handler for the message

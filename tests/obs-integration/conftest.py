@@ -66,6 +66,9 @@ DEVICE_IDS = {
     # Talks VISCA-over-IP to sony_ptzsim, which misbehaves the way a real
     # Sony camera does (see test_visca_udp_sony.py)
     "visca-udp-sony": 14,
+    # Talks VISCA-over-TCP to birddog_ptzsim, a camera with only the
+    # single-value inquiries (see test_visca_no_block_inquiries.py)
+    "visca-tcp-birddog": 15,
 }
 
 
@@ -182,6 +185,13 @@ def write_ptz_plugin_config(home: Path, ports, serial_paths):
         "type": "visca-over-ip",
         "host": "127.0.0.1",
         "udp_port": ports["visca_udp_sony"],
+    })
+    devices.append({
+        "id": DEVICE_IDS["visca-tcp-birddog"],
+        "name": "sim-visca-tcp-birddog",
+        "type": "visca-over-tcp",
+        "host": "127.0.0.1",
+        "tcp_port": ports["visca_tcp_birddog"],
     })
     devices.append({
         "id": DEVICE_IDS["onvif"],
@@ -562,6 +572,7 @@ def ptz_ports():
         "unused_udp": free_port(),
         "visca_udp_sony": free_port(),
         "debug_http_sony": free_port(),
+        "visca_tcp_birddog": free_port(),
     }
 
 
@@ -629,6 +640,29 @@ def sony_ptzsim(ptz_ports):
         proc.kill()
 
 
+@pytest.fixture(scope="session")
+def birddog_ptzsim(ptz_ports):
+    """A VISCA-over-TCP-only ptzsim that, like a BirdDog, answers the block
+    inquiries with a syntax error (--visca-no-block-inquiries), wired to
+    DEVICE_IDS["visca-tcp-birddog"]. Started before OBS (see obs_world)."""
+    cmd = [
+        sys.executable, "-m", "ptzsim",
+        "--host", "127.0.0.1",
+        "--visca-tcp-port", str(ptz_ports["visca_tcp_birddog"]),
+        "--visca-no-block-inquiries",
+        "--no-visca-udp", "--no-visca-serial", "--no-onvif", "--no-pelco",
+    ]
+    with output_log("ptzsim-birddog") as out:
+        proc = subprocess.Popen(cmd, cwd=REPO_ROOT / "scripts", stdout=out, stderr=subprocess.STDOUT)
+    wait_for_port("127.0.0.1", ptz_ports["visca_tcp_birddog"], timeout=15)
+    yield proc
+    proc.terminate()
+    try:
+        proc.wait(timeout=5)
+    except subprocess.TimeoutExpired:
+        proc.kill()
+
+
 class FlakyPtzsim:
     """A dedicated, VISCA-TCP-only ptzsim instance on its own fixed port
     (ptz_ports["visca_tcp_flaky"], wired to device_id
@@ -680,7 +714,7 @@ def flaky_ptzsim(obs_world, ptz_ports):
 
 
 @pytest.fixture(scope="session")
-def obs_world(tmp_path_factory, ptzsim_process, sony_ptzsim):
+def obs_world(tmp_path_factory, ptzsim_process, sony_ptzsim, birddog_ptzsim):
     home = tmp_path_factory.mktemp("obs-home")
     write_ptz_plugin_config(home, ptzsim_process["ports"], ptzsim_process["serial_paths"])
 
