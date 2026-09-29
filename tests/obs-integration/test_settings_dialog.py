@@ -130,3 +130,43 @@ def test_scanning_inquiries_from_the_status_view(obs_world, cameras, tmp_path): 
     before = sent()
     obs_world.run_ui_test("press_dialog_button", button="scanInquiries")
     obs_world.wait_for(lambda: sent() >= before + 0x7e, timeout=20)
+
+
+def assert_obs_alive(obs_world):
+    assert obs_world.ws.call("GetVersion")["obsVersion"]
+
+
+def test_dialog_survives_its_device_going_away(obs_world, cameras, tmp_path):  # noqa: F811
+    cameras.add_source(obs_world.create_scene(), "dialog-gone-cam")
+    cameras.add_filter("dialog-gone-cam")
+    out = tmp_path / "device.json"
+    device_id = obs_world.wait_for_device_by_name("dialog-gone-cam", out, lambda r: r["found"] and r["bound"])["device_id"]
+    open_dialog(obs_world, device_id)
+    obs_world.settings_dialog(tmp_path / "dialog.json")
+
+    cameras.remove_filter("dialog-gone-cam")
+    obs_world.wait_for_device_by_name("dialog-gone-cam", out, lambda r: not r["found"], timeout=10)
+
+    # still there, and still answering, with nothing to show
+    obs_world.run_ui_test("edit_dialog_state", wb_mode=1)
+    obs_world.settings_dialog(tmp_path / "dialog.json")
+    assert_obs_alive(obs_world)
+
+
+def test_dialog_survives_its_device_changing_interface(obs_world, cameras, tmp_path):  # noqa: F811
+    cameras.add_source(obs_world.create_scene(), "dialog-iface-cam")
+    cameras.add_filter("dialog-iface-cam")
+    out = tmp_path / "device.json"
+    device_id = obs_world.wait_for_device_by_name("dialog-iface-cam", out, lambda r: r["found"] and r["bound"])["device_id"]
+    open_dialog(obs_world, device_id)
+
+    obs_world.run_ui_test("update_device", device_id=device_id, type="visca-over-ip", host="127.0.0.1", udp_port=9)
+    # give the change, and whatever the dialog does about it, time to happen
+    time.sleep(1.0)
+
+    # the dialog is still driveable, and so is what is under it
+    obs_world.run_ui_test("edit_dialog_state", wb_mode=1)
+    dialog = obs_world.settings_dialog(tmp_path / "dialog.json")
+    assert {"wb_mode", "connected"} <= dialog["state_keys"]
+    assert_obs_alive(obs_world)
+    assert obs_world.device_by_name("dialog-iface-cam", out)["found"]

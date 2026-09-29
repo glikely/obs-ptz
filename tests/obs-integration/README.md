@@ -160,8 +160,9 @@ actually work end to end.
     settings change only the settings view, that the status view is updated
     in place (the same widgets before and after, none replaced) rather than
     redrawn, that picking a white balance in the status view changes the
-    camera, and that a camera with diagnostics, and only one, has buttons
-    for them that work. Opens the real dialog through
+    camera, that a camera with diagnostics, and only one, has buttons for
+    them that work, and that the dialog copes with its device being removed
+    or changing interface while it is open. Opens the real dialog through
     `tests/ui-harness/settings-dialog-test.cpp`.
 
 ## Running locally
