@@ -269,6 +269,7 @@ class PTZPresetListDelegate : public QStyledItemDelegate {
 public:
 	struct CellLayout {
 		int iconMargin;
+		QRect thumbnail;
 		QRect text;
 		QRect recall;
 	};
@@ -283,6 +284,8 @@ public:
 			       const QModelIndex &index) override;
 
 	int iconSize() const { return PTZControls::getInstance()->iconSize(); }
+	/* Height of the thumbnail; the preset rows are this plus a margin */
+	int thumbnailHeight() const { return PTZControls::getInstance()->rowHeight() * 2; }
 	void refreshTheme();
 
 private:

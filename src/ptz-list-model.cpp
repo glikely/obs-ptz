@@ -7,6 +7,8 @@
 
 #include <obs.hpp>
 #include <qt-wrappers.hpp>
+#include <QPixmap>
+#include <QPixmapCache>
 #include "ptz-list-model.hpp"
 #include "ptz.h"
 #include "protocol-helpers.hpp"
@@ -107,6 +109,7 @@ static void preset_moved_cb(void *data, calldata_t *cd)
 	});
 }
 
+/* A renamed preset and a new thumbnail both just mean "refetch the list" */
 static void preset_renamed_cb(void *data, calldata_t *cd)
 {
 	auto ptzlm = static_cast<PTZListModel *>(data);
@@ -240,6 +243,7 @@ void PTZListModel::refreshPresetList(PTZDeviceEntry *entry)
 			preset.id = (int)obs_data_get_int(item, "id");
 			preset.name = QT_UTF8(obs_data_get_string(item, "name"));
 			preset.token = QT_UTF8(obs_data_get_string(item, "token"));
+			preset.thumbnail = QT_UTF8(obs_data_get_string(item, "thumbnail"));
 			entry->presets.append(preset);
 		}
 		obs_data_array_release(list);
@@ -392,6 +396,18 @@ QVariant PTZListModel::data(const QModelIndex &index, int role) const
 			return preset.name;
 		if (role == Qt::UserRole)
 			return preset.id;
+		if (role == PTZListModel::ThumbnailRole) {
+			if (preset.thumbnail.isEmpty())
+				return QPixmap();
+			/* Kept in Qt's shared cache, so a refresh of the list
+			 * doesn't reread every file. Each image has its own name. */
+			QPixmap pixmap;
+			if (!QPixmapCache::find(preset.thumbnail, &pixmap)) {
+				pixmap.load(preset.thumbnail);
+				QPixmapCache::insert(preset.thumbnail, pixmap);
+			}
+			return pixmap;
+		}
 		if (role == Qt::SizeHintRole)
 			return QSize(0, 20);
 
@@ -669,6 +685,7 @@ void PTZListModel::deviceCreated(uint32_t device_id, proc_handler_t *ph, signal_
 	signal_handler_connect(sh, "preset_removed", preset_removed_cb, this);
 	signal_handler_connect(sh, "preset_moved", preset_moved_cb, this);
 	signal_handler_connect(sh, "preset_renamed", preset_renamed_cb, this);
+	signal_handler_connect(sh, "preset_thumbnail_changed", preset_renamed_cb, this);
 }
 
 void PTZListModel::deviceDestroyed(uint32_t device_id)

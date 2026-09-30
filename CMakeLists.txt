@@ -90,6 +90,7 @@ target_sources(
     src/ptz.c
     src/ptz-controls.cpp
     src/ptz-device.cpp
+    src/ptz-thumbnail.cpp
     src/ptz-list-model.cpp
     src/settings.cpp
     src/ptz-state-view.cpp
@@ -103,6 +104,7 @@ target_sources(
     src/ptz.h
     src/ptz-controls.hpp
     src/ptz-device.hpp
+    src/ptz-thumbnail.hpp
     src/ptz-list-model.hpp
     src/settings.hpp
     src/ptz-state-view.hpp
