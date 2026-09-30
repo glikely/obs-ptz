@@ -225,7 +225,9 @@ def test_restoring_a_backup_brings_its_protocol(obs_world, sources, tmp_path):
     result = add_device(obs_world, tmp_path / "add.json", "backup-cam-other", restore="backup-cam-old")
     assert "backup-cam-old" in result["chosen"]
     assert "VISCA" in result["chosen"]
-    assert result["headings"] == ["New device", "Restore a removed device"]
+    # (with the notes on detected devices in between)
+    assert [h for h in result["headings"] if h in ("New device", "Restore a removed device")] == [
+        "New device", "Restore a removed device"]
 
     filters = sources.filters("backup-cam-other")
     assert [f["filterKind"] for f in filters] == [FILTER_KIND]
