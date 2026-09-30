@@ -18,12 +18,13 @@ ViscaTCPTransport::ViscaTCPTransport()
 QString ViscaTCPTransport::description(unsigned int address) const
 {
 	Q_UNUSED(address);
-	return QString(obs_module_text("PTZ.Visca.TCP.HostPortName")).arg(host, QString::number(port));
+	return QString(obs_module_text("PTZ.Visca.TCP.HostPortName")).arg(effectiveHost(), QString::number(port));
 }
 
 void ViscaTCPTransport::connectSocket()
 {
-	visca_socket.connectToHost(host, port);
+	if (!effectiveHost().isEmpty())
+		visca_socket.connectToHost(effectiveHost(), port);
 }
 
 void ViscaTCPTransport::on_socket_stateChanged(QAbstractSocket::SocketState state)
@@ -34,7 +35,7 @@ void ViscaTCPTransport::on_socket_stateChanged(QAbstractSocket::SocketState stat
 		QTimer::singleShot(1900, this, &ViscaTCPTransport::connectSocket);
 		break;
 	case QAbstractSocket::ConnectedState:
-		blog(LOG_INFO, "VISCA_over_TCP %s:%i connected", qPrintable(host), port);
+		blog(LOG_INFO, "VISCA_over_TCP %s:%i connected", qPrintable(effectiveHost()), port);
 		emit reset();
 		break;
 	default:
@@ -93,6 +94,17 @@ void ViscaTCPTransport::poll()
 	}
 }
 
+void ViscaTCPTransport::setSourceHost(const QString &new_host)
+{
+	if (new_host == source_host)
+		return;
+	bool followed = host.isEmpty();
+	source_host = new_host;
+	/* Drops the connection to the old address; reconnects on its own */
+	if (followed)
+		visca_socket.abort();
+}
+
 void ViscaTCPTransport::update(OBSData config)
 {
 	host = obs_data_get_string(config, "host");
@@ -108,6 +120,8 @@ void ViscaTCPTransport::update(OBSData config)
 void ViscaTCPTransport::save(OBSData config) const
 {
 	obs_data_set_string(config, "host", QT_TO_UTF8(host));
+	/* Greyed-out text in a blank Host field: where it will connect instead */
+	obs_data_set_default_string(config, "host:placeholder", QT_TO_UTF8(source_host));
 	obs_data_set_int(config, "tcp_port", port);
 	obs_data_set_int(config, "port", port); /* legacy schema */
 }

@@ -12,6 +12,7 @@
 #include <QHash>
 #include <QMutex>
 #include <QThread>
+#include <QUrl>
 #include "ptz-device.hpp"
 #include "ptz-list-model.hpp"
 #include "ptz-visca-udp.hpp"
@@ -280,6 +281,14 @@ static void ptz_source_renamed_cb(void *data, calldata_t *)
 	QMetaObject::invokeMethod(ptz, [ptz]() { ptz->syncName(); }, Qt::QueuedConnection);
 }
 
+/* The source's settings changed, which may include the address it receives
+ * from. Same threading as the rename signal. */
+static void ptz_source_updated_cb(void *data, calldata_t *)
+{
+	auto ptz = static_cast<PTZDevice *>(data);
+	QMetaObject::invokeMethod(ptz, [ptz]() { ptz->checkParentHost(); }, Qt::QueuedConnection);
+}
+
 /* Caller must hold m_parentSourceMutex, or be the destructor. Const because
  * parentSource() binds lazily. */
 void PTZDevice::watchParentSource(const OBSWeakSource &weak, bool watch) const
@@ -289,10 +298,14 @@ void PTZDevice::watchParentSource(const OBSWeakSource &weak, bool watch) const
 		return;
 	auto sh = obs_source_get_signal_handler(src);
 	auto self = const_cast<PTZDevice *>(this);
-	if (watch)
+	if (watch) {
 		signal_handler_connect(sh, "rename", ptz_source_renamed_cb, self);
-	else
+		signal_handler_connect(sh, "update", ptz_source_updated_cb, self);
+		QMetaObject::invokeMethod(self, [self]() { self->checkParentHost(); }, Qt::QueuedConnection);
+	} else {
 		signal_handler_disconnect(sh, "rename", ptz_source_renamed_cb, self);
+		signal_handler_disconnect(sh, "update", ptz_source_updated_cb, self);
+	}
 }
 
 obs_source_t *PTZDevice::filterSource() const
@@ -310,6 +323,34 @@ void PTZDevice::setParentSource(obs_source_t *source)
 	}
 	/* any thread can call filter_{add,remove}, do nameSync on the device's thread */
 	QMetaObject::invokeMethod(this, [this]() { syncName(); });
+}
+
+QString PTZDevice::parentSourceHost() const
+{
+	OBSSourceAutoRelease src = parentSource();
+	if (!src)
+		return QString();
+	const char *id = obs_source_get_id(src);
+	if (!id || strcmp(id, "ndi_source") != 0)
+		return QString();
+	OBSDataAutoRelease settings = obs_source_get_settings(src);
+	QString url = QT_UTF8(obs_data_get_string(settings, "web_control_url"));
+	if (url.isEmpty())
+		return QString();
+	return QUrl::fromUserInput(url).host();
+}
+
+void PTZDevice::checkParentHost()
+{
+	QString host = parentSourceHost();
+	if (host == m_parentHost)
+		return;
+	m_parentHost = host;
+	ptz_info("parent source host is now '%s'", QT_TO_UTF8(host));
+	onParentHostChanged(host);
+	/* save() reports the host in the settings, as the placeholder of a blank
+	 * Host */
+	announceSettingsChanged();
 }
 
 void PTZDevice::syncName()
@@ -693,6 +734,11 @@ void PTZDevice::defaults(obs_data_t *config)
 void PTZDevice::applySettings(OBSData settings)
 {
 	update(settings);
+	announceSettingsChanged();
+}
+
+void PTZDevice::announceSettingsChanged()
+{
 	calldata_t cd = {};
 	calldata_set_int(&cd, "device_id", id);
 	signal_handler_signal(sigs, "settings_changed", &cd);

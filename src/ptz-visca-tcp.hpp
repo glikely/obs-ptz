@@ -16,7 +16,9 @@ class ViscaTCPTransport : public ViscaTransport {
 private:
 	QTcpSocket visca_socket;
 	QByteArray rxbuffer;
-	QString host;
+	QString host; /* configured; empty to follow the source's */
+	QString source_host;
+	QString effectiveHost() const { return host.isEmpty() ? source_host : host; }
 	int port = 5678;
 
 	void receive_datagram(const QByteArray &packet);
@@ -34,6 +36,7 @@ public:
 	void save(OBSData config) const override;
 	void send(const QByteArray &msg, unsigned int address) override;
 	void flush() override;
+	void setSourceHost(const QString &new_host) override;
 
 	static void add_obs_properties(obs_properties_t *props);
 };
