@@ -77,6 +77,10 @@ DEVICE_IDS = {
     "visca-tcp-power-late": 17,
     # Has neither setting, and talks to a camera that starts off
     "visca-tcp-no-power": 18,
+    # A USB camera with no camera, saved before its presets were local
+    # presets: their positions are in "presets_memory" (see
+    # test_local_presets.py)
+    "usb-legacy-presets": 19,
 }
 
 
@@ -227,6 +231,15 @@ def write_ptz_plugin_config(home: Path, ports, serial_paths):
         "port": ports["onvif_http"],
         "username": "admin",
         "password": "",
+    })
+    devices.append({
+        "id": DEVICE_IDS["usb-legacy-presets"],
+        "name": "sim-usb-legacy-presets",
+        "type": "usb-cam",
+        "presets": [{"id": 2, "name": "Stage"}, {"id": 5}],
+        "presets_memory": [
+            {"preset_id": 2, "pan": 0.25, "tilt": -0.5, "zoom": 0.75, "focus": 0.5, "focusauto": False},
+        ],
     })
     devices.append({
         "id": DEVICE_IDS["unnamed"],

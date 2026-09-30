@@ -76,3 +76,4 @@ void registerDeviceStateTest(PTZUITestHarness *harness);
 void registerDeviceSignalsTest(PTZUITestHarness *harness);
 void registerSettingsDialogTest(PTZUITestHarness *harness);
 void registerApiVersionTest(PTZUITestHarness *harness);
+void registerPresetLocalTest(PTZUITestHarness *harness);
