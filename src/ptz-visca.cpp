@@ -861,7 +861,14 @@ void PTZVisca::update(OBSData cfg)
 	power_off_at_shutdown = obs_data_get_bool(cfg, "power_off_at_shutdown");
 
 	transport->update(cfg);
+	transport->setSourceHost(parentSourceHost());
 	unsupported_requests.clear();
+}
+
+void PTZVisca::onParentHostChanged(const QString &host)
+{
+	if (transport)
+		transport->setSourceHost(host);
 }
 
 void PTZVisca::save(OBSData cfg) const

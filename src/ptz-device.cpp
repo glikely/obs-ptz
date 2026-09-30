@@ -12,6 +12,7 @@
 #include <QHash>
 #include <QMutex>
 #include <QThread>
+#include <QUrl>
 #include "ptz-device.hpp"
 #include "ptz-list-model.hpp"
 #include "ptz-visca-udp.hpp"
@@ -57,6 +58,10 @@ static QHash<uint32_t, PTZDevice *> ptz_device_registry;
 
 PTZDevice::PTZDevice(OBSData config, obs_source_t *filter) : QObject()
 {
+	m_parentHostTimer.setInterval(2000);
+	connect(&m_parentHostTimer, &QTimer::timeout, this, &PTZDevice::checkParentHost);
+	m_parentHostTimer.start();
+
 	if (filter)
 		m_filter = OBSGetWeakRef(filter);
 
@@ -310,6 +315,31 @@ void PTZDevice::setParentSource(obs_source_t *source)
 	}
 	/* any thread can call filter_{add,remove}, do nameSync on the device's thread */
 	QMetaObject::invokeMethod(this, [this]() { syncName(); });
+}
+
+QString PTZDevice::parentSourceHost() const
+{
+	OBSSourceAutoRelease src = parentSource();
+	if (!src)
+		return QString();
+	const char *id = obs_source_get_id(src);
+	if (!id || strcmp(id, "ndi_source") != 0)
+		return QString();
+	OBSDataAutoRelease settings = obs_source_get_settings(src);
+	QString url = QT_UTF8(obs_data_get_string(settings, "web_control_url"));
+	if (url.isEmpty())
+		return QString();
+	return QUrl::fromUserInput(url).host();
+}
+
+void PTZDevice::checkParentHost()
+{
+	QString host = parentSourceHost();
+	if (host == m_parentHost)
+		return;
+	m_parentHost = host;
+	ptz_info("parent source host is now '%s'", QT_TO_UTF8(host));
+	onParentHostChanged(host);
 }
 
 void PTZDevice::syncName()

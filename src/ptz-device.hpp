@@ -8,6 +8,7 @@
 
 #include <functional>
 #include <QObject>
+#include <QTimer>
 #include <QList>
 #include <QMap>
 #include <QMutex>
@@ -65,6 +66,17 @@ protected:
 	QString m_parentSourceName;
 	mutable QMutex m_parentSourceMutex;
 	void watchParentSource(const OBSWeakSource &weak, bool watch) const;
+	/* Network drivers use this as the camera's host when their own Host
+	 * setting is empty; see parentSourceHost(). Checked periodically, since
+	 * the source's address can change while it runs (DHCP, a camera renamed
+	 * on the network) and sources don't signal that. */
+	QTimer m_parentHostTimer;
+	QString m_parentHost;
+	void checkParentHost();
+	/* The parent source's host changed (or was found); "" if it has none.
+	 * Not called from the constructor, so a driver reads parentSourceHost()
+	 * itself in update(). Must be safe to call with an unchanged host. */
+	virtual void onParentHostChanged(const QString &host) { Q_UNUSED(host); }
 	/* Collection of all presets, keyed by unique integer id.
 	 * On cameras that use preset numbers, the id is mapped 1:1 with the
 	 * preset number.  */
@@ -118,6 +130,10 @@ public:
 	obs_source_t *filterSource() const;
 	void setParentSource(obs_source_t *source);
 	void setParentSourceByName(const char *name);
+	/* The hostname or IP address the parent source reports for the device
+	 * it receives from, or "" if it doesn't or there is no parent. Read
+	 * from the settings of a DistroAV NDI source ("web_control_url"). */
+	QString parentSourceHost() const;
 	bool isSelfManaged() const { return !m_filter; }
 	virtual QString description() const;
 	bool isLive() const { return live; }
