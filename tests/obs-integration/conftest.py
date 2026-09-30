@@ -17,7 +17,9 @@ code path a user's joystick/hotkey would.
 import json
 import os
 import platform
+import select
 import shutil
+import signal
 import socket
 import subprocess
 import sys
@@ -257,6 +259,64 @@ def wait_for_port(host, port, timeout):
         except OSError:
             time.sleep(0.2)
     raise TimeoutError(f"nothing listening on {host}:{port} after {timeout}s")
+
+
+def start_xvfb(timeout=10):
+    """Starts an Xvfb on a free display, in its own process group; returns
+    it and its DISPLAY. -displayfd has Xvfb pick the display and write its
+    number to the pipe once it is ready for clients."""
+    read_fd, write_fd = os.pipe()
+    try:
+        with output_log("xvfb") as out:
+            proc = subprocess.Popen(
+                ["Xvfb", "-displayfd", str(write_fd), "-screen", "0", "1920x1080x24", "-nolisten", "tcp"],
+                stdout=out, stderr=subprocess.STDOUT, pass_fds=(write_fd,), start_new_session=True)
+        os.close(write_fd)
+        write_fd = None
+        number = b""
+        deadline = time.time() + timeout
+        while not number.endswith(b"\n"):
+            ready, _, _ = select.select([read_fd], [], [], max(0, deadline - time.time()))
+            chunk = os.read(read_fd, 16) if ready else b""
+            if not chunk:
+                stop_process_group(proc, timeout=5)
+                raise RuntimeError("Xvfb never said which display it is on")
+            number += chunk
+        return proc, f":{number.decode().strip()}"
+    finally:
+        os.close(read_fd)
+        if write_fd is not None:
+            os.close(write_fd)
+
+
+def stop_process_group(proc, timeout, sig=signal.SIGTERM):
+    """Sends sig to proc (started with start_new_session=True) and waits for
+    it to exit, then ends whatever else is left in its process group.
+    Returns whether proc exited on its own; SIGKILLs it if not."""
+    proc.send_signal(sig)
+    try:
+        proc.wait(timeout=timeout)
+        exited = True
+    except subprocess.TimeoutExpired:
+        exited = False
+    pgid = proc.pid
+    for leftover_sig in (signal.SIGTERM, signal.SIGKILL):
+        try:
+            os.killpg(pgid, leftover_sig)
+        except ProcessLookupError:
+            break
+        # Gone once nothing in the group answers signal 0 any more (proc is
+        # still a group member until reaped, so reap it first).
+        deadline = time.time() + 5
+        try:
+            proc.wait(timeout=5)
+            while time.time() < deadline:
+                os.killpg(pgid, 0)
+                time.sleep(0.1)
+        except (ProcessLookupError, subprocess.TimeoutExpired):
+            pass
+    proc.wait()
+    return exited
 
 
 class World:
@@ -856,12 +916,18 @@ def obs_world(tmp_path_factory, ptzsim_process, sony_ptzsim, birddog_ptzsim, pow
     # src/ptz.h), so always setting it keeps this fixture usable either way.
     env["PTZ_UI_TEST_HARNESS"] = "1"
 
-    cmd = [obs_binary, "--disable-updater"]
-    if platform.system() == "Linux" and not env.get("DISPLAY") and shutil.which("xvfb-run"):
-        cmd = ["xvfb-run", "-a"] + cmd
+    # With no display, start an Xvfb here rather than through xvfb-run: a
+    # SIGTERM to xvfb-run ends xvfb-run and leaves OBS and its Xvfb running.
+    # OBS then never closes (so never turns cameras off), and the next run's
+    # OBS can't start next to it. Launched directly, proc is OBS itself.
+    xvfb = None
+    if platform.system() == "Linux" and not env.get("DISPLAY") and shutil.which("Xvfb"):
+        xvfb, env["DISPLAY"] = start_xvfb()
 
+    # Its own process group, so that whatever OBS starts goes when it does.
     with output_log("obs") as out:
-        proc = subprocess.Popen(cmd, cwd=home, env=env, stdout=out, stderr=subprocess.STDOUT)
+        proc = subprocess.Popen([obs_binary, "--disable-updater"], cwd=home, env=env, stdout=out,
+                                stderr=subprocess.STDOUT, start_new_session=True)
 
     ws = None
     try:
@@ -915,13 +981,12 @@ def obs_world(tmp_path_factory, ptzsim_process, sony_ptzsim, birddog_ptzsim, pow
     finally:
         if ws is not None:
             ws.close()
-        proc.terminate()
-        try:
-            proc.wait(timeout=10)
-            exited_cleanly = True
-        except subprocess.TimeoutExpired:
-            proc.kill()
-            exited_cleanly = False
+        # SIGINT, not SIGTERM: OBS closes its main window -- a normal quit --
+        # on SIGINT since 23.2, but only on SIGTERM since 32.1. Before that
+        # a SIGTERM just kills it, and nothing gets turned off.
+        exited_cleanly = stop_process_group(proc, timeout=10, sig=signal.SIGINT)
+        if xvfb is not None:
+            stop_process_group(xvfb, timeout=5)
     # A device set to turn its camera off when OBS closes has done so by now.
     # Nothing else can see it happen: OBS is gone. Not if OBS had to be killed
     # (it can hang on the way out on macOS), which is not what is being looked

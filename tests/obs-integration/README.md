@@ -253,6 +253,12 @@ software (`llvmpipe`) rendering is a known way to starve OBS's main
 thread on a low-core-count VM (see the top-level `CLAUDE.md`), so prefer
 a real accelerated GNOME/Xwayland session where one's available.
 
+With no `DISPLAY` set, the suite starts its own `Xvfb` (the `xvfb`
+package) on a free display and launches OBS on it directly. At the end
+it quits OBS with SIGINT, which OBS handles as a normal quit (SIGTERM only
+is since OBS 32.1; before that it kills OBS outright, so nothing gets
+turned off), waits for it to exit, then stops the `Xvfb`.
+
 `PTZSIM_OBS_BINARY` defaults to `obs` on Linux and OBS.app's real binary
 path on macOS; override it if yours lives elsewhere.
 

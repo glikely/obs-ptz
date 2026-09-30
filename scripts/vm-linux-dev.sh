@@ -124,8 +124,8 @@ cmd_test() {
 	cmd_install
 	cmd_venv
 	# No logged-in GNOME session is the normal state of this VM, so this
-	# falls back to xvfb-run, same as tests/obs-integration/conftest.py
-	# itself does on Linux with no DISPLAY set. That's fine for these
+	# falls back to the throwaway Xvfb tests/obs-integration/conftest.py
+	# starts itself on Linux with no DISPLAY set. That's fine for these
 	# tests (confirmed: a full run completes in well under a minute) --
 	# but it's software-rendered under this VM's 2 vCPUs, a known-flaky
 	# combination for anything heavier (see this script's own header, and
