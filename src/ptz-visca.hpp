@@ -98,6 +98,7 @@ protected:
 	QTimer gap_timer;
 	QElapsedTimer since_last_rx;
 	QTimer update_timer;
+	unsigned int poll_ticks = 0;
 
 	QString visca_interface;
 	ViscaTransport *transport = nullptr;

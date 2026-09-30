@@ -195,6 +195,8 @@ static constexpr int VISCA_FOCUS_NEAR = 0xf000;
 /* How long to wait for the reply to a request before sending it again. Cameras
  * take up to ~130ms to answer, so this must be well over that. */
 static constexpr int VISCA_REPLY_TIMEOUT_MS = 250;
+/* Update timer ticks (one a second) between reads of all of the camera's state */
+static constexpr unsigned VISCA_FULL_POLL_TICKS = 10;
 
 /* Error reply "command buffer full", and how to deal with it */
 /* How long a power-on at startup waits for the camera to answer */
@@ -1045,12 +1047,18 @@ void PTZVisca::timeout()
 
 void PTZVisca::update_timer_callback()
 {
-	if (pan_speed || tilt_speed)
-		stale_state += "pan_pos";
-	if (zoom_speed)
-		stale_state += "zoom_pos";
-	if (focus_speed)
-		stale_state += "focus_pos";
+	/* The camera can be moved by something other than this plugin (an IR
+	 * remote, another controller), and tells nobody when it is, so the
+	 * position is read again on every tick, moving or not. The rest of
+	 * what is known about the camera is read again now and then. */
+	stale_state += "pan_pos";
+	stale_state += "zoom_pos";
+	stale_state += "focus_pos";
+	if (++poll_ticks >= VISCA_FULL_POLL_TICKS) {
+		poll_ticks = 0;
+		for (auto key : inquires.keys())
+			stale_state += key;
+	}
 	send_pending();
 }
 
