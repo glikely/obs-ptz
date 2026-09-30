@@ -114,7 +114,8 @@ Presets are listed on the right hand side of the dock.
 Presets can be saved, recalled, and renamed from the dock window.
 
 To save a preset, right click on the preset that you want to change and select
-`Save Preset`.
+`Save Preset`. A thumbnail of the camera's view is saved with the preset and
+shown in the list.
 Similarly, to rename a preset, right click and select `Rename Preset`,
 or select `Clear Preset` to reset the name back to default.
 
