@@ -19,7 +19,6 @@ class PTZUSBCam : public PTZDevice {
 
 private:
 	QString m_PTZAddress{""};
-	QMap<int, PtzUsbCamPos> presets;
 	/* All the talking to the camera happens on the worker's own thread. The
 	 * device only tells it what to do, and hears back through signals. */
 	std::unique_ptr<PTZUsbWorker> worker_;
@@ -52,9 +51,8 @@ public:
 	void zoom_abs(double pos) override;
 	void focus_abs(double pos) override;
 	void set_autofocus(bool enabled) override;
-	void memory_reset(int i) override;
-	void memory_set(int i) override;
-	void memory_recall(int i) override;
+	/* A UVC camera has no preset memory of its own; its presets are all local */
+	bool supportsDevicePresets() const override { return false; }
 };
 
 void ptz_usb_cam_register_filter();

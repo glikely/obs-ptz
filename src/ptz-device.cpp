@@ -111,10 +111,14 @@ PTZDevice::PTZDevice(OBSData config, obs_source_t *filter) : QObject()
 
 	/* Preset list CRUD */
 	proc_handler_add(handler, "ptr ptz_preset_get_list()", ptz_ph_lambda(preset_get_list), this);
-	proc_handler_add(handler, "int ptz_preset_new(int row)", ptz_ph_lambda(newPreset), this);
+	proc_handler_add(handler, "int ptz_preset_new(int row, bool local)", ptz_ph_lambda(newPreset), this);
 	proc_handler_add(handler, "void ptz_preset_remove(int row)", ptz_ph_lambda(removePresetAtDisplayRow), this);
 	proc_handler_add(handler, "void ptz_preset_move(int src_row, int dest_row)", ptz_ph_lambda(movePreset), this);
 	proc_handler_add(handler, "void ptz_preset_set_name(int id, string name)", ptz_ph_lambda(setPresetName), this);
+	/* One preset's whole description, and changing it: whether it is
+	 * stored locally, and for one that is, what it recalls */
+	proc_handler_add(handler, "void ptz_preset_get(int id, ptr preset)", ptz_ph_lambda(preset_get), this);
+	proc_handler_add(handler, "void ptz_preset_set(int id, ptr preset)", ptz_ph_lambda(preset_set), this);
 
 	/* The program or preview scene changed: re-check whether the device is live */
 	proc_handler_add(handler, "void ptz_scene_changed()", ptz_ph_lambda(onSceneChanged), this);
@@ -139,6 +143,7 @@ PTZDevice::PTZDevice(OBSData config, obs_source_t *filter) : QObject()
 		signal_handler_add(sigs, "void preset_removed(int device_id, int row)");
 		signal_handler_add(sigs, "void preset_moved(int device_id, int src_row, int dest_row)");
 		signal_handler_add(sigs, "void preset_renamed(int device_id, int id)");
+		signal_handler_add(sigs, "void preset_changed(int device_id, int id)");
 	}
 
 	/* A filter-owned device is given its source by its filter, see setParentSource() */
@@ -503,6 +508,7 @@ void PTZDevice::saveState(OBSData out) const
 	obs_data_set_bool(out, "locked", locked);
 	obs_data_set_bool(out, "supports_set_home", supportsSetHome());
 	obs_data_set_bool(out, "supports_diagnostics", supportsDiagnostics());
+	obs_data_set_bool(out, "supports_device_presets", supportsDevicePresets());
 }
 
 void PTZDevice::requestState(OBSData requested)
@@ -539,21 +545,137 @@ void PTZDevice::preset_save(calldata_t *cd)
 {
 	long long id;
 	if (calldata_get_int(cd, "preset_id", &id))
-		QMetaObject::invokeMethod(this, "memory_set", Q_ARG(int, id));
+		QMetaObject::invokeMethod(this, [this, id]() { preset_save((int)id); });
 }
 
 void PTZDevice::preset_recall(calldata_t *cd)
 {
 	long long id;
 	if (calldata_get_int(cd, "preset_id", &id))
-		QMetaObject::invokeMethod(this, "memory_recall", Q_ARG(int, id));
+		QMetaObject::invokeMethod(this, [this, id]() { preset_recall((int)id); });
 }
 
 void PTZDevice::preset_clear(calldata_t *cd)
 {
 	long long id;
 	if (calldata_get_int(cd, "preset_id", &id))
-		QMetaObject::invokeMethod(this, "memory_reset", Q_ARG(int, id));
+		QMetaObject::invokeMethod(this, [this, id]() { preset_clear((int)id); });
+}
+
+/* A preset id the list doesn't have is the camera's own preset of that
+ * number, as it always has been: a hotkey or action source can recall a
+ * camera preset nobody has added to the list. */
+void PTZDevice::preset_save(int id)
+{
+	if (isPresetLocal(id))
+		saveLocalPreset(id);
+	else if (supportsDevicePresets())
+		memory_set(id);
+}
+
+void PTZDevice::preset_recall(int id)
+{
+	if (isPresetLocal(id))
+		recallLocalPreset(id);
+	else if (supportsDevicePresets())
+		memory_recall(id);
+}
+
+void PTZDevice::preset_clear(int id)
+{
+	if (!isPresetLocal(id)) {
+		if (supportsDevicePresets())
+			memory_reset(id);
+		return;
+	}
+	QVariantMap &preset = m_presets[id];
+	preset.remove("state");
+	preset.remove("recall");
+	signalPresetChanged(id);
+}
+
+/* Where the camera points, in the units of the movement API */
+static const QStringList position_keys = {"pan", "tilt", "zoom", "focus"};
+
+QStringList PTZDevice::presetStateKeys() const
+{
+	return position_keys + QStringList{"focus_af_enabled"};
+}
+
+bool PTZDevice::presetRecallsByDefault(const QString &key) const
+{
+	return position_keys.contains(key) || key == "focus_af_enabled";
+}
+
+/* Capture the preset's keys from the state as it is now. A key the user
+ * has already chosen to recall, or not, stays that way. */
+void PTZDevice::saveLocalPreset(size_t id)
+{
+	QVariantMap &preset = m_presets[id];
+	QVariantMap recall = preset.value("recall").toMap();
+	QVariantMap values;
+	for (const QString &key : presetStateKeys()) {
+		obs_data_item_t *item = obs_data_item_byname(state, QT_TO_UTF8(key));
+		if (item && obs_data_item_has_user_value(item)) {
+			if (obs_data_item_gettype(item) == OBS_DATA_BOOLEAN)
+				values[key] = obs_data_item_get_bool(item);
+			else if (obs_data_item_gettype(item) == OBS_DATA_NUMBER)
+				values[key] = obs_data_item_numtype(item) == OBS_DATA_NUM_INT
+						      ? QVariant(obs_data_item_get_int(item))
+						      : QVariant(obs_data_item_get_double(item));
+		}
+		obs_data_item_release(&item);
+		if (values.contains(key) && !recall.contains(key))
+			recall[key] = presetRecallsByDefault(key);
+	}
+	preset["state"] = values;
+	preset["recall"] = recall;
+	signalPresetChanged(id);
+}
+
+void PTZDevice::recallLocalPreset(size_t id)
+{
+	const QVariantMap values = m_presets[id].value("state").toMap();
+	const QVariantMap recall = m_presets[id].value("recall").toMap();
+	QVariantMap recalled;
+	for (auto it = values.cbegin(); it != values.cend(); ++it)
+		if (recall.value(it.key()).toBool())
+			recalled[it.key()] = it.value();
+	if (!recalled.isEmpty())
+		recallPresetState(variantMapToOBSData(recalled));
+}
+
+void PTZDevice::recallPresetState(OBSData values)
+{
+	auto has = [&](const char *key) {
+		return obs_data_has_user_value(values, key);
+	};
+
+	if (has("focus_af_enabled")) {
+		OBSDataAutoRelease af = obs_data_create();
+		obs_data_set_bool(af, "focus_af_enabled", obs_data_get_bool(values, "focus_af_enabled"));
+		requestState(af.Get());
+	}
+
+	OBSDataAutoRelease rest = obs_data_create();
+	obs_data_apply(rest, values);
+	obs_data_erase(rest, "focus_af_enabled");
+	for (const QString &key : position_keys)
+		obs_data_erase(rest, QT_TO_UTF8(key));
+	obs_data_item_t *any = obs_data_first(rest);
+	if (any)
+		requestState(rest.Get());
+	obs_data_item_release(&any);
+
+	/* An axis the preset doesn't move stays where the camera has it */
+	if (has("pan") || has("tilt"))
+		pantilt_abs(obs_data_get_double(has("pan") ? values : state, "pan"),
+			    obs_data_get_double(has("tilt") ? values : state, "tilt"));
+	if (has("zoom"))
+		zoom_abs(obs_data_get_double(values, "zoom"));
+	bool autofocus = obs_data_get_bool(has("focus_af_enabled") ? values : state, "focus_af_enabled");
+	if (has("focus") && !autofocus)
+		focus_abs(obs_data_get_double(values, "focus"));
 }
 
 /**
@@ -641,6 +763,7 @@ void PTZDevice::preset_get_list(calldata_t *cd) const
 		obs_data_set_int(item, "id", id);
 		obs_data_set_string(item, "name", QT_TO_UTF8(presetName(id)));
 		obs_data_set_string(item, "token", QT_TO_UTF8(presetToken(id)));
+		obs_data_set_bool(item, "local", isPresetLocal(id));
 		obs_data_array_push_back(list, item);
 		obs_data_release(item);
 	}
@@ -653,8 +776,10 @@ void PTZDevice::newPreset(calldata_t *cd)
 	if (wrongThread("ptz_preset_new"))
 		return;
 	long long row = -1;
+	bool local = false;
 	calldata_get_int(cd, "row", &row);
-	calldata_set_int(cd, "return", newPreset((int)row));
+	calldata_get_bool(cd, "local", &local);
+	calldata_set_int(cd, "return", newPreset((int)row, local));
 }
 
 void PTZDevice::removePresetAtDisplayRow(calldata_t *cd)
@@ -676,6 +801,28 @@ void PTZDevice::setPresetName(calldata_t *cd)
 	if (wrongThread("ptz_preset_set_name"))
 		return;
 	setPresetName((size_t)calldata_int(cd, "id"), QT_UTF8(calldata_string(cd, "name")));
+}
+
+/**
+ * Fills the caller-owned obs_data_t passed in as "preset" with the preset's
+ * description, see presetInfo(). Left empty if there's no such preset.
+ */
+void PTZDevice::preset_get(calldata_t *cd) const
+{
+	if (wrongThread("ptz_preset_get"))
+		return;
+	auto out = static_cast<obs_data_t *>(calldata_ptr(cd, "preset"));
+	if (out)
+		presetInfo((size_t)calldata_int(cd, "id"), out);
+}
+
+void PTZDevice::preset_set(calldata_t *cd)
+{
+	if (wrongThread("ptz_preset_set"))
+		return;
+	auto info = static_cast<obs_data_t *>(calldata_ptr(cd, "preset"));
+	if (info)
+		setPresetInfo((size_t)calldata_int(cd, "id"), info);
 }
 
 void PTZDevice::defaults(obs_data_t *config)
@@ -1089,6 +1236,68 @@ void PTZDevice::sanitizePreset(size_t id)
 	QString name = preset["name"].toString();
 	if (name == "" || name == QString(obs_module_text("PTZ.PresetNum")).arg(id))
 		preset.remove("name");
+	if (!supportsDevicePresets())
+		preset["local"] = true;
+	if (!preset.value("local").toBool()) {
+		preset.remove("local");
+		preset.remove("state");
+		preset.remove("recall");
+	}
+}
+
+void PTZDevice::signalPresetChanged(size_t id)
+{
+	calldata_t cd = {};
+	calldata_set_int(&cd, "device_id", this->id);
+	calldata_set_int(&cd, "id", (long long)id);
+	signalDevice("preset_changed", &cd);
+	calldata_free(&cd);
+}
+
+void PTZDevice::presetInfo(size_t id, obs_data_t *out) const
+{
+	if (!m_presets.contains(id))
+		return;
+	const QVariantMap &preset = m_presets[id];
+	obs_data_set_int(out, "id", (long long)id);
+	obs_data_set_string(out, "name", QT_TO_UTF8(presetName(id)));
+	obs_data_set_string(out, "token", QT_TO_UTF8(presetToken(id)));
+	obs_data_set_bool(out, "local", isPresetLocal(id));
+	if (!isPresetLocal(id))
+		return;
+	/* Not until it has been saved */
+	if (preset.contains("state"))
+		obs_data_set_obj(out, "state", variantMapToOBSData(preset.value("state").toMap()));
+	if (preset.contains("recall"))
+		obs_data_set_obj(out, "recall", variantMapToOBSData(preset.value("recall").toMap()));
+}
+
+bool PTZDevice::setPresetInfo(size_t id, obs_data_t *info)
+{
+	if (!m_presets.contains(id))
+		return false;
+	QVariantMap &preset = m_presets[id];
+	if (obs_data_has_user_value(info, "local"))
+		preset["local"] = obs_data_get_bool(info, "local");
+	if (obs_data_has_user_value(info, "recall")) {
+		OBSDataAutoRelease recall = obs_data_get_obj(info, "recall");
+		QVariantMap map = preset.value("recall").toMap();
+		map.insert(OBSDataToVariantMap(recall.Get()));
+		preset["recall"] = map;
+	}
+	if (obs_data_has_user_value(info, "state")) {
+		OBSDataAutoRelease values = obs_data_get_obj(info, "state");
+		QVariantMap map = preset.value("state").toMap();
+		const QVariantMap given = OBSDataToVariantMap(values.Get());
+		const QStringList keys = presetStateKeys();
+		for (auto it = given.cbegin(); it != given.cend(); ++it)
+			if (keys.contains(it.key()))
+				map[it.key()] = it.value();
+		preset["state"] = map;
+	}
+	sanitizePreset(id);
+	signalPresetChanged(id);
+	return true;
 }
 
 void PTZDevice::setPresetName(size_t id, QString name)
@@ -1107,7 +1316,7 @@ void PTZDevice::setPresetName(size_t id, QString name)
 }
 
 /* Insert a new preset and return the ID */
-int PTZDevice::newPreset(int row)
+int PTZDevice::newPreset(int row, bool local)
 {
 	if ((row < 0) || (row > m_presetsDisplayOrder.size()))
 		row = m_presetsDisplayOrder.size();
@@ -1119,8 +1328,11 @@ int PTZDevice::newPreset(int row)
 
 	QVariantMap map;
 	map["id"] = (uint)id;
+	if (local)
+		map["local"] = true;
 	m_presets[id] = map;
 	m_presetsDisplayOrder.insert(row, id);
+	sanitizePreset(id);
 
 	calldata_t cd = {};
 	calldata_set_int(&cd, "device_id", this->id);

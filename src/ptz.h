@@ -56,7 +56,7 @@ extern signal_handler_t *ptz_get_signal_handler();
  * (something removed, renamed or changing meaning). Then regenerate the doc,
  * which states it. */
 #define PTZ_API_VERSION_MAJOR 1
-#define PTZ_API_VERSION_MINOR 0
+#define PTZ_API_VERSION_MINOR 1
 
 #ifdef __cplusplus
 }

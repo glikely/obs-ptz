@@ -24,17 +24,6 @@ PTZUSBCam::PTZUSBCam(OBSData config, obs_source_t *source)
 	 * delivered here on the device's thread. */
 	connect(worker_.get(), &PTZUsbWorker::connectedChanged, this,
 		[this](bool connected) { setConnected(connected); });
-	connect(worker_.get(), &PTZUsbWorker::positionCaptured, this,
-		[this](int id, double pan, double tilt, double zoom, bool focusAuto, double focus) {
-			PtzUsbCamPos pos;
-			pos.pan = pan;
-			pos.tilt = tilt;
-			pos.zoom = zoom;
-			pos.focusAuto = focusAuto;
-			pos.focus = focus;
-			presets[id] = pos;
-		});
-
 	connect(worker_.get(), &PTZUsbWorker::stateCaptured, this,
 		[this](PtzUsbCamPos pos, bool hasPan, bool hasTilt, bool hasZoom, bool hasFocus) {
 			report_state(pos, hasPan, hasTilt, hasZoom, hasFocus);
@@ -67,42 +56,34 @@ QString PTZUSBCam::description() const
 void PTZUSBCam::update(OBSData config)
 {
 	PTZDevice::update(config);
+
+	/* Positions saved before presets could be local were kept apart, in
+	 * "presets_memory", by preset id. Make each the local preset's state,
+	 * for a preset that doesn't have one yet; save() then drops them. */
 	OBSDataArrayAutoRelease presetArray = obs_data_get_array(config, "presets_memory");
-	size_t count = obs_data_array_count(presetArray);
-	for (size_t i = 0; i < count; ++i) {
+	for (size_t i = 0; i < obs_data_array_count(presetArray); ++i) {
 		OBSDataAutoRelease preset = obs_data_array_item(presetArray, i);
-		int p_id = static_cast<int>(obs_data_get_int(preset, "preset_id"));
-		PtzUsbCamPos p = PtzUsbCamPos();
-		p.pan = obs_data_get_double(preset, "pan");
-		p.tilt = obs_data_get_double(preset, "tilt");
-		p.zoom = obs_data_get_double(preset, "zoom");
-		p.focusAuto = obs_data_get_bool(preset, "focusauto");
-		p.focus = obs_data_get_double(preset, "focus");
-		// p.whitebalAuto = obs_data_get_bool(preset, "whitebalauto");
-		// p.temperature = obs_data_get_double(preset, "temperature");
-		presets[p_id] = p;
+		size_t id = (size_t)obs_data_get_int(preset, "preset_id");
+		if (!m_presets.contains(id) || m_presets[id].contains("state"))
+			continue;
+		QVariantMap values, recall;
+		values["pan"] = obs_data_get_double(preset, "pan");
+		values["tilt"] = obs_data_get_double(preset, "tilt");
+		values["zoom"] = obs_data_get_double(preset, "zoom");
+		values["focus"] = obs_data_get_double(preset, "focus");
+		values["focus_af_enabled"] = obs_data_get_bool(preset, "focusauto");
+		for (const auto &key : values.keys())
+			recall[key] = true;
+		m_presets[id]["state"] = values;
+		m_presets[id]["recall"] = recall;
 	}
 }
 
 void PTZUSBCam::save(OBSData config) const
 {
 	PTZDevice::save(config);
-	OBSDataArrayAutoRelease presetArray = obs_data_array_create();
-	for (auto it = presets.constBegin(); it != presets.constEnd(); ++it) {
-		const PtzUsbCamPos &preset = it.value();
-		OBSDataAutoRelease presetData = obs_data_create();
-		obs_data_set_double(presetData, "preset_id", it.key());
-		obs_data_set_double(presetData, "pan", preset.pan);
-		obs_data_set_double(presetData, "tilt", preset.tilt);
-		obs_data_set_double(presetData, "zoom", preset.zoom);
-		obs_data_set_bool(presetData, "focusauto", preset.focusAuto);
-		obs_data_set_double(presetData, "focus", preset.focus);
-		// obs_data_set_bool(presetData, "whitebalauto",
-		// 		  preset.whitebalAuto);
-		// obs_data_set_double(presetData, "temperature", preset.temperature);
-		obs_data_array_push_back(presetArray, presetData);
-	}
-	obs_data_set_array(config, "presets_memory", presetArray);
+	/* Now in the presets themselves, see update() */
+	obs_data_erase(config, "presets_memory");
 }
 
 obs_properties_t *PTZUSBCam::get_obs_properties()
@@ -124,8 +105,15 @@ void PTZUSBCam::report_state(PtzUsbCamPos pos, bool hasPan, bool hasTilt, bool h
 		changed |= setPosition("tilt", pos.tilt);
 	if (hasZoom)
 		changed |= setPosition("zoom", pos.zoom);
-	if (hasFocus)
+	if (hasFocus) {
 		changed |= setPosition("focus", pos.focus);
+		if (!obs_data_has_user_value(state, "focus_af_enabled") ||
+		    obs_data_get_bool(state, "focus_af_enabled") != pos.focusAuto) {
+			obs_data_set_bool(state, "focus_af_enabled", pos.focusAuto);
+			obs_data_set_bool(stateChanged, "focus_af_enabled", pos.focusAuto);
+			changed = true;
+		}
+	}
 	if (changed)
 		notifyStateChanged();
 }
@@ -193,28 +181,6 @@ void PTZUSBCam::set_autofocus(bool enabled)
 {
 	refreshDeviceId();
 	worker_->setAutoFocus(enabled);
-}
-
-void PTZUSBCam::memory_reset(int i)
-{
-	if (!presets.contains(i))
-		return;
-	presets.remove(i);
-}
-
-void PTZUSBCam::memory_set(int i)
-{
-	/* Answered by the positionCaptured signal, once the worker has got to it */
-	refreshDeviceId();
-	worker_->capturePosition(i);
-}
-
-void PTZUSBCam::memory_recall(int i)
-{
-	if (!presets.contains(i))
-		return;
-	refreshDeviceId();
-	worker_->recall(presets[i]);
 }
 
 void ptz_usb_cam_register_filter()

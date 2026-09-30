@@ -1220,6 +1220,80 @@ void PTZVisca::requestState(OBSData requested)
 	PTZDevice::requestState(requested);
 }
 
+/* What a local preset saves of a VISCA camera. Where it points is the
+ * camera's own positions, not the "pan" etc. of the movement API: those are
+ * scaled by ranges the camera may not have, and clamped (see
+ * update_position()), so they can't say exactly where it was. Then what of
+ * the picture can be set again, in visca_state_commands and requestState()
+ * above; not what is about the camera rather than the shot: its power, id,
+ * video format, menus, IR remote or latency. */
+static const QStringList visca_preset_positions = {"pan_pos", "tilt_pos", "zoom_pos", "focus_pos"};
+static const QStringList visca_preset_keys = {"focus_af_mode",
+					      "focus_af_sensitivity",
+					      "focus_near_limit",
+					      "dzoom_on",
+					      "wb_mode",
+					      "r_gain",
+					      "b_gain",
+					      "ae_mode",
+					      "shutter_pos",
+					      "iris_pos",
+					      "gain_pos",
+					      "gain_limit",
+					      "bright_pos",
+					      "slow_shutter",
+					      "exposure_comp",
+					      "exposure_comp_pos",
+					      "back_light",
+					      "wd_mode",
+					      "defog_mode",
+					      "high_sensitivity",
+					      "ir_correction",
+					      "aperture_gain",
+					      "high_resolution",
+					      "nr_level",
+					      "gamma",
+					      "chroma_suppress",
+					      "color_gain",
+					      "color_hue",
+					      "picture_effect"};
+
+QStringList PTZVisca::presetStateKeys() const
+{
+	return visca_preset_positions + QStringList{"focus_af_enabled"} + visca_preset_keys;
+}
+
+bool PTZVisca::presetRecallsByDefault(const QString &key) const
+{
+	return visca_preset_positions.contains(key) || PTZDevice::presetRecallsByDefault(key);
+}
+
+/* The camera's own positions go back with the direct commands; the rest as
+ * any device recalls it */
+void PTZVisca::recallPresetState(OBSData values)
+{
+	auto has = [&](const char *key) {
+		return obs_data_has_user_value(values, key);
+	};
+	auto value = [&](const char *key) {
+		return (int)obs_data_get_int(has(key) ? values : state, key);
+	};
+
+	OBSDataAutoRelease rest = obs_data_create();
+	obs_data_apply(rest, values);
+	for (const QString &key : visca_preset_positions)
+		obs_data_erase(rest, QT_TO_UTF8(key));
+	PTZDevice::recallPresetState(rest.Get());
+
+	if (has("pan_pos") || has("tilt_pos"))
+		send(VISCA_PanTilt_drive_abs, {0x0f, 0x0f, value("pan_pos"), value("tilt_pos")});
+	if (has("zoom_pos"))
+		send(VISCA_CAM_Zoom_Direct, {value("zoom_pos")});
+	bool autofocus = obs_data_get_bool(has("focus_af_enabled") ? values : state, "focus_af_enabled");
+	if (has("focus_pos") && !autofocus)
+		send(VISCA_CAM_FocusPos, {value("focus_pos")});
+}
+
 /* Turns a tally lamp on or off, the green one if `green`, the red one if
  * not. Not if the camera has said it doesn't have it. */
 void PTZVisca::sendTally(bool green, bool on)
@@ -1401,6 +1475,12 @@ void PTZVisca::set_autofocus(bool enabled)
 {
 	send(enabled ? VISCA_CAM_Focus_Auto : VISCA_CAM_Focus_Manual);
 	obs_data_set_bool(state, "focus_af_enabled", enabled);
+}
+
+void PTZVisca::focus_abs(double pos_)
+{
+	int pos = VISCA_FOCUS_FAR + std::clamp(pos_, 0.0, 1.0) * (VISCA_FOCUS_NEAR - VISCA_FOCUS_FAR);
+	send(VISCA_CAM_FocusPos, {pos});
 }
 
 void PTZVisca::focus_onetouch()

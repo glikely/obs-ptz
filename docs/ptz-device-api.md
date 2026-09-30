@@ -7,7 +7,7 @@ this API is part of.
 
 ## API version
 
-This is version **1.0** of the PTZ API. A caller asks the plugin
+This is version **1.1** of the PTZ API. A caller asks the plugin
 which version it implements with `ptz_get_api_version` on OBS's own
 proc_handler, before relying on anything else here:
 
@@ -108,10 +108,15 @@ _handed to listeners as `proc_handler` on the `ptz_device_create` signal._
 > Preset list CRUD
 
 - `ptr ptz_preset_get_list()`
-- `int ptz_preset_new(int row)`
+- `int ptz_preset_new(int row, bool local)`
 - `void ptz_preset_remove(int row)`
 - `void ptz_preset_move(int src_row, int dest_row)`
 - `void ptz_preset_set_name(int id, string name)`
+
+> One preset's whole description, and changing it: whether it is stored locally, and for one that is, what it recalls
+
+- `void ptz_preset_get(int id, ptr preset)`
+- `void ptz_preset_set(int id, ptr preset)`
 
 > The program or preview scene changed: re-check whether the device is live
 
@@ -135,3 +140,4 @@ _handed to listeners as `signal_handler` on the `ptz_device_create` signal._
 - `void preset_removed(int device_id, int row)`
 - `void preset_moved(int device_id, int src_row, int dest_row)`
 - `void preset_renamed(int device_id, int id)`
+- `void preset_changed(int device_id, int id)`

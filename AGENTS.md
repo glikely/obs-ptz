@@ -98,6 +98,27 @@ it back to `update()` on load. An action on the camera that isn't a state
 change (a one-push white balance, a diagnostic) goes through the `ptz_trigger`
 proc instead.
 
+## Presets
+
+A preset is stored on the camera (the driver's `memory_set()`/
+`memory_recall()`/`memory_reset()`) or, with `"local"` set, in the device's
+settings: `"state"` holds values captured from the device's state, and
+`"recall"` says which of them recalling it requests again. Both kinds share
+one id space and one list, and `PTZDevice::preset_save()`/`preset_recall()`/
+`preset_clear()` pick the path by the preset, so hotkeys, the action source
+and the proc handlers don't need to know which it is. A local preset only
+captures what the driver reports in its state and names in
+`presetStateKeys()`, and `recallPresetState()` sets it again through
+`requestState()` and the absolute moves; so a driver gets local presets for
+whatever it can both read back and set. The movement API's "pan"/"tilt"/
+"zoom"/"focus" are only exact where the driver knows the camera's real range:
+VISCA assumes one and clamps, so it saves the camera's own `pan_pos` etc.
+instead and overrides `recallPresetState()` to send them back directly. A
+preset recalls its axes with separate absolute moves, so each must leave the
+other axes alone (ONVIF's `AbsoluteMove` omits the ones not moving). A driver
+whose camera has no preset memory returns false from
+`supportsDevicePresets()` (USB), and all its presets are local.
+
 ## PTZ API version
 
 The procs and signals in `docs/ptz-device-api.md` are an API other plugins

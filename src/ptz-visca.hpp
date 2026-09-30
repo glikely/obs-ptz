@@ -139,6 +139,9 @@ public:
 	obs_properties_t *get_obs_properties() override;
 	bool supportsDiagnostics() const override { return true; }
 	void requestState(OBSData requested) override;
+	QStringList presetStateKeys() const override;
+	bool presetRecallsByDefault(const QString &key) const override;
+	void recallPresetState(OBSData values) override;
 	void onSceneChanged() override;
 	void onOBSStartup() override;
 	void onOBSShutdown() override;
@@ -155,6 +158,7 @@ public:
 	void pantilt_home() override;
 	void zoom_abs(double pos) override;
 	void set_autofocus(bool enabled) override;
+	void focus_abs(double pos) override;
 	void focus_onetouch() override;
 	void memory_reset(int i) override;
 	void memory_set(int i) override;

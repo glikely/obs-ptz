@@ -67,11 +67,19 @@ protected:
 	void watchParentSource(const OBSWeakSource &weak, bool watch) const;
 	/* Collection of all presets, keyed by unique integer id.
 	 * On cameras that use preset numbers, the id is mapped 1:1 with the
-	 * preset number.  */
+	 * preset number.
+	 *
+	 * A preset is either stored on the camera (memory_set() and friends),
+	 * or, with "local" set, here: "state" holds the values of the device's
+	 * state captured when it was saved, and "recall" says, key by key,
+	 * which of them recalling it asks for again. */
 	size_t m_maxPresets = 16;
 	QMap<size_t, QVariantMap> m_presets;
 	QList<size_t> m_presetsDisplayOrder;
 	void sanitizePreset(size_t id);
+	void signalPresetChanged(size_t id);
+	void saveLocalPreset(size_t id);
+	void recallLocalPreset(size_t id);
 	void setConnected(bool connected);
 	OBSData state;        /* Transient state of the camera. Isn't saved */
 	OBSData stateChanged; /* changed state to be sent via the notify signal */
@@ -141,16 +149,43 @@ public:
 
 	size_t maxPresets() const { return m_maxPresets; }
 	int presetCount() const { return m_presetsDisplayOrder.size(); }
-	int newPreset(int row = -1);
+	/* A new preset, stored locally if `local`, or if the device can't
+	 * store presets itself. Returns its id, or -1 if there's no room. */
+	int newPreset(int row = -1, bool local = false);
 	void removePresetAtDisplayRow(int row);
 	void movePreset(int srcRow, int destRow);
 	int presetAtDisplayRow(int row) const;
 	QString presetName(size_t id) const { return m_presets[id]["name"].toString(); }
 	QString presetToken(size_t id) const { return m_presets[id]["token"].toString(); }
 	void setPresetName(size_t id, QString name);
+	/* A preset's whole description: "id", "name", "token", "local", and
+	 * for a local preset "state" and "recall" */
+	void presetInfo(size_t id, obs_data_t *out) const;
+	/* Change a preset: "local", "recall" and "state", those given. Only
+	 * keys in presetStateKeys() go in "state". */
+	bool setPresetInfo(size_t id, obs_data_t *info);
 	QVariant presetProperty(size_t id, QString key) const;
 	bool updatePreset(size_t id, const QVariantMap &map);
 	int findPreset(QString key, QVariant value) const;
+	bool isPresetLocal(size_t id) const { return m_presets.value(id).value("local").toBool(); }
+	/* Whether the camera itself can store presets (memory_set() and
+	 * friends). One that can't only has local presets. */
+	virtual bool supportsDevicePresets() const { return true; }
+	/* The state keys a local preset captures, where the device reports
+	 * them: where the camera is pointing, and whatever else of the picture
+	 * the driver can set again through requestState(). Not the ones about
+	 * the device rather than the shot, like power or tally. */
+	virtual QStringList presetStateKeys() const;
+	/* Whether a newly captured value is recalled, unless the user says
+	 * otherwise: where the camera points, and whether it focuses itself */
+	virtual bool presetRecallsByDefault(const QString &key) const;
+	/* Ask for the values a local preset recalls, `values` holding just
+	 * those. Autofocus first, since a focus position means nothing to a
+	 * camera focusing itself; then the rest of the picture through
+	 * requestState(); then where the camera points, through the absolute
+	 * moves. A driver that saves positions its own way (see
+	 * presetStateKeys()) recalls them in an override. */
+	virtual void recallPresetState(OBSData values);
 
 	/**
 	 * do_update() method is to be implemented by each driver as the way
@@ -216,6 +251,10 @@ protected slots:
 	virtual void memory_set(int i) { Q_UNUSED(i); }
 	virtual void memory_recall(int i) { Q_UNUSED(i); }
 	virtual void memory_reset(int i) { Q_UNUSED(i); }
+	/* Save, recall or clear a preset, wherever it is stored */
+	void preset_save(int id);
+	void preset_recall(int id);
+	void preset_clear(int id);
 
 	void stop(calldata_t *) { QMetaObject::invokeMethod(this, "stop"); }
 	void pantilt_home(calldata_t *) { QMetaObject::invokeMethod(this, "pantilt_home"); }
@@ -244,6 +283,8 @@ protected slots:
 	void removePresetAtDisplayRow(calldata_t *cd);
 	void movePreset(calldata_t *cd);
 	void setPresetName(calldata_t *cd);
+	void preset_get(calldata_t *cd) const;
+	void preset_set(calldata_t *cd);
 	void onSceneChanged(calldata_t *cd)
 	{
 		Q_UNUSED(cd);
