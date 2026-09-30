@@ -6,6 +6,8 @@
  */
 #pragma once
 
+#include <memory>
+#include <vector>
 #include <QWidget>
 #include <QTimer>
 #include <QVariantMap>
@@ -13,15 +15,19 @@
 
 class QCheckBox;
 class QComboBox;
+class QFormLayout;
 class QGroupBox;
 class QLabel;
 class QPushButton;
+class QVBoxLayout;
 
 /* Shows what a device reports of itself (the "ptz_get_state" proc): its name,
  * whether it is connected, live, in the preview and locked, where the camera
  * is, and, for a camera that reports them, its power, autofocus and tally
- * lamps' state and its white balance. For a device that has them
- * ("supports_diagnostics"), buttons for its diagnostics.
+ * lamps' state, its white balance, and the rest of what a VISCA camera reports
+ * of its focus, exposure, picture, system and pan/tilt, most of which can be
+ * changed. For a device that has them ("supports_diagnostics"), buttons for
+ * its diagnostics.
  *
  * Every widget is made once, and an update changes only the ones whose value
  * changed, so nothing is torn down and rebuilt as the state changes many
@@ -37,6 +43,7 @@ class PTZStateView : public QWidget {
 
 public:
 	explicit PTZStateView(QWidget *parent = nullptr);
+	~PTZStateView() override;
 
 	/* Show all of a device's state, as PTZDevice::saveState() gives it. A
 	 * key that isn't in it isn't shown, and the rest is reset. */
@@ -62,9 +69,21 @@ signals:
 private:
 	static constexpr int AxisCount = 4;
 
+	/* One state key's row, of the ones made from a table rather than by
+	 * hand: see ptz-state-view.cpp. Shown as a checkbox, a list to pick
+	 * from, a number, or text that can't be edited. */
+	struct Field;
+	enum FieldKind { FlagField, ChoiceField, NumberField, TextField };
+
 	void applyData(obs_data_t *data, bool all);
 	void showWhiteBalance(int mode);
 	void setRowVisible(QWidget *label, QWidget *field, bool visible);
+
+	QFormLayout *addGroup(QVBoxLayout *page, const char *text);
+	Field *addField(QFormLayout *form, const char *key, FieldKind kind, const char *text);
+	void requestField(Field *field, const QVariant &value);
+	bool showField(Field *field, const QVariant &value);
+	void showShutterSpeeds();
 
 	QLabel *m_name;
 	QCheckBox *m_connected;
@@ -95,6 +114,13 @@ private:
 
 	/* Buttons for a driver's diagnostics, for a device that has them */
 	QGroupBox *m_diagnosticsGroup;
+
+	std::vector<std::unique_ptr<Field>> m_fields;
+	/* The group boxes the fields are in; each is shown while any of its
+	 * rows is. The white balance one is one of them. */
+	std::vector<QGroupBox *> m_groups;
+	/* Shutter speeds are named differently at 50 Hz */
+	bool m_50Hz = false;
 
 	int m_updateCount = 0;
 };

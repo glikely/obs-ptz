@@ -45,11 +45,11 @@ PTZStateView *stateView(PTZSettings *dialog)
 	return dialog->findChild<PTZStateView *>();
 }
 
-/* The list of white balance modes: the only combo box in the state view */
+/* The list of white balance modes, named for its state key */
 QComboBox *whiteBalanceList(PTZSettings *dialog)
 {
 	PTZStateView *view = stateView(dialog);
-	return view ? view->findChild<QComboBox *>() : nullptr;
+	return view ? view->findChild<QComboBox *>(QStringLiteral("wb_mode")) : nullptr;
 }
 
 /* Opens the dialog on a device and starts counting, from zero, how often its
