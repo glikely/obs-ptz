@@ -510,6 +510,16 @@ QModelIndex PTZListModel::indexFromDeviceId(uint32_t device_id) const
 	return row >= 0 ? index(row, 0) : QModelIndex();
 }
 
+QModelIndex PTZListModel::indexFromFilter(obs_source_t *filter) const
+{
+	if (!filter)
+		return QModelIndex();
+	for (int row = 0; row < devices.size(); row++)
+		if (obs_weak_source_references_source(devices.at(row).weakFilter, filter))
+			return index(row, 0);
+	return QModelIndex();
+}
+
 /**
  * Look up model index from the device name
  */
@@ -609,11 +619,23 @@ obs_properties_t *PTZListModel::getProperties(const QModelIndex &index) const
 	return props ? props : obs_properties_create();
 }
 
+/* A filter-owned device goes with its filter, so remove that from its
+ * source; the device is backed up either way as it is destroyed */
 void PTZListModel::removeDevice(const QModelIndex &index)
 {
 	auto entry = entryAt(index);
-	if (entry)
+	if (!entry)
+		return;
+	if (!entry->weakFilter) {
 		ptz_device_destroy(entry->id);
+		return;
+	}
+	OBSSourceAutoRelease filter = obs_weak_source_get_source(entry->weakFilter);
+	if (!filter)
+		return;
+	obs_source_t *parent = obs_filter_get_parent(filter);
+	if (parent)
+		obs_source_filter_remove(parent, filter);
 }
 
 void PTZListModel::make_device(OBSData config)
