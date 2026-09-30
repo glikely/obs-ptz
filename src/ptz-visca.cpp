@@ -183,6 +183,12 @@ public:
 	}
 };
 
+/* How many update ticks (a second each) discover_limits() lets an axis take to
+ * reach the end of its travel, and how many in a row it must have stood still
+ * to have reached it */
+static constexpr int VISCA_DISCOVER_MAX_TICKS = 60;
+static constexpr int VISCA_DISCOVER_STABLE_TICKS = 2;
+
 /* How long to wait for the reply to a request before sending it again. Cameras
  * take up to ~130ms to answer, so this must be well over that. */
 static constexpr int VISCA_REPLY_TIMEOUT_MS = 250;
@@ -988,7 +994,8 @@ obs_properties_t *PTZVisca::get_obs_properties()
 				      7, 1);
 	/* What 1.0 is in the movement API. A camera that is not one of these
 	 * would have its position shown stuck at an end, and absolute moves
-	 * go to the wrong place. */
+	 * go to the wrong place; "Discover Movement Limits" in the status
+	 * view finds them. */
 	obs_properties_add_int(visca_grp, "visca_pan_range", obs_module_text("PTZ.Visca.PanRange"), 1, 0xffff, 1);
 	obs_properties_add_int(visca_grp, "visca_tilt_range", obs_module_text("PTZ.Visca.TiltRange"), 1, 0xffff, 1);
 	obs_properties_add_int(visca_grp, "visca_zoom_range", obs_module_text("PTZ.Visca.ZoomRange"), 1, 0xffff, 1);
@@ -1075,7 +1082,151 @@ void PTZVisca::update_timer_callback()
 		for (auto key : inquires.keys())
 			stale_state += key;
 	}
+	discover_tick();
 	send_pending();
+}
+
+/* What discover_limits() drives, in order, each to one end of its travel and
+ * then the other: the position it watches, and the speed to drive it at */
+struct DiscoverAxis {
+	const char *pos;
+	double dir;
+};
+static const DiscoverAxis visca_discover_steps[] = {
+	{"pan_pos", -1}, {"pan_pos", 1},  {"tilt_pos", -1},  {"tilt_pos", 1},
+	{"zoom_pos", -1}, {"zoom_pos", 1}, {"focus_pos", -1}, {"focus_pos", 1},
+};
+static constexpr int VISCA_DISCOVER_STEPS = sizeof(visca_discover_steps) / sizeof(visca_discover_steps[0]);
+
+/* Finds how far the camera goes by driving each axis to both of its ends at
+ * full speed, watching (on the update timer's reads of the position) where it
+ * stops, then putting it back where it was. This moves the camera all over,
+ * so it only runs when asked for. The ranges the camera was found to have
+ * are kept as settings. The camera won't take focus commands while it is
+ * focusing by itself, so autofocus is turned off for the duration, and back
+ * on after. */
+void PTZVisca::discover_limits()
+{
+	if (discover_step >= 0 || !isConnected())
+		return;
+	ptz_info("discovering movement limits");
+	discover_extent.clear();
+	discover_start.clear();
+	for (auto key : {"pan_pos", "tilt_pos", "zoom_pos", "focus_pos"}) {
+		if (!obs_data_has_user_value(state, key))
+			continue;
+		int pos = (int)obs_data_get_int(state, key);
+		if (!strcmp(key, "focus_pos"))
+			pos &= 0xffff;
+		discover_start[key] = pos;
+		discover_extent[key] = {pos, pos};
+	}
+	discover_af_was_on = obs_data_get_bool(state, "focus_af_enabled");
+	if (discover_af_was_on)
+		set_autofocus(false);
+	discover_step = 0;
+	discover_begin_step();
+}
+
+void PTZVisca::discover_begin_step()
+{
+	while (discover_step < VISCA_DISCOVER_STEPS) {
+		const DiscoverAxis &axis = visca_discover_steps[discover_step];
+		if (discover_start.contains(axis.pos))
+			break;
+		discover_step++;
+	}
+	if (discover_step >= VISCA_DISCOVER_STEPS) {
+		discover_finish();
+		return;
+	}
+	const DiscoverAxis &axis = visca_discover_steps[discover_step];
+	discover_ticks = 0;
+	discover_stable = 0;
+	discover_last = (int)obs_data_get_int(state, axis.pos);
+	if (!strcmp(axis.pos, "focus_pos"))
+		discover_last &= 0xffff;
+	/* pantilt() and friends apply the axis' inversion, which only
+	 * swaps which end is first */
+	if (!strcmp(axis.pos, "pan_pos"))
+		pantilt(axis.dir, 0);
+	else if (!strcmp(axis.pos, "tilt_pos"))
+		pantilt(0, axis.dir);
+	else if (!strcmp(axis.pos, "zoom_pos"))
+		zoom(axis.dir);
+	else
+		focus(axis.dir);
+}
+
+void PTZVisca::discover_tick()
+{
+	if (discover_step < 0)
+		return;
+	const DiscoverAxis &axis = visca_discover_steps[discover_step];
+	int pos = (int)obs_data_get_int(state, axis.pos);
+	/* focus is unsigned, though a block inquiry reads it as if it weren't */
+	if (!strcmp(axis.pos, "focus_pos"))
+		pos &= 0xffff;
+	auto &extent = discover_extent[axis.pos];
+	extent.first = std::min(extent.first, pos);
+	extent.second = std::max(extent.second, pos);
+
+	/* The first read after a drive command may be from before the camera
+	 * started, so it isn't stopped until it has been seen to stay put */
+	discover_ticks++;
+	discover_stable = (discover_ticks > 1 && pos == discover_last) ? discover_stable + 1 : 0;
+	discover_last = pos;
+	if (discover_stable >= VISCA_DISCOVER_STABLE_TICKS || discover_ticks >= VISCA_DISCOVER_MAX_TICKS || !isConnected()) {
+		stop();
+		discover_step++;
+		discover_begin_step();
+	}
+}
+
+void PTZVisca::discover_finish()
+{
+	discover_step = -1;
+	stop();
+	auto extent = [this](const char *key, int &lo, int &hi) {
+		if (!discover_extent.contains(key) || discover_extent[key].first == discover_extent[key].second)
+			return false;
+		lo = discover_extent[key].first;
+		hi = discover_extent[key].second;
+		return true;
+	};
+	int lo, hi;
+	if (extent("pan_pos", lo, hi))
+		visca_pan_range = std::max(std::abs(lo), std::abs(hi));
+	if (extent("tilt_pos", lo, hi))
+		visca_tilt_range = std::max(std::abs(lo), std::abs(hi));
+	if (extent("zoom_pos", lo, hi))
+		visca_zoom_range = std::max(1, hi);
+	bool focused = extent("focus_pos", lo, hi);
+	if (focused) {
+		visca_focus_far = lo;
+		visca_focus_near = hi;
+	}
+	ptz_info("movement limits: pan %d tilt %d zoom %d focus %d to %d", visca_pan_range, visca_tilt_range,
+		 visca_zoom_range, visca_focus_far, visca_focus_near);
+
+	/* Back where it was, in the new ranges */
+	auto start = [this](const char *key) { return discover_start.value(key, 0); };
+	if (discover_start.contains("pan_pos") && discover_start.contains("tilt_pos"))
+		pantilt_abs(start("pan_pos") / (double)visca_pan_range, start("tilt_pos") / (double)visca_tilt_range);
+	if (focused && discover_start.contains("zoom_pos"))
+		send(VISCA_CAM_ZoomFocus_Direct, {start("zoom_pos"), start("focus_pos") & 0xffff});
+	else if (discover_start.contains("zoom_pos"))
+		zoom_abs(start("zoom_pos") / (double)visca_zoom_range);
+
+	if (discover_af_was_on)
+		set_autofocus(true);
+	discover_af_was_on = false;
+
+	/* what the last reads were of, in the units the ranges were then */
+	stale_state += "pan_pos";
+	stale_state += "zoom_pos";
+	stale_state += "focus_pos";
+	announceSettingsChanged();
 }
 
 void PTZVisca::cmd_get_camera_info()
@@ -1332,6 +1483,8 @@ bool PTZVisca::runTrigger(const QString &name)
 		scan_commands();
 	else if (name == "replies_to_log")
 		write_replies_to_log();
+	else if (name == "discover_limits")
+		discover_limits();
 	else
 		return PTZDevice::runTrigger(name);
 	return true;

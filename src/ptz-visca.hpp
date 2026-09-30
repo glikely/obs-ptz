@@ -22,7 +22,7 @@
 extern const PTZCmd VISCA_ENUMERATE;
 
 /* How far a camera moves and zooms, as the plugin assumes it until told
- * otherwise (the "visca_*_range" settings): what 1.0
+ * otherwise (the "visca_*_range" settings, or discover_limits()): what 1.0
  * in the movement API stands for. Pan and tilt are symmetric about the
  * centre, zoom runs from 0 (wide) to its range. Focus is 0x1000 at far
  * focus and 0xf000 at near, as VISCA cameras usually have it. */
@@ -120,6 +120,21 @@ protected:
 	int visca_zoom_range = VISCA_DEFAULT_ZOOM_RANGE;
 	int visca_focus_far = VISCA_DEFAULT_FOCUS_FAR;
 	int visca_focus_near = VISCA_DEFAULT_FOCUS_NEAR;
+
+	/* Finding out how far the camera goes, by driving each axis to both of
+	 * its ends and watching where it stops; see discover_limits(). A step
+	 * is one axis in one direction, -1 when none is running. */
+	int discover_step = -1;
+	int discover_ticks = 0;
+	int discover_stable = 0;
+	int discover_last = 0;
+	bool discover_af_was_on = false;
+	QMap<QString, QPair<int, int>> discover_extent;
+	QMap<QString, int> discover_start;
+	void discover_limits();
+	void discover_begin_step();
+	void discover_tick();
+	void discover_finish();
 
 	unsigned int visca_pan_speed_max = 0x18;
 	unsigned int visca_tilt_speed_max = 0x14;

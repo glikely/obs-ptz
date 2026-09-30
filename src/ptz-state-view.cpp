@@ -386,6 +386,7 @@ PTZStateView::PTZStateView(QWidget *parent) : QWidget(parent)
 		connect(button, &QPushButton::clicked, this, [this, trigger]() { emit actionRequested(trigger); });
 	};
 	addAction("scanInquiries", "PTZ.Visca.Debug.ScanInquiries", "scan_inquiries");
+	addAction("discoverLimits", "PTZ.Visca.Debug.DiscoverLimits", "discover_limits");
 	addAction("repliesToLog", "PTZ.Visca.Debug.RepliesToLog", "replies_to_log");
 	m_diagnosticsGroup->hide();
 	page->addWidget(m_diagnosticsGroup);
