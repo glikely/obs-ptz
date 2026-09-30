@@ -419,11 +419,8 @@ def run_appearance_sweep(tail: LogTail, ws_port, ws_password, logfile) -> tuple[
                 continue
 
             mismatches = []
-            # Preset rows hold a thumbnail two source-rows tall, plus a
-            # 2px margin above and below (PTZPresetListDelegate)
-            expected_preset_height = sources_height * 2 + 4
-            if preset_height != expected_preset_height:
-                mismatches.append(f"preset rows {preset_height} != 2 * sources rows + 4 = {expected_preset_height}")
+            if preset_height != sources_height:
+                mismatches.append(f"preset rows {preset_height} != sources rows {sources_height}")
             if camera_height != sources_height:
                 mismatches.append(f"camera rows {camera_height} != sources rows {sources_height}")
             if ptz_toolbar != sources_toolbar:

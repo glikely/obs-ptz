@@ -153,6 +153,7 @@ private slots:
 	void on_actionPresetRename_triggered();
 	void on_actionPresetExport_triggered(QString filename = "");
 	void on_actionPresetImport_triggered(QString filename = "");
+	void on_actionPresetGridView_toggled(bool checked);
 
 	void accelTimerHandler();
 
@@ -284,12 +285,15 @@ public:
 			       const QModelIndex &index) override;
 
 	int iconSize() const { return PTZControls::getInstance()->iconSize(); }
-	/* Height of the thumbnail; the preset rows are this plus a margin */
-	int thumbnailHeight() const { return PTZControls::getInstance()->rowHeight() * 2; }
 	void refreshTheme();
+	/* Show the presets as a grid of thumbnails, rather than as a list */
+	void setGridMode(bool grid);
+	bool gridMode() const { return m_gridMode; }
 
 private:
 	CellLayout layoutCell(const QModelIndex &index, const QStyleOptionViewItem &option) const;
+	int gridCellWidth() const;
 
 	QIcon recallIcon;
+	bool m_gridMode = false;
 };
