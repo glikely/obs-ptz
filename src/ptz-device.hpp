@@ -295,6 +295,7 @@ public:
 	 * the filter's .update and the dialog's ptz_set_config both go here.
 	 * `settings` must be complete, as update() requires. */
 	void applySettings(OBSData settings);
+	void announceSettingsChanged();
 	/* Remove the runtime identity keys save() adds ("name", "id",
 	 * "is-self-managed") from a settings object destined for persistence
 	 * in a filter, which already knows its own source, and whose device id

@@ -88,11 +88,6 @@ struct common_frame_rate {
 Q_DECLARE_METATYPE(frame_rate_tag);
 Q_DECLARE_METATYPE(media_frames_per_second);
 
-void OBSPropertiesView::SetPlaceholder(const QString &name, const QString &text)
-{
-	placeholders.insert(name, text);
-}
-
 void OBSPropertiesView::ReloadProperties()
 {
 	if (weakObj || rawObj) {
@@ -396,7 +391,9 @@ QWidget *OBSPropertiesView::AddText(obs_property_t *prop, QFormLayout *layout, Q
 	QLineEdit *edit = new QLineEdit();
 
 	edit->setText(QT_UTF8(val));
-	edit->setPlaceholderText(placeholders.value(QT_UTF8(name)));
+	/* Greyed-out text while empty, from the setting "<name>:placeholder" --
+	 * e.g. what a blank field will use instead */
+	edit->setPlaceholderText(QT_UTF8(obs_data_get_string(settings, QT_TO_UTF8(QString(name) + ":placeholder"))));
 	edit->setToolTip(QT_UTF8(obs_property_long_description(prop)));
 
 	return NewWidget(prop, edit, &QLineEdit::textEdited);

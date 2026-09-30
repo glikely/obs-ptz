@@ -883,6 +883,8 @@ void PTZOnvif::save(OBSData config) const
 {
 	PTZDevice::save(config);
 	obs_data_set_string(config, "host", QT_TO_UTF8(host));
+	/* Greyed-out text in a blank Host field: where it will connect instead */
+	obs_data_set_default_string(config, "host:placeholder", QT_TO_UTF8(m_sourceHost));
 	obs_data_set_int(config, "port", port);
 	obs_data_set_string(config, "username", QT_TO_UTF8(username));
 	obs_data_set_string(config, "password", QT_TO_UTF8(password));

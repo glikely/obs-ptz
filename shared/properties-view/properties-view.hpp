@@ -4,7 +4,6 @@
 #include <obs-data.h>
 #include <obs.hpp>
 #include <qtimer.h>
-#include <QHash>
 #include <QPointer>
 #include <vector>
 #include <memory>
@@ -136,15 +135,6 @@ private:
 
 private slots:
 	void RefreshProperties();
-
-public:
-	/* Greyed-out text shown in the single-line text property "name" while
-	 * it is empty, e.g. the value used when it is left blank. Takes effect
-	 * the next time the widgets are built. */
-	void SetPlaceholder(const QString &name, const QString &text);
-
-private:
-	QHash<QString, QString> placeholders;
 
 public slots:
 	void ReloadProperties();

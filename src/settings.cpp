@@ -419,11 +419,10 @@ void PTZSettings::currentChanged(const QModelIndex &current, const QModelIndex &
 {
 	obs_data_clear(settings);
 	ptzDeviceList->save(current, settings);
+	propertiesView->ReloadProperties();
 
 	OBSDataAutoRelease state = obs_data_create();
 	ptzDeviceList->saveState(current, state.Get());
-	propertiesView->SetPlaceholder("host", QString::fromUtf8(obs_data_get_string(state, "parent_host")));
-	propertiesView->ReloadProperties();
 	ui->stateView->setState(state.Get());
 }
 
@@ -448,12 +447,6 @@ void PTZSettings::deviceStateUpdated(uint32_t device_id, OBSData changed)
 		return;
 
 	ui->stateView->applyChanges(changed);
-
-	/* What a blank Host means changed: rebuild the widgets to show it */
-	if (obs_data_has_user_value(changed, "parent_host")) {
-		propertiesView->SetPlaceholder("host", QString::fromUtf8(obs_data_get_string(changed, "parent_host")));
-		QMetaObject::invokeMethod(propertiesView, "RefreshProperties", Qt::QueuedConnection);
-	}
 }
 
 void PTZSettings::showDevice(const QModelIndex &index)
