@@ -16,14 +16,21 @@
 #include <QTimer>
 #include <QApplication>
 #include <QLabel>
+#include <QDialog>
+#include <QFormLayout>
+#include <QDateTime>
+#include <QLocale>
+#include <QStandardItemModel>
 
 #include <string>
+#include <cstring>
 
 #include <obs.hpp>
 #include <obs-module.h>
 #include <obs-frontend-api.h>
 #include <util/config-file.h>
 #include <obs-properties.h>
+#include <qt-wrappers.hpp>
 
 #include "ptz.h"
 #include "ptz-list-model.hpp"
@@ -359,55 +366,192 @@ void PTZSettings::joystickSetup()
 
 void PTZSettings::on_addPTZ_clicked()
 {
-	QMenu addPTZContext;
-	QAction *addVisca = addPTZContext.addAction(obs_module_text("PTZ.Visca.Name"));
+	addDevice();
+}
+
+/* The protocols a new device can use, as the name to show and the settings
+ * to start from */
+static QList<QPair<QString, OBSData>> ptz_protocols()
+{
+	QList<QPair<QString, OBSData>> protocols;
+	auto add = [&](const char *name, const char *type) {
+		OBSDataAutoRelease cfg = obs_data_create();
+		obs_data_set_string(cfg, "type", type);
+		if (strcmp(type, "pelco") == 0)
+			obs_data_set_bool(cfg, "use_pelco_d", true);
+		protocols.append({obs_module_text(name), cfg.Get()});
+	};
+	add("PTZ.Visca.Name", "visca-over-ip");
 #if defined(ENABLE_SERIALPORT)
-	QAction *addPelco = addPTZContext.addAction(obs_module_text("PTZ.Pelco.Name"));
+	add("PTZ.Pelco.Name", "pelco");
 #endif
 #if defined(ENABLE_ONVIF) // ONVIF disabled until code is reworked
-	QAction *addOnvif = addPTZContext.addAction(obs_module_text("PTZ.ONVIF.Name"));
+	add("PTZ.ONVIF.Name", "onvif");
 #endif
 #if defined(ENABLE_USB_CAM)
-	QAction *addUsbCam = addPTZContext.addAction(obs_module_text("PTZ.UVC.Name"));
+	add("PTZ.UVC.Name", "usb-cam");
 #endif
-	QAction *action = addPTZContext.exec(ui->addPTZ->mapToGlobal(QPoint(0, ui->addPTZ->height())));
+	return protocols;
+}
 
-	if (action == addVisca) {
-		OBSData cfg = obs_data_create();
-		obs_data_release(cfg);
-		obs_data_set_string(cfg, "type", "visca-over-ip");
-		ptzDeviceList->make_device(cfg);
+/* The name of the protocol a device type belongs to */
+static QString ptz_protocol_name(const char *type)
+{
+	const char *kind = ptz_device_filter_kind(type);
+	for (const auto &protocol : ptz_protocols())
+		if (kind && strcmp(kind, ptz_device_filter_kind(obs_data_get_string(protocol.second, "type"))) == 0)
+			return protocol.first;
+	return QT_UTF8(type);
+}
+
+/* A new device is a PTZ Control filter on a source, so ask which source,
+ * and which protocol, or which removed device's backup (see
+ * ptz_device_backups_get()) to restore, which brings its protocol with it */
+void PTZSettings::addDevice()
+{
+	/* The devices that control a source; one whose source was deleted can
+	 * linger, under its name, until OBS lets go of its filter */
+	OBSDataArrayAutoRelease devices = ptz_devices_get_config();
+	QList<OBSData> live;
+	QStringList used;
+	for (size_t i = 0; i < obs_data_array_count(devices); i++) {
+		OBSDataAutoRelease item = obs_data_array_item(devices, i);
+		OBSSourceAutoRelease src = ptz_device_get_parent_source((uint32_t)obs_data_get_int(item, "id"));
+		if (!src)
+			continue;
+		live.append(item.Get());
+		used.append(QT_UTF8(obs_source_get_name(src)));
 	}
-#if defined(ENABLE_SERIALPORT)
-	if (action == addPelco) {
-		OBSData cfg = obs_data_create();
-		obs_data_release(cfg);
-		obs_data_set_string(cfg, "type", "pelco");
-		obs_data_set_bool(cfg, "use_pelco_d", true);
-		ptzDeviceList->make_device(cfg);
+
+	/* Every source not already controlled by a device */
+	QStringList sources;
+	auto src_cb = [](void *data, obs_source_t *src) {
+		if (obs_source_get_type(src) != OBS_SOURCE_TYPE_SCENE)
+			static_cast<QStringList *>(data)->append(QT_UTF8(obs_source_get_name(src)));
+		return true;
+	};
+	obs_enum_sources(src_cb, &sources);
+	for (const auto &name : used)
+		sources.removeAll(name);
+	if (sources.isEmpty()) {
+		QMessageBox::information(this, obs_module_text("PTZ.AddDevice.Tooltip"),
+					 obs_module_text("PTZ.AddDevice.NoSources"));
+		return;
 	}
-#endif
-#if defined(ENABLE_ONVIF)
-	if (action == addOnvif) {
-		OBSData cfg = obs_data_create();
-		obs_data_release(cfg);
-		obs_data_set_string(cfg, "type", "onvif");
-		ptzDeviceList->make_device(cfg);
+
+	/* What the device can start from: each protocol's defaults, then the
+	 * backups this build can make a device from, other than of one that
+	 * exists */
+	auto protocols = ptz_protocols();
+	QList<OBSData> choices;
+	for (const auto &protocol : protocols)
+		choices.append(protocol.second);
+	OBSDataArrayAutoRelease allBackups = ptz_device_backups_get();
+	QList<OBSData> backups;
+	for (size_t i = 0; i < obs_data_array_count(allBackups); i++) {
+		OBSDataAutoRelease item = obs_data_array_item(allBackups, i);
+		const char *type = obs_data_get_string(item, "type");
+		if (!ptz_device_filter_kind(type))
+			continue;
+		bool exists = false;
+		for (const auto &dev : live) {
+			if (strcmp(obs_data_get_string(dev, "name"), obs_data_get_string(item, "name")) == 0 &&
+			    strcmp(obs_data_get_string(dev, "type"), type) == 0)
+				exists = true;
+		}
+		if (!exists)
+			backups.append(item.Get());
 	}
-#endif
-#if defined(ENABLE_USB_CAM)
-	if (action == addUsbCam) {
-		OBSData cfg = obs_data_create();
-		obs_data_release(cfg);
-		obs_data_set_string(cfg, "type", "usb-cam");
-		ptzDeviceList->make_device(cfg);
+
+	QDialog dialog(this);
+	dialog.setWindowTitle(obs_module_text("PTZ.AddDevice.Tooltip"));
+	auto layout = new QFormLayout(&dialog);
+	auto sourceCombo = new QComboBox(&dialog);
+	sourceCombo->setObjectName("sourceList");
+	sourceCombo->addItems(sources);
+	layout->addRow(obs_module_text("PTZ.Source"), sourceCombo);
+	auto deviceCombo = new QComboBox(&dialog);
+	deviceCombo->setObjectName("deviceTypeList");
+	/* A heading over each group: shown, but not something to pick */
+	auto addHeading = [&](const char *text) {
+		deviceCombo->addItem(obs_module_text(text), -1);
+		auto model = qobject_cast<QStandardItemModel *>(deviceCombo->model());
+		if (model)
+			model->item(deviceCombo->count() - 1)->setFlags(Qt::NoItemFlags);
+	};
+	/* Each item's data is its index in choices, and for a protocol, the
+	 * type it makes; for a backup, the name of its source */
+	addHeading("PTZ.AddDevice.NewHeading");
+	for (int i = 0; i < protocols.size(); i++) {
+		deviceCombo->addItem(protocols[i].first, i);
+		deviceCombo->setItemData(deviceCombo->count() - 1, obs_data_get_string(protocols[i].second, "type"),
+					 Qt::UserRole + 1);
 	}
-#endif
+	if (!backups.isEmpty()) {
+		deviceCombo->insertSeparator(deviceCombo->count());
+		addHeading("PTZ.AddDevice.RestoreHeading");
+	}
+	for (const auto &backup : backups) {
+		OBSDataArrayAutoRelease presets = obs_data_get_array(backup, "presets");
+		auto when = QDateTime::fromSecsSinceEpoch(obs_data_get_int(backup, "backup_time"));
+		QString name = QT_UTF8(obs_data_get_string(backup, "name"));
+		deviceCombo->addItem(QString(obs_module_text("PTZ.AddDevice.Restore"))
+					     .arg(name)
+					     .arg(ptz_protocol_name(obs_data_get_string(backup, "type")))
+					     .arg(obs_data_array_count(presets))
+					     .arg(QLocale().toString(when, QLocale::ShortFormat)),
+				     (int)choices.size());
+		deviceCombo->setItemData(deviceCombo->count() - 1, name, Qt::UserRole + 2);
+		choices.append(backup);
+	}
+	layout->addRow(obs_module_text("PTZ.AddDevice.Device"), deviceCombo);
+	auto buttons = new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel, &dialog);
+	connect(buttons, &QDialogButtonBox::accepted, &dialog, &QDialog::accept);
+	connect(buttons, &QDialogButtonBox::rejected, &dialog, &QDialog::reject);
+	layout->addRow(buttons);
+
+	/* Offer the backup of a device that was on a source of the same name;
+	 * otherwise go back to the protocol last picked */
+	int protocolRow = deviceCombo->findData(0);
+	connect(deviceCombo, &QComboBox::activated, &dialog, [&](int row) {
+		int choice = deviceCombo->itemData(row).toInt();
+		if (choice >= 0 && choice < protocols.size())
+			protocolRow = row;
+	});
+	auto matchBackup = [&](const QString &source) {
+		int row = deviceCombo->findData(source, Qt::UserRole + 2);
+		deviceCombo->setCurrentIndex(row >= 0 ? row : protocolRow);
+	};
+	connect(sourceCombo, &QComboBox::currentTextChanged, &dialog, matchBackup);
+	matchBackup(sourceCombo->currentText());
+
+	if (dialog.exec() != QDialog::Accepted)
+		return;
+
+	int choice = deviceCombo->currentData().toInt();
+	if (choice < 0 || choice >= choices.size())
+		return;
+	OBSSourceAutoRelease parent = obs_get_source_by_name(QT_TO_UTF8(sourceCombo->currentText()));
+	if (!parent)
+		return;
+	OBSSourceAutoRelease filter = ptz_device_create_filter(parent, choices[choice]);
+	if (!filter)
+		return;
+	QModelIndex index = ptzDeviceList->indexFromFilter(filter);
+	if (index.isValid())
+		ui->deviceList->setCurrentIndex(index);
 }
 
 void PTZSettings::on_removePTZ_clicked()
 {
-	ptzDeviceList->removeDevice(ui->deviceList->currentIndex());
+	QModelIndex index = ui->deviceList->currentIndex();
+	if (!index.isValid())
+		return;
+	auto answer = QMessageBox::question(
+		this, obs_module_text("PTZ.RemoveDevice.Tooltip"),
+		QString(obs_module_text("PTZ.RemoveDevice.Confirm")).arg(index.data(Qt::DisplayRole).toString()));
+	if (answer == QMessageBox::Yes)
+		ptzDeviceList->removeDevice(index);
 }
 
 void PTZSettings::on_applyButton_clicked()

@@ -84,6 +84,7 @@ protected:
 
 public slots:
 	void on_addPTZ_clicked();
+	void addDevice();
 	void on_removePTZ_clicked();
 	void on_applyButton_clicked();
 

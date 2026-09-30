@@ -99,6 +99,7 @@ public:
 	void make_device(OBSData config);
 	QModelIndex indexFromDeviceId(uint32_t device_id) const;
 	QModelIndex indexFromName(const QString &name) const;
+	QModelIndex indexFromFilter(obs_source_t *filter) const;
 	bool callDevice(const QModelIndex &index, const char *method, calldata_t *cd = nullptr);
 	bool callDevice(const char *method, calldata_t *cd = nullptr);
 	void save(OBSDataArray configs) const;
