@@ -49,15 +49,13 @@ def test_requested_white_balance_mode_is_picked_up(obs_world, backend, mode, tmp
 
 
 def settled_sent_count(obs_world, device_id, out):
-    """How many commands the device has sent, once it has stopped sending
-    (the follow-up inquiries of whatever came before)"""
-    def sent():
-        return obs_world.device_state(device_id, out)["state"]["statistics"].get("visca_sent_count", 0)
-
-    before = sent()
+    """How many commands (not inquiries, which the device keeps sending to
+    see where the camera is) the device has sent, once it has stopped
+    sending them"""
+    before = visca_sent_count(obs_world, device_id, out)
     for _ in range(15):
         time.sleep(0.7)
-        now = sent()
+        now = visca_sent_count(obs_world, device_id, out)
         if now == before:
             return now
         before = now
@@ -65,7 +63,7 @@ def settled_sent_count(obs_world, device_id, out):
 
 
 def visca_sent_count(obs_world, device_id, out):
-    return obs_world.device_state(device_id, out)["state"]["statistics"].get("visca_sent_count", 0)
+    return obs_world.device_state(device_id, out)["state"]["statistics"].get("visca_command_count", 0)
 
 
 def test_a_request_asks_for_just_what_it_holds(obs_world, tmp_path):

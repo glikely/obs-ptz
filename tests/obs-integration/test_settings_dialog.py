@@ -43,11 +43,15 @@ def test_status_view_shows_where_the_camera_is(obs_world, tmp_path):
     device_id = obs_world.device_ids["visca-tcp"]
     out = tmp_path / "dialog.json"
     open_dialog(obs_world, device_id)
-    before = obs_world.wait_for_settings_dialog(
-        out, lambda r: {"pan", "tilt", "zoom", "focus"} <= r["state_keys"])["pan"]
+    obs_world.wait_for_settings_dialog(out, lambda r: {"pan", "tilt", "zoom", "focus"} <= r["state_keys"])
 
-    # away from wherever it was, whichever end earlier tests left it at
-    obs_world.trigger_action(device_id, ACTION_PAN_TILT, pan_speed=-0.6 if before > 0 else 0.6, tilt_speed=0.0)
+    # from the middle of its range, not wherever earlier tests left it: the
+    # device reads where the camera really is, and a short move from far
+    # outside the range the plugin shows would not show
+    obs_world.run_ui_test("move_device", device_id=device_id, mode="abs", pan=0.0, tilt=0.0)
+    before = obs_world.wait_for_settings_dialog(out, lambda r: abs(r["pan"]) < 0.01, timeout=10)["pan"]
+
+    obs_world.trigger_action(device_id, ACTION_PAN_TILT, pan_speed=0.6, tilt_speed=0.0)
     time.sleep(0.5)
     obs_world.trigger_action(device_id, ACTION_STOP)
 

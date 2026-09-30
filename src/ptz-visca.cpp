@@ -1018,6 +1018,10 @@ void PTZVisca::send_packet(const QByteArray &packet)
 {
 	ptz_debug_trace("--> %s", packet.toHex(':').data());
 	incrementStatistic("visca_sent_count");
+	/* as opposed to the inquiries the device sends on its own, to see what
+	 * the camera is doing */
+	if (packet.size() > 1 && packet[1] != 0x09)
+		incrementStatistic("visca_command_count");
 	send_immediate(packet);
 	timeout_timer.setSingleShot(true);
 	timeout_timer.start(VISCA_REPLY_TIMEOUT_MS);

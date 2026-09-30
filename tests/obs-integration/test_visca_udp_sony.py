@@ -25,14 +25,18 @@ ABS_PAN_RANGE = 0x1400
 
 
 def settled(sim, quiet=1.5, timeout=15):
-    """The sim's counters, once no request has arrived for `quiet` seconds"""
+    """The sim's counters, once nothing but the device's own polling of where
+    the camera is (plain requests) has arrived for `quiet` seconds"""
+    def busy(stats):
+        return {k: v for k, v in stats.items() if k != "requests"}
+
     deadline = time.time() + timeout
     last = sim.stats()
     since = time.time()
     while time.time() < deadline:
         time.sleep(0.2)
         now = sim.stats()
-        if now != last:
+        if busy(now) != busy(last):
             last, since = now, time.time()
         elif time.time() - since >= quiet:
             return now
