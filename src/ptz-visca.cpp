@@ -168,6 +168,21 @@ public:
 	visca_u16(const char *name, int offset) : int_field(name, offset, 0x0f0f0f0f) {}
 };
 
+/* The top two nibbles of a visca_u16, where a reply leaves out the rest: the
+ * lens control block inquiry's focus near limit, which is 0xpq00 */
+class visca_u16_high : public int_field {
+public:
+	visca_u16_high(const char *name, int offset) : int_field(name, offset, 0x0f0f) {}
+	bool decode(OBSData data, QByteArray &msg) override
+	{
+		int val;
+		if (!decode_int(&val, msg))
+			return false;
+		obs_data_set_int(data, name, val << 8);
+		return true;
+	}
+};
+
 /* How far a camera moves and zooms, as the plugin assumes it, that 1.0 in the
  * movement API stands for. Focus is 0x1000 at far focus and 0xf000 at near,
  * as VISCA cameras usually have it; no command here sets it yet. */
@@ -198,26 +213,35 @@ const PTZInq VISCA_CAM_VersionInq("81090002ff",
 				   new string_lookup_field("model_name", PTZVisca::viscaModels, 2, 0x7fffffff),
 				   new int_field("rom_version", 6, 0xffff), new int_field("socket_number", 8, 0xff)});
 
+/* The block inquiries: what each reply byte holds is in the Sony SRG-120DH
+ * manual's "Block Inquiry Command List", where a reply's bytes are numbered
+ * from its address byte, as the offsets here are. Every value they read has
+ * the same key and scale as the single-value inquiry for it further down, so
+ * that either can be used to read it (see PTZVisca::inquiresFallback). */
 const PTZInq VISCA_LensControlInq(
 	"81097e7e00ff",
-	{new int_field("zoom_pos", 2, 0x0f0f0f0f), new int_field("focus_near_limit", 6, 0x0f0f0f0f),
+	{new int_field("zoom_pos", 2, 0x0f0f0f0f), new visca_u16_high("focus_near_limit", 6),
 	 new int_field("focus_pos", 8, 0x0f0f0f0f), new int_field("focus_af_mode", 13, 0b00011000),
-	 new bool_field("focus_af_sensitivity", 13, 0b0100), new bool_field("dzoom", 13, 0b0010),
-	 new bool_field("focus_af_enabled", 13, 0b0001), new bool_field("low_contrast_mode", 14, 0b1000)});
+	 new bool_field("focus_af_sensitivity", 13, 0b0100), new bool_field("dzoom_on", 13, 0b0010),
+	 new bool_field("focus_af_enabled", 13, 0b0001), new bool_field("low_contrast", 14, 0b1000),
+	 new bool_field("memory_recall_running", 14, 0b0100), new bool_field("focus_command_running", 14, 0b0010),
+	 new bool_field("zoom_command_running", 14, 0b0001)});
 
+/* Byte 9 also has a bit for wide dynamic range, set for any mode but off;
+ * "wd_mode", which says which mode, is read with VISCA_CAM_WDInq instead. */
 const PTZInq VISCA_CameraControlInq(
-	"81097e7e01ff", {new visca_u8("r_gain", 2), new visca_u8("b_gain", 4), new visca_u4("wb_mode", 6),
-			 new visca_u4("aperature_gain", 7), new visca_u4("exposure_mode", 8),
-			 new bool_field("high_resolution", 9, 0b00100000), new bool_field("wide_d", 9, 0b00010000),
-			 new bool_field("back_light", 9, 0b0100), new bool_field("exposure_comp", 9, 0b0010),
-			 new bool_field("slow_shutter", 9, 0b0001), new int_field("shutter_pos", 10, 0x1f),
-			 new int_field("iris_pos", 11, 0x1f), new int_field("gain_pos", 12, 0x1f),
-			 new int_field("bright_pos", 13, 0x1f), new int_field("exposure_comp_pos", 14, 0x0f)});
+	"81097e7e01ff",
+	{new visca_u8("r_gain", 2), new visca_u8("b_gain", 4), new visca_u4("wb_mode", 6),
+	 new visca_u4("aperture_gain", 7), new visca_u4("ae_mode", 8), new bool_field("high_resolution", 9, 0b00100000),
+	 new bool_field("back_light", 9, 0b0100), new bool_field("exposure_comp", 9, 0b0010),
+	 new bool_field("slow_shutter", 9, 0b0001), new int_field("shutter_pos", 10, 0x1f),
+	 new int_field("iris_pos", 11, 0x1f), new int_field("gain_pos", 12, 0x1f),
+	 new int_field("bright_pos", 13, 0x1f), new int_field("exposure_comp_pos", 14, 0x0f)});
 
+/* Byte 2 also has the power, which VISCA_CAM_PowerInq reads for every camera */
 const PTZInq VISCA_OtherInq("81097e7e02ff",
-			    {/*new bool_field("power_on", 2, 0b0001),*/
-			     new int_field("picture_effect_mode", 5, 0x0f), new int_field("camera_id", 8, 0x0f0f0f0f),
-			     new int_field("framerate", 12, 0b0001)});
+			    {new int_field("picture_effect", 5, 0x0f), new int_field("camera_id", 8, 0x0f0f0f0f),
+			     new bool_field("video_50hz", 12, 0b0001)});
 
 const PTZInq VISCA_EnlargementFunction1Inq("81097e7e03ff", {
 								   new int_field("dzoom_pos", 2, 0x0f0f),
@@ -264,8 +288,7 @@ const PTZCmd VISCA_CAM_Zoom_Direct("8101044700000000ff",
 				   "zoom_pos");
 const PTZInq VISCA_CAM_ZoomPosInq("81090447ff", {new visca_u16("zoom_pos", 2)});
 
-const PTZCmd VISCA_CAM_DZoom_On("8101040602ff", "dzoom_on");
-const PTZCmd VISCA_CAM_DZoom_Off("8101040603ff", "dzoom_on");
+const PTZCmd VISCA_CAM_DZoom("8101040600ff", {new visca_flag("dzoom_on", 4)}, "dzoom_on");
 const PTZInq VISCA_CAM_DZoomModeInq("81090406ff", {new visca_flag("dzoom_on", 2)});
 
 const PTZCmd VISCA_CAM_Focus_Stop("8101040800ff", "focus_pos");
@@ -302,29 +325,33 @@ const PTZCmd VISCA_CAM_FocusPos("8101044800000000ff",
 				"focus_pos");
 const PTZInq VISCA_CAM_FocusPosInq("81090448ff", {new visca_u16("focus_pos", 2)});
 
-const PTZCmd VISCA_CAM_Focus_NearLimit("8101042800000000ff", {new visca_s16("focus_nearlimit", 4)});
-const PTZInq VISCA_CAM_FocusNearLimitInq("81090428ff", {new visca_s16("focus_near_limit", 2)});
+const PTZCmd VISCA_CAM_Focus_NearLimit("8101042800000000ff", {new visca_u16("focus_near_limit", 4)},
+				       "focus_near_limit");
+const PTZInq VISCA_CAM_FocusNearLimitInq("81090428ff", {new visca_u16("focus_near_limit", 2)});
 
 const PTZCmd VISCA_CAM_ZoomFocus_Direct("810104470000000000000000ff",
 					{new visca_s16("zoom_pos", 4), new visca_s16("focus_pos", 8)});
 
-const PTZCmd VISCA_CAM_AF_SensitivityNormal("8101045802ff");
-const PTZCmd VISCA_CAM_AF_SensitivityLow("8101045803ff");
+/* true is Normal, false is Low */
+const PTZCmd VISCA_CAM_AF_Sensitivity("8101045800ff", {new visca_flag("focus_af_sensitivity", 4)},
+				      "focus_af_sensitivity");
 const PTZInq VISCA_CAM_AFSensitivityInq("81090458ff", {new visca_flag("focus_af_sensitivity", 2)});
 
-const PTZCmd VISCA_CAM_AFMode_Normal("8101045700ff");
-const PTZCmd VISCA_CAM_AFMode_Interval("8101045701ff");
-const PTZCmd VISCA_CAM_AFMode_ZoomTrigger("8101045702ff");
-const PTZInq VISCA_CAM_AFModeInq("81090457ff", {new visca_flag("focus_af_mode", 2)});
+/* 0: Normal, 1: Interval, 2: Zoom trigger */
+const PTZCmd VISCA_CAM_AFMode("8101045700ff", {new visca_u4("focus_af_mode", 4)}, "focus_af_mode");
+const PTZInq VISCA_CAM_AFModeInq("81090457ff", {new visca_u4("focus_af_mode", 2)});
 
-const PTZCmd VISCA_CAM_AFMode_ActiveIntervalTime("8101042700000000ff", {new visca_u8("focus_af_move_time", 4),
-									new visca_u8("focus_af_move_interval", 6)});
+/* In seconds, for the Interval AF mode */
+const PTZCmd VISCA_CAM_AFMode_ActiveIntervalTime("8101042700000000ff",
+						 {new visca_u8("focus_af_move_time", 4),
+						  new visca_u8("focus_af_interval_time", 6)},
+						 "focus_af_move_time");
 const PTZInq VISCA_CAM_AFTimeSettingInq("81090427ff", {new visca_u8("focus_af_move_time", 2),
-						       new visca_u8("focus_af_move_interval", 4)});
+						       new visca_u8("focus_af_interval_time", 4)});
 
-const PTZCmd VISCA_CAM_IRCorrection_Standard("8101041100ff");
-const PTZCmd VISCA_CAM_IRCorrection_IRLight("8101041101ff");
-const PTZInq VISCA_CAM_IRCorrectionInq("81090411ff", {new visca_flag("ircorrection", 2)});
+/* 0: Standard, 1: IR light */
+const PTZCmd VISCA_CAM_IRCorrection("8101041100ff", {new visca_u4("ir_correction", 4)}, "ir_correction");
+const PTZInq VISCA_CAM_IRCorrectionInq("81090411ff", {new visca_u4("ir_correction", 2)});
 
 const PTZCmd VISCA_CAM_WB_Mode("8101043500ff", {new visca_u4("wb_mode", 4)}, "wb_mode");
 const PTZCmd VISCA_CAM_WB_Auto("8101043500ff");
@@ -340,122 +367,117 @@ const PTZCmd VISCA_CAM_WB_OnePushTrigger("8101041005ff");
 const PTZCmd VISCA_CAM_RGain_Reset("8101040300ff");
 const PTZCmd VISCA_CAM_RGain_Up("8101040302ff");
 const PTZCmd VISCA_CAM_RGain_Down("8101040303ff");
-const PTZCmd VISCA_CAM_RGain_Direct("8101044300000000ff", {new visca_u8("rgain", 6)});
-const PTZInq VISCA_CAM_RGainInq("81090443ff", {new visca_u8("rgain", 4)});
+const PTZCmd VISCA_CAM_RGain_Direct("8101044300000000ff", {new visca_u8("r_gain", 6)}, "r_gain");
+const PTZInq VISCA_CAM_RGainInq("81090443ff", {new visca_u8("r_gain", 4)});
 
 const PTZCmd VISCA_CAM_BGain_Reset("8101040400ff");
 const PTZCmd VISCA_CAM_BGain_Up("8101040402ff");
 const PTZCmd VISCA_CAM_BGain_Down("8101040403ff");
-const PTZCmd VISCA_CAM_BGain_Direct("8101044400000000ff", {new visca_u8("bgain", 6)});
-const PTZInq VISCA_CAM_BGainInq("81090444ff", {new visca_u8("bgain", 4)});
+const PTZCmd VISCA_CAM_BGain_Direct("8101044400000000ff", {new visca_u8("b_gain", 6)}, "b_gain");
+const PTZInq VISCA_CAM_BGainInq("81090444ff", {new visca_u8("b_gain", 4)});
 
-const PTZCmd VISCA_CAM_AutoExposure_Auto("8101043900ff");
-const PTZCmd VISCA_CAM_AutoExposure_Manual("8101043903ff");
-const PTZCmd VISCA_CAM_AutoExposure_ShutterPriority("810104390aff");
-const PTZCmd VISCA_CAM_AutoExposure_IrisPriority("810104390bff");
-const PTZCmd VISCA_CAM_AutoExposure_Bright("810104390dff");
-const PTZInq VISCA_CAM_AutoExposureModeInq("81090439ff", {new visca_u4("aemode", 2)});
+/* 0: Full auto, 3: Manual, 0xa: Shutter priority, 0xb: Iris priority, 0xd: Bright */
+const PTZCmd VISCA_CAM_AE("8101043900ff", {new visca_u4("ae_mode", 4)}, "ae_mode");
+const PTZInq VISCA_CAM_AEModeInq("81090439ff", {new visca_u4("ae_mode", 2)});
 
-const PTZCmd VISCA_CAM_SlowShutter_Auto("8101045a02ff");
-const PTZCmd VISCA_CAM_SlowShutter_Manual("8101045a03ff");
-const PTZInq VISCA_CAM_SlowShutterModeInq("8109045aff", {new visca_u4("slowshuttermode", 2)});
+/* true is Auto */
+const PTZCmd VISCA_CAM_SlowShutter("8101045a00ff", {new visca_flag("slow_shutter", 4)}, "slow_shutter");
+const PTZInq VISCA_CAM_SlowShutterModeInq("8109045aff", {new visca_flag("slow_shutter", 2)});
 
 const PTZCmd VISCA_CAM_Shutter_Reset("8101040a00ff");
 const PTZCmd VISCA_CAM_Shutter_Up("8101040a02ff");
 const PTZCmd VISCA_CAM_Shutter_Down("8101040a03ff");
-const PTZCmd VISCA_CAM_Shutter_Direct("8101044a00000000ff", {new visca_u8("shutter", 6)});
+const PTZCmd VISCA_CAM_Shutter_Direct("8101044a00000000ff", {new visca_u8("shutter_pos", 6)}, "shutter_pos");
 const PTZInq VISCA_CAM_ShutterPosInq("8109044aff", {new visca_u8("shutter_pos", 4)});
 
 const PTZCmd VISCA_CAM_Iris_Reset("8101040b00ff");
 const PTZCmd VISCA_CAM_Iris_Up("8101040b02ff");
 const PTZCmd VISCA_CAM_Iris_Down("8101040b03ff");
-const PTZCmd VISCA_CAM_Iris_Direct("8101044b00000000ff", {new visca_u8("iris", 6)});
+const PTZCmd VISCA_CAM_Iris_Direct("8101044b00000000ff", {new visca_u8("iris_pos", 6)}, "iris_pos");
 const PTZInq VISCA_CAM_IrisPosInq("8109044bff", {new visca_u8("iris_pos", 4)});
 
 const PTZCmd VISCA_CAM_Gain_Reset("8101040c00ff");
 const PTZCmd VISCA_CAM_Gain_Up("8101040c02ff");
 const PTZCmd VISCA_CAM_Gain_Down("8101040c03ff");
-const PTZCmd VISCA_CAM_Gain_Direct("8101044c00000000ff", {new visca_u8("gain", 6)});
+const PTZCmd VISCA_CAM_Gain_Direct("8101044c00000000ff", {new visca_u8("gain_pos", 6)}, "gain_pos");
 const PTZInq VISCA_CAM_GainPosInq("8109044cff", {new visca_u8("gain_pos", 4)});
 
-const PTZCmd VISCA_CAM_Gain_Limit("8101042c00ff", {new visca_u4("ae_gain_limit", 4)});
+const PTZCmd VISCA_CAM_Gain_Limit("8101042c00ff", {new visca_u4("gain_limit", 4)}, "gain_limit");
 const PTZInq VISCA_CAM_GainLimitInq("8109042cff", {new visca_u4("gain_limit", 2)});
 
 const PTZCmd VISCA_CAM_Bright_Up("8101040d02ff");
 const PTZCmd VISCA_CAM_Bright_Down("8101040d03ff");
-const PTZCmd VISCA_CAM_Bright_Direct("8101044d00000000ff", {new visca_u8("bright", 6)});
+const PTZCmd VISCA_CAM_Bright_Direct("8101044d00000000ff", {new visca_u8("bright_pos", 6)}, "bright_pos");
 const PTZInq VISCA_CAM_BrightPosInq("8109044dff", {new visca_u8("bright_pos", 4)});
 
-const PTZCmd VISCA_CAM_ExpComp_On("8101043e02ff");
-const PTZCmd VISCA_CAM_ExpComp_Off("8101043e03ff");
-const PTZInq VISCA_CAM_ExpCompModeInq("8109043eff", {new visca_u4("expcomp_mode", 2)});
+const PTZCmd VISCA_CAM_ExpComp("8101043e00ff", {new visca_flag("exposure_comp", 4)}, "exposure_comp");
+const PTZInq VISCA_CAM_ExpCompModeInq("8109043eff", {new visca_flag("exposure_comp", 2)});
 
 const PTZCmd VISCA_CAM_ExpComp_Reset("8101040e00ff");
 const PTZCmd VISCA_CAM_ExpComp_Up("8101040e02ff");
 const PTZCmd VISCA_CAM_ExpComp_Down("8101040e03ff");
-const PTZCmd VISCA_CAM_ExpComp_Direct("8101044e00000000ff", {new visca_u8("expcomp_pos", 6)});
-const PTZInq VISCA_CAM_ExpCompPosInq("8109044eff", {new visca_u8("expcomp_pos", 4)});
+const PTZCmd VISCA_CAM_ExpComp_Direct("8101044e00000000ff", {new visca_u8("exposure_comp_pos", 6)},
+				      "exposure_comp_pos");
+const PTZInq VISCA_CAM_ExpCompPosInq("8109044eff", {new visca_u8("exposure_comp_pos", 4)});
 
-const PTZCmd VISCA_CAM_Backlight_On("8101043302ff");
-const PTZCmd VISCA_CAM_Backlight_Off("8101043303ff");
-const PTZInq VISCA_CAM_BacklightInq("81090433ff", {new visca_u4("backlight", 2)});
+const PTZCmd VISCA_CAM_Backlight("8101043300ff", {new visca_flag("back_light", 4)}, "back_light");
+const PTZInq VISCA_CAM_BacklightInq("81090433ff", {new visca_flag("back_light", 2)});
 
-const PTZCmd VISCA_CAM_WD_Off("81017e040000ff");
-const PTZCmd VISCA_CAM_WD_Low("81017e040001ff");
-const PTZCmd VISCA_CAM_WD_Mid("81017e040002ff");
-const PTZCmd VISCA_CAM_WD_High("81017e040003ff");
-const PTZInq VISCA_CAM_WDInq("81097e0400ff", {new visca_u4("wd", 2)});
+/* 0: Off, 1: Low, 2: Mid, 3: High */
+const PTZCmd VISCA_CAM_WD("81017e040000ff", {new visca_u4("wd_mode", 5)}, "wd_mode");
+const PTZInq VISCA_CAM_WDInq("81097e0400ff", {new visca_u4("wd_mode", 2)});
 
-const PTZCmd VISCA_CAM_Defog_On("810104370200ff");
-const PTZCmd VISCA_CAM_Defog_Off("810104370300ff");
-const PTZInq VISCA_CAM_DefogInq("81090437ff", {new visca_u4("defog", 2)});
+const PTZCmd VISCA_CAM_Defog("810104370000ff", {new visca_flag("defog_mode", 4)}, "defog_mode");
+const PTZInq VISCA_CAM_DefogInq("81090437ff", {new visca_flag("defog_mode", 2)});
 
-const PTZCmd VISCA_CAM_Apature_Reset("8101040200ff");
-const PTZCmd VISCA_CAM_Apature_Up("8101040202ff");
-const PTZCmd VISCA_CAM_Apature_Down("8101040203ff");
-const PTZCmd VISCA_CAM_Apature_Direct("8101044200000000ff", {new visca_u8("apature_gain", 6)});
-const PTZInq VISCA_CAM_ApatureInq("81090442ff", {new visca_u8("apature_gain", 4)});
+const PTZCmd VISCA_CAM_Aperture_Reset("8101040200ff");
+const PTZCmd VISCA_CAM_Aperture_Up("8101040202ff");
+const PTZCmd VISCA_CAM_Aperture_Down("8101040203ff");
+const PTZCmd VISCA_CAM_Aperture_Direct("8101044200000000ff", {new visca_u8("aperture_gain", 6)}, "aperture_gain");
+const PTZInq VISCA_CAM_ApertureInq("81090442ff", {new visca_u8("aperture_gain", 4)});
 
-const PTZCmd VISCA_CAM_HR_On("8101045202ff");
-const PTZCmd VISCA_CAM_HR_Off("8101045203ff");
-const PTZInq VISCA_CAM_HRInq("81090452ff", {new visca_u4("hr", 2)});
+const PTZCmd VISCA_CAM_HR("8101045200ff", {new visca_flag("high_resolution", 4)}, "high_resolution");
+const PTZInq VISCA_CAM_HRInq("81090452ff", {new visca_flag("high_resolution", 2)});
 
-const PTZCmd VISCA_CAM_NR("8101045300ff", {new visca_u4("nr_level", 4)});
+/* 0: Off, 1 to 5 */
+const PTZCmd VISCA_CAM_NR("8101045300ff", {new visca_u4("nr_level", 4)}, "nr_level");
 const PTZInq VISCA_CAM_NRInq("81090453ff", {new visca_u4("nr_level", 2)});
 
-const PTZCmd VISCA_CAM_Gamma("8101045b00ff", {new visca_u4("gamma", 4)});
+/* 0: Standard, 1: Off */
+const PTZCmd VISCA_CAM_Gamma("8101045b00ff", {new visca_u4("gamma", 4)}, "gamma");
 const PTZInq VISCA_CAM_GammaInq("8109045bff", {new visca_u4("gamma", 2)});
 
-const PTZCmd VISCA_CAM_HighSensitivity_On("8101045e02ff");
-const PTZCmd VISCA_CAM_HighSensitivity_Off("8101045e03ff");
-const PTZInq VISCA_CAM_HighSensitivityInq("8109045eff", {new visca_u4("high_sensitivity", 2)});
+const PTZCmd VISCA_CAM_HighSensitivity("8101045e00ff", {new visca_flag("high_sensitivity", 4)}, "high_sensitivity");
+const PTZInq VISCA_CAM_HighSensitivityInq("8109045eff", {new visca_flag("high_sensitivity", 2)});
 
-const PTZCmd VISCA_CAM_PictureEffect_Off("8101046300ff");
-const PTZCmd VISCA_CAM_PictureEffect_NegArt("8101046302ff");
-const PTZCmd VISCA_CAM_PictureEffect_BW("8101046304ff");
+/* 0: Off, 2: Negative art, 4: Black and white */
+const PTZCmd VISCA_CAM_PictureEffect("8101046300ff", {new visca_u4("picture_effect", 4)}, "picture_effect");
 const PTZInq VISCA_CAM_PictureEffectInq("81090463ff", {new visca_u4("picture_effect", 2)});
 
 const PTZCmd VISCA_CAM_Memory_Reset("8101043f0000ff", {new visca_u7("preset_num", 5)});
 const PTZCmd VISCA_CAM_Memory_Set("8101043f0100ff", {new visca_u7("preset_num", 5)});
 const PTZCmd VISCA_CAM_Memory_Recall("8101043f0200ff", {new visca_u7("preset_num", 5)});
 
-const PTZCmd VISCA_CAM_IDWrite("8101042200000000ff", {
-							     new visca_u16("camera_id", 4),
-						     });
+const PTZCmd VISCA_CAM_IDWrite("8101042200000000ff", {new visca_u16("camera_id", 4)}, "camera_id");
 const PTZInq VISCA_CAM_IDInq("81090422ff", {new visca_u16("camera_id", 2)});
 
-const PTZCmd VISCA_CAM_ChromaSuppress("8101045f00ff", {new visca_u4("chroma_suppress", 4)});
+/* 0: Off, 1 to 3 */
+const PTZCmd VISCA_CAM_ChromaSuppress("8101045f00ff", {new int_field("chroma_suppress", 4, 0xff)}, "chroma_suppress");
 const PTZInq VISCA_CAM_ChromaSuppressInq("8109045fff", {new visca_u4("chroma_suppress", 2)});
 
-const PTZCmd VISCA_CAM_ColorGain("8101044900000000ff", {new visca_u4("color_spec", 6), new visca_u4("color_gain", 7)});
-const PTZInq VISCA_CAM_ColorGainInq("81090449ff", {new visca_u4("color_gain", 4)});
+/* Color gain and hue can be set for each of six colours as well as for them
+ * all together ("master", specification 0), but the inquiries only say what
+ * the master one is, so that is the one set. Both are 0 to 0xe: a gain of
+ * 60% to 200%, and a hue of -14 to +14 degrees. */
+const PTZCmd VISCA_CAM_ColorGain("8101044900000000ff", {new visca_u4("color_gain", 7)}, "color_gain");
+const PTZInq VISCA_CAM_ColorGainInq("81090449ff", {new visca_u4("color_gain", 5)});
 
-const PTZCmd VISCA_CAM_ColorHue("8101044f00000000ff", {new visca_u4("hue_spec", 6), new visca_u4("hue_phase", 7)});
-const PTZInq VISCA_CAM_ColorHueInq("8109044fff", {new visca_u4("hue_phase", 4)});
+const PTZCmd VISCA_CAM_ColorHue("8101044f00000000ff", {new visca_u4("color_hue", 7)}, "color_hue");
+const PTZInq VISCA_CAM_ColorHueInq("8109044fff", {new visca_u4("color_hue", 5)});
 
-const PTZCmd VISCA_CAM_LowLatency_On("81017e015a02ff");
-const PTZCmd VISCA_CAM_LowLatency_Off("81017e015a03ff");
-const PTZInq VISCA_CAM_LowLatencyInq("81097e015aff", {new visca_flag("lowlatency", 2)});
+/* true is Low latency, false Normal */
+const PTZCmd VISCA_CAM_LowLatency("81017e015a00ff", {new visca_flag("low_latency", 5)}, "low_latency");
+const PTZInq VISCA_CAM_LowLatencyInq("81097e015aff", {new visca_flag("low_latency", 2)});
 
 /* Tally lamp on/off, an extension outside Sony's own manual for this
  * camera that Sony's broadcast/interchangeable-lens VISCA cameras and most
@@ -482,30 +504,35 @@ static const char *visca_tally_key(const QByteArray &cmd)
 	return nullptr;
 }
 
-const PTZCmd VISCA_SYSMenu_Off("8101060603ff");
-const PTZInq VISCA_SYSMenuInq("81090606ff", {new visca_flag("menumode", 2)});
+/* The on-screen menu can only be closed, not opened, over VISCA */
+const PTZCmd VISCA_SYSMenu_Off("8101060603ff", "menu_on");
+const PTZInq VISCA_SYSMenuInq("81090606ff", {new visca_flag("menu_on", 2)});
 
-const PTZCmd VISCA_CAM_InfoDisplay_On("81017e011802ff");
-const PTZCmd VISCA_CAM_InfoDisplay_Off("81017e011803ff");
+const PTZCmd VISCA_CAM_InfoDisplay("81017e011800ff", {new visca_flag("info_display", 5)}, "info_display");
 const PTZInq VISCA_CAM_InfoDisplayInq("81097e0118ff", {new visca_flag("info_display", 2)});
 
-const PTZCmd VISCA_VideoFormat_set("81017e011e0000ff", {new visca_u8("video_format", 5)});
+/* See the manual's "Video Format Change" for the values. Only taken with the
+ * SYSTEM SELECT switch at 7, which leaves it to VISCA. */
+const PTZCmd VISCA_VideoFormat_set("81017e011e0000ff", {new visca_u8("video_format", 5)}, "video_format");
 const PTZInq VISCA_VideoFormatInq("81090623ff", {new visca_u4("video_format", 2)});
 
-const PTZCmd VISCA_ColorSystem_set("81017e01030000ff", {new visca_u4("color_format", 6)});
-const PTZInq VISCA_ColorSystemInq("81097e0103ff", {new visca_u4("color_format", 2)});
+/* 0: HDMI YUV, 1: HDMI GBR, 2: DVI GBR, 3: DVI YUV */
+const PTZCmd VISCA_ColorSystem_set("81017e01030000ff", {new visca_u4("color_system", 6)}, "color_system");
+const PTZInq VISCA_ColorSystemInq("81097e0103ff", {new visca_u4("color_system", 2)});
 
-const PTZCmd VISCA_IRReceive_On("8101060802ff");
-const PTZCmd VISCA_IRReceive_Off("8101060803ff");
+const PTZCmd VISCA_IRReceive("8101060800ff", {new visca_flag("ir_receive", 4)}, "ir_receive");
 const PTZCmd VISCA_IRReceive_Toggle("8101060810ff");
-const PTZInq VISCA_IRReceiveInq("81090608ff", {new visca_flag("irreceive", 2)});
+const PTZInq VISCA_IRReceiveInq("81090608ff", {new visca_flag("ir_receive", 2)});
 
 const PTZCmd VISCA_IRReceiveReturn_On("81017d01030000ff");
 const PTZCmd VISCA_IRReceiveReturn_Off("81017d01130000ff");
 
-const PTZInq VISCA_IRConditionInq("81090634ff", {new visca_u4("ircondition", 2)});
+/* 0: the remote commander can be received reliably, 1: it can't, 2: the
+ * camera was turned on with it, so this couldn't be checked */
+const PTZInq VISCA_IRConditionInq("81090634ff", {new visca_u4("ir_condition", 2)});
 
-const PTZInq VISCA_PanTilt_MaxSpeedInq("81090611ff", {new visca_u7("panmaxspeed", 2), new visca_u7("tiltmaxspeed", 3)});
+const PTZInq VISCA_PanTilt_MaxSpeedInq("81090611ff",
+				       {new visca_u7("pan_max_speed", 2), new visca_u7("tilt_max_speed", 3)});
 
 const PTZCmd VISCA_PanTilt_drive("8101060100000303ff", {new visca_s7("pan", 4), new visca_s7("tilt", 5)}, "pan_pos");
 const PTZCmd VISCA_PanTilt_drive_abs("8101060200000000000000000000ff",
@@ -520,10 +547,14 @@ const PTZCmd VISCA_PanTilt_Home("81010604ff", "pan_pos");
 const PTZCmd VISCA_PanTilt_Reset("81010605ff", "pan_pos");
 const PTZInq VISCA_PanTilt_PosInq("81090612ff", {new visca_s16("pan_pos", 2), new visca_s16("tilt_pos", 6)});
 
+/* The manual's "Pan/Tilt Status Code List". Init status is 0: not
+ * initialized, 1: initializing, 2: done, 3: failed; move status is 0: no move
+ * asked for, 1: moving, 2: done, 3: failed. An error is an abnormal position
+ * found for that axis. */
 const PTZInq VISCA_PanTilt_ModeInq(
 	"81090610ff",
 	{new int_field("pantilt_init_status", 2, 0b00110000), new int_field("pantilt_move_status", 2, 0b00001100),
-	 new int_field("pantilt_tilt_correct", 2, 0b00000011), new int_field("pantilt_pan_correct", 3, 0b00110000),
+	 new bool_field("pantilt_tilt_error", 2, 0b00000011), new bool_field("pantilt_pan_error", 3, 0b00110000),
 	 new bool_field("pantilt_at_left_limit", 3, 0b0001), new bool_field("pantilt_at_right_limit", 3, 0b0010),
 	 new bool_field("pantilt_at_upper_limit", 3, 0b0100), new bool_field("pantilt_at_lower_limit", 3, 0b1000)});
 
@@ -553,22 +584,59 @@ const QMap<int, std::string> PTZVisca::viscaModels = {
 	{0x25740a30, "CAM520 Pro2"},
 };
 
-/* Mapping properties to enquires */
+/* Mapping properties to enquires. Every property the camera is asked for when
+ * the link comes up, and asked for again after a command that changes it (the
+ * command's "affects"). Where a block inquiry has it, that is used: it reads
+ * many at once. */
 const QMap<QString, PTZInq> PTZVisca::inquires = {
 	{"vendor_id", VISCA_CAM_VersionInq},
 	{"power_on", VISCA_CAM_PowerInq},
 	{"pan_pos", VISCA_PanTilt_PosInq},
 	{"tilt_pos", VISCA_PanTilt_PosInq},
+	{"pan_max_speed", VISCA_PanTilt_MaxSpeedInq},
 	{"focus_pos", VISCA_LensControlInq},
 	{"zoom_pos", VISCA_LensControlInq},
 	{"focus_af_enabled", VISCA_LensControlInq},
+	{"focus_af_mode", VISCA_LensControlInq},
+	{"focus_af_sensitivity", VISCA_LensControlInq},
+	{"focus_near_limit", VISCA_LensControlInq},
+	{"dzoom_on", VISCA_LensControlInq},
 	{"wb_mode", VISCA_CameraControlInq},
+	{"r_gain", VISCA_CameraControlInq},
+	{"b_gain", VISCA_CameraControlInq},
+	{"aperture_gain", VISCA_CameraControlInq},
+	{"ae_mode", VISCA_CameraControlInq},
+	{"high_resolution", VISCA_CameraControlInq},
+	{"back_light", VISCA_CameraControlInq},
+	{"exposure_comp", VISCA_CameraControlInq},
+	{"slow_shutter", VISCA_CameraControlInq},
+	{"shutter_pos", VISCA_CameraControlInq},
 	{"iris_pos", VISCA_CameraControlInq},
 	{"gain_pos", VISCA_CameraControlInq},
+	{"bright_pos", VISCA_CameraControlInq},
+	{"exposure_comp_pos", VISCA_CameraControlInq},
 	{"camera_id", VISCA_OtherInq},
+	{"picture_effect", VISCA_OtherInq},
 	{"dzoom_pos", VISCA_EnlargementFunction1Inq},
+	{"focus_af_move_time", VISCA_EnlargementFunction1Inq},
+	{"focus_af_interval_time", VISCA_EnlargementFunction1Inq},
+	{"color_gain", VISCA_EnlargementFunction1Inq},
+	{"gamma", VISCA_EnlargementFunction1Inq},
+	{"high_sensitivity", VISCA_EnlargementFunction1Inq},
+	{"nr_level", VISCA_EnlargementFunction1Inq},
+	{"chroma_suppress", VISCA_EnlargementFunction1Inq},
+	{"gain_limit", VISCA_EnlargementFunction1Inq},
 	{"defog_mode", VISCA_EnlargementFunction2Inq},
 	{"color_hue", VISCA_EnlargementFunction3Inq},
+	{"ir_correction", VISCA_CAM_IRCorrectionInq},
+	{"wd_mode", VISCA_CAM_WDInq},
+	{"low_latency", VISCA_CAM_LowLatencyInq},
+	{"menu_on", VISCA_SYSMenuInq},
+	{"info_display", VISCA_CAM_InfoDisplayInq},
+	{"video_format", VISCA_VideoFormatInq},
+	{"color_system", VISCA_ColorSystemInq},
+	{"ir_receive", VISCA_IRReceiveInq},
+	{"ir_condition", VISCA_IRConditionInq},
 	{"pantilt_move_status", VISCA_PanTilt_ModeInq},
 	{"tally_on", VISCA_CAM_TallyInq},
 };
@@ -581,7 +649,80 @@ const QMap<QString, PTZInq> PTZVisca::inquiresFallback = {
 	{"zoom_pos", VISCA_CAM_ZoomPosInq},
 	{"focus_pos", VISCA_CAM_FocusPosInq},
 	{"focus_af_enabled", VISCA_CAM_Focus_AFEnabledInq},
+	{"focus_af_mode", VISCA_CAM_AFModeInq},
+	{"focus_af_sensitivity", VISCA_CAM_AFSensitivityInq},
+	{"focus_near_limit", VISCA_CAM_FocusNearLimitInq},
+	{"dzoom_on", VISCA_CAM_DZoomModeInq},
 	{"wb_mode", VISCA_CAM_WBModeInq},
+	{"r_gain", VISCA_CAM_RGainInq},
+	{"b_gain", VISCA_CAM_BGainInq},
+	{"aperture_gain", VISCA_CAM_ApertureInq},
+	{"ae_mode", VISCA_CAM_AEModeInq},
+	{"high_resolution", VISCA_CAM_HRInq},
+	{"back_light", VISCA_CAM_BacklightInq},
+	{"exposure_comp", VISCA_CAM_ExpCompModeInq},
+	{"slow_shutter", VISCA_CAM_SlowShutterModeInq},
+	{"shutter_pos", VISCA_CAM_ShutterPosInq},
+	{"iris_pos", VISCA_CAM_IrisPosInq},
+	{"gain_pos", VISCA_CAM_GainPosInq},
+	{"bright_pos", VISCA_CAM_BrightPosInq},
+	{"exposure_comp_pos", VISCA_CAM_ExpCompPosInq},
+	{"camera_id", VISCA_CAM_IDInq},
+	{"picture_effect", VISCA_CAM_PictureEffectInq},
+	{"focus_af_move_time", VISCA_CAM_AFTimeSettingInq},
+	{"focus_af_interval_time", VISCA_CAM_AFTimeSettingInq},
+	{"color_gain", VISCA_CAM_ColorGainInq},
+	{"gamma", VISCA_CAM_GammaInq},
+	{"high_sensitivity", VISCA_CAM_HighSensitivityInq},
+	{"nr_level", VISCA_CAM_NRInq},
+	{"chroma_suppress", VISCA_CAM_ChromaSuppressInq},
+	{"gain_limit", VISCA_CAM_GainLimitInq},
+	{"defog_mode", VISCA_CAM_DefogInq},
+	{"color_hue", VISCA_CAM_ColorHueInq},
+};
+
+/* The command requestState() sends for a key that is set by its value alone:
+ * its one argument is the value, a bool for an on/off one. In the order they
+ * are sent when asked for at once, a mode before what can only be set in it
+ * (R and B gain in the manual white balance mode, the shutter speed in the
+ * manual or shutter priority exposure mode, and so on). */
+static const QList<QPair<const char *, PTZCmd>> visca_state_commands = {
+	{"power_on", VISCA_CAM_Power},
+	{"wb_mode", VISCA_CAM_WB_Mode},
+	{"ae_mode", VISCA_CAM_AE},
+	{"exposure_comp", VISCA_CAM_ExpComp},
+	{"slow_shutter", VISCA_CAM_SlowShutter},
+	{"focus_af_mode", VISCA_CAM_AFMode},
+	{"low_latency", VISCA_CAM_LowLatency},
+	{"dzoom_on", VISCA_CAM_DZoom},
+	{"focus_af_sensitivity", VISCA_CAM_AF_Sensitivity},
+	{"focus_near_limit", VISCA_CAM_Focus_NearLimit},
+	{"ir_correction", VISCA_CAM_IRCorrection},
+	{"r_gain", VISCA_CAM_RGain_Direct},
+	{"b_gain", VISCA_CAM_BGain_Direct},
+	{"shutter_pos", VISCA_CAM_Shutter_Direct},
+	{"iris_pos", VISCA_CAM_Iris_Direct},
+	{"gain_pos", VISCA_CAM_Gain_Direct},
+	{"gain_limit", VISCA_CAM_Gain_Limit},
+	{"bright_pos", VISCA_CAM_Bright_Direct},
+	{"exposure_comp_pos", VISCA_CAM_ExpComp_Direct},
+	{"back_light", VISCA_CAM_Backlight},
+	{"wd_mode", VISCA_CAM_WD},
+	{"defog_mode", VISCA_CAM_Defog},
+	{"high_sensitivity", VISCA_CAM_HighSensitivity},
+	{"aperture_gain", VISCA_CAM_Aperture_Direct},
+	{"high_resolution", VISCA_CAM_HR},
+	{"nr_level", VISCA_CAM_NR},
+	{"gamma", VISCA_CAM_Gamma},
+	{"chroma_suppress", VISCA_CAM_ChromaSuppress},
+	{"color_gain", VISCA_CAM_ColorGain},
+	{"color_hue", VISCA_CAM_ColorHue},
+	{"picture_effect", VISCA_CAM_PictureEffect},
+	{"camera_id", VISCA_CAM_IDWrite},
+	{"video_format", VISCA_VideoFormat_set},
+	{"color_system", VISCA_ColorSystem_set},
+	{"info_display", VISCA_CAM_InfoDisplay},
+	{"ir_receive", VISCA_IRReceive},
 };
 
 /*
@@ -1050,10 +1191,28 @@ void PTZVisca::receive(const QByteArray &msg)
 
 void PTZVisca::requestState(OBSData requested)
 {
-	if (obs_data_has_user_value(requested, "power_on"))
-		send(VISCA_CAM_Power, {(int)obs_data_get_bool(requested, "power_on")});
-	if (obs_data_has_user_value(requested, "wb_mode"))
-		send(VISCA_CAM_WB_Mode, {(int)obs_data_get_int(requested, "wb_mode")});
+	for (const auto &[key, cmd] : visca_state_commands) {
+		if (!obs_data_has_user_value(requested, key))
+			continue;
+		/* An on/off value can be asked for as a number, and a number
+		 * as a bool, by whoever doesn't know which it is */
+		obs_data_item_t *item = obs_data_item_byname(requested, key);
+		int value = obs_data_item_gettype(item) == OBS_DATA_BOOLEAN ? obs_data_item_get_bool(item)
+									    : (int)obs_data_item_get_int(item);
+		obs_data_item_release(&item);
+		send(cmd, {value});
+	}
+	/* Both AF times are set by one command, so one asked for on its own
+	 * keeps the other where the camera has it */
+	if (obs_data_has_user_value(requested, "focus_af_move_time") ||
+	    obs_data_has_user_value(requested, "focus_af_interval_time")) {
+		auto time = [&](const char *key) {
+			return (int)obs_data_get_int(obs_data_has_user_value(requested, key) ? requested : state, key);
+		};
+		send(VISCA_CAM_AFMode_ActiveIntervalTime, {time("focus_af_move_time"), time("focus_af_interval_time")});
+	}
+	if (obs_data_has_user_value(requested, "menu_on") && !obs_data_get_bool(requested, "menu_on"))
+		send(VISCA_SYSMenu_Off);
 	if (obs_data_has_user_value(requested, "tally_on"))
 		sendTally(false, obs_data_get_bool(requested, "tally_on"));
 	if (obs_data_has_user_value(requested, "tally_preview"))
