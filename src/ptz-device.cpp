@@ -58,10 +58,6 @@ static QHash<uint32_t, PTZDevice *> ptz_device_registry;
 
 PTZDevice::PTZDevice(OBSData config, obs_source_t *filter) : QObject()
 {
-	m_parentHostTimer.setInterval(2000);
-	connect(&m_parentHostTimer, &QTimer::timeout, this, &PTZDevice::checkParentHost);
-	m_parentHostTimer.start();
-
 	if (filter)
 		m_filter = OBSGetWeakRef(filter);
 
@@ -272,6 +268,8 @@ obs_source_t *PTZDevice::parentSource() const
 	if (src) {
 		m_parentSource = OBSGetWeakRef(src);
 		watchParentSource(m_parentSource, true);
+		auto self = const_cast<PTZDevice *>(this);
+		QMetaObject::invokeMethod(self, [self]() { self->checkParentHost(); }, Qt::QueuedConnection);
 	}
 	return src;
 }
@@ -285,6 +283,14 @@ static void ptz_source_renamed_cb(void *data, calldata_t *)
 	QMetaObject::invokeMethod(ptz, [ptz]() { ptz->syncName(); }, Qt::QueuedConnection);
 }
 
+/* The source's settings changed, which may include the address it receives
+ * from. Same threading as the rename signal. */
+static void ptz_source_updated_cb(void *data, calldata_t *)
+{
+	auto ptz = static_cast<PTZDevice *>(data);
+	QMetaObject::invokeMethod(ptz, [ptz]() { ptz->checkParentHost(); }, Qt::QueuedConnection);
+}
+
 /* Caller must hold m_parentSourceMutex, or be the destructor. Const because
  * parentSource() binds lazily. */
 void PTZDevice::watchParentSource(const OBSWeakSource &weak, bool watch) const
@@ -294,10 +300,13 @@ void PTZDevice::watchParentSource(const OBSWeakSource &weak, bool watch) const
 		return;
 	auto sh = obs_source_get_signal_handler(src);
 	auto self = const_cast<PTZDevice *>(this);
-	if (watch)
+	if (watch) {
 		signal_handler_connect(sh, "rename", ptz_source_renamed_cb, self);
-	else
+		signal_handler_connect(sh, "update", ptz_source_updated_cb, self);
+	} else {
 		signal_handler_disconnect(sh, "rename", ptz_source_renamed_cb, self);
+		signal_handler_disconnect(sh, "update", ptz_source_updated_cb, self);
+	}
 }
 
 obs_source_t *PTZDevice::filterSource() const
@@ -314,7 +323,10 @@ void PTZDevice::setParentSource(obs_source_t *source)
 		watchParentSource(m_parentSource, true);
 	}
 	/* any thread can call filter_{add,remove}, do nameSync on the device's thread */
-	QMetaObject::invokeMethod(this, [this]() { syncName(); });
+	QMetaObject::invokeMethod(this, [this]() {
+		syncName();
+		checkParentHost();
+	});
 }
 
 QString PTZDevice::parentSourceHost() const
