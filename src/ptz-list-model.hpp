@@ -31,6 +31,7 @@ public:
 		int id = 0;
 		QString name;
 		QString token;
+		QString thumbnail; /* path of the image file, or empty */
 	};
 
 private:
@@ -74,6 +75,7 @@ public:
 		IsConnectedRole,
 		IsLockedRole,
 		SupportsSetHomeRole,
+		ThumbnailRole, /* QPixmap of a preset row, null if it has none */
 	};
 
 	PTZListModel();

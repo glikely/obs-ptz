@@ -15,6 +15,7 @@
 #include <QThread>
 #include "ptz-device.hpp"
 #include "ptz-list-model.hpp"
+#include "ptz-thumbnail.hpp"
 #include "ptz-visca-udp.hpp"
 #include "ptz-visca-tcp.hpp"
 #include "ptz-onvif.hpp"
@@ -140,6 +141,7 @@ PTZDevice::PTZDevice(OBSData config, obs_source_t *filter) : QObject()
 		signal_handler_add(sigs, "void preset_removed(int device_id, int row)");
 		signal_handler_add(sigs, "void preset_moved(int device_id, int src_row, int dest_row)");
 		signal_handler_add(sigs, "void preset_renamed(int device_id, int id)");
+		signal_handler_add(sigs, "void preset_thumbnail_changed(int device_id, int id)");
 	}
 
 	/* A filter-owned device is given its source by its filter, see setParentSource() */
@@ -549,8 +551,11 @@ void PTZDevice::request_state(calldata_t *cd)
 void PTZDevice::preset_save(calldata_t *cd)
 {
 	long long id;
-	if (calldata_get_int(cd, "preset_id", &id))
+	if (calldata_get_int(cd, "preset_id", &id)) {
 		QMetaObject::invokeMethod(this, "memory_set", Q_ARG(int, id));
+		/* The proc_handler can be called from any thread, m_presets can't */
+		QMetaObject::invokeMethod(this, [this, id] { capturePresetThumbnail((size_t)id); });
+	}
 }
 
 void PTZDevice::preset_recall(calldata_t *cd)
@@ -563,8 +568,10 @@ void PTZDevice::preset_recall(calldata_t *cd)
 void PTZDevice::preset_clear(calldata_t *cd)
 {
 	long long id;
-	if (calldata_get_int(cd, "preset_id", &id))
+	if (calldata_get_int(cd, "preset_id", &id)) {
 		QMetaObject::invokeMethod(this, "memory_reset", Q_ARG(int, id));
+		clearPresetThumbnail((size_t)id);
+	}
 }
 
 /**
@@ -652,6 +659,7 @@ void PTZDevice::preset_get_list(calldata_t *cd) const
 		obs_data_set_int(item, "id", id);
 		obs_data_set_string(item, "name", QT_TO_UTF8(presetName(id)));
 		obs_data_set_string(item, "token", QT_TO_UTF8(presetToken(id)));
+		obs_data_set_string(item, "thumbnail", QT_TO_UTF8(ptz_thumbnail_path(presetThumbnail(id))));
 		obs_data_array_push_back(list, item);
 		obs_data_release(item);
 	}
@@ -1262,6 +1270,49 @@ void PTZDevice::setPresetName(size_t id, QString name)
 	calldata_free(&cd);
 }
 
+void PTZDevice::signalPresetThumbnail(size_t id)
+{
+	calldata_t cd = {};
+	calldata_set_int(&cd, "device_id", this->id);
+	calldata_set_int(&cd, "id", (long long)id);
+	signalDevice("preset_thumbnail_changed", &cd);
+	calldata_free(&cd);
+}
+
+/* Replace the preset's thumbnail image, removing the old file. Each image
+ * gets a fresh file name so nothing caching the old one can go stale. */
+void PTZDevice::setPresetThumbnail(size_t id, const QImage &image)
+{
+	if (!m_presets.contains(id))
+		return;
+	QString name = ptz_thumbnail_write(image);
+	if (name.isEmpty())
+		return;
+	QVariantMap &preset = m_presets[id];
+	ptz_thumbnail_remove(preset.value("thumbnail").toString());
+	preset["thumbnail"] = name;
+	signalPresetThumbnail(id);
+}
+
+void PTZDevice::clearPresetThumbnail(size_t id)
+{
+	if (!m_presets.contains(id) || presetThumbnail(id).isEmpty())
+		return;
+	ptz_thumbnail_remove(presetThumbnail(id));
+	m_presets[id].remove("thumbnail");
+	signalPresetThumbnail(id);
+}
+
+void PTZDevice::capturePresetThumbnail(size_t id)
+{
+	if (!m_presets.contains(id))
+		return;
+	OBSSourceAutoRelease src = parentSource();
+	if (!src)
+		return;
+	ptz_capture_source_thumbnail(src, this, [this, id](QImage image) { setPresetThumbnail(id, image); });
+}
+
 /* Insert a new preset and return the ID */
 int PTZDevice::newPreset(int row)
 {
@@ -1289,6 +1340,7 @@ int PTZDevice::newPreset(int row)
 
 void PTZDevice::removePresetAtDisplayRow(int row)
 {
+	ptz_thumbnail_remove(presetThumbnail(m_presetsDisplayOrder[row]));
 	m_presets.remove(m_presetsDisplayOrder[row]);
 	m_presetsDisplayOrder.removeAt(row);
 

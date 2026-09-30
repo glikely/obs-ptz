@@ -7,6 +7,7 @@
 #pragma once
 
 #include <functional>
+#include <QImage>
 #include <QObject>
 #include <QList>
 #include <QMap>
@@ -72,6 +73,7 @@ protected:
 	QMap<size_t, QVariantMap> m_presets;
 	QList<size_t> m_presetsDisplayOrder;
 	void sanitizePreset(size_t id);
+	void signalPresetThumbnail(size_t id);
 	void setConnected(bool connected);
 	OBSData state;        /* Transient state of the camera. Isn't saved */
 	OBSData stateChanged; /* changed state to be sent via the notify signal */
@@ -148,6 +150,12 @@ public:
 	QString presetName(size_t id) const { return m_presets[id]["name"].toString(); }
 	QString presetToken(size_t id) const { return m_presets[id]["token"].toString(); }
 	void setPresetName(size_t id, QString name);
+	/* File name (in ptz_thumbnail_dir()) of the preset's thumbnail, or "" */
+	QString presetThumbnail(size_t id) const { return m_presets.value(id).value("thumbnail").toString(); }
+	void setPresetThumbnail(size_t id, const QImage &image);
+	void clearPresetThumbnail(size_t id);
+	/* Grabs a frame of the device's source as the preset's thumbnail */
+	void capturePresetThumbnail(size_t id);
 	QVariant presetProperty(size_t id, QString key) const;
 	bool updatePreset(size_t id, const QVariantMap &map);
 	int findPreset(QString key, QVariant value) const;

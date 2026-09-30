@@ -605,6 +605,17 @@
     <string>PTZ.Action.Preset.Export.Tooltip</string>
    </property>
   </action>
+  <action name="actionPresetGridView">
+   <property name="checkable">
+    <bool>true</bool>
+   </property>
+   <property name="text">
+    <string>PTZ.Action.Preset.GridView</string>
+   </property>
+   <property name="toolTip">
+    <string>PTZ.Action.Preset.GridView.Tooltip</string>
+   </property>
+  </action>
   <action name="actionPresetImport">
    <property name="text">
     <string>PTZ.Action.Preset.Import</string>

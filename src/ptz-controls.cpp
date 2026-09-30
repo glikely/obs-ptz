@@ -18,6 +18,7 @@
 #include <QDockWidget>
 #include <QStylePainter>
 #include <QLabel>
+#include <QPixmap>
 #include <QCheckBox>
 #include <QFileDialog>
 #include <QMessageBox>
@@ -27,6 +28,7 @@
 #include "ui_ptz-controls.h"
 #include "ptz-controls.hpp"
 #include "ptz-list-model.hpp"
+#include "ptz-thumbnail.hpp"
 #include "settings.hpp"
 #include "ptz.h"
 
@@ -135,6 +137,9 @@ void PTZControls::handleFrontendEvent(enum obs_frontend_event event)
 		}
 		ptzDeviceList->onSceneChanged();
 		updateMoveControls();
+		break;
+	case OBS_FRONTEND_EVENT_FINISHED_LOADING:
+		ptz_thumbnail_sweep();
 		break;
 	case OBS_FRONTEND_EVENT_EXIT:
 		/* OBS is shutting down. It has already run its own save pass (and
@@ -644,6 +649,7 @@ void PTZControls::SaveConfig()
 	obs_data_set_bool(savedata, "autoselect_enabled", autoselectEnabled());
 	obs_data_set_bool(savedata, "speed_ramp_enabled", speedRampEnabled());
 	obs_data_set_bool(savedata, "onscreen_joystick_enabled", ui->pantiltStack->currentIndex() != 0);
+	obs_data_set_bool(savedata, "preset_grid_view", ui->actionPresetGridView->isChecked());
 	obs_data_set_bool(savedata, "joystick_enable", m_joystick_enable);
 	obs_data_set_int(savedata, "joystick_id", m_joystick_id);
 	obs_data_set_double(savedata, "joystick_speed", m_joystick_speed);
@@ -714,6 +720,7 @@ void PTZControls::LoadConfig()
 	obs_data_set_default_bool(loaddata, "autoselect_enabled", true);
 	obs_data_set_default_bool(loaddata, "speed_ramp_enabled", true);
 	obs_data_set_default_bool(loaddata, "onscreen_joystick_enabled", false);
+	obs_data_set_default_bool(loaddata, "preset_grid_view", false);
 	obs_data_set_default_bool(loaddata, "joystick_enable", false);
 	obs_data_set_default_int(loaddata, "joystick_id", -1);
 	obs_data_set_default_double(loaddata, "joystick_speed", 1.0);
@@ -723,6 +730,7 @@ void PTZControls::LoadConfig()
 	autoselect_enabled = obs_data_get_bool(loaddata, "autoselect_enabled");
 	speed_ramp_enabled = obs_data_get_bool(loaddata, "speed_ramp_enabled");
 	ui->pantiltStack->setCurrentIndex(obs_data_get_bool(loaddata, "onscreen_joystick_enabled") ? 1 : 0);
+	ui->actionPresetGridView->setChecked(obs_data_get_bool(loaddata, "preset_grid_view"));
 	m_joystick_enable = obs_data_get_bool(loaddata, "joystick_enable");
 	m_joystick_id = (int)obs_data_get_int(loaddata, "joystick_id");
 	m_joystick_speed = obs_data_get_double(loaddata, "joystick_speed");
@@ -1178,6 +1186,8 @@ void PTZControls::on_presetListView_customContextMenuRequested(const QPoint &pos
 	presetContext.addSeparator();
 	presetContext.addAction(ui->actionPresetExport);
 	presetContext.addAction(ui->actionPresetImport);
+	presetContext.addSeparator();
+	presetContext.addAction(ui->actionPresetGridView);
 	presetContext.exec(globalpos);
 }
 
@@ -1301,6 +1311,27 @@ void PTZControls::on_actionPresetClear_triggered()
 	ptzDeviceList->setData(index, "");
 }
 
+/* The preset list is either a column of rows, or a wrapping grid of cells */
+void PTZControls::on_actionPresetGridView_toggled(bool checked)
+{
+	auto *view = ui->presetListView;
+	presetDelegate->setGridMode(checked);
+	if (checked) {
+		view->setViewMode(QListView::IconMode);
+		/* IconMode's defaults let the user drag the cells around */
+		view->setMovement(QListView::Static);
+		view->setResizeMode(QListView::Adjust);
+		view->setUniformItemSizes(true);
+		view->setSpacing(2);
+		view->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
+	} else {
+		view->setViewMode(QListView::ListMode);
+		view->setSpacing(0);
+		view->setHorizontalScrollBarPolicy(Qt::ScrollBarAsNeeded);
+	}
+	view->doItemsLayout();
+}
+
 void PTZControls::on_actionPresetExport_triggered(QString filename)
 {
 	auto fileExtension = QString("%1 (*.json)").arg(obs_module_text("PTZ.Preset.FileFilter"));
@@ -1326,6 +1357,12 @@ void PTZControls::on_actionPresetExport_triggered(QString filename)
 	obs_data_set_string(data, "device", QT_TO_UTF8(deviceName));
 	obs_data_set_int(data, "preset_max", obs_data_get_int(fullConfig, "preset_max"));
 	OBSDataArrayAutoRelease presets = obs_data_get_array(fullConfig, "presets");
+	/* Thumbnails are files on this machine, so they don't go in the export.
+	 * save() gave us a private copy of the presets, safe to edit. */
+	for (size_t i = 0; presets && i < obs_data_array_count(presets); i++) {
+		OBSDataAutoRelease item = obs_data_array_item(presets, i);
+		obs_data_unset_user_value(item, "thumbnail");
+	}
 	obs_data_set_array(data, "presets", presets);
 
 	if (!obs_data_save_json_pretty_safe(data, QT_TO_UTF8(filename), "tmp", "bak"))
@@ -1534,6 +1571,8 @@ bool PTZDeviceListDelegate::helpEvent(QHelpEvent *event, QAbstractItemView *view
 	return QStyledItemDelegate::helpEvent(event, view, option, index);
 }
 
+static constexpr int thumbnailMargin = 1;
+
 PTZPresetListDelegate::PTZPresetListDelegate(QObject *parent) : QStyledItemDelegate(parent)
 {
 	refreshTheme();
@@ -1547,25 +1586,63 @@ void PTZPresetListDelegate::refreshTheme()
 	emit sizeHintChanged(QModelIndex());
 }
 
+void PTZPresetListDelegate::setGridMode(bool grid)
+{
+	if (m_gridMode == grid)
+		return;
+	m_gridMode = grid;
+	emit sizeHintChanged(QModelIndex());
+}
+
+/* A grid cell is just a 16:9 thumbnail, with the name drawn over it */
+int PTZPresetListDelegate::gridCellWidth() const
+{
+	return PTZControls::getInstance()->rowHeight() * 3;
+}
+
 QSize PTZPresetListDelegate::sizeHint(const QStyleOptionViewItem &option, const QModelIndex &index) const
 {
 	QSize size = QStyledItemDelegate::sizeHint(option, index);
-	size.setHeight(PTZControls::getInstance()->rowHeight());
+	int rowHeight = PTZControls::getInstance()->rowHeight();
+	if (m_gridMode) {
+		int thumbWidth = gridCellWidth() - 2 * thumbnailMargin;
+		return QSize(gridCellWidth(), thumbWidth * 9 / 16 + 2 * thumbnailMargin);
+	}
+	size.setHeight(rowHeight);
 	return size;
 }
 
 PTZPresetListDelegate::CellLayout PTZPresetListDelegate::layoutCell(const QModelIndex &,
 								    const QStyleOptionViewItem &option) const
 {
+	CellLayout l;
+
+	if (m_gridMode) {
+		QRect cell = option.rect.adjusted(thumbnailMargin, thumbnailMargin, -thumbnailMargin, -thumbnailMargin);
+		l.thumbnail = QRect(cell.left(), cell.top(), cell.width(), cell.width() * 9 / 16);
+		/* The name is a band along the bottom of the thumbnail */
+		int textHeight = qMin(l.thumbnail.height(), option.fontMetrics.height() + 2);
+		l.text = QRect(l.thumbnail.left(), l.thumbnail.bottom() + 1 - textHeight, l.thumbnail.width(),
+			       textHeight);
+		/* The recall button sits over the thumbnail's top corner */
+		l.iconMargin = 2;
+		int box = iconSize() + l.iconMargin * 2;
+		l.recall = QRect(l.thumbnail.right() - box + 1, l.thumbnail.top(), box, box);
+		return l;
+	}
+
 	QStyle *style = option.widget ? option.widget->style() : QApplication::style();
 	auto rect = style->subElementRect(QStyle::SE_ItemViewItemText, &option, option.widget);
-	CellLayout l;
 
 	/* Margin between icons & text tracks the height of the cell */
 	l.iconMargin = qMax(0, (rect.height() - iconSize()) / 2);
 
 	int iconBoxWidth = iconSize() + l.iconMargin * 2;
-	l.text = rect.adjusted(0, 0, -iconBoxWidth, 0);
+	/* The thumbnail is as tall as the row allows */
+	int thumbHeight = qMax(0, rect.height() - 2 * thumbnailMargin);
+	int thumbWidth = thumbHeight * 16 / 9;
+	l.thumbnail = QRect(rect.left(), rect.top() + thumbnailMargin, thumbWidth, thumbHeight);
+	l.text = rect.adjusted(thumbWidth + thumbnailMargin * 2, 0, -iconBoxWidth, 0);
 	l.recall = rect.adjusted(rect.width() - iconBoxWidth, 0, 0, 0);
 	return l;
 }
@@ -1580,9 +1657,43 @@ void PTZPresetListDelegate::paint(QPainter *painter, const QStyleOptionViewItem 
 	QStyle *style = opt.widget ? opt.widget->style() : QApplication::style();
 	style->drawPrimitive(QStyle::PE_PanelItemViewItem, &opt, painter, opt.widget);
 
-	/* Divide up the space into the label and the recall button */
+	/* Divide up the space into the thumbnail, label and the recall button */
 	CellLayout l = layoutCell(index, opt);
 	QIcon::Mode iconMode = (opt.state & QStyle::State_Enabled) ? QIcon::Normal : QIcon::Disabled;
+
+	/* The thumbnail, letterboxed into its 16:9 box, or a blank one */
+	painter->save();
+	painter->fillRect(l.thumbnail, opt.palette.color(QPalette::Mid));
+	QPixmap thumbnail = index.data(PTZListModel::ThumbnailRole).value<QPixmap>();
+	if (!thumbnail.isNull()) {
+		QSize size = thumbnail.size().scaled(l.thumbnail.size(), Qt::KeepAspectRatio);
+		QRect target(QPoint(0, 0), size);
+		target.moveCenter(l.thumbnail.center());
+		painter->setRenderHint(QPainter::SmoothPixmapTransform);
+		painter->drawPixmap(target, thumbnail);
+	}
+	painter->restore();
+
+	if (m_gridMode) {
+		/* A backdrop keeps the recall icon visible over any picture */
+		painter->save();
+		painter->setRenderHint(QPainter::Antialiasing);
+		painter->setPen(Qt::NoPen);
+		painter->setBrush(QColor(0, 0, 0, 128));
+		painter->drawEllipse(l.recall);
+		painter->restore();
+		recallIcon.paint(painter, l.recall.adjusted(l.iconMargin, l.iconMargin, -l.iconMargin, -l.iconMargin),
+				 Qt::AlignCenter, iconMode);
+		/* The name, in white on a translucent band */
+		painter->fillRect(l.text, QColor(0, 0, 0, 128));
+		QString text = opt.fontMetrics.elidedText(opt.text, Qt::ElideRight, l.text.width() - 2 * textMargin);
+		painter->save();
+		painter->setPen(Qt::white);
+		painter->drawText(l.text, Qt::AlignCenter, text);
+		painter->restore();
+		return;
+	}
+
 	recallIcon.paint(painter, l.recall.adjusted(0, l.iconMargin, 0, -l.iconMargin), Qt::AlignCenter, iconMode);
 	style->drawItemText(painter, l.text.adjusted(textMargin, 0, 0, 0), opt.displayAlignment, opt.palette, true,
 			    opt.text);
