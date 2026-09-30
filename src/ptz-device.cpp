@@ -351,6 +351,8 @@ void PTZDevice::checkParentHost()
 		return;
 	m_parentHost = host;
 	ptz_info("parent source host is now '%s'", QT_TO_UTF8(host));
+	obs_data_set_string(stateChanged, "parent_host", QT_TO_UTF8(host));
+	notifyStateChanged();
 	onParentHostChanged(host);
 }
 
@@ -537,6 +539,8 @@ void PTZDevice::saveState(OBSData out) const
 		QMutexLocker locker(&m_parentSourceMutex);
 		obs_data_set_string(out, "name", QT_TO_UTF8(m_parentSourceName));
 	}
+	/* Where a blank Host setting points; "" if the source doesn't say */
+	obs_data_set_string(out, "parent_host", QT_TO_UTF8(parentSourceHost()));
 	obs_data_set_string(out, "description", QT_TO_UTF8(description()));
 	obs_data_set_string(out, "type", type.c_str());
 	obs_data_set_bool(out, "connected", connected);

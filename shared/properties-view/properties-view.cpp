@@ -88,6 +88,11 @@ struct common_frame_rate {
 Q_DECLARE_METATYPE(frame_rate_tag);
 Q_DECLARE_METATYPE(media_frames_per_second);
 
+void OBSPropertiesView::SetPlaceholder(const QString &name, const QString &text)
+{
+	placeholders.insert(name, text);
+}
+
 void OBSPropertiesView::ReloadProperties()
 {
 	if (weakObj || rawObj) {
@@ -391,6 +396,7 @@ QWidget *OBSPropertiesView::AddText(obs_property_t *prop, QFormLayout *layout, Q
 	QLineEdit *edit = new QLineEdit();
 
 	edit->setText(QT_UTF8(val));
+	edit->setPlaceholderText(placeholders.value(QT_UTF8(name)));
 	edit->setToolTip(QT_UTF8(obs_property_long_description(prop)));
 
 	return NewWidget(prop, edit, &QLineEdit::textEdited);
