@@ -561,7 +561,13 @@ void PTZSettings::on_applyButton_clicked()
 
 void PTZSettings::currentChanged(const QModelIndex &current, const QModelIndex &)
 {
-	obs_data_clear(settings);
+	/* Start from nothing: obs_data_clear() would keep the last device's
+	 * keys, only without their values */
+	QStringList keys;
+	for (obs_data_item_t *item = obs_data_first(settings); item; obs_data_item_next(&item))
+		keys << obs_data_item_get_name(item);
+	for (const auto &key : keys)
+		obs_data_erase(settings, qUtf8Printable(key));
 	ptzDeviceList->save(current, settings);
 	propertiesView->ReloadProperties();
 
