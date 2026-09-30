@@ -176,3 +176,31 @@ def test_scanning_inquiries_asks_the_camera_everything(obs_world, cameras, tmp_p
     # one inquiry for each of the 0x7e camera inquiry numbers, and more, on
     # top of the device's own polling
     obs_world.wait_for(lambda: sent() >= before + 0x7e, timeout=20)
+
+
+def test_discovering_the_movement_limits(obs_world, cameras, tmp_path):  # noqa: F811
+    """On a camera of its own: it drives the camera from end to end, and
+    back to where it was, which takes a while."""
+    cameras.add_source(obs_world.create_scene(), "limits-cam")
+    cameras.add_filter("limits-cam")
+    out = tmp_path / "device.json"
+    device_id = obs_world.wait_for_device_by_name("limits-cam", out, lambda r: r["found"] and r["bound"])["device_id"]
+    out = tmp_path / "state.json"
+    obs_world.wait_for_device_state(device_id, out, lambda r: r["state"].get("connected") is True, timeout=10)
+
+    def limits():
+        saved = obs_world.device_settings(device_id, tmp_path / "settings.json")["saved"]
+        return {k: saved[k] for k in saved if k.startswith("visca_") and k.endswith(("_range", "_far", "_near"))}
+
+    assert limits() == {"visca_pan_range": 0x1400, "visca_tilt_range": 0x500, "visca_zoom_range": 0x7ac0,
+                        "visca_focus_far": 0x1000, "visca_focus_near": 0xf000}
+    assert obs_world.device_state(device_id, out)["state"]["focus_af_enabled"] is True
+    obs_world.run_ui_test("trigger_device", device_id=device_id, name="discover_limits")
+    obs_world.wait_for(lambda: limits()["visca_zoom_range"] != 0x7ac0, timeout=150, interval=2)
+    found = limits()
+    # the ends of the sim's travel (scripts/ptzsim/backends/visca.py), focus
+    # too, though the camera started out focusing by itself
+    assert found == {"visca_pan_range": 0x2800, "visca_tilt_range": 0x2800, "visca_zoom_range": 0xe500,
+                     "visca_focus_far": 0, "visca_focus_near": 0xe500}
+    # and focusing by itself again
+    obs_world.wait_for_device_state(device_id, out, lambda r: r["state"]["focus_af_enabled"] is True, timeout=10)

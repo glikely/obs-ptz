@@ -21,7 +21,7 @@ from .base import Backend
 from ..serial_port import DatagramFramer, EmulatedSerialPort
 
 # Position/speed ranges taken from the original VISCA emulator.
-PT_POS_RANGE = 0xe500      # pan/tilt position, signed
+PT_POS_RANGE = 0x2800      # pan/tilt position, signed (and in 16 bits, as a camera's is)
 ZF_POS_RANGE = 0xe500      # zoom/focus position, unsigned
 PT_SPEED_RANGE = 0x18      # typical max pan/tilt speed
 ZF_SPEED_RANGE = 0x08      # typical max zoom/focus variable speed
