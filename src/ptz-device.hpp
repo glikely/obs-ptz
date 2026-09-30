@@ -286,6 +286,10 @@ public:
 	 * in a filter, which already knows its own source, and whose device id
 	 * isn't stable across a driver change. */
 	static void stripIdentity(obs_data_t *settings);
+	/* Keep a copy of save()'s settings in the rolling backup of devices
+	 * that have gone away (see ptz_device_backups_get()). Called when its
+	 * source is deleted, its filter is removed, and as it is destroyed. */
+	void backup() const;
 
 	/* Properties describe how to display the settings in a GUI dialog */
 	virtual obs_properties_t *get_obs_properties();
