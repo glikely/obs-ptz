@@ -39,6 +39,14 @@ ABS_ZOOM_RANGE = 0x7ac0
 def test_absolute_pan_tilt_move(obs_world, backend):
     device_id = obs_world.device_ids[backend]
 
+    # Start from somewhere else. The camera is shared, so it is where an
+    # earlier test left it, which is this test's target when that was the
+    # same move by another backend: the wait below would be over before this
+    # device had sent its own command. And that command, sent late, would
+    # move the camera again in the middle of the next test.
+    obs_world.run_ui_test("move_device", device_id=device_id, mode="abs", pan=0.0, tilt=0.0)
+    obs_world.wait_for_state(lambda s: abs(s["pan"]) < 0.005 and abs(s["tilt"]) < 0.005, timeout=5)
+
     obs_world.run_ui_test("move_device", device_id=device_id, mode="abs", pan=1.0, tilt=-1.0)
 
     expected_pan = ABS_PAN_RANGE / POS_RANGE
@@ -50,6 +58,10 @@ def test_absolute_pan_tilt_move(obs_world, backend):
 @pytest.mark.parametrize("backend", VISCA_BACKENDS)
 def test_absolute_zoom_move(obs_world, backend):
     device_id = obs_world.device_ids[backend]
+
+    # Start from somewhere else, as test_absolute_pan_tilt_move() does
+    obs_world.run_ui_test("move_device", device_id=device_id, mode="abs", zoom=0.0)
+    obs_world.wait_for_state(lambda s: abs(s["zoom"]) < 0.01, timeout=5)
 
     obs_world.run_ui_test("move_device", device_id=device_id, mode="abs", zoom=1.0)
 
