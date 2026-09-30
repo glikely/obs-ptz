@@ -63,19 +63,21 @@ void runSetDeviceStateTest(const QMap<QString, QString> &params)
 		return;
 	}
 
+	/* Every other param is a state value: "True"/"False" a bool, anything
+	 * else a number (0x.. for hex) */
 	OBSDataAutoRelease state = obs_data_create();
-	if (params.contains(QStringLiteral("power_on")))
-		obs_data_set_bool(state, "power_on", params.value(QStringLiteral("power_on")).toLower() == "true");
-	if (params.contains(QStringLiteral("focus_af_enabled")))
-		obs_data_set_bool(state, "focus_af_enabled",
-				  params.value(QStringLiteral("focus_af_enabled")).toLower() == "true");
-	if (params.contains(QStringLiteral("tally_on")))
-		obs_data_set_bool(state, "tally_on", params.value(QStringLiteral("tally_on")).toLower() == "true");
-	if (params.contains(QStringLiteral("tally_preview")))
-		obs_data_set_bool(state, "tally_preview",
-				  params.value(QStringLiteral("tally_preview")).toLower() == "true");
-	if (params.contains(QStringLiteral("wb_mode")))
-		obs_data_set_int(state, "wb_mode", params.value(QStringLiteral("wb_mode")).toLongLong());
+	for (auto param = params.cbegin(); param != params.cend(); ++param) {
+		if (param.key() == QStringLiteral("cmd") || param.key() == QStringLiteral("device_id"))
+			continue;
+		QByteArray key = param.key().toUtf8();
+		QString value = param.value().toLower();
+		bool isNumber = false;
+		long long number = value.toLongLong(&isNumber, 0);
+		if (value == QStringLiteral("true") || value == QStringLiteral("false"))
+			obs_data_set_bool(state, key.constData(), value == QStringLiteral("true"));
+		else if (isNumber)
+			obs_data_set_int(state, key.constData(), number);
+	}
 
 	calldata cd = {};
 	calldata_set_ptr(&cd, "state", state.Get());
@@ -99,6 +101,10 @@ void runSetDeviceStateTest(const QMap<QString, QString> &params)
  *   tally_preview     - optional, "True"/"False"
  *   wb_mode           - optional, integer white-balance mode
  * A request with none of the optional params asks for nothing.
+ *
+ * obs_event request params:
+ *   device_id - the target device's numeric id
+ *   event     - "startup" or "shutdown"
  */
 void registerDeviceStateTest(PTZUITestHarness *harness)
 {

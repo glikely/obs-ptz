@@ -197,6 +197,16 @@ actually work end to end.
     with neither setting is left alone. Closing OBS ends the session, so that
     it turns the cameras off when it does, those of a standalone device and of
     a filter, is asserted when the `obs_world` fixture is torn down.
+24. `test_visca_camera_state.py` covers the rest of what a VISCA camera
+    reports of itself (focus, exposure, white balance gains, picture,
+    system and pan/tilt status, everything the Sony manual has an inquiry
+    for): that it is all read, with the block inquiries or, for a camera
+    without them (`--visca-no-block-inquiries`), the single-value ones; that
+    each setting with a command can be asked for with `set_device_state`;
+    and that the settings dialog's state view shows every one and changes
+    them through `edit_dialog_state`. Each test has its own source with a
+    VISCA filter, pointed at a `ptzsim` that reports the camera's settings
+    under `"visca"` in its `--debug-http-port` `/state` output.
 
 ## Running locally
 

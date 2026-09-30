@@ -33,6 +33,9 @@ class DebugHandler(BaseHTTPRequestHandler):
             "focus_speed": snap.focus_speed,
             "power": snap.power,
             "tally": dict(self.state.tally),
+            # The camera settings VISCA reads and changes, by the state key
+            # obs-ptz has for each
+            "visca": dict(self.state.visca),
             # Counters of the VISCA-over-IP server's Sony quirks, if it has any
             "visca_udp_quirks": getattr(self.state, "visca_udp_stats", None),
             "presets": {

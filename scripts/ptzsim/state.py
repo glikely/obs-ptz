@@ -72,6 +72,10 @@ class PTZState:
         self.power = True
         # Tally lamps a protocol can light, by colour
         self.tally = {'red': False, 'green': False}
+        # The camera's picture, exposure and system settings, which only
+        # VISCA has a way to read or change: see VISCA_SETTINGS in
+        # backends/visca.py, which fills it in, for what each is
+        self.visca = {}
         self.home = Position()
         self.presets = {}
         self._next_preset_id = 1

@@ -9,7 +9,9 @@
 #include <obs.hpp>
 #include <obs-module.h>
 #include <QApplication>
+#include <QCheckBox>
 #include <QComboBox>
+#include <QSpinBox>
 #include <QPushButton>
 #include <QWidget>
 
@@ -45,11 +47,17 @@ PTZStateView *stateView(PTZSettings *dialog)
 	return dialog->findChild<PTZStateView *>();
 }
 
-/* The list of white balance modes, named for its state key */
-QComboBox *whiteBalanceList(PTZSettings *dialog)
+/* The state view's widget that shows a state key: each is named for its key */
+QWidget *stateWidget(PTZSettings *dialog, const QString &key)
 {
 	PTZStateView *view = stateView(dialog);
-	return view ? view->findChild<QComboBox *>(QStringLiteral("wb_mode")) : nullptr;
+	return view ? view->findChild<QWidget *>(key) : nullptr;
+}
+
+/* The list of white balance modes */
+QComboBox *whiteBalanceList(PTZSettings *dialog)
+{
+	return qobject_cast<QComboBox *>(stateWidget(dialog, QStringLiteral("wb_mode")));
 }
 
 /* Opens the dialog on a device and starts counting, from zero, how often its
@@ -116,6 +124,26 @@ void runGetSettingsDialogTest(const QMap<QString, QString> &params)
 	OBSDataAutoRelease result = obs_data_create();
 	obs_data_set_array(result, "settings_keys", settingsKeys);
 	obs_data_set_array(result, "state_keys", stateKeys);
+	OBSDataAutoRelease shownValues = obs_data_create();
+	for (auto value = shown.cbegin(); value != shown.cend(); ++value) {
+		QByteArray key = value.key().toUtf8();
+		switch (value.value().typeId()) {
+		case QMetaType::Bool:
+			obs_data_set_bool(shownValues, key.constData(), value.value().toBool());
+			break;
+		case QMetaType::Int:
+		case QMetaType::LongLong:
+			obs_data_set_int(shownValues, key.constData(), value.value().toLongLong());
+			break;
+		case QMetaType::Double:
+			obs_data_set_double(shownValues, key.constData(), value.value().toDouble());
+			break;
+		default:
+			obs_data_set_string(shownValues, key.constData(), qUtf8Printable(value.value().toString()));
+			break;
+		}
+	}
+	obs_data_set_obj(result, "shown", shownValues);
 	obs_data_set_int(result, "wb_mode", shown.value("wb_mode").toInt());
 	obs_data_set_bool(result, "connected", shown.value("connected").toBool());
 	for (const char *axis : {"pan", "tilt", "zoom", "focus"})
@@ -131,22 +159,36 @@ void runGetSettingsDialogTest(const QMap<QString, QString> &params)
 		blog(LOG_INFO, "[ptz-ui-test] get_settings_dialog: failed to write %s", qUtf8Printable(filename));
 }
 
-/* Picks a white balance mode in the state view's list, as a user would: the
- * list changes, and then it says the user chose it (a list only does that
- * for the user, not when it is set from the code) */
+/* Edits state view fields as a user would, each param a state key and the
+ * value to give it: picks it in a list, which changes and then says the user
+ * chose it (a list only does that for the user, not when it is set from the
+ * code); clicks a checkbox that isn't already that way; or enters a number. */
 void runEditDialogStateTest(const QMap<QString, QString> &params)
 {
 	PTZSettings *dialog = findDialog();
-	QComboBox *combo = dialog ? whiteBalanceList(dialog) : nullptr;
-	if (!combo) {
-		blog(LOG_INFO, "[ptz-ui-test] edit_dialog_state: no white balance list");
-		return;
+	for (auto param = params.cbegin(); dialog && param != params.cend(); ++param) {
+		if (param.key() == QStringLiteral("cmd"))
+			continue;
+		QWidget *widget = stateWidget(dialog, param.key());
+		QString value = param.value().toLower();
+		bool on = value == QStringLiteral("true");
+		if (auto combo = qobject_cast<QComboBox *>(widget)) {
+			bool isNumber = false;
+			int number = value.toInt(&isNumber, 0);
+			int at = combo->findData(isNumber ? QVariant(number) : QVariant(on));
+			if (at < 0)
+				continue;
+			combo->setCurrentIndex(at);
+			emit combo->activated(at);
+		} else if (auto box = qobject_cast<QCheckBox *>(widget)) {
+			if (box->isChecked() != on)
+				box->click();
+		} else if (auto spin = qobject_cast<QSpinBox *>(widget)) {
+			spin->setValue(value.toInt(nullptr, 0));
+		} else {
+			blog(LOG_INFO, "[ptz-ui-test] edit_dialog_state: no field for %s", qUtf8Printable(param.key()));
+		}
 	}
-	int at = combo->findData(params.value(QStringLiteral("wb_mode")).toInt());
-	if (at < 0)
-		return;
-	combo->setCurrentIndex(at);
-	emit combo->activated(at);
 }
 
 /* Presses one of the state view's buttons, by its object name
@@ -170,8 +212,10 @@ void runPressDialogButtonTest(const QMap<QString, QString> &params)
  * get_settings_dialog: filename - where to write the {"settings_keys",
  *   "state_keys": [{"key"}...], "wb_mode", "connected", "pan", "tilt", "zoom",
  *   "focus", "settings_refreshes", "state_updates", "apply_visible",
- *   "state_widgets", "wb_widget", "diagnostics_visible"} JSON result
- * edit_dialog_state: wb_mode - the mode to pick
+ *   "state_widgets", "wb_widget", "diagnostics_visible", "shown": {every
+ *   shown state key: the value shown}} JSON result
+ * edit_dialog_state: each param a state key ("wb_mode", say) and the value to
+ *   give its field: "True"/"False", or a number
  * press_dialog_button: button - the object name of a state view button
  */
 void registerSettingsDialogTest(PTZUITestHarness *harness)
