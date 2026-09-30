@@ -29,10 +29,17 @@ OBSData variantMapToOBSData(const QVariantMap &map)
 			obs_data_set_int(data, QT_TO_UTF8(iter.key()), iter.value().toLongLong());
 			break;
 		case QMetaType::Float:
-			obs_data_set_double(data, QT_TO_UTF8(iter.key()), iter.value().toFloat());
+		case QMetaType::Double:
+			obs_data_set_double(data, QT_TO_UTF8(iter.key()), iter.value().toDouble());
+			break;
+		case QMetaType::Bool:
+			obs_data_set_bool(data, QT_TO_UTF8(iter.key()), iter.value().toBool());
 			break;
 		case QMetaType::QString:
 			obs_data_set_string(data, QT_TO_UTF8(iter.key()), QT_TO_UTF8(iter.value().toString()));
+			break;
+		case QMetaType::QVariantMap:
+			obs_data_set_obj(data, QT_TO_UTF8(iter.key()), variantMapToOBSData(iter.value().toMap()));
 			break;
 		}
 	}
@@ -61,9 +68,13 @@ QVariantMap OBSDataToVariantMap(const OBSData data)
 		case OBS_DATA_BOOLEAN:
 			map[name] = obs_data_item_get_bool(item);
 			break;
+		case OBS_DATA_OBJECT: {
+			OBSDataAutoRelease obj = obs_data_item_get_obj(item);
+			map[name] = OBSDataToVariantMap(obj.Get());
+			break;
+		}
 		default:
 			/* OBS_DATA_NULL */
-			/* OBS_DATA_OBJECT */
 			/* OBS_DATA_ARRAY */
 			break;
 		}
