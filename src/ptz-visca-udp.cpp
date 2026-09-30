@@ -160,6 +160,32 @@ void ViscaUDPTransport::lookup_host_callback(const QHostInfo info)
 	}
 }
 
+void ViscaUDPTransport::apply_host()
+{
+	QString new_host = host.isEmpty() ? source_host : host;
+	if (new_host == active_host)
+		return;
+	ip_address.clear();
+	active_host = new_host;
+	if (!active_host.isEmpty()) {
+		bool is_ip = ip_address.setAddress(active_host);
+		if (!is_ip)
+			QHostInfo::lookupHost(active_host, this, &ViscaUDPTransport::lookup_host_callback);
+	}
+}
+
+void ViscaUDPTransport::setSourceHost(const QString &new_host)
+{
+	if (new_host == source_host)
+		return;
+	source_host = new_host;
+	QHostAddress old_address = ip_address;
+	apply_host();
+	/* A literal address is known now, a name will reset when it resolves */
+	if (ip_address != old_address && !ip_address.isNull())
+		protocol_reset();
+}
+
 void ViscaUDPTransport::update(OBSData config)
 {
 	QString new_host = obs_data_get_string(config, "host");
@@ -168,15 +194,8 @@ void ViscaUDPTransport::update(OBSData config)
 		port = obs_data_get_int(config, "port"); /* legacy schema */
 	if (!port)
 		port = 52381;
-	if (new_host != host) {
-		ip_address.clear();
-		host = new_host;
-		if (!host.isEmpty()) {
-			bool is_ip = ip_address.setAddress(host);
-			if (!is_ip)
-				QHostInfo::lookupHost(host, this, &ViscaUDPTransport::lookup_host_callback);
-		}
-	}
+	host = new_host;
+	apply_host();
 	attach_interface(ViscaUDPSocket::get_interface(port));
 	quirk_visca_udp_no_seq = obs_data_get_bool(config, "quirk_visca_udp_no_seq");
 }
@@ -184,6 +203,8 @@ void ViscaUDPTransport::update(OBSData config)
 void ViscaUDPTransport::save(OBSData config) const
 {
 	obs_data_set_string(config, "host", qPrintable(host));
+	/* Greyed-out text in a blank Host field: where it will connect instead */
+	obs_data_set_default_string(config, "host:placeholder", QT_TO_UTF8(source_host));
 	obs_data_set_int(config, "udp_port", iface ? iface->port() : 0);
 	obs_data_set_int(config, "port", iface ? iface->port() : 0); /* legacy schema */
 	obs_data_set_bool(config, "quirk_visca_udp_no_seq", quirk_visca_udp_no_seq);

@@ -473,20 +473,20 @@ void PTZOnvif::handleGetCapabilitiesResponse(QDomNode node)
 	auto pl = responseElement.elementsByTagNameNS(nsOnvifSchema, "PTZ");
 	for (int i = 0; i < pl.length(); i++) {
 		auto e = pl.at(i).toElement();
-		m_PTZAddress = rewriteXAddrHost(e.firstChildElement("XAddr", nsOnvifSchema).text(), host);
+		m_PTZAddress = rewriteXAddrHost(e.firstChildElement("XAddr", nsOnvifSchema).text(), effectiveHost());
 	}
 
 	pl = responseElement.elementsByTagNameNS(nsOnvifSchema, "Media");
 	for (int i = 0; i < pl.length(); i++) {
 		auto e = pl.at(i).toElement();
-		m_mediaXAddr = rewriteXAddrHost(e.firstChildElement("XAddr", nsOnvifSchema).text(), host);
+		m_mediaXAddr = rewriteXAddrHost(e.firstChildElement("XAddr", nsOnvifSchema).text(), effectiveHost());
 	}
 
 	/* Imaging service hosts focus and white balance controls. Optional. */
 	pl = responseElement.elementsByTagNameNS(nsOnvifSchema, "Imaging");
 	for (int i = 0; i < pl.length(); i++) {
 		auto e = pl.at(i).toElement();
-		m_imagingXAddr = rewriteXAddrHost(e.firstChildElement("XAddr", nsOnvifSchema).text(), host);
+		m_imagingXAddr = rewriteXAddrHost(e.firstChildElement("XAddr", nsOnvifSchema).text(), effectiveHost());
 	}
 	getProfiles();
 }
@@ -678,7 +678,7 @@ void PTZOnvif::getSystemDateAndTime()
 	s.writeEndElement(); // Body
 	s.writeEndElement(); // Envelope
 	s.writeEndDocument();
-	sendRequest(hostformat.arg(host).arg(port), msg);
+	sendRequest(hostformat.arg(effectiveHost()).arg(port), msg);
 }
 
 void PTZOnvif::getCapabilities()
@@ -696,7 +696,7 @@ void PTZOnvif::getCapabilities()
 	s.writeEndElement(); // Body
 	s.writeEndElement(); // Envelope
 	s.writeEndDocument();
-	sendRequest(hostformat.arg(host).arg(port), msg);
+	sendRequest(hostformat.arg(effectiveHost()).arg(port), msg);
 }
 
 void PTZOnvif::ensureCapabilitiesRequested()
@@ -770,7 +770,7 @@ PTZOnvif::PTZOnvif(OBSData config, obs_source_t *source) : PTZDevice(config, sou
 
 QString PTZOnvif::description() const
 {
-	return QString("ONVIF %1@%2:%3").arg(username, host, QString::number(port));
+	return QString("ONVIF %1@%2:%3").arg(username, effectiveHost(), QString::number(port));
 }
 
 void PTZOnvif::connectCamera()
@@ -854,6 +854,7 @@ void PTZOnvif::update(OBSData config)
 {
 	PTZDevice::update(config);
 	host = obs_data_get_string(config, "host");
+	m_sourceHost = parentSourceHost();
 	port = (int)obs_data_get_int(config, "port");
 	username = obs_data_get_string(config, "username");
 	password = obs_data_get_string(config, "password");
@@ -869,10 +870,21 @@ void PTZOnvif::update(OBSData config)
 	connectCamera();
 }
 
+void PTZOnvif::onParentHostChanged(const QString &newHost)
+{
+	if (newHost == m_sourceHost)
+		return;
+	m_sourceHost = newHost;
+	if (host.isEmpty())
+		connectCamera();
+}
+
 void PTZOnvif::save(OBSData config) const
 {
 	PTZDevice::save(config);
 	obs_data_set_string(config, "host", QT_TO_UTF8(host));
+	/* Greyed-out text in a blank Host field: where it will connect instead */
+	obs_data_set_default_string(config, "host:placeholder", QT_TO_UTF8(m_sourceHost));
 	obs_data_set_int(config, "port", port);
 	obs_data_set_string(config, "username", QT_TO_UTF8(username));
 	obs_data_set_string(config, "password", QT_TO_UTF8(password));

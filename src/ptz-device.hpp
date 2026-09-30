@@ -66,6 +66,14 @@ protected:
 	QString m_parentSourceName;
 	mutable QMutex m_parentSourceMutex;
 	void watchParentSource(const OBSWeakSource &weak, bool watch) const;
+	/* Network drivers use this as the camera's host when their own Host
+	 * setting is empty; see parentSourceHost(). Checked when the parent
+	 * source is bound and whenever it signals "update". */
+	QString m_parentHost;
+	/* The parent source's host changed (or was found); "" if it has none.
+	 * Not called from the constructor, so a driver reads parentSourceHost()
+	 * itself in update(). Must be safe to call with an unchanged host. */
+	virtual void onParentHostChanged(const QString &host) { Q_UNUSED(host); }
 	/* Collection of all presets, keyed by unique integer id.
 	 * On cameras that use preset numbers, the id is mapped 1:1 with the
 	 * preset number.  */
@@ -120,6 +128,12 @@ public:
 	obs_source_t *filterSource() const;
 	void setParentSource(obs_source_t *source);
 	void setParentSourceByName(const char *name);
+	/* The hostname or IP address the parent source reports for the device
+	 * it receives from, or "" if it doesn't or there is no parent. Read
+	 * from the settings of a DistroAV NDI source ("web_control_url"). */
+	QString parentSourceHost() const;
+	/* Tells the driver if the parent's host changed since it last looked */
+	void checkParentHost();
 	bool isSelfManaged() const { return !m_filter; }
 	virtual QString description() const;
 	bool isLive() const { return live; }
@@ -289,6 +303,7 @@ public:
 	 * the filter's .update and the dialog's ptz_set_config both go here.
 	 * `settings` must be complete, as update() requires. */
 	void applySettings(OBSData settings);
+	void announceSettingsChanged();
 	/* Remove the runtime identity keys save() adds ("name", "id",
 	 * "is-self-managed") from a settings object destined for persistence
 	 * in a filter, which already knows its own source, and whose device id

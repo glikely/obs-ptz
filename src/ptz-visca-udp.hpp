@@ -45,7 +45,9 @@ private:
 	 * a retry has been sent. */
 	static constexpr uint32_t SEQ_WINDOW = 16;
 	uint32_t seq_last = 0;
-	QString host;
+	QString host;        /* configured; empty to follow the source's */
+	QString source_host; /* from the parent source */
+	QString active_host; /* what ip_address was resolved from */
 	QHostAddress ip_address;
 	ViscaUDPSocket *iface = nullptr;
 	bool quirk_visca_udp_no_seq = false;
@@ -53,6 +55,8 @@ private:
 	/* Clears the sequence state and (re-)sends the VISCA-over-IP reset
 	 * datagram, then signals PTZVisca to re-query the camera */
 	void protocol_reset();
+	/* Resolve the configured host, or the source's if there isn't one */
+	void apply_host();
 
 public:
 	ViscaUDPTransport() = default;
@@ -62,6 +66,7 @@ public:
 	void update(OBSData config) override;
 	void save(OBSData config) const override;
 	void send(const QByteArray &msg, unsigned int address) override;
+	void setSourceHost(const QString &new_host) override;
 	/* Sony cameras were seen to drop about half of the requests that came
 	 * within 3ms of their last reply, and almost none after 10ms */
 	int minRequestGapMs() const override { return 15; }

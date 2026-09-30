@@ -32,7 +32,9 @@ class PTZOnvif : public PTZDevice {
 
 private:
 	bool m_isBusy = false;
-	QString host;
+	QString host; /* configured; empty to follow the source's */
+	QString m_sourceHost;
+	QString effectiveHost() const { return host.isEmpty() ? m_sourceHost : host; }
 	int port;
 	QString username;
 	QString password;
@@ -118,6 +120,7 @@ public:
 
 	static void defaults(obs_data_t *config);
 	void update(OBSData ptz_data) override;
+	void onParentHostChanged(const QString &newHost) override;
 	void save(OBSData ptz_data) const override;
 
 	obs_properties_t *get_obs_properties() override;

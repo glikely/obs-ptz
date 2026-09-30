@@ -391,6 +391,9 @@ QWidget *OBSPropertiesView::AddText(obs_property_t *prop, QFormLayout *layout, Q
 	QLineEdit *edit = new QLineEdit();
 
 	edit->setText(QT_UTF8(val));
+	/* Greyed-out text while empty, from the setting "<name>:placeholder" --
+	 * e.g. what a blank field will use instead */
+	edit->setPlaceholderText(obs_data_get_string(settings, QT_TO_UTF8(QString(name).append(":placeholder"))));
 	edit->setToolTip(QT_UTF8(obs_property_long_description(prop)));
 
 	return NewWidget(prop, edit, &QLineEdit::textEdited);

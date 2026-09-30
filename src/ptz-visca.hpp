@@ -51,6 +51,9 @@ public:
 	/* Gets what has been sent on its way now, rather than when the event
 	 * loop next runs, for a last message before the transport goes away */
 	virtual void flush() {}
+	/* The host the device's parent source reports ("" for none), used when
+	 * the transport isn't configured with a host of its own. */
+	virtual void setSourceHost(const QString &host) { Q_UNUSED(host); }
 
 signals:
 	/* A decoded VISCA reply datagram, with transport framing removed */
@@ -150,6 +153,7 @@ public:
 	void cmd_get_camera_info();
 
 	void do_update() override;
+	void onParentHostChanged(const QString &host) override;
 	void pantilt_rel(double pan, double tilt) override;
 	void pantilt_abs(double pan, double tilt) override;
 	void pantilt_home() override;
