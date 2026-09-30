@@ -120,6 +120,16 @@ or select `Clear Preset` to reset the name back to default.
 
 Double click to recall a preset.
 
+A preset is stored either on the camera or locally, by OBS. `Add Camera Preset`
+and `Add Local Preset` are on the `+` button's menu and the preset list's
+right-click menu; local presets are shown in italics. A camera preset recalls
+whatever the camera saved with it. A local preset saves the camera's state as
+the plugin sees it (where it points, and, on a VISCA camera, its focus,
+exposure, white balance and picture settings), and recalls only the values you
+choose: right click it and select `Edit Preset...` to pick them, change them,
+or move the preset between the camera and OBS. A USB camera can't store presets
+itself, so its presets are all local.
+
 ### Joystick Control
 
 To enable joystick control, select the `Joystick Control` check box on the

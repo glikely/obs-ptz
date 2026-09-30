@@ -31,6 +31,7 @@ public:
 		int id = 0;
 		QString name;
 		QString token;
+		bool local = false;
 	};
 
 private:
@@ -47,6 +48,7 @@ private:
 		bool preview = false;
 		bool locked = false;
 		bool supportsSetHome = false;
+		bool supportsDevicePresets = true;
 		int maxPresets = 16;
 		QList<PresetEntry> presets;
 	};
@@ -74,6 +76,9 @@ public:
 		IsConnectedRole,
 		IsLockedRole,
 		SupportsSetHomeRole,
+		/* On a device row: whether the camera can store presets itself.
+		 * On a preset row: whether the preset is stored locally. */
+		PresetLocalRole,
 	};
 
 	PTZListModel();
@@ -87,6 +92,9 @@ public:
 	int columnCount(const QModelIndex &) const override { return 1; };
 	bool insertRows(int row, int count, const QModelIndex &parent = QModelIndex()) override;
 	bool removeRows(int row, int count, const QModelIndex &parent = QModelIndex()) override;
+	/* insertRows() for one preset, stored locally if `local` (or if the
+	 * device can only store presets locally) */
+	bool insertPreset(int row, const QModelIndex &parent, bool local);
 	bool moveRows(const QModelIndex &srcParent, int srcRow, int count, const QModelIndex &destParent,
 		      int destChild) override;
 	QVariant data(const QModelIndex &index, int role) const override;
@@ -108,6 +116,10 @@ public:
 	void saveState(const QModelIndex &index, OBSData state) const;
 	void setState(const QModelIndex &index, OBSData state);
 	void removeDevice(const QModelIndex &index);
+	/* A preset's whole description and changing it, see
+	 * PTZDevice::presetInfo()/setPresetInfo() */
+	void presetInfo(const QModelIndex &presetIndex, OBSData info) const;
+	void setPresetInfo(const QModelIndex &presetIndex, OBSData info);
 	void delete_all();
 
 	/* React to a preset list mutation PTZDevice reports *after* it

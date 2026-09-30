@@ -28,6 +28,7 @@
 #include "ptz-controls.hpp"
 #include "ptz-list-model.hpp"
 #include "settings.hpp"
+#include "ptz-preset-dialog.hpp"
 #include "ptz.h"
 
 const char *ptz_joy_action_axis_names[PTZ_JOY_ACTION_LAST_VALUE] = {"None",
@@ -269,6 +270,25 @@ PTZControls::PTZControls(QWidget *parent) : QFrame(parent), ui(new Ui::PTZContro
 
 	presetDelegate = new PTZPresetListDelegate(ui->presetListView);
 	ui->presetListView->setItemDelegate(presetDelegate);
+
+	/* Add makes a camera preset where the camera can store one; its menu
+	 * says which */
+	actionPresetAddCamera = new QAction(obs_module_text("PTZ.Action.Preset.AddCamera"), this);
+	actionPresetAddLocal = new QAction(obs_module_text("PTZ.Action.Preset.AddLocal"), this);
+	actionPresetAddLocal->setToolTip(obs_module_text("PTZ.Action.Preset.AddLocal.Tooltip"));
+	actionPresetEdit = new QAction(obs_module_text("PTZ.Action.Preset.Edit"), this);
+	actionPresetAddCamera->setObjectName("actionPresetAddCamera");
+	actionPresetAddLocal->setObjectName("actionPresetAddLocal");
+	actionPresetEdit->setObjectName("actionPresetEdit");
+	connect(actionPresetAddCamera, &QAction::triggered, this, [this]() { addPreset(false); });
+	connect(actionPresetAddLocal, &QAction::triggered, this, [this]() { addPreset(true); });
+	connect(actionPresetEdit, &QAction::triggered, this, &PTZControls::presetEdit);
+	auto addMenu = new QMenu(this);
+	addMenu->addAction(actionPresetAddCamera);
+	addMenu->addAction(actionPresetAddLocal);
+	ui->actionPresetAdd->setMenu(addMenu);
+	if (auto addButton = qobject_cast<QToolButton *>(ui->presetToolbar->widgetForAction(ui->actionPresetAdd)))
+		addButton->setPopupMode(QToolButton::MenuButtonPopup);
 	updatePresetList();
 	/* A model reset makes the views throw away their root index, and the
 	 * camera list its selection, so the preset list has to be set up again.
@@ -1133,6 +1153,10 @@ void PTZControls::presetUpdateActions()
 	int count = ptzDeviceList->rowCount(deviceIndex);
 	bool isValid = presetIndex.isValid() && deviceIndex.isValid();
 	ui->actionPresetAdd->setEnabled(deviceIndex.isValid());
+	actionPresetAddCamera->setEnabled(deviceIndex.isValid() &&
+					  !deviceIndex.data(PTZListModel::PresetLocalRole).toBool());
+	actionPresetAddLocal->setEnabled(deviceIndex.isValid());
+	actionPresetEdit->setEnabled(isValid);
 	ui->actionPresetRemove->setEnabled(isValid);
 	ui->actionPresetMoveUp->setEnabled(isValid && count > 1 && presetIndex.row() > 0);
 	ui->actionPresetMoveDown->setEnabled(isValid && count > 1 && presetIndex.row() < count - 1);
@@ -1169,12 +1193,14 @@ void PTZControls::on_presetListView_customContextMenuRequested(const QPoint &pos
 	QModelIndex index = ui->presetListView->indexAt(pos);
 	QMenu presetContext;
 	if (index.isValid()) {
+		presetContext.addAction(actionPresetEdit);
 		presetContext.addAction(ui->actionPresetRename);
 		presetContext.addAction(ui->actionPresetSave);
 		presetContext.addAction(ui->actionPresetClear);
 		presetContext.addAction(ui->actionPresetRemove);
 	}
-	presetContext.addAction(ui->actionPresetAdd);
+	presetContext.addAction(actionPresetAddCamera);
+	presetContext.addAction(actionPresetAddLocal);
 	presetContext.addSeparator();
 	presetContext.addAction(ui->actionPresetExport);
 	presetContext.addAction(ui->actionPresetImport);
@@ -1236,15 +1262,34 @@ void PTZControls::on_actionProperties_triggered()
 
 void PTZControls::on_actionPresetAdd_triggered()
 {
+	/* The device makes it local if it can't store it itself */
+	addPreset(false);
+}
+
+/* A new local preset starts out with what the camera has now, since it has
+ * nothing else to recall. A camera preset is left as it is on the camera. */
+void PTZControls::addPreset(bool local)
+{
 	auto parent = ui->deviceList->currentIndex();
 	auto row = ptzDeviceList->rowCount(parent);
-	ptzDeviceList->insertRows(row, 1, parent);
+	ptzDeviceList->insertPreset(row, parent, local);
 	QModelIndex index = ptzDeviceList->index(row, 0, parent);
 	if (index.isValid()) {
+		if (index.data(PTZListModel::PresetLocalRole).toBool())
+			presetSet(presetIndexToId(index));
 		ui->presetListView->setCurrentIndex(index);
 		ui->presetListView->edit(index);
 	}
 	presetUpdateActions();
+}
+
+void PTZControls::presetEdit()
+{
+	auto index = ui->presetListView->currentIndex();
+	if (!index.isValid())
+		return;
+	auto dialog = new PTZPresetDialog(index, this);
+	dialog->open();
 }
 
 void PTZControls::on_actionPresetRemove_triggered()
@@ -1584,8 +1629,16 @@ void PTZPresetListDelegate::paint(QPainter *painter, const QStyleOptionViewItem 
 	CellLayout l = layoutCell(index, opt);
 	QIcon::Mode iconMode = (opt.state & QStyle::State_Enabled) ? QIcon::Normal : QIcon::Disabled;
 	recallIcon.paint(painter, l.recall.adjusted(0, l.iconMargin, 0, -l.iconMargin), Qt::AlignCenter, iconMode);
+	/* A local preset is told apart from one stored on the camera */
+	painter->save();
+	if (index.data(PTZListModel::PresetLocalRole).toBool()) {
+		QFont font = painter->font();
+		font.setItalic(true);
+		painter->setFont(font);
+	}
 	style->drawItemText(painter, l.text.adjusted(textMargin, 0, 0, 0), opt.displayAlignment, opt.palette, true,
 			    opt.text);
+	painter->restore();
 }
 
 bool PTZPresetListDelegate::editorEvent(QEvent *event, QAbstractItemModel *model, const QStyleOptionViewItem &option,

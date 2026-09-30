@@ -54,6 +54,11 @@ private:
 	std::unique_ptr<Ui::PTZControls> ui;
 	TouchControl *pantilt_widget;
 	PTZPresetListDelegate *presetDelegate = nullptr;
+	/* Adding a preset stored on the camera, or locally, and editing one */
+	QAction *actionPresetAddCamera = nullptr;
+	QAction *actionPresetAddLocal = nullptr;
+	QAction *actionPresetEdit = nullptr;
+	void addPreset(bool local);
 	QMetaObject::Connection presetSelectionConnection;
 	PTZDeviceListDelegate *deviceDelegate = nullptr;
 
@@ -151,6 +156,7 @@ private slots:
 	void on_actionPresetSave_triggered();
 	void on_actionPresetClear_triggered();
 	void on_actionPresetRename_triggered();
+	void presetEdit();
 	void on_actionPresetExport_triggered(QString filename = "");
 	void on_actionPresetImport_triggered(QString filename = "");
 

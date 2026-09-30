@@ -93,6 +93,7 @@ target_sources(
     src/ptz-list-model.cpp
     src/settings.cpp
     src/ptz-state-view.cpp
+    src/ptz-preset-dialog.cpp
     src/ptz-visca.cpp
     src/ptz-visca-udp.cpp
     src/ptz-visca-tcp.cpp
@@ -106,6 +107,7 @@ target_sources(
     src/ptz-list-model.hpp
     src/settings.hpp
     src/ptz-state-view.hpp
+    src/ptz-preset-dialog.hpp
     src/contributors-generated.hpp
     src/translators-generated.hpp
     src/ptz-visca.hpp

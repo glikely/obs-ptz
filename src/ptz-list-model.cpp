@@ -107,6 +107,7 @@ static void preset_moved_cb(void *data, calldata_t *cd)
 	});
 }
 
+/* A preset was renamed, or changed otherwise (preset_changed) */
 static void preset_renamed_cb(void *data, calldata_t *cd)
 {
 	auto ptzlm = static_cast<PTZListModel *>(data);
@@ -217,6 +218,9 @@ void PTZListModel::refreshDeviceState(PTZDeviceEntry *entry)
 	entry->preview = obs_data_get_bool(state, "preview");
 	entry->locked = obs_data_get_bool(state, "locked");
 	entry->supportsSetHome = obs_data_get_bool(state, "supports_set_home");
+	/* A device that predates local presets only has the camera's own */
+	entry->supportsDevicePresets = !obs_data_has_user_value(state, "supports_device_presets") ||
+				       obs_data_get_bool(state, "supports_device_presets");
 	calldata_free(&cd);
 }
 
@@ -240,6 +244,7 @@ void PTZListModel::refreshPresetList(PTZDeviceEntry *entry)
 			preset.id = (int)obs_data_get_int(item, "id");
 			preset.name = QT_UTF8(obs_data_get_string(item, "name"));
 			preset.token = QT_UTF8(obs_data_get_string(item, "token"));
+			preset.local = obs_data_get_bool(item, "local");
 			entry->presets.append(preset);
 		}
 		obs_data_array_release(list);
@@ -308,13 +313,25 @@ bool PTZListModel::insertRows(int row, int count, const QModelIndex &parent)
 	if (row < 0 || count <= 0 || row > entry->presets.size() || entry->presets.size() + count > entry->maxPresets)
 		return false;
 
-	for (int i = 0; i < count; i++) {
-		calldata_t cd = {};
-		calldata_set_int(&cd, "device_id", entry->id);
-		calldata_set_int(&cd, "row", row++);
-		callEntry(*entry, "ptz_preset_new", &cd);
-		calldata_free(&cd);
-	}
+	for (int i = 0; i < count; i++)
+		insertPreset(row++, parent, false);
+	return true;
+}
+
+bool PTZListModel::insertPreset(int row, const QModelIndex &parent, bool local)
+{
+	auto entry = entryAt(parent);
+	if (!entry)
+		return false;
+	if (row < 0 || row > entry->presets.size() || entry->presets.size() >= entry->maxPresets)
+		return false;
+
+	calldata_t cd = {};
+	calldata_set_int(&cd, "device_id", entry->id);
+	calldata_set_int(&cd, "row", row);
+	calldata_set_bool(&cd, "local", local);
+	callEntry(*entry, "ptz_preset_new", &cd);
+	calldata_free(&cd);
 	return true;
 }
 
@@ -384,6 +401,8 @@ QVariant PTZListModel::data(const QModelIndex &index, int role) const
 			return QString(obs_module_text("PTZ.PresetNum")).arg(preset.id);
 		}
 		if (role == Qt::ToolTipRole) {
+			if (preset.local)
+				return QString(obs_module_text("PTZ.Preset.Local.Tooltip")).arg(preset.id);
 			if (!preset.token.isEmpty())
 				return QString(obs_module_text("PTZ.Preset.Tooltip")).arg("'" + preset.token + "'");
 			return QString(obs_module_text("PTZ.Preset.Tooltip")).arg(preset.id);
@@ -392,6 +411,8 @@ QVariant PTZListModel::data(const QModelIndex &index, int role) const
 			return preset.name;
 		if (role == Qt::UserRole)
 			return preset.id;
+		if (role == PTZListModel::PresetLocalRole)
+			return preset.local;
 		if (role == Qt::SizeHintRole)
 			return QSize(0, 20);
 
@@ -427,6 +448,9 @@ QVariant PTZListModel::data(const QModelIndex &index, int role) const
 
 	if (role == PTZListModel::SupportsSetHomeRole)
 		return entry->supportsSetHome;
+
+	if (role == PTZListModel::PresetLocalRole)
+		return !entry->supportsDevicePresets;
 
 	return QVariant();
 }
@@ -616,6 +640,30 @@ void PTZListModel::removeDevice(const QModelIndex &index)
 		ptz_device_destroy(entry->id);
 }
 
+void PTZListModel::presetInfo(const QModelIndex &presetIndex, OBSData info) const
+{
+	auto entry = entryAt(presetIndex.parent());
+	if (!entry || !presetIndex.isValid())
+		return;
+	calldata_t cd = {};
+	calldata_set_int(&cd, "id", presetIndex.data(Qt::UserRole).toInt());
+	calldata_set_ptr(&cd, "preset", info.Get());
+	callEntry(*entry, "ptz_preset_get", &cd);
+	calldata_free(&cd);
+}
+
+void PTZListModel::setPresetInfo(const QModelIndex &presetIndex, OBSData info)
+{
+	auto entry = entryAt(presetIndex.parent());
+	if (!entry || !presetIndex.isValid())
+		return;
+	calldata_t cd = {};
+	calldata_set_int(&cd, "id", presetIndex.data(Qt::UserRole).toInt());
+	calldata_set_ptr(&cd, "preset", info.Get());
+	callEntry(*entry, "ptz_preset_set", &cd);
+	calldata_free(&cd);
+}
+
 void PTZListModel::make_device(OBSData config)
 {
 	ptz_device_create(config);
@@ -669,6 +717,7 @@ void PTZListModel::deviceCreated(uint32_t device_id, proc_handler_t *ph, signal_
 	signal_handler_connect(sh, "preset_removed", preset_removed_cb, this);
 	signal_handler_connect(sh, "preset_moved", preset_moved_cb, this);
 	signal_handler_connect(sh, "preset_renamed", preset_renamed_cb, this);
+	signal_handler_connect(sh, "preset_changed", preset_renamed_cb, this);
 }
 
 void PTZListModel::deviceDestroyed(uint32_t device_id)
