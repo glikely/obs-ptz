@@ -21,6 +21,17 @@
 
 extern const PTZCmd VISCA_ENUMERATE;
 
+/* How far a camera moves and zooms, as the plugin assumes it until told
+ * otherwise (the "visca_*_range" settings): what 1.0
+ * in the movement API stands for. Pan and tilt are symmetric about the
+ * centre, zoom runs from 0 (wide) to its range. Focus is 0x1000 at far
+ * focus and 0xf000 at near, as VISCA cameras usually have it. */
+#define VISCA_DEFAULT_PAN_RANGE 0x1400
+#define VISCA_DEFAULT_TILT_RANGE 0x500
+#define VISCA_DEFAULT_ZOOM_RANGE 0x7ac0
+#define VISCA_DEFAULT_FOCUS_FAR 0x1000
+#define VISCA_DEFAULT_FOCUS_NEAR 0xf000
+
 /*
  * Abstract transport that carries VISCA datagrams to and from a camera.
  * The wire protocol (command encoding, ack/completion handling, etc) is
@@ -103,6 +114,12 @@ protected:
 	QString visca_interface;
 	ViscaTransport *transport = nullptr;
 	void setInterface(const QString &interface);
+
+	int visca_pan_range = VISCA_DEFAULT_PAN_RANGE;
+	int visca_tilt_range = VISCA_DEFAULT_TILT_RANGE;
+	int visca_zoom_range = VISCA_DEFAULT_ZOOM_RANGE;
+	int visca_focus_far = VISCA_DEFAULT_FOCUS_FAR;
+	int visca_focus_near = VISCA_DEFAULT_FOCUS_NEAR;
 
 	unsigned int visca_pan_speed_max = 0x18;
 	unsigned int visca_tilt_speed_max = 0x14;

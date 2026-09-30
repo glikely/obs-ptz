@@ -183,15 +183,6 @@ public:
 	}
 };
 
-/* How far a camera moves and zooms, as the plugin assumes it, that 1.0 in the
- * movement API stands for. Focus is 0x1000 at far focus and 0xf000 at near,
- * as VISCA cameras usually have it; no command here sets it yet. */
-static constexpr int VISCA_PAN_RANGE = 0x1400;
-static constexpr int VISCA_TILT_RANGE = 0x500;
-static constexpr int VISCA_ZOOM_RANGE = 0x7ac0;
-static constexpr int VISCA_FOCUS_FAR = 0x1000;
-static constexpr int VISCA_FOCUS_NEAR = 0xf000;
-
 /* How long to wait for the reply to a request before sending it again. Cameras
  * take up to ~130ms to answer, so this must be well over that. */
 static constexpr int VISCA_REPLY_TIMEOUT_MS = 250;
@@ -837,6 +828,11 @@ void PTZVisca::defaults(obs_data_t *cfg)
 	obs_data_set_default_int(cfg, "visca_tilt_speed_max", 0x14);
 	obs_data_set_default_int(cfg, "visca_zoom_speed_max", 0x7);
 	obs_data_set_default_int(cfg, "visca_focus_speed_max", 0x7);
+	obs_data_set_default_int(cfg, "visca_pan_range", VISCA_DEFAULT_PAN_RANGE);
+	obs_data_set_default_int(cfg, "visca_tilt_range", VISCA_DEFAULT_TILT_RANGE);
+	obs_data_set_default_int(cfg, "visca_zoom_range", VISCA_DEFAULT_ZOOM_RANGE);
+	obs_data_set_default_int(cfg, "visca_focus_far", VISCA_DEFAULT_FOCUS_FAR);
+	obs_data_set_default_int(cfg, "visca_focus_near", VISCA_DEFAULT_FOCUS_NEAR);
 	obs_data_set_default_bool(cfg, "protocol_trace", false);
 	obs_data_set_default_bool(cfg, "tally_auto", true);
 	obs_data_set_default_bool(cfg, "power_on_at_startup", false);
@@ -857,6 +853,13 @@ void PTZVisca::update(OBSData cfg)
 	visca_tilt_speed_max = (int)obs_data_get_int(cfg, "visca_tilt_speed_max");
 	visca_zoom_speed_max = (int)obs_data_get_int(cfg, "visca_zoom_speed_max");
 	visca_focus_speed_max = (int)obs_data_get_int(cfg, "visca_focus_speed_max");
+	visca_pan_range = std::max(1, (int)obs_data_get_int(cfg, "visca_pan_range"));
+	visca_tilt_range = std::max(1, (int)obs_data_get_int(cfg, "visca_tilt_range"));
+	visca_zoom_range = std::max(1, (int)obs_data_get_int(cfg, "visca_zoom_range"));
+	visca_focus_far = (int)obs_data_get_int(cfg, "visca_focus_far");
+	visca_focus_near = (int)obs_data_get_int(cfg, "visca_focus_near");
+	if (visca_focus_near == visca_focus_far)
+		visca_focus_near = visca_focus_far + 1;
 	protocol_trace = obs_data_get_bool(cfg, "protocol_trace");
 	tally_auto = obs_data_get_bool(cfg, "tally_auto");
 	power_on_at_startup = obs_data_get_bool(cfg, "power_on_at_startup");
@@ -882,6 +885,11 @@ void PTZVisca::save(OBSData cfg) const
 	obs_data_set_int(cfg, "visca_tilt_speed_max", visca_tilt_speed_max);
 	obs_data_set_int(cfg, "visca_zoom_speed_max", visca_zoom_speed_max);
 	obs_data_set_int(cfg, "visca_focus_speed_max", visca_focus_speed_max);
+	obs_data_set_int(cfg, "visca_pan_range", visca_pan_range);
+	obs_data_set_int(cfg, "visca_tilt_range", visca_tilt_range);
+	obs_data_set_int(cfg, "visca_zoom_range", visca_zoom_range);
+	obs_data_set_int(cfg, "visca_focus_far", visca_focus_far);
+	obs_data_set_int(cfg, "visca_focus_near", visca_focus_near);
 	obs_data_set_bool(cfg, "protocol_trace", protocol_trace);
 	obs_data_set_bool(cfg, "tally_auto", tally_auto);
 	obs_data_set_bool(cfg, "power_on_at_startup", power_on_at_startup);
@@ -978,6 +986,14 @@ obs_properties_t *PTZVisca::get_obs_properties()
 				      7, 1);
 	obs_properties_add_int_slider(visca_grp, "visca_focus_speed_max", obs_module_text("PTZ.Visca.FocusMaxSpeed"), 0,
 				      7, 1);
+	/* What 1.0 is in the movement API. A camera that is not one of these
+	 * would have its position shown stuck at an end, and absolute moves
+	 * go to the wrong place. */
+	obs_properties_add_int(visca_grp, "visca_pan_range", obs_module_text("PTZ.Visca.PanRange"), 1, 0xffff, 1);
+	obs_properties_add_int(visca_grp, "visca_tilt_range", obs_module_text("PTZ.Visca.TiltRange"), 1, 0xffff, 1);
+	obs_properties_add_int(visca_grp, "visca_zoom_range", obs_module_text("PTZ.Visca.ZoomRange"), 1, 0xffff, 1);
+	obs_properties_add_int(visca_grp, "visca_focus_far", obs_module_text("PTZ.Visca.FocusFar"), 0, 0xffff, 1);
+	obs_properties_add_int(visca_grp, "visca_focus_near", obs_module_text("PTZ.Visca.FocusNear"), 0, 0xffff, 1);
 	obs_properties_add_bool(visca_grp, "protocol_trace", obs_module_text("PTZ.Device.ProtocolTraceToLog"));
 
 	return ptz_props;
@@ -994,14 +1010,14 @@ void PTZVisca::update_position(OBSData decoded)
 		return obs_data_has_user_value(decoded, key);
 	};
 	if (has("pan_pos"))
-		setPosition("pan", obs_data_get_int(state, "pan_pos") / (double)VISCA_PAN_RANGE);
+		setPosition("pan", obs_data_get_int(state, "pan_pos") / (double)visca_pan_range);
 	if (has("tilt_pos"))
-		setPosition("tilt", obs_data_get_int(state, "tilt_pos") / (double)VISCA_TILT_RANGE);
+		setPosition("tilt", obs_data_get_int(state, "tilt_pos") / (double)visca_tilt_range);
 	if (has("zoom_pos"))
-		setPosition("zoom", obs_data_get_int(state, "zoom_pos") / (double)VISCA_ZOOM_RANGE);
+		setPosition("zoom", obs_data_get_int(state, "zoom_pos") / (double)visca_zoom_range);
 	if (has("focus_pos"))
-		setPosition("focus", (obs_data_get_int(state, "focus_pos") - VISCA_FOCUS_FAR) /
-					     (double)(VISCA_FOCUS_NEAR - VISCA_FOCUS_FAR));
+		setPosition("focus", (obs_data_get_int(state, "focus_pos") - visca_focus_far) /
+					     (double)(visca_focus_near - visca_focus_far));
 }
 
 void PTZVisca::send(PTZCmd cmd)
@@ -1393,15 +1409,15 @@ void PTZVisca::do_update(void)
 
 void PTZVisca::pantilt_rel(double pan_, double tilt_)
 {
-	int pan = std::clamp(pan_, -1.0, 1.0) * 0x1400 * 2;
-	int tilt = std::clamp(tilt_, -1.0, 1.0) * 0x500 * 2;
+	int pan = std::clamp(pan_, -1.0, 1.0) * visca_pan_range * 2;
+	int tilt = std::clamp(tilt_, -1.0, 1.0) * visca_tilt_range * 2;
 	send(VISCA_PanTilt_drive_rel, {0x14, 0x14, pan, tilt});
 }
 
 void PTZVisca::pantilt_abs(double pan_, double tilt_)
 {
-	int pan = std::clamp(pan_, -1.0, 1.0) * VISCA_PAN_RANGE;
-	int tilt = std::clamp(tilt_, -1.0, 1.0) * VISCA_TILT_RANGE;
+	int pan = std::clamp(pan_, -1.0, 1.0) * visca_pan_range;
+	int tilt = std::clamp(tilt_, -1.0, 1.0) * visca_tilt_range;
 	send(VISCA_PanTilt_drive_abs, {0x0f, 0x0f, pan, tilt});
 }
 
@@ -1412,7 +1428,7 @@ void PTZVisca::pantilt_home()
 
 void PTZVisca::zoom_abs(double pos_)
 {
-	int pos = std::clamp(pos_, 0.0, 1.0) * VISCA_ZOOM_RANGE;
+	int pos = std::clamp(pos_, 0.0, 1.0) * visca_zoom_range;
 	send(VISCA_CAM_Zoom_Direct, {pos});
 }
 
