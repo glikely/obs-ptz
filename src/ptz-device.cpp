@@ -16,6 +16,7 @@
 #include <QUrl>
 #include "ptz-device.hpp"
 #include "ptz-list-model.hpp"
+#include "ptz-discovery.hpp"
 #include "ptz-thumbnail.hpp"
 #include "ptz-visca-udp.hpp"
 #include "ptz-visca-tcp.hpp"
@@ -1277,6 +1278,7 @@ void ptz_unload_devices(void)
 {
 	/* Reverse of construction order */
 	PTZListModel::destroy();
+	ptz_discovery_unregister_all();
 
 	{
 		QMutexLocker locker(&ptz_backup_mutex);

@@ -34,6 +34,7 @@
 
 #include "ptz.h"
 #include "ptz-list-model.hpp"
+#include "ptz-discovery.hpp"
 #include "ptz-controls.hpp"
 #include "settings.hpp"
 #include "ptz-state-view.hpp"
@@ -404,9 +405,39 @@ static QString ptz_protocol_name(const char *type)
 	return QT_UTF8(type);
 }
 
+/* Whether every setting in `settings` has the same value in `config`: for a
+ * detected device, whether `config` is a device for it already */
+static bool ptz_settings_contain(obs_data_t *config, obs_data_t *settings)
+{
+	for (obs_data_item_t *item = obs_data_first(settings); item; obs_data_item_next(&item)) {
+		const char *key = obs_data_item_get_name(item);
+		bool same = true;
+		switch (obs_data_item_gettype(item)) {
+		case OBS_DATA_STRING:
+			same = strcmp(obs_data_item_get_string(item), obs_data_get_string(config, key)) == 0;
+			break;
+		case OBS_DATA_NUMBER:
+			same = obs_data_item_get_int(item) == obs_data_get_int(config, key);
+			break;
+		case OBS_DATA_BOOLEAN:
+			same = obs_data_item_get_bool(item) == obs_data_get_bool(config, key);
+			break;
+		default:
+			break;
+		}
+		if (!same) {
+			obs_data_item_release(&item);
+			return false;
+		}
+	}
+	return true;
+}
+
 /* A new device is a PTZ Control filter on a source, so ask which source,
- * and which protocol, or which removed device's backup (see
- * ptz_device_backups_get()) to restore, which brings its protocol with it */
+ * and which protocol, or which device the drivers detected (see
+ * PTZDiscovery), or which removed device's backup (see
+ * ptz_device_backups_get()) to restore, either of which brings its protocol
+ * with it */
 void PTZSettings::addDevice()
 {
 	/* The devices that control a source; one whose source was deleted can
@@ -472,24 +503,38 @@ void PTZSettings::addDevice()
 	layout->addRow(obs_module_text("PTZ.Source"), sourceCombo);
 	auto deviceCombo = new QComboBox(&dialog);
 	deviceCombo->setObjectName("deviceTypeList");
-	/* A heading over each group: shown, but not something to pick */
-	auto addHeading = [&](const char *text) {
-		deviceCombo->addItem(obs_module_text(text), -1);
-		auto model = qobject_cast<QStandardItemModel *>(deviceCombo->model());
+	auto model = qobject_cast<QStandardItemModel *>(deviceCombo->model());
+	/* A heading over each group, or a note in one: shown, but not
+	 * something to pick */
+	auto insertNote = [&](int row, const QString &text) {
+		deviceCombo->insertItem(row, text, -1);
 		if (model)
-			model->item(deviceCombo->count() - 1)->setFlags(Qt::NoItemFlags);
+			model->item(row)->setFlags(Qt::NoItemFlags);
 	};
 	/* Each item's data is its index in choices, and for a protocol, the
-	 * type it makes; for a backup, the name of its source */
-	addHeading("PTZ.AddDevice.NewHeading");
+	 * type it makes; for a backup, the name of its source; for a detected
+	 * device, its id */
+	insertNote(deviceCombo->count(), obs_module_text("PTZ.AddDevice.NewHeading"));
 	for (int i = 0; i < protocols.size(); i++) {
 		deviceCombo->addItem(protocols[i].first, i);
 		deviceCombo->setItemData(deviceCombo->count() - 1, obs_data_get_string(protocols[i].second, "type"),
 					 Qt::UserRole + 1);
 	}
+
+	/* Devices the drivers detect, added as they are found, above a note
+	 * saying they are still looking, or found nothing */
+	auto discoveries = ptz_discovery_create_all(&dialog);
+	QStandardItem *detectedNote = nullptr;
+	if (!discoveries.isEmpty()) {
+		deviceCombo->insertSeparator(deviceCombo->count());
+		insertNote(deviceCombo->count(), obs_module_text("PTZ.AddDevice.DetectedHeading"));
+		insertNote(deviceCombo->count(), obs_module_text("PTZ.AddDevice.Searching"));
+		detectedNote = model ? model->item(deviceCombo->count() - 1) : nullptr;
+	}
+
 	if (!backups.isEmpty()) {
 		deviceCombo->insertSeparator(deviceCombo->count());
-		addHeading("PTZ.AddDevice.RestoreHeading");
+		insertNote(deviceCombo->count(), obs_module_text("PTZ.AddDevice.RestoreHeading"));
 	}
 	for (const auto &backup : backups) {
 		OBSDataArrayAutoRelease presets = obs_data_get_array(backup, "presets");
@@ -510,22 +555,57 @@ void PTZSettings::addDevice()
 	connect(buttons, &QDialogButtonBox::rejected, &dialog, &QDialog::reject);
 	layout->addRow(buttons);
 
+	int searching = 0;
+	int detected = 0;
+	for (auto discovery : discoveries) {
+		connect(discovery, &PTZDiscovery::deviceFound, &dialog, [&](const PTZDetectedDevice &device) {
+			if (!detectedNote || deviceCombo->findData(device.id, Qt::UserRole + 3) >= 0)
+				return;
+			for (const auto &dev : live)
+				if (ptz_settings_contain(dev, device.settings))
+					return; /* already has a device */
+			int row = detectedNote->row();
+			deviceCombo->insertItem(row, QString("%1 (%2)").arg(device.name, device.address),
+						(int)choices.size());
+			deviceCombo->setItemData(row, device.id, Qt::UserRole + 3);
+			choices.append(device.settings);
+			detected++;
+		});
+		connect(discovery, &PTZDiscovery::finished, &dialog, [&]() {
+			if (--searching > 0 || !detectedNote)
+				return;
+			if (detected)
+				deviceCombo->removeItem(detectedNote->row());
+			else
+				detectedNote->setText(obs_module_text("PTZ.AddDevice.NoneDetected"));
+			detectedNote = nullptr;
+		});
+	}
+
 	/* Offer the backup of a device that was on a source of the same name;
-	 * otherwise go back to the protocol last picked */
-	int protocolRow = deviceCombo->findData(0);
+	 * otherwise go back to the protocol or detected device last picked */
+	int lastPicked = 0;
 	connect(deviceCombo, &QComboBox::activated, &dialog, [&](int row) {
 		int choice = deviceCombo->itemData(row).toInt();
-		if (choice >= 0 && choice < protocols.size())
-			protocolRow = row;
+		if (choice >= 0 && deviceCombo->itemData(row, Qt::UserRole + 2).isNull())
+			lastPicked = choice;
 	});
 	auto matchBackup = [&](const QString &source) {
 		int row = deviceCombo->findData(source, Qt::UserRole + 2);
-		deviceCombo->setCurrentIndex(row >= 0 ? row : protocolRow);
+		deviceCombo->setCurrentIndex(row >= 0 ? row : deviceCombo->findData(lastPicked));
 	};
 	connect(sourceCombo, &QComboBox::currentTextChanged, &dialog, matchBackup);
 	matchBackup(sourceCombo->currentText());
 
-	if (dialog.exec() != QDialog::Accepted)
+	searching = discoveries.size();
+	for (auto discovery : discoveries)
+		discovery->start();
+	int accepted = dialog.exec();
+	for (auto discovery : discoveries) {
+		discovery->disconnect(&dialog);
+		discovery->stop();
+	}
+	if (accepted != QDialog::Accepted)
 		return;
 
 	int choice = deviceCombo->currentData().toInt();

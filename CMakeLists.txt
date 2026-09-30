@@ -92,6 +92,7 @@ target_sources(
     src/ptz-device.cpp
     src/ptz-thumbnail.cpp
     src/ptz-list-model.cpp
+    src/ptz-discovery.cpp
     src/settings.cpp
     src/ptz-state-view.cpp
     src/ptz-visca.cpp
@@ -106,6 +107,7 @@ target_sources(
     src/ptz-device.hpp
     src/ptz-thumbnail.hpp
     src/ptz-list-model.hpp
+    src/ptz-discovery.hpp
     src/settings.hpp
     src/ptz-state-view.hpp
     src/contributors-generated.hpp
