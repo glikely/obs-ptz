@@ -300,9 +300,12 @@ public:
 	 *     make the camera report it; the value isn't stored here, it
 	 *     becomes state when the camera says so (or, where a driver
 	 *     already does so, optimistically when the command is sent).
-	 *     Commandable keys: focus_af_enabled, and per driver power_on,
-	 *     wb_mode, tally_on, tally_preview. Anything else is ignored, so a caller can
-	 *     hand back state it read, read-only parts and all.
+	 *     Commandable keys: focus_af_enabled, and per driver the rest (for
+	 *     VISCA, most of what a camera reports: power_on, tally_on,
+	 *     tally_preview, wb_mode and its picture and exposure settings,
+	 *     see visca_state_commands in ptz-visca.cpp). Anything else is
+	 *     ignored, so a caller can hand back state it read, read-only parts
+	 *     and all.
 	 * Unlike the settings there is no properties tree for it: it isn't
 	 * bound to anything OBS persists, and changes many times a second.
 	 */
