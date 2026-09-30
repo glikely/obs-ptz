@@ -28,6 +28,7 @@
 #include "ui_ptz-controls.h"
 #include "ptz-controls.hpp"
 #include "ptz-list-model.hpp"
+#include "ptz-thumbnail.hpp"
 #include "settings.hpp"
 #include "ptz.h"
 
@@ -136,6 +137,9 @@ void PTZControls::handleFrontendEvent(enum obs_frontend_event event)
 		}
 		ptzDeviceList->onSceneChanged();
 		updateMoveControls();
+		break;
+	case OBS_FRONTEND_EVENT_FINISHED_LOADING:
+		ptz_thumbnail_sweep();
 		break;
 	case OBS_FRONTEND_EVENT_EXIT:
 		/* OBS is shutting down. It has already run its own save pass (and
