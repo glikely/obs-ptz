@@ -1590,10 +1590,10 @@ void PTZPresetListDelegate::setGridMode(bool grid)
 	emit sizeHintChanged(QModelIndex());
 }
 
-/* A grid cell is a 16:9 thumbnail with a line of text under it */
+/* A grid cell is just a 16:9 thumbnail, with the name drawn over it */
 int PTZPresetListDelegate::gridCellWidth() const
 {
-	return PTZControls::getInstance()->rowHeight() * 6;
+	return PTZControls::getInstance()->rowHeight() * 3;
 }
 
 QSize PTZPresetListDelegate::sizeHint(const QStyleOptionViewItem &option, const QModelIndex &index) const
@@ -1602,7 +1602,7 @@ QSize PTZPresetListDelegate::sizeHint(const QStyleOptionViewItem &option, const 
 	int rowHeight = PTZControls::getInstance()->rowHeight();
 	if (m_gridMode) {
 		int thumbWidth = gridCellWidth() - 2 * thumbnailMargin;
-		return QSize(gridCellWidth(), thumbWidth * 9 / 16 + rowHeight + 2 * thumbnailMargin);
+		return QSize(gridCellWidth(), thumbWidth * 9 / 16 + 2 * thumbnailMargin);
 	}
 	size.setHeight(rowHeight);
 	return size;
@@ -1616,12 +1616,14 @@ PTZPresetListDelegate::CellLayout PTZPresetListDelegate::layoutCell(const QModel
 	if (m_gridMode) {
 		QRect cell = option.rect.adjusted(thumbnailMargin, thumbnailMargin, -thumbnailMargin, -thumbnailMargin);
 		l.thumbnail = QRect(cell.left(), cell.top(), cell.width(), cell.width() * 9 / 16);
-		l.text = QRect(cell.left(), l.thumbnail.bottom() + 1, cell.width(),
-			       cell.bottom() - l.thumbnail.bottom());
-		/* The recall button sits over the thumbnail's corner */
+		/* The name is a band along the bottom of the thumbnail */
+		int textHeight = qMin(l.thumbnail.height(), option.fontMetrics.height() + 2);
+		l.text = QRect(l.thumbnail.left(), l.thumbnail.bottom() + 1 - textHeight, l.thumbnail.width(),
+			       textHeight);
+		/* The recall button sits over the thumbnail's top corner */
 		l.iconMargin = 2;
 		int box = iconSize() + l.iconMargin * 2;
-		l.recall = QRect(l.thumbnail.right() - box + 1, l.thumbnail.bottom() - box + 1, box, box);
+		l.recall = QRect(l.thumbnail.right() - box + 1, l.thumbnail.top(), box, box);
 		return l;
 	}
 
@@ -1678,8 +1680,13 @@ void PTZPresetListDelegate::paint(QPainter *painter, const QStyleOptionViewItem 
 		painter->restore();
 		recallIcon.paint(painter, l.recall.adjusted(l.iconMargin, l.iconMargin, -l.iconMargin, -l.iconMargin),
 				 Qt::AlignCenter, iconMode);
+		/* The name, in white on a translucent band */
+		painter->fillRect(l.text, QColor(0, 0, 0, 128));
 		QString text = opt.fontMetrics.elidedText(opt.text, Qt::ElideRight, l.text.width() - 2 * textMargin);
-		style->drawItemText(painter, l.text, Qt::AlignCenter, opt.palette, true, text);
+		painter->save();
+		painter->setPen(Qt::white);
+		painter->drawText(l.text, Qt::AlignCenter, text);
+		painter->restore();
 		return;
 	}
 
