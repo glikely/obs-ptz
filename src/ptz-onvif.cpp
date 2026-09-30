@@ -126,7 +126,8 @@ static void writeZoom(QXmlStreamWriter &s, double zoom)
 	s.writeAttribute("x", QString::number(zoom));
 }
 
-void PTZOnvif::genericMove(QString movetype, QString property, double x, double y, double z)
+void PTZOnvif::genericMove(QString movetype, QString property, double x, double y, double z, bool panTilt,
+			   bool zoomAxis)
 {
 	QString msg;
 	QXmlStreamWriter s(&msg);
@@ -137,8 +138,10 @@ void PTZOnvif::genericMove(QString movetype, QString property, double x, double 
 	s.writeStartElement(nsOnvifPtz, movetype);
 	s.writeTextElement(nsOnvifPtz, "ProfileToken", m_selectedMedia.token);
 	s.writeStartElement(nsOnvifPtz, property);
-	writePanTilt(s, x, y);
-	writeZoom(s, z);
+	if (panTilt)
+		writePanTilt(s, x, y);
+	if (zoomAxis)
+		writeZoom(s, z);
 	s.writeEndElement(); // property
 	s.writeEndElement(); // movetype
 	s.writeEndElement(); // Body
@@ -152,9 +155,9 @@ void PTZOnvif::continuousMove(double x, double y, double z)
 	genericMove("ContinuousMove", "Velocity", x, y, z);
 }
 
-void PTZOnvif::absoluteMove(double x, double y, double z)
+void PTZOnvif::absoluteMove(double x, double y, double z, bool panTilt, bool zoomAxis)
 {
-	genericMove("AbsoluteMove", "Position", x, y, z);
+	genericMove("AbsoluteMove", "Position", x, y, z, panTilt, zoomAxis);
 	pollStatusSoon();
 }
 
@@ -823,7 +826,8 @@ void PTZOnvif::set_autofocus(bool enabled)
 
 void PTZOnvif::pantilt_abs(double pan, double tilt)
 {
-	absoluteMove(pan, tilt, 0.0);
+	/* Leaves the zoom where it is */
+	absoluteMove(pan, tilt, 0.0, true, false);
 }
 
 void PTZOnvif::pantilt_rel(double pan, double tilt)
@@ -838,7 +842,8 @@ void PTZOnvif::pantilt_home()
 
 void PTZOnvif::zoom_abs(double pos)
 {
-	absoluteMove(0.0, 0.0, pos);
+	/* Leaves pan and tilt where they are */
+	absoluteMove(0.0, 0.0, pos, false, true);
 }
 
 void PTZOnvif::defaults(obs_data_t *config)

@@ -93,9 +93,10 @@ def first_text(body, local_name):
     return ""
 
 
-def read_xyz(body, container):
-    """Extract PanTilt x/y and Zoom x from a <container> element."""
-    px = py = pz = 0.0
+def read_xyz(body, container, absent=0.0):
+    """Extract PanTilt x/y and Zoom x from a <container> element. An axis
+    that isn't there is `absent`: in an AbsoluteMove, one that isn't moved."""
+    px = py = pz = absent
     try:
         root = ET.fromstring(body)
     except ET.ParseError:
@@ -228,7 +229,7 @@ class OnvifHandler(BaseHTTPRequestHandler):
             state.set_zoom_speed(z)
             return soap_envelope("<tptz:ContinuousMoveResponse/>")
         if op == "AbsoluteMove":
-            x, y, z = read_xyz(body, "Position")
+            x, y, z = read_xyz(body, "Position", absent=None)
             state.set_position(pan=x, tilt=y, zoom=z)
             return soap_envelope("<tptz:AbsoluteMoveResponse/>")
         if op == "RelativeMove":
