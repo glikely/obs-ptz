@@ -48,6 +48,134 @@ def sign_extend(val, bits):
     return (val & (sign_bit - 1)) - (val & sign_bit)
 
 
+# The camera's settings, by the state key obs-ptz has for each, and what the
+# camera starts with. Kept in PTZState.visca, one set for every link to the
+# camera, as a real camera has. The values are VISCA's own, from the Sony
+# SRG-120DH manual: a mode by its number, an on/off setting as a bool.
+VISCA_SETTINGS = {
+    'focus_af_enabled': True,
+    'focus_af_mode': 0,              # 0 normal, 1 interval, 2 zoom trigger
+    'focus_af_sensitivity': True,    # True normal, False low
+    'focus_af_move_time': 5,         # seconds
+    'focus_af_interval_time': 7,     # seconds
+    'focus_near_limit': 0x1000,      # 0x1000 (far) to 0xe000
+    'ir_correction': 0,              # 0 standard, 1 IR light
+    'dzoom_on': False,
+    'dzoom_pos': 0,
+    'low_contrast': False,
+    'wb_mode': 0,
+    'r_gain': 0x80,
+    'b_gain': 0x80,
+    'ae_mode': 0,                    # 0 full auto, 3, 0xa, 0xb, 0xd
+    'slow_shutter': False,           # True auto
+    'shutter_pos': 0x06,
+    'iris_pos': 0x0c,
+    'gain_pos': 0x01,
+    'gain_limit': 0x0f,
+    'bright_pos': 0x10,
+    'exposure_comp': False,
+    'exposure_comp_pos': 0x07,       # 0x07 is 0
+    'back_light': False,
+    'wd_mode': 0,                    # 0 off to 3 high
+    'defog_mode': False,
+    'high_sensitivity': False,
+    'aperture_gain': 0x05,
+    'high_resolution': False,
+    'nr_level': 2,                   # 0 off, 1 to 5
+    'gamma': 0,                      # 0 standard, 1 off
+    'chroma_suppress': 0,            # 0 off, 1 to 3
+    'color_gain': 4,                 # 0 (60%) to 0xe (200%), master
+    'color_hue': 7,                  # 0 (-14 degrees) to 0xe, master
+    'picture_effect': 0,             # 0 off, 2 negative, 4 black and white
+    'camera_id': 0xfedc,
+    'video_format': 0x08,            # 1080p/50
+    'color_system': 0,               # 0 HDMI YUV to 3 DVI YUV
+    'low_latency': False,
+    'info_display': False,
+    'menu_on': False,
+    'ir_receive': True,
+    'ir_condition': 0,               # 0 stable, 1 unstable, 2 not checked
+}
+
+# Commands that set one setting from one byte of the command, "8x 01 .. 0p":
+# the handler name's bytes, the setting, and the byte its value is in. A
+# setting in VISCA_SETTINGS that is a bool is on for 02 and off for 03.
+VISCA_BYTE_SETTINGS = {
+    '010406': ('dzoom_on', 4),
+    '010458': ('focus_af_sensitivity', 4),
+    '010457': ('focus_af_mode', 4),
+    '010411': ('ir_correction', 4),
+    '010439': ('ae_mode', 4),
+    '01045a': ('slow_shutter', 4),
+    '01042c': ('gain_limit', 4),
+    '01043e': ('exposure_comp', 4),
+    '010433': ('back_light', 4),
+    '010437': ('defog_mode', 4),
+    '010452': ('high_resolution', 4),
+    '010453': ('nr_level', 4),
+    '01045b': ('gamma', 4),
+    '01045e': ('high_sensitivity', 4),
+    '010463': ('picture_effect', 4),
+    '01045f': ('chroma_suppress', 4),
+    '017e0400': ('wd_mode', 5),
+    '017e015a': ('low_latency', 5),
+    '017e0118': ('info_display', 5),
+    '017e0103': ('color_system', 6),
+}
+
+# Commands that set one setting from two nibbles, "8x 01 04 xx 00 00 0p 0q"
+VISCA_DIRECT_SETTINGS = {
+    '010443': 'r_gain',
+    '010444': 'b_gain',
+    '01044a': 'shutter_pos',
+    '01044b': 'iris_pos',
+    '01044c': 'gain_pos',
+    '01044d': 'bright_pos',
+    '01044e': 'exposure_comp_pos',
+    '010442': 'aperture_gain',
+}
+
+# Inquiries answered with one setting as "y0 50 0p": the handler name's
+# bytes, and the setting. A bool is 02 on, 03 off.
+VISCA_BYTE_INQUIRIES = {
+    '090406': 'dzoom_on',
+    '090458': 'focus_af_sensitivity',
+    '090457': 'focus_af_mode',
+    '090411': 'ir_correction',
+    '090439': 'ae_mode',
+    '09045a': 'slow_shutter',
+    '09042c': 'gain_limit',
+    '09043e': 'exposure_comp',
+    '090433': 'back_light',
+    '090452': 'high_resolution',
+    '090453': 'nr_level',
+    '09045b': 'gamma',
+    '09045e': 'high_sensitivity',
+    '090463': 'picture_effect',
+    '09045f': 'chroma_suppress',
+    '097e0400': 'wd_mode',
+    '097e015a': 'low_latency',
+    '097e0118': 'info_display',
+    '097e0103': 'color_system',
+    '090623': 'video_format',
+    '090606': 'menu_on',
+    '090608': 'ir_receive',
+    '090634': 'ir_condition',
+}
+
+# Inquiries answered with one setting as "y0 50 00 00 0p 0q"
+VISCA_DIRECT_INQUIRIES = {
+    '090443': 'r_gain',
+    '090444': 'b_gain',
+    '09044a': 'shutter_pos',
+    '09044b': 'iris_pos',
+    '09044c': 'gain_pos',
+    '09044d': 'bright_pos',
+    '09044e': 'exposure_comp_pos',
+    '090442': 'aperture_gain',
+}
+
+
 class ViscaCameraLogic:
     """Transport-agnostic VISCA command decoder/encoder for one link.
 
@@ -71,32 +199,10 @@ class ViscaCameraLogic:
     def __init__(self, state):
         self.state = state
         self._out = []
-        # VISCA-only cosmetic inquiry fields; not part of the shared model.
-        self.zoomnearlimit = 0
-        self.rgain = 0
-        self.bgain = 0
-        self.wbmode = 0
-        self.aperturegain = 0
-        self.exposuremode = 0
-        self.shutterpos = 0
-        self.irispos = 0
-        self.gainpos = 0
-        self.brightpos = 0
-        self.exposurecomppos = 0
-        self.pictureeffectmode = 0
-        self.af_enabled = True
-        self.camera_id = 0xfedc
-        self.palsystem = True
-        self.gamma = 0
-        self.high_sensitivity = False
-        self.nr_level = 0
-        self.chroma_suppress = 0
-        self.gain_limit = 0
-        self.digitalzoompos = 0
-        self.af_activation_time = 5
-        self.af_interval_time = 7
-        self.defog_mode = False
-        self.color_hue = 9
+        # The camera's settings, shared with every other link to it
+        self.cam = state.visca
+        for key, value in VISCA_SETTINGS.items():
+            self.cam.setdefault(key, value)
 
     def print_state(self, data1, data2):
         snap = self.state.snapshot()
@@ -155,6 +261,12 @@ class ViscaCameraLogic:
             raise ValueError
         s = field[2]
         return field[0] * (((s >> 1) & 0x1) - (s & 0x1))
+
+    def decode_u8(self, field):
+        '''VISCA 8 bit value in two nibbles [0p 0q]'''
+        if len(field) != 2 or field[0] & 0xf0 or field[1] & 0xf0:
+            raise ValueError
+        return (field[0] << 4) | field[1]
 
     def decode_s16(self, field):
         '''VISCA 16 bit signed value [0Y 0Y 0Y 0Y]
@@ -242,19 +354,93 @@ class ViscaCameraLogic:
         '''CAM_Focus Auto/Manual/AutoManual'''
         mode = dg[4]
         if mode == 0x02:
-            self.af_enabled = True
+            self.cam['focus_af_enabled'] = True
         elif mode == 0x03:
-            self.af_enabled = False
+            self.cam['focus_af_enabled'] = False
         elif mode == 0x10:
-            self.af_enabled = not self.af_enabled
+            self.cam['focus_af_enabled'] = not self.cam['focus_af_enabled']
         self.cmd_ack()
 
     def cmd010435(self, dg):
         '''CAM_WB_Mode (also matches the fixed Auto/Indoor/Outdoor/
         OnePush/AutoTracing/Manual variants, which just spell the mode
         out in the command itself rather than as an argument)'''
-        self.wbmode = dg[4] & 0x0f
+        self.cam['wb_mode'] = dg[4] & 0x0f
         self.cmd_ack()
+
+    def cmd010427(self, dg):
+        '''CAM_AFMode Active/Interval Time: 8x 01 04 27 0p 0q 0r 0s'''
+        self.cam['focus_af_move_time'] = self.decode_u8(dg[4:6])
+        self.cam['focus_af_interval_time'] = self.decode_u8(dg[6:8])
+        self.cmd_ack()
+
+    def cmd010428(self, dg):
+        '''CAM_Focus Near Limit: 8x 01 04 28 0p 0q 0r 0s'''
+        self.cam['focus_near_limit'] = self.decode_s16(dg[4:8]) & 0xffff
+        self.cmd_ack()
+
+    def cmd010422(self, dg):
+        '''CAM_IDWrite: 8x 01 04 22 0p 0q 0r 0s'''
+        self.cam['camera_id'] = self.decode_s16(dg[4:8]) & 0xffff
+        self.cmd_ack()
+
+    def cmd010449(self, dg):
+        '''CAM_ColorGain Direct: 8x 01 04 49 00 00 0p 0q, p the colour (0 for
+        all of them, the only one there is an inquiry for), q the gain'''
+        if dg[6] == 0:
+            self.cam['color_gain'] = dg[7] & 0x0f
+        self.cmd_ack()
+
+    def cmd01044f(self, dg):
+        '''CAM_ColorHue Direct: 8x 01 04 4f 00 00 0p 0q, as CAM_ColorGain'''
+        if dg[6] == 0:
+            self.cam['color_hue'] = dg[7] & 0x0f
+        self.cmd_ack()
+
+    def cmd010606(self, dg):
+        '''SYS_Menu Off: 8x 01 06 06 03. The menu can't be opened over VISCA.'''
+        if dg[4] != 0x03:
+            self.send_datagram(b'\x60\x02')
+            return
+        self.cam['menu_on'] = False
+        self.cmd_ack()
+
+    def cmd010608(self, dg):
+        '''IR_Receive On/Off/Toggle: 8x 01 06 08 0p, p = 2 on, 3 off, 10 toggle'''
+        if dg[4] == 0x10:
+            self.cam['ir_receive'] = not self.cam['ir_receive']
+        else:
+            self.cam['ir_receive'] = dg[4] == 0x02
+        self.cmd_ack()
+
+    def cmd017e011e(self, dg):
+        '''Video Format Change: 8x 01 7e 01 1e 0p 0q'''
+        self.cam['video_format'] = self.decode_u8(dg[5:7])
+        self.cmd_ack()
+
+    def set_byte(self, dg, key, at):
+        '''One of VISCA_BYTE_SETTINGS'''
+        if isinstance(VISCA_SETTINGS[key], bool):
+            if dg[at] not in (0x02, 0x03):
+                raise ValueError
+            self.cam[key] = dg[at] == 0x02
+        else:
+            self.cam[key] = dg[at]
+        self.cmd_ack()
+
+    def set_direct(self, dg, key):
+        '''One of VISCA_DIRECT_SETTINGS'''
+        self.cam[key] = self.decode_u8(dg[6:8])
+        self.cmd_ack()
+
+    def reply_byte(self, key):
+        '''One of VISCA_BYTE_INQUIRIES'''
+        value = self.cam[key]
+        self.send_datagram(b'\x50' + (self.encode_bool(value) if isinstance(value, bool) else bytes([value])))
+
+    def reply_direct(self, key):
+        '''One of VISCA_DIRECT_INQUIRIES'''
+        self.send_datagram(b'\x50\x00\x00' + self.encode_s8(self.cam[key]))
 
     def cmd010601(self, dg):
         '''Pan-tiltDrive-Move'''
@@ -335,12 +521,50 @@ class ViscaCameraLogic:
         self.send_datagram(b'\x50' + self.encode_s16(from_shared_unsigned(self.state.snapshot().focus, ZF_POS_RANGE)))
 
     def cmd090438(self, dg):
-        '''CAM_FocusAFModeInq'''
-        self.send_datagram(b'\x50' + (b'\x02' if self.af_enabled else b'\x03'))
+        '''CAM_FocusModeInq'''
+        self.send_datagram(b'\x50' + self.encode_bool(self.cam['focus_af_enabled']))
 
     def cmd090435(self, dg):
         '''CAM_WBModeInq'''
-        self.send_datagram(b'\x50' + bytes([self.wbmode]))
+        self.send_datagram(b'\x50' + bytes([self.cam['wb_mode']]))
+
+    def cmd090427(self, dg):
+        '''CAM_AFTimeSettingInq: y0 50 0p 0q 0r 0s, pq active time, rs interval'''
+        self.send_datagram(b'\x50' + self.encode_s8(self.cam['focus_af_move_time']) +
+                           self.encode_s8(self.cam['focus_af_interval_time']))
+
+    def cmd090428(self, dg):
+        '''CAM_FocusNearLimitInq'''
+        self.send_datagram(b'\x50' + self.encode_s16(self.cam['focus_near_limit']))
+
+    def cmd090422(self, dg):
+        '''CAM_IDInq'''
+        self.send_datagram(b'\x50' + self.encode_s16(self.cam['camera_id']))
+
+    def cmd090449(self, dg):
+        '''CAM_ColorGainInq: y0 50 00 00 00 0p'''
+        self.send_datagram(b'\x50\x00\x00\x00' + bytes([self.cam['color_gain']]))
+
+    def cmd09044f(self, dg):
+        '''CAM_ColorHueInq: y0 50 00 00 00 0p'''
+        self.send_datagram(b'\x50\x00\x00\x00' + bytes([self.cam['color_hue']]))
+
+    def cmd090437(self, dg):
+        '''CAM_DefogInq: y0 50 0p 00'''
+        self.send_datagram(b'\x50' + self.encode_bool(self.cam['defog_mode']) + b'\x00')
+
+    def cmd090611(self, dg):
+        '''Pan-tiltMaxSpeedInq: y0 50 ww zz'''
+        self.send_datagram(bytes([0x50, PT_SPEED_RANGE, 0x14]))
+
+    def cmd090610(self, dg):
+        '''Pan-tiltModeInq: y0 50 pq rs, the manual's "Pan/Tilt Status Code
+        List": initialized, whether it is moving, and which ends it is at'''
+        snap = self.state.snapshot()
+        moving = 1 if snap.pan_tilt_moving else 0
+        ends = ((snap.pan <= -1.0) | (snap.pan >= 1.0) << 1 |
+                (snap.tilt >= 1.0) << 2 | (snap.tilt <= -1.0) << 3)
+        self.send_datagram(bytes([0x50, 0x20 | moving << 2, ends]))
 
     def cmd090612(self, dg):
         '''Pan-tiltPosInq'''
@@ -349,58 +573,89 @@ class ViscaCameraLogic:
             b'\x50' + self.encode_s16(from_shared_signed(snap.pan, PT_POS_RANGE)) +
             self.encode_s16(from_shared_signed(snap.tilt, PT_POS_RANGE)))
 
+    # The block inquiries. Each reply is 16 bytes, "y0 50", 13 bytes of
+    # settings, and ff, laid out as the manual's "Block Inquiry Command List"
+    # has it; the comments number the bytes from y0 as the manual does.
+
     def cmd097e7e00(self, dg):
         '''Lens Control System Inquiry'''
         snap = self.state.snapshot()
+        cam = self.cam
         self.send_datagram(
-            b'\x50' + self.encode_s16(from_shared_unsigned(snap.zoom, ZF_POS_RANGE)) +
-            self.encode_s8(self.zoomnearlimit) +
+            b'\x50' +
+            # 2-5 zoom position, 6-7 the top byte of the focus near limit,
+            # 8-11 focus position
+            self.encode_s16(from_shared_unsigned(snap.zoom, ZF_POS_RANGE)) +
+            self.encode_s8(cam['focus_near_limit'] >> 8) +
             self.encode_s16(from_shared_unsigned(snap.focus, ZF_POS_RANGE)) +
-            bytes([0x00, 0x01 if self.af_enabled else 0x00, 0x00]))
+            bytes([0,
+                   # 13: AF mode, AF sensitivity, digital zoom, focus mode
+                   cam['focus_af_mode'] << 3 | cam['focus_af_sensitivity'] << 2 |
+                   cam['dzoom_on'] << 1 | cam['focus_af_enabled'],
+                   # 14: low contrast, and memory recall, focus and zoom
+                   # commands running
+                   cam['low_contrast'] << 3 | snap.zoom_moving | snap.focus_moving << 1]))
 
     def cmd097e7e01(self, dg):
         '''Camera Control System Inquiry'''
-        self.send_datagram(b'\x50' + self.encode_s8(self.rgain) +
-                            self.encode_s8(self.bgain) +
-                            bytes([self.wbmode & 0x0f,
-                                   self.aperturegain & 0x0f,
-                                   self.exposuremode & 0x1f,
-                                   0,
-                                   self.shutterpos & 0x1f,
-                                   self.irispos & 0x1f,
-                                   self.gainpos & 0x0f,
-                                   self.brightpos & 0x1f,
-                                   self.exposurecomppos & 0x0f]))
+        cam = self.cam
+        self.send_datagram(
+            b'\x50' +
+            # 2-3 R gain, 4-5 B gain
+            self.encode_s8(cam['r_gain']) + self.encode_s8(cam['b_gain']) +
+            bytes([cam['wb_mode'],                   # 6
+                   cam['aperture_gain'],             # 7
+                   cam['ae_mode'],                   # 8
+                   # 9: high resolution, wide dynamic range (on in any
+                   # mode but off), backlight, exposure comp, slow shutter
+                   cam['high_resolution'] << 5 | (cam['wd_mode'] != 0) << 4 |
+                   cam['back_light'] << 2 | cam['exposure_comp'] << 1 | cam['slow_shutter'],
+                   cam['shutter_pos'],               # 10
+                   cam['iris_pos'],                  # 11
+                   cam['gain_pos'],                  # 12
+                   cam['bright_pos'],                # 13
+                   cam['exposure_comp_pos']]))       # 14
 
     def cmd097e7e02(self, dg):
         '''Other Inquiry'''
         snap = self.state.snapshot()
-        self.send_datagram(bytes([0x50, snap.power & 0x1, 0,
-                                   self.pictureeffectmode, 0, 0]) +
-                            self.encode_s16(self.camera_id) +
-                            bytes([0x16 | self.palsystem, 0, 0]))
+        cam = self.cam
+        self.send_datagram(
+            bytes([0x50, int(snap.power),            # 2: power
+                   0, 0,
+                   cam['picture_effect'],            # 5
+                   0, 0]) +
+            self.encode_s16(cam['camera_id']) +      # 8-11
+            bytes([int(cam['video_format'] >= 0x08),  # 12: 50 Hz
+                   0, 0]))
 
     def cmd097e7e03(self, dg):
         '''Enlargement Function1 Inquiry'''
-        gamma_hs = (((self.gamma & 0x7) << 4) |
-                    self.high_sensitivity << 3 |
-                    (self.nr_level & 0x7))
-        chroma_gl = (((self.chroma_suppress & 0x7) << 4) |
-                     (self.gain_limit & 0xf))
-        self.send_datagram(b'\x50' + self.encode_s8(self.digitalzoompos) +
-                            self.encode_s8(self.af_activation_time) +
-                            self.encode_s8(self.af_interval_time) +
-                            bytes([0x08, 0x08, 0, gamma_hs, 1, 1, chroma_gl]))
+        cam = self.cam
+        self.send_datagram(
+            b'\x50' +
+            # 2-3 digital zoom position, 4-5 AF active time, 6-7 AF interval
+            self.encode_s8(cam['dzoom_pos']) +
+            self.encode_s8(cam['focus_af_move_time']) +
+            self.encode_s8(cam['focus_af_interval_time']) +
+            bytes([0, 0, 0,
+                   cam['color_gain'] << 3,           # 11
+                   0,
+                   # 13: gamma, high sensitivity, noise reduction
+                   cam['gamma'] << 4 | cam['high_sensitivity'] << 3 | cam['nr_level'],
+                   # 14: chroma suppress, gain limit
+                   cam['chroma_suppress'] << 4 | cam['gain_limit']]))
 
     def cmd097e7e04(self, dg):
         '''Enlargement Function2 Inquiry'''
-        self.send_datagram(bytes([0x50, self.color_hue & 0xf,
-                                   0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]))
+        self.send_datagram(bytes([0x50, 0, 0, 0, 0, 0,
+                                   int(self.cam['defog_mode']),  # 7
+                                   0, 0, 0, 0, 0, 0, 0]))
 
     def cmd097e7e05(self, dg):
         '''Enlargement Function3 Inquiry'''
-        self.send_datagram(b'\x50\x00\x00\x00\x00\x00' + bytes([self.defog_mode]) +
-                            b'\x00\x00\x00\x00\x00\x00\x00')
+        self.send_datagram(bytes([0x50, self.cam['color_hue'],  # 2
+                                   0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]))
 
     def receive_datagram(self, dg):
         if len(dg) < 2:  # Ignore messages that are too short
@@ -415,21 +670,33 @@ class ViscaCameraLogic:
             print("[visca] malformed", dg.hex(), dg[0])
             return
 
-        if not self.block_inquiries and (dg[1:3] == b'\x09\x7e' or dg[1:4] == b'\x09\x00\x02'):
+        if not self.block_inquiries and (dg[1:4] == b'\x09\x7e\x7e' or dg[1:4] == b'\x09\x00\x02'):
             self.send_datagram(b'\x60\x02')
             return
 
-        # Find the command handler for the message
+        # Find the command handler for the message: a method, or a setting
+        # the tables above say how to set or read
         for count in range(5, 0, -1):
-            name = "cmd" + dg[1:count].hex()
-            if hasattr(self, name):
-                try:
-                    getattr(self, name)(dg)
-                except Exception:
-                    print("[visca] decode error")
-                    self.cmd_error()
-                    return
-                break
+            key = dg[1:count].hex()
+            if hasattr(self, "cmd" + key):
+                handler = getattr(self, "cmd" + key)
+            elif key in VISCA_BYTE_SETTINGS:
+                handler = lambda dg, key=key: self.set_byte(dg, *VISCA_BYTE_SETTINGS[key])  # noqa: E731
+            elif key in VISCA_DIRECT_SETTINGS:
+                handler = lambda dg, key=key: self.set_direct(dg, VISCA_DIRECT_SETTINGS[key])  # noqa: E731
+            elif key in VISCA_BYTE_INQUIRIES and len(dg) == count:
+                handler = lambda dg, key=key: self.reply_byte(VISCA_BYTE_INQUIRIES[key])  # noqa: E731
+            elif key in VISCA_DIRECT_INQUIRIES and len(dg) == count:
+                handler = lambda dg, key=key: self.reply_direct(VISCA_DIRECT_INQUIRIES[key])  # noqa: E731
+            else:
+                continue
+            try:
+                handler(dg)
+            except Exception:
+                print("[visca] decode error")
+                self.cmd_error()
+                return
+            break
 
 
 # ---------------------------------------------------------------------------
