@@ -207,6 +207,14 @@ actually work end to end.
     them through `edit_dialog_state`. Each test has its own source with a
     VISCA filter, pointed at a `ptzsim` that reports the camera's settings
     under `"visca"` in its `--debug-http-port` `/state` output.
+25. `test_device_backup.py` covers the backup of devices that go away and
+    the settings dialog's Add and Remove: that deleting a source, or
+    removing a device, keeps its settings and presets; that Add puts a PTZ
+    Control filter on a source, for a protocol or from a backup of any type,
+    which brings its protocol with it, offering first the backup of a device
+    that was on a source of the same name; and that Remove removes a
+    filter's device.
+    Drives the dialogs through `tests/ui-harness/device-backup-test.cpp`.
 
 ## Running locally
 

@@ -35,7 +35,9 @@ and its driver, `test_device_signals.py`), and `open_settings_dialog`/
 `get_settings_dialog`/`edit_dialog_state`/`press_dialog_button` (see
 `settings-dialog-test.cpp` and its driver, `test_settings_dialog.py`), and
 `get_api_version` (see `api-version-test.cpp` and its driver,
-`test_api_version.py`)
+`test_api_version.py`), and `get_device_backups`/`add_device`/
+`remove_device` (see `device-backup-test.cpp` and its driver,
+`test_device_backup.py`)
 - see
 "Adding a new test" below for how to add another.
 
