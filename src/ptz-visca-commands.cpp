@@ -61,13 +61,14 @@ public:
 class visca_flag : public datagram_field {
 public:
 	visca_flag(const char *name, int offset) : datagram_field(name, offset) {}
-	void encode(QByteArray &msg, int val)
+	bool isBool() const override { return true; }
+	void encode(QByteArray &msg, int val) override
 	{
 		if (msg.size() < offset + 1)
 			return;
 		msg[offset] = val ? 0x2 : 0x3;
 	}
-	bool decode(OBSData data, QByteArray &msg)
+	bool decode(OBSData data, QByteArray &msg) override
 	{
 		if (msg.size() < offset + 1)
 			return false;

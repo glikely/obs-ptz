@@ -37,6 +37,8 @@ public:
 	datagram_field(const datagram_field &) = delete;
 	datagram_field &operator=(const datagram_field &) = delete;
 	virtual ~datagram_field() = default;
+	/* Whether the value is on or off, rather than a number */
+	virtual bool isBool() const { return false; }
 	virtual void encode(QByteArray &msg, int val) = 0;
 	virtual bool decode(OBSData data, QByteArray &msg) = 0;
 };
@@ -45,8 +47,9 @@ class bool_field : public datagram_field {
 public:
 	const unsigned int mask;
 	bool_field(const char *name, unsigned offset, unsigned int mask) : datagram_field(name, offset), mask(mask) {}
-	void encode(QByteArray &msg, int val);
-	bool decode(OBSData data, QByteArray &msg);
+	bool isBool() const override { return true; }
+	void encode(QByteArray &msg, int val) override;
+	bool decode(OBSData data, QByteArray &msg) override;
 };
 
 class int_field : public datagram_field {

@@ -841,20 +841,25 @@ void PTZVisca::requestState(OBSData requested)
 /* Sends what sets a state value to `value`, if it can be set to that. Not
  * if the camera has said it doesn't have the command. A command that sets
  * other values too sets them to what is asked for in `requested`, or keeps
- * them where the camera has them. */
+ * them where the camera has them. A value that nothing reads is what it was
+ * last set to, as a tally lamp's is. */
 void PTZVisca::set_control(const ViscaControl &control, int value, OBSData requested)
 {
 	if (control.set) {
+		PTZCmd cmd = *control.set;
 		QList<int> args;
-		for (const auto &field : control.set->args) {
+		for (const auto &field : cmd.args) {
 			if (control.key == field->name)
 				args += value;
 			else if (requested && obs_data_has_user_value(requested, field->name))
 				args += visca_value(requested, field->name);
 			else
 				args += visca_value(state, field->name);
+			if (control.reads.isEmpty())
+				cmd.assumes.insert(field->name, field->isBool() ? QVariant(args.last() != 0)
+										: QVariant(args.last()));
 		}
-		send(*control.set, args);
+		send(cmd, args);
 	} else if (control.setTo.contains(value) && !unsupported_requests.contains(control.setTo.constFind(value)->cmd))
 		send(*control.setTo.constFind(value));
 }
