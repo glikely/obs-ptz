@@ -327,7 +327,8 @@ const PTZCmd VISCA_CAM_Focus_NearLimit("8101042800000000ff", {new visca_u16("foc
 const PTZInq VISCA_CAM_FocusNearLimitInq("81090428ff", {new visca_u16("focus_near_limit", 2)});
 
 const PTZCmd VISCA_CAM_ZoomFocus_Direct("810104470000000000000000ff",
-					{new visca_s16("zoom_pos", 4), new visca_s16("focus_pos", 8)});
+					{new visca_s16("zoom_pos", 4), new visca_s16("focus_pos", 8)},
+					affected_keys{"zoom_pos", "focus_pos"});
 
 /* true is Normal, false is Low */
 const PTZCmd VISCA_CAM_AF_Sensitivity("8101045800ff", {new visca_flag("focus_af_sensitivity", 4)},
@@ -342,7 +343,7 @@ const PTZInq VISCA_CAM_AFModeInq("81090457ff", {new visca_u4("focus_af_mode", 2)
 const PTZCmd VISCA_CAM_AFMode_ActiveIntervalTime("8101042700000000ff",
 						 {new visca_u8("focus_af_move_time", 4),
 						  new visca_u8("focus_af_interval_time", 6)},
-						 "focus_af_move_time");
+						 affected_keys{"focus_af_move_time", "focus_af_interval_time"});
 const PTZInq VISCA_CAM_AFTimeSettingInq("81090427ff", {new visca_u8("focus_af_move_time", 2),
 						       new visca_u8("focus_af_interval_time", 4)});
 
