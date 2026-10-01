@@ -97,11 +97,11 @@ _handed to listeners as `proc_handler` on the `ptz_device_create` signal._
 - `void ptz_set_config(ptr config)`
 - `ptr ptz_get_properties()`
 
-> Transient state, which is never saved: a request to change some of it. ptz_get_state, above, reads all of it.
+> Transient state, which is never saved: a request to change some of it. ptz_get_state, above, reads all of it. Keys that start with "user_" are a user's own, for a camera given commands the plugin doesn't have, and never ones the plugin has.
 
 - `void ptz_request_state(ptr state)`
 
-> One-shot actions on the camera, which aren't state
+> One-shot actions on the camera, which aren't state. Names that start with "user_" are a user's own, as state keys are.
 
 - `void ptz_trigger(string name)`
 

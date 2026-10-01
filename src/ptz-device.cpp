@@ -109,10 +109,13 @@ PTZDevice::PTZDevice(OBSData config, obs_source_t *filter) : QObject()
 	proc_handler_add(handler, "ptr ptz_get_properties()", ptz_ph_lambda(get_obs_properties), this);
 
 	/* Transient state, which is never saved: a request to change some of it.
-	 * ptz_get_state, above, reads all of it. */
+	 * ptz_get_state, above, reads all of it. Keys that start with "user_"
+	 * are a user's own, for a camera given commands the plugin doesn't
+	 * have, and never ones the plugin has. */
 	proc_handler_add(handler, "void ptz_request_state(ptr state)", ptz_ph_lambda(request_state), this);
 
-	/* One-shot actions on the camera, which aren't state */
+	/* One-shot actions on the camera, which aren't state. Names that start
+	 * with "user_" are a user's own, as state keys are. */
 	proc_handler_add(handler, "void ptz_trigger(string name)", ptz_ph_lambda(trigger), this);
 
 	/* Preset list CRUD */
