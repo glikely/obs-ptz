@@ -79,6 +79,17 @@ endif()
 
 add_dependencies(${CMAKE_PROJECT_NAME} plugin_version)
 
+# The VISCA command sets shipped with the plugin, linked into it as Qt
+# resources, as :/visca-profiles/*.json. A new one is a new file there.
+file(GLOB VISCA_PROFILES CONFIGURE_DEPENDS "${CMAKE_SOURCE_DIR}/src/visca-profiles/*.json")
+qt_add_resources(
+  ${CMAKE_PROJECT_NAME}
+  visca_profiles
+  PREFIX "/visca-profiles"
+  BASE "${CMAKE_SOURCE_DIR}/src/visca-profiles"
+  FILES ${VISCA_PROFILES}
+)
+
 target_include_directories(${CMAKE_PROJECT_NAME} PRIVATE ${CMAKE_SOURCE_DIR}/src)
 target_sources(
   ${CMAKE_PROJECT_NAME}
