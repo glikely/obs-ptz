@@ -40,4 +40,4 @@ struct ViscaControl {
 extern const QList<ViscaControl> visca_controls;
 const ViscaControl *visca_control(const QString &key);
 extern const QMap<QString, PTZCmd> visca_actions;
-extern const PTZCmd VISCA_CAM_WB_OnePushTrigger;
+extern const QMap<QString, PTZCmd> visca_triggers;

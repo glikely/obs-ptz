@@ -859,8 +859,8 @@ void PTZVisca::onOBSShutdown()
 
 bool PTZVisca::runTrigger(const QString &name)
 {
-	if (name == "wb_onepush")
-		send(VISCA_CAM_WB_OnePushTrigger);
+	if (visca_triggers.contains(name))
+		send(*visca_triggers.constFind(name));
 	/* Diagnostics, for working out what a camera supports */
 	else if (name == "scan_inquiries")
 		scan_commands();
