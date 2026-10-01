@@ -1040,19 +1040,42 @@ void PTZControls::on_focusButton_onetouch_clicked()
 void PTZControls::setAutofocusEnabled(bool autofocus_on)
 {
 	ui->focusButton_auto->setChecked(autofocus_on);
-	ui->focusButton_near->setEnabled(!autofocus_on);
-	ui->focusButton_far->setEnabled(!autofocus_on);
-	ui->focusButton_onetouch->setEnabled(!autofocus_on);
+	updateFocusControls();
+}
+
+/* Focusing by hand is only for when autofocus is off */
+void PTZControls::updateFocusControls()
+{
+	auto device = ui->deviceList->currentIndex();
+	bool manual = !ui->focusButton_auto->isChecked();
+	ui->focusButton_auto->setEnabled(PTZListModel::hasFeature(device, "autofocus"));
+	ui->focusButton_near->setEnabled(manual && PTZListModel::hasFeature(device, "focus"));
+	ui->focusButton_far->setEnabled(manual && PTZListModel::hasFeature(device, "focus"));
+	ui->focusButton_onetouch->setEnabled(manual && PTZListModel::hasFeature(device, "focus_onetouch"));
 }
 
 void PTZControls::updateMoveControls()
 {
-	bool is_locked = liveMoveLockActive() &&
-			 ui->deviceList->currentIndex().data(PTZListModel::IsLockedRole).toBool();
+	auto device = ui->deviceList->currentIndex();
+	bool is_locked = liveMoveLockActive() && device.data(PTZListModel::IsLockedRole).toBool();
 
 	ui->movementControlsWidget->setEnabled(!is_locked);
 	ui->deviceList->update();
-	ui->presetListView->setEnabled(!is_locked);
+	ui->presetListView->setEnabled(!is_locked && PTZListModel::hasFeature(device, "presets"));
+
+	/* Only what the camera can do */
+	bool pantilt = PTZListModel::hasFeature(device, "pantilt");
+	const QList<QWidget *> pantiltControls = {
+		ui->panTiltButton_upleft, ui->panTiltButton_up,        ui->panTiltButton_upright,
+		ui->panTiltButton_left,   ui->panTiltButton_right,     ui->panTiltButton_downleft,
+		ui->panTiltButton_down,   ui->panTiltButton_downright, ui->panTiltTouch,
+	};
+	for (QWidget *control : pantiltControls)
+		control->setEnabled(pantilt);
+	ui->panTiltButton_home->setEnabled(PTZListModel::hasFeature(device, "home"));
+	ui->zoomButton_tele->setEnabled(PTZListModel::hasFeature(device, "zoom"));
+	ui->zoomButton_wide->setEnabled(PTZListModel::hasFeature(device, "zoom"));
+	presetUpdateActions();
 
 	RefreshToolBarStyling(ui->ptzToolbar);
 
@@ -1139,13 +1162,14 @@ void PTZControls::presetUpdateActions()
 	auto presetIndex = ui->presetListView->currentIndex();
 	auto deviceIndex = ui->deviceList->currentIndex();
 	int count = ptzDeviceList->rowCount(deviceIndex);
-	bool isValid = presetIndex.isValid() && deviceIndex.isValid();
-	ui->actionPresetAdd->setEnabled(deviceIndex.isValid());
+	bool presets = PTZListModel::hasFeature(deviceIndex, "presets");
+	bool isValid = presetIndex.isValid() && presets;
+	ui->actionPresetAdd->setEnabled(presets);
 	ui->actionPresetRemove->setEnabled(isValid);
 	ui->actionPresetMoveUp->setEnabled(isValid && count > 1 && presetIndex.row() > 0);
 	ui->actionPresetMoveDown->setEnabled(isValid && count > 1 && presetIndex.row() < count - 1);
-	ui->actionPresetExport->setEnabled(deviceIndex.isValid() && count > 0);
-	ui->actionPresetImport->setEnabled(deviceIndex.isValid());
+	ui->actionPresetExport->setEnabled(presets && count > 0);
+	ui->actionPresetImport->setEnabled(presets);
 	RefreshToolBarStyling(ui->presetToolbar);
 }
 
