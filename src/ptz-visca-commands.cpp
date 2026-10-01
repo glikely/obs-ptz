@@ -832,11 +832,27 @@ public:
 			error = why;
 	}
 
+	/* Whether `json` has only `keys`, so that a misspelt one isn't just
+	 * left out */
+	bool only(const QJsonObject &json, const QStringList &keys, const QString &what)
+	{
+		for (auto i = json.begin(); i != json.end(); i++) {
+			if (!keys.contains(i.key())) {
+				fail(QString("%1 has \"%2\", which isn't one of %3")
+					     .arg(what, i.key(), "\"" + keys.join("\", \"") + "\""));
+				return false;
+			}
+		}
+		return true;
+	}
+
 	/* A field of a command, or a reply, `length` bytes long */
 	std::shared_ptr<datagram_field> field(const QJsonObject &json, const QString &defaultKey, int length)
 	{
 		const QString type = json["type"].toString();
 		const QByteArray key = json["key"].toString(defaultKey).toUtf8();
+		if (!only(json, {"type", "offset", "key", "mask", "signed"}, QString("field \"%1\"").arg(QString(key))))
+			return nullptr;
 		const int offset = json["offset"].toInt(-1);
 		const unsigned int mask = (unsigned int)json["mask"].toInteger(0);
 		std::shared_ptr<datagram_field> field;
@@ -876,6 +892,9 @@ public:
 	std::optional<PTZCmd> command(const QJsonValue &value, const QString &key, bool inquiry)
 	{
 		const QJsonObject json = value.isString() ? QJsonObject{{"cmd", value}} : value.toObject();
+		if (!only(json, {"cmd", inquiry ? "results" : "args", "affects", "assumes"},
+			  QString(inquiry ? "an inquiry" : "a command") + (key.isEmpty() ? "" : " for " + key)))
+			return std::nullopt;
 		QString hex = json["cmd"].toString();
 		hex.remove(' ').remove(':');
 		static const QRegularExpression hexBytes("^([0-9a-fA-F]{2})+$");
@@ -920,6 +939,8 @@ public:
 	bool control(ViscaProfile &profile, const QJsonObject &json)
 	{
 		const QString key = json["key"].toString();
+		if (!only(json, {"key", "set", "set_to", "reads"}, QString("control \"%1\"").arg(key)))
+			return false;
 		ViscaControl *existing = profile.control(key);
 		if (!existing && !key.startsWith("user_")) {
 			fail(QString("\"%1\" is a new control, but doesn't start with \"user_\"").arg(key));
@@ -1025,6 +1046,11 @@ public:
 	{
 		static const QRegularExpression idChars("^[a-z0-9-]+$");
 		const QString id = json["id"].toString();
+		if (!only(json,
+			  {"id", "name", "extends", "source", "models", "ranges", "remove", "remove_inquiries",
+			   "controls", "actions", "triggers", "standby_reads"},
+			  "the command set"))
+			return nullptr;
 		if (!idChars.match(id).hasMatch()) {
 			fail("its \"id\" isn't lower case letters, numbers and dashes");
 			return nullptr;
@@ -1051,15 +1077,32 @@ public:
 			}
 			profile->models.append(vendor << 16 | model);
 		}
-		for (const auto value : json["remove"].toArray())
-			profile->remove(value.toString());
+		for (const auto value : json["remove"].toArray()) {
+			const QString name = value.toString();
+			if (!profile->control(name) && !profile->actions.contains(name) &&
+			    !profile->triggers.contains(name)) {
+				fail(QString("there is no \"%1\" to remove").arg(name));
+				return nullptr;
+			}
+			profile->remove(name);
+		}
 		/* Inquiries the camera doesn't have, whatever they read */
 		for (const auto value : json["remove_inquiries"].toArray()) {
 			auto inq = command(value, "", true);
 			if (!inq)
 				return nullptr;
+			/* one the command set it extends reads with */
+			bool read = false;
+			for (const auto &control : parent->controls) {
+				for (const auto &r : control.reads)
+					read = read || r.cmd == inq->cmd;
+			}
+			if (!read) {
+				fail(QString("nothing reads with %1, to remove").arg(QString(inq->cmd.toHex())));
+				return nullptr;
+			}
 			for (auto &control : profile->controls)
-				control.reads.removeIf([&](const PTZInq &read) { return read.cmd == inq->cmd; });
+				control.reads.removeIf([&](const PTZInq &r) { return r.cmd == inq->cmd; });
 		}
 		for (const auto value : json["controls"].toArray()) {
 			if (!control(*profile, value.toObject()))
