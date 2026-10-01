@@ -718,42 +718,58 @@ void PTZVisca::receive(const QByteArray &msg)
 	send_pending();
 }
 
+/* An on/off value can be asked for as a number, and a number as a bool, by
+ * whoever doesn't know which it is */
+static int visca_value(obs_data_t *data, const char *key)
+{
+	obs_data_item_t *item = obs_data_item_byname(data, key);
+	if (!item)
+		return 0;
+	int value = obs_data_item_gettype(item) == OBS_DATA_BOOLEAN ? obs_data_item_get_bool(item)
+								    : (int)obs_data_item_get_int(item);
+	obs_data_item_release(&item);
+	return value;
+}
+
 void PTZVisca::requestState(OBSData requested)
 {
 	/* What is left for PTZDevice to act on */
 	OBSDataAutoRelease rest = obs_data_create();
 	obs_data_apply(rest, requested);
+	/* A command that sets more than one value is sent once for them all */
+	QSet<QByteArray> sent;
 	for (const auto &control : visca_controls) {
 		if (!control.settable() || !obs_data_has_user_value(requested, QT_TO_UTF8(control.key)))
 			continue;
-		/* An on/off value can be asked for as a number, and a number
-		 * as a bool, by whoever doesn't know which it is */
-		obs_data_item_t *item = obs_data_item_byname(requested, QT_TO_UTF8(control.key));
-		int value = obs_data_item_gettype(item) == OBS_DATA_BOOLEAN ? obs_data_item_get_bool(item)
-									    : (int)obs_data_item_get_int(item);
-		obs_data_item_release(&item);
-		set_control(control, value);
 		obs_data_erase(rest, QT_TO_UTF8(control.key));
-	}
-	/* Both AF times are set by one command, so one asked for on its own
-	 * keeps the other where the camera has it */
-	if (obs_data_has_user_value(requested, "focus_af_move_time") ||
-	    obs_data_has_user_value(requested, "focus_af_interval_time")) {
-		auto time = [&](const char *key) {
-			return (int)obs_data_get_int(obs_data_has_user_value(requested, key) ? requested : state, key);
-		};
-		send(VISCA_CAM_AFMode_ActiveIntervalTime, {time("focus_af_move_time"), time("focus_af_interval_time")});
+		if (control.set && control.set->args.size() > 1) {
+			if (sent.contains(control.set->cmd))
+				continue;
+			sent += control.set->cmd;
+		}
+		set_control(control, visca_value(requested, QT_TO_UTF8(control.key)), requested);
 	}
 	PTZDevice::requestState(rest.Get());
 }
 
 /* Sends what sets a state value to `value`, if it can be set to that. Not
- * if the camera has said it doesn't have the command. */
-void PTZVisca::set_control(const ViscaControl &control, int value)
+ * if the camera has said it doesn't have the command. A command that sets
+ * other values too sets them to what is asked for in `requested`, or keeps
+ * them where the camera has them. */
+void PTZVisca::set_control(const ViscaControl &control, int value, OBSData requested)
 {
-	if (control.set)
-		send(*control.set, {value});
-	else if (control.setTo.contains(value) && !unsupported_requests.contains(control.setTo.constFind(value)->cmd))
+	if (control.set) {
+		QList<int> args;
+		for (const auto &field : control.set->args) {
+			if (control.key == field->name)
+				args += value;
+			else if (requested && obs_data_has_user_value(requested, field->name))
+				args += visca_value(requested, field->name);
+			else
+				args += visca_value(state, field->name);
+		}
+		send(*control.set, args);
+	} else if (control.setTo.contains(value) && !unsupported_requests.contains(control.setTo.constFind(value)->cmd))
 		send(*control.setTo.constFind(value));
 }
 
