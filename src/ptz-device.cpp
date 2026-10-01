@@ -22,6 +22,7 @@
 #include "ptz-visca-tcp.hpp"
 #include "ptz-onvif.hpp"
 #include "ptz-onvif-discovery.hpp"
+#include "ptz-sony-discovery.hpp"
 #include "ptz-usb-cam.hpp"
 #include "ptz.h"
 #include "protocol-helpers.hpp"
@@ -1229,6 +1230,7 @@ void ptz_load_devices()
 
 	/* Each backend driver registers its own "<Driver> PTZ Control" OBS filter */
 	ptz_visca_register_filter();
+	ptz_sony_register_discovery();
 #if defined(ENABLE_SERIALPORT)
 	ptz_pelco_register_filter();
 #endif /* ENABLE_SERIALPORT */
