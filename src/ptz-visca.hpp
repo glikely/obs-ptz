@@ -97,8 +97,8 @@ protected:
 	int busy_backoff_ms = 0;
 	unsigned int address = 1;
 	bool protocol_trace = false;
-	/* Inquiries, and tally lamp commands, the camera answered with a syntax
-	 * error: it doesn't have them */
+	/* Inquiries, and commands for state that can't be read back, that the
+	 * camera answered with a syntax error: it doesn't have them */
 	QSet<QByteArray> unsupported_requests;
 	QMap<QByteArray, QByteArray> replyLast;
 	QMap<QByteArray, int> replyCount;
@@ -150,8 +150,7 @@ protected:
 	QElapsedTimer power_on_requested;
 	void powerOnAtStartup();
 
-	void sendTally(bool green, bool on);
-	void update_tally_state(const QByteArray &cmd);
+	void apply_assumed(const PTZCmd &cmd);
 	bool send_pantilt();
 	void send_immediate(const QByteArray &msg);
 	void send_packet(const QByteArray &msg);

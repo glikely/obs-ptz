@@ -8,6 +8,7 @@
 
 #include <memory>
 #include <QObject>
+#include <QVariantMap>
 #include <QTimer>
 #include <obs.hpp>
 
@@ -78,6 +79,9 @@ public:
 	datagram_fields args;
 	datagram_fields results;
 	QStringList affects;
+	/* The state the device is in once it has taken the command, for state
+	 * that can't be read back */
+	QVariantMap assumes;
 	PTZCmd(const char *cmd_hex, affected_keys affects = {}) : cmd(QByteArray::fromHex(cmd_hex)), affects(affects) {}
 	PTZCmd(const char *cmd_hex, QList<datagram_field *> args, affected_keys affects = {})
 		: cmd(QByteArray::fromHex(cmd_hex)),
