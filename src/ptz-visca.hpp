@@ -157,6 +157,8 @@ protected:
 	void send(PTZCmd cmd);
 	void send(PTZCmd cmd, QList<int> args);
 	void send_pending();
+	void queue_action(const QString &name, QList<int> args = {});
+	void send_action(const QString &name, QList<int> args = {});
 	void timeout();
 	void update_timer_callback();
 	void scan_commands();
