@@ -2,13 +2,22 @@
 
 Given a report with --visca-report, ptzsim answers what the camera answered
 as it did, and refuses what it refused (see scripts/ptzsim/backends/
-visca_report.py).
+visca_report.py). So each report sent in, kept in tests/camera-reports/,
+is a camera the plugin is tested against: the command set the plugin
+chooses for it must ask it only for what it has.
 """
 
 import json
+import time
+from pathlib import Path
 
+import pytest
+
+from conftest import REPO_ROOT
 from test_camera_report import report
 from test_visca_profiles import camera
+
+REPORTS = sorted((REPO_ROOT / "tests" / "camera-reports").glob("*.json"))
 
 
 def replaying(made, tmp_path):
@@ -67,3 +76,21 @@ def test_a_replayed_camera_refuses_what_the_camera_did(request, obs_world, tmp_p
     sim.wait_for(lambda s: s["visca_syntax_errors"] > errors)
     assert sim.state()["visca"]["ae_mode"] == 0
 
+
+@pytest.mark.parametrize("path", REPORTS, ids=[p.stem for p in REPORTS])
+def test_the_plugin_asks_a_reported_camera_only_for_what_it_has(request, obs_world, tmp_path, path):
+    """The command set the plugin chooses for each camera that has been
+    reported asks it for nothing it doesn't have: when it first reads
+    everything, and then one inquiry a second. One the plugin has no command
+    set for gets the generic one,
+    which finds out what the camera doesn't have by asking."""
+    made = json.loads(Path(path).read_text())
+    sim, state, device_id = camera(request, obs_world, tmp_path, read={"model_id"},
+                                   sim_args={"flags": ("--visca-report", str(path))})
+    if state.get("model_name") is None or made.get("command_set") == "generic":
+        pytest.skip("the plugin has no command set for it")
+    # from the first request: one the camera doesn't have is asked once,
+    # and not again; everything is read when the device connects, then one
+    # inquiry a second
+    time.sleep(12)
+    assert sim.syntax_errors() == 0
