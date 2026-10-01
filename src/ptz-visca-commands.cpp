@@ -554,7 +554,7 @@ static PTZCmd assuming(PTZCmd cmd, const char *key, const QVariant &value)
 }
 
 /* Every state value the camera has, how it is set, and how it is read. A
- * value is set by the command's one argument, a bool for an on/off one, or by
+ * value is set by the command's argument for it, a bool for an on/off one, or by
  * a command for each value it can be set to (the menu can only be closed). In
  * the order they are sent when asked for at once: a mode before what can only be
  * set in it (R and B gain in the manual white balance mode, the shutter speed
@@ -614,8 +614,14 @@ const QList<ViscaControl> visca_controls = {
 	 {{1, VISCA_CAM_Focus_Auto}, {0, VISCA_CAM_Focus_Manual}},
 	 {VISCA_LensControlInq, VISCA_CAM_Focus_AFEnabledInq}},
 	{"dzoom_pos", std::nullopt, {VISCA_EnlargementFunction1Inq}},
-	{"focus_af_move_time", std::nullopt, {VISCA_EnlargementFunction1Inq, VISCA_CAM_AFTimeSettingInq}},
-	{"focus_af_interval_time", std::nullopt, {VISCA_EnlargementFunction1Inq, VISCA_CAM_AFTimeSettingInq}},
+	/* Both AF times are set by one command, so one asked for on its own
+	 * keeps the other where the camera has it */
+	{"focus_af_move_time",
+	 VISCA_CAM_AFMode_ActiveIntervalTime,
+	 {VISCA_EnlargementFunction1Inq, VISCA_CAM_AFTimeSettingInq}},
+	{"focus_af_interval_time",
+	 VISCA_CAM_AFMode_ActiveIntervalTime,
+	 {VISCA_EnlargementFunction1Inq, VISCA_CAM_AFTimeSettingInq}},
 	{"menu_on", {{0, VISCA_SYSMenu_Off}}, {VISCA_SYSMenuInq}},
 	{"ir_condition", std::nullopt, {VISCA_IRConditionInq}},
 	{"pantilt_move_status", std::nullopt, {VISCA_PanTilt_ModeInq}},

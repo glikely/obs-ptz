@@ -16,7 +16,6 @@ extern const PTZCmd VISCA_CAM_Zoom_Direct;
 extern const PTZCmd VISCA_CAM_Focus_drive;
 extern const PTZCmd VISCA_CAM_Focus_OneTouch;
 extern const PTZCmd VISCA_CAM_ZoomFocus_Direct;
-extern const PTZCmd VISCA_CAM_AFMode_ActiveIntervalTime;
 extern const PTZCmd VISCA_CAM_WB_OnePushTrigger;
 extern const PTZCmd VISCA_CAM_Memory_Reset;
 extern const PTZCmd VISCA_CAM_Memory_Set;
@@ -30,7 +29,8 @@ extern const PTZCmd VISCA_PanTilt_Home;
 struct ViscaControl {
 	/* The state key, e.g. "wb_mode" */
 	QString key;
-	/* The command that sets it, with the value as its one argument */
+	/* The command that sets it: its arguments are the values its fields
+	 * are named for, this one and any others it sets along with it */
 	std::optional<PTZCmd> set;
 	/* Or, where each value has a command of its own, those */
 	QMap<int, PTZCmd> setTo;
