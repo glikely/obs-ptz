@@ -582,6 +582,28 @@ class ViscaCameraLogic:
             b'\x50' + self.encode_s16(from_shared_signed(snap.pan, PT_POS_RANGE)) +
             self.encode_s16(from_shared_signed(snap.tilt, PT_POS_RANGE)))
 
+    # BirdDog's own block inquiries, which only a BirdDog has, as Bitfocus'
+    # BirdDog PTZ Companion module reads them: the inquiry's own number back,
+    # then the values
+    def cmd097e7e15(self, dg):
+        '''BirdDog camera details: autofocus at 12, power at 13, freeze at 14'''
+        if self.vendor_id != 0x0109:
+            self.send_datagram(b'\x60\x02')
+            return
+        self.send_datagram(b'\x50\x15' + bytes(9) + self.encode_bool(self.cam['focus_af_enabled']) +
+                           self.encode_bool(self.state.snapshot().power) + b'\x03')
+
+    def cmd097e7e17(self, dg):
+        '''BirdDog pan, tilt and zoom, a nibble a byte from 3'''
+        if self.vendor_id != 0x0109:
+            self.send_datagram(b'\x60\x02')
+            return
+        snap = self.state.snapshot()
+        self.send_datagram(
+            b'\x50\x17' + self.encode_s16(from_shared_signed(snap.pan, PT_POS_RANGE)) +
+            self.encode_s16(from_shared_signed(snap.tilt, PT_POS_RANGE)) +
+            self.encode_s16(from_shared_unsigned(snap.zoom, ZF_POS_RANGE)) + bytes(4))
+
     # The block inquiries. Each reply is 16 bytes, "y0 50", 13 bytes of
     # settings, and ff, laid out as the manual's "Block Inquiry Command List"
     # has it; the comments number the bytes from y0 as the manual does.
@@ -679,7 +701,8 @@ class ViscaCameraLogic:
             print("[visca] malformed", dg.hex(), dg[0])
             return
 
-        if ((not self.block_inquiries and dg[1:4] == b'\x09\x7e\x7e') or
+        birddog_block = dg[1:4] == b'\x09\x7e\x7e' and dg[4] in (0x15, 0x17)
+        if ((not self.block_inquiries and dg[1:4] == b'\x09\x7e\x7e' and not birddog_block) or
                 (not self.version_inquiry and dg[1:4] == b'\x09\x00\x02')):
             self.send_datagram(b'\x60\x02')
             return
