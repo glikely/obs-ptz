@@ -34,6 +34,10 @@ private:
 	 * device's transient state, and report what it says (report_state()) */
 	QTimer state_timer_;
 	void report_state(PtzUsbCamPos pos, bool hasPan, bool hasTilt, bool hasZoom, bool hasFocus);
+	/* Which controls the camera has, as it last said */
+	bool has_pantilt = false;
+	bool has_zoom = false;
+	bool has_focus = false;
 
 public:
 	PTZUSBCam(OBSData config, obs_source_t *source = nullptr);
@@ -48,6 +52,7 @@ public:
 	void do_update() override;
 	void pantilt_rel(double pan, double tilt) override;
 	void pantilt_abs(double pan, double tilt) override;
+	Features features() const override;
 	void pantilt_home() override;
 	void zoom_abs(double pos) override;
 	void focus_abs(double pos) override;

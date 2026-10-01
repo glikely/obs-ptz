@@ -117,6 +117,11 @@ obs_properties_t *PTZUSBCam::get_obs_properties()
  * out of the state entirely, rather than reported as a position of 0. */
 void PTZUSBCam::report_state(PtzUsbCamPos pos, bool hasPan, bool hasTilt, bool hasZoom, bool hasFocus)
 {
+	has_pantilt = hasPan || hasTilt;
+	has_zoom = hasZoom;
+	has_focus = hasFocus;
+	featuresChanged();
+
 	bool changed = false;
 	if (hasPan)
 		changed |= setPosition("pan", pos.pan);
@@ -170,6 +175,21 @@ void PTZUSBCam::pantilt_rel(double pan, double tilt)
 {
 	refreshDeviceId();
 	worker_->pantiltRel(pan, tilt);
+}
+
+/* What the camera has a control for. The presets are the plugin's own, of
+ * positions it reads back from the camera. Nothing more until it has said:
+ * a webcam often has no pan or tilt. */
+PTZDevice::Features PTZUSBCam::features() const
+{
+	Features features = Presets;
+	if (has_pantilt)
+		features |= PanTilt | PanTiltAbs | PanTiltRel | Home;
+	if (has_zoom)
+		features |= Zoom | ZoomAbs;
+	if (has_focus)
+		features |= Focus | FocusAbs | AutoFocus;
+	return features;
 }
 
 void PTZUSBCam::pantilt_home()
