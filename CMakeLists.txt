@@ -95,6 +95,7 @@ target_sources(
   ${CMAKE_PROJECT_NAME}
   PRIVATE
     ${PLUGIN_VERSION_SOURCE}
+    src/ptz-camera-report.ui
     src/ptz-controls.ui
     src/settings.ui
     src/ptz-controls.qrc
@@ -106,6 +107,7 @@ target_sources(
     src/ptz-discovery.cpp
     src/ptz-sony-discovery.cpp
     src/settings.cpp
+    src/ptz-camera-report.cpp
     src/ptz-state-view.cpp
     src/ptz-visca.cpp
     src/ptz-visca-commands.cpp
@@ -123,6 +125,7 @@ target_sources(
     src/ptz-discovery.hpp
     src/ptz-sony-discovery.hpp
     src/settings.hpp
+    src/ptz-camera-report.hpp
     src/ptz-state-view.hpp
     src/contributors-generated.hpp
     src/translators-generated.hpp

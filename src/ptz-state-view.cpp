@@ -385,6 +385,10 @@ PTZStateView::PTZStateView(QWidget *parent) : QWidget(parent)
 		diagnostics->addWidget(button);
 		connect(button, &QPushButton::clicked, this, [this, trigger]() { emit actionRequested(trigger); });
 	};
+	auto report = new QPushButton(obs_module_text("PTZ.CameraReport.Create"));
+	report->setObjectName("cameraReport");
+	diagnostics->addWidget(report);
+	connect(report, &QPushButton::clicked, this, &PTZStateView::cameraReportRequested);
 	addAction("scanInquiries", "PTZ.Visca.Debug.ScanInquiries", "scan_inquiries");
 	addAction("discoverLimits", "PTZ.Visca.Debug.DiscoverLimits", "discover_limits");
 	addAction("repliesToLog", "PTZ.Visca.Debug.RepliesToLog", "replies_to_log");
