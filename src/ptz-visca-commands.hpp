@@ -6,8 +6,10 @@
  */
 #pragma once
 
+#include <functional>
 #include <memory>
 #include <optional>
+#include <QJsonObject>
 #include "protocol-helpers.hpp"
 
 /* A state value, and the commands and inquiries for it */
@@ -63,3 +65,9 @@ std::shared_ptr<const ViscaProfile> visca_generic_profile();
 QList<std::shared_ptr<const ViscaProfile>> visca_profiles();
 std::shared_ptr<const ViscaProfile> visca_profile_for_model(int vendor_id, int model_id);
 std::shared_ptr<const ViscaProfile> visca_profile(const QString &id);
+/* A command set read from JSON. `base` finds the one it extends, by its id.
+ * Null if it isn't one, and why in `error`. */
+std::shared_ptr<const ViscaProfile>
+visca_profile_from_json(const QJsonObject &json,
+			const std::function<std::shared_ptr<const ViscaProfile>(const QString &)> &base,
+			QString *error);
