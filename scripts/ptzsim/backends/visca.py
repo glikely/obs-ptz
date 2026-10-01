@@ -189,10 +189,11 @@ class ViscaCameraLogic:
     # inquiries; __main__ clears this to imitate one.
     block_inquiries = True
     # Whether the version inquiry is understood, and the vendor and model ID
-    # it answers with: a Sony SRG-120DH unless __main__ says otherwise
+    # it answers with: a Sony of no model a command set is for, which has
+    # everything this does, unless __main__ says otherwise
     version_inquiry = True
     vendor_id = 0x0001
-    model_id = 0x0511
+    model_id = 0x0000
     # Whether there is a green tally lamp to command. Sony's own manual has
     # none, and a BirdDog P100 has only the red one, answering the green
     # command with a syntax error; BirdDog's X4 series has both.

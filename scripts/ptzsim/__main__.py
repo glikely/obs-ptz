@@ -107,10 +107,11 @@ def parse_args():
     ap.add_argument("--visca-no-version-inquiry", action="store_true",
                      help="answer VISCA's version inquiry with a syntax error, so the camera's "
                           "model can't be known")
-    ap.add_argument("--visca-model", default="0001:0511",
+    ap.add_argument("--visca-model", default="0001:0000",
                      help="the vendor and model ID the VISCA version inquiry answers with, as "
-                          "hex VVVV:MMMM (default: a Sony SRG-120DH, 0001:0511; a BirdDog "
-                          "P100 is 0109:2020)")
+                          "hex VVVV:MMMM (default: 0001:0000, a Sony of no model the plugin has "
+                          "a command set for, so it uses the generic one, which has everything "
+                          "this does; a Sony SRG-120DH is 0001:0511, a BirdDog P100 0109:2020)")
     ap.add_argument("--start-in-standby", action="store_true",
                      help="start with the camera powered off")
     ap.add_argument("--visca-no-completions", action="store_true",
