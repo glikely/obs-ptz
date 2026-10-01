@@ -942,9 +942,11 @@ void PTZVisca::send_pending()
 			focus_changed = false;
 			queue_action("focus_drive", {scale_speed(focus_speed, visca_focus_speed_max + 1)});
 		} else if (isConnected()) {
-			QSetIterator<QString> i(stale_state);
-			while (i.hasNext()) {
-				QString prop = i.next();
+			/* What the camera is decides what else to ask it for */
+			QStringList stale = stale_state.values();
+			if (stale_state.contains("vendor_id"))
+				stale.prepend("vendor_id");
+			for (const QString &prop : stale) {
 				const ViscaControl *control = profile->control(prop);
 				if (!control || control->reads.isEmpty())
 					continue;
