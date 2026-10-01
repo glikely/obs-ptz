@@ -93,6 +93,8 @@ public:
 	}
 	void encode(QList<int> arglist);
 	obs_data_t *decode(QByteArray msg);
+	/* A VISCA inquiry, as opposed to a command */
+	bool isInquiry() const { return cmd.size() > 1 && cmd[1] == 0x09; }
 
 private:
 	static datagram_fields own(const QList<datagram_field *> &fields)

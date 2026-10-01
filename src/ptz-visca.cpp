@@ -1326,7 +1326,7 @@ void PTZVisca::receive(const QByteArray &msg)
 
 		/* Log Inquiry Replies */
 		inq = active_cmd[slot]->cmd;
-		if (inq[1] == 0x09) {
+		if (active_cmd[slot]->isInquiry()) {
 			replyLast[inq] = msg;
 			replyCount[inq]++;
 		}
@@ -1375,7 +1375,7 @@ void PTZVisca::receive(const QByteArray &msg)
 			 * covers with the single-value inquiries instead */
 			if (visca_tally_key(active_cmd[0]->cmd) && msg.size() > 2 && msg[2] == VISCA_ERROR_SYNTAX)
 				unsupported_requests.insert(active_cmd[0]->cmd);
-			if (active_cmd[0]->cmd[1] == 0x09 && msg.size() > 2 && msg[2] == VISCA_ERROR_SYNTAX) {
+			if (active_cmd[0]->isInquiry() && msg.size() > 2 && msg[2] == VISCA_ERROR_SYNTAX) {
 				const QByteArray unsupported = active_cmd[0]->cmd;
 				unsupported_requests.insert(unsupported);
 				for (auto prop : inquiresFallback.keys()) {
