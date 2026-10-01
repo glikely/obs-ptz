@@ -39,7 +39,7 @@ extern const PTZCmd VISCA_ENUMERATE;
  * identical no matter how the bytes get to the camera, so PTZVisca owns
  * exactly one ViscaTransport at a time and everything protocol-specific
  * lives here. Which concrete transport is instantiated is derived from
- * the device's "type" (visca/visca-over-ip/visca-over-tcp, see
+ * the device's "type" (visca/visca-over-ip/visca-over-tcp/visca-over-dvip, see
  * PTZVisca::setInterface()), which is what lets a single PTZVisca class
  * represent a serial, UDP, or TCP connected camera.
  */
