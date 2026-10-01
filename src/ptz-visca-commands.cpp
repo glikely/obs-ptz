@@ -685,3 +685,17 @@ std::shared_ptr<const ViscaProfile> visca_generic_profile()
 	}();
 	return generic;
 }
+
+QList<std::shared_ptr<const ViscaProfile>> visca_profiles()
+{
+	return {visca_generic_profile()};
+}
+
+std::shared_ptr<const ViscaProfile> visca_profile_for_model(int vendor_id, int model_id)
+{
+	for (const auto &profile : visca_profiles()) {
+		if (profile->models.contains(vendor_id << 16 | model_id))
+			return profile;
+	}
+	return visca_generic_profile();
+}
