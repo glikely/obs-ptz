@@ -104,8 +104,6 @@ protected:
 	/* Inquiries, and commands for state that can't be read back, that the
 	 * camera answered with a syntax error: it doesn't have them */
 	QSet<QByteArray> unsupported_requests;
-	QMap<QByteArray, QByteArray> replyLast;
-	QMap<QByteArray, int> replyCount;
 	QList<PTZCmd> pending_cmds;
 	std::optional<PTZCmd> active_cmd[8];
 	QTimer timeout_timer;
@@ -191,8 +189,6 @@ protected:
 	void send_action(const QString &name, QList<int> args = {});
 	void timeout();
 	void update_timer_callback();
-	void scan_commands();
-	void write_replies_to_log();
 	void update_position(OBSData decoded);
 	void mark_all_stale();
 	void set_profile(std::shared_ptr<const ViscaProfile> profile);

@@ -62,9 +62,8 @@ public:
 		/* The "wb_onepush" trigger */
 		WhiteBalanceOnePush = 1 << 13,
 		/* The "camera_report" trigger, whose report the
-		 * ptz_get_camera_report proc hands back, and the
-		 * "scan_inquiries" and "replies_to_log" triggers, for
-		 * working out what a camera supports */
+		 * ptz_get_camera_report proc hands back, for working out
+		 * what a camera supports */
 		Diagnostics = 1 << 14,
 	};
 	Q_DECLARE_FLAGS(Features, Feature)
