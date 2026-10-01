@@ -101,6 +101,15 @@ def free_port():
         return s.getsockname()[1]
 
 
+def free_udp_port():
+    """free_port() for a UDP port. The two are separate: many UDP sockets are
+    open on a desktop, and about one in ten of the ports the system offers
+    for TCP is already a UDP socket's"""
+    with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as s:
+        s.bind(("", 0))
+        return s.getsockname()[1]
+
+
 def obs_config_root(home: Path) -> Path:
     if platform.system() == "Darwin":
         return home / "Library" / "Application Support" / "obs-studio"
@@ -650,13 +659,13 @@ class World:
 def ptz_ports():
     return {
         "visca_tcp": free_port(),
-        "visca_udp": free_port(),
+        "visca_udp": free_udp_port(),
         "onvif_http": free_port(),
         "debug_http": free_port(),
         "rtsp": free_port(),
         "visca_tcp_flaky": free_port(),
-        "unused_udp": free_port(),
-        "visca_udp_sony": free_port(),
+        "unused_udp": free_udp_port(),
+        "visca_udp_sony": free_udp_port(),
         "debug_http_sony": free_port(),
         "visca_tcp_birddog": free_port(),
         "visca_tcp_power": free_port(),

@@ -38,7 +38,7 @@ import urllib.request
 
 import pytest
 
-from conftest import REPO_ROOT, free_port, output_log, wait_for_port
+from conftest import REPO_ROOT, free_port, free_udp_port, output_log, wait_for_port
 
 ACTION_PAN_TILT = 3
 ACTION_STOP = 4
@@ -148,7 +148,7 @@ def test_switch_visca_interface_across_all_transports(obs_world, ptz_ports, seri
     # down and replace the live transport -- e.g. silently kept using the
     # old, already-connected TCP socket -- the device would stay
     # connected and this negative check would fail.
-    dead_port = free_port()
+    dead_port = free_udp_port()
     obs_world.run_ui_test(
         "update_device", device_id=device_id,
         type="visca-over-ip", host="127.0.0.1", udp_port=dead_port,
