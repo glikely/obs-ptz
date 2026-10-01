@@ -32,3 +32,5 @@ jobs:
       - uses: actions/checkout@v6
       - name: VISCA command set layout check 📷
         run: python3 scripts/check-visca-profiles.py
+      - name: ptz-probe tables check 🔭
+        run: python3 scripts/ptz-probe/gen_tables.py --check
