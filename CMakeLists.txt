@@ -97,6 +97,7 @@ target_sources(
     src/settings.cpp
     src/ptz-state-view.cpp
     src/ptz-visca.cpp
+    src/ptz-visca-commands.cpp
     src/ptz-visca-udp.cpp
     src/ptz-visca-tcp.cpp
     src/protocol-helpers.cpp
@@ -115,6 +116,7 @@ target_sources(
     src/contributors-generated.hpp
     src/translators-generated.hpp
     src/ptz-visca.hpp
+    src/ptz-visca-commands.hpp
     src/ptz-visca-udp.hpp
     src/ptz-visca-tcp.hpp
     src/protocol-helpers.hpp
