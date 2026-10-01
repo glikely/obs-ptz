@@ -657,6 +657,11 @@ const QMap<QString, PTZCmd> visca_actions = {
 	{"memory_recall", VISCA_CAM_Memory_Recall},
 };
 
+/* Commands that are sent as they are, by the ptz_trigger proc */
+const QMap<QString, PTZCmd> visca_triggers = {
+	{"wb_onepush", VISCA_CAM_WB_OnePushTrigger},
+};
+
 const ViscaControl *visca_control(const QString &key)
 {
 	for (const auto &control : visca_controls) {
