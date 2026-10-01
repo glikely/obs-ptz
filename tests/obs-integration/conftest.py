@@ -255,12 +255,13 @@ def write_ptz_plugin_config(home: Path, ports, serial_paths):
 VISCA_PROFILES = {
     # A new state value, set and read with the white balance mode's command
     # and inquiry, one read from further into a reply than its inquiry is
-    # long, a new trigger, and a built-in state value taken away
+    # long, a new trigger, and a built-in state value and the zoom drive
+    # taken away
     "test-user.json": {
         "id": "test-user",
         "name": "Test camera",
         "models": ["0123:0001"],
-        "remove": ["low_latency"],
+        "remove": ["low_latency", "zoom_drive"],
         "controls": [{
             "key": "user_wb",
             "set": {"cmd": "8101043500ff", "args": [{"type": "u4", "offset": 4}]},
@@ -647,6 +648,26 @@ class World:
                 return last
             time.sleep(interval)
         raise AssertionError(f"device {device_id} status never matched predicate; last seen: {last}")
+
+    def dock_controls(self, device_id, out_file):
+        """Which of the PTZ Controls dock's controls are enabled with the
+        device selected, via tests/ui-harness/dock-controls-test.cpp's
+        "get_dock_controls" test"""
+        if out_file.exists():
+            out_file.unlink()
+        self.run_ui_test("get_dock_controls", device_id=device_id, filename=str(out_file))
+        self.wait_for(out_file.exists)
+        return json.loads(out_file.read_text())
+
+    def wait_for_dock_controls(self, device_id, out_file, predicate, timeout=5, interval=0.2):
+        deadline = time.time() + timeout
+        last = None
+        while time.time() < deadline:
+            last = self.dock_controls(device_id, out_file)
+            if predicate(last["enabled"]):
+                return last["enabled"]
+            time.sleep(interval)
+        raise AssertionError(f"dock controls never matched predicate; last seen: {last}")
 
     def preset_view(self, out_file, select=None, add_device=None, remove_device=None):
         """What the PTZ Controls dock's preset list is showing, via

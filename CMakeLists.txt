@@ -256,6 +256,7 @@ if(ENABLE_UI_TESTS)
       tests/ui-harness/set-device-test.cpp
       tests/ui-harness/update-device-test.cpp
       tests/ui-harness/preset-view-test.cpp
+      tests/ui-harness/dock-controls-test.cpp
       tests/ui-harness/device-source-test.cpp
       tests/ui-harness/device-settings-test.cpp
       tests/ui-harness/device-state-test.cpp
