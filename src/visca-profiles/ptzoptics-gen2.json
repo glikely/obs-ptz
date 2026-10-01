@@ -2,7 +2,7 @@
   "id": "ptzoptics-gen2",
   "name": "PTZOptics Gen-2 NDI (PT12X/PT20X/PT30X-NDI)",
   "models": [],
-  "source": "Generated from the command tables in grafton-visca's VISCA reference (github.com/GrantSparks/grafton-visca, docs/visca_reference.md section 7, MIT or Apache-2.0 licensed), not yet verified against a camera.",
+  "source": "Generated from the command tables in grafton-visca's VISCA reference (github.com/GrantSparks/grafton-visca, docs/visca_reference.md section 7, MIT or Apache-2.0 licensed), with the ranges of the PTZOptics camera Jon Skeet's FakeViscaCamera imitates (github.com/jskeet/DemoCode, CameraControl/CameraControl.Visca/FakeViscaCamera.cs, Apache-2.0 licensed), not yet verified against a camera.",
   "remove_inquiries": [
     "81090406ff",
     "81090411ff",
@@ -95,5 +95,19 @@
       "key": "menu_on",
       "set": null
     }
-  ]
+  ],
+  "ranges": {
+    "pan": [
+      "-0x990",
+      "0x990"
+    ],
+    "tilt": [
+      "-0x1b0",
+      "0x510"
+    ],
+    "zoom": [
+      "0x0",
+      "0x4000"
+    ]
+  }
 }
