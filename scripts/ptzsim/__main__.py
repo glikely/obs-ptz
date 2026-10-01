@@ -68,6 +68,7 @@ from .backends.onvif import OnvifBackend
 from .backends.sony_setup import SonySetupBackend
 from .backends.pelco import PelcoBackend
 from .backends.visca import ViscaBackend, ViscaCameraLogic, SonyUdpQuirks
+from .backends.visca_report import ViscaReportReplay
 from .debug_http import DebugHttpServer
 from .state import PTZState, run_ticker
 from .video import VideoFeed
@@ -121,6 +122,11 @@ def parse_args():
                           "BRC-X1000 has them, or 5:5 as an ILME-FR7 does")
     ap.add_argument("--visca-pan-tilt-range", default="0x2800", metavar="HEX",
                      help="the VISCA pan and tilt position at either end, as hex")
+    ap.add_argument("--visca-report", default=None, metavar="FILE",
+                     help="be the camera an obs-ptz camera report (doc/visca-protocol.md) was made "
+                          "of, as far as the report goes: answer what it answered as it did, and "
+                          "refuse what it refused; its vendor and model ID are the ones the version "
+                          "inquiry answers with, whatever --visca-model says")
     ap.add_argument("--start-in-standby", action="store_true",
                      help="start with the camera powered off")
     ap.add_argument("--visca-no-completions", action="store_true",
@@ -190,6 +196,12 @@ def main():
     ViscaCameraLogic.completions = not args.visca_no_completions
     ViscaCameraLogic.position_nibbles = tuple(int(n) for n in args.visca_positions.split(":"))
     ViscaCameraLogic.pt_pos_range = int(args.visca_pan_tilt_range, 16)
+    if args.visca_report:
+        report = ViscaReportReplay.load(args.visca_report)
+        ViscaCameraLogic.report = report
+        if report.vendor_id is not None:
+            ViscaCameraLogic.vendor_id = report.vendor_id
+            ViscaCameraLogic.model_id = report.model_id
 
     backends = []
     if not args.no_visca:

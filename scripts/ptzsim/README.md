@@ -133,6 +133,12 @@ highlights:
 - `--pelco-address` (default 1; must match the device ID configured in
   OBS).
 - `--onvif-http-port` (default 8899).
+- `--visca-report FILE`: be the camera an obs-ptz camera report was made
+  of, as far as the report goes (`backends/visca_report.py`): answer the
+  inquiries it answered with its replies, or ptzsim's own where they are
+  as long, so what is set shows when it is read back; refuse with the
+  camera's error what it refused, and leave unanswered what it never
+  answered. Reports sent in are kept in `tests/camera-reports/`.
 - `--sony-discovery-name NAME`: answer Sony's VISCA-over-IP camera
   discovery (an `ENQ:network` broadcast to UDP port 52380) as a camera
   called NAME, at `--host`. Off by default, so that several simulators on
