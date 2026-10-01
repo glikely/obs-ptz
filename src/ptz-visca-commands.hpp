@@ -58,6 +58,9 @@ struct ViscaProfile {
 	QList<ViscaControl> controls;
 	QMap<QString, PTZCmd> actions;
 	QMap<QString, PTZCmd> triggers;
+	/* What the camera can be asked for while it is in standby, if not
+	 * everything: some won't wake after being asked for anything else */
+	std::optional<QSet<QString>> standby_reads;
 
 	const ViscaControl *control(const QString &key) const;
 	ViscaControl *control(const QString &key);

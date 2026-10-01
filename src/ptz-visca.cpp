@@ -1062,11 +1062,21 @@ void PTZVisca::send_pending()
 			focus_changed = false;
 			queue_action("focus_drive", {scale_speed(focus_speed, visca_focus_speed_max + 1)});
 		} else if (isConnected()) {
-			/* What the camera is decides what else to ask it for */
+			/* What the camera is decides what else to ask it for. One
+			 * that can't be asked for everything in standby is asked
+			 * whether it is first, and only for what it can be while
+			 * it is; the rest waits for it to wake. */
+			const auto &standby_reads = profile->standby_reads;
+			bool standby = standby_reads && obs_data_has_user_value(state, "power_on") &&
+				       !obs_data_get_bool(state, "power_on");
 			QStringList stale = stale_state.values();
+			if (standby_reads && stale_state.contains("power_on"))
+				stale.prepend("power_on");
 			if (stale_state.contains("vendor_id"))
 				stale.prepend("vendor_id");
 			for (const QString &prop : stale) {
+				if (standby && !standby_reads->contains(prop))
+					continue;
 				const ViscaControl *control = profile->control(prop);
 				if (!control || control->reads.isEmpty())
 					continue;

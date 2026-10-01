@@ -161,6 +161,9 @@ For example (the auto tracking commands are made up):
   one end (left, down, wide, far) and the other, as numbers or hex in strings: `"pan": ["-0x2200", "0x2200"]`.
   A camera whose pan positions run right to left has them the other way round.
   They are what the movement controls' ends stand for, unless the device's settings say otherwise.
+- `standby_reads`: the keys the camera can be asked for while it is in standby, for one that can't be
+  asked for everything then: a BirdDog asked for anything but whether it is on won't wake, so it has
+  `["power_on"]`. The rest is read once it is on.
 - `remove`: controls, actions and triggers it doesn't have.
 - `remove_inquiries`: inquiries the camera doesn't have, which no control reads with then.
   A camera without the block inquiries has `["81097e7e00ff", "81097e7e01ff", ...]`.

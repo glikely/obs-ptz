@@ -1160,6 +1160,18 @@ public:
 			if (!trigger(*profile, i.key(), i.value()))
 				return nullptr;
 		}
+		if (json.contains("standby_reads")) {
+			QSet<QString> keys;
+			for (const auto value : json["standby_reads"].toArray()) {
+				const ViscaControl *read = std::as_const(*profile).control(value.toString());
+				if (!read || read->reads.isEmpty()) {
+					fail(QString("there is nothing to read \"%1\" with").arg(value.toString()));
+					return nullptr;
+				}
+				keys += value.toString();
+			}
+			profile->standby_reads = keys;
+		}
 		return profile;
 	}
 };
