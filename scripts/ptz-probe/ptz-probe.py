@@ -1888,6 +1888,13 @@ TABLES = json.loads(r'''
    "power": null
   },
   {
+   "id": "datavideo",
+   "models": [],
+   "vendors": [],
+   "inquiries": [],
+   "power": null
+  },
+  {
    "id": "sony-srg-120dh",
    "models": [
     66833
