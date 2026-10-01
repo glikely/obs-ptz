@@ -282,8 +282,8 @@ const PTZCmd VISCA_CAM_Focus_NearVar("8101040830ff",
 				     },
 				     "focus_pos");
 
-const PTZCmd VISCA_CAM_Focus_Auto("8101043802ff");
-const PTZCmd VISCA_CAM_Focus_Manual("8101043803ff");
+const PTZCmd VISCA_CAM_Focus_Auto("8101043802ff", "focus_af_enabled");
+const PTZCmd VISCA_CAM_Focus_Manual("8101043803ff", "focus_af_enabled");
 const PTZCmd VISCA_CAM_Focus_AutoManual("8101043810ff");
 const PTZInq VISCA_CAM_Focus_AFEnabledInq("81090438ff", {new visca_flag("focus_af_enabled", 2)});
 
@@ -558,8 +558,9 @@ const QMap<int, std::string> PTZVisca::viscaModels = {
 };
 
 /* Every state value the camera has, how it is set, and how it is read. A
- * value is set by the command's one argument, a bool for an on/off one. In the
- * order they are sent when asked for at once: a mode before what can only be
+ * value is set by the command's one argument, a bool for an on/off one, or by
+ * a command for each value it can be set to (the menu can only be closed). In
+ * the order they are sent when asked for at once: a mode before what can only be
  * set in it (R and B gain in the manual white balance mode, the shutter speed
  * in the manual or shutter priority exposure mode, and so on).
  *
@@ -613,11 +614,13 @@ const QList<ViscaControl> visca_controls = {
 	{"pan_max_speed", std::nullopt, {VISCA_PanTilt_MaxSpeedInq}},
 	{"focus_pos", std::nullopt, {VISCA_LensControlInq, VISCA_CAM_FocusPosInq}},
 	{"zoom_pos", std::nullopt, {VISCA_LensControlInq, VISCA_CAM_ZoomPosInq}},
-	{"focus_af_enabled", std::nullopt, {VISCA_LensControlInq, VISCA_CAM_Focus_AFEnabledInq}},
+	{"focus_af_enabled",
+	 {{1, VISCA_CAM_Focus_Auto}, {0, VISCA_CAM_Focus_Manual}},
+	 {VISCA_LensControlInq, VISCA_CAM_Focus_AFEnabledInq}},
 	{"dzoom_pos", std::nullopt, {VISCA_EnlargementFunction1Inq}},
 	{"focus_af_move_time", std::nullopt, {VISCA_EnlargementFunction1Inq, VISCA_CAM_AFTimeSettingInq}},
 	{"focus_af_interval_time", std::nullopt, {VISCA_EnlargementFunction1Inq, VISCA_CAM_AFTimeSettingInq}},
-	{"menu_on", std::nullopt, {VISCA_SYSMenuInq}},
+	{"menu_on", {{0, VISCA_SYSMenu_Off}}, {VISCA_SYSMenuInq}},
 	{"ir_condition", std::nullopt, {VISCA_IRConditionInq}},
 	{"pantilt_move_status", std::nullopt, {VISCA_PanTilt_ModeInq}},
 	{"tally_on", std::nullopt, {VISCA_CAM_TallyInq}},
