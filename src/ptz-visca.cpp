@@ -587,6 +587,19 @@ void PTZVisca::mark_all_stale()
 	}
 }
 
+/* Switches the camera to another command set. What it didn't have in the
+ * last one, it may have in this one, and what is known about it may have
+ * been read with what this one reads differently: start again. */
+void PTZVisca::set_profile(std::shared_ptr<const ViscaProfile> new_profile)
+{
+	if (!new_profile || new_profile == profile)
+		return;
+	ptz_info("using the %s command set", QT_TO_UTF8(new_profile->id));
+	profile = new_profile;
+	unsupported_requests.clear();
+	mark_all_stale();
+}
+
 void PTZVisca::cmd_get_camera_info()
 {
 	setConnected(true);
@@ -669,6 +682,12 @@ void PTZVisca::receive(const QByteArray &msg)
 			obs_data_apply(state, rslt_props);
 			obs_data_apply(stateChanged, rslt_props);
 			update_position(rslt_props);
+
+			/* The camera says what it is: use its command set */
+			if (obs_data_has_user_value(rslt_props, "vendor_id") &&
+			    obs_data_has_user_value(rslt_props, "model_id"))
+				set_profile(visca_profile_for_model((int)obs_data_get_int(rslt_props, "vendor_id"),
+								    (int)obs_data_get_int(rslt_props, "model_id")));
 
 			/* Mark returned properties as clean */
 			for (auto item = obs_data_first(rslt_props); item; obs_data_item_next(&item))

@@ -167,6 +167,7 @@ protected:
 	void write_replies_to_log();
 	void update_position(OBSData decoded);
 	void mark_all_stale();
+	void set_profile(std::shared_ptr<const ViscaProfile> profile);
 	void set_control(const ViscaControl &control, int value, OBSData requested = nullptr);
 	void set_control(const QString &key, int value);
 	void reset();
