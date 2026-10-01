@@ -22,10 +22,20 @@ QVariantMap OBSDataToVariantMap(const OBSData data);
  * Datagram field encoding helpers
  */
 class datagram_field {
+	/* The name is kept with the field, so it can be one read at runtime */
+	const QByteArray name_storage;
+
 public:
 	const char *name;
 	int offset;
-	datagram_field(const char *name, int offset) : name(name), offset(offset) {}
+	datagram_field(const char *name, int offset)
+		: name_storage(name),
+		  name(name_storage.constData()),
+		  offset(offset)
+	{
+	}
+	datagram_field(const datagram_field &) = delete;
+	datagram_field &operator=(const datagram_field &) = delete;
 	virtual ~datagram_field() = default;
 	virtual void encode(QByteArray &msg, int val) = 0;
 	virtual bool decode(OBSData data, QByteArray &msg) = 0;
