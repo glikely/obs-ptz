@@ -30,6 +30,40 @@
 class PTZDevice : public QObject {
 	Q_OBJECT
 
+public:
+	/* What a device can do, so that what controls it offers only that. In
+	 * its state as "features": an object with each one's name (see
+	 * featureNames()) true. */
+	enum Feature : uint32_t {
+		/* Moving at a speed: pantilt(), zoom() and focus() */
+		PanTilt = 1 << 0,
+		Zoom = 1 << 1,
+		Focus = 1 << 2,
+		/* Moving to a position, or by a distance */
+		PanTiltAbs = 1 << 3,
+		PanTiltRel = 1 << 4,
+		ZoomAbs = 1 << 5,
+		FocusAbs = 1 << 6,
+		/* pantilt_home(), and pantilt_set_home() */
+		Home = 1 << 7,
+		HomeSet = 1 << 8,
+		/* set_autofocus(), and the "focus_onetouch" trigger */
+		AutoFocus = 1 << 9,
+		FocusOneTouch = 1 << 10,
+		/* memory_set(), memory_recall() and memory_reset() */
+		Presets = 1 << 11,
+		/* The "power_on" state key */
+		Power = 1 << 12,
+		/* The "wb_onepush" trigger */
+		WhiteBalanceOnePush = 1 << 13,
+		/* The "scan_inquiries" and "replies_to_log" triggers, for
+		 * working out what a camera supports */
+		Diagnostics = 1 << 14,
+	};
+	Q_DECLARE_FLAGS(Features, Feature)
+	/* Each feature, and its name in the state's "features" */
+	static const QList<QPair<Feature, const char *>> &featureNames();
+
 protected:
 	uint32_t id = 0;
 	std::string type;
@@ -105,6 +139,11 @@ protected:
 	 * too small to show is not a change; says whether there was one. */
 	bool setPosition(const char *axis, double value);
 	bool wrongThread(const char *method) const;
+	/* A driver whose features() change once it is made, as it finds out
+	 * what the camera has, calls this to report them */
+	void featuresChanged();
+	Features reportedFeatures;
+	void saveFeatures(obs_data_t *data, Features features) const;
 
 public:
 	~PTZDevice();
@@ -138,6 +177,8 @@ public:
 	virtual QString description() const;
 	bool isLive() const { return live; }
 	bool isPreview() const { return preview; }
+	/* What the device can do. None, unless a driver says. */
+	virtual Features features() const { return {}; }
 	virtual bool supportsSetHome() const { return false; }
 	/* Whether ptz_trigger takes the "scan_inquiries" and "replies_to_log"
 	 * diagnostics, for working out what a camera supports */
@@ -345,6 +386,8 @@ public:
 	 * thread; says whether the device knows the name. */
 	virtual bool runTrigger(const QString &name);
 };
+
+Q_DECLARE_OPERATORS_FOR_FLAGS(PTZDevice::Features)
 
 /* backend driver hooks that register themselves as an OBS filters */
 void *ptz_filter_create(const std::function<PTZDevice *()> &make);
