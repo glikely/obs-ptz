@@ -1,0 +1,47 @@
+{
+  "id": "datavideo",
+  "name": "Datavideo PTC series",
+  "source": "Datavideo's tally command, 81 01 7e 01 0a 00 0p 0q ff, red lamp then green, as Bitfocus' Datavideo VISCA Companion module (github.com/bitfocus/companion-module-datavideo-visca, index.js, MIT licensed) sends it: one command for both lamps, which can't be read back. Not yet verified against a camera.",
+  "controls": [
+    {
+      "key": "tally_on",
+      "reads": [],
+      "set_to": {
+        "1": {
+          "cmd": "81017e010a000203ff",
+          "assumes": {
+            "tally_on": true,
+            "tally_preview": false
+          }
+        },
+        "0": {
+          "cmd": "81017e010a000303ff",
+          "assumes": {
+            "tally_on": false,
+            "tally_preview": false
+          }
+        }
+      }
+    },
+    {
+      "key": "tally_preview",
+      "reads": [],
+      "set": {
+        "cmd": "81017e010a000000ff",
+        "affects": [],
+        "args": [
+          {
+            "type": "flag",
+            "offset": 6,
+            "key": "tally_on"
+          },
+          {
+            "type": "flag",
+            "offset": 7,
+            "key": "tally_preview"
+          }
+        ]
+      }
+    }
+  ]
+}
