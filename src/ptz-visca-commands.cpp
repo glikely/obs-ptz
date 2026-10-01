@@ -534,19 +534,59 @@ const PTZCmd VISCA_PanTilt_LimitClearUpRight("810106070101070f0f0f070f0f0fff",
 const PTZCmd VISCA_PanTilt_LimitClearDownLeft("810106070100070f0f0f070f0f0fff", {new visca_u16("pan_limit_left", 6),
 										 new visca_u16("tilt_limit_down", 10)});
 
+/* The vendors and models a camera can say it is, as Sony's manuals (by way
+ * of Bitfocus' Sony VISCA Companion module's table of them) and obs-visca-control
+ * list them */
 const QMap<int, std::string> PTZVisca::viscaVendors = {
 	{0x0001, "Sony"},
+	{0x0003, "Everet"},
+	{0x0010, "HuddleCamHD"},
 	{0x0109, "Birddog"},
+	{0x0220, "GlowStream"},
 	{0x2574, "AVer"},
+	/* "AX", the start of "AXV" and the product number */
+	{0x4158, "Axis"},
 };
 
 /* lookup in this table is: (Vendor ID << 16) | Model ID */
 const QMap<int, std::string> PTZVisca::viscaModels = {
 	/* Sony Cameras */
 	{0x0001040f, "BRC-300"},
+	{0x00010501, "BRC-H700"},
+	{0x00010502, "BRU-H700"},
+	{0x00010505, "BRC-Z700"},
+	{0x00010507, "BRC-Z330"},
+	{0x0001050b, "BRC-H900"},
 	{0x00010511, "SRG-120DH"},
+	{0x00010513, "SRG-300H"}, // a NewTek PTZ1 NDI says it is one too
+	{0x00010516, "SRG-300SE/301SE/201SE"},
+	{0x00010519, "BRC-X1000"},
+	{0x0001051a, "BRC-H800"},
+	{0x0001051b, "BRC-H780"},
+	{0x0001051c, "BRC-X400"},
+	{0x0001051d, "BRC-X401"},
+	{0x0001051e, "ILME-FR7"},
+	{0x0001051f, "BRC-AM7"},
+	{0x00010604, "SRG-360SHE"},
+	{0x00010605, "SRG-280SHE"},
+	{0x00010617, "SRG-X400"},
+	{0x00010618, "SRG-X120"},
+	{0x0001061a, "SRG-201M2"},
+	{0x0001061b, "SRG-HD1M2"},
+	{0x0001061c, "SRG-X402"},
+	{0x0001061f, "SRG-X40UH"},
+	{0x00010620, "SRG-H40UH"},
+	{0x00010621, "SRG-A40"},
+	{0x00010622, "SRG-A12"},
+	/* Everet */
+	{0x00030002, "EVZ405N"},
+	{0x0003013b, "EVP212N"},
+	/* HuddleCamHD */
+	{0x00100502, "HC12X-HuddleView"},
 	/* Birddog */
 	{0x01092020, "P100"},
+	/* GlowStream */
+	{0x02200511, "GS300-20x-NDI"},
 	/* AVer */
 	{0x25740a30, "CAM520 Pro2"},
 };
