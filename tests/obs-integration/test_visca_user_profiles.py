@@ -151,3 +151,13 @@ def test_a_users_command_set_replaces_a_shipped_one(request, obs_world, tmp_path
     camera = Camera(request, obs_world, tmp_path, "0123:0004")
     state = camera.wait_for_state(lambda s: "wb_mode" in s and "power_on" in s)
     assert "low_latency" not in state
+
+
+def test_a_command_set_doesnt_change_the_one_it_extends(request, obs_world, tmp_path):
+    """control-only.json says the AE mode can't be set, and changes nothing
+    else; the generic command set, which it extends, still can, for a camera
+    of a model no command set is for"""
+    camera = Camera(request, obs_world, tmp_path, "0001:0000")
+    camera.wait_for_state(lambda s: "ae_mode" in s)
+    obs_world.run_ui_test("set_device_state", device_id=camera.device_id, ae_mode=3)
+    obs_world.wait_for(lambda: camera.sim.state()["visca"]["ae_mode"] == 3, timeout=5)

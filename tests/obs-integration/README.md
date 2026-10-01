@@ -235,7 +235,8 @@ actually work end to end.
     out; that the dock offers no zoom buttons for a camera whose command
     set has no zoom drive; that every command set shipped in
     `src/visca-profiles` is offered by the settings, so is linked in and
-    read; and that one of the user's with a shipped one's id replaces it.
+    read; that one of the user's with a shipped one's id replaces it; and
+    that one that only changes a control leaves the one it extends as it was.
 28. `test_device_features.py` covers what a device says it can do, the
     `"features"` in its state, for VISCA, Pelco and ONVIF, and that the
     PTZ Controls dock enables only the controls for them, read through
