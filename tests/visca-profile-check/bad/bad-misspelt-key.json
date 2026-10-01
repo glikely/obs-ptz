@@ -1,0 +1,7 @@
+{
+  "id": "bad-misspelt-key",
+  "source": "A test of the checks: tests/visca-profile-check",
+  "remove_inquiry": [
+    "81097e7e00ff"
+  ]
+}

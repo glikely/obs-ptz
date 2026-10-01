@@ -1,0 +1,5 @@
+{
+  "id": "bad-extends-nothing",
+  "source": "A test of the checks: tests/visca-profile-check",
+  "extends": "no-such-set"
+}

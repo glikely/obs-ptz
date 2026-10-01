@@ -1,0 +1,7 @@
+{
+  "id": "bad-same-model",
+  "source": "A test of the checks: tests/visca-profile-check",
+  "models": [
+    "0123:0001"
+  ]
+}

@@ -1,0 +1,20 @@
+{
+  "id": "bad-misspelt-field",
+  "source": "A test of the checks: tests/visca-profile-check",
+  "controls": [
+    {
+      "key": "wb_mode",
+      "reads": [
+        {
+          "cmd": "81090435ff",
+          "results": [
+            {
+              "type": "u4",
+              "ofset": 2
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

@@ -786,7 +786,7 @@ std::shared_ptr<const ViscaProfile> visca_generic_profile()
 
 static QList<std::shared_ptr<const ViscaProfile>>
 visca_load_profiles(const QDir &dir, const char *where, const QList<std::shared_ptr<const ViscaProfile>> &known,
-		    bool replace);
+		    bool replace, QMap<QString, QString> *errors = nullptr);
 
 /* The generic command set, the ones shipped with the plugin, linked into it
  * from src/visca-profiles, and the user's, read from the "visca-profiles"
@@ -1242,8 +1242,13 @@ visca_profile_from_json(const QJsonObject &json,
  * can't be read is left out, and why is in the log. */
 static QList<std::shared_ptr<const ViscaProfile>>
 visca_load_profiles(const QDir &dir, const char *where, const QList<std::shared_ptr<const ViscaProfile>> &known,
-		    bool replace)
+		    bool replace, QMap<QString, QString> *errors)
 {
+	auto warn = [&](const QString &file, const QString &why) {
+		blog(LOG_WARNING, "%s/%s: %s", where, QT_TO_UTF8(file), QT_TO_UTF8(why));
+		if (errors)
+			errors->insert(file, why);
+	};
 	QMap<QString, QJsonObject> pending;
 	for (const QFileInfo &info : dir.entryInfoList({"*.json"}, QDir::Files, QDir::Name)) {
 		QFile file(info.filePath());
@@ -1252,8 +1257,8 @@ visca_load_profiles(const QDir &dir, const char *where, const QList<std::shared_
 		if (file.open(QIODevice::ReadOnly))
 			json = QJsonDocument::fromJson(file.readAll(), &parseError);
 		if (!json.isObject()) {
-			blog(LOG_WARNING, "%s/%s: can't be read: %s", where, QT_TO_UTF8(info.fileName()),
-			     QT_TO_UTF8((file.isOpen() ? parseError.errorString() : file.errorString())));
+			warn(info.fileName(),
+			     "can't be read: " + (file.isOpen() ? parseError.errorString() : file.errorString()));
 			continue;
 		}
 		pending.insert(info.fileName(), json.object());
@@ -1286,7 +1291,7 @@ visca_load_profiles(const QDir &dir, const char *where, const QList<std::shared_
 					error = QString("there is already a \"%1\" command set").arg(profile->id);
 			}
 			if (!error.isEmpty()) {
-				blog(LOG_WARNING, "%s/%s: %s", where, QT_TO_UTF8(i.key()), QT_TO_UTF8(error));
+				warn(i.key(), error);
 			} else if (replaces) {
 				blog(LOG_INFO, "%s/%s: the %s command set, instead of the one shipped", where,
 				     QT_TO_UTF8(i.key()), QT_TO_UTF8(profile->id));
@@ -1301,7 +1306,12 @@ visca_load_profiles(const QDir &dir, const char *where, const QList<std::shared_
 		}
 	}
 	for (auto i = pending.begin(); i != pending.end(); i++)
-		blog(LOG_WARNING, "%s/%s: there is no \"%s\" command set for it to extend", where, QT_TO_UTF8(i.key()),
-		     QT_TO_UTF8(i->value("extends").toString()));
+		warn(i.key(),
+		     QString("there is no \"%1\" command set for it to extend").arg(i->value("extends").toString()));
 	return loaded;
+}
+
+QList<std::shared_ptr<const ViscaProfile>> visca_load_shipped_profiles(const QDir &dir, QMap<QString, QString> *errors)
+{
+	return visca_load_profiles(dir, QT_TO_UTF8(dir.path()), {visca_generic_profile()}, false, errors);
 }

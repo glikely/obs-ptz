@@ -9,6 +9,7 @@
 #include <functional>
 #include <memory>
 #include <optional>
+#include <QDir>
 #include <QJsonObject>
 #include "protocol-helpers.hpp"
 
@@ -74,6 +75,10 @@ std::shared_ptr<const ViscaProfile> visca_generic_profile();
 QList<std::shared_ptr<const ViscaProfile>> visca_profiles();
 std::shared_ptr<const ViscaProfile> visca_profile_for_model(int vendor_id, int model_id);
 std::shared_ptr<const ViscaProfile> visca_profile(const QString &id);
+/* The command sets in `dir`, read as the ones shipped with the plugin are:
+ * each can extend the generic one, or another in `dir`. Why any that can't
+ * be read can't be is in `errors`, by its file's name. */
+QList<std::shared_ptr<const ViscaProfile>> visca_load_shipped_profiles(const QDir &dir, QMap<QString, QString> *errors);
 /* A command set read from JSON. `base` finds the one it extends, by its id.
  * Null if it isn't one, and why in `error`. One `shipped` with the plugin
  * can have controls and triggers the one it extends doesn't; a user's, only

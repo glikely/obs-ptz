@@ -1,0 +1,10 @@
+{
+  "id": "a-fine",
+  "source": "A test of the checks: tests/visca-profile-check",
+  "models": [
+    "0123:0001"
+  ],
+  "remove": [
+    "low_latency"
+  ]
+}
