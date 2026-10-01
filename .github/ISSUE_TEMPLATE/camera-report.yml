@@ -8,6 +8,8 @@ body:
       value: |
         Thanks for sending in your camera. To make a report, open **Tools → PTZ Devices** in OBS, pick the camera, and press **Create Camera Report…** under Diagnostics. When it's done, **Open Issue Page** copies the report and brings you here: paste it into the Report box below.
 
+        Can't run OBS with the plugin, or it can't talk to the camera at all? [`ptz-probe`](https://github.com/glikely/obs-ptz/tree/main/scripts/ptz-probe) makes the same report without OBS: run it, and paste the file it writes.
+
         A report has the camera's make, model and firmware version, and what it answered. It has nothing that identifies you or the camera, nor where either is. But this issue is public, and anyone can see it came from your GitHub account, so look the report over before you send it.
   - type: input
     id: camera

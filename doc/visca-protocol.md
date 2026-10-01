@@ -184,6 +184,10 @@ or presses **Open Issue Page**, which copies it and opens the plugin's issue for
 (`.github/ISSUE_TEMPLATE/camera-report.yml`) in their browser, for them to paste it into.
 GitHub is the only place reports are sent in.
 
+For anyone who can't run the plugin, or whose camera it can't talk to,
+`scripts/ptz-probe/ptz-probe.py` makes the same report without OBS: one Python file, which needs nothing else,
+and talks to the camera and nothing else (see its README).
+
 ### What making one does
 
 The device's `camera_report` trigger asks the camera, one at a time, for everything
@@ -200,6 +204,7 @@ and the device's `ptz_get_camera_report` proc hands back the last report made, a
 ### What is in one
 
 - `report`, `format`: `"obs-ptz camera report"`, and 1, this format's version.
+- `made_by`: `ptz-probe`, in a report it made; not in one the plugin made.
 - `plugin_version`, `os` (`Linux`, `macOS` or `Windows`), and `type`, the device's (`visca-over-tcp`, say).
 - `protocol`: `visca`.
 - `camera`: the `vendor_id`, `model_id` and `rom_version` the camera says it has, in hex,

@@ -6,6 +6,9 @@ VISCA-over-IP (UDP), which led to the fixes in `src/ptz-visca.cpp` and
 directory, with a camera's IP address as the argument, e.g.
 `python3 gap.py 192.168.16.11`.
 
+To find out what a camera has, for a command set for it, use
+`scripts/ptz-probe` instead, which makes the plugin's camera report.
+
 They bind local UDP port 52381, the same as the plugin (a Sony sends its
 replies to that port whatever port a request came from), so **quit OBS
 first**.
