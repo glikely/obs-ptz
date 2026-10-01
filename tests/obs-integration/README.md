@@ -222,6 +222,11 @@ actually work end to end.
     has a device isn't offered, and that the dialog says when it has
     finished looking. Needs a network interface that can multicast and
     broadcast, as cameras are found over the network, not loopback.
+27. `test_visca_profiles.py` covers choosing a VISCA camera's command set:
+    that a `ptzsim` that says it is a BirdDog P100 (`--visca-model`) is
+    asked for nothing it doesn't have, by the syntax errors `ptzsim` counts
+    in its `/state` output, and that the `visca_profile` setting can name
+    the generic one instead.
 
 ## Running locally
 
