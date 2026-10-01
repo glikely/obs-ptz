@@ -72,3 +72,94 @@ Instead, it treats the TCP socket as a UART port and uses exactly the same frami
 
 The controller establishes a TCP connection with the device in the normal way.
 Once the TCP socket is established is uses the UART protocol init sequence to initialize the device.
+
+## Command Sets
+
+Cameras don't all have the same commands and inquiries, and not every camera
+that has one means the same by it.
+What the plugin sends a camera comes from its command set (`ViscaProfile`, in `src/ptz-visca-commands.cpp`),
+which has:
+
+- **Controls**: a state value (`wb_mode`, `focus_af_enabled`, ...),
+  the command that sets it, or a command for each value it can be set to,
+  and the inquiries that read it, best first.
+  When a camera answers an inquiry with a syntax error,
+  the next one is used for everything it read.
+  A block inquiry reads many values at once, so it comes first where it has one.
+- **Actions**: what the driver moves the camera and uses its presets with
+  (`pantilt_drive`, `pantilt_abs`, `pantilt_rel`, `pantilt_home`, `zoom_drive`, `zoom_abs`,
+  `focus_drive`, `focus_onetouch`, `zoom_focus_abs`, `memory_reset`, `memory_set`, `memory_recall`).
+- **Triggers**: commands sent as they are by the `ptz_trigger` proc (`wb_onepush`).
+
+The "Command Set" setting, in the advanced settings, chooses it.
+On "Automatic", the default, the plugin asks the camera what it is with the version inquiry,
+before anything else, and uses the command set for that vendor and model ID,
+or the generic one, which has everything and finds out what a camera doesn't have
+from the syntax errors it answers with.
+The built-in command sets are the generic one and one for the BirdDog P100.
+
+### A user's command sets
+
+A command set can be added in a JSON file in the `visca-profiles` directory of the plugin's config
+(`plugin_config/obs-ptz/visca-profiles/` in OBS's config directory).
+They are read when OBS starts, and the log says what was read from each file, or why it couldn't be.
+A command set extends another, the generic one unless it says, and changes some of what that one has.
+For example (the auto tracking commands are made up):
+
+```json
+{
+  "id": "my-camera",
+  "name": "My Camera",
+  "extends": "generic",
+  "models": ["0001:0513"],
+  "remove": ["low_latency"],
+  "controls": [
+    {
+      "key": "user_auto_tracking",
+      "set": {"cmd": "81010a1100ff", "args": [{"type": "flag", "offset": 4}]},
+      "reads": [{"cmd": "81090a11ff", "results": [{"type": "flag", "offset": 2}]}]
+    },
+    {
+      "key": "wb_mode",
+      "reads": [{"cmd": "81090435ff", "results": [{"type": "u4", "offset": 2}]}]
+    }
+  ],
+  "actions": {
+    "pantilt_home": "81010604ff"
+  },
+  "triggers": {
+    "user_ir_reset": "8101060505ff"
+  }
+}
+```
+
+- `id`: lower case letters, numbers and dashes. What the setting has for it,
+  and what another command set's `extends` names.
+- `name`: what the setting shows. The `id` if there isn't one.
+- `models`: the cameras "Automatic" chooses it for, by vendor and model ID in hex.
+  A user's command set is chosen over a built-in one for the same model.
+- `remove`: controls, actions and triggers it doesn't have.
+- `controls`: each replaces what the command set it extends does for its `key`,
+  with whichever of `set`, `set_to` and `reads` it has.
+  `set_to` is a command for each value: `{"1": "8101043802ff", "0": "8101043803ff"}`.
+  A key the command set it extends doesn't have must start with `user_`,
+  so it is never one the plugin has; it is in the device's state like any other.
+- `actions`: commands for the driver, which must take as many arguments as the generic one's.
+- `triggers`: a name the command set it extends doesn't have must start with `user_`.
+
+A command is its bytes in hex, to camera 1 (they're readdressed for a serial bus),
+or an object with them as `cmd` and:
+
+- `args` (or `results`, for an inquiry): the fields the value is in, each a `type`,
+  the `offset` of its first byte, the address byte being 0, in the command (or in the inquiry's reply),
+  and a `key` if it isn't the control's. The types are:
+  - `u4` and `u7`: a value in the low 4 or 7 bits of one byte;
+  - `u8`, `u16` and `s16`: one in the low 4 bits of each of 2 or 4 bytes, the VISCA way;
+  - `u15`: one in the low 7 bits of each of 2 bytes;
+  - `s4` and `s7`: a speed and direction, as the zoom and pan/tilt drive commands have them;
+  - `flag`: 2 for on, 3 for off;
+  - `int` and `bool`: the bits a `mask` says, across as many bytes as it has
+    (and `"signed": true` for a signed `int`).
+- `affects`: the keys to read again once the camera has done it, the control's if it doesn't say.
+- `assumes`: the state the camera is in once it has taken the command, for one that can't be read back:
+  `{"user_lamp": true}`.
