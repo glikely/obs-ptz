@@ -1093,7 +1093,7 @@ struct DiscoverAxis {
 	double dir;
 };
 static const DiscoverAxis visca_discover_steps[] = {
-	{"pan_pos", -1}, {"pan_pos", 1},  {"tilt_pos", -1},  {"tilt_pos", 1},
+	{"pan_pos", -1},  {"pan_pos", 1},  {"tilt_pos", -1},  {"tilt_pos", 1},
 	{"zoom_pos", -1}, {"zoom_pos", 1}, {"focus_pos", -1}, {"focus_pos", 1},
 };
 static constexpr int VISCA_DISCOVER_STEPS = sizeof(visca_discover_steps) / sizeof(visca_discover_steps[0]);
@@ -1176,7 +1176,8 @@ void PTZVisca::discover_tick()
 	discover_ticks++;
 	discover_stable = (discover_ticks > 1 && pos == discover_last) ? discover_stable + 1 : 0;
 	discover_last = pos;
-	if (discover_stable >= VISCA_DISCOVER_STABLE_TICKS || discover_ticks >= VISCA_DISCOVER_MAX_TICKS || !isConnected()) {
+	if (discover_stable >= VISCA_DISCOVER_STABLE_TICKS || discover_ticks >= VISCA_DISCOVER_MAX_TICKS ||
+	    !isConnected()) {
 		stop();
 		discover_step++;
 		discover_begin_step();
@@ -1210,7 +1211,9 @@ void PTZVisca::discover_finish()
 		 visca_zoom_range, visca_focus_far, visca_focus_near);
 
 	/* Back where it was, in the new ranges */
-	auto start = [this](const char *key) { return discover_start.value(key, 0); };
+	auto start = [this](const char *key) {
+		return discover_start.value(key, 0);
+	};
 	if (discover_start.contains("pan_pos") && discover_start.contains("tilt_pos"))
 		pantilt_abs(start("pan_pos") / (double)visca_pan_range, start("tilt_pos") / (double)visca_tilt_range);
 	if (focused && discover_start.contains("zoom_pos"))
