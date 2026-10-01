@@ -671,6 +671,18 @@ const ViscaControl *ViscaProfile::control(const QString &key) const
 	return nullptr;
 }
 
+ViscaControl *ViscaProfile::control(const QString &key)
+{
+	return const_cast<ViscaControl *>(std::as_const(*this).control(key));
+}
+
+void ViscaProfile::remove(const QString &key)
+{
+	controls.removeIf([&](const ViscaControl &control) { return control.key == key; });
+	actions.remove(key);
+	triggers.remove(key);
+}
+
 /* Everything above, for a camera nothing more is known about. What it
  * doesn't have, it answers with a syntax error. */
 std::shared_ptr<const ViscaProfile> visca_generic_profile()
@@ -687,9 +699,28 @@ std::shared_ptr<const ViscaProfile> visca_generic_profile()
 	return generic;
 }
 
+/* A BirdDog P100 has none of the block inquiries, no green tally lamp, and
+ * no reading the red one back */
+static std::shared_ptr<const ViscaProfile> visca_birddog_p100_profile()
+{
+	static const auto p100 = [] {
+		auto profile = std::make_shared<ViscaProfile>(*visca_generic_profile());
+		profile->id = "birddog-p100";
+		profile->name = "BirdDog P100";
+		profile->models = {0x0109 << 16 | 0x2020};
+		const QByteArray block = QByteArray::fromHex("81097e7e");
+		for (auto &control : profile->controls)
+			control.reads.removeIf([&](const PTZInq &inq) { return inq.cmd.startsWith(block); });
+		profile->remove("tally_preview");
+		profile->control("tally_on")->reads.clear();
+		return std::shared_ptr<const ViscaProfile>(profile);
+	}();
+	return p100;
+}
+
 QList<std::shared_ptr<const ViscaProfile>> visca_profiles()
 {
-	return {visca_generic_profile()};
+	return {visca_generic_profile(), visca_birddog_p100_profile()};
 }
 
 std::shared_ptr<const ViscaProfile> visca_profile_for_model(int vendor_id, int model_id)
