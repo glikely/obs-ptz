@@ -8,7 +8,7 @@
 #include <qt-wrappers.hpp>
 #include "ptz-visca-tcp.hpp"
 
-ViscaTCPTransport::ViscaTCPTransport()
+ViscaTCPTransport::ViscaTCPTransport(bool dvip) : dvip(dvip), port(default_port())
 {
 	visca_socket.setSocketOption(QAbstractSocket::KeepAliveOption, 1);
 	connect(&visca_socket, &QTcpSocket::readyRead, this, &ViscaTCPTransport::poll);
@@ -29,7 +29,10 @@ void ViscaTCPTransport::on_socket_stateChanged(QAbstractSocket::SocketState stat
 		QTimer::singleShot(1900, this, &ViscaTCPTransport::connectSocket);
 		break;
 	case QAbstractSocket::ConnectedState:
-		blog(LOG_INFO, "VISCA_over_TCP %s:%i connected", qPrintable(effectiveHost()), port);
+		/* what was left of a packet on the last connection */
+		rxbuffer.clear();
+		blog(LOG_INFO, "%s %s:%i connected", dvip ? "DVIP" : "VISCA_over_TCP", qPrintable(effectiveHost()),
+		     port);
 		emit reset();
 		break;
 	default:
@@ -48,7 +51,20 @@ void ViscaTCPTransport::send(const QByteArray &msg, unsigned int address)
 	Q_UNUSED(address);
 	if (visca_socket.state() == QAbstractSocket::UnconnectedState)
 		connectSocket();
-	visca_socket.write(msg);
+	write(msg);
+}
+
+void ViscaTCPTransport::write(const QByteArray &packet)
+{
+	if (dvip) {
+		int length = packet.size() + 2;
+		QByteArray framed;
+		framed.append((char)(length >> 8));
+		framed.append((char)length);
+		visca_socket.write(framed + packet);
+		return;
+	}
+	visca_socket.write(packet);
 }
 
 void ViscaTCPTransport::receive_datagram(const QByteArray &packet)
@@ -66,7 +82,7 @@ void ViscaTCPTransport::receive_datagram(const QByteArray &packet)
 			break;
 		case 8:
 			/* network change, trigger a change */
-			visca_socket.write(VISCA_ENUMERATE.cmd);
+			write(VISCA_ENUMERATE.cmd);
 			break;
 		default:
 			break;
@@ -78,6 +94,22 @@ void ViscaTCPTransport::receive_datagram(const QByteArray &packet)
 
 void ViscaTCPTransport::poll()
 {
+	if (dvip) {
+		rxbuffer += visca_socket.readAll();
+		while (rxbuffer.size() >= 2) {
+			int length = (uint8_t)rxbuffer[0] << 8 | (uint8_t)rxbuffer[1];
+			/* Lost track of where packets start: start again */
+			if (length < 3) {
+				rxbuffer.clear();
+				break;
+			}
+			if (rxbuffer.size() < length)
+				break;
+			receive_datagram(rxbuffer.mid(2, length - 2));
+			rxbuffer.remove(0, length);
+		}
+		return;
+	}
 	for (auto b : visca_socket.readAll()) {
 		rxbuffer += b;
 		if ((b & 0xff) == 0xff) {
@@ -106,7 +138,7 @@ void ViscaTCPTransport::update(OBSData config)
 	if (!port)
 		port = (int)obs_data_get_int(config, "port"); /* legacy schema */
 	if (!port)
-		port = 5678;
+		port = default_port();
 
 	connectSocket();
 }
