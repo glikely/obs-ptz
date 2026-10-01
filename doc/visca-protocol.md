@@ -96,7 +96,9 @@ On "Automatic", the default, the plugin asks the camera what it is with the vers
 before anything else, and uses the command set for that vendor and model ID,
 or the generic one, which has everything and finds out what a camera doesn't have
 from the syntax errors it answers with.
-The built-in command sets are the generic one and one for the BirdDog P100.
+The generic command set is built into the plugin's code.
+The others shipped with it are JSON files in `src/visca-profiles/`, in the same format as a user's (below),
+linked into the plugin as Qt resources when it is built: a camera is added by adding a file there.
 
 ### A user's command sets
 
@@ -135,6 +137,7 @@ For example (the auto tracking commands are made up):
 
 - `id`: lower case letters, numbers and dashes. What the setting has for it,
   and what another command set's `extends` names.
+  A user's command set with the `id` of one shipped with the plugin, but the generic one, is used instead of it.
 - `name`: what the setting shows. The `id` if there isn't one.
 - `models`: the cameras "Automatic" chooses it for, by vendor and model ID in hex.
   A user's command set is chosen over a built-in one for the same model.

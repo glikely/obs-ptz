@@ -704,22 +704,31 @@ std::shared_ptr<const ViscaProfile> visca_generic_profile()
 }
 
 static QList<std::shared_ptr<const ViscaProfile>>
-visca_load_profiles(const QDir &dir, const char *where, const QList<std::shared_ptr<const ViscaProfile>> &known);
+visca_load_profiles(const QDir &dir, const char *where, const QList<std::shared_ptr<const ViscaProfile>> &known,
+		    bool replace);
 
 /* The generic command set, the ones shipped with the plugin, linked into it
  * from src/visca-profiles, and the user's, read from the "visca-profiles"
  * directory of the plugin's config the first time any is needed. The user's
  * come first, so that one for a camera's model is chosen over a shipped
- * one for it. */
+ * one for it, and one of the user's with a shipped one's id replaces it. */
 QList<std::shared_ptr<const ViscaProfile>> visca_profiles()
 {
 	static const auto profiles = [] {
 		QList<std::shared_ptr<const ViscaProfile>> builtin = {visca_generic_profile()};
-		builtin += visca_load_profiles(QDir(":/visca-profiles"), ":/visca-profiles", builtin);
+		builtin += visca_load_profiles(QDir(":/visca-profiles"), ":/visca-profiles", builtin, false);
 		char *path = obs_module_config_path("visca-profiles");
 		const QDir dir(QString::fromUtf8(path));
 		bfree(path);
-		return visca_load_profiles(dir, "visca-profiles", builtin) + builtin;
+		auto user = visca_load_profiles(dir, "visca-profiles", builtin, true);
+		builtin.removeIf([&](const std::shared_ptr<const ViscaProfile> &shipped) {
+			for (const auto &profile : user) {
+				if (profile->id == shipped->id)
+					return true;
+			}
+			return false;
+		});
+		return user + builtin;
 	}();
 	return profiles;
 }
@@ -1030,10 +1039,12 @@ visca_profile_from_json(const QJsonObject &json,
 }
 
 /* The command sets in `dir`, a JSON file each, which the log calls `where`.
- * One can extend one of `known`, or another in `dir`. One that can't be read
- * is left out, and why is in the log. */
+ * One can extend one of `known`, or another in `dir`, and if `replace`, have
+ * the id of one of `known` but the generic one, to be used instead of it.
+ * One that can't be read is left out, and why is in the log. */
 static QList<std::shared_ptr<const ViscaProfile>>
-visca_load_profiles(const QDir &dir, const char *where, const QList<std::shared_ptr<const ViscaProfile>> &known)
+visca_load_profiles(const QDir &dir, const char *where, const QList<std::shared_ptr<const ViscaProfile>> &known,
+		    bool replace)
 {
 	QMap<QString, QJsonObject> pending;
 	for (const QFileInfo &info : dir.entryInfoList({"*.json"}, QDir::Files, QDir::Name)) {
@@ -1069,10 +1080,19 @@ visca_load_profiles(const QDir &dir, const char *where, const QList<std::shared_
 			}
 			QString error;
 			auto profile = visca_profile_from_json(*i, find, &error);
-			if (profile && find(profile->id))
-				error = QString("there is already a \"%1\" command set").arg(profile->id);
+			bool replaces = false;
+			if (profile) {
+				auto same = find(profile->id);
+				replaces = same && replace && !loaded.contains(same) && profile->id != "generic";
+				if (same && !replaces)
+					error = QString("there is already a \"%1\" command set").arg(profile->id);
+			}
 			if (!error.isEmpty()) {
 				blog(LOG_WARNING, "%s/%s: %s", where, QT_TO_UTF8(i.key()), QT_TO_UTF8(error));
+			} else if (replaces) {
+				blog(LOG_INFO, "%s/%s: the %s command set, instead of the one shipped", where,
+				     QT_TO_UTF8(i.key()), QT_TO_UTF8(profile->id));
+				loaded.append(profile);
 			} else {
 				blog(LOG_INFO, "%s/%s: the %s command set", where, QT_TO_UTF8(i.key()),
 				     QT_TO_UTF8(profile->id));
