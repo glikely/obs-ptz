@@ -52,6 +52,9 @@ struct ViscaProfile {
 	QMap<QString, PTZCmd> triggers;
 
 	const ViscaControl *control(const QString &key) const;
+	ViscaControl *control(const QString &key);
+	/* Takes away a control, action or trigger */
+	void remove(const QString &key);
 };
 
 std::shared_ptr<const ViscaProfile> visca_generic_profile();
