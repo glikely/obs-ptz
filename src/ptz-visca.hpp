@@ -89,8 +89,6 @@ class PTZVisca : public PTZDevice {
 public:
 	static const QMap<int, std::string> viscaVendors;
 	static const QMap<int, std::string> viscaModels;
-	static const QMap<QString, PTZInq> inquires;
-	static const QMap<QString, PTZInq> inquiresFallback;
 
 protected:
 	unsigned int timeout_retry = 0;
@@ -164,6 +162,7 @@ protected:
 	void scan_commands();
 	void write_replies_to_log();
 	void update_position(OBSData decoded);
+	void mark_all_stale();
 	void reset();
 
 protected slots:
