@@ -98,6 +98,19 @@ it back to `update()` on load. An action on the camera that isn't a state
 change (a one-push white balance, a diagnostic) goes through the `ptz_trigger`
 proc instead.
 
+## What a device can do
+
+A `PTZDevice` says what it can do with `features()`, flags the UI enables
+controls by: the dock's buttons, the camera list's menu, the state view's
+diagnostics. They are in its state as `"features"`, an object with the name of
+each it can do true (`PTZDevice::featureNames()`). A new driver overrides
+`features()`, with only what it really does: a control for something it doesn't
+is shown disabled, not left to do nothing. One that only finds out once it is
+talking to the camera (ONVIF's imaging service, a UVC camera's controls, a VISCA
+camera's command set) calls `featuresChanged()` when it does. A device without
+`"features"` predates them, and the UI takes it to do anything. A new feature is
+an addition to the API, as a state key is.
+
 ## PTZ API version
 
 The procs and signals in `docs/ptz-device-api.md` are an API other plugins
