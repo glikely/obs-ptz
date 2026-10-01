@@ -75,8 +75,10 @@ QList<std::shared_ptr<const ViscaProfile>> visca_profiles();
 std::shared_ptr<const ViscaProfile> visca_profile_for_model(int vendor_id, int model_id);
 std::shared_ptr<const ViscaProfile> visca_profile(const QString &id);
 /* A command set read from JSON. `base` finds the one it extends, by its id.
- * Null if it isn't one, and why in `error`. */
+ * Null if it isn't one, and why in `error`. One `shipped` with the plugin
+ * can have controls and triggers the one it extends doesn't; a user's, only
+ * ones named "user_...". */
 std::shared_ptr<const ViscaProfile>
 visca_profile_from_json(const QJsonObject &json,
-			const std::function<std::shared_ptr<const ViscaProfile>(const QString &)> &base,
-			QString *error);
+			const std::function<std::shared_ptr<const ViscaProfile>(const QString &)> &base, QString *error,
+			bool shipped = false);

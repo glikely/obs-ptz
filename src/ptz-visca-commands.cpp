@@ -866,6 +866,9 @@ class ViscaProfileReader {
 public:
 	/* Why what was read isn't a command set: the first thing found */
 	QString error;
+	/* Whether it is shipped with the plugin, so can have new controls and
+	 * triggers by any name */
+	bool shipped = false;
 
 	void fail(const QString &why)
 	{
@@ -964,7 +967,7 @@ public:
 	{
 		const QString key = json["key"].toString();
 		ViscaControl *existing = profile.control(key);
-		if (!existing && !key.startsWith("user_")) {
+		if (!existing && !shipped && !key.startsWith("user_")) {
 			fail(QString("\"%1\" is a new control, but doesn't start with \"user_\"").arg(key));
 			return false;
 		}
@@ -1079,7 +1082,7 @@ public:
 	/* A trigger's command, which is sent as it is */
 	bool trigger(ViscaProfile &profile, const QString &name, const QJsonValue &json)
 	{
-		if (!profile.triggers.contains(name) && !name.startsWith("user_")) {
+		if (!profile.triggers.contains(name) && !shipped && !name.startsWith("user_")) {
 			fail(QString("\"%1\" is a new trigger, but doesn't start with \"user_\"").arg(name));
 			return false;
 		}
@@ -1178,9 +1181,11 @@ public:
 
 std::shared_ptr<const ViscaProfile>
 visca_profile_from_json(const QJsonObject &json,
-			const std::function<std::shared_ptr<const ViscaProfile>(const QString &)> &base, QString *error)
+			const std::function<std::shared_ptr<const ViscaProfile>(const QString &)> &base, QString *error,
+			bool shipped)
 {
 	ViscaProfileReader reader;
+	reader.shipped = shipped;
 	auto profile = reader.profile(json, base);
 	if (!profile && error)
 		*error = reader.error;
@@ -1188,9 +1193,10 @@ visca_profile_from_json(const QJsonObject &json,
 }
 
 /* The command sets in `dir`, a JSON file each, which the log calls `where`.
- * One can extend one of `known`, or another in `dir`, and if `replace`, have
- * the id of one of `known` but the generic one, to be used instead of it.
- * One that can't be read is left out, and why is in the log. */
+ * One can extend one of `known`, or another in `dir`. If they are a user's,
+ * `replace`, one can have the id of one of `known` but the generic one, to
+ * be used instead of it; if not, they are shipped with the plugin. One that
+ * can't be read is left out, and why is in the log. */
 static QList<std::shared_ptr<const ViscaProfile>>
 visca_load_profiles(const QDir &dir, const char *where, const QList<std::shared_ptr<const ViscaProfile>> &known,
 		    bool replace)
@@ -1228,7 +1234,7 @@ visca_load_profiles(const QDir &dir, const char *where, const QList<std::shared_
 				continue;
 			}
 			QString error;
-			auto profile = visca_profile_from_json(*i, find, &error);
+			auto profile = visca_profile_from_json(*i, find, &error, !replace);
 			bool replaces = false;
 			if (profile) {
 				auto same = find(profile->id);

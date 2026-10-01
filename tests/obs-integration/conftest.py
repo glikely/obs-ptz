@@ -293,6 +293,14 @@ VISCA_PROFILES = {
         "models": ["0123:0005"],
         "controls": [{"key": "ae_mode", "set": None}],
     },
+    # One with a new state value that isn't named "user_...", which only a
+    # command set shipped with the plugin can have: left out
+    "unprefixed.json": {
+        "id": "test-unprefixed",
+        "models": ["0123:0006"],
+        "controls": [{"key": "auto_tracking",
+                      "reads": [{"cmd": "81090a11ff", "results": [{"type": "flag", "offset": 2}]}]}],
+    },
     # One with a command that isn't hex, which is left out
     "broken.json": {
         "id": "broken",
