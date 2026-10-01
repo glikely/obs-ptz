@@ -28,6 +28,9 @@ OBSData variantMapToOBSData(const QVariantMap &map)
 		case QMetaType::UShort:
 			obs_data_set_int(data, QT_TO_UTF8(iter.key()), iter.value().toLongLong());
 			break;
+		case QMetaType::Bool:
+			obs_data_set_bool(data, QT_TO_UTF8(iter.key()), iter.value().toBool());
+			break;
 		case QMetaType::Float:
 			obs_data_set_double(data, QT_TO_UTF8(iter.key()), iter.value().toFloat());
 			break;

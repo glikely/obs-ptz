@@ -21,10 +21,6 @@ extern const PTZCmd VISCA_CAM_WB_OnePushTrigger;
 extern const PTZCmd VISCA_CAM_Memory_Reset;
 extern const PTZCmd VISCA_CAM_Memory_Set;
 extern const PTZCmd VISCA_CAM_Memory_Recall;
-extern const PTZCmd VISCA_CAM_Tally_On;
-extern const PTZCmd VISCA_CAM_Tally_Off;
-extern const PTZCmd VISCA_CAM_TallyGreen_On;
-extern const PTZCmd VISCA_CAM_TallyGreen_Off;
 extern const PTZCmd VISCA_PanTilt_drive;
 extern const PTZCmd VISCA_PanTilt_drive_abs;
 extern const PTZCmd VISCA_PanTilt_drive_rel;
@@ -59,4 +55,3 @@ struct ViscaControl {
 
 extern const QList<ViscaControl> visca_controls;
 const ViscaControl *visca_control(const QString &key);
-const char *visca_tally_key(const QByteArray &cmd);

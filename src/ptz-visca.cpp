@@ -582,19 +582,16 @@ void PTZVisca::cmd_get_camera_info()
 	send_pending();
 }
 
-/* There is no reading a tally lamp back from every camera that has one, so
- * it is what the last tally command that the camera took set it to. That is
- * when it is ACKed: some cameras never say it has completed. A camera that
- * can be asked overrides it with what it says. */
-void PTZVisca::update_tally_state(const QByteArray &cmd)
+/* The state a command sets that can't be read back is what it was set to,
+ * from when the camera ACKs the command: some cameras never say it has
+ * completed. */
+void PTZVisca::apply_assumed(const PTZCmd &cmd)
 {
-	const char *tally = visca_tally_key(cmd);
-	if (!tally)
+	if (cmd.assumes.isEmpty())
 		return;
-	OBSDataAutoRelease lamp = obs_data_create();
-	obs_data_set_bool(lamp, tally, cmd[6] == 0x02);
-	obs_data_apply(state, lamp);
-	obs_data_apply(stateChanged, lamp);
+	OBSData assumed = variantMapToOBSData(cmd.assumes);
+	obs_data_apply(state, assumed);
+	obs_data_apply(stateChanged, assumed);
 	notifyStateChanged();
 }
 
@@ -613,7 +610,7 @@ void PTZVisca::receive(const QByteArray &msg)
 	case VISCA_RESPONSE_ACK:
 		setConnected(true);
 		if (active_cmd[0].has_value())
-			update_tally_state(active_cmd[0]->cmd);
+			apply_assumed(*active_cmd[0]);
 		busy_retries = 0;
 		busy_backoff_ms = 0;
 		if (slot != 0) {
@@ -641,7 +638,7 @@ void PTZVisca::receive(const QByteArray &msg)
 		for (const auto &key : active_cmd[slot]->affects)
 			stale_state += key;
 
-		update_tally_state(active_cmd[slot]->cmd);
+		apply_assumed(*active_cmd[slot]);
 
 		/* Log Inquiry Replies */
 		inq = active_cmd[slot]->cmd;
@@ -692,7 +689,7 @@ void PTZVisca::receive(const QByteArray &msg)
 				stale_state -= rslt->name;
 			/* An inquiry the camera doesn't have: read what it
 			 * covers with the next inquiry for each, if there is one */
-			if (visca_tally_key(active_cmd[0]->cmd) && msg.size() > 2 && msg[2] == VISCA_ERROR_SYNTAX)
+			if (!active_cmd[0]->assumes.isEmpty() && msg.size() > 2 && msg[2] == VISCA_ERROR_SYNTAX)
 				unsupported_requests.insert(active_cmd[0]->cmd);
 			if (active_cmd[0]->isInquiry() && msg.size() > 2 && msg[2] == VISCA_ERROR_SYNTAX) {
 				const QByteArray unsupported = active_cmd[0]->cmd;
@@ -747,19 +744,16 @@ void PTZVisca::requestState(OBSData requested)
 		};
 		send(VISCA_CAM_AFMode_ActiveIntervalTime, {time("focus_af_move_time"), time("focus_af_interval_time")});
 	}
-	if (obs_data_has_user_value(requested, "tally_on"))
-		sendTally(false, obs_data_get_bool(requested, "tally_on"));
-	if (obs_data_has_user_value(requested, "tally_preview"))
-		sendTally(true, obs_data_get_bool(requested, "tally_preview"));
 	PTZDevice::requestState(rest.Get());
 }
 
-/* Sends what sets a state value to `value`, if it can be set to that */
+/* Sends what sets a state value to `value`, if it can be set to that. Not
+ * if the camera has said it doesn't have the command. */
 void PTZVisca::set_control(const ViscaControl &control, int value)
 {
 	if (control.set)
 		send(*control.set, {value});
-	else if (control.setTo.contains(value))
+	else if (control.setTo.contains(value) && !unsupported_requests.contains(control.setTo.constFind(value)->cmd))
 		send(*control.setTo.constFind(value));
 }
 
@@ -767,16 +761,6 @@ void PTZVisca::set_control(const QString &key, int value)
 {
 	if (const ViscaControl *control = visca_control(key))
 		set_control(*control, value);
-}
-
-/* Turns a tally lamp on or off, the green one if `green`, the red one if
- * not. Not if the camera has said it doesn't have it. */
-void PTZVisca::sendTally(bool green, bool on)
-{
-	const PTZCmd &cmd = green ? (on ? VISCA_CAM_TallyGreen_On : VISCA_CAM_TallyGreen_Off)
-				  : (on ? VISCA_CAM_Tally_On : VISCA_CAM_Tally_Off);
-	if (!unsupported_requests.contains(cmd.cmd))
-		send(cmd);
 }
 
 /* Lights the red tally lamp while the source is in the program scene, and
@@ -791,9 +775,9 @@ void PTZVisca::onSceneChanged()
 	if (!tally_auto)
 		return;
 	if (live != was_red)
-		sendTally(false, live);
+		set_control("tally_on", live);
 	if ((preview && !live) != was_green)
-		sendTally(true, preview && !live);
+		set_control("tally_preview", preview && !live);
 }
 
 /* Powers the camera on once OBS itself has finished loading, for anyone

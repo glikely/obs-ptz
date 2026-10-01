@@ -462,20 +462,9 @@ const PTZInq VISCA_CAM_TallyInq("81097e010aff", {new visca_flag("tally_on", 2)})
 /* The green tally lamp, which BirdDog documents for its X4 series (a P100
  * answers it with a syntax error), so it is not on every camera that has
  * the red one above. Neither has an inquiry on a BirdDog, so nothing reads
- * a lamp back: see PTZVisca::receive() for how the state follows them. */
+ * a lamp back: the state follows the commands (see visca_controls). */
 const PTZCmd VISCA_CAM_TallyGreen_On("81017e041a0002ff");
 const PTZCmd VISCA_CAM_TallyGreen_Off("81017e041a0003ff");
-
-/* The state a tally lamp command sets, if it is one: red is "tally_on", the
- * program lamp; green is "tally_preview". */
-const char *visca_tally_key(const QByteArray &cmd)
-{
-	if (cmd == VISCA_CAM_Tally_On.cmd || cmd == VISCA_CAM_Tally_Off.cmd)
-		return "tally_on";
-	if (cmd == VISCA_CAM_TallyGreen_On.cmd || cmd == VISCA_CAM_TallyGreen_Off.cmd)
-		return "tally_preview";
-	return nullptr;
-}
 
 /* The on-screen menu can only be closed, not opened, over VISCA */
 const PTZCmd VISCA_SYSMenu_Off("8101060603ff", "menu_on");
@@ -557,6 +546,13 @@ const QMap<int, std::string> PTZVisca::viscaModels = {
 	{0x25740a30, "CAM520 Pro2"},
 };
 
+/* A command, that sets the state to `value` once the camera has taken it */
+static PTZCmd assuming(PTZCmd cmd, const char *key, const QVariant &value)
+{
+	cmd.assumes.insert(key, value);
+	return cmd;
+}
+
 /* Every state value the camera has, how it is set, and how it is read. A
  * value is set by the command's one argument, a bool for an on/off one, or by
  * a command for each value it can be set to (the menu can only be closed). In
@@ -623,7 +619,16 @@ const QList<ViscaControl> visca_controls = {
 	{"menu_on", {{0, VISCA_SYSMenu_Off}}, {VISCA_SYSMenuInq}},
 	{"ir_condition", std::nullopt, {VISCA_IRConditionInq}},
 	{"pantilt_move_status", std::nullopt, {VISCA_PanTilt_ModeInq}},
-	{"tally_on", std::nullopt, {VISCA_CAM_TallyInq}},
+	/* There is no reading a tally lamp back from every camera that has
+	 * one, so it is what the last tally command that the camera took set
+	 * it to. A camera that can be asked overrides it with what it says.
+	 * Red is the program lamp, green the preview lamp. */
+	{"tally_on",
+	 {{1, assuming(VISCA_CAM_Tally_On, "tally_on", true)}, {0, assuming(VISCA_CAM_Tally_Off, "tally_on", false)}},
+	 {VISCA_CAM_TallyInq}},
+	{"tally_preview",
+	 {{1, assuming(VISCA_CAM_TallyGreen_On, "tally_preview", true)},
+	  {0, assuming(VISCA_CAM_TallyGreen_Off, "tally_preview", false)}}},
 };
 
 const ViscaControl *visca_control(const QString &key)
