@@ -21,6 +21,7 @@
 #include "ptz-visca-udp.hpp"
 #include "ptz-visca-tcp.hpp"
 #include "ptz-onvif.hpp"
+#include "ptz-onvif-discovery.hpp"
 #include "ptz-usb-cam.hpp"
 #include "ptz.h"
 #include "protocol-helpers.hpp"
@@ -1233,6 +1234,7 @@ void ptz_load_devices()
 #endif /* ENABLE_SERIALPORT */
 #if defined(ENABLE_ONVIF)
 	ptz_onvif_register_filter();
+	ptz_onvif_register_discovery();
 #endif /* ENABLE_ONVIF */
 #if defined(ENABLE_USB_CAM)
 	ptz_usb_cam_register_filter();
