@@ -20,6 +20,7 @@
 #define VISCA_PACKET_SENDER(pkt) ((unsigned)((pkt)[0] & 0x70) >> 4)
 
 extern const PTZCmd VISCA_ENUMERATE;
+struct ViscaControl;
 
 /* How far a camera moves and zooms, as the plugin assumes it until told
  * otherwise (the "visca_*_range" settings, or discover_limits()): what 1.0
@@ -163,6 +164,8 @@ protected:
 	void write_replies_to_log();
 	void update_position(OBSData decoded);
 	void mark_all_stale();
+	void set_control(const ViscaControl &control, int value);
+	void set_control(const QString &key, int value);
 	void reset();
 
 protected slots:

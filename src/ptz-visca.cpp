@@ -723,8 +723,11 @@ void PTZVisca::receive(const QByteArray &msg)
 
 void PTZVisca::requestState(OBSData requested)
 {
+	/* What is left for PTZDevice to act on */
+	OBSDataAutoRelease rest = obs_data_create();
+	obs_data_apply(rest, requested);
 	for (const auto &control : visca_controls) {
-		if (!control.set || !obs_data_has_user_value(requested, QT_TO_UTF8(control.key)))
+		if (!control.settable() || !obs_data_has_user_value(requested, QT_TO_UTF8(control.key)))
 			continue;
 		/* An on/off value can be asked for as a number, and a number
 		 * as a bool, by whoever doesn't know which it is */
@@ -732,7 +735,8 @@ void PTZVisca::requestState(OBSData requested)
 		int value = obs_data_item_gettype(item) == OBS_DATA_BOOLEAN ? obs_data_item_get_bool(item)
 									    : (int)obs_data_item_get_int(item);
 		obs_data_item_release(&item);
-		send(*control.set, {value});
+		set_control(control, value);
+		obs_data_erase(rest, QT_TO_UTF8(control.key));
 	}
 	/* Both AF times are set by one command, so one asked for on its own
 	 * keeps the other where the camera has it */
@@ -743,13 +747,26 @@ void PTZVisca::requestState(OBSData requested)
 		};
 		send(VISCA_CAM_AFMode_ActiveIntervalTime, {time("focus_af_move_time"), time("focus_af_interval_time")});
 	}
-	if (obs_data_has_user_value(requested, "menu_on") && !obs_data_get_bool(requested, "menu_on"))
-		send(VISCA_SYSMenu_Off);
 	if (obs_data_has_user_value(requested, "tally_on"))
 		sendTally(false, obs_data_get_bool(requested, "tally_on"));
 	if (obs_data_has_user_value(requested, "tally_preview"))
 		sendTally(true, obs_data_get_bool(requested, "tally_preview"));
-	PTZDevice::requestState(requested);
+	PTZDevice::requestState(rest.Get());
+}
+
+/* Sends what sets a state value to `value`, if it can be set to that */
+void PTZVisca::set_control(const ViscaControl &control, int value)
+{
+	if (control.set)
+		send(*control.set, {value});
+	else if (control.setTo.contains(value))
+		send(*control.setTo.constFind(value));
+}
+
+void PTZVisca::set_control(const QString &key, int value)
+{
+	if (const ViscaControl *control = visca_control(key))
+		set_control(*control, value);
 }
 
 /* Turns a tally lamp on or off, the green one if `green`, the red one if
@@ -937,8 +954,7 @@ void PTZVisca::zoom_abs(double pos_)
 
 void PTZVisca::set_autofocus(bool enabled)
 {
-	send(enabled ? VISCA_CAM_Focus_Auto : VISCA_CAM_Focus_Manual);
-	obs_data_set_bool(state, "focus_af_enabled", enabled);
+	set_control("focus_af_enabled", enabled);
 }
 
 void PTZVisca::focus_onetouch()
