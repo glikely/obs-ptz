@@ -1,0 +1,170 @@
+{
+  "id": "birddog",
+  "name": "BirdDog",
+  "models": [
+    "0109:*"
+  ],
+  "source": "BirdDog's own block inquiries, 7e 7e 15 (camera details) and 7e 7e 17 (pan, tilt and zoom), as Bitfocus' BirdDog PTZ Companion module (github.com/bitfocus/companion-module-birddog-ptz, index.js, MIT licensed) sends them to every BirdDog camera and reads their replies; tried first, before the inquiries a camera answers them with a syntax error would fall back to. Not yet verified against a camera.",
+  "controls": [
+    {
+      "key": "power_on",
+      "reads": [
+        {
+          "cmd": "81097e7e15ff",
+          "results": [
+            {
+              "type": "flag",
+              "offset": 13
+            }
+          ]
+        },
+        {
+          "cmd": "81090400ff",
+          "results": [
+            {
+              "type": "flag",
+              "offset": 2
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "key": "focus_af_enabled",
+      "reads": [
+        {
+          "cmd": "81097e7e15ff",
+          "results": [
+            {
+              "type": "flag",
+              "offset": 12
+            }
+          ]
+        },
+        {
+          "cmd": "81090438ff",
+          "results": [
+            {
+              "type": "flag",
+              "offset": 2
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "key": "pan_pos",
+      "reads": [
+        {
+          "cmd": "81097e7e17ff",
+          "results": [
+            {
+              "type": "s16",
+              "offset": 3,
+              "key": "pan_pos"
+            },
+            {
+              "type": "s16",
+              "offset": 7,
+              "key": "tilt_pos"
+            },
+            {
+              "type": "u16",
+              "offset": 11,
+              "key": "zoom_pos"
+            }
+          ]
+        },
+        {
+          "cmd": "81090612ff",
+          "results": [
+            {
+              "type": "s16",
+              "offset": 2,
+              "key": "pan_pos"
+            },
+            {
+              "type": "s16",
+              "offset": 6,
+              "key": "tilt_pos"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "key": "tilt_pos",
+      "reads": [
+        {
+          "cmd": "81097e7e17ff",
+          "results": [
+            {
+              "type": "s16",
+              "offset": 3,
+              "key": "pan_pos"
+            },
+            {
+              "type": "s16",
+              "offset": 7,
+              "key": "tilt_pos"
+            },
+            {
+              "type": "u16",
+              "offset": 11,
+              "key": "zoom_pos"
+            }
+          ]
+        },
+        {
+          "cmd": "81090612ff",
+          "results": [
+            {
+              "type": "s16",
+              "offset": 2,
+              "key": "pan_pos"
+            },
+            {
+              "type": "s16",
+              "offset": 6,
+              "key": "tilt_pos"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "key": "zoom_pos",
+      "reads": [
+        {
+          "cmd": "81097e7e17ff",
+          "results": [
+            {
+              "type": "s16",
+              "offset": 3,
+              "key": "pan_pos"
+            },
+            {
+              "type": "s16",
+              "offset": 7,
+              "key": "tilt_pos"
+            },
+            {
+              "type": "u16",
+              "offset": 11,
+              "key": "zoom_pos"
+            }
+          ]
+        },
+        {
+          "cmd": "81090447ff",
+          "results": [
+            {
+              "type": "u16",
+              "offset": 2
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
