@@ -215,6 +215,13 @@ actually work end to end.
     that was on a source of the same name; and that Remove removes a
     filter's device.
     Drives the dialogs through `tests/ui-harness/device-backup-test.cpp`.
+26. `test_device_discovery.py` covers the Add dialog's "Detected devices":
+    that a camera found by ONVIF's WS-Discovery, or by Sony's VISCA-over-IP
+    setup protocol (a `ptzsim` started with `--sony-discovery-name`), is
+    offered and added as a filter set up to reach it, that one which already
+    has a device isn't offered, and that the dialog says when it has
+    finished looking. Needs a network interface that can multicast and
+    broadcast, as cameras are found over the network, not loopback.
 
 ## Running locally
 
