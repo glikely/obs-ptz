@@ -232,8 +232,10 @@ actually work end to end.
     before OBS starts (`VISCA_PROFILES`): that one adds a `user_` state
     value that is read and set, and a `user_` trigger, takes away a built-in
     one, and can extend another, and that one that can't be read is left
-    out; and that the dock offers no zoom buttons for a camera whose command
-    set has no zoom drive.
+    out; that the dock offers no zoom buttons for a camera whose command
+    set has no zoom drive; that every command set shipped in
+    `src/visca-profiles` is offered by the settings, so is linked in and
+    read; and that one of the user's with a shipped one's id replaces it.
 28. `test_device_features.py` covers what a device says it can do, the
     `"features"` in its state, for VISCA, Pelco and ONVIF, and that the
     PTZ Controls dock enables only the controls for them, read through

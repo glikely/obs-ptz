@@ -279,6 +279,14 @@ VISCA_PROFILES = {
         "models": ["0123:0002"],
         "remove": ["user_wb"],
     },
+    # The BirdDog P100's, which is shipped with the plugin, as it is but
+    # also for a test model, and without one of the state values, which
+    # replaces the shipped one
+    "birddog-p100.json": {
+        **json.loads((REPO_ROOT / "src" / "visca-profiles" / "birddog-p100.json").read_text()),
+        "models": ["0109:2020", "0123:0004"],
+        "remove": ["tally_preview", "low_latency"],
+    },
     # One with a command that isn't hex, which is left out
     "broken.json": {
         "id": "broken",
@@ -541,7 +549,8 @@ class World:
         ("save_keys"), and what its PTZ filter (if it has one) would
         persist ("filter_keys"), via tests/ui-harness/device-settings-test.cpp's
         "get_device_settings" test. Also returns what saving it wrote, with
-        its values, as "saved"."""
+        its values, as "saved", and what each string list property offers,
+        as "lists": {key: [value, ...]}."""
         if out_file.exists():
             out_file.unlink()
         self.run_ui_test("get_device_settings", device_id=device_id, filename=str(out_file))
@@ -549,6 +558,7 @@ class World:
         raw = json.loads(out_file.read_text())
         keys = {name: {e["key"] for e in raw.get(name, [])} for name in ("property_keys", "save_keys", "filter_keys")}
         keys["saved"] = raw.get("saved", {})
+        keys["lists"] = {e["key"]: [v["value"] for v in e["values"]] for e in raw.get("lists", [])}
         return keys
 
     def device_state(self, device_id, out_file):

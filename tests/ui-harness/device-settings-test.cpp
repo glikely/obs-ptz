@@ -37,6 +37,31 @@ void collectValueKeys(obs_properties_t *props, QStringList &keys)
 	}
 }
 
+/* Adds each string list property, and the values it offers, to `out`, as
+ * {"key", "values": [...]}, descending into groups */
+void collectStringLists(obs_properties_t *props, obs_data_array_t *out)
+{
+	for (obs_property_t *p = obs_properties_first(props); p; obs_property_next(&p)) {
+		if (obs_property_get_type(p) == OBS_PROPERTY_GROUP) {
+			collectStringLists(obs_property_group_content(p), out);
+			continue;
+		}
+		if (obs_property_get_type(p) != OBS_PROPERTY_LIST ||
+		    obs_property_list_format(p) != OBS_COMBO_FORMAT_STRING)
+			continue;
+		OBSDataArrayAutoRelease values = obs_data_array_create();
+		for (size_t i = 0; i < obs_property_list_item_count(p); i++) {
+			OBSDataAutoRelease value = obs_data_create();
+			obs_data_set_string(value, "value", obs_property_list_item_string(p, i));
+			obs_data_array_push_back(values, value);
+		}
+		OBSDataAutoRelease entry = obs_data_create();
+		obs_data_set_string(entry, "key", obs_property_name(p));
+		obs_data_set_array(entry, "values", values);
+		obs_data_array_push_back(out, entry);
+	}
+}
+
 /* The keys of the settings that would be persisted for a device's PTZ
  * filter, after obs_source_save() has given the filter's .save its say:
  * what the scene collection would hold. Adds nothing if the device isn't
@@ -92,8 +117,10 @@ void runGetDeviceSettingsTest(const QMap<QString, QString> &params)
 	}
 
 	QStringList propertyKeys;
+	OBSDataArrayAutoRelease listArray = obs_data_array_create();
 	obs_properties_t *props = ptzDeviceList->getProperties(index);
 	collectValueKeys(props, propertyKeys);
+	collectStringLists(props, listArray);
 	obs_properties_destroy(props);
 
 	OBSDataAutoRelease saved = obs_data_create();
@@ -119,6 +146,7 @@ void runGetDeviceSettingsTest(const QMap<QString, QString> &params)
 	obs_data_set_array(result, "property_keys", propertyArray);
 	obs_data_set_array(result, "save_keys", saveArray);
 	obs_data_set_array(result, "filter_keys", filterArray);
+	obs_data_set_array(result, "lists", listArray);
 	obs_data_set_obj(result, "saved", saved);
 	if (!obs_data_save_json_safe(result, qUtf8Printable(filename), "tmp", "bak"))
 		blog(LOG_INFO, "[ptz-ui-test] get_device_settings: failed to write %s", qUtf8Printable(filename));
@@ -130,7 +158,9 @@ void runGetDeviceSettingsTest(const QMap<QString, QString> &params)
  *   device_id - the target device's numeric id
  *   filename  - where to write the {"property_keys": [{"key"}...],
  *               "save_keys": [{"key"}...], "filter_keys": [{"key"}...],
- *               "saved": {...what save() wrote, with its values}} JSON
+ *               "saved": {...what save() wrote, with its values},
+ *               "lists": [{"key", "values": [{"value"}...]}...], what
+ *               each string list property offers} JSON
  *               result. filter_keys is empty unless a PTZ filter owns the
  *               device
  */
