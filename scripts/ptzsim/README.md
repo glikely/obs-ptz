@@ -87,6 +87,7 @@ below), or the simulator itself under "Detected devices":
 | Protocol           | Host/Port field                              |
 |--------------------|-----------------------------------------------|
 | VISCA (over TCP)   | host = the machine running `ptzsim`, port 5678 |
+| VISCA (Datavideo DVIP) | with `--visca-dvip-port PORT`, host = the machine running `ptzsim`, that port |
 | VISCA (over IP/UDP)| host = the machine running `ptzsim`, port 52381 |
 | VISCA (serial)     | the printed `/tmp/ptzsim-visca-serial` path (or `--visca-serial-path`) |
 | Pelco              | the printed `/tmp/ptzsim-pelco-serial` path (or `--pelco-serial-path`), device ID matching `--pelco-address` (default 1) |

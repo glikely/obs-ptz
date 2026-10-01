@@ -771,37 +771,76 @@ class ViscaCameraLogic:
 # ---------------------------------------------------------------------------
 # TCP transport: raw VISCA datagrams terminated by 0xff.
 # ---------------------------------------------------------------------------
+class DvipFramer:
+    """Datavideo's DVIP: each packet after its length, the length's own 2
+    bytes included, in 2 bytes, big endian. Calls on_frame() with each
+    packet's VISCA datagram, without its trailing 0xff."""
+
+    def __init__(self, on_frame):
+        self.on_frame = on_frame
+        self._buf = bytearray()
+
+    def feed(self, data):
+        self._buf += data
+        while len(self._buf) >= 2:
+            length = int.from_bytes(self._buf[:2], 'big')
+            if length < 3:
+                print('[visca-dvip] bad length', length)
+                self._buf.clear()
+                return
+            if len(self._buf) < length:
+                return
+            packet = bytes(self._buf[2:length])
+            del self._buf[:length]
+            if packet.endswith(b'\xff'):
+                self.on_frame(packet[:-1])
+
+
+def dvip_frame(packet):
+    return (len(packet) + 2).to_bytes(2, 'big') + packet
+
+
 class ViscaTcpConnection(asyncio.Protocol):
-    def __init__(self, state):
+    """VISCA over TCP, or if `dvip`, Datavideo's DVIP: each packet, both
+    ways, after its length"""
+
+    def __init__(self, state, dvip=False):
         self.logic = ViscaCameraLogic(state)
-        self.framer = DatagramFramer(self._on_datagram)
+        self.dvip = dvip
+        self.name = 'visca-dvip' if dvip else 'visca-tcp'
+        self.framer = DvipFramer(self._on_datagram) if dvip else DatagramFramer(self._on_datagram)
 
     def connection_made(self, transport):
         self.transport = transport
-        print('[visca-tcp] connection from', transport.get_extra_info('peername'))
+        print(f'[{self.name}] connection from', transport.get_extra_info('peername'))
         for reply in self.logic.hello():
-            self.transport.write(reply)
+            self._write(reply)
 
     def data_received(self, data):
         self.framer.feed(data)
 
     def _on_datagram(self, dg):
         for reply in self.logic.handle_datagram(dg):
-            self.transport.write(reply)
+            self._write(reply)
+
+    def _write(self, reply):
+        self.transport.write(dvip_frame(reply) if self.dvip else reply)
 
 
 class ViscaTcpServer:
-    def __init__(self, state, host='', port=5678):
+    def __init__(self, state, host='', port=5678, dvip=False):
         self.state = state
         self.host = host
         self.port = port
+        self.dvip = dvip
         self._server = None
 
     async def start(self, loop):
         state = self.state
-        self._server = await loop.create_server(lambda: ViscaTcpConnection(state),
+        dvip = self.dvip
+        self._server = await loop.create_server(lambda: ViscaTcpConnection(state, dvip),
                                                   self.host, self.port)
-        print(f'[visca-tcp] serving on {self._server.sockets[0].getsockname()}')
+        print(f'[{"visca-dvip" if dvip else "visca-tcp"}] serving on {self._server.sockets[0].getsockname()}')
 
     def stop(self):
         if self._server:
@@ -1002,8 +1041,11 @@ class ViscaBackend(Backend):
     """Umbrella backend: starts whichever VISCA transports are configured.
     Pass a falsy port/path to skip that transport."""
 
-    def __init__(self, state, host='', tcp_port=5678, udp_port=52381, serial_path=None, udp_quirks=None):
+    def __init__(self, state, host='', tcp_port=5678, udp_port=52381, serial_path=None, udp_quirks=None,
+                 dvip_port=0):
         self.state = state
+        self.dvip_port = dvip_port
+        self._dvip = None
         self.udp_quirks = udp_quirks
         self.host = host
         self.tcp_port = tcp_port
@@ -1017,6 +1059,9 @@ class ViscaBackend(Backend):
         if self.tcp_port:
             self._tcp = ViscaTcpServer(self.state, self.host, self.tcp_port)
             await self._tcp.start(loop)
+        if self.dvip_port:
+            self._dvip = ViscaTcpServer(self.state, self.host, self.dvip_port, dvip=True)
+            await self._dvip.start(loop)
         if self.udp_port:
             self._udp = ViscaUdpServer(self.state, self.host, self.udp_port, self.udp_quirks)
             await self._udp.start(loop)
@@ -1027,6 +1072,8 @@ class ViscaBackend(Backend):
     def stop(self):
         if self._tcp:
             self._tcp.stop()
+        if self._dvip:
+            self._dvip.stop()
         if self._udp:
             self._udp.stop()
         if self._serial:

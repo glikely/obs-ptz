@@ -98,6 +98,9 @@ def parse_args():
     ap.add_argument("--visca-tcp-port", type=int, default=5678,
                      help="VISCA-over-TCP listen port")
     ap.add_argument("--no-visca-tcp", action="store_true", help="disable VISCA-over-TCP")
+    ap.add_argument("--visca-dvip-port", type=int, default=0,
+                     help="Datavideo DVIP (VISCA over TCP, with each packet's length before it) "
+                          "listen port, as a Datavideo camera has on 5002 (default: none)")
     ap.add_argument("--visca-udp-port", type=int, default=52381,
                      help="VISCA-over-IP (UDP) listen port")
     ap.add_argument("--no-visca-udp", action="store_true", help="disable VISCA-over-IP")
@@ -193,10 +196,10 @@ def main():
         tcp_port = 0 if args.no_visca_tcp else args.visca_tcp_port
         udp_port = 0 if args.no_visca_udp else args.visca_udp_port
         serial_path = None if args.no_visca_serial else args.visca_serial_path
-        if tcp_port or udp_port or serial_path:
+        if tcp_port or udp_port or serial_path or args.visca_dvip_port:
             quirks = SonyUdpQuirks() if args.visca_udp_sony_quirks else None
             state.visca_udp_stats = quirks.stats if quirks else None
-            visca = ViscaBackend(state, args.host, tcp_port, udp_port, serial_path, quirks)
+            visca = ViscaBackend(state, args.host, tcp_port, udp_port, serial_path, quirks, args.visca_dvip_port)
             loop.run_until_complete(visca.start(loop))
             backends.append(visca)
         else:
