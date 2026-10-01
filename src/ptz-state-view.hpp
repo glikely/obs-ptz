@@ -65,6 +65,8 @@ signals:
 	/* The user asked for a one-shot action that isn't a state, by its
 	 * ptz_trigger name ("wb_onepush", say) */
 	void actionRequested(const QString &action);
+	/* The user asked for a camera report (see PTZCameraReportDialog) */
+	void cameraReportRequested();
 
 private:
 	static constexpr int AxisCount = 4;

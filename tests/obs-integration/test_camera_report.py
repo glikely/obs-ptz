@@ -7,6 +7,7 @@ it may identify the camera, its user, or where either is.
 """
 
 import json
+import urllib.parse
 
 from test_visca_profiles import camera
 
@@ -118,3 +119,67 @@ def test_a_report_drafts_a_command_set_for_the_camera(request, obs_world, tmp_pa
     assert set(draft["remove_inquiries"]) <= failed
     # everything it can set, it took
     assert draft["controls"] == []
+
+
+def dialog(obs_world, out_file, predicate=lambda d: True, timeout=60):
+    """What the camera report dialog shows, once `predicate` says it shows
+    what it should"""
+    def read():
+        if out_file.exists():
+            out_file.unlink()
+        obs_world.run_ui_test("camera_report_dialog", action="read", filename=str(out_file))
+        obs_world.wait_for(out_file.exists)
+        return json.loads(out_file.read_text())
+    shown = None
+
+    def shows():
+        nonlocal shown
+        shown = read()
+        return shown["open"] and predicate(shown)
+    obs_world.wait_for(shows, timeout=timeout)
+    return shown
+
+
+def test_the_dialog_shows_the_report_to_save_copy_or_send(request, obs_world, tmp_path):
+    sim, _, device_id = camera(request, obs_world, tmp_path, sim_args=SONY, read={"wb_mode"})
+    request.addfinalizer(lambda: obs_world.run_ui_test("camera_report_dialog", action="close"))
+    obs_world.run_ui_test("camera_report_dialog", action="open", device_id=device_id)
+    shown = dialog(obs_world, tmp_path / "dialog.json", lambda d: d["enabled"]["copy"])
+    assert shown["enabled"] == {"save": True, "copy": True, "openIssue": True}
+    assert shown["progress"] == shown["progress_max"]
+    made = obs_world.camera_report(device_id, tmp_path / "report.json")
+    assert json.loads(shown["report"]) == made
+    assert "visca-profiles" in shown["status"]
+    url = urllib.parse.urlsplit(shown["issue_url"])
+    assert url[:3] == ("https", "github.com", "/glikely/obs-ptz/issues/new")
+    query = urllib.parse.parse_qs(url.query)
+    assert query["template"] == ["camera-report.yml"]
+    assert query["camera"] == ["Sony"]
+    assert query["plugin-version"] == [made["plugin_version"]]
+
+    obs_world.run_ui_test("camera_report_dialog", action="click", button="copy")
+    shown = dialog(obs_world, tmp_path / "copied.json", lambda d: d["clipboard"])
+    assert json.loads(shown["clipboard"]) == made
+
+
+def test_the_dialog_says_a_camera_in_standby_cant_be_asked(request, obs_world, tmp_path):
+    sim, _, device_id = camera(
+        request, obs_world, tmp_path, read={"power_on"},
+        sim_args={"model": "0109:2020",
+                  "flags": ("--visca-no-block-inquiries", "--visca-no-green-tally", "--start-in-standby")})
+    request.addfinalizer(lambda: obs_world.run_ui_test("camera_report_dialog", action="close"))
+    obs_world.run_ui_test("camera_report_dialog", action="open", device_id=device_id)
+    shown = dialog(obs_world, tmp_path / "dialog.json", lambda d: "standby" in d["status"], timeout=10)
+    assert shown["enabled"] == {"save": False, "copy": False, "openIssue": False}
+    assert sim.state()["visca_standby_inquiries"] == 0
+
+
+def test_the_dialog_says_a_camera_that_isnt_connected_cant_be_asked(request, obs_world, tmp_path):
+    sim, _, device_id = camera(request, obs_world, tmp_path, sim_args=SONY, read={"wb_mode"})
+    sim.stop()
+    obs_world.wait_for_device_state(
+        device_id, tmp_path / "gone.json", lambda r: r["state"]["connected"] is False, timeout=20)
+    request.addfinalizer(lambda: obs_world.run_ui_test("camera_report_dialog", action="close"))
+    obs_world.run_ui_test("camera_report_dialog", action="open", device_id=device_id)
+    shown = dialog(obs_world, tmp_path / "dialog.json", lambda d: "connected" in d["status"], timeout=10)
+    assert shown["enabled"] == {"save": False, "copy": False, "openIssue": False}

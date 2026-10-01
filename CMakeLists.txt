@@ -106,6 +106,7 @@ target_sources(
     src/ptz-discovery.cpp
     src/ptz-sony-discovery.cpp
     src/settings.cpp
+    src/ptz-camera-report.cpp
     src/ptz-state-view.cpp
     src/ptz-visca.cpp
     src/ptz-visca-commands.cpp
@@ -123,6 +124,7 @@ target_sources(
     src/ptz-discovery.hpp
     src/ptz-sony-discovery.hpp
     src/settings.hpp
+    src/ptz-camera-report.hpp
     src/ptz-state-view.hpp
     src/contributors-generated.hpp
     src/translators-generated.hpp
@@ -264,6 +266,7 @@ if(ENABLE_UI_TESTS)
       tests/ui-harness/preset-export-import-test.cpp
       tests/ui-harness/device-status-test.cpp
       tests/ui-harness/move-device-test.cpp
+      tests/ui-harness/camera-report-test.cpp
       tests/ui-harness/set-device-test.cpp
       tests/ui-harness/update-device-test.cpp
       tests/ui-harness/preset-view-test.cpp

@@ -8,6 +8,7 @@ dialog and reads what its two views hold (see World.settings_dialog() in
 conftest.py).
 """
 
+import json
 import time
 
 ACTION_PAN_TILT = 3
@@ -168,6 +169,31 @@ def test_scanning_inquiries_from_the_status_view(obs_world, cameras, tmp_path): 
     before = sent()
     obs_world.run_ui_test("press_dialog_button", button="scanInquiries")
     obs_world.wait_for(lambda: sent() >= before + 0x7e, timeout=20)
+
+
+def test_creating_a_camera_report_from_the_status_view(request, obs_world, cameras, tmp_path):  # noqa: F811
+    """The report dialog opens on the device shown, and makes its report"""
+    cameras.add_source(obs_world.create_scene(), "dialog-report-cam")
+    cameras.add_filter("dialog-report-cam")
+    out = tmp_path / "device.json"
+    device_id = obs_world.wait_for_device_by_name(
+        "dialog-report-cam", out, lambda r: r["found"] and r["bound"])["device_id"]
+    obs_world.wait_for_device_state(device_id, tmp_path / "state.json",
+                                    lambda r: r["state"].get("connected") is True, timeout=10)
+    open_dialog(obs_world, device_id)
+    obs_world.wait_for_settings_dialog(tmp_path / "dialog.json", lambda r: r["diagnostics_visible"])
+    request.addfinalizer(lambda: obs_world.run_ui_test("camera_report_dialog", action="close"))
+    obs_world.run_ui_test("press_dialog_button", button="cameraReport")
+    report = tmp_path / "report.json"
+
+    def made():
+        if report.exists():
+            report.unlink()
+        obs_world.run_ui_test("camera_report_dialog", action="read", filename=str(report))
+        obs_world.wait_for(report.exists)
+        shown = json.loads(report.read_text())
+        return shown["open"] and shown["enabled"]["copy"]
+    obs_world.wait_for(made, timeout=60)
 
 
 def assert_obs_alive(obs_world):

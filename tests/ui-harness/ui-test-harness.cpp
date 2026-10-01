@@ -31,6 +31,7 @@ PTZUITestHarness::PTZUITestHarness(QObject *parent) : QObject(parent)
 	registerSettingsDialogTest(this);
 	registerApiVersionTest(this);
 	registerDeviceBackupTest(this);
+	registerCameraReportTest(this);
 }
 
 void PTZUITestHarness::registerTest(const QString &name, TestFn fn)

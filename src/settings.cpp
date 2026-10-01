@@ -37,6 +37,7 @@
 #include "ptz-discovery.hpp"
 #include "ptz-controls.hpp"
 #include "settings.hpp"
+#include "ptz-camera-report.hpp"
 #include "ptz-state-view.hpp"
 #include "contributors-generated.hpp"
 #include "translators-generated.hpp"
@@ -147,6 +148,8 @@ PTZSettings::PTZSettings() : QWidget(nullptr), ui(new Ui_PTZSettings)
 	 * done as asked, and that comes back as deviceStateUpdated() */
 	connect(ui->stateView, &PTZStateView::stateRequested, this,
 		[this](OBSData requested) { ptzDeviceList->setState(ui->deviceList->currentIndex(), requested); });
+	connect(ui->stateView, &PTZStateView::cameraReportRequested, this,
+		[this]() { (new PTZCameraReportDialog(currentDeviceId(), this))->show(); });
 	connect(ui->stateView, &PTZStateView::actionRequested, this, [this](const QString &action) {
 		calldata_t cd = {};
 		calldata_set_string(&cd, "name", qUtf8Printable(action));
