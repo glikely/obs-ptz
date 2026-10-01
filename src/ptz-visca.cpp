@@ -608,6 +608,35 @@ void PTZVisca::set_profile(std::shared_ptr<const ViscaProfile> new_profile)
 	profile = new_profile;
 	unsupported_requests.clear();
 	mark_all_stale();
+	featuresChanged();
+}
+
+/* What the command set has the commands for */
+PTZDevice::Features PTZVisca::features() const
+{
+	Features features = Diagnostics;
+	const QList<QPair<const char *, Feature>> actions = {
+		{"pantilt_drive", PanTilt},  {"pantilt_abs", PanTiltAbs},
+		{"pantilt_rel", PanTiltRel}, {"pantilt_home", Home},
+		{"zoom_drive", Zoom},        {"zoom_abs", ZoomAbs},
+		{"focus_drive", Focus},      {"focus_onetouch", FocusOneTouch},
+		{"memory_recall", Presets},
+	};
+	for (const auto &[action, feature] : actions) {
+		if (profile->actions.contains(action))
+			features |= feature;
+	}
+	auto settable = [this](const char *key) {
+		const ViscaControl *control = profile->control(key);
+		return control && control->settable();
+	};
+	if (settable("focus_af_enabled"))
+		features |= AutoFocus;
+	if (settable("power_on"))
+		features |= Power;
+	if (profile->triggers.contains("wb_onepush"))
+		features |= WhiteBalanceOnePush;
+	return features;
 }
 
 /* The command set the setting asks for, or the one for the camera's model,
