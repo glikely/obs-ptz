@@ -7,6 +7,8 @@
 
 #include "ptz-visca.hpp"
 #include "ptz-visca-commands.hpp"
+#include <QJsonArray>
+#include <QRegularExpression>
 
 /* Visca specific datagram field classes */
 class visca_u4 : public int_field {
@@ -739,4 +741,283 @@ std::shared_ptr<const ViscaProfile> visca_profile(const QString &id)
 			return profile;
 	}
 	return nullptr;
+}
+
+/*
+ * Command sets read from JSON. See doc/visca-protocol.md for the format.
+ */
+
+/* The fields a command set can be made of, by type name, and how many bytes
+ * from its offset each takes. "int" and "bool" are given a mask too. */
+struct ViscaFieldType {
+	int size;
+	datagram_field *(*make)(const char *key, int offset);
+};
+
+template<typename T> static datagram_field *make_field(const char *key, int offset)
+{
+	return new T(key, offset);
+}
+
+static const QMap<QString, ViscaFieldType> visca_field_types = {
+	{"u4", {1, make_field<visca_u4>}},   {"u7", {1, make_field<visca_u7>}},   {"u8", {2, make_field<visca_u8>}},
+	{"u15", {2, make_field<visca_u15>}}, {"u16", {4, make_field<visca_u16>}}, {"s16", {4, make_field<visca_s16>}},
+	{"s4", {1, make_field<visca_s4>}},   {"s7", {3, make_field<visca_s7>}},   {"flag", {1, make_field<visca_flag>}},
+};
+
+class ViscaProfileReader {
+public:
+	/* Why what was read isn't a command set: the first thing found */
+	QString error;
+
+	void fail(const QString &why)
+	{
+		if (error.isEmpty())
+			error = why;
+	}
+
+	/* A field of a command, or a reply, `length` bytes long */
+	std::shared_ptr<datagram_field> field(const QJsonObject &json, const QString &defaultKey, int length)
+	{
+		const QString type = json["type"].toString();
+		const QByteArray key = json["key"].toString(defaultKey).toUtf8();
+		const int offset = json["offset"].toInt(-1);
+		const unsigned int mask = (unsigned int)json["mask"].toInteger(0);
+		std::shared_ptr<datagram_field> field;
+		int size = 0;
+		if (visca_field_types.contains(type)) {
+			const ViscaFieldType &fieldType = *visca_field_types.constFind(type);
+			field.reset(fieldType.make(key, offset));
+			size = fieldType.size;
+		} else if (type == "int" && mask) {
+			auto intField = std::make_shared<int_field>(key, offset, mask, json["signed"].toBool());
+			size = intField->size;
+			field = intField;
+		} else if (type == "bool" && mask && mask <= 0xff) {
+			field = std::make_shared<bool_field>(key, offset, mask);
+			size = 1;
+		} else {
+			fail(QString("field \"%1\" has no type, or not one there is").arg(QString(key)));
+			return nullptr;
+		}
+		if (key.isEmpty()) {
+			fail("a field has no key");
+			return nullptr;
+		}
+		/* after the address and the command or inquiry byte, and before
+		 * the terminator */
+		if (offset < 2 || offset + size > length - 1) {
+			fail(QString("field \"%1\" is outside its command").arg(QString(key)));
+			return nullptr;
+		}
+		return field;
+	}
+
+	/* A command, or an inquiry if `inquiry`: its bytes in hex, or an object
+	 * with them as "cmd" and its fields as "args" (or "results" for an
+	 * inquiry). The fields' key, and the one it affects, is `key` unless
+	 * they say. */
+	std::optional<PTZCmd> command(const QJsonValue &value, const QString &key, bool inquiry)
+	{
+		const QJsonObject json = value.isString() ? QJsonObject{{"cmd", value}} : value.toObject();
+		QString hex = json["cmd"].toString();
+		hex.remove(' ').remove(':');
+		static const QRegularExpression hexBytes("^([0-9a-fA-F]{2})+$");
+		if (!hexBytes.match(hex).hasMatch()) {
+			fail(QString("\"%1\" isn't hex bytes").arg(json["cmd"].toString()));
+			return std::nullopt;
+		}
+		PTZCmd cmd("");
+		cmd.cmd = QByteArray::fromHex(hex.toLatin1());
+		const QByteArray &bytes = cmd.cmd;
+		const QString what = QString(inquiry ? "inquiry " : "command ") + hex;
+		if (bytes.size() < 3 || bytes.size() > 16)
+			fail(what + " is not 3 to 16 bytes long");
+		else if (bytes.indexOf('\xff') != bytes.size() - 1)
+			fail(what + " doesn't end in ff, or has another before");
+		else if ((uint8_t)bytes[0] != 0x81)
+			fail(what + " isn't to camera 1 (81)");
+		else if ((uint8_t)bytes[1] != (inquiry ? 0x09 : 0x01))
+			fail(what + (inquiry ? " isn't an inquiry (09)" : " isn't a command (01)"));
+		if (!error.isEmpty())
+			return std::nullopt;
+
+		/* An inquiry's fields are in its reply, which is up to 16 bytes */
+		for (const auto value : json[inquiry ? "results" : "args"].toArray()) {
+			auto f = field(value.toObject(), key, inquiry ? 16 : bytes.size());
+			if (!f)
+				return std::nullopt;
+			(inquiry ? cmd.results : cmd.args).append(f);
+		}
+		if (json.contains("affects")) {
+			for (const auto affected : json["affects"].toArray())
+				cmd.affects.append(affected.toString());
+		} else if (!inquiry && !key.isEmpty()) {
+			cmd.affects = {key};
+		}
+		cmd.assumes = json["assumes"].toObject().toVariantMap();
+		return cmd;
+	}
+
+	/* A control, over what the profile already has for its key, if it has
+	 * one: what it says how to do replaces how the profile does it */
+	bool control(ViscaProfile &profile, const QJsonObject &json)
+	{
+		const QString key = json["key"].toString();
+		ViscaControl *existing = profile.control(key);
+		if (!existing && !key.startsWith("user_")) {
+			fail(QString("\"%1\" is a new control, but doesn't start with \"user_\"").arg(key));
+			return false;
+		}
+		ViscaControl control = existing ? *existing : ViscaControl(key, std::nullopt);
+		if (json.contains("set")) {
+			control.setTo.clear();
+			control.set = command(json["set"], key, false);
+			if (!control.set)
+				return false;
+		}
+		if (json.contains("set_to")) {
+			control.set.reset();
+			control.setTo.clear();
+			const QJsonObject setTo = json["set_to"].toObject();
+			for (auto i = setTo.begin(); i != setTo.end(); i++) {
+				bool isNumber;
+				int value = i.key().toInt(&isNumber, 0);
+				if (!isNumber) {
+					fail(QString("\"%1\" in %2's set_to isn't a number").arg(i.key(), key));
+					return false;
+				}
+				auto cmd = command(i.value(), key, false);
+				if (!cmd)
+					return false;
+				control.setTo.insert(value, *cmd);
+			}
+		}
+		if (json.contains("reads")) {
+			control.reads.clear();
+			for (const auto value : json["reads"].toArray()) {
+				auto inq = command(value, key, true);
+				if (!inq)
+					return false;
+				PTZInq read;
+				static_cast<PTZCmd &>(read) = *inq;
+				control.reads.append(read);
+			}
+		}
+		if (!control.settable() && control.reads.isEmpty()) {
+			fail(QString("%1 can be neither set nor read").arg(key));
+			return false;
+		}
+		if (existing)
+			*existing = control;
+		else
+			profile.controls.append(control);
+		return true;
+	}
+
+	/* An action's command, which replaces the profile's */
+	bool action(ViscaProfile &profile, const QString &name, const QJsonValue &json)
+	{
+		auto builtin = visca_actions.constFind(name);
+		if (builtin == visca_actions.constEnd()) {
+			fail(QString("there is no \"%1\" action").arg(name));
+			return false;
+		}
+		/* Its arguments are the ones the driver gives it, whatever its
+		 * fields are called */
+		auto cmd = command(json, "arg", false);
+		if (!cmd)
+			return false;
+		if (cmd->args.size() != builtin->args.size()) {
+			fail(QString("action %1 has %2 args, not %3")
+				     .arg(name)
+				     .arg(cmd->args.size())
+				     .arg(builtin->args.size()));
+			return false;
+		}
+		if (!json.toObject().contains("affects"))
+			cmd->affects = builtin->affects;
+		profile.actions.insert(name, *cmd);
+		return true;
+	}
+
+	/* A trigger's command, which is sent as it is */
+	bool trigger(ViscaProfile &profile, const QString &name, const QJsonValue &json)
+	{
+		if (!profile.triggers.contains(name) && !name.startsWith("user_")) {
+			fail(QString("\"%1\" is a new trigger, but doesn't start with \"user_\"").arg(name));
+			return false;
+		}
+		auto cmd = command(json, "", false);
+		if (!cmd)
+			return false;
+		if (!cmd->args.isEmpty()) {
+			fail(QString("trigger %1 has args").arg(name));
+			return false;
+		}
+		profile.triggers.insert(name, *cmd);
+		return true;
+	}
+
+	std::shared_ptr<const ViscaProfile>
+	profile(const QJsonObject &json,
+		const std::function<std::shared_ptr<const ViscaProfile>(const QString &)> &base)
+	{
+		static const QRegularExpression idChars("^[a-z0-9-]+$");
+		const QString id = json["id"].toString();
+		if (!idChars.match(id).hasMatch()) {
+			fail("its \"id\" isn't lower case letters, numbers and dashes");
+			return nullptr;
+		}
+		const QString extends = json["extends"].toString("generic");
+		auto parent = base(extends);
+		if (!parent) {
+			fail(QString("there is no \"%1\" command set for it to extend").arg(extends));
+			return nullptr;
+		}
+
+		auto profile = std::make_shared<ViscaProfile>(*parent);
+		profile->id = id;
+		profile->name = json["name"].toString(id);
+		profile->models.clear();
+		for (const auto value : json["models"].toArray()) {
+			const QStringList ids = value.toString().split(':');
+			bool vendorOk = false, modelOk = false;
+			int vendor = ids.value(0).toInt(&vendorOk, 16);
+			int model = ids.value(1).toInt(&modelOk, 16);
+			if (ids.size() != 2 || !vendorOk || !modelOk) {
+				fail(QString("model \"%1\" isn't VVVV:MMMM in hex").arg(value.toString()));
+				return nullptr;
+			}
+			profile->models.append(vendor << 16 | model);
+		}
+		for (const auto value : json["remove"].toArray())
+			profile->remove(value.toString());
+		for (const auto value : json["controls"].toArray()) {
+			if (!control(*profile, value.toObject()))
+				return nullptr;
+		}
+		const QJsonObject actions = json["actions"].toObject();
+		for (auto i = actions.begin(); i != actions.end(); i++) {
+			if (!action(*profile, i.key(), i.value()))
+				return nullptr;
+		}
+		const QJsonObject triggers = json["triggers"].toObject();
+		for (auto i = triggers.begin(); i != triggers.end(); i++) {
+			if (!trigger(*profile, i.key(), i.value()))
+				return nullptr;
+		}
+		return profile;
+	}
+};
+
+std::shared_ptr<const ViscaProfile>
+visca_profile_from_json(const QJsonObject &json,
+			const std::function<std::shared_ptr<const ViscaProfile>(const QString &)> &base, QString *error)
+{
+	ViscaProfileReader reader;
+	auto profile = reader.profile(json, base);
+	if (!profile && error)
+		*error = reader.error;
+	return profile;
 }
