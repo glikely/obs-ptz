@@ -119,3 +119,16 @@ def test_a_command_set_that_cant_be_read_is_left_out(request, obs_world, tmp_pat
     camera = Camera(request, obs_world, tmp_path, "0123:0003")
     # the generic command set, which has it
     camera.wait_for_state(lambda s: "low_latency" in s)
+
+
+def test_the_dock_offers_only_what_a_command_set_has(request, obs_world, tmp_path):
+    """The command set has no zoom drive, so the camera can't zoom at a
+    speed: the dock's zoom buttons are off, but it still pans"""
+    camera = Camera(request, obs_world, tmp_path, "0123:0001")
+    state = camera.wait_for_state(lambda s: s.get("features", {}).get("pantilt") is True)
+    assert "zoom" not in state["features"]
+    assert state["features"]["zoom_abs"] is True
+    enabled = obs_world.wait_for_dock_controls(
+        camera.device_id, tmp_path / "dock.json", lambda e: e["panTiltButton_up"])
+    assert enabled["zoomButton_tele"] is False
+    assert enabled["zoomButton_wide"] is False

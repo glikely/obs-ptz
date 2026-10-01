@@ -23,6 +23,7 @@ PTZUITestHarness::PTZUITestHarness(QObject *parent) : QObject(parent)
 	registerSetDeviceTest(this);
 	registerUpdateDeviceTest(this);
 	registerPresetViewTest(this);
+	registerDockControlsTest(this);
 	registerDeviceSourceTest(this);
 	registerDeviceSettingsTest(this);
 	registerDeviceStateTest(this);
