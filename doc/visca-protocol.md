@@ -169,3 +169,62 @@ or an object with them as `cmd` and:
 - `affects`: the keys to read again once the camera has done it, the control's if it doesn't say.
 - `assumes`: the state the camera is in once it has taken the command, for one that can't be read back:
   `{"user_lamp": true}`.
+
+## Camera Reports
+
+There are far more cameras than anyone working on the plugin has,
+and the way to know what one has is to ask it.
+**Create Camera Report…**, under Diagnostics in a camera's state in **Tools → PTZ Devices**,
+makes a report of what the camera has, for its user to look over and send in.
+The plugin never sends it anywhere: the user saves it, copies it,
+or presses **Open Issue Page**, which copies it and opens the plugin's issue form for camera reports
+(`.github/ISSUE_TEMPLATE/camera-report.yml`) in their browser, for them to paste it into.
+GitHub is the only place reports are sent in.
+
+### What making one does
+
+The device's `camera_report` trigger asks the camera, one at a time, for everything
+the generic command set and the camera's own can ask for.
+Then it sends each value the camera said it has, and can be set, back to it as the camera said it was,
+which changes nothing. It sends no moves, and doesn't send back the video format, the video output
+or low latency, which some cameras restart their video for even when they are set to what they were,
+nor the camera's ID.
+A camera in standby isn't asked anything, since some won't wake after being asked for what they can't be then.
+The state's `camera_report` says how far it has got (`running`, `done` and `total`),
+or why there is no report (`"error": "standby"`),
+and the device's `ptz_get_camera_report` proc hands back the last report made, as JSON.
+
+### What is in one
+
+- `report`, `format`: `"obs-ptz camera report"`, and 1, this format's version.
+- `plugin_version`, `os` (`Linux`, `macOS` or `Windows`), and `type`, the device's (`visca-over-tcp`, say).
+- `protocol`: `visca`.
+- `camera`: the `vendor_id`, `model_id` and `rom_version` the camera says it has, in hex,
+  and the `vendor_name` and `model_name` the plugin knows for them, if it does.
+- `command_set`: the id of the one the camera was using.
+- `inquiries`: each one asked, and its `reply`, in hex, or the `error`
+  (`syntax error`, `not executable`, `no reply`, ...).
+  A reply with the camera's ID in it has it as zeros, and says so in `masked`.
+- `commands`: each value sent back, by its `key`, the `command` sent, and the `result`:
+  `completed`, `ack` for one the camera never said it had done, or the error.
+- `buffer_full`: how often the camera said it was too busy to take a request.
+- `draft_command_set`: a command set for the camera, which its user can try by saving it
+  in their command sets (above) and restarting OBS: the generic one, for the camera's model,
+  without the inquiries it didn't answer, the commands it said it doesn't have,
+  and the values it can neither read nor set.
+  What wasn't tried, such as the moves, is as the generic one has it.
+  It has an `error` if the plugin couldn't read it as a command set.
+
+Nothing else is ever in one: not the camera's address, port or ID,
+nor the names of its device, sources or scenes, nor anything from the log.
+A report is made field by field, never by copying the state or the log,
+so a value added to the state later can't end up in it, and `tests/obs-integration/test_camera_report.py`
+checks that a report has none of the simulator's address, port, camera ID or device name.
+
+### From a report to a command set
+
+A report's `draft_command_set` is where a command set for the camera starts:
+in `src/visca-profiles/`, with an `id` and `name` for the camera,
+its `source` saying which issue its report came from and which firmware it was tried with,
+and anything the issue says about what works and what doesn't.
+A command set there for the camera's model is chosen for it automatically.
