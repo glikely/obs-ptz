@@ -6,6 +6,7 @@
  */
 
 #include <qt-wrappers.hpp>
+#include <QJsonArray>
 #include "ptz-visca.hpp"
 #include "ptz-visca-udp.hpp"
 #include "ptz-visca-tcp.hpp"
@@ -23,6 +24,10 @@ static constexpr int VISCA_DISCOVER_STABLE_TICKS = 2;
 /* How long to wait for the reply to a request before sending it again. Cameras
  * take up to ~130ms to answer, so this must be well over that. */
 static constexpr int VISCA_REPLY_TIMEOUT_MS = 250;
+/* How long a camera report waits for an answer to each thing it asks */
+static constexpr int VISCA_REPORT_WAIT_MS = 10000;
+/* ...and for the commands it sent to complete, once it has sent them all */
+static constexpr int VISCA_REPORT_SETTLE_MS = 2000;
 
 /* How frequently to ask the camera for updates */
 static constexpr int VISCA_UPDATE_PERIOD_MS = 300;
@@ -399,6 +404,15 @@ void PTZVisca::timeout()
 	 * command is waiting on its completion, which can take seconds. */
 	if (!active_cmd[0].has_value())
 		return;
+	/* A camera that doesn't answer what a report asks it once more isn't
+	 * gone: it doesn't have it */
+	if (report_next >= 0 && report_next < report_probes.size() &&
+	    active_cmd[0]->cmd == report_probes[report_next].cmd && timeout_retry >= 1) {
+		active_cmd[0] = std::nullopt;
+		report_resolve("no reply");
+		send_pending();
+		return;
+	}
 	if (isConnected() && active_cmd[0].has_value() && (timeout_retry < 3)) {
 		send_packet(active_cmd[0].value().cmd);
 		timeout_retry++;
@@ -444,6 +458,12 @@ void PTZVisca::update_timer_callback()
 			stale_state += props[poll_next++ % props.size()];
 	}
 	discover_tick();
+	/* What a report asked that never went, or was never answered, as on a
+	 * link that dropped */
+	if (report_next >= report_probes.size())
+		report_settle();
+	else if (report_next >= 0 && report_asked.elapsed() > VISCA_REPORT_WAIT_MS)
+		report_resolve("no reply");
 	send_pending();
 }
 
@@ -689,6 +709,7 @@ void PTZVisca::receive(const QByteArray &msg)
 	ptz_debug_trace("<-- %s", msg.toHex(':').data());
 	incrementStatistic("visca_recv_count");
 	int slot = msg[1] & 0x7;
+	report_answer(msg, slot);
 	QByteArray inq;
 	since_last_rx.start();
 	link_answered = true;
@@ -957,6 +978,8 @@ bool PTZVisca::runTrigger(const QString &name)
 	if (profile->triggers.contains(name))
 		send(*profile->triggers.constFind(name));
 	/* Diagnostics, for working out what a camera supports */
+	else if (name == "camera_report")
+		start_report();
 	else if (name == "scan_inquiries")
 		scan_commands();
 	else if (name == "replies_to_log")
@@ -1086,6 +1109,287 @@ void PTZVisca::memory_set(int i)
 void PTZVisca::memory_recall(int i)
 {
 	send_action("memory_recall", {i});
+}
+
+/* What a camera report asks the camera for, and sends back to it as it said
+ * it was: neither changes the camera, but some cameras restart their video
+ * for a format or output that is set again, even to what it was, and the
+ * camera's ID is its user's */
+static const QSet<QString> visca_report_unsent = {"video_format", "color_system", "low_latency", "camera_id"};
+/* What a camera report never has in a reply: the ID its user gave the camera */
+static const QSet<QString> visca_report_private = {"camera_id"};
+
+static QString visca_report_error(int code)
+{
+	switch (code) {
+	case 0x01:
+		return "message length error";
+	case VISCA_ERROR_SYNTAX:
+		return "syntax error";
+	case VISCA_ERROR_BUFFER_FULL:
+		return "buffer full";
+	case 0x04:
+		return "cancelled";
+	case 0x05:
+		return "no socket";
+	case 0x41:
+		return "not executable";
+	default:
+		return QString("error %1").arg(code, 2, 16, QChar('0'));
+	}
+}
+
+/* Starts a camera report: asks the camera for everything the generic
+ * command set and the camera's own can ask for, then sends each value it
+ * can set back to it as it said it was, which changes nothing. The camera
+ * isn't moved. A camera in standby isn't asked, since some won't wake
+ * after being asked for what they can't be then. */
+void PTZVisca::start_report()
+{
+	if (report_next >= 0 || !isConnected())
+		return;
+	if (obs_data_has_user_value(state, "power_on") && !obs_data_get_bool(state, "power_on")) {
+		report_progress("standby");
+		return;
+	}
+	report_probes.clear();
+	QSet<QByteArray> asked;
+	for (const auto &set : {visca_generic_profile(), profile}) {
+		for (const auto &control : set->controls) {
+			for (const auto &read : control.reads) {
+				if (!asked.contains(read.cmd)) {
+					asked += read.cmd;
+					report_probes.append({read.cmd});
+				}
+			}
+		}
+	}
+	ptz_info("making a camera report");
+	report_commands = false;
+	report_buffer_full = 0;
+	report_next = 0;
+	report_ask();
+}
+
+/* Asks the camera the next thing, once it has answered the last: the
+ * commands once the inquiries are done, and the report once they are */
+void PTZVisca::report_ask()
+{
+	if (report_next >= report_probes.size() && !report_commands) {
+		report_commands = true;
+		queue_report_commands();
+	}
+	if (report_next >= report_probes.size()) {
+		report_settle();
+		return;
+	}
+	PTZCmd cmd("");
+	cmd.cmd = report_probes[report_next].cmd;
+	pending_cmds.append(cmd);
+	report_asked.start();
+	report_progress();
+}
+
+/* What the camera answered to what the report asked it, before the driver
+ * acts on it */
+void PTZVisca::report_answer(const QByteArray &msg, int slot)
+{
+	if (report_next < 0)
+		return;
+	const QByteArray asked = report_next < report_probes.size() ? report_probes[report_next].cmd : QByteArray();
+	auto is = [&asked](const std::optional<PTZCmd> &cmd) {
+		return cmd.has_value() && cmd->cmd == asked;
+	};
+	/* An earlier command, ACKed, that has completed or failed since */
+	auto earlier = [this](const std::optional<PTZCmd> &cmd) -> ReportProbe * {
+		for (auto &probe : report_probes) {
+			if (cmd.has_value() && probe.cmd == cmd->cmd && probe.result == "ack")
+				return &probe;
+		}
+		return nullptr;
+	};
+	switch (msg[1] & 0xf0) {
+	case VISCA_RESPONSE_ACK:
+		if (is(active_cmd[0]))
+			report_resolve("ack");
+		break;
+	case VISCA_RESPONSE_COMPLETED:
+		if (is(active_cmd[slot]) || (!active_cmd[slot].has_value() && is(active_cmd[0])))
+			report_resolve(asked[1] == 0x09 ? "reply" : "completed", msg);
+		else if (ReportProbe *probe = earlier(active_cmd[slot]))
+			probe->result = "completed";
+		break;
+	case VISCA_RESPONSE_ERROR:
+		/* the driver asks again, until it has asked too often */
+		if (msg.size() > 2 && msg[2] == VISCA_ERROR_BUFFER_FULL) {
+			report_buffer_full++;
+			if (busy_retries < VISCA_BUSY_RETRIES_MAX)
+				break;
+		}
+		if (slot == 0 && is(active_cmd[0]))
+			report_resolve(visca_report_error(msg.size() > 2 ? (uint8_t)msg[2] : 0));
+		else if (ReportProbe *probe = earlier(active_cmd[slot]))
+			probe->result = visca_report_error(msg.size() > 2 ? (uint8_t)msg[2] : 0);
+		break;
+	}
+	if (report_next >= report_probes.size())
+		report_settle();
+}
+
+/* Once everything has been asked, the report is done when every command
+ * the camera ACKed has completed, or it has been long enough that it
+ * isn't going to: some cameras never say */
+void PTZVisca::report_settle()
+{
+	bool acked = false;
+	for (const auto &probe : report_probes)
+		acked = acked || probe.result == "ack";
+	if (!acked || report_asked.elapsed() > VISCA_REPORT_SETTLE_MS)
+		report_finish();
+}
+
+void PTZVisca::report_resolve(const QString &result, const QByteArray &reply)
+{
+	report_probes[report_next].result = result;
+	report_probes[report_next].reply = reply;
+	report_next++;
+	report_ask();
+}
+
+/* The commands that set what the camera said, each to what it said */
+void PTZVisca::queue_report_commands()
+{
+	auto generic = visca_generic_profile();
+	OBSDataAutoRelease values = obs_data_create();
+	for (const auto &probe : report_probes) {
+		if (probe.result != "reply")
+			continue;
+		for (const auto &control : generic->controls) {
+			for (const auto &read : control.reads) {
+				if (read.cmd != probe.cmd)
+					continue;
+				PTZInq inq = read;
+				OBSDataAutoRelease decoded = inq.decode(probe.reply);
+				obs_data_apply(values, decoded);
+			}
+		}
+	}
+
+	QSet<QByteArray> sent;
+	for (const auto &control : generic->controls) {
+		const QByteArray keyBytes = control.key.toUtf8();
+		const char *key = keyBytes.constData();
+		if (control.reads.isEmpty() || visca_report_unsent.contains(control.key) ||
+		    !obs_data_has_user_value(values, key))
+			continue;
+		std::optional<PTZCmd> cmd;
+		if (control.set) {
+			QList<int> args;
+			for (const auto &field : control.set->args) {
+				if (!obs_data_has_user_value(values, field->name))
+					break;
+				args += visca_value(values, field->name);
+			}
+			if (args.size() != control.set->args.size())
+				continue;
+			cmd = *control.set;
+			cmd->encode(args);
+		} else if (control.setTo.contains(visca_value(values, key))) {
+			cmd = *control.setTo.constFind(visca_value(values, key));
+		}
+		if (!cmd || sent.contains(cmd->cmd))
+			continue;
+		sent += cmd->cmd;
+		report_probes.append({cmd->cmd, control.key});
+	}
+}
+
+/* The report: what the camera says it is, and what it answered, with the
+ * ID its user gave it taken out of the replies that have it */
+void PTZVisca::report_finish()
+{
+	auto hex4 = [this](const char *key) {
+		return QString("%1").arg(obs_data_get_int(state, key), 4, 16, QChar('0'));
+	};
+	QJsonObject camera;
+	if (obs_data_has_user_value(state, "vendor_id")) {
+		camera["vendor_id"] = hex4("vendor_id");
+		camera["model_id"] = hex4("model_id");
+		camera["rom_version"] = hex4("rom_version");
+		/* the names the plugin knows for them, if it does */
+		int vendor = (int)obs_data_get_int(state, "vendor_id");
+		int model = vendor << 16 | (int)obs_data_get_int(state, "model_id");
+		if (viscaVendors.contains(vendor))
+			camera["vendor_name"] = QString::fromStdString(viscaVendors.value(vendor));
+		if (viscaModels.contains(model))
+			camera["model_name"] = QString::fromStdString(viscaModels.value(model));
+	}
+
+	QJsonArray inquiries, commands;
+	for (const auto &probe : report_probes) {
+		QJsonObject entry;
+		if (probe.cmd.size() > 1 && probe.cmd[1] == 0x09) {
+			entry["inquiry"] = QString(probe.cmd.toHex());
+			if (probe.result != "reply") {
+				entry["error"] = probe.result;
+			} else {
+				QByteArray reply = probe.reply;
+				QJsonArray masked;
+				for (const auto &set : {visca_generic_profile(), profile}) {
+					for (const auto &control : set->controls) {
+						for (const auto &read : control.reads) {
+							if (read.cmd != probe.cmd)
+								continue;
+							for (const auto &field : read.results) {
+								const QString name = QString::fromUtf8(field->name);
+								if (!visca_report_private.contains(name) ||
+								    masked.contains(name))
+									continue;
+								field->encode(reply, 0);
+								masked.append(name);
+							}
+						}
+					}
+				}
+				entry["reply"] = QString(reply.toHex());
+				if (!masked.isEmpty())
+					entry["masked"] = masked;
+			}
+			inquiries.append(entry);
+		} else {
+			entry["key"] = probe.key;
+			entry["command"] = QString(probe.cmd.toHex());
+			entry["result"] = probe.result.isEmpty() ? "no reply" : probe.result;
+			commands.append(entry);
+		}
+	}
+
+	QJsonObject report;
+	report["protocol"] = "visca";
+	report["camera"] = camera;
+	report["command_set"] = profile->id;
+	report["inquiries"] = inquiries;
+	report["commands"] = commands;
+	report["buffer_full"] = report_buffer_full;
+	last_report = report;
+	report_next = -1;
+	ptz_info("camera report made");
+	report_progress();
+}
+
+/* How far the report has got, in the state's "camera_report": whether one is
+ * being made, how much of it is done, and why one couldn't be */
+void PTZVisca::report_progress(const char *error)
+{
+	OBSDataAutoRelease progress = obs_data_create();
+	obs_data_set_bool(progress, "running", report_next >= 0);
+	obs_data_set_int(progress, "done", report_next >= 0 ? report_next : report_probes.size());
+	obs_data_set_int(progress, "total", report_probes.size());
+	if (error)
+		obs_data_set_string(progress, "error", error);
+	obs_data_set_obj(state, "camera_report", progress);
+	obs_data_set_obj(stateChanged, "camera_report", progress);
+	notifyStateChanged();
 }
 
 void ptz_visca_register_filter()
