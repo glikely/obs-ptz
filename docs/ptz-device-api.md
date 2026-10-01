@@ -86,7 +86,7 @@ _handed to listeners as `proc_handler` on the `ptz_device_create` signal._
 - `void ptz_preset_recall()`
 - `void ptz_preset_clear()`
 
-> The device's whole state and what describes it (what PTZListModel shows a device row with, too), and locking it
+> The device's whole state and what describes it (what PTZListModel shows a device row with, too), and locking it. What describes it includes "features", what the device can do: an object with the name of each it can true, from "pantilt", "zoom", "focus", "pantilt_abs", "pantilt_rel", "zoom_abs", "focus_abs", "home", "home_set", "autofocus", "focus_onetouch", "presets", "power", "wb_onepush" and "diagnostics". It can change, as a device finds out what the camera has. A device without "features" predates them.
 
 - `ptr ptz_get_state(ptr state)`
 - `void ptz_set_locked(bool locked)`

@@ -97,7 +97,13 @@ PTZDevice::PTZDevice(OBSData config, obs_source_t *filter) : QObject()
 	proc_handler_add(handler, "void ptz_preset_clear()", ptz_ph_lambda(preset_clear), this);
 
 	/* The device's whole state and what describes it (what PTZListModel
-	 * shows a device row with, too), and locking it */
+	 * shows a device row with, too), and locking it. What describes it
+	 * includes "features", what the device can do: an object with the
+	 * name of each it can true, from "pantilt", "zoom", "focus",
+	 * "pantilt_abs", "pantilt_rel", "zoom_abs", "focus_abs", "home",
+	 * "home_set", "autofocus", "focus_onetouch", "presets", "power",
+	 * "wb_onepush" and "diagnostics". It can change, as a device finds out
+	 * what the camera has. A device without "features" predates them. */
 	proc_handler_add(handler, "ptr ptz_get_state(ptr state)", ptz_ph_lambda(get_state), this);
 	proc_handler_add(handler, "void ptz_set_locked(bool locked)", ptz_ph_lambda(setLock), this);
 
@@ -560,8 +566,51 @@ void PTZDevice::saveState(OBSData out) const
 	obs_data_set_bool(out, "live", live);
 	obs_data_set_bool(out, "preview", preview);
 	obs_data_set_bool(out, "locked", locked);
+	saveFeatures(out, features());
 	obs_data_set_bool(out, "supports_set_home", supportsSetHome());
 	obs_data_set_bool(out, "supports_diagnostics", supportsDiagnostics());
+}
+
+const QList<QPair<PTZDevice::Feature, const char *>> &PTZDevice::featureNames()
+{
+	static const QList<QPair<Feature, const char *>> names = {
+		{PanTilt, "pantilt"},
+		{Zoom, "zoom"},
+		{Focus, "focus"},
+		{PanTiltAbs, "pantilt_abs"},
+		{PanTiltRel, "pantilt_rel"},
+		{ZoomAbs, "zoom_abs"},
+		{FocusAbs, "focus_abs"},
+		{Home, "home"},
+		{HomeSet, "home_set"},
+		{AutoFocus, "autofocus"},
+		{FocusOneTouch, "focus_onetouch"},
+		{Presets, "presets"},
+		{Power, "power"},
+		{WhiteBalanceOnePush, "wb_onepush"},
+		{Diagnostics, "diagnostics"},
+	};
+	return names;
+}
+
+void PTZDevice::saveFeatures(obs_data_t *data, Features features) const
+{
+	OBSDataAutoRelease names = obs_data_create();
+	for (const auto &[feature, name] : featureNames()) {
+		if (features.testFlag(feature))
+			obs_data_set_bool(names, name, true);
+	}
+	obs_data_set_obj(data, "features", names);
+}
+
+void PTZDevice::featuresChanged()
+{
+	Features now = features();
+	if (now == reportedFeatures)
+		return;
+	reportedFeatures = now;
+	saveFeatures(stateChanged, now);
+	notifyStateChanged();
 }
 
 void PTZDevice::requestState(OBSData requested)
