@@ -215,3 +215,22 @@ def test_a_camera_without_a_tilt_speed(request, obs_world, tmp_path):
                                sim_args={"model": "0001:051c", "flags": ()})
     at = moved_to(request, obs_world, tmp_path, sim, device_id, 0.5, 0.5)
     assert at["pan"] == pytest.approx(0x1100 / 0x2800, abs=0.002)
+
+
+def test_a_birddog_in_standby_is_only_asked_whether_it_still_is(request, obs_world, tmp_path):
+    """A BirdDog asked for anything but its camera details while in standby
+    won't wake, Bitfocus' BirdDog PTZ Companion module says, and ptzsim
+    imitates one that won't. The rest is read once it is on."""
+    sim, state, device_id = camera(
+        request, obs_world, tmp_path, read={"power_on"},
+        sim_args={"model": "0109:2020",
+                  "flags": ("--visca-no-block-inquiries", "--visca-no-green-tally", "--start-in-standby")})
+    assert state["power_on"] is False
+    # through a dozen of the reads of one inquiry a second, none of which
+    # may go to a camera in standby
+    time.sleep(12)
+    assert "zoom_pos" not in obs_world.device_state(device_id, tmp_path / "standby.json")["state"]
+    assert sim.state()["visca_standby_inquiries"] == 0
+    obs_world.run_ui_test("set_device_state", device_id=device_id, power_on=True)
+    sim.wait_for(lambda s: s["power"])
+    obs_world.wait_for_device_state(device_id, tmp_path / "on.json", lambda r: READ <= set(r["state"]), timeout=15)

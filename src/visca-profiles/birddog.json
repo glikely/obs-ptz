@@ -4,7 +4,7 @@
   "models": [
     "0109:*"
   ],
-  "source": "BirdDog's own block inquiries, 7e 7e 15 (camera details) and 7e 7e 17 (pan, tilt and zoom), as Bitfocus' BirdDog PTZ Companion module (github.com/bitfocus/companion-module-birddog-ptz, index.js, MIT licensed) sends them to every BirdDog camera and reads their replies; tried first, before the inquiries a camera answers them with a syntax error would fall back to. Not yet verified against a camera.",
+  "source": "BirdDog's own block inquiries, 7e 7e 15 (camera details) and 7e 7e 17 (pan, tilt and zoom), as Bitfocus' BirdDog PTZ Companion module (github.com/bitfocus/companion-module-birddog-ptz, index.js, MIT licensed) sends them to every BirdDog camera and reads their replies; tried first, before the inquiries a camera answers them with a syntax error would fall back to. In standby it is asked only for its camera details, as that module does: it says a BirdDog asked for anything else then won't wake. Not yet verified against a camera.",
   "controls": [
     {
       "key": "power_on",
@@ -166,5 +166,8 @@
         }
       ]
     }
+  ],
+  "standby_reads": [
+    "power_on"
   ]
 }
