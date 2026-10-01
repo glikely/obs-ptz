@@ -220,6 +220,15 @@ void PTZListModel::refreshDeviceState(PTZDeviceEntry *entry)
 	entry->preview = obs_data_get_bool(state, "preview");
 	entry->locked = obs_data_get_bool(state, "locked");
 	entry->supportsSetHome = obs_data_get_bool(state, "supports_set_home");
+	entry->features.reset();
+	if (obs_data_has_user_value(state, "features")) {
+		OBSDataAutoRelease features = obs_data_get_obj(state, "features");
+		entry->features = QStringList();
+		for (obs_data_item_t *item = obs_data_first(features); item; obs_data_item_next(&item)) {
+			if (obs_data_item_get_bool(item))
+				entry->features->append(QT_UTF8(obs_data_item_get_name(item)));
+		}
+	}
 	calldata_free(&cd);
 }
 
@@ -250,6 +259,14 @@ void PTZListModel::refreshPresetList(PTZDeviceEntry *entry)
 	}
 	entry->maxPresets = (int)calldata_int(&cd, "max_presets");
 	calldata_free(&cd);
+}
+
+bool PTZListModel::hasFeature(const QModelIndex &index, const char *feature)
+{
+	if (!index.isValid())
+		return false;
+	QVariant features = index.data(FeaturesRole);
+	return !features.isValid() || features.toStringList().contains(QString::fromUtf8(feature));
 }
 
 QModelIndex PTZListModel::index(int row, int column, const QModelIndex &parent) const
@@ -443,6 +460,9 @@ QVariant PTZListModel::data(const QModelIndex &index, int role) const
 
 	if (role == PTZListModel::SupportsSetHomeRole)
 		return entry->supportsSetHome;
+
+	if (role == PTZListModel::FeaturesRole)
+		return entry->features ? QVariant(*entry->features) : QVariant();
 
 	return QVariant();
 }
