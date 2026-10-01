@@ -72,7 +72,7 @@ class Tally:
     """A source with a VISCA filter pointed at `sim`, in scene `scene`, and
     another, empty scene `other` to move to."""
 
-    def __init__(self, world, sim, tmp_path, tally_auto=True):
+    def __init__(self, world, sim, tmp_path, tally_auto=True, profile="auto"):
         self.world = world
         self.sim = sim
         # OBS starts in whichever mode it was last left in
@@ -94,6 +94,7 @@ class Tally:
                 "host": "127.0.0.1",
                 "tcp_port": sim.tcp_port,
                 "tally_auto": tally_auto,
+                "visca_profile": profile,
             },
         })
         out = tmp_path / "device.json"
@@ -244,3 +245,20 @@ def test_state_follows_the_lamps_of_a_camera_that_never_completes_a_command(requ
     tally.program(tally.scene)
     obs_world.wait_for(lambda: tally.state().get("tally_on") is True, timeout=5)
     tally.wait_for_lamps(red=True, green=False)
+
+
+def test_a_datavideo_lights_both_lamps_with_one_command(request, obs_world, tmp_path):
+    """A Datavideo has one command for both lamps, red then green, and no
+    reading them back: its command set lights one without changing the
+    other, by what it last set it to"""
+    tally = make_tally(request, obs_world, tmp_path, profile="datavideo")
+    tally.studio(True)
+    tally.preview(tally.scene)
+    tally.wait_for_lamps(red=False, green=True)
+    tally.program(tally.scene)
+    tally.wait_for_lamps(red=True, green=False)
+    # off the air, still in the preview: the green lamp, and the red one off
+    tally.program(tally.other)
+    tally.wait_for_lamps(red=False, green=True)
+    state = tally.state()
+    assert (state["tally_on"], state["tally_preview"]) == (False, True)
