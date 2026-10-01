@@ -69,6 +69,18 @@ def test_settings_view_holds_only_settings(obs_world, tmp_path):
     assert not {"type", "preset_max"} & dialog["state_keys"]
 
 
+def test_settings_view_drops_the_last_devices_settings(obs_world, tmp_path):
+    """Showing another device's settings starts from nothing: none of the
+    last device's keys stay behind, even without their values"""
+    open_dialog(obs_world, obs_world.device_ids["onvif"])
+    obs_world.wait_for_settings_dialog(tmp_path / "dialog.json", lambda d: "wb_mode" in d["settings_keys"])
+
+    open_dialog(obs_world, obs_world.device_ids["visca-tcp"])
+    dialog = obs_world.wait_for_settings_dialog(tmp_path / "dialog.json",
+                                                lambda d: "tcp_port" in d["settings_keys"])
+    assert not {"wb_mode", "username", "password"} & dialog["settings_keys"]
+
+
 def test_picking_a_white_balance_in_the_status_view_changes_the_camera(obs_world, tmp_path):
     device_id = obs_world.device_ids["visca-tcp"]
     open_dialog(obs_world, device_id)
