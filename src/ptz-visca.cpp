@@ -838,6 +838,22 @@ void PTZVisca::requestState(OBSData requested)
 	PTZDevice::requestState(rest.Get());
 }
 
+/* What a state value will be once the commands waiting to be sent, or for
+ * the camera to take them, have been taken: what the last of them that says
+ * it sets it does, or else what it is */
+int PTZVisca::expected_value(const char *key) const
+{
+	for (auto cmd = pending_cmds.crbegin(); cmd != pending_cmds.crend(); cmd++) {
+		if (cmd->assumes.contains(key))
+			return cmd->assumes.value(key).toInt();
+	}
+	for (const auto &cmd : active_cmd) {
+		if (cmd && cmd->assumes.contains(key))
+			return cmd->assumes.value(key).toInt();
+	}
+	return visca_value(state, key);
+}
+
 /* Sends what sets a state value to `value`, if it can be set to that. Not
  * if the camera has said it doesn't have the command. A command that sets
  * other values too sets them to what is asked for in `requested`, or keeps
@@ -854,7 +870,7 @@ void PTZVisca::set_control(const ViscaControl &control, int value, OBSData reque
 			else if (requested && obs_data_has_user_value(requested, field->name))
 				args += visca_value(requested, field->name);
 			else
-				args += visca_value(state, field->name);
+				args += expected_value(field->name);
 			if (control.reads.isEmpty())
 				cmd.assumes.insert(field->name, field->isBool() ? QVariant(args.last() != 0)
 										: QVariant(args.last()));
