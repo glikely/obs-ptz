@@ -349,6 +349,23 @@ void PTZVisca::send(PTZCmd cmd, QList<int> args)
 	send(cmd);
 }
 
+/* Queues the command the camera has for an action, if it has one */
+void PTZVisca::queue_action(const QString &name, QList<int> args)
+{
+	auto action = visca_actions.constFind(name);
+	if (action == visca_actions.constEnd())
+		return;
+	PTZCmd cmd = *action;
+	cmd.encode(args);
+	pending_cmds += cmd;
+}
+
+void PTZVisca::send_action(const QString &name, QList<int> args)
+{
+	queue_action(name, args);
+	send_pending();
+}
+
 void PTZVisca::send_packet(const QByteArray &packet)
 {
 	ptz_debug_trace("--> %s", packet.toHex(':').data());
@@ -550,7 +567,7 @@ void PTZVisca::discover_finish()
 	if (discover_start.contains("pan_pos") && discover_start.contains("tilt_pos"))
 		pantilt_abs(start("pan_pos") / (double)visca_pan_range, start("tilt_pos") / (double)visca_tilt_range);
 	if (focused && discover_start.contains("zoom_pos"))
-		send(VISCA_CAM_ZoomFocus_Direct, {start("zoom_pos"), start("focus_pos") & 0xffff});
+		send_action("zoom_focus_abs", {start("zoom_pos"), start("focus_pos") & 0xffff});
 	else if (discover_start.contains("zoom_pos"))
 		zoom_abs(start("zoom_pos") / (double)visca_zoom_range);
 
@@ -818,7 +835,7 @@ void PTZVisca::powerOnAtStartup()
 		return;
 	power_on_pending = false;
 	if (power_on_requested.elapsed() < VISCA_POWER_ON_WAIT_MS)
-		send(VISCA_CAM_Power, {1});
+		set_control("power_on", 1);
 }
 
 /* Sent as OBS is closing, with the transport about to go away along with
@@ -830,7 +847,10 @@ void PTZVisca::onOBSShutdown()
 {
 	if (!power_off_at_shutdown)
 		return;
-	PTZCmd cmd = VISCA_CAM_Power;
+	const ViscaControl *power = visca_control("power_on");
+	if (!power || !power->set)
+		return;
+	PTZCmd cmd = *power->set;
 	cmd.encode({0});
 	send_immediate(cmd.cmd);
 	if (transport)
@@ -874,19 +894,13 @@ void PTZVisca::send_pending()
 			pantilt_changed = false;
 			int p = scale_speed(pan_speed, visca_pan_speed_max);
 			int t = -scale_speed(tilt_speed, visca_tilt_speed_max);
-			PTZCmd cmd = VISCA_PanTilt_drive;
-			cmd.encode({p, t});
-			pending_cmds += cmd;
+			queue_action("pantilt_drive", {p, t});
 		} else if (zoom_changed) {
 			zoom_changed = false;
-			PTZCmd cmd = VISCA_CAM_Zoom_drive;
-			cmd.encode({scale_speed(zoom_speed, visca_zoom_speed_max + 1)});
-			pending_cmds += cmd;
+			queue_action("zoom_drive", {scale_speed(zoom_speed, visca_zoom_speed_max + 1)});
 		} else if (focus_changed) {
 			focus_changed = false;
-			PTZCmd cmd = VISCA_CAM_Focus_drive;
-			cmd.encode({scale_speed(focus_speed, visca_focus_speed_max + 1)});
-			pending_cmds += cmd;
+			queue_action("focus_drive", {scale_speed(focus_speed, visca_focus_speed_max + 1)});
 		} else if (isConnected()) {
 			QSetIterator<QString> i(stale_state);
 			while (i.hasNext()) {
@@ -931,25 +945,25 @@ void PTZVisca::pantilt_rel(double pan_, double tilt_)
 {
 	int pan = std::clamp(pan_, -1.0, 1.0) * visca_pan_range * 2;
 	int tilt = std::clamp(tilt_, -1.0, 1.0) * visca_tilt_range * 2;
-	send(VISCA_PanTilt_drive_rel, {0x14, 0x14, pan, tilt});
+	send_action("pantilt_rel", {0x14, 0x14, pan, tilt});
 }
 
 void PTZVisca::pantilt_abs(double pan_, double tilt_)
 {
 	int pan = std::clamp(pan_, -1.0, 1.0) * visca_pan_range;
 	int tilt = std::clamp(tilt_, -1.0, 1.0) * visca_tilt_range;
-	send(VISCA_PanTilt_drive_abs, {0x0f, 0x0f, pan, tilt});
+	send_action("pantilt_abs", {0x0f, 0x0f, pan, tilt});
 }
 
 void PTZVisca::pantilt_home()
 {
-	send(VISCA_PanTilt_Home);
+	send_action("pantilt_home");
 }
 
 void PTZVisca::zoom_abs(double pos_)
 {
 	int pos = std::clamp(pos_, 0.0, 1.0) * visca_zoom_range;
-	send(VISCA_CAM_Zoom_Direct, {pos});
+	send_action("zoom_abs", {pos});
 }
 
 void PTZVisca::set_autofocus(bool enabled)
@@ -959,22 +973,22 @@ void PTZVisca::set_autofocus(bool enabled)
 
 void PTZVisca::focus_onetouch()
 {
-	send(VISCA_CAM_Focus_OneTouch);
+	send_action("focus_onetouch");
 }
 
 void PTZVisca::memory_reset(int i)
 {
-	send(VISCA_CAM_Memory_Reset, {i});
+	send_action("memory_reset", {i});
 }
 
 void PTZVisca::memory_set(int i)
 {
-	send(VISCA_CAM_Memory_Set, {i});
+	send_action("memory_set", {i});
 }
 
 void PTZVisca::memory_recall(int i)
 {
-	send(VISCA_CAM_Memory_Recall, {i});
+	send_action("memory_recall", {i});
 }
 
 void ptz_visca_register_filter()

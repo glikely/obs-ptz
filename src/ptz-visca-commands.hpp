@@ -9,22 +9,6 @@
 #include <optional>
 #include "protocol-helpers.hpp"
 
-/* The ones the driver sends by name */
-extern const PTZCmd VISCA_CAM_Power;
-extern const PTZCmd VISCA_CAM_Zoom_drive;
-extern const PTZCmd VISCA_CAM_Zoom_Direct;
-extern const PTZCmd VISCA_CAM_Focus_drive;
-extern const PTZCmd VISCA_CAM_Focus_OneTouch;
-extern const PTZCmd VISCA_CAM_ZoomFocus_Direct;
-extern const PTZCmd VISCA_CAM_WB_OnePushTrigger;
-extern const PTZCmd VISCA_CAM_Memory_Reset;
-extern const PTZCmd VISCA_CAM_Memory_Set;
-extern const PTZCmd VISCA_CAM_Memory_Recall;
-extern const PTZCmd VISCA_PanTilt_drive;
-extern const PTZCmd VISCA_PanTilt_drive_abs;
-extern const PTZCmd VISCA_PanTilt_drive_rel;
-extern const PTZCmd VISCA_PanTilt_Home;
-
 /* A state value, and the commands and inquiries for it */
 struct ViscaControl {
 	/* The state key, e.g. "wb_mode" */
@@ -55,3 +39,5 @@ struct ViscaControl {
 
 extern const QList<ViscaControl> visca_controls;
 const ViscaControl *visca_control(const QString &key);
+extern const QMap<QString, PTZCmd> visca_actions;
+extern const PTZCmd VISCA_CAM_WB_OnePushTrigger;
