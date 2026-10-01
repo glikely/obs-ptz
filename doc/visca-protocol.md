@@ -100,6 +100,19 @@ The generic command set is built into the plugin's code.
 The others shipped with it are JSON files in `src/visca-profiles/`, in the same format as a user's (below),
 linked into the plugin as Qt resources when it is built: a camera is added by adding a file there.
 
+| Command set | Chosen for | From |
+|---|---|---|
+| Sony SRG-120DH, SRG-300H, SRG-300SE, SRG-360SHE, BRC-X400, SRG-X400, BRC-X1000, SRG-X40UH, SRG-A40, ILME-FR7, BRC-AM7 | their model IDs | Sony's protocol tables, as Bitfocus' Sony VISCA Companion module has them |
+| PTZOptics Gen-2 NDI (PT12X/PT20X/PT30X-NDI) | by hand: the version reply doesn't say | grafton-visca's consolidated VISCA reference |
+| Axis | any Axis camera | grafton-visca's consolidated VISCA reference |
+| BirdDog | any BirdDog camera | BirdDog's own block inquiries, as Bitfocus' BirdDog PTZ Companion module reads them |
+| BirdDog P100 | its model ID | measured on one |
+| Datavideo PTC series | by hand: its IDs aren't known | Datavideo's tally command, as Bitfocus' Datavideo VISCA Companion module sends it |
+
+Most are generated from published command tables by `scripts/visca-profile-gen`,
+and none but the BirdDog P100's has been tried on a camera: each says where it came from in its `source`.
+A camera report from one that has been tried is what makes it more than that.
+
 ### A user's command sets
 
 A command set can be added in a JSON file in the `visca-profiles` directory of the plugin's config
@@ -139,6 +152,7 @@ For example (the auto tracking commands are made up):
   and what another command set's `extends` names.
   A user's command set with the `id` of one shipped with the plugin, but the generic one, is used instead of it.
 - `name`: what the setting shows. The `id` if there isn't one.
+- `source`: where what it says came from, for whoever looks at it. The plugin doesn't read it.
 - `models`: the cameras "Automatic" chooses it for, by vendor and model ID in hex,
   or `VVVV:*` for any of a vendor's, for one whose model IDs vary. A command set for the model
   is chosen over one for any of the vendor's.
