@@ -6,6 +6,7 @@
  */
 #pragma once
 
+#include <memory>
 #include <QObject>
 #include <QTimer>
 #include <obs.hpp>
@@ -24,6 +25,7 @@ public:
 	const char *name;
 	int offset;
 	datagram_field(const char *name, int offset) : name(name), offset(offset) {}
+	virtual ~datagram_field() = default;
 	virtual void encode(QByteArray &msg, int val) = 0;
 	virtual bool decode(OBSData data, QByteArray &msg) = 0;
 };
@@ -58,27 +60,40 @@ public:
 	bool decode(OBSData data, QByteArray &msg);
 };
 
+/* A command or inquiry takes ownership of the fields it is given, and its
+ * copies share them */
+using datagram_fields = QList<std::shared_ptr<datagram_field>>;
+
 class PTZCmd {
 public:
 	QByteArray cmd;
-	QList<datagram_field *> args;
-	QList<datagram_field *> results;
+	datagram_fields args;
+	datagram_fields results;
 	QString affects;
 	PTZCmd(const char *cmd_hex, QString affects = "") : cmd(QByteArray::fromHex(cmd_hex)), affects(affects) {}
 	PTZCmd(const char *cmd_hex, QList<datagram_field *> args, QString affects = "")
 		: cmd(QByteArray::fromHex(cmd_hex)),
-		  args(args),
+		  args(own(args)),
 		  affects(affects)
 	{
 	}
 	PTZCmd(const char *cmd_hex, QList<datagram_field *> args, QList<datagram_field *> rslts)
 		: cmd(QByteArray::fromHex(cmd_hex)),
-		  args(args),
-		  results(rslts)
+		  args(own(args)),
+		  results(own(rslts))
 	{
 	}
 	void encode(QList<int> arglist);
 	obs_data_t *decode(QByteArray msg);
+
+private:
+	static datagram_fields own(const QList<datagram_field *> &fields)
+	{
+		datagram_fields owned;
+		for (auto field : fields)
+			owned.append(std::shared_ptr<datagram_field>(field));
+		return owned;
+	}
 };
 
 class PTZInq : public PTZCmd {
