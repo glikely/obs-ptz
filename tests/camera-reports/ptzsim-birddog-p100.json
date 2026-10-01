@@ -1,0 +1,441 @@
+{
+    "buffer_full": 0,
+    "camera": {
+        "model_id": "2020",
+        "model_name": "P100",
+        "rom_version": "0000",
+        "vendor_id": "0109",
+        "vendor_name": "Birddog"
+    },
+    "command_set": "birddog-p100",
+    "commands": [
+        {
+            "command": "8101040002ff",
+            "key": "power_on",
+            "result": "completed"
+        },
+        {
+            "command": "8101043500ff",
+            "key": "wb_mode",
+            "result": "completed"
+        },
+        {
+            "command": "8101043900ff",
+            "key": "ae_mode",
+            "result": "completed"
+        },
+        {
+            "command": "8101043e03ff",
+            "key": "exposure_comp",
+            "result": "completed"
+        },
+        {
+            "command": "8101045a03ff",
+            "key": "slow_shutter",
+            "result": "completed"
+        },
+        {
+            "command": "8101045700ff",
+            "key": "focus_af_mode",
+            "result": "completed"
+        },
+        {
+            "command": "8101040603ff",
+            "key": "dzoom_on",
+            "result": "completed"
+        },
+        {
+            "command": "8101045802ff",
+            "key": "focus_af_sensitivity",
+            "result": "completed"
+        },
+        {
+            "command": "8101042801000000ff",
+            "key": "focus_near_limit",
+            "result": "completed"
+        },
+        {
+            "command": "8101041100ff",
+            "key": "ir_correction",
+            "result": "completed"
+        },
+        {
+            "command": "8101044300000800ff",
+            "key": "r_gain",
+            "result": "completed"
+        },
+        {
+            "command": "8101044400000800ff",
+            "key": "b_gain",
+            "result": "completed"
+        },
+        {
+            "command": "8101044a00000006ff",
+            "key": "shutter_pos",
+            "result": "completed"
+        },
+        {
+            "command": "8101044b0000000cff",
+            "key": "iris_pos",
+            "result": "completed"
+        },
+        {
+            "command": "8101044c00000001ff",
+            "key": "gain_pos",
+            "result": "completed"
+        },
+        {
+            "command": "8101042c0fff",
+            "key": "gain_limit",
+            "result": "completed"
+        },
+        {
+            "command": "8101044d00000100ff",
+            "key": "bright_pos",
+            "result": "completed"
+        },
+        {
+            "command": "8101044e00000007ff",
+            "key": "exposure_comp_pos",
+            "result": "completed"
+        },
+        {
+            "command": "8101043303ff",
+            "key": "back_light",
+            "result": "completed"
+        },
+        {
+            "command": "81017e040000ff",
+            "key": "wd_mode",
+            "result": "completed"
+        },
+        {
+            "command": "810104370300ff",
+            "key": "defog_mode",
+            "result": "completed"
+        },
+        {
+            "command": "8101045e03ff",
+            "key": "high_sensitivity",
+            "result": "completed"
+        },
+        {
+            "command": "8101044200000005ff",
+            "key": "aperture_gain",
+            "result": "completed"
+        },
+        {
+            "command": "8101045203ff",
+            "key": "high_resolution",
+            "result": "completed"
+        },
+        {
+            "command": "8101045302ff",
+            "key": "nr_level",
+            "result": "completed"
+        },
+        {
+            "command": "8101045b00ff",
+            "key": "gamma",
+            "result": "completed"
+        },
+        {
+            "command": "8101045f00ff",
+            "key": "chroma_suppress",
+            "result": "completed"
+        },
+        {
+            "command": "8101044900000004ff",
+            "key": "color_gain",
+            "result": "completed"
+        },
+        {
+            "command": "8101044f00000007ff",
+            "key": "color_hue",
+            "result": "completed"
+        },
+        {
+            "command": "8101046300ff",
+            "key": "picture_effect",
+            "result": "completed"
+        },
+        {
+            "command": "81017e011803ff",
+            "key": "info_display",
+            "result": "completed"
+        },
+        {
+            "command": "8101060802ff",
+            "key": "ir_receive",
+            "result": "completed"
+        },
+        {
+            "command": "8101043802ff",
+            "key": "focus_af_enabled",
+            "result": "completed"
+        },
+        {
+            "command": "8101042700050007ff",
+            "key": "focus_af_move_time",
+            "result": "completed"
+        },
+        {
+            "command": "8101060603ff",
+            "key": "menu_on",
+            "result": "completed"
+        }
+    ],
+    "draft_command_set": {
+        "controls": [],
+        "extends": "generic",
+        "id": "my-camera-0109-2020",
+        "models": [
+            "0109:2020"
+        ],
+        "name": "Birddog P100",
+        "remove": [
+            "dzoom_pos"
+        ],
+        "remove_inquiries": [
+            "81097e010aff",
+            "81097e7e00ff",
+            "81097e7e01ff",
+            "81097e7e02ff",
+            "81097e7e03ff",
+            "81097e7e04ff",
+            "81097e7e05ff"
+        ],
+        "source": "Drafted from a camera report by obs-ptz 0.19.0"
+    },
+    "format": 1,
+    "inquiries": [
+        {
+            "inquiry": "81090400ff",
+            "reply": "905002ff"
+        },
+        {
+            "error": "syntax error",
+            "inquiry": "81097e7e01ff"
+        },
+        {
+            "inquiry": "81090435ff",
+            "reply": "905000ff"
+        },
+        {
+            "inquiry": "81090439ff",
+            "reply": "905000ff"
+        },
+        {
+            "inquiry": "8109043eff",
+            "reply": "905003ff"
+        },
+        {
+            "inquiry": "8109045aff",
+            "reply": "905003ff"
+        },
+        {
+            "error": "syntax error",
+            "inquiry": "81097e7e00ff"
+        },
+        {
+            "inquiry": "81090457ff",
+            "reply": "905000ff"
+        },
+        {
+            "inquiry": "81097e015aff",
+            "reply": "905003ff"
+        },
+        {
+            "inquiry": "81090406ff",
+            "reply": "905003ff"
+        },
+        {
+            "inquiry": "81090458ff",
+            "reply": "905002ff"
+        },
+        {
+            "inquiry": "81090428ff",
+            "reply": "905001000000ff"
+        },
+        {
+            "inquiry": "81090411ff",
+            "reply": "905000ff"
+        },
+        {
+            "inquiry": "81090443ff",
+            "reply": "905000000800ff"
+        },
+        {
+            "inquiry": "81090444ff",
+            "reply": "905000000800ff"
+        },
+        {
+            "inquiry": "8109044aff",
+            "reply": "905000000006ff"
+        },
+        {
+            "inquiry": "8109044bff",
+            "reply": "90500000000cff"
+        },
+        {
+            "inquiry": "8109044cff",
+            "reply": "905000000001ff"
+        },
+        {
+            "error": "syntax error",
+            "inquiry": "81097e7e03ff"
+        },
+        {
+            "inquiry": "8109042cff",
+            "reply": "90500fff"
+        },
+        {
+            "inquiry": "8109044dff",
+            "reply": "905000000100ff"
+        },
+        {
+            "inquiry": "8109044eff",
+            "reply": "905000000007ff"
+        },
+        {
+            "inquiry": "81090433ff",
+            "reply": "905003ff"
+        },
+        {
+            "inquiry": "81097e0400ff",
+            "reply": "905000ff"
+        },
+        {
+            "error": "syntax error",
+            "inquiry": "81097e7e04ff"
+        },
+        {
+            "inquiry": "81090437ff",
+            "reply": "90500300ff"
+        },
+        {
+            "inquiry": "8109045eff",
+            "reply": "905003ff"
+        },
+        {
+            "inquiry": "81090442ff",
+            "reply": "905000000005ff"
+        },
+        {
+            "inquiry": "81090452ff",
+            "reply": "905003ff"
+        },
+        {
+            "inquiry": "81090453ff",
+            "reply": "905002ff"
+        },
+        {
+            "inquiry": "8109045bff",
+            "reply": "905000ff"
+        },
+        {
+            "inquiry": "8109045fff",
+            "reply": "905000ff"
+        },
+        {
+            "inquiry": "81090449ff",
+            "reply": "905000000004ff"
+        },
+        {
+            "error": "syntax error",
+            "inquiry": "81097e7e05ff"
+        },
+        {
+            "inquiry": "8109044fff",
+            "reply": "905000000007ff"
+        },
+        {
+            "error": "syntax error",
+            "inquiry": "81097e7e02ff"
+        },
+        {
+            "inquiry": "81090463ff",
+            "reply": "905000ff"
+        },
+        {
+            "inquiry": "81090422ff",
+            "masked": [
+                "camera_id"
+            ],
+            "reply": "905000000000ff"
+        },
+        {
+            "inquiry": "81090623ff",
+            "reply": "905008ff"
+        },
+        {
+            "inquiry": "81097e0103ff",
+            "reply": "905000ff"
+        },
+        {
+            "inquiry": "81097e0118ff",
+            "reply": "905003ff"
+        },
+        {
+            "inquiry": "81090608ff",
+            "reply": "905002ff"
+        },
+        {
+            "inquiry": "81090002ff",
+            "reply": "905001092020000002ff"
+        },
+        {
+            "inquiry": "81090612ff",
+            "reply": "90500000000000000000ff"
+        },
+        {
+            "inquiry": "81090611ff",
+            "reply": "90501814ff"
+        },
+        {
+            "inquiry": "81090448ff",
+            "reply": "905007020800ff"
+        },
+        {
+            "inquiry": "81090447ff",
+            "reply": "905000000000ff"
+        },
+        {
+            "inquiry": "81090438ff",
+            "reply": "905002ff"
+        },
+        {
+            "inquiry": "81090427ff",
+            "reply": "905000050007ff"
+        },
+        {
+            "inquiry": "81090606ff",
+            "reply": "905003ff"
+        },
+        {
+            "inquiry": "81090634ff",
+            "reply": "905000ff"
+        },
+        {
+            "inquiry": "81090610ff",
+            "reply": "90502000ff"
+        },
+        {
+            "error": "syntax error",
+            "inquiry": "81097e010aff"
+        },
+        {
+            "inquiry": "81097e7e15ff",
+            "reply": "905015000000000000000000020203ff"
+        },
+        {
+            "inquiry": "81097e7e17ff",
+            "reply": "90501700000000000000000000000000000000ff"
+        }
+    ],
+    "os": "Linux",
+    "plugin_version": "0.19.0",
+    "protocol": "visca",
+    "report": "obs-ptz camera report",
+    "type": "visca-over-tcp"
+}

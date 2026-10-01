@@ -228,3 +228,10 @@ in `src/visca-profiles/`, with an `id` and `name` for the camera,
 its `source` saying which issue its report came from and which firmware it was tried with,
 and anything the issue says about what works and what doesn't.
 A command set there for the camera's model is chosen for it automatically.
+
+The report itself goes in `tests/camera-reports/`, as it was sent in.
+ptzsim replays it (`--visca-report`) as the camera it was made of,
+answering what it answered as it did and refusing what it refused,
+and `tests/obs-integration/test_camera_report_replay.py` checks that the command set
+the plugin chooses for each camera there asks it for nothing it doesn't have.
+So every camera that has been reported stays tested, by people who don't have it.
