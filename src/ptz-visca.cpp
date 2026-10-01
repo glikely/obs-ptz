@@ -99,42 +99,6 @@ void PTZVisca::send_immediate(const QByteArray &msg)
 		transport->send(msg, address);
 }
 
-void PTZVisca::scan_commands()
-{
-	for (int i = 0; i < 0x7e; i++) {
-		PTZInq inq("81090000ff");
-		inq.cmd[3] = i;
-		pending_cmds += inq;
-	}
-	for (int i = 0; i < 0x7e; i++) {
-		PTZInq inq("81090400ff");
-		inq.cmd[3] = i;
-		pending_cmds += inq;
-	}
-	for (int i = 0; i < 0x7e; i++) {
-		PTZInq inq("81090600ff");
-		inq.cmd[3] = i;
-		pending_cmds += inq;
-	}
-	for (int i = 0; i < 0x7e; i++) {
-		PTZInq inq("81097e0100ff");
-		inq.cmd[4] = i;
-		pending_cmds += inq;
-	}
-	for (int i = 0; i < 0x7e; i++) {
-		PTZInq inq("81097e7e00ff");
-		inq.cmd[4] = i;
-		pending_cmds += inq;
-	}
-}
-
-void PTZVisca::write_replies_to_log()
-{
-	for (auto key : replyLast.keys())
-		ptz_info("inq:%s count:%.4i reply:%s", key.toHex(':').data(), replyCount[key],
-			 replyLast[key].toHex(':').data());
-}
-
 void PTZVisca::defaults(obs_data_t *cfg)
 {
 	PTZDevice::defaults(cfg);
@@ -782,7 +746,6 @@ void PTZVisca::receive(const QByteArray &msg)
 	incrementStatistic("visca_recv_count");
 	int slot = msg[1] & 0x7;
 	report_answer(msg, slot);
-	QByteArray inq;
 	since_last_rx.start();
 	link_answered = true;
 
@@ -819,13 +782,6 @@ void PTZVisca::receive(const QByteArray &msg)
 			stale_state += key;
 
 		apply_assumed(*active_cmd[slot]);
-
-		/* Log Inquiry Replies */
-		inq = active_cmd[slot]->cmd;
-		if (active_cmd[slot]->isInquiry()) {
-			replyLast[inq] = msg;
-			replyCount[inq]++;
-		}
 
 		/* Slot 0 responses are inquiries that need to be parsed */
 		if (slot == 0 && msg.size() > 3) {
@@ -1052,10 +1008,6 @@ bool PTZVisca::runTrigger(const QString &name)
 	/* Diagnostics, for working out what a camera supports */
 	else if (name == "camera_report")
 		start_report();
-	else if (name == "scan_inquiries")
-		scan_commands();
-	else if (name == "replies_to_log")
-		write_replies_to_log();
 	else if (name == "discover_limits")
 		discover_limits();
 	else

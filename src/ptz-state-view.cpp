@@ -391,9 +391,7 @@ PTZStateView::PTZStateView(QWidget *parent) : QWidget(parent)
 	report->setObjectName("cameraReport");
 	diagnostics->addWidget(report);
 	connect(report, &QPushButton::clicked, this, &PTZStateView::cameraReportRequested);
-	addAction("scanInquiries", "PTZ.Visca.Debug.ScanInquiries", "scan_inquiries");
 	addAction("discoverLimits", "PTZ.Visca.Debug.DiscoverLimits", "discover_limits");
-	addAction("repliesToLog", "PTZ.Visca.Debug.RepliesToLog", "replies_to_log");
 	m_diagnosticsGroup->hide();
 	page->addWidget(m_diagnosticsGroup);
 	page->addStretch(1);

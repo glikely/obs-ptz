@@ -192,7 +192,7 @@ void runEditDialogStateTest(const QMap<QString, QString> &params)
 }
 
 /* Presses one of the state view's buttons, by its object name
- * ("scanInquiries", say), as a user would */
+ * ("cameraReport", say), as a user would */
 void runPressDialogButtonTest(const QMap<QString, QString> &params)
 {
 	PTZSettings *dialog = findDialog();

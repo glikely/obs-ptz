@@ -151,26 +151,6 @@ def test_status_view_has_diagnostics_only_for_a_camera_with_them(obs_world, tmp_
     obs_world.wait_for_settings_dialog(out, lambda r: not r["diagnostics_visible"])
 
 
-def test_scanning_inquiries_from_the_status_view(obs_world, cameras, tmp_path):  # noqa: F811
-    """On a camera of its own: the scan keeps the device busy for a while"""
-    cameras.add_source(obs_world.create_scene(), "dialog-scan-cam")
-    cameras.add_filter("dialog-scan-cam")
-    out = tmp_path / "device.json"
-    device_id = obs_world.wait_for_device_by_name(
-        "dialog-scan-cam", out, lambda r: r["found"] and r["bound"])["device_id"]
-    state_out = tmp_path / "state.json"
-
-    def sent():
-        return obs_world.device_state(device_id, state_out)["state"]["statistics"].get("visca_sent_count", 0)
-
-    obs_world.wait_for_device_state(device_id, state_out, lambda r: r["state"].get("connected") is True, timeout=10)
-    open_dialog(obs_world, device_id)
-    obs_world.wait_for_settings_dialog(tmp_path / "dialog.json", lambda r: r["diagnostics_visible"])
-    before = sent()
-    obs_world.run_ui_test("press_dialog_button", button="scanInquiries")
-    obs_world.wait_for(lambda: sent() >= before + 0x7e, timeout=20)
-
-
 def test_creating_a_camera_report_from_the_status_view(request, obs_world, cameras, tmp_path):  # noqa: F811
     """The report dialog opens on the device shown, and makes its report"""
     cameras.add_source(obs_world.create_scene(), "dialog-report-cam")

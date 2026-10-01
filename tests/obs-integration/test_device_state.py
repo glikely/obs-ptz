@@ -158,26 +158,6 @@ def test_diagnostics_are_advertised(obs_world, backend, supported, tmp_path):
     assert state["supports_diagnostics"] is supported
 
 
-def test_scanning_inquiries_asks_the_camera_everything(obs_world, cameras, tmp_path):  # noqa: F811
-    """On a camera of its own: the scan queues hundreds of inquiries, which
-    keeps the device busy for a while."""
-    cameras.add_source(obs_world.create_scene(), "scan-cam")
-    cameras.add_filter("scan-cam")
-    out = tmp_path / "device.json"
-    device_id = obs_world.wait_for_device_by_name("scan-cam", out, lambda r: r["found"] and r["bound"])["device_id"]
-    out = tmp_path / "state.json"
-
-    def sent():
-        return obs_world.device_state(device_id, out)["state"]["statistics"].get("visca_sent_count", 0)
-
-    obs_world.wait_for_device_state(device_id, out, lambda r: r["state"].get("connected") is True, timeout=10)
-    before = sent()
-    obs_world.run_ui_test("trigger_device", device_id=device_id, name="scan_inquiries")
-    # one inquiry for each of the 0x7e camera inquiry numbers, and more, on
-    # top of the device's own polling
-    obs_world.wait_for(lambda: sent() >= before + 0x7e, timeout=20)
-
-
 def test_discovering_the_movement_limits(obs_world, cameras, tmp_path):  # noqa: F811
     """On a camera of its own: it drives the camera from end to end, and
     back to where it was, which takes a while."""
