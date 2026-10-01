@@ -11,6 +11,7 @@
 #include <functional>
 #include <QCoreApplication>
 #include <QHash>
+#include <QJsonDocument>
 #include <QMutex>
 #include <QThread>
 #include <QUrl>
@@ -123,6 +124,14 @@ PTZDevice::PTZDevice(OBSData config, obs_source_t *filter) : QObject()
 	/* One-shot actions on the camera, which aren't state. Names that start
 	 * with "user_" are a user's own, as state keys are. */
 	proc_handler_add(handler, "void ptz_trigger(string name)", ptz_ph_lambda(trigger), this);
+
+	/* The last report of what the camera has, which its "camera_report"
+	 * trigger makes, as JSON, or "" if there isn't one: see
+	 * doc/visca-protocol.md. It is for the user to look at and send in
+	 * themselves; nothing in it identifies the camera, the user, or where
+	 * either is. */
+	proc_handler_add(handler, "void ptz_get_camera_report(out string report)", ptz_ph_lambda(get_camera_report),
+			 this);
 
 	/* Preset list CRUD */
 	proc_handler_add(handler, "ptr ptz_preset_get_list()", ptz_ph_lambda(preset_get_list), this);
@@ -682,6 +691,32 @@ void PTZDevice::get_state(calldata_t *cd) const
 	if (!state)
 		return;
 	saveState(state);
+}
+
+/* The driver's report, after what describes every report: what made it, on
+ * which kind of computer, and what kind of device it is */
+void PTZDevice::get_camera_report(calldata_t *cd) const
+{
+	if (wrongThread("ptz_get_camera_report"))
+		return;
+	QJsonObject report = cameraReport();
+	if (report.isEmpty()) {
+		calldata_set_string(cd, "report", "");
+		return;
+	}
+#if defined(_WIN32)
+	const char *os = "Windows";
+#elif defined(__APPLE__)
+	const char *os = "macOS";
+#else
+	const char *os = "Linux";
+#endif
+	report.insert("report", "obs-ptz camera report");
+	report.insert("format", 1);
+	report.insert("plugin_version", ptz_plugin_version);
+	report.insert("os", os);
+	report.insert("type", QString::fromStdString(type));
+	calldata_set_string(cd, "report", QJsonDocument(report).toJson(QJsonDocument::Indented).constData());
 }
 
 void PTZDevice::setLock(calldata_t *cd)

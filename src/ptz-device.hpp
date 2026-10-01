@@ -8,6 +8,7 @@
 
 #include <functional>
 #include <QImage>
+#include <QJsonObject>
 #include <QObject>
 #include <QList>
 #include <QMap>
@@ -183,6 +184,11 @@ public:
 	bool isPreview() const { return preview; }
 	/* What the device can do. None, unless a driver says. */
 	virtual Features features() const { return {}; }
+	/* What the device found out about its camera with its "camera_report"
+	 * trigger, for its user to send in, so that cameras like it can be
+	 * given what they need: empty until there is a report. Only what
+	 * describes the camera, never what identifies it or where it is. */
+	virtual QJsonObject cameraReport() const { return {}; }
 	/* Updates live/preview/locked from the frontend's current scenes.
 	 * Virtual so a driver that can act on going live or off it (a tally
 	 * light, say) can do so around the base implementation. */
@@ -302,6 +308,7 @@ protected slots:
 	void set_config(calldata_t *cd);
 	void get_obs_properties(calldata_t *cd);
 	void request_state(calldata_t *cd);
+	void get_camera_report(calldata_t *cd) const;
 	void preset_get_list(calldata_t *cd) const;
 	void newPreset(calldata_t *cd);
 	void removePresetAtDisplayRow(calldata_t *cd);
