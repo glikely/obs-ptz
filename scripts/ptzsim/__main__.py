@@ -210,7 +210,7 @@ def main():
             debug_http.stop()
         for backend in backends:
             backend.stop()
-        loop.stop()
+        loop.call_soon_threadsafe(loop.stop)
 
     signal.signal(signal.SIGINT, shutdown)
     signal.signal(signal.SIGTERM, shutdown)
