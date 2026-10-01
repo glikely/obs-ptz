@@ -1018,6 +1018,38 @@ public:
 		return true;
 	}
 
+	/* A position: a number, or one in hex in a string, "-0x2200" */
+	static std::optional<int> position(const QJsonValue &value)
+	{
+		if (value.isDouble())
+			return value.toInt();
+		QString text = value.toString();
+		bool negative = text.startsWith('-');
+		bool ok = false;
+		int position = text.mid(negative ? 1 : 0).toInt(&ok, 0);
+		if (!ok)
+			return std::nullopt;
+		return negative ? -position : position;
+	}
+
+	/* How far the camera goes on an axis: the positions at either end */
+	bool range(ViscaProfile &profile, const QString &axis, const QJsonValue &json)
+	{
+		static const QStringList axes = {"pan", "tilt", "zoom", "focus"};
+		const QJsonArray ends = json.toArray();
+		auto from = position(ends.at(0)), to = position(ends.at(1));
+		if (!axes.contains(axis)) {
+			fail(QString("there is no \"%1\" range").arg(axis));
+			return false;
+		}
+		if (ends.size() != 2 || !from || !to || *from == *to) {
+			fail(QString("the %1 range isn't two positions").arg(axis));
+			return false;
+		}
+		profile.ranges.insert(axis, {*from, *to});
+		return true;
+	}
+
 	/* An action's command, which replaces the profile's */
 	bool action(ViscaProfile &profile, const QString &name, const QJsonValue &json)
 	{
@@ -1098,6 +1130,11 @@ public:
 				profile->vendors.append(vendor);
 			else
 				profile->models.append(vendor << 16 | model);
+		}
+		const QJsonObject ranges = json["ranges"].toObject();
+		for (auto i = ranges.begin(); i != ranges.end(); i++) {
+			if (!range(*profile, i.key(), i.value()))
+				return nullptr;
 		}
 		for (const auto value : json["remove"].toArray())
 			profile->remove(value.toString());

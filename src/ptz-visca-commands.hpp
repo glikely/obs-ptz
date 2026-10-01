@@ -51,6 +51,10 @@ struct ViscaProfile {
 	 * vendor ID alone, for a vendor whose model IDs vary */
 	QList<int> models;
 	QList<int> vendors;
+	/* How far the camera goes, by "pan", "tilt", "zoom" and "focus": the
+	 * position at one end of each (left, down, wide and far) and the other.
+	 * Ones it doesn't say are the driver's defaults. */
+	QMap<QString, QPair<int, int>> ranges;
 	QList<ViscaControl> controls;
 	QMap<QString, PTZCmd> actions;
 	QMap<QString, PTZCmd> triggers;

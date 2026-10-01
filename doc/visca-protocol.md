@@ -157,6 +157,10 @@ For example (the auto tracking commands are made up):
   or `VVVV:*` for any of a vendor's, for one whose model IDs vary. A command set for the model
   is chosen over one for any of the vendor's.
   A user's command set is chosen over a built-in one for the same model.
+- `ranges`: how far the camera goes, by `pan`, `tilt`, `zoom` and `focus`, each the camera's position at
+  one end (left, down, wide, far) and the other, as numbers or hex in strings: `"pan": ["-0x2200", "0x2200"]`.
+  A camera whose pan positions run right to left has them the other way round.
+  They are what the movement controls' ends stand for, unless the device's settings say otherwise.
 - `remove`: controls, actions and triggers it doesn't have.
 - `remove_inquiries`: inquiries the camera doesn't have, which no control reads with then.
   A camera without the block inquiries has `["81097e7e00ff", "81097e7e01ff", ...]`.
