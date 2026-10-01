@@ -26,8 +26,8 @@ class QVBoxLayout;
  * is, and, for a camera that reports them, its power, autofocus and tally
  * lamps' state, its white balance, and the rest of what a VISCA camera reports
  * of its focus, exposure, picture, system and pan/tilt, most of which can be
- * changed. For a device that has them ("supports_diagnostics"), buttons for
- * its diagnostics.
+ * changed. For a device that has them ("diagnostics" in its "features"),
+ * buttons for its diagnostics.
  *
  * Every widget is made once, and an update changes only the ones whose value
  * changed, so nothing is torn down and rebuilt as the state changes many

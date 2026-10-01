@@ -179,10 +179,6 @@ public:
 	bool isPreview() const { return preview; }
 	/* What the device can do. None, unless a driver says. */
 	virtual Features features() const { return {}; }
-	virtual bool supportsSetHome() const { return false; }
-	/* Whether ptz_trigger takes the "scan_inquiries" and "replies_to_log"
-	 * diagnostics, for working out what a camera supports */
-	virtual bool supportsDiagnostics() const { return false; }
 	/* Updates live/preview/locked from the frontend's current scenes.
 	 * Virtual so a driver that can act on going live or off it (a tally
 	 * light, say) can do so around the base implementation. */
@@ -266,7 +262,7 @@ protected slots:
 	 * pantilt_set_home(): record the camera's *current* pan/tilt/zoom as
 	 * its new home position (so a later pantilt_home() returns here).
 	 * Optional — drivers that don't implement it should leave the default
-	 * empty body and return false from supportsSetHome(), so the UI can
+	 * empty body and leave HomeSet out of features(), so the UI can
 	 * hide the action entirely instead of presenting a dead control.
 	 */
 	virtual void pantilt_set_home() {}

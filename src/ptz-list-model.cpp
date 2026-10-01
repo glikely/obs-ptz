@@ -219,7 +219,6 @@ void PTZListModel::refreshDeviceState(PTZDeviceEntry *entry)
 	entry->live = obs_data_get_bool(state, "live");
 	entry->preview = obs_data_get_bool(state, "preview");
 	entry->locked = obs_data_get_bool(state, "locked");
-	entry->supportsSetHome = obs_data_get_bool(state, "supports_set_home");
 	entry->features.reset();
 	if (obs_data_has_user_value(state, "features")) {
 		OBSDataAutoRelease features = obs_data_get_obj(state, "features");
@@ -457,9 +456,6 @@ QVariant PTZListModel::data(const QModelIndex &index, int role) const
 
 	if (role == PTZListModel::IsLockedRole)
 		return entry->locked;
-
-	if (role == PTZListModel::SupportsSetHomeRole)
-		return entry->supportsSetHome;
 
 	if (role == PTZListModel::FeaturesRole)
 		return entry->features ? QVariant(*entry->features) : QVariant();

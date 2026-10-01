@@ -130,7 +130,6 @@ public:
 	void pantilt_abs(double pan, double tilt) override;
 	void pantilt_home() override;
 	void pantilt_set_home() override;
-	bool supportsSetHome() const override { return true; }
 	Features features() const override;
 	void zoom_abs(double pos) override;
 	void set_autofocus(bool enabled) override;

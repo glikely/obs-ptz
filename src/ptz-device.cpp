@@ -566,9 +566,11 @@ void PTZDevice::saveState(OBSData out) const
 	obs_data_set_bool(out, "live", live);
 	obs_data_set_bool(out, "preview", preview);
 	obs_data_set_bool(out, "locked", locked);
-	saveFeatures(out, features());
-	obs_data_set_bool(out, "supports_set_home", supportsSetHome());
-	obs_data_set_bool(out, "supports_diagnostics", supportsDiagnostics());
+	const Features has = features();
+	saveFeatures(out, has);
+	/* What there was before "features", which has them too */
+	obs_data_set_bool(out, "supports_set_home", has.testFlag(HomeSet));
+	obs_data_set_bool(out, "supports_diagnostics", has.testFlag(Diagnostics));
 }
 
 const QList<QPair<PTZDevice::Feature, const char *>> &PTZDevice::featureNames()
