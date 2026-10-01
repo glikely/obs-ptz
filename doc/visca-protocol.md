@@ -147,6 +147,7 @@ For example (the auto tracking commands are made up):
 - `controls`: each replaces what the command set it extends does for its `key`,
   with whichever of `set`, `set_to` and `reads` it has.
   `set_to` is a command for each value: `{"1": "8101043802ff", "0": "8101043803ff"}`.
+  `"set": null` is for a value the camera can only be asked for, not set.
   A key the command set it extends doesn't have must start with `user_`,
   so it is never one the plugin has; it is in the device's state like any other.
 - `actions`: commands for the driver, which must take as many arguments as the generic one's.

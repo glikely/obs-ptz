@@ -878,7 +878,11 @@ public:
 			return false;
 		}
 		ViscaControl control = existing ? *existing : ViscaControl(key, std::nullopt);
-		if (json.contains("set")) {
+		/* null for a value the camera can't set, only read */
+		if (json.contains("set") && json["set"].isNull()) {
+			control.set.reset();
+			control.setTo.clear();
+		} else if (json.contains("set")) {
 			control.setTo.clear();
 			control.set = command(json["set"], key, false);
 			if (!control.set)
