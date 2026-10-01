@@ -745,8 +745,9 @@ void PTZStateView::applyData(obs_data_t *data, bool all)
 		}
 	}
 
-	if (all || has("supports_diagnostics")) {
-		bool diagnostics = obs_data_get_bool(data, "supports_diagnostics");
+	if (all || has("features")) {
+		OBSDataAutoRelease features = obs_data_get_obj(data, "features");
+		bool diagnostics = features && obs_data_get_bool(features, "diagnostics");
 		if (diagnostics == m_diagnosticsGroup->isHidden()) {
 			m_diagnosticsGroup->setVisible(diagnostics);
 			changed = true;

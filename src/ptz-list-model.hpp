@@ -48,7 +48,6 @@ private:
 		bool live = false;
 		bool preview = false;
 		bool locked = false;
-		bool supportsSetHome = false;
 		/* The names in its state's "features", or nothing if it has none:
 		 * a device from before there were, which can do anything */
 		std::optional<QStringList> features;
@@ -78,7 +77,6 @@ public:
 		IsPreviewRole,
 		IsConnectedRole,
 		IsLockedRole,
-		SupportsSetHomeRole,
 		ThumbnailRole, /* QPixmap of a preset row, null if it has none */
 		FeaturesRole,  /* QStringList, or invalid if the device doesn't say */
 	};

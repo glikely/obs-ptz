@@ -284,7 +284,7 @@ PTZControls::PTZControls(QWidget *parent) : QFrame(parent), ui(new Ui::PTZContro
 	connect(ui->panTiltTouch, &TouchControl::positionChanged, [this](double p, double t) { setPanTilt(p, t); });
 
 	/* Right-click on the dock's Home button → "Save current position as
-	 * Home" (only shown for protocols that override supportsSetHome()).
+	 * Home" (only shown for a device whose features have "home_set").
 	 * Single-click still triggers GotoHome; the context menu is purely
 	 * additive. */
 	ui->panTiltButton_home->setContextMenuPolicy(Qt::CustomContextMenu);

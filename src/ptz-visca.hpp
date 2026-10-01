@@ -183,7 +183,6 @@ public:
 	PTZVisca(OBSData config, obs_source_t *source = nullptr);
 	QString description() const override;
 	obs_properties_t *get_obs_properties() override;
-	bool supportsDiagnostics() const override { return true; }
 	Features features() const override;
 	void requestState(OBSData requested) override;
 	void onSceneChanged() override;
