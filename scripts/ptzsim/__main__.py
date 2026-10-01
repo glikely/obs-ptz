@@ -68,6 +68,7 @@ from .backends.onvif import OnvifBackend
 from .backends.sony_setup import SonySetupBackend
 from .backends.pelco import PelcoBackend
 from .backends.visca import ViscaBackend, ViscaCameraLogic, SonyUdpQuirks
+from .backends.visca_report import ViscaReportReplay
 from .debug_http import DebugHttpServer
 from .state import PTZState, run_ticker
 from .video import VideoFeed
@@ -112,6 +113,11 @@ def parse_args():
                           "hex VVVV:MMMM (default: 0001:0000, a Sony of no model the plugin has "
                           "a command set for, so it uses the generic one, which has everything "
                           "this does; a Sony SRG-120DH is 0001:0511, a BirdDog P100 0109:2020)")
+    ap.add_argument("--visca-report", default=None, metavar="FILE",
+                     help="be the camera an obs-ptz camera report (doc/visca-protocol.md) was made "
+                          "of, as far as the report goes: answer what it answered as it did, and "
+                          "refuse what it refused; its vendor and model ID are the ones the version "
+                          "inquiry answers with, whatever --visca-model says")
     ap.add_argument("--start-in-standby", action="store_true",
                      help="start with the camera powered off")
     ap.add_argument("--visca-no-completions", action="store_true",
@@ -179,6 +185,12 @@ def main():
     ViscaCameraLogic.model_id = int(model_id, 16)
     ViscaCameraLogic.green_tally = not args.visca_no_green_tally
     ViscaCameraLogic.completions = not args.visca_no_completions
+    if args.visca_report:
+        report = ViscaReportReplay.load(args.visca_report)
+        ViscaCameraLogic.report = report
+        if report.vendor_id is not None:
+            ViscaCameraLogic.vendor_id = report.vendor_id
+            ViscaCameraLogic.model_id = report.model_id
 
     backends = []
     if not args.no_visca:

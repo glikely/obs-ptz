@@ -201,6 +201,10 @@ class ViscaCameraLogic:
     # Whether a command that is ACKed is then completed. A BirdDog backpack
     # ACKs and never completes.
     completions = True
+    # A camera report to answer as the camera it was made of did (see
+    # visca_report.py), or None
+    report = None
+    _capturing = False
 
     def __init__(self, state):
         self.state = state
@@ -232,12 +236,27 @@ class ViscaCameraLogic:
             self.state.visca_syntax_errors += 1
         self._send_datagram(b'\x90%b\xff' % dg)
 
+    def capture(self, dg):
+        """What ptzsim's own camera answers to a datagram, as it would send
+        it, without sending it, nor counting a syntax error"""
+        saved, self._out = self._out, []
+        errors = self.state.visca_syntax_errors
+        self._capturing = True
+        try:
+            self.dispatch(dg)
+            return self._out
+        finally:
+            self._out = saved
+            self.state.visca_syntax_errors = errors
+            self._capturing = False
+
     def send_broadcast(self, dg):
         self._send_datagram(b'\x88%b\xff' % dg)
 
     def _send_datagram(self, dg):
         self._out.append(dg)
-        self.print_state('<--', dg.hex())
+        if not self._capturing:
+            self.print_state('<--', dg.hex())
 
     # VISCA protocol encode/decode helpers
     def decode_s4(self, val):
@@ -684,6 +703,13 @@ class ViscaCameraLogic:
             self.send_datagram(b'\x60\x02')
             return
 
+        # A camera from a report answers as it did, see visca_report.py
+        if self.report and self.report.handle(self, dg):
+            return
+        self.dispatch(dg)
+
+    def dispatch(self, dg):
+        """Answers a datagram as ptzsim's own camera does"""
         # Find the command handler for the message: a method, or a setting
         # the tables above say how to set or read
         for count in range(5, 0, -1):
