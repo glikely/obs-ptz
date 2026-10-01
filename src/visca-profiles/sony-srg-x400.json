@@ -1,0 +1,64 @@
+{
+  "id": "sony-srg-x400",
+  "name": "Sony SRG-X400/X402/X120/201M2/HD1M2",
+  "models": [
+    "0001:0617",
+    "0001:061c",
+    "0001:0618",
+    "0001:061a",
+    "0001:061b"
+  ],
+  "source": "Generated from the protocol tables in Bitfocus' Sony VISCA Companion module (github.com/bitfocus/companion-module-sony-visca, protocol/Sony_BRC-X400.html, MIT licensed), without what it marks as for the BRC-X400 and BRC-X401 only; not yet verified against a camera.",
+  "remove_inquiries": [
+    "81090437ff",
+    "81090449ff",
+    "8109044dff",
+    "8109044fff",
+    "8109045bff",
+    "8109045fff",
+    "81090608ff",
+    "81090623ff",
+    "81090634ff",
+    "81097e010aff",
+    "81097e0118ff",
+    "81097e015aff",
+    "81097e0400ff",
+    "81097e7e05ff"
+  ],
+  "remove": [
+    "low_latency",
+    "wd_mode",
+    "color_hue",
+    "video_format",
+    "info_display",
+    "ir_receive",
+    "ir_condition",
+    "tally_on",
+    "tally_preview",
+    "pantilt_abs",
+    "pantilt_rel",
+    "zoom_focus_abs"
+  ],
+  "controls": [
+    {
+      "key": "bright_pos",
+      "set": null
+    },
+    {
+      "key": "defog_mode",
+      "set": null
+    },
+    {
+      "key": "gamma",
+      "set": null
+    },
+    {
+      "key": "chroma_suppress",
+      "set": null
+    },
+    {
+      "key": "color_gain",
+      "set": null
+    }
+  ]
+}

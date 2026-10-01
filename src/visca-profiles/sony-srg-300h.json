@@ -1,0 +1,15 @@
+{
+  "id": "sony-srg-300h",
+  "name": "Sony SRG-300H, NewTek PTZ1 NDI",
+  "models": [
+    "0001:0513"
+  ],
+  "source": "Generated from the protocol tables in Bitfocus' Sony VISCA Companion module (github.com/bitfocus/companion-module-sony-visca, protocol/Sony_SRG-300H.html, MIT licensed), not yet verified against a camera.",
+  "remove_inquiries": [
+    "81097e010aff"
+  ],
+  "remove": [
+    "tally_on",
+    "tally_preview"
+  ]
+}

@@ -1,0 +1,35 @@
+{
+  "id": "sony-srg-360she",
+  "name": "Sony SRG-360SHE/280SHE",
+  "models": [
+    "0001:0604",
+    "0001:0605"
+  ],
+  "source": "Generated from the protocol tables in Bitfocus' Sony VISCA Companion module (github.com/bitfocus/companion-module-sony-visca, protocol/Sony_SRG-360SHE.html, MIT licensed), not yet verified against a camera.",
+  "remove_inquiries": [
+    "81090608ff",
+    "81090612ff",
+    "81090634ff",
+    "81097e0103ff",
+    "81097e015aff",
+    "81097e7e04ff",
+    "81097e7e05ff"
+  ],
+  "remove": [
+    "low_latency",
+    "color_system",
+    "ir_receive",
+    "pan_pos",
+    "tilt_pos",
+    "ir_condition",
+    "tally_preview",
+    "pantilt_abs",
+    "pantilt_rel"
+  ],
+  "controls": [
+    {
+      "key": "info_display",
+      "set": null
+    }
+  ]
+}

@@ -1,0 +1,15 @@
+{
+  "id": "sony-srg-120dh",
+  "name": "Sony SRG-120DH",
+  "models": [
+    "0001:0511"
+  ],
+  "source": "Generated from the protocol tables in Bitfocus' Sony VISCA Companion module (github.com/bitfocus/companion-module-sony-visca, protocol/Sony_SRG-120DH.html, MIT licensed), not yet verified against a camera.",
+  "remove_inquiries": [
+    "81097e010aff"
+  ],
+  "remove": [
+    "tally_on",
+    "tally_preview"
+  ]
+}

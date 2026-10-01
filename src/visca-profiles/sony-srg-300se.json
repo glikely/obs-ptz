@@ -1,0 +1,31 @@
+{
+  "id": "sony-srg-300se",
+  "name": "Sony SRG-300SE/301SE/201SE",
+  "models": [
+    "0001:0516"
+  ],
+  "source": "Generated from the protocol tables in Bitfocus' Sony VISCA Companion module (github.com/bitfocus/companion-module-sony-visca, protocol/Sony_SRG-300SE.html, MIT licensed), not yet verified against a camera.",
+  "remove_inquiries": [
+    "81090608ff",
+    "81090623ff",
+    "81090634ff",
+    "81097e0103ff",
+    "81097e010aff",
+    "81097e015aff"
+  ],
+  "remove": [
+    "low_latency",
+    "video_format",
+    "color_system",
+    "ir_receive",
+    "ir_condition",
+    "tally_on",
+    "tally_preview"
+  ],
+  "controls": [
+    {
+      "key": "power_on",
+      "set": null
+    }
+  ]
+}

@@ -1,0 +1,77 @@
+{
+  "id": "sony-brc-x1000",
+  "name": "Sony BRC-X1000/H800/H780",
+  "models": [
+    "0001:0519",
+    "0001:051a",
+    "0001:051b"
+  ],
+  "source": "Generated from the protocol tables in Bitfocus' Sony VISCA Companion module (github.com/bitfocus/companion-module-sony-visca, protocol/Sony_BRC-X1000.html, MIT licensed), without what it marks as not for the BRC-H780; not yet verified against a camera.",
+  "remove_inquiries": [
+    "81090422ff",
+    "81090427ff",
+    "81090437ff",
+    "8109044dff",
+    "81090452ff",
+    "81090457ff",
+    "8109045aff",
+    "8109045eff",
+    "81090463ff",
+    "81090611ff",
+    "81090612ff",
+    "81090634ff",
+    "81097e0118ff",
+    "81097e015aff",
+    "81097e0400ff",
+    "81097e7e02ff"
+  ],
+  "remove": [
+    "low_latency",
+    "wd_mode",
+    "picture_effect",
+    "camera_id",
+    "info_display",
+    "pan_pos",
+    "tilt_pos",
+    "pan_max_speed",
+    "ir_condition",
+    "tally_preview",
+    "pantilt_abs",
+    "pantilt_rel",
+    "zoom_focus_abs"
+  ],
+  "controls": [
+    {
+      "key": "slow_shutter",
+      "set": null
+    },
+    {
+      "key": "focus_af_mode",
+      "set": null
+    },
+    {
+      "key": "bright_pos",
+      "set": null
+    },
+    {
+      "key": "defog_mode",
+      "set": null
+    },
+    {
+      "key": "high_sensitivity",
+      "set": null
+    },
+    {
+      "key": "high_resolution",
+      "set": null
+    },
+    {
+      "key": "focus_af_move_time",
+      "set": null
+    },
+    {
+      "key": "focus_af_interval_time",
+      "set": null
+    }
+  ]
+}

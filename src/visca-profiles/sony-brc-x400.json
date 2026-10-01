@@ -1,0 +1,34 @@
+{
+  "id": "sony-brc-x400",
+  "name": "Sony BRC-X400/X401",
+  "models": [
+    "0001:051c",
+    "0001:051d"
+  ],
+  "source": "Generated from the protocol tables in Bitfocus' Sony VISCA Companion module (github.com/bitfocus/companion-module-sony-visca, protocol/Sony_BRC-X400.html, MIT licensed), not yet verified against a camera.",
+  "remove_inquiries": [
+    "8109044dff",
+    "81090623ff",
+    "81090634ff",
+    "81097e0118ff",
+    "81097e015aff",
+    "81097e0400ff"
+  ],
+  "remove": [
+    "low_latency",
+    "wd_mode",
+    "video_format",
+    "info_display",
+    "ir_condition",
+    "tally_preview",
+    "pantilt_abs",
+    "pantilt_rel",
+    "zoom_focus_abs"
+  ],
+  "controls": [
+    {
+      "key": "bright_pos",
+      "set": null
+    }
+  ]
+}

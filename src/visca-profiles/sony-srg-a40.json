@@ -1,0 +1,47 @@
+{
+  "id": "sony-srg-a40",
+  "name": "Sony SRG-A40/A12",
+  "models": [
+    "0001:0621",
+    "0001:0622"
+  ],
+  "source": "Generated from the protocol tables in Bitfocus' Sony VISCA Companion module (github.com/bitfocus/companion-module-sony-visca, protocol/Sony_SRG-A40.html, MIT licensed), not yet verified against a camera.",
+  "remove_inquiries": [
+    "81090449ff",
+    "8109044dff",
+    "8109044fff",
+    "8109045bff",
+    "81090623ff",
+    "81090634ff",
+    "81097e0118ff",
+    "81097e015aff",
+    "81097e0400ff",
+    "81097e7e05ff"
+  ],
+  "remove": [
+    "low_latency",
+    "wd_mode",
+    "color_hue",
+    "video_format",
+    "info_display",
+    "ir_condition",
+    "tally_preview",
+    "pantilt_abs",
+    "pantilt_rel",
+    "zoom_focus_abs"
+  ],
+  "controls": [
+    {
+      "key": "bright_pos",
+      "set": null
+    },
+    {
+      "key": "gamma",
+      "set": null
+    },
+    {
+      "key": "color_gain",
+      "set": null
+    }
+  ]
+}

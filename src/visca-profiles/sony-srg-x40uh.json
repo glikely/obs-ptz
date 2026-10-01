@@ -1,0 +1,66 @@
+{
+  "id": "sony-srg-x40uh",
+  "name": "Sony SRG-X40UH/H40UH",
+  "models": [
+    "0001:061f",
+    "0001:0620"
+  ],
+  "source": "Generated from the protocol tables in Bitfocus' Sony VISCA Companion module (github.com/bitfocus/companion-module-sony-visca, protocol/Sony_SRG-X40UH.html, MIT licensed), not yet verified against a camera.",
+  "remove_inquiries": [
+    "81090437ff",
+    "81090449ff",
+    "8109044dff",
+    "8109044fff",
+    "8109045bff",
+    "8109045fff",
+    "81090463ff",
+    "81090623ff",
+    "81090634ff",
+    "81097e010aff",
+    "81097e0118ff",
+    "81097e015aff",
+    "81097e0400ff"
+  ],
+  "remove": [
+    "low_latency",
+    "wd_mode",
+    "video_format",
+    "info_display",
+    "ir_condition",
+    "tally_on",
+    "tally_preview",
+    "pantilt_abs",
+    "pantilt_rel",
+    "zoom_focus_abs"
+  ],
+  "controls": [
+    {
+      "key": "bright_pos",
+      "set": null
+    },
+    {
+      "key": "defog_mode",
+      "set": null
+    },
+    {
+      "key": "gamma",
+      "set": null
+    },
+    {
+      "key": "chroma_suppress",
+      "set": null
+    },
+    {
+      "key": "color_gain",
+      "set": null
+    },
+    {
+      "key": "color_hue",
+      "set": null
+    },
+    {
+      "key": "picture_effect",
+      "set": null
+    }
+  ]
+}
