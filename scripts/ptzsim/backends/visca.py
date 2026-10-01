@@ -201,6 +201,10 @@ class ViscaCameraLogic:
     # Whether a command that is ACKed is then completed. A BirdDog backpack
     # ACKs and never completes.
     completions = True
+    # How many nibbles the pan and tilt positions are, and the position at
+    # either end. Some Sony cameras have 5 for pan, or for both.
+    position_nibbles = (4, 4)
+    pt_pos_range = PT_POS_RANGE
 
     def __init__(self, state):
         self.state = state
@@ -288,6 +292,26 @@ class ViscaCameraLogic:
                 raise ValueError
             val = (val << 4) | (field[i] & 0x0f)
         return sign_extend(val, 16)
+
+    def decode_signed(self, field):
+        '''VISCA signed value, a nibble a byte'''
+        val = 0
+        for byte in field:
+            if byte & 0xf0:
+                raise ValueError
+            val = (val << 4) | byte
+        return sign_extend(val, 4 * len(field))
+
+    def encode_signed(self, value, nibbles):
+        value = int(value)
+        return bytes((value >> (4 * i)) & 0xf for i in reversed(range(nibbles)))
+
+    def decode_pantilt(self, dg):
+        '''The pan and tilt positions from 6 in a move'''
+        p, t = self.position_nibbles
+        if len(dg) != 6 + p + t:
+            raise ValueError
+        return self.decode_signed(dg[6:6 + p]), self.decode_signed(dg[6 + p:6 + p + t])
 
     def encode_bool(self, value):
         if value:
@@ -460,18 +484,16 @@ class ViscaCameraLogic:
 
     def cmd010602(self, dg):
         '''Pan-tiltDrive-AbsolutePosition'''
-        pan = self.decode_s16(dg[6:10])
-        tilt = self.decode_s16(dg[10:14])
-        self.state.set_position(pan=to_shared_signed(pan, PT_POS_RANGE),
-                                 tilt=to_shared_signed(tilt, PT_POS_RANGE))
+        pan, tilt = self.decode_pantilt(dg)
+        self.state.set_position(pan=to_shared_signed(pan, self.pt_pos_range),
+                                 tilt=to_shared_signed(tilt, self.pt_pos_range))
         self.cmd_ack()
 
     def cmd010603(self, dg):
         '''Pan-tiltDrive-RelativePosition'''
-        dpan = self.decode_s16(dg[6:10])
-        dtilt = self.decode_s16(dg[10:14])
-        self.state.move_relative(dpan=to_shared_signed(dpan, PT_POS_RANGE),
-                                  dtilt=to_shared_signed(dtilt, PT_POS_RANGE))
+        dpan, dtilt = self.decode_pantilt(dg)
+        self.state.move_relative(dpan=to_shared_signed(dpan, self.pt_pos_range),
+                                  dtilt=to_shared_signed(dtilt, self.pt_pos_range))
         self.cmd_ack()
 
     def cmd010604(self, dg):
@@ -581,9 +603,10 @@ class ViscaCameraLogic:
     def cmd090612(self, dg):
         '''Pan-tiltPosInq'''
         snap = self.state.snapshot()
+        p, t = self.position_nibbles
         self.send_datagram(
-            b'\x50' + self.encode_s16(from_shared_signed(snap.pan, PT_POS_RANGE)) +
-            self.encode_s16(from_shared_signed(snap.tilt, PT_POS_RANGE)))
+            b'\x50' + self.encode_signed(from_shared_signed(snap.pan, self.pt_pos_range), p) +
+            self.encode_signed(from_shared_signed(snap.tilt, self.pt_pos_range), t))
 
     # BirdDog's own block inquiries, which only a BirdDog has, as Bitfocus'
     # BirdDog PTZ Companion module reads them: the inquiry's own number back,

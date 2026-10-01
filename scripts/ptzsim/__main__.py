@@ -112,6 +112,12 @@ def parse_args():
                           "hex VVVV:MMMM (default: 0001:0000, a Sony of no model the plugin has "
                           "a command set for, so it uses the generic one, which has everything "
                           "this does; a Sony SRG-120DH is 0001:0511, a BirdDog P100 0109:2020)")
+    ap.add_argument("--visca-positions", default="4:4", metavar="P:T",
+                     help="how many nibbles VISCA's pan and tilt positions are, in the absolute "
+                          "and relative moves and the position inquiry: 4:4, or 5:4 as a Sony "
+                          "BRC-X1000 has them, or 5:5 as an ILME-FR7 does")
+    ap.add_argument("--visca-pan-tilt-range", default="0x2800", metavar="HEX",
+                     help="the VISCA pan and tilt position at either end, as hex")
     ap.add_argument("--start-in-standby", action="store_true",
                      help="start with the camera powered off")
     ap.add_argument("--visca-no-completions", action="store_true",
@@ -179,6 +185,8 @@ def main():
     ViscaCameraLogic.model_id = int(model_id, 16)
     ViscaCameraLogic.green_tally = not args.visca_no_green_tally
     ViscaCameraLogic.completions = not args.visca_no_completions
+    ViscaCameraLogic.position_nibbles = tuple(int(n) for n in args.visca_positions.split(":"))
+    ViscaCameraLogic.pt_pos_range = int(args.visca_pan_tilt_range, 16)
 
     backends = []
     if not args.no_visca:
