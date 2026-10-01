@@ -64,14 +64,22 @@ public:
  * copies share them */
 using datagram_fields = QList<std::shared_ptr<datagram_field>>;
 
+/* The state keys a command changes: one, or a list of them */
+class affected_keys : public QStringList {
+public:
+	affected_keys() {}
+	affected_keys(const char *key) : QStringList(QString(key)) {}
+	affected_keys(std::initializer_list<QString> keys) : QStringList(keys) {}
+};
+
 class PTZCmd {
 public:
 	QByteArray cmd;
 	datagram_fields args;
 	datagram_fields results;
-	QString affects;
-	PTZCmd(const char *cmd_hex, QString affects = "") : cmd(QByteArray::fromHex(cmd_hex)), affects(affects) {}
-	PTZCmd(const char *cmd_hex, QList<datagram_field *> args, QString affects = "")
+	QStringList affects;
+	PTZCmd(const char *cmd_hex, affected_keys affects = {}) : cmd(QByteArray::fromHex(cmd_hex)), affects(affects) {}
+	PTZCmd(const char *cmd_hex, QList<datagram_field *> args, affected_keys affects = {})
 		: cmd(QByteArray::fromHex(cmd_hex)),
 		  args(own(args)),
 		  affects(affects)
