@@ -62,6 +62,8 @@ public:
 	obs_properties_t *get_obs_properties() override;
 
 	void do_update() override;
+	/* Pelco can only drive, go home and use presets */
+	Features features() const override { return PanTilt | Zoom | Focus | Home | Presets; }
 	void pantilt_home() override;
 	void memory_reset(int i) override;
 	void memory_set(int i) override;
