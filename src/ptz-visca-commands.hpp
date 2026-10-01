@@ -6,6 +6,7 @@
  */
 #pragma once
 
+#include <memory>
 #include <optional>
 #include "protocol-helpers.hpp"
 
@@ -37,7 +38,16 @@ struct ViscaControl {
 	bool settable() const { return set || !setTo.isEmpty(); }
 };
 
-extern const QList<ViscaControl> visca_controls;
-const ViscaControl *visca_control(const QString &key);
-extern const QMap<QString, PTZCmd> visca_actions;
-extern const QMap<QString, PTZCmd> visca_triggers;
+/* A camera's command set: its state values, what the driver moves it and
+ * uses its presets with (actions), and the commands sent as they are by the
+ * ptz_trigger proc (triggers) */
+struct ViscaProfile {
+	QString id;
+	QList<ViscaControl> controls;
+	QMap<QString, PTZCmd> actions;
+	QMap<QString, PTZCmd> triggers;
+
+	const ViscaControl *control(const QString &key) const;
+};
+
+std::shared_ptr<const ViscaProfile> visca_generic_profile();

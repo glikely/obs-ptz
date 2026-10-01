@@ -12,6 +12,7 @@
 #include <QElapsedTimer>
 #include "protocol-helpers.hpp"
 #include "ptz-device.hpp"
+#include "ptz-visca-commands.hpp"
 
 #define VISCA_RESPONSE_ADDRESS 0x30
 #define VISCA_RESPONSE_ACK 0x40
@@ -20,7 +21,6 @@
 #define VISCA_PACKET_SENDER(pkt) ((unsigned)((pkt)[0] & 0x70) >> 4)
 
 extern const PTZCmd VISCA_ENUMERATE;
-struct ViscaControl;
 
 /* How far a camera moves and zooms, as the plugin assumes it until told
  * otherwise (the "visca_*_range" settings, or discover_limits()): what 1.0
@@ -97,6 +97,8 @@ protected:
 	int busy_backoff_ms = 0;
 	unsigned int address = 1;
 	bool protocol_trace = false;
+	/* The camera's commands and inquiries */
+	std::shared_ptr<const ViscaProfile> profile = visca_generic_profile();
 	/* Inquiries, and commands for state that can't be read back, that the
 	 * camera answered with a syntax error: it doesn't have them */
 	QSet<QByteArray> unsupported_requests;
@@ -109,7 +111,7 @@ protected:
 	QElapsedTimer since_last_rx;
 	QTimer update_timer;
 	unsigned int poll_next = 0;
-	static const QStringList &inquiry_poll_list();
+	QStringList inquiry_poll_list() const;
 
 	QString visca_interface;
 	ViscaTransport *transport = nullptr;

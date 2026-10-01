@@ -567,7 +567,7 @@ static PTZCmd assuming(PTZCmd cmd, const char *key, const QVariant &value)
  * at once. A BirdDog has none of the "7e 7e xx" block inquiries, so a value
  * that has a single-value inquiry with the same key and scale has that next.
  */
-const QList<ViscaControl> visca_controls = {
+static const QList<ViscaControl> visca_controls = {
 	{"power_on", VISCA_CAM_Power, {VISCA_CAM_PowerInq}},
 	{"wb_mode", VISCA_CAM_WB_Mode, {VISCA_CameraControlInq, VISCA_CAM_WBModeInq}},
 	{"ae_mode", VISCA_CAM_AE, {VISCA_CameraControlInq, VISCA_CAM_AEModeInq}},
@@ -639,7 +639,7 @@ const QList<ViscaControl> visca_controls = {
 
 /* What the driver sends to move the camera and use its presets, by name. Each
  * one's arguments are what the driver it is used by gives it. */
-const QMap<QString, PTZCmd> visca_actions = {
+static const QMap<QString, PTZCmd> visca_actions = {
 	/* pan and tilt speeds, then pan and tilt positions */
 	{"pantilt_drive", VISCA_PanTilt_drive},
 	{"pantilt_abs", VISCA_PanTilt_drive_abs},
@@ -658,15 +658,30 @@ const QMap<QString, PTZCmd> visca_actions = {
 };
 
 /* Commands that are sent as they are, by the ptz_trigger proc */
-const QMap<QString, PTZCmd> visca_triggers = {
+static const QMap<QString, PTZCmd> visca_triggers = {
 	{"wb_onepush", VISCA_CAM_WB_OnePushTrigger},
 };
 
-const ViscaControl *visca_control(const QString &key)
+const ViscaControl *ViscaProfile::control(const QString &key) const
 {
-	for (const auto &control : visca_controls) {
+	for (const auto &control : controls) {
 		if (control.key == key)
 			return &control;
 	}
 	return nullptr;
+}
+
+/* Everything above, for a camera nothing more is known about. What it
+ * doesn't have, it answers with a syntax error. */
+std::shared_ptr<const ViscaProfile> visca_generic_profile()
+{
+	static const auto generic = [] {
+		auto profile = std::make_shared<ViscaProfile>();
+		profile->id = "generic";
+		profile->controls = visca_controls;
+		profile->actions = visca_actions;
+		profile->triggers = visca_triggers;
+		return std::shared_ptr<const ViscaProfile>(profile);
+	}();
+	return generic;
 }
