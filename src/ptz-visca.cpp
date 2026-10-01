@@ -152,6 +152,7 @@ void PTZVisca::defaults(obs_data_t *cfg)
 	obs_data_set_default_bool(cfg, "tally_auto", true);
 	obs_data_set_default_bool(cfg, "power_on_at_startup", false);
 	obs_data_set_default_bool(cfg, "power_off_at_shutdown", false);
+	obs_data_set_default_string(cfg, "visca_profile", "auto");
 }
 
 void PTZVisca::update(OBSData cfg)
@@ -179,6 +180,8 @@ void PTZVisca::update(OBSData cfg)
 	tally_auto = obs_data_get_bool(cfg, "tally_auto");
 	power_on_at_startup = obs_data_get_bool(cfg, "power_on_at_startup");
 	power_off_at_shutdown = obs_data_get_bool(cfg, "power_off_at_shutdown");
+	profile_setting = obs_data_get_string(cfg, "visca_profile");
+	choose_profile();
 
 	transport->update(cfg);
 	transport->setSourceHost(parentSourceHost());
@@ -209,6 +212,7 @@ void PTZVisca::save(OBSData cfg) const
 	obs_data_set_bool(cfg, "tally_auto", tally_auto);
 	obs_data_set_bool(cfg, "power_on_at_startup", power_on_at_startup);
 	obs_data_set_bool(cfg, "power_off_at_shutdown", power_off_at_shutdown);
+	obs_data_set_string(cfg, "visca_profile", QT_TO_UTF8(profile_setting));
 	if (transport)
 		transport->save(cfg);
 }
@@ -293,6 +297,12 @@ obs_properties_t *PTZVisca::get_obs_properties()
 	auto visca_grp = obs_properties_create();
 	obs_properties_add_group(ptz_props, "visca_advanced", obs_module_text("PTZ.Settings.Advanced"),
 				 OBS_GROUP_CHECKABLE, visca_grp);
+	obs_property_t *profile_list = obs_properties_add_list(visca_grp, "visca_profile",
+							       obs_module_text("PTZ.Visca.Profile"),
+							       OBS_COMBO_TYPE_LIST, OBS_COMBO_FORMAT_STRING);
+	obs_property_list_add_string(profile_list, obs_module_text("PTZ.Visca.Profile.Auto"), "auto");
+	for (const auto &p : visca_profiles())
+		obs_property_list_add_string(profile_list, QT_TO_UTF8(p->name), QT_TO_UTF8(p->id));
 	obs_properties_add_int_slider(visca_grp, "visca_pan_speed_max", obs_module_text("PTZ.Visca.PanMaxSpeed"), 1,
 				      0x7f, 1);
 	obs_properties_add_int_slider(visca_grp, "visca_tilt_speed_max", obs_module_text("PTZ.Visca.TiltMaxSpeed"), 1,
@@ -600,6 +610,23 @@ void PTZVisca::set_profile(std::shared_ptr<const ViscaProfile> new_profile)
 	mark_all_stale();
 }
 
+/* The command set the setting asks for, or the one for the camera's model,
+ * once it has said what it is */
+void PTZVisca::choose_profile()
+{
+	if (profile_setting != "auto") {
+		auto chosen = visca_profile(profile_setting);
+		if (!chosen)
+			ptz_log(LOG_WARNING, "no %s command set, using the generic one", QT_TO_UTF8(profile_setting));
+		set_profile(chosen ? chosen : visca_generic_profile());
+	} else if (obs_data_has_user_value(state, "vendor_id") && obs_data_has_user_value(state, "model_id")) {
+		set_profile(visca_profile_for_model((int)obs_data_get_int(state, "vendor_id"),
+						    (int)obs_data_get_int(state, "model_id")));
+	} else {
+		set_profile(visca_generic_profile());
+	}
+}
+
 void PTZVisca::cmd_get_camera_info()
 {
 	setConnected(true);
@@ -684,10 +711,8 @@ void PTZVisca::receive(const QByteArray &msg)
 			update_position(rslt_props);
 
 			/* The camera says what it is: use its command set */
-			if (obs_data_has_user_value(rslt_props, "vendor_id") &&
-			    obs_data_has_user_value(rslt_props, "model_id"))
-				set_profile(visca_profile_for_model((int)obs_data_get_int(rslt_props, "vendor_id"),
-								    (int)obs_data_get_int(rslt_props, "model_id")));
+			if (obs_data_has_user_value(rslt_props, "model_id"))
+				choose_profile();
 
 			/* Mark returned properties as clean */
 			for (auto item = obs_data_first(rslt_props); item; obs_data_item_next(&item))

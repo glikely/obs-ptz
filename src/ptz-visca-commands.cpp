@@ -678,6 +678,7 @@ std::shared_ptr<const ViscaProfile> visca_generic_profile()
 	static const auto generic = [] {
 		auto profile = std::make_shared<ViscaProfile>();
 		profile->id = "generic";
+		profile->name = obs_module_text("PTZ.Visca.Profile.Generic");
 		profile->controls = visca_controls;
 		profile->actions = visca_actions;
 		profile->triggers = visca_triggers;
@@ -698,4 +699,13 @@ std::shared_ptr<const ViscaProfile> visca_profile_for_model(int vendor_id, int m
 			return profile;
 	}
 	return visca_generic_profile();
+}
+
+std::shared_ptr<const ViscaProfile> visca_profile(const QString &id)
+{
+	for (const auto &profile : visca_profiles()) {
+		if (profile->id == id)
+			return profile;
+	}
+	return nullptr;
 }

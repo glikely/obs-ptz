@@ -97,8 +97,10 @@ protected:
 	int busy_backoff_ms = 0;
 	unsigned int address = 1;
 	bool protocol_trace = false;
-	/* The camera's commands and inquiries */
+	/* The camera's commands and inquiries, and the setting that says which:
+	 * a profile's id, or "auto" for the one for the camera's model */
 	std::shared_ptr<const ViscaProfile> profile = visca_generic_profile();
+	QString profile_setting = "auto";
 	/* Inquiries, and commands for state that can't be read back, that the
 	 * camera answered with a syntax error: it doesn't have them */
 	QSet<QByteArray> unsupported_requests;
@@ -168,6 +170,7 @@ protected:
 	void update_position(OBSData decoded);
 	void mark_all_stale();
 	void set_profile(std::shared_ptr<const ViscaProfile> profile);
+	void choose_profile();
 	void set_control(const ViscaControl &control, int value, OBSData requested = nullptr);
 	void set_control(const QString &key, int value);
 	void reset();
