@@ -135,3 +135,4 @@ _handed to listeners as `signal_handler` on the `ptz_device_create` signal._
 - `void preset_removed(int device_id, int row)`
 - `void preset_moved(int device_id, int src_row, int dest_row)`
 - `void preset_renamed(int device_id, int id)`
+- `void preset_thumbnail_changed(int device_id, int id)`
