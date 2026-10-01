@@ -139,7 +139,9 @@ For example (the auto tracking commands are made up):
   and what another command set's `extends` names.
   A user's command set with the `id` of one shipped with the plugin, but the generic one, is used instead of it.
 - `name`: what the setting shows. The `id` if there isn't one.
-- `models`: the cameras "Automatic" chooses it for, by vendor and model ID in hex.
+- `models`: the cameras "Automatic" chooses it for, by vendor and model ID in hex,
+  or `VVVV:*` for any of a vendor's, for one whose model IDs vary. A command set for the model
+  is chosen over one for any of the vendor's.
   A user's command set is chosen over a built-in one for the same model.
 - `remove`: controls, actions and triggers it doesn't have.
 - `remove_inquiries`: inquiries the camera doesn't have, which no control reads with then.

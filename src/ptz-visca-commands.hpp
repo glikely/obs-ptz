@@ -47,8 +47,10 @@ struct ViscaProfile {
 	/* What the "visca_profile" setting has for it, and what is shown */
 	QString id;
 	QString name;
-	/* The cameras it is for, by (vendor ID << 16) | model ID */
+	/* The cameras it is for, by (vendor ID << 16) | model ID, and by
+	 * vendor ID alone, for a vendor whose model IDs vary */
 	QList<int> models;
+	QList<int> vendors;
 	QList<ViscaControl> controls;
 	QMap<QString, PTZCmd> actions;
 	QMap<QString, PTZCmd> triggers;

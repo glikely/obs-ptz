@@ -740,6 +740,11 @@ std::shared_ptr<const ViscaProfile> visca_profile_for_model(int vendor_id, int m
 		if (profile->models.contains(vendor_id << 16 | model_id))
 			return profile;
 	}
+	/* one for the model wins over one for any of the vendor's */
+	for (const auto &profile : visca_profiles()) {
+		if (profile->vendors.contains(vendor_id))
+			return profile;
+	}
 	return visca_generic_profile();
 }
 
@@ -993,16 +998,21 @@ public:
 		profile->id = id;
 		profile->name = json["name"].toString(id);
 		profile->models.clear();
+		profile->vendors.clear();
 		for (const auto value : json["models"].toArray()) {
 			const QStringList ids = value.toString().split(':');
 			bool vendorOk = false, modelOk = false;
 			int vendor = ids.value(0).toInt(&vendorOk, 16);
+			bool anyModel = ids.value(1) == "*";
 			int model = ids.value(1).toInt(&modelOk, 16);
-			if (ids.size() != 2 || !vendorOk || !modelOk) {
-				fail(QString("model \"%1\" isn't VVVV:MMMM in hex").arg(value.toString()));
+			if (ids.size() != 2 || !vendorOk || !(modelOk || anyModel)) {
+				fail(QString("model \"%1\" isn't VVVV:MMMM or VVVV:* in hex").arg(value.toString()));
 				return nullptr;
 			}
-			profile->models.append(vendor << 16 | model);
+			if (anyModel)
+				profile->vendors.append(vendor);
+			else
+				profile->models.append(vendor << 16 | model);
 		}
 		for (const auto value : json["remove"].toArray())
 			profile->remove(value.toString());
