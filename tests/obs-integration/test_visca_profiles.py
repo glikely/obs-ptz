@@ -63,10 +63,10 @@ class Sim:
             return json.load(resp)["visca_syntax_errors"]
 
 
-def camera(request, world, tmp_path, sim_args=None, **settings):
+def camera(request, world, tmp_path, sim_args=None, read=READ, **settings):
     """A source with a VISCA filter pointed at a P100 of its own, or the
     camera `sim_args` makes a Sim: the sim, the state the device has read
-    once it has read READ, and the device's id"""
+    once it has read `read`, and the device's id"""
     sim = Sim(**(sim_args or {}))
     request.addfinalizer(sim.stop)
     source = f"profile-cam-{next(_sources)}"
@@ -92,7 +92,7 @@ def camera(request, world, tmp_path, sim_args=None, **settings):
     device_id = world.wait_for_device_by_name(
         source, tmp_path / "device.json", lambda r: r["found"] and r["bound"])["device_id"]
     state = world.wait_for_device_state(
-        device_id, tmp_path / "state.json", lambda r: READ <= set(r["state"]), timeout=15)["state"]
+        device_id, tmp_path / "state.json", lambda r: read <= set(r["state"]), timeout=15)["state"]
     return sim, state, device_id
 
 
@@ -132,3 +132,15 @@ def test_a_birddog_is_read_with_its_own_block_inquiries(request, obs_world, tmp_
     obs_world.wait_for_device_state(device_id, tmp_path / "zoomed.json",
                                     lambda r: abs(r["state"].get("zoom", 0) - 0.5) < 0.01, timeout=10)
     assert sim.syntax_errors() == 0
+
+
+def test_an_axis_gets_the_command_set_for_any_axis(request, obs_world, tmp_path):
+    """An Axis camera says "AXV" and its product number where a Sony says its
+    vendor and model IDs, so the Axis command set is for any camera with
+    that vendor ID: one without presets, nor a focus position to read"""
+    sim, state, device_id = camera(request, obs_world, tmp_path, sim_args={"model": "4158:5925", "flags": ()},
+                                   read={"zoom_pos", "wb_mode", "features"})
+    assert state["vendor_id"] == 0x4158
+    assert "presets" not in state["features"]
+    time.sleep(2)
+    assert "focus_pos" not in obs_world.device_state(device_id, tmp_path / "later.json")["state"]
