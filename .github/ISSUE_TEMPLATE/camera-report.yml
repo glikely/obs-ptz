@@ -1,0 +1,66 @@
+name: Camera report
+description: Send in a report of what your camera has, so the plugin can support it better
+title: "Camera report: "
+labels: ["camera report"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for sending in your camera. To make a report, open **Tools → PTZ Devices** in OBS, pick the camera, and press **Create Camera Report…** under Diagnostics. When it's done, **Open Issue Page** copies the report and brings you here: paste it into the Report box below.
+
+        A report has the camera's make, model and firmware version, and what it answered. It has nothing that identifies you or the camera, nor where either is. But this issue is public, and anyone can see it came from your GitHub account, so look the report over before you send it.
+  - type: input
+    id: camera
+    attributes:
+      label: Camera
+      description: Its make and model, as it's sold.
+      placeholder: Sony SRG-300H
+    validations:
+      required: true
+  - type: input
+    id: firmware
+    attributes:
+      label: Firmware version
+      description: If you know it. The camera's web page usually says.
+  - type: dropdown
+    id: connection
+    attributes:
+      label: Connection
+      description: How OBS talks to the camera.
+      options:
+        - VISCA over IP (UDP)
+        - VISCA over TCP
+        - Datavideo DVIP
+        - Serial (RS-232 or RS-422)
+    validations:
+      required: true
+  - type: textarea
+    id: works
+    attributes:
+      label: What works
+      description: What you've tried that the camera does as it should.
+  - type: textarea
+    id: problems
+    attributes:
+      label: What doesn't work
+      description: What the camera doesn't do, or does wrong, and what you expected.
+  - type: input
+    id: plugin-version
+    attributes:
+      label: Plugin version
+      description: Open Issue Page fills this in.
+  - type: textarea
+    id: report
+    attributes:
+      label: Report
+      description: Paste the whole report here.
+      render: json
+    validations:
+      required: true
+  - type: checkboxes
+    id: public
+    attributes:
+      label: Before you send it
+      options:
+        - label: I've looked the report over, and I'm happy for it to be public, and for what it says about the camera to be used in the plugin.
+          required: true
