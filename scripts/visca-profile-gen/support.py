@@ -18,12 +18,27 @@ def supported(commands, inquiries):
                 if match.matches(inq, hexs, []) and (reply is None or match.reply_ok(reply, written, block)):
                     have.add(name)
                     break
-        else:
-            for cmd in commands:
-                if match.matches(cmd, hexs, written):
-                    have.add(name)
-                    break
+        elif any(match.matches(cmd, hexs, written) for cmd in commands):
+            have.add(name)
+        elif written and enumerated(commands, hexs, written):
+            have.add(name)
+    # every camera says what it is, which is how its command set is found
+    have.add("VISCA_CAM_VersionInq")
     return have
+
+
+def enumerated(commands, hexs, written):
+    """Whether the camera has our command `hexs` as a row for each of its
+    values, rather than a row with a parameter: with at least two values
+    wherever we send one"""
+    rows = [c for c in commands if match.matches(c, hexs, written, loose=True)]
+    if not rows:
+        return False
+    for byte in {o for o, _, _ in written}:
+        values = {r[byte] for r in rows}
+        if all(not match.nibble_ok(v, "00", "lo") for v in values) and len(values) < 2:
+            return False
+    return True
 
 
 def profile(have, **meta):

@@ -74,9 +74,10 @@ def nibble_ok(doc, ours, how):
     raise ValueError(how)
 
 
-def matches(doc_tokens, hexs, written):
+def matches(doc_tokens, hexs, written, loose=False):
     """Whether a documented packet is our command `hexs`, whose arguments
-    write `written` [(byte, how)]"""
+    write `written` [(byte, how)]. If `loose`, one with a value where we
+    send one, rather than a parameter, is too."""
     ours = [hexs[i:i + 2].upper() for i in range(0, len(hexs), 2)]
     doc_tokens = [t if i else "8X" for i, t in enumerate(doc_tokens)]
     if len(doc_tokens) != len(ours):
@@ -85,6 +86,8 @@ def matches(doc_tokens, hexs, written):
     for i, (d, o) in enumerate(zip(doc_tokens, ours)):
         if i == 0:
             continue  # the address
+        if loose and i in hows:
+            continue
         if not nibble_ok(d, o, hows.get(i, "fixed")):
             return False
     return True
