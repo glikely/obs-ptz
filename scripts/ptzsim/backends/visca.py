@@ -509,8 +509,11 @@ class ViscaCameraLogic:
         self.send_datagram(b'\x50' + self.encode_bool(self.state.snapshot().power))
 
     def cmd017e010a(self, dg):
-        '''Tally lamp, red (program): 8x 01 7e 01 0a 00 0p, p = 2 on, 3 off'''
+        '''Tally lamp, red (program): 8x 01 7e 01 0a 00 0p, p = 2 on, 3 off; or
+        a Datavideo's both lamps, red then green: 8x 01 7e 01 0a 00 0p 0q'''
         self.state.tally['red'] = dg[6] == 0x02
+        if len(dg) > 7:
+            self.state.tally['green'] = dg[7] == 0x02
         self.cmd_ack()
 
     def cmd017e041a(self, dg):
