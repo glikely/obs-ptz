@@ -173,6 +173,7 @@ protected:
 	void choose_profile();
 	void set_control(const ViscaControl &control, int value, OBSData requested = nullptr);
 	void set_control(const QString &key, int value);
+	int expected_value(const char *key) const;
 	void reset();
 
 protected slots:
