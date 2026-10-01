@@ -703,36 +703,23 @@ std::shared_ptr<const ViscaProfile> visca_generic_profile()
 	return generic;
 }
 
-/* A BirdDog P100 has none of the block inquiries, no green tally lamp, and
- * no reading the red one back */
-static std::shared_ptr<const ViscaProfile> visca_birddog_p100_profile()
-{
-	static const auto p100 = [] {
-		auto profile = std::make_shared<ViscaProfile>(*visca_generic_profile());
-		profile->id = "birddog-p100";
-		profile->name = "BirdDog P100";
-		profile->models = {0x0109 << 16 | 0x2020};
-		const QByteArray block = QByteArray::fromHex("81097e7e");
-		for (auto &control : profile->controls)
-			control.reads.removeIf([&](const PTZInq &inq) { return inq.cmd.startsWith(block); });
-		profile->remove("tally_preview");
-		profile->control("tally_on")->reads.clear();
-		return std::shared_ptr<const ViscaProfile>(profile);
-	}();
-	return p100;
-}
-
 static QList<std::shared_ptr<const ViscaProfile>>
-visca_load_user_profiles(const QList<std::shared_ptr<const ViscaProfile>> &builtin);
+visca_load_profiles(const QDir &dir, const char *where, const QList<std::shared_ptr<const ViscaProfile>> &known);
 
-/* The user's command sets first, so that one for a camera's model is chosen
- * over a built-in one for it */
+/* The generic command set, the ones shipped with the plugin, linked into it
+ * from src/visca-profiles, and the user's, read from the "visca-profiles"
+ * directory of the plugin's config the first time any is needed. The user's
+ * come first, so that one for a camera's model is chosen over a shipped
+ * one for it. */
 QList<std::shared_ptr<const ViscaProfile>> visca_profiles()
 {
 	static const auto profiles = [] {
-		const QList<std::shared_ptr<const ViscaProfile>> builtin = {visca_generic_profile(),
-									    visca_birddog_p100_profile()};
-		return visca_load_user_profiles(builtin) + builtin;
+		QList<std::shared_ptr<const ViscaProfile>> builtin = {visca_generic_profile()};
+		builtin += visca_load_profiles(QDir(":/visca-profiles"), ":/visca-profiles", builtin);
+		char *path = obs_module_config_path("visca-profiles");
+		const QDir dir(QString::fromUtf8(path));
+		bfree(path);
+		return visca_load_profiles(dir, "visca-profiles", builtin) + builtin;
 	}();
 	return profiles;
 }
@@ -1042,17 +1029,12 @@ visca_profile_from_json(const QJsonObject &json,
 	return profile;
 }
 
-/* The user's command sets: the JSON files in "visca-profiles/" in the plugin's
- * config, read the first time any is needed. One can extend a built-in one,
- * or another of the user's. One that can't be read is left out, and why is
- * in the log. */
+/* The command sets in `dir`, a JSON file each, which the log calls `where`.
+ * One can extend one of `known`, or another in `dir`. One that can't be read
+ * is left out, and why is in the log. */
 static QList<std::shared_ptr<const ViscaProfile>>
-visca_load_user_profiles(const QList<std::shared_ptr<const ViscaProfile>> &builtin)
+visca_load_profiles(const QDir &dir, const char *where, const QList<std::shared_ptr<const ViscaProfile>> &known)
 {
-	char *path = obs_module_config_path("visca-profiles");
-	const QDir dir(QString::fromUtf8(path));
-	bfree(path);
-
 	QMap<QString, QJsonObject> pending;
 	for (const QFileInfo &info : dir.entryInfoList({"*.json"}, QDir::Files, QDir::Name)) {
 		QFile file(info.filePath());
@@ -1061,7 +1043,7 @@ visca_load_user_profiles(const QList<std::shared_ptr<const ViscaProfile>> &built
 		if (file.open(QIODevice::ReadOnly))
 			json = QJsonDocument::fromJson(file.readAll(), &parseError);
 		if (!json.isObject()) {
-			blog(LOG_WARNING, "visca-profiles/%s: can't be read: %s", QT_TO_UTF8(info.fileName()),
+			blog(LOG_WARNING, "%s/%s: can't be read: %s", where, QT_TO_UTF8(info.fileName()),
 			     QT_TO_UTF8((file.isOpen() ? parseError.errorString() : file.errorString())));
 			continue;
 		}
@@ -1070,7 +1052,7 @@ visca_load_user_profiles(const QList<std::shared_ptr<const ViscaProfile>> &built
 
 	QList<std::shared_ptr<const ViscaProfile>> loaded;
 	auto find = [&](const QString &id) -> std::shared_ptr<const ViscaProfile> {
-		for (const auto &profile : loaded + builtin) {
+		for (const auto &profile : loaded + known) {
 			if (profile->id == id)
 				return profile;
 		}
@@ -1090,9 +1072,9 @@ visca_load_user_profiles(const QList<std::shared_ptr<const ViscaProfile>> &built
 			if (profile && find(profile->id))
 				error = QString("there is already a \"%1\" command set").arg(profile->id);
 			if (!error.isEmpty()) {
-				blog(LOG_WARNING, "visca-profiles/%s: %s", QT_TO_UTF8(i.key()), QT_TO_UTF8(error));
+				blog(LOG_WARNING, "%s/%s: %s", where, QT_TO_UTF8(i.key()), QT_TO_UTF8(error));
 			} else {
-				blog(LOG_INFO, "visca-profiles/%s: the %s command set", QT_TO_UTF8(i.key()),
+				blog(LOG_INFO, "%s/%s: the %s command set", where, QT_TO_UTF8(i.key()),
 				     QT_TO_UTF8(profile->id));
 				loaded.append(profile);
 			}
@@ -1101,7 +1083,7 @@ visca_load_user_profiles(const QList<std::shared_ptr<const ViscaProfile>> &built
 		}
 	}
 	for (auto i = pending.begin(); i != pending.end(); i++)
-		blog(LOG_WARNING, "visca-profiles/%s: there is no \"%s\" command set for it to extend",
-		     QT_TO_UTF8(i.key()), QT_TO_UTF8(i->value("extends").toString()));
+		blog(LOG_WARNING, "%s/%s: there is no \"%s\" command set for it to extend", where, QT_TO_UTF8(i.key()),
+		     QT_TO_UTF8(i->value("extends").toString()));
 	return loaded;
 }
