@@ -105,6 +105,10 @@ _handed to listeners as `proc_handler` on the `ptz_device_create` signal._
 
 - `void ptz_trigger(string name)`
 
+> The last report of what the camera has, which its "camera_report" trigger makes, as JSON, or "" if there isn't one: see doc/visca-protocol.md. It is for the user to look at and send in themselves; nothing in it identifies the camera, the user, or where either is.
+
+- `void ptz_get_camera_report(out string report)`
+
 > Preset list CRUD
 
 - `ptr ptz_preset_get_list()`

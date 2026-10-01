@@ -575,6 +575,15 @@ class World:
         keys["lists"] = {e["key"]: [v["value"] for v in e["values"]] for e in raw.get("lists", [])}
         return keys
 
+    def camera_report(self, device_id, out_file):
+        """Fetches device_id's camera report, or None if it has none, via
+        tests/ui-harness/device-state-test.cpp's "get_camera_report" test"""
+        if out_file.exists():
+            out_file.unlink()
+        self.run_ui_test("get_camera_report", device_id=device_id, filename=str(out_file))
+        self.wait_for(out_file.exists)
+        return json.loads(out_file.read_text()).get("report")
+
     def device_state(self, device_id, out_file):
         """Fetches device_id's whole transient state ("state"), via
         tests/ui-harness/device-state-test.cpp's "get_device_state" test.

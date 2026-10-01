@@ -8,6 +8,9 @@
 
 #include <obs.hpp>
 #include <obs-module.h>
+#include <QJsonDocument>
+#include <QJsonObject>
+#include <QSaveFile>
 
 #include "ptz-list-model.hpp"
 
@@ -87,9 +90,46 @@ void runSetDeviceStateTest(const QMap<QString, QString> &params)
 	blog(LOG_INFO, "[ptz-ui-test] set_device_state device_id=%u", deviceId);
 }
 
+/* Reports the device's camera report, from the "ptz_get_camera_report"
+ * proc handler, as JSON under "report", if there is one */
+void runGetCameraReportTest(const QMap<QString, QString> &params)
+{
+	bool deviceIdOk = false;
+	uint32_t deviceId = params.value(QStringLiteral("device_id")).toUInt(&deviceIdOk);
+	QString filename = params.value(QStringLiteral("filename"));
+	if (!deviceIdOk || filename.isEmpty()) {
+		blog(LOG_INFO, "[ptz-ui-test] get_camera_report: missing/invalid device_id or filename");
+		return;
+	}
+
+	QModelIndex index = ptzDeviceList->indexFromDeviceId(deviceId);
+	if (!index.isValid()) {
+		blog(LOG_INFO, "[ptz-ui-test] get_camera_report: device_id %u not found", deviceId);
+		return;
+	}
+
+	calldata cd = {};
+	ptzDeviceList->callDevice(index, "ptz_get_camera_report", &cd);
+	const char *text = calldata_string(&cd, "report");
+	/* As it is: obs_data can't hold its arrays of strings */
+	QJsonObject result;
+	if (text && *text)
+		result["report"] = QJsonDocument::fromJson(text).object();
+	calldata_free(&cd);
+
+	QSaveFile file(filename);
+	if (!file.open(QIODevice::WriteOnly) || file.write(QJsonDocument(result).toJson()) < 0 || !file.commit())
+		blog(LOG_INFO, "[ptz-ui-test] get_camera_report: failed to write %s", qUtf8Printable(filename));
+}
+
 } // namespace
 
-/* get_device_state request params:
+/* get_camera_report request params:
+ *   device_id - the target device's numeric id
+ *   filename  - where to write the {"report": {...}} JSON result, {} if
+ *               there is no report
+ *
+ * get_device_state request params:
  *   device_id - the target device's numeric id
  *   filename  - where to write the {"state": {...}} JSON result
  *
@@ -110,4 +150,5 @@ void registerDeviceStateTest(PTZUITestHarness *harness)
 {
 	harness->registerTest(QStringLiteral("get_device_state"), &runGetDeviceStateTest);
 	harness->registerTest(QStringLiteral("set_device_state"), &runSetDeviceStateTest);
+	harness->registerTest(QStringLiteral("get_camera_report"), &runGetCameraReportTest);
 }
