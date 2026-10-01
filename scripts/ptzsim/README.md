@@ -80,7 +80,9 @@ On startup it prints what it's listening on, e.g.:
 
 ### Pointing obs-ptz at it
 
-Open OBS's PTZ dock -> Settings (gear icon) -> `+` and pick a protocol:
+Open OBS's PTZ dock -> Settings (gear icon) -> `+`, pick the source for
+the camera, and a protocol under "New device" (then fill in the settings
+below), or the simulator itself under "Detected devices":
 
 | Protocol           | Host/Port field                              |
 |--------------------|-----------------------------------------------|
@@ -88,7 +90,8 @@ Open OBS's PTZ dock -> Settings (gear icon) -> `+` and pick a protocol:
 | VISCA (over IP/UDP)| host = the machine running `ptzsim`, port 52381 |
 | VISCA (serial)     | the printed `/tmp/ptzsim-visca-serial` path (or `--visca-serial-path`) |
 | Pelco              | the printed `/tmp/ptzsim-pelco-serial` path (or `--pelco-serial-path`), device ID matching `--pelco-address` (default 1) |
-| ONVIF (experimental) | should appear in OBS's discovery list as `obs-ptz-sim` / `SIM-PTZ-1`; credentials aren't enforced, `admin`/`admin` works |
+| ONVIF (experimental) | detected as `obs-ptz-sim SIM-PTZ-1`, with its host and port; credentials aren't enforced, `admin`/`admin` works |
+| VISCA (over IP/UDP), detected | with `--sony-discovery-name NAME`, detected as `NAME SIM-PTZ-1`, at host port 52381 (so leave `--visca-udp-port` at its default) |
 
 The VISCA-serial and Pelco entries require `ENABLE_SERIALPORT=ON` at
 build time (off by default -- see the top-level `CMakeLists.txt`); the
@@ -110,8 +113,8 @@ logs every command it receives, e.g.:
 [+0.30+0.00, -0.10+0.00, 0.00+0.00, 0.50+0.00] --> 8101060118140201
 ```
 
-With `--with-video`, OBS's Media Source (once you "Use Selected Camera"
-on the ONVIF entry) shows a test pattern with a live-updating overlay of
+With `--with-video`, a Media Source playing the RTSP stream shows a test
+pattern with a live-updating overlay of
 the current pan/tilt/zoom/speed. `--debug-http-port PORT` serves the
 same state as JSON on `GET /state` -- mainly useful for scripts/tests
 rather than manual use.
@@ -129,6 +132,10 @@ highlights:
 - `--pelco-address` (default 1; must match the device ID configured in
   OBS).
 - `--onvif-http-port` (default 8899).
+- `--sony-discovery-name NAME`: answer Sony's VISCA-over-IP camera
+  discovery (an `ENQ:network` broadcast to UDP port 52380) as a camera
+  called NAME, at `--host`. Off by default, so that several simulators on
+  one machine don't all answer.
 - `--rtsp-port` (default 8554), `--with-video`, `--mediamtx PATH`,
   `--state-file PATH` (the video overlay's backing text file).
 - `--debug-http-port PORT`: serves `GET /state` as JSON; used by the CI

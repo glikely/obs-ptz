@@ -26,15 +26,18 @@ End-to-end test with OBS
 ------------------------
 1. Run this script (with --with-video for video).
 2. Launch OBS with obs-ptz installed.
-3. Open the PTZ dock -> + -> pick a protocol:
+3. Open the PTZ dock -> + -> pick the camera's source, then a protocol
+   under "New device", and set it up:
    - VISCA (TCP): host, port 5678
    - VISCA (UDP): host, port 52381
    - VISCA (Serial): the printed /tmp/ptzsim-visca-serial path
    - Pelco: the printed /tmp/ptzsim-pelco-serial path, device ID 1
-   - ONVIF (experimental): appears in discovery as obs-ptz-sim / SIM-PTZ-1;
-     credentials aren't enforced, admin/admin is fine.
-4. Click "Use Selected Camera". With --with-video, the auto-created
-   Media Source (ONVIF) plays the test pattern.
+   or pick the simulator under "Detected devices": ONVIF finds it as
+   obs-ptz-sim SIM-PTZ-1 (credentials aren't enforced, admin/admin is
+   fine), and with --sony-discovery-name NAME, Sony's VISCA-over-IP
+   discovery finds it as NAME SIM-PTZ-1.
+4. With --with-video, a Media Source playing the RTSP stream shows the
+   test pattern.
 5. Drag the pan/tilt joystick. The simulator's stdout logs every PTZ
    call and, with --with-video, the RTSP overlay updates pan/tilt/zoom
    values in real time. Stop, Home, and presets all work over ONVIF and
@@ -62,6 +65,7 @@ import socket
 import threading
 
 from .backends.onvif import OnvifBackend
+from .backends.sony_setup import SonySetupBackend
 from .backends.pelco import PelcoBackend
 from .backends.visca import ViscaBackend, ViscaCameraLogic, SonyUdpQuirks
 from .debug_http import DebugHttpServer
@@ -115,6 +119,10 @@ def parse_args():
                           "sequence numbers, answer slowly, and have only two command sockets "
                           "(see SonyUdpQuirks in backends/visca.py). Its counters are added to "
                           "the --debug-http-port /state output")
+    ap.add_argument("--sony-discovery-name", default=None, metavar="NAME",
+                     help="answer Sony's VISCA-over-IP camera discovery (an \"ENQ:network\" "
+                          "broadcast to UDP port 52380) as a camera called NAME, at --host "
+                          "(off by default, so that several simulators don't all answer)")
     ap.add_argument("--visca-serial-path", default="/tmp/ptzsim-visca-serial",
                      help="symlink path for the emulated VISCA serial port")
     ap.add_argument("--no-visca-serial", action="store_true", help="disable emulated VISCA serial")
@@ -174,6 +182,11 @@ def main():
             backends.append(visca)
         else:
             print("[sim] VISCA enabled but all its transports are disabled; skipping")
+
+    if args.sony_discovery_name:
+        sony_setup = SonySetupBackend(args.host, args.sony_discovery_name)
+        sony_setup.start()
+        backends.append(sony_setup)
 
     if not args.no_onvif:
         onvif = OnvifBackend(state, args.host, args.onvif_http_port, args.rtsp_port)
