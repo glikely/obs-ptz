@@ -12,17 +12,18 @@ config both end up living in the REAL, shared
 ~/Library/Application Support/obs-studio directory regardless of what
 conftest.py intended.
 
-This wrapper bridges that gap: it copies the obs-ptz device config
-conftest.py wrote under the isolated $HOME into the real path, writes
+This wrapper bridges that gap: it copies the obs-ptz device config (and
+visca-profiles/) conftest.py wrote under the isolated $HOME into the real path, writes
 obs-websocket's config directly with the port/password conftest.py
 picked, and then execs the real OBS binary. The calling script is
 responsible for backing up and restoring the real directory around
-this -- this wrapper only ever overwrites two config.json files that
-get restored afterward.
+this -- this wrapper only ever overwrites two config.json files and adds
+the visca-profiles/ directory, all restored afterward.
 """
 import json
 import os
 import pwd
+import shutil
 import sys
 
 isolated_home = os.environ["HOME"]
@@ -45,6 +46,14 @@ with open(isolated_ptz_config) as f:
 os.makedirs(os.path.dirname(real_ptz_config), exist_ok=True)
 with open(real_ptz_config, "w") as f:
     f.write(ptz_config)
+
+# The user's VISCA command sets live beside it, in the plugin's config
+# directory, and get the same treatment.
+isolated_profiles = os.path.join(os.path.dirname(isolated_ptz_config), "visca-profiles")
+if os.path.isdir(isolated_profiles):
+    shutil.copytree(isolated_profiles,
+                    os.path.join(os.path.dirname(real_ptz_config), "visca-profiles"),
+                    dirs_exist_ok=True)
 
 real_ws_config = os.path.join(
     real_home, "Library", "Application Support", "obs-studio",

@@ -227,6 +227,12 @@ actually work end to end.
     asked for nothing it doesn't have, by the syntax errors `ptzsim` counts
     in its `/state` output, and that the `visca_profile` setting can name
     the generic one instead.
+27. `test_visca_user_profiles.py` covers a user's VISCA command sets, which
+    `conftest.py` writes to the plugin config's `visca-profiles` directory
+    before OBS starts (`VISCA_PROFILES`): that one adds a `user_` state
+    value that is read and set, and a `user_` trigger, takes away a built-in
+    one, and can extend another, and that one that can't be read is left
+    out.
 
 ## Running locally
 
