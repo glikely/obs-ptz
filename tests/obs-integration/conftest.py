@@ -247,6 +247,51 @@ def write_ptz_plugin_config(home: Path, ports, serial_paths):
         "udp_port": ports["unused_udp"],
     })
     (config_dir / "config.json").write_text(json.dumps({"devices": devices}))
+    write_visca_profiles(config_dir / "visca-profiles")
+
+
+# A user's VISCA command sets (see test_visca_user_profiles.py), by file name.
+# The plugin reads them once, so they are there before OBS starts.
+VISCA_PROFILES = {
+    # A new state value, set and read with the white balance mode's command
+    # and inquiry, one read from further into a reply than its inquiry is
+    # long, a new trigger, and a built-in state value taken away
+    "test-user.json": {
+        "id": "test-user",
+        "name": "Test camera",
+        "models": ["0123:0001"],
+        "remove": ["low_latency"],
+        "controls": [{
+            "key": "user_wb",
+            "set": {"cmd": "8101043500ff", "args": [{"type": "u4", "offset": 4}]},
+            "reads": [{"cmd": "81090435ff", "results": [{"type": "u4", "offset": 2}]}],
+        }, {
+            "key": "user_zoom",
+            "reads": [{"cmd": "81097e7e00ff", "results": [{"type": "u16", "offset": 2}]}],
+        }],
+        "triggers": {"user_home": "81010604ff"},
+    },
+    # One that extends another, read before it
+    "a-extended.json": {
+        "id": "test-user-extended",
+        "extends": "test-user",
+        "models": ["0123:0002"],
+        "remove": ["user_wb"],
+    },
+    # One with a command that isn't hex, which is left out
+    "broken.json": {
+        "id": "broken",
+        "models": ["0123:0003"],
+        "remove": ["low_latency"],
+        "triggers": {"user_x": "8101zzff"},
+    },
+}
+
+
+def write_visca_profiles(profile_dir: Path):
+    profile_dir.mkdir(parents=True, exist_ok=True)
+    for name, profile in VISCA_PROFILES.items():
+        (profile_dir / name).write_text(json.dumps(profile))
 
 
 def output_log(name):
