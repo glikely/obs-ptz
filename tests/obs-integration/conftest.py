@@ -287,6 +287,12 @@ VISCA_PROFILES = {
         "models": ["0109:2020", "0123:0004"],
         "remove": ["tally_preview", "low_latency"],
     },
+    # One that only changes a control: that the AE mode can't be set
+    "control-only.json": {
+        "id": "test-control-only",
+        "models": ["0123:0005"],
+        "controls": [{"key": "ae_mode", "set": None}],
+    },
     # One with a command that isn't hex, which is left out
     "broken.json": {
         "id": "broken",
