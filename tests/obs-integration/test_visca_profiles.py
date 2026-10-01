@@ -58,9 +58,19 @@ class Sim:
         except subprocess.TimeoutExpired:
             self.proc.kill()
 
-    def syntax_errors(self):
+    def state(self):
         with urllib.request.urlopen(f"http://127.0.0.1:{self.debug_port}/state", timeout=5) as resp:
-            return json.load(resp)["visca_syntax_errors"]
+            return json.load(resp)
+
+    def syntax_errors(self):
+        return self.state()["visca_syntax_errors"]
+
+    def wait_for(self, predicate, timeout=10):
+        deadline = time.monotonic() + timeout
+        while not predicate(state := self.state()):
+            assert time.monotonic() < deadline, f"ptzsim never got there: {state}"
+            time.sleep(0.1)
+        return state
 
 
 def camera(request, world, tmp_path, sim_args=None, read=READ, **settings):
@@ -144,3 +154,64 @@ def test_an_axis_gets_the_command_set_for_any_axis(request, obs_world, tmp_path)
     assert "presets" not in state["features"]
     time.sleep(2)
     assert "focus_pos" not in obs_world.device_state(device_id, tmp_path / "later.json")["state"]
+
+
+def moved_to(request, world, tmp_path, sim, device_id, pan, tilt):
+    """Moves the camera to `pan` and `tilt`, and waits for it to say it's
+    there; returns where ptzsim is, in its own units"""
+    world.run_ui_test("move_device", device_id=device_id, mode="abs", pan=pan, tilt=tilt)
+    world.wait_for_device_state(
+        device_id, tmp_path / "moved.json",
+        lambda r: abs(r["state"].get("pan", 9) - pan) < 0.01 and abs(r["state"].get("tilt", 9) - tilt) < 0.01,
+        timeout=10)
+    return sim.state()
+
+
+SONY_SRG_300H = {"model": "0001:0513", "flags": ()}
+
+
+def test_a_camera_moves_as_far_as_its_command_set_says(request, obs_world, tmp_path):
+    """An SRG-300H tilts from -0x400 to 0x1200, further up than down, and
+    pans to 0x2200 either way, which ptzsim's 0x2800 is beyond"""
+    sim, _, device_id = camera(request, obs_world, tmp_path, sim_args=SONY_SRG_300H, read={"pan_pos"})
+    at = moved_to(request, obs_world, tmp_path, sim, device_id, 0.5, 0.5)
+    assert at["pan"] == pytest.approx(0x1100 / 0x2800, abs=0.002)
+    assert at["tilt"] == pytest.approx(0x900 / 0x2800, abs=0.002)
+    at = moved_to(request, obs_world, tmp_path, sim, device_id, -0.5, -0.5)
+    assert at["tilt"] == pytest.approx(-0x200 / 0x2800, abs=0.002)
+
+
+def test_the_settings_can_say_otherwise(request, obs_world, tmp_path):
+    sim, _, device_id = camera(request, obs_world, tmp_path, sim_args=SONY_SRG_300H, read={"pan_pos"},
+                               visca_ranges_auto=False, visca_pan_range=0x2800, visca_tilt_range=0x1400)
+    at = moved_to(request, obs_world, tmp_path, sim, device_id, 0.5, -0.5)
+    assert at["pan"] == pytest.approx(0.5, abs=0.002)
+    assert at["tilt"] == pytest.approx(-0.25, abs=0.002)
+
+
+def test_a_camera_with_20_bit_positions(request, obs_world, tmp_path):
+    """An ILME-FR7's pan and tilt positions are 5 nibbles each, both in its
+    moves and in its reply to the position inquiry"""
+    sim, _, device_id = camera(request, obs_world, tmp_path, read={"pan_pos"}, sim_args={
+        "model": "0001:051e", "flags": ("--visca-positions", "5:5", "--visca-pan-tilt-range", "0x9ca7")})
+    at = moved_to(request, obs_world, tmp_path, sim, device_id, 0.5, 0.5)
+    assert at["pan"] == pytest.approx(0.5, abs=0.002)
+    assert at["tilt"] == pytest.approx(0xb3b0 / 2 / 0x9ca7, abs=0.002)
+
+
+def test_a_camera_that_pans_right_to_left(request, obs_world, tmp_path):
+    """A BRC-X1000's pan positions are 5 nibbles, and higher to the left;
+    its tilt positions are 4"""
+    sim, _, device_id = camera(request, obs_world, tmp_path, read={"pan_pos"}, sim_args={
+        "model": "0001:0519", "flags": ("--visca-positions", "5:4", "--visca-pan-tilt-range", "0x9ca7")})
+    at = moved_to(request, obs_world, tmp_path, sim, device_id, -0.5, 0.5)
+    assert at["pan"] == pytest.approx(0.5, abs=0.002)
+    assert at["tilt"] == pytest.approx(0x52ef / 2 / 0x9ca7, abs=0.002)
+
+
+def test_a_camera_without_a_tilt_speed(request, obs_world, tmp_path):
+    """A BRC-X400's moves have a 0 where the tilt speed would be"""
+    sim, _, device_id = camera(request, obs_world, tmp_path, read={"pan_pos"},
+                               sim_args={"model": "0001:051c", "flags": ()})
+    at = moved_to(request, obs_world, tmp_path, sim, device_id, 0.5, 0.5)
+    assert at["pan"] == pytest.approx(0x1100 / 0x2800, abs=0.002)

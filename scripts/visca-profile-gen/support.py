@@ -71,3 +71,23 @@ def profile(have, **meta):
     if changed:
         out["controls"] = changed
     return out
+
+
+def merge(prof, extra):
+    """`prof` with what `extra` adds: ranges, and actions and controls the
+    generic command set has but the camera has its own way of doing, which
+    it isn't then without, nor without the inquiries they read with"""
+    controls = extra.get("controls", [])
+    actions = extra.get("actions", {})
+    replaced = {c["key"] for c in controls} | set(actions)
+    reads = {r["cmd"] for c in controls for r in c.get("reads", [])}
+    prof["remove"] = [r for r in prof["remove"] if r not in replaced]
+    prof["remove_inquiries"] = [i for i in prof["remove_inquiries"] if i not in reads]
+    changed = [c for c in prof.get("controls", []) if c["key"] not in replaced] + controls
+    if changed:
+        prof["controls"] = changed
+    if actions:
+        prof["actions"] = actions
+    if "ranges" in extra:
+        prof["ranges"] = extra["ranges"]
+    return prof

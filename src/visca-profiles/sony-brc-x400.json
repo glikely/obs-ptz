@@ -21,8 +21,6 @@
     "info_display",
     "ir_condition",
     "tally_preview",
-    "pantilt_abs",
-    "pantilt_rel",
     "zoom_focus_abs"
   ],
   "controls": [
@@ -30,5 +28,63 @@
       "key": "bright_pos",
       "set": null
     }
-  ]
+  ],
+  "actions": {
+    "pantilt_abs": {
+      "cmd": "8101060200000000000000000000ff",
+      "args": [
+        {
+          "type": "u7",
+          "offset": 4
+        },
+        {
+          "type": "none",
+          "offset": 5
+        },
+        {
+          "type": "s16",
+          "offset": 6
+        },
+        {
+          "type": "s16",
+          "offset": 10
+        }
+      ]
+    },
+    "pantilt_rel": {
+      "cmd": "8101060300000000000000000000ff",
+      "args": [
+        {
+          "type": "u7",
+          "offset": 4
+        },
+        {
+          "type": "none",
+          "offset": 5
+        },
+        {
+          "type": "s16",
+          "offset": 6
+        },
+        {
+          "type": "s16",
+          "offset": 10
+        }
+      ]
+    }
+  },
+  "ranges": {
+    "pan": [
+      "-0x2200",
+      "0x2200"
+    ],
+    "tilt": [
+      "-0x400",
+      "0x1200"
+    ],
+    "zoom": [
+      "0x0",
+      "0x4000"
+    ]
+  }
 }

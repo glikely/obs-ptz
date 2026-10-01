@@ -18,7 +18,6 @@
     "8109045eff",
     "81090463ff",
     "81090611ff",
-    "81090612ff",
     "81090634ff",
     "81097e0118ff",
     "81097e015aff",
@@ -31,13 +30,9 @@
     "picture_effect",
     "camera_id",
     "info_display",
-    "pan_pos",
-    "tilt_pos",
     "pan_max_speed",
     "ir_condition",
     "tally_preview",
-    "pantilt_abs",
-    "pantilt_rel",
     "zoom_focus_abs"
   ],
   "controls": [
@@ -72,6 +67,104 @@
     {
       "key": "focus_af_interval_time",
       "set": null
+    },
+    {
+      "key": "pan_pos",
+      "reads": [
+        {
+          "cmd": "81090612ff",
+          "results": [
+            {
+              "type": "s20",
+              "offset": 2,
+              "key": "pan_pos"
+            },
+            {
+              "type": "s16",
+              "offset": 7,
+              "key": "tilt_pos"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "key": "tilt_pos",
+      "reads": [
+        {
+          "cmd": "81090612ff",
+          "results": [
+            {
+              "type": "s20",
+              "offset": 2,
+              "key": "pan_pos"
+            },
+            {
+              "type": "s16",
+              "offset": 7,
+              "key": "tilt_pos"
+            }
+          ]
+        }
+      ]
     }
-  ]
+  ],
+  "actions": {
+    "pantilt_abs": {
+      "cmd": "810106020000000000000000000000ff",
+      "args": [
+        {
+          "type": "u7",
+          "offset": 4
+        },
+        {
+          "type": "u7",
+          "offset": 5
+        },
+        {
+          "type": "s20",
+          "offset": 6
+        },
+        {
+          "type": "s16",
+          "offset": 11
+        }
+      ]
+    },
+    "pantilt_rel": {
+      "cmd": "810106030000000000000000000000ff",
+      "args": [
+        {
+          "type": "u7",
+          "offset": 4
+        },
+        {
+          "type": "u7",
+          "offset": 5
+        },
+        {
+          "type": "s20",
+          "offset": 6
+        },
+        {
+          "type": "s16",
+          "offset": 11
+        }
+      ]
+    }
+  },
+  "ranges": {
+    "pan": [
+      "0x9ca7",
+      "-0x9ca7"
+    ],
+    "tilt": [
+      "-0x1ba5",
+      "0x52ef"
+    ],
+    "zoom": [
+      "0x0",
+      "0x4000"
+    ]
+  }
 }

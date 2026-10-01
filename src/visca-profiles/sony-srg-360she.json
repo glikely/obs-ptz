@@ -8,7 +8,6 @@
   "source": "Generated from the protocol tables in Bitfocus' Sony VISCA Companion module (github.com/bitfocus/companion-module-sony-visca, protocol/Sony_SRG-360SHE.html, MIT licensed), not yet verified against a camera.",
   "remove_inquiries": [
     "81090608ff",
-    "81090612ff",
     "81090634ff",
     "81097e0103ff",
     "81097e015aff",
@@ -19,17 +18,111 @@
     "low_latency",
     "color_system",
     "ir_receive",
-    "pan_pos",
-    "tilt_pos",
     "ir_condition",
-    "tally_preview",
-    "pantilt_abs",
-    "pantilt_rel"
+    "tally_preview"
   ],
   "controls": [
     {
       "key": "info_display",
       "set": null
+    },
+    {
+      "key": "pan_pos",
+      "reads": [
+        {
+          "cmd": "81090612ff",
+          "results": [
+            {
+              "type": "s20",
+              "offset": 2,
+              "key": "pan_pos"
+            },
+            {
+              "type": "s20",
+              "offset": 7,
+              "key": "tilt_pos"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "key": "tilt_pos",
+      "reads": [
+        {
+          "cmd": "81090612ff",
+          "results": [
+            {
+              "type": "s20",
+              "offset": 2,
+              "key": "pan_pos"
+            },
+            {
+              "type": "s20",
+              "offset": 7,
+              "key": "tilt_pos"
+            }
+          ]
+        }
+      ]
     }
-  ]
+  ],
+  "actions": {
+    "pantilt_abs": {
+      "cmd": "81010602000000000000000000000000ff",
+      "args": [
+        {
+          "type": "u7",
+          "offset": 4
+        },
+        {
+          "type": "none",
+          "offset": 5
+        },
+        {
+          "type": "s20",
+          "offset": 6
+        },
+        {
+          "type": "s20",
+          "offset": 11
+        }
+      ]
+    },
+    "pantilt_rel": {
+      "cmd": "81010603000000000000000000000000ff",
+      "args": [
+        {
+          "type": "u7",
+          "offset": 4
+        },
+        {
+          "type": "none",
+          "offset": 5
+        },
+        {
+          "type": "s20",
+          "offset": 6
+        },
+        {
+          "type": "s20",
+          "offset": 11
+        }
+      ]
+    }
+  },
+  "ranges": {
+    "pan": [
+      "-0x15400",
+      "0x15400"
+    ],
+    "tilt": [
+      "-0x3c00",
+      "0xb400"
+    ],
+    "zoom": [
+      "0x0",
+      "0x4000"
+    ]
+  }
 }

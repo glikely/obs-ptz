@@ -17,7 +17,8 @@ added.
 
 - `generic.py`: the generic command set's controls, actions and triggers
 - `match.py`: whether a table's packet is one of them
-- `support.py`: which of them a table has, and the command set without the rest
+- `support.py`: which of them a table has, and the command set without the rest,
+  and with what a generator adds
 - `sonytable.py`, `sony.py`: Sony's tables, as Bitfocus' Sony VISCA
   Companion module has them (`protocol/Sony_*.html`, MIT licensed)
 - `gen_sony.py PATH`: writes the Sony command sets, from a checkout of
