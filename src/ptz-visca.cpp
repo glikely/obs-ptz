@@ -1318,8 +1318,8 @@ void PTZVisca::receive(const QByteArray &msg)
 
 		/* What the command changed is only where it is going until it
 		 * has completed, so read it again now */
-		if (!active_cmd[slot]->affects.isEmpty())
-			stale_state += active_cmd[slot]->affects;
+		for (const auto &key : active_cmd[slot]->affects)
+			stale_state += key;
 
 		update_tally_state(active_cmd[slot]->cmd);
 
@@ -1572,9 +1572,8 @@ void PTZVisca::send_pending()
 		return;
 
 	active_cmd[0] = pending_cmds.takeFirst();
-	auto affects = active_cmd[0].value().affects;
-	if (affects != "")
-		stale_state += affects;
+	for (const auto &key : active_cmd[0]->affects)
+		stale_state += key;
 	send_packet(active_cmd[0].value().cmd);
 	timeout_retry = 0;
 }
