@@ -354,6 +354,9 @@ void PTZSettings::on_addPTZ_clicked()
 #if defined(ENABLE_USB_CAM)
 	QAction *addUsbCam = addPTZContext.addAction(obs_module_text("PTZ.UVC.Name"));
 #endif
+	QAction *addYealinkVC120 = addPTZContext.addAction("Yealink VC120");
+	QAction *addYealinkVC800 = addPTZContext.addAction("Yealink VC800");
+
 	QAction *action = addPTZContext.exec(ui->addPTZ->mapToGlobal(QPoint(0, ui->addPTZ->height())));
 
 	if (action == addVisca) {
@@ -387,6 +390,19 @@ void PTZSettings::on_addPTZ_clicked()
 		ptzDeviceList->make_device(cfg);
 	}
 #endif
+	if (action == addYealinkVC120) {
+		OBSData cfg = obs_data_create();
+		obs_data_set_string(cfg, "type", "yealink-vc120");
+		ptzDeviceList->make_device(cfg);
+		obs_data_release(cfg);
+	}
+
+	if (action == addYealinkVC800) {
+		OBSData cfg = obs_data_create();
+		obs_data_set_string(cfg, "type", "yealink-vc800");
+		ptzDeviceList->make_device(cfg);
+		obs_data_release(cfg);
+	}
 }
 
 void PTZSettings::on_removePTZ_clicked()
@@ -423,7 +439,7 @@ void PTZSettings::settingsChanged(const QModelIndex &topLeft, const QModelIndex 
 	obs_data_erase(settings, "debug_info");
 	auto json = QJsonDocument::fromJson(obs_data_get_json(settings)).toJson();
 	obs_data_set_string(settings, "debug_info", json.constData());
-	QMetaObject::invokeMethod(propertiesView, "RefreshProperties", Qt::QueuedConnection);
+	//QMetaObject::invokeMethod(propertiesView, "RefreshProperties", Qt::QueuedConnection);
 }
 
 void PTZSettings::showDevice(const QModelIndex &index)

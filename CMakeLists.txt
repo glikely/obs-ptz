@@ -77,9 +77,38 @@ if(ENABLE_QT)
   )
 endif()
 
+#
+# libcurl / mbedtls - Yealink
+#
+
+set(OBS_DEPS "${CMAKE_SOURCE_DIR}/.deps/obs-deps-2025-07-11-x64")
+
+target_include_directories(
+  ${CMAKE_PROJECT_NAME}
+  PRIVATE
+  ${OBS_DEPS}/include
+)
+
+target_link_directories(
+  ${CMAKE_PROJECT_NAME}
+  PRIVATE
+  ${OBS_DEPS}/lib
+)
+
+target_link_libraries(
+  ${CMAKE_PROJECT_NAME}
+  PRIVATE
+  libcurl_imp
+  mbedcrypto
+  mbedtls
+  mbedx509
+  bcrypt
+)
+
 add_dependencies(${CMAKE_PROJECT_NAME} plugin_version)
 
 target_include_directories(${CMAKE_PROJECT_NAME} PRIVATE ${CMAKE_SOURCE_DIR}/src)
+
 target_sources(
   ${CMAKE_PROJECT_NAME}
   PRIVATE
@@ -119,6 +148,21 @@ option(ENABLE_USB_CAM "Enable USB camera support" ON)
 if(ENABLE_USB_CAM)
   add_compile_definitions(ENABLE_USB_CAM)
   target_sources(${CMAKE_PROJECT_NAME} PRIVATE src/ptz-usb-cam.cpp src/ptz-usb-cam.hpp)
+endif()
+
+option(ENABLE_YEALINK "Enable Yealink camera support" ON)
+if(ENABLE_YEALINK)
+  add_compile_definitions(ENABLE_YEALINK)
+  target_sources(
+    ${CMAKE_PROJECT_NAME}
+    PRIVATE
+      src/ptz-yealink-vc120.cpp
+      src/ptz-yealink-vc120.hpp
+      src/ptz-yealink-vc800.cpp
+      src/ptz-yealink-vc800.hpp
+      src/yealink-rsa.cpp
+      src/yealink-rsa.hpp
+  )
 endif()
 
 option(ENABLE_ONVIF "Enable ONVIF camera support" ON)
@@ -210,4 +254,15 @@ set_target_properties_plugin(${CMAKE_PROJECT_NAME} PROPERTIES OUTPUT_NAME ${_nam
 
 if(OS_WINDOWS)
   configure_file(installer-Windows.iss.in ${CMAKE_BINARY_DIR}/installer-Windows.iss)
+endif()
+
+if(WIN32)
+  add_custom_command(
+    TARGET ${CMAKE_PROJECT_NAME}
+    POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different
+      "${OBS_DEPS}/bin/libcurl.dll"
+      "$<TARGET_FILE_DIR:${CMAKE_PROJECT_NAME}>"
+  )
+
 endif()

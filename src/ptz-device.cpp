@@ -15,6 +15,8 @@
 #include "ptz-visca-tcp.hpp"
 #include "ptz-onvif.hpp"
 #include "ptz-usb-cam.hpp"
+#include "ptz-yealink-vc120.hpp"
+#include "ptz-yealink-vc800.hpp"
 #include "ptz.h"
 #include "protocol-helpers.hpp"
 
@@ -608,14 +610,19 @@ void ptz_device_create(obs_data_t *config)
 		ptz = new PTZOnvif(config);
 #endif /* ENABLE_ONVIF */
 #if defined(ENABLE_USB_CAM)
-	if (type == "usb-cam")
-		ptz = new PTZUSBCam(config);
+    if (type == "usb-cam")
+        ptz = new PTZUSBCam(config);
 #endif /* ENABLE_USB_CAM */
 
-	/* Only announce once the full (base + derived) object is constructed
-	 * -- see PTZDevice::announceCreated()'s comment. */
-	if (ptz)
-		ptz->announceCreated();
+    if (type == "yealink-vc120")
+        ptz = new PTZYealinkVC120(config);
+    if (type == "yealink-vc800")
+        ptz = new PTZYealinkVC800(config);
+
+    /* Only announce once the full (base + derived) object is constructed
+     * -- see PTZDevice::announceCreated()'s comment. */
+    if (ptz)
+        ptz->announceCreated();
 }
 
 void ptz_device_destroy(uint32_t device_id)
