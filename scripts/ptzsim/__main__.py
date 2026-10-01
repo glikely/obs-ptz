@@ -102,9 +102,15 @@ def parse_args():
                      help="VISCA-over-IP (UDP) listen port")
     ap.add_argument("--no-visca-udp", action="store_true", help="disable VISCA-over-IP")
     ap.add_argument("--visca-no-block-inquiries", action="store_true",
-                     help="answer VISCA's \"7e 7e xx\" block inquiries and the version inquiry "
-                          "with a syntax error, as a BirdDog does: only the single-value "
-                          "inquiries work")
+                     help="answer VISCA's \"7e 7e xx\" block inquiries with a syntax error, as "
+                          "a BirdDog does: only the single-value inquiries work")
+    ap.add_argument("--visca-no-version-inquiry", action="store_true",
+                     help="answer VISCA's version inquiry with a syntax error, so the camera's "
+                          "model can't be known")
+    ap.add_argument("--visca-model", default="0001:0511",
+                     help="the vendor and model ID the VISCA version inquiry answers with, as "
+                          "hex VVVV:MMMM (default: a Sony SRG-120DH, 0001:0511; a BirdDog "
+                          "P100 is 0109:2020)")
     ap.add_argument("--start-in-standby", action="store_true",
                      help="start with the camera powered off")
     ap.add_argument("--visca-no-completions", action="store_true",
@@ -166,6 +172,10 @@ def main():
     asyncio.set_event_loop(loop)
 
     ViscaCameraLogic.block_inquiries = not args.visca_no_block_inquiries
+    ViscaCameraLogic.version_inquiry = not args.visca_no_version_inquiry
+    vendor_id, model_id = args.visca_model.split(":")
+    ViscaCameraLogic.vendor_id = int(vendor_id, 16)
+    ViscaCameraLogic.model_id = int(model_id, 16)
     ViscaCameraLogic.green_tally = not args.visca_no_green_tally
     ViscaCameraLogic.completions = not args.visca_no_completions
 

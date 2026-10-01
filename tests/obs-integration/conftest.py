@@ -746,13 +746,15 @@ def sony_ptzsim(ptz_ports):
 @pytest.fixture(scope="session")
 def birddog_ptzsim(ptz_ports):
     """A VISCA-over-TCP-only ptzsim that, like a BirdDog, answers the block
-    inquiries with a syntax error (--visca-no-block-inquiries), wired to
-    DEVICE_IDS["visca-tcp-birddog"]. Started before OBS (see obs_world)."""
+    inquiries with a syntax error (--visca-no-block-inquiries), and the
+    version inquiry too, so the plugin can't tell what it is and has to
+    find out what it has, wired to DEVICE_IDS["visca-tcp-birddog"]. Started
+    before OBS (see obs_world)."""
     cmd = [
         sys.executable, "-m", "ptzsim",
         "--host", "127.0.0.1",
         "--visca-tcp-port", str(ptz_ports["visca_tcp_birddog"]),
-        "--visca-no-block-inquiries",
+        "--visca-no-block-inquiries", "--visca-no-version-inquiry",
         "--no-visca-udp", "--no-visca-serial", "--no-onvif", "--no-pelco",
     ]
     with output_log("ptzsim-birddog") as out:

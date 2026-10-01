@@ -184,10 +184,15 @@ class ViscaCameraLogic:
     (each already including its trailing 0xff).
     """
 
-    # Whether the "7e 7e xx" block inquiries (and the version inquiry) are
-    # understood. A BirdDog answers them all with a syntax error and has
-    # only the single-value inquiries; __main__ clears this to imitate one.
+    # Whether the "7e 7e xx" block inquiries are understood. A BirdDog
+    # answers them all with a syntax error and has only the single-value
+    # inquiries; __main__ clears this to imitate one.
     block_inquiries = True
+    # Whether the version inquiry is understood, and the vendor and model ID
+    # it answers with: a Sony SRG-120DH unless __main__ says otherwise
+    version_inquiry = True
+    vendor_id = 0x0001
+    model_id = 0x0511
     # Whether there is a green tally lamp to command. Sony's own manual has
     # none, and a BirdDog P100 has only the red one, answering the green
     # command with a syntax error; BirdDog's X4 series has both.
@@ -222,6 +227,8 @@ class ViscaCameraLogic:
         return self._out
 
     def send_datagram(self, dg):
+        if dg == b'\x60\x02':
+            self.state.visca_syntax_errors += 1
         self._send_datagram(b'\x90%b\xff' % dg)
 
     def send_broadcast(self, dg):
@@ -493,7 +500,8 @@ class ViscaCameraLogic:
 
     def cmd090002(self, dg):
         '''CAM_VersionInq'''
-        self.send_datagram(b'\x50\x00\x01\x05\x11\x00\x00\x02')
+        self.send_datagram(b'\x50' + self.vendor_id.to_bytes(2, 'big') + self.model_id.to_bytes(2, 'big') +
+                           b'\x00\x00\x02')
 
     def cmd090400(self, dg):
         '''CAM_PowerInq'''
@@ -670,7 +678,8 @@ class ViscaCameraLogic:
             print("[visca] malformed", dg.hex(), dg[0])
             return
 
-        if not self.block_inquiries and (dg[1:4] == b'\x09\x7e\x7e' or dg[1:4] == b'\x09\x00\x02'):
+        if ((not self.block_inquiries and dg[1:4] == b'\x09\x7e\x7e') or
+                (not self.version_inquiry and dg[1:4] == b'\x09\x00\x02')):
             self.send_datagram(b'\x60\x02')
             return
 

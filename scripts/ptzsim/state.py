@@ -76,6 +76,9 @@ class PTZState:
         # VISCA has a way to read or change: see VISCA_SETTINGS in
         # backends/visca.py, which fills it in, for what each is
         self.visca = {}
+        # How many VISCA requests were answered with a syntax error: ones
+        # the camera doesn't have
+        self.visca_syntax_errors = 0
         self.home = Position()
         self.presets = {}
         self._next_preset_id = 1
