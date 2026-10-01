@@ -122,3 +122,13 @@ def test_a_sony_is_asked_for_what_its_manual_has(request, obs_world, tmp_path):
     # long enough for the rest of what there is to read to have been
     time.sleep(2)
     assert "tally_on" not in obs_world.device_state(device_id, tmp_path / "later.json")["state"]
+
+
+def test_a_birddog_is_read_with_its_own_block_inquiries(request, obs_world, tmp_path):
+    """A BirdDog's command set reads where it is with BirdDog's own block
+    inquiry for pan, tilt and zoom, which ptzsim has when it is one"""
+    sim, state, device_id = camera(request, obs_world, tmp_path)
+    obs_world.run_ui_test("move_device", device_id=device_id, mode="abs", zoom=0.5)
+    obs_world.wait_for_device_state(device_id, tmp_path / "zoomed.json",
+                                    lambda r: abs(r["state"].get("zoom", 0) - 0.5) < 0.01, timeout=10)
+    assert sim.syntax_errors() == 0
