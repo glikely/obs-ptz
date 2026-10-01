@@ -25,3 +25,10 @@ jobs:
         uses: ./.github/actions/run-gersemi
         with:
           failCondition: error
+
+  visca-profiles:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v6
+      - name: VISCA command set layout check 📷
+        run: python3 scripts/check-visca-profiles.py

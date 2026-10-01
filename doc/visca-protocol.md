@@ -280,3 +280,5 @@ with the plugin's own reader, as it reads the ones shipped with it, on every bui
 and fails it if one can't be read, isn't in a file named for its id, doesn't have a `source`,
 or is for a camera another one is for.
 Its `bad/` command sets are wrong on purpose: each must be found to be, so the checks are checked too.
+`scripts/check-visca-profiles.py`, with the formatting checks, fails one that isn't laid out
+as the generator lays them out (`--fix` lays it out).
