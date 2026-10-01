@@ -676,9 +676,16 @@ const ViscaControl *ViscaProfile::control(const QString &key) const
 	return nullptr;
 }
 
+/* Not through the const one: a copy of another command set shares its
+ * controls until it changes one, and only a non-const look at them makes it
+ * a copy of its own to change */
 ViscaControl *ViscaProfile::control(const QString &key)
 {
-	return const_cast<ViscaControl *>(std::as_const(*this).control(key));
+	for (auto &control : controls) {
+		if (control.key == key)
+			return &control;
+	}
+	return nullptr;
 }
 
 void ViscaProfile::remove(const QString &key)
