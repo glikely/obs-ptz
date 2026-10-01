@@ -1,0 +1,99 @@
+{
+  "id": "ptzoptics-gen2",
+  "name": "PTZOptics Gen-2 NDI (PT12X/PT20X/PT30X-NDI)",
+  "models": [],
+  "source": "Generated from the command tables in grafton-visca's VISCA reference (github.com/GrantSparks/grafton-visca, docs/visca_reference.md section 7, MIT or Apache-2.0 licensed), not yet verified against a camera.",
+  "remove_inquiries": [
+    "81090406ff",
+    "81090411ff",
+    "81090422ff",
+    "81090427ff",
+    "81090428ff",
+    "81090437ff",
+    "8109044cff",
+    "81090452ff",
+    "81090457ff",
+    "8109045aff",
+    "8109045eff",
+    "8109045fff",
+    "81090608ff",
+    "81090610ff",
+    "81090611ff",
+    "81090623ff",
+    "81090634ff",
+    "81097e0103ff",
+    "81097e010aff",
+    "81097e0118ff",
+    "81097e015aff",
+    "81097e0400ff",
+    "81097e7e04ff",
+    "81097e7e05ff"
+  ],
+  "remove": [
+    "low_latency",
+    "ir_correction",
+    "wd_mode",
+    "defog_mode",
+    "video_format",
+    "color_system",
+    "info_display",
+    "ir_receive",
+    "pan_max_speed",
+    "ir_condition",
+    "pantilt_move_status",
+    "tally_on",
+    "tally_preview",
+    "focus_onetouch",
+    "zoom_focus_abs"
+  ],
+  "controls": [
+    {
+      "key": "slow_shutter",
+      "set": null
+    },
+    {
+      "key": "focus_af_mode",
+      "set": null
+    },
+    {
+      "key": "dzoom_on",
+      "set": null
+    },
+    {
+      "key": "focus_af_sensitivity",
+      "set": null
+    },
+    {
+      "key": "focus_near_limit",
+      "set": null
+    },
+    {
+      "key": "high_sensitivity",
+      "set": null
+    },
+    {
+      "key": "high_resolution",
+      "set": null
+    },
+    {
+      "key": "chroma_suppress",
+      "set": null
+    },
+    {
+      "key": "camera_id",
+      "set": null
+    },
+    {
+      "key": "focus_af_move_time",
+      "set": null
+    },
+    {
+      "key": "focus_af_interval_time",
+      "set": null
+    },
+    {
+      "key": "menu_on",
+      "set": null
+    }
+  ]
+}
