@@ -971,7 +971,7 @@ void PTZControls::on_panTiltButton_home_released()
 
 void PTZControls::onHomeButtonContextMenu(const QPoint &pos)
 {
-	if (!ui->deviceList->currentIndex().data(PTZListModel::SupportsSetHomeRole).toBool())
+	if (!PTZListModel::hasFeature(ui->deviceList->currentIndex(), "home_set"))
 		return;
 	QMenu menu(this);
 	QAction *setHome = menu.addAction(obs_module_text("PTZ.Action.SetHome"));
@@ -1228,13 +1228,16 @@ void PTZControls::on_deviceList_customContextMenuRequested(const QPoint &pos)
 		OBSDataAutoRelease state = obs_data_create();
 		ptzDeviceList->saveState(index, state.Get());
 		power_on = obs_data_get_bool(state, "power_on");
-		powerAction =
-			context.addAction(obs_module_text(power_on ? "PTZ.Action.PowerOff" : "PTZ.Action.PowerOn"));
+		if (PTZListModel::hasFeature(index, "power"))
+			powerAction = context.addAction(
+				obs_module_text(power_on ? "PTZ.Action.PowerOff" : "PTZ.Action.PowerOn"));
 
+		/* only in the one-push white balance mode */
 		bool wb_onepush = (obs_data_get_int(state, "wb_mode") == 3);
-		if (wb_onepush)
+		if (wb_onepush && PTZListModel::hasFeature(index, "wb_onepush"))
 			wbOnetouchAction = context.addAction(obs_module_text("PTZ.Action.WhiteBalance.OnePushTrigger"));
-		context.addSeparator();
+		if (powerAction || wbOnetouchAction)
+			context.addSeparator();
 	}
 	QAction *autoselectAction = context.addAction(obs_module_text("PTZ.Settings.CameraAutoselect"));
 	autoselectAction->setCheckable(true);
