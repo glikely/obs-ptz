@@ -42,7 +42,9 @@ struct ViscaControl {
  * uses its presets with (actions), and the commands sent as they are by the
  * ptz_trigger proc (triggers) */
 struct ViscaProfile {
+	/* What the "visca_profile" setting has for it, and what is shown */
 	QString id;
+	QString name;
 	/* The cameras it is for, by (vendor ID << 16) | model ID */
 	QList<int> models;
 	QList<ViscaControl> controls;
@@ -57,3 +59,4 @@ std::shared_ptr<const ViscaProfile> visca_generic_profile();
  * generic one if there is none for it */
 QList<std::shared_ptr<const ViscaProfile>> visca_profiles();
 std::shared_ptr<const ViscaProfile> visca_profile_for_model(int vendor_id, int model_id);
+std::shared_ptr<const ViscaProfile> visca_profile(const QString &id);
