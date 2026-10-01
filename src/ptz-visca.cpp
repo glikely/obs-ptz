@@ -386,11 +386,11 @@ const QStringList &PTZVisca::inquiry_poll_list()
 	static const QStringList list = []() {
 		QStringList props;
 		QSet<QByteArray> seen;
-		for (auto it = inquires.constBegin(); it != inquires.constEnd(); ++it) {
-			if (seen.contains(it.value().cmd))
+		for (const auto &control : visca_controls) {
+			if (control.reads.isEmpty() || seen.contains(control.reads.first().cmd))
 				continue;
-			seen.insert(it.value().cmd);
-			props += it.key();
+			seen.insert(control.reads.first().cmd);
+			props += control.key;
 		}
 		return props;
 	}();
@@ -565,11 +565,19 @@ void PTZVisca::discover_finish()
 	announceSettingsChanged();
 }
 
+/* Everything the camera can be asked for is to be read again */
+void PTZVisca::mark_all_stale()
+{
+	for (const auto &control : visca_controls) {
+		if (!control.reads.isEmpty())
+			stale_state += control.key;
+	}
+}
+
 void PTZVisca::cmd_get_camera_info()
 {
 	setConnected(true);
-	for (auto key : inquires.keys())
-		stale_state += key;
+	mark_all_stale();
 	update_timer.start(1000);
 	send_pending();
 }
@@ -683,15 +691,17 @@ void PTZVisca::receive(const QByteArray &msg)
 			for (auto rslt : active_cmd[0].value().results)
 				stale_state -= rslt->name;
 			/* An inquiry the camera doesn't have: read what it
-			 * covers with the single-value inquiries instead */
+			 * covers with the next inquiry for each, if there is one */
 			if (visca_tally_key(active_cmd[0]->cmd) && msg.size() > 2 && msg[2] == VISCA_ERROR_SYNTAX)
 				unsupported_requests.insert(active_cmd[0]->cmd);
 			if (active_cmd[0]->isInquiry() && msg.size() > 2 && msg[2] == VISCA_ERROR_SYNTAX) {
 				const QByteArray unsupported = active_cmd[0]->cmd;
 				unsupported_requests.insert(unsupported);
-				for (auto prop : inquiresFallback.keys()) {
-					if (inquires.value(prop).cmd == unsupported)
-						stale_state += prop;
+				for (const auto &control : visca_controls) {
+					for (const auto &read : control.reads) {
+						if (read.cmd == unsupported)
+							stale_state += control.key;
+					}
 				}
 			}
 		}
@@ -864,17 +874,22 @@ void PTZVisca::send_pending()
 			QSetIterator<QString> i(stale_state);
 			while (i.hasNext()) {
 				QString prop = i.next();
-				if (!inquires.contains(prop))
+				const ViscaControl *control = visca_control(prop);
+				if (!control || control->reads.isEmpty())
 					continue;
-				PTZInq inq = inquires[prop];
-				if (unsupported_requests.contains(inq.cmd) && inquiresFallback.contains(prop))
-					inq = inquiresFallback[prop];
-				if (unsupported_requests.contains(inq.cmd)) {
+				const PTZInq *inq = nullptr;
+				for (const auto &read : control->reads) {
+					if (!unsupported_requests.contains(read.cmd)) {
+						inq = &read;
+						break;
+					}
+				}
+				if (!inq) {
 					/* Nothing to read it with */
 					stale_state -= prop;
 					continue;
 				}
-				pending_cmds += inq;
+				pending_cmds += *inq;
 				break;
 			}
 		}

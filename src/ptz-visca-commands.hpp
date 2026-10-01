@@ -39,9 +39,18 @@ struct ViscaControl {
 	QString key;
 	/* The command that sets it, with the value as its one argument */
 	std::optional<PTZCmd> set;
+	/* What reads it, best first: the next is for a camera that answers
+	 * one with a syntax error. A block inquiry reads many values. */
+	QList<PTZInq> reads;
 
-	ViscaControl(const QString &key, const PTZCmd &set) : key(key), set(set) {}
+	ViscaControl(const QString &key, const std::optional<PTZCmd> &set, const QList<PTZInq> &reads = {})
+		: key(key),
+		  set(set),
+		  reads(reads)
+	{
+	}
 };
 
 extern const QList<ViscaControl> visca_controls;
+const ViscaControl *visca_control(const QString &key);
 const char *visca_tally_key(const QByteArray &cmd);

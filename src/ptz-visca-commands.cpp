@@ -189,7 +189,7 @@ const PTZInq VISCA_CAM_VersionInq("81090002ff",
  * manual's "Block Inquiry Command List", where a reply's bytes are numbered
  * from its address byte, as the offsets here are. Every value they read has
  * the same key and scale as the single-value inquiry for it further down, so
- * that either can be used to read it (see PTZVisca::inquiresFallback). */
+ * that either can be used to read it (see visca_controls). */
 const PTZInq VISCA_LensControlInq(
 	"81097e7e00ff",
 	{new int_field("zoom_pos", 2, 0x0f0f0f0f), new visca_u16_high("focus_near_limit", 6),
@@ -557,143 +557,77 @@ const QMap<int, std::string> PTZVisca::viscaModels = {
 	{0x25740a30, "CAM520 Pro2"},
 };
 
-/* Mapping properties to enquires. Every property the camera is asked for when
- * the link comes up, and asked for again after a command that changes it (the
- * command's "affects"). Where a block inquiry has it, that is used: it reads
- * many at once. */
-const QMap<QString, PTZInq> PTZVisca::inquires = {
-	{"vendor_id", VISCA_CAM_VersionInq},
-	{"power_on", VISCA_CAM_PowerInq},
-	{"pan_pos", VISCA_PanTilt_PosInq},
-	{"tilt_pos", VISCA_PanTilt_PosInq},
-	{"pan_max_speed", VISCA_PanTilt_MaxSpeedInq},
-	{"focus_pos", VISCA_LensControlInq},
-	{"zoom_pos", VISCA_LensControlInq},
-	{"focus_af_enabled", VISCA_LensControlInq},
-	{"focus_af_mode", VISCA_LensControlInq},
-	{"focus_af_sensitivity", VISCA_LensControlInq},
-	{"focus_near_limit", VISCA_LensControlInq},
-	{"dzoom_on", VISCA_LensControlInq},
-	{"wb_mode", VISCA_CameraControlInq},
-	{"r_gain", VISCA_CameraControlInq},
-	{"b_gain", VISCA_CameraControlInq},
-	{"aperture_gain", VISCA_CameraControlInq},
-	{"ae_mode", VISCA_CameraControlInq},
-	{"high_resolution", VISCA_CameraControlInq},
-	{"back_light", VISCA_CameraControlInq},
-	{"exposure_comp", VISCA_CameraControlInq},
-	{"slow_shutter", VISCA_CameraControlInq},
-	{"shutter_pos", VISCA_CameraControlInq},
-	{"iris_pos", VISCA_CameraControlInq},
-	{"gain_pos", VISCA_CameraControlInq},
-	{"bright_pos", VISCA_CameraControlInq},
-	{"exposure_comp_pos", VISCA_CameraControlInq},
-	{"camera_id", VISCA_OtherInq},
-	{"picture_effect", VISCA_OtherInq},
-	{"dzoom_pos", VISCA_EnlargementFunction1Inq},
-	{"focus_af_move_time", VISCA_EnlargementFunction1Inq},
-	{"focus_af_interval_time", VISCA_EnlargementFunction1Inq},
-	{"color_gain", VISCA_EnlargementFunction1Inq},
-	{"gamma", VISCA_EnlargementFunction1Inq},
-	{"high_sensitivity", VISCA_EnlargementFunction1Inq},
-	{"nr_level", VISCA_EnlargementFunction1Inq},
-	{"chroma_suppress", VISCA_EnlargementFunction1Inq},
-	{"gain_limit", VISCA_EnlargementFunction1Inq},
-	{"defog_mode", VISCA_EnlargementFunction2Inq},
-	{"color_hue", VISCA_EnlargementFunction3Inq},
-	{"ir_correction", VISCA_CAM_IRCorrectionInq},
-	{"wd_mode", VISCA_CAM_WDInq},
-	{"low_latency", VISCA_CAM_LowLatencyInq},
-	{"menu_on", VISCA_SYSMenuInq},
-	{"info_display", VISCA_CAM_InfoDisplayInq},
-	{"video_format", VISCA_VideoFormatInq},
-	{"color_system", VISCA_ColorSystemInq},
-	{"ir_receive", VISCA_IRReceiveInq},
-	{"ir_condition", VISCA_IRConditionInq},
-	{"pantilt_move_status", VISCA_PanTilt_ModeInq},
-	{"tally_on", VISCA_CAM_TallyInq},
-};
-
-/* What to ask for, one value at a time, when a camera answers the block
- * inquiry a property is normally read with (above) with a syntax error. A
- * BirdDog has none of the "7e 7e xx" block inquiries. Only properties whose
- * single-value inquiry reads the same value are here. */
-const QMap<QString, PTZInq> PTZVisca::inquiresFallback = {
-	{"zoom_pos", VISCA_CAM_ZoomPosInq},
-	{"focus_pos", VISCA_CAM_FocusPosInq},
-	{"focus_af_enabled", VISCA_CAM_Focus_AFEnabledInq},
-	{"focus_af_mode", VISCA_CAM_AFModeInq},
-	{"focus_af_sensitivity", VISCA_CAM_AFSensitivityInq},
-	{"focus_near_limit", VISCA_CAM_FocusNearLimitInq},
-	{"dzoom_on", VISCA_CAM_DZoomModeInq},
-	{"wb_mode", VISCA_CAM_WBModeInq},
-	{"r_gain", VISCA_CAM_RGainInq},
-	{"b_gain", VISCA_CAM_BGainInq},
-	{"aperture_gain", VISCA_CAM_ApertureInq},
-	{"ae_mode", VISCA_CAM_AEModeInq},
-	{"high_resolution", VISCA_CAM_HRInq},
-	{"back_light", VISCA_CAM_BacklightInq},
-	{"exposure_comp", VISCA_CAM_ExpCompModeInq},
-	{"slow_shutter", VISCA_CAM_SlowShutterModeInq},
-	{"shutter_pos", VISCA_CAM_ShutterPosInq},
-	{"iris_pos", VISCA_CAM_IrisPosInq},
-	{"gain_pos", VISCA_CAM_GainPosInq},
-	{"bright_pos", VISCA_CAM_BrightPosInq},
-	{"exposure_comp_pos", VISCA_CAM_ExpCompPosInq},
-	{"camera_id", VISCA_CAM_IDInq},
-	{"picture_effect", VISCA_CAM_PictureEffectInq},
-	{"focus_af_move_time", VISCA_CAM_AFTimeSettingInq},
-	{"focus_af_interval_time", VISCA_CAM_AFTimeSettingInq},
-	{"color_gain", VISCA_CAM_ColorGainInq},
-	{"gamma", VISCA_CAM_GammaInq},
-	{"high_sensitivity", VISCA_CAM_HighSensitivityInq},
-	{"nr_level", VISCA_CAM_NRInq},
-	{"chroma_suppress", VISCA_CAM_ChromaSuppressInq},
-	{"gain_limit", VISCA_CAM_GainLimitInq},
-	{"defog_mode", VISCA_CAM_DefogInq},
-	{"color_hue", VISCA_CAM_ColorHueInq},
-};
-
-/* Every state value the camera has, and how it is set. A value is set by
- * the command's one argument, a bool for an on/off one. In the order they are
- * sent when asked for at once: a mode before what can only be set in it (R and
- * B gain in the manual white balance mode, the shutter speed in the manual or
- * shutter priority exposure mode, and so on). */
+/* Every state value the camera has, how it is set, and how it is read. A
+ * value is set by the command's one argument, a bool for an on/off one. In the
+ * order they are sent when asked for at once: a mode before what can only be
+ * set in it (R and B gain in the manual white balance mode, the shutter speed
+ * in the manual or shutter priority exposure mode, and so on).
+ *
+ * Each is read with the first of its inquiries that the camera hasn't
+ * answered with a syntax error. Every value is asked for when the link comes
+ * up, and asked for again after a command that changes it (the command's
+ * "affects"). Where a block inquiry has it, that comes first: it reads many
+ * at once. A BirdDog has none of the "7e 7e xx" block inquiries, so a value
+ * that has a single-value inquiry with the same key and scale has that next.
+ */
 const QList<ViscaControl> visca_controls = {
-	{"power_on", VISCA_CAM_Power},
-	{"wb_mode", VISCA_CAM_WB_Mode},
-	{"ae_mode", VISCA_CAM_AE},
-	{"exposure_comp", VISCA_CAM_ExpComp},
-	{"slow_shutter", VISCA_CAM_SlowShutter},
-	{"focus_af_mode", VISCA_CAM_AFMode},
-	{"low_latency", VISCA_CAM_LowLatency},
-	{"dzoom_on", VISCA_CAM_DZoom},
-	{"focus_af_sensitivity", VISCA_CAM_AF_Sensitivity},
-	{"focus_near_limit", VISCA_CAM_Focus_NearLimit},
-	{"ir_correction", VISCA_CAM_IRCorrection},
-	{"r_gain", VISCA_CAM_RGain_Direct},
-	{"b_gain", VISCA_CAM_BGain_Direct},
-	{"shutter_pos", VISCA_CAM_Shutter_Direct},
-	{"iris_pos", VISCA_CAM_Iris_Direct},
-	{"gain_pos", VISCA_CAM_Gain_Direct},
-	{"gain_limit", VISCA_CAM_Gain_Limit},
-	{"bright_pos", VISCA_CAM_Bright_Direct},
-	{"exposure_comp_pos", VISCA_CAM_ExpComp_Direct},
-	{"back_light", VISCA_CAM_Backlight},
-	{"wd_mode", VISCA_CAM_WD},
-	{"defog_mode", VISCA_CAM_Defog},
-	{"high_sensitivity", VISCA_CAM_HighSensitivity},
-	{"aperture_gain", VISCA_CAM_Aperture_Direct},
-	{"high_resolution", VISCA_CAM_HR},
-	{"nr_level", VISCA_CAM_NR},
-	{"gamma", VISCA_CAM_Gamma},
-	{"chroma_suppress", VISCA_CAM_ChromaSuppress},
-	{"color_gain", VISCA_CAM_ColorGain},
-	{"color_hue", VISCA_CAM_ColorHue},
-	{"picture_effect", VISCA_CAM_PictureEffect},
-	{"camera_id", VISCA_CAM_IDWrite},
-	{"video_format", VISCA_VideoFormat_set},
-	{"color_system", VISCA_ColorSystem_set},
-	{"info_display", VISCA_CAM_InfoDisplay},
-	{"ir_receive", VISCA_IRReceive},
+	{"power_on", VISCA_CAM_Power, {VISCA_CAM_PowerInq}},
+	{"wb_mode", VISCA_CAM_WB_Mode, {VISCA_CameraControlInq, VISCA_CAM_WBModeInq}},
+	{"ae_mode", VISCA_CAM_AE, {VISCA_CameraControlInq, VISCA_CAM_AEModeInq}},
+	{"exposure_comp", VISCA_CAM_ExpComp, {VISCA_CameraControlInq, VISCA_CAM_ExpCompModeInq}},
+	{"slow_shutter", VISCA_CAM_SlowShutter, {VISCA_CameraControlInq, VISCA_CAM_SlowShutterModeInq}},
+	{"focus_af_mode", VISCA_CAM_AFMode, {VISCA_LensControlInq, VISCA_CAM_AFModeInq}},
+	{"low_latency", VISCA_CAM_LowLatency, {VISCA_CAM_LowLatencyInq}},
+	{"dzoom_on", VISCA_CAM_DZoom, {VISCA_LensControlInq, VISCA_CAM_DZoomModeInq}},
+	{"focus_af_sensitivity", VISCA_CAM_AF_Sensitivity, {VISCA_LensControlInq, VISCA_CAM_AFSensitivityInq}},
+	{"focus_near_limit", VISCA_CAM_Focus_NearLimit, {VISCA_LensControlInq, VISCA_CAM_FocusNearLimitInq}},
+	{"ir_correction", VISCA_CAM_IRCorrection, {VISCA_CAM_IRCorrectionInq}},
+	{"r_gain", VISCA_CAM_RGain_Direct, {VISCA_CameraControlInq, VISCA_CAM_RGainInq}},
+	{"b_gain", VISCA_CAM_BGain_Direct, {VISCA_CameraControlInq, VISCA_CAM_BGainInq}},
+	{"shutter_pos", VISCA_CAM_Shutter_Direct, {VISCA_CameraControlInq, VISCA_CAM_ShutterPosInq}},
+	{"iris_pos", VISCA_CAM_Iris_Direct, {VISCA_CameraControlInq, VISCA_CAM_IrisPosInq}},
+	{"gain_pos", VISCA_CAM_Gain_Direct, {VISCA_CameraControlInq, VISCA_CAM_GainPosInq}},
+	{"gain_limit", VISCA_CAM_Gain_Limit, {VISCA_EnlargementFunction1Inq, VISCA_CAM_GainLimitInq}},
+	{"bright_pos", VISCA_CAM_Bright_Direct, {VISCA_CameraControlInq, VISCA_CAM_BrightPosInq}},
+	{"exposure_comp_pos", VISCA_CAM_ExpComp_Direct, {VISCA_CameraControlInq, VISCA_CAM_ExpCompPosInq}},
+	{"back_light", VISCA_CAM_Backlight, {VISCA_CameraControlInq, VISCA_CAM_BacklightInq}},
+	{"wd_mode", VISCA_CAM_WD, {VISCA_CAM_WDInq}},
+	{"defog_mode", VISCA_CAM_Defog, {VISCA_EnlargementFunction2Inq, VISCA_CAM_DefogInq}},
+	{"high_sensitivity", VISCA_CAM_HighSensitivity, {VISCA_EnlargementFunction1Inq, VISCA_CAM_HighSensitivityInq}},
+	{"aperture_gain", VISCA_CAM_Aperture_Direct, {VISCA_CameraControlInq, VISCA_CAM_ApertureInq}},
+	{"high_resolution", VISCA_CAM_HR, {VISCA_CameraControlInq, VISCA_CAM_HRInq}},
+	{"nr_level", VISCA_CAM_NR, {VISCA_EnlargementFunction1Inq, VISCA_CAM_NRInq}},
+	{"gamma", VISCA_CAM_Gamma, {VISCA_EnlargementFunction1Inq, VISCA_CAM_GammaInq}},
+	{"chroma_suppress", VISCA_CAM_ChromaSuppress, {VISCA_EnlargementFunction1Inq, VISCA_CAM_ChromaSuppressInq}},
+	{"color_gain", VISCA_CAM_ColorGain, {VISCA_EnlargementFunction1Inq, VISCA_CAM_ColorGainInq}},
+	{"color_hue", VISCA_CAM_ColorHue, {VISCA_EnlargementFunction3Inq, VISCA_CAM_ColorHueInq}},
+	{"picture_effect", VISCA_CAM_PictureEffect, {VISCA_OtherInq, VISCA_CAM_PictureEffectInq}},
+	{"camera_id", VISCA_CAM_IDWrite, {VISCA_OtherInq, VISCA_CAM_IDInq}},
+	{"video_format", VISCA_VideoFormat_set, {VISCA_VideoFormatInq}},
+	{"color_system", VISCA_ColorSystem_set, {VISCA_ColorSystemInq}},
+	{"info_display", VISCA_CAM_InfoDisplay, {VISCA_CAM_InfoDisplayInq}},
+	{"ir_receive", VISCA_IRReceive, {VISCA_IRReceiveInq}},
+	{"vendor_id", std::nullopt, {VISCA_CAM_VersionInq}},
+	{"pan_pos", std::nullopt, {VISCA_PanTilt_PosInq}},
+	{"tilt_pos", std::nullopt, {VISCA_PanTilt_PosInq}},
+	{"pan_max_speed", std::nullopt, {VISCA_PanTilt_MaxSpeedInq}},
+	{"focus_pos", std::nullopt, {VISCA_LensControlInq, VISCA_CAM_FocusPosInq}},
+	{"zoom_pos", std::nullopt, {VISCA_LensControlInq, VISCA_CAM_ZoomPosInq}},
+	{"focus_af_enabled", std::nullopt, {VISCA_LensControlInq, VISCA_CAM_Focus_AFEnabledInq}},
+	{"dzoom_pos", std::nullopt, {VISCA_EnlargementFunction1Inq}},
+	{"focus_af_move_time", std::nullopt, {VISCA_EnlargementFunction1Inq, VISCA_CAM_AFTimeSettingInq}},
+	{"focus_af_interval_time", std::nullopt, {VISCA_EnlargementFunction1Inq, VISCA_CAM_AFTimeSettingInq}},
+	{"menu_on", std::nullopt, {VISCA_SYSMenuInq}},
+	{"ir_condition", std::nullopt, {VISCA_IRConditionInq}},
+	{"pantilt_move_status", std::nullopt, {VISCA_PanTilt_ModeInq}},
+	{"tally_on", std::nullopt, {VISCA_CAM_TallyInq}},
 };
+
+const ViscaControl *visca_control(const QString &key)
+{
+	for (const auto &control : visca_controls) {
+		if (control.key == key)
+			return &control;
+	}
+	return nullptr;
+}
