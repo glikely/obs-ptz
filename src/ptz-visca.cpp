@@ -192,8 +192,6 @@ static constexpr int VISCA_DISCOVER_STABLE_TICKS = 2;
 /* How long to wait for the reply to a request before sending it again. Cameras
  * take up to ~130ms to answer, so this must be well over that. */
 static constexpr int VISCA_REPLY_TIMEOUT_MS = 250;
-/* Update timer ticks (one a second) between reads of all of the camera's state */
-static constexpr unsigned VISCA_FULL_POLL_TICKS = 10;
 
 /* Error reply "command buffer full", and how to deal with it */
 /* How long a power-on at startup waits for the camera to answer */
@@ -1068,19 +1066,42 @@ void PTZVisca::timeout()
 	}
 }
 
+/* One property for each of the camera's different inquiries, in the order they
+ * are polled in. The reply to an inquiry marks all of the properties it reads
+ * as up to date, so asking for one of them is asking for them all. */
+const QStringList &PTZVisca::inquiry_poll_list()
+{
+	static const QStringList list = []() {
+		QStringList props;
+		QSet<QByteArray> seen;
+		for (auto it = inquires.constBegin(); it != inquires.constEnd(); ++it) {
+			if (seen.contains(it.value().cmd))
+				continue;
+			seen.insert(it.value().cmd);
+			props += it.key();
+		}
+		return props;
+	}();
+	return list;
+}
+
 void PTZVisca::update_timer_callback()
 {
 	/* The camera can be moved by something other than this plugin (an IR
 	 * remote, another controller), and tells nobody when it is, so the
-	 * position is read again on every tick, moving or not. The rest of
-	 * what is known about the camera is read again now and then. */
+	 * position is read again on every tick, moving or not. */
 	stale_state += "pan_pos";
 	stale_state += "zoom_pos";
 	stale_state += "focus_pos";
-	if (++poll_ticks >= VISCA_FULL_POLL_TICKS) {
-		poll_ticks = 0;
-		for (auto key : inquires.keys())
-			stale_state += key;
+
+	/* The rest of what is known about the camera is read again too, but
+	 * slowly: one inquiry a tick (a block inquiry reads many properties),
+	 * and not while the camera is being moved, so the controls never wait
+	 * behind more than the one request on the wire. */
+	if (!pan_speed && !tilt_speed && !zoom_speed && !focus_speed && pending_cmds.isEmpty()) {
+		const auto &props = inquiry_poll_list();
+		if (!props.isEmpty())
+			stale_state += props[poll_next++ % props.size()];
 	}
 	discover_tick();
 	send_pending();

@@ -109,7 +109,8 @@ protected:
 	QTimer gap_timer;
 	QElapsedTimer since_last_rx;
 	QTimer update_timer;
-	unsigned int poll_ticks = 0;
+	unsigned int poll_next = 0;
+	static const QStringList &inquiry_poll_list();
 
 	QString visca_interface;
 	ViscaTransport *transport = nullptr;
