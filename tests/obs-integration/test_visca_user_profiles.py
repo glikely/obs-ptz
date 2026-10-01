@@ -132,3 +132,22 @@ def test_the_dock_offers_only_what_a_command_set_has(request, obs_world, tmp_pat
         camera.device_id, tmp_path / "dock.json", lambda e: e["panTiltButton_up"])
     assert enabled["zoomButton_tele"] is False
     assert enabled["zoomButton_wide"] is False
+
+
+def test_every_shipped_command_set_is_offered(obs_world, tmp_path):
+    """Each file in src/visca-profiles is linked into the plugin and read, so
+    one with anything wrong with it, which would be left out, fails here"""
+    shipped = {json.loads(path.read_text())["id"] for path in (REPO_ROOT / "src" / "visca-profiles").glob("*.json")}
+    offered = obs_world.device_settings(obs_world.device_ids["visca-tcp"], tmp_path / "settings.json")["lists"]
+    offered = offered["visca_profile"]
+    assert shipped <= set(offered)
+    assert {"auto", "generic"} <= set(offered)
+    assert len(offered) == len(set(offered))
+
+
+def test_a_users_command_set_replaces_a_shipped_one(request, obs_world, tmp_path):
+    """conftest.py's birddog-p100.json has the shipped P100's id, and is used
+    instead of it: for its other model too, and without low_latency"""
+    camera = Camera(request, obs_world, tmp_path, "0123:0004")
+    state = camera.wait_for_state(lambda s: "wb_mode" in s and "power_on" in s)
+    assert "low_latency" not in state
