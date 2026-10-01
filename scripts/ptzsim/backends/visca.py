@@ -358,7 +358,7 @@ class ViscaCameraLogic:
 
     def cmd010400(self, dg):
         '''CAM_Power on/off'''
-        if dg[4] == 0x02:
+        if dg[4] == 0x02 and not self.state.visca_standby_inquiries:
             self.state.set_power(True)
         elif dg[4] == 0x03:
             self.state.set_power(False)
@@ -732,6 +732,13 @@ class ViscaCameraLogic:
                 (not self.version_inquiry and dg[1:4] == b'\x09\x00\x02')):
             self.send_datagram(b'\x60\x02')
             return
+
+        # A BirdDog in standby that is asked for anything but its camera
+        # details (or what it is) won't wake, Bitfocus' BirdDog PTZ Companion
+        # module says
+        if (self.vendor_id == 0x0109 and dg[1] == 0x09 and not self.state.snapshot().power and
+                dg[2:5] != b'\x7e\x7e\x15' and dg[2:4] != b'\x00\x02'):
+            self.state.visca_standby_inquiries += 1
 
         # Find the command handler for the message: a method, or a setting
         # the tables above say how to set or read

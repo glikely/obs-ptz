@@ -79,6 +79,9 @@ class PTZState:
         # How many VISCA requests were answered with a syntax error: ones
         # the camera doesn't have
         self.visca_syntax_errors = 0
+        # How many inquiries a BirdDog in standby was sent that it can't
+        # take: while there have been any, it won't wake
+        self.visca_standby_inquiries = 0
         self.home = Position()
         self.presets = {}
         self._next_preset_id = 1

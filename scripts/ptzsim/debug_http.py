@@ -37,6 +37,7 @@ class DebugHandler(BaseHTTPRequestHandler):
             # obs-ptz has for each
             "visca": dict(self.state.visca),
             "visca_syntax_errors": self.state.visca_syntax_errors,
+            "visca_standby_inquiries": self.state.visca_standby_inquiries,
             # Counters of the VISCA-over-IP server's Sony quirks, if it has any
             "visca_udp_quirks": getattr(self.state, "visca_udp_stats", None),
             "presets": {
