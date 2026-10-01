@@ -125,6 +125,9 @@ A camera report from one that has been tried is what makes it more than that.
 A command set can be added in a JSON file in the `visca-profiles` directory of the plugin's config
 (`plugin_config/obs-ptz/visca-profiles/` in OBS's config directory).
 They are read when OBS starts, and the log says what was read from each file, or why it couldn't be.
+A key the reader doesn't know, a `remove` of something the command set it extends doesn't have,
+or a `remove_inquiries` of an inquiry it doesn't read with, is a reason it can't be:
+misspelt, any of them would otherwise do nothing, and nothing would say so.
 A command set extends another, the generic one unless it says, and changes some of what that one has.
 For example (the auto tracking commands are made up):
 

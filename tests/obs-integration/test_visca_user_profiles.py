@@ -121,6 +121,14 @@ def test_a_command_set_that_cant_be_read_is_left_out(request, obs_world, tmp_pat
     camera.wait_for_state(lambda s: "low_latency" in s)
 
 
+def test_a_command_set_with_a_misspelt_key_is_left_out(request, obs_world, tmp_path):
+    """"remove_inquiry" for "remove_inquiries" would do nothing at all"""
+    camera = Camera(request, obs_world, tmp_path, "0123:0007")
+    camera.wait_for_state(lambda s: "wb_mode" in s)
+    offered = obs_world.device_settings(camera.device_id, tmp_path / "settings.json")["lists"]["visca_profile"]
+    assert "test-misspelt" not in offered
+
+
 def test_a_users_new_state_value_must_be_named_user(request, obs_world, tmp_path):
     camera = Camera(request, obs_world, tmp_path, "0123:0006")
     camera.wait_for_state(lambda s: "wb_mode" in s)
