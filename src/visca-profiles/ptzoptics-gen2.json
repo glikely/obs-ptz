@@ -94,6 +94,29 @@
     {
       "key": "menu_on",
       "set": null
+    },
+    {
+      "key": "flicker_mode",
+      "set": {
+        "cmd": "8101042300ff",
+        "args": [
+          {
+            "type": "u4",
+            "offset": 4
+          }
+        ]
+      },
+      "reads": [
+        {
+          "cmd": "81090455ff",
+          "results": [
+            {
+              "type": "u4",
+              "offset": 2
+            }
+          ]
+        }
+      ]
     }
   ],
   "ranges": {

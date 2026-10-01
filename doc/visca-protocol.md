@@ -174,7 +174,7 @@ For example (the auto tracking commands are made up):
   In a user's command set, a key the command set it extends doesn't have must start with `user_`,
   so it is never one the plugin has; it is in the device's state like any other.
   One shipped with the plugin can have new keys by any name, for what the state view shows for
-  only some cameras.
+  only some cameras, like the PTZOptics `flicker_mode`.
 - `actions`: commands for the driver, which must take as many arguments as the generic one's.
 - `triggers`: in a user's command set, a name the command set it extends doesn't have must start with `user_`.
 

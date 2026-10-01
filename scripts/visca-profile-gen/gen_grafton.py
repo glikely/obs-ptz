@@ -35,11 +35,18 @@ RANGES = {
     # zoom to the optical tele end
     "axis": ({"pan": ["-0x2200", "0x2200"], "tilt": ["-0x400", "0x1200"], "zoom": ["0x0", "0x4000"]}, ""),
 }
+# What a camera has that the generic command set doesn't, from the tables
+CONTROLS = {
+    # 7.5 and 7.10: 0 off, 1 50 Hz, 2 60 Hz
+    "ptzoptics-gen2": [{"key": "flicker_mode",
+                        "set": {"cmd": "8101042300ff", "args": [{"type": "u4", "offset": 4}]},
+                        "reads": [{"cmd": "81090455ff", "results": [{"type": "u4", "offset": 2}]}]}],
+}
 for pid, name, models, first, last, sections in PROFILES:
     commands, inquiries = mdtable.packets(mdtable.section(REFERENCE, first, last))
     ranges, ranges_source = RANGES[pid]
     prof = support.profile(support.supported(commands, inquiries), id=pid, name=name, models=models,
                            source=SRC.format(sections=sections, ranges=ranges_source))
-    prof = support.merge(prof, {"ranges": ranges})
+    prof = support.merge(prof, {"ranges": ranges, "controls": CONTROLS.get(pid, [])})
     (OUT / (pid + ".json")).write_text(json.dumps(prof, indent=2) + "\n")
     print(pid, len(prof["remove"]), len(prof["remove_inquiries"]), len(prof.get("controls", [])))

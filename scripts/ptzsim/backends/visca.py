@@ -95,6 +95,7 @@ VISCA_SETTINGS = {
     'menu_on': False,
     'ir_receive': True,
     'ir_condition': 0,               # 0 stable, 1 unstable, 2 not checked
+    'flicker_mode': 0,               # PTZOptics': 0 off, 1 50 Hz, 2 60 Hz
 }
 
 # Commands that set one setting from one byte of the command, "8x 01 .. 0p":
@@ -121,6 +122,7 @@ VISCA_BYTE_SETTINGS = {
     '017e015a': ('low_latency', 5),
     '017e0118': ('info_display', 5),
     '017e0103': ('color_system', 6),
+    '010423': ('flicker_mode', 4),
 }
 
 # Commands that set one setting from two nibbles, "8x 01 04 xx 00 00 0p 0q"
@@ -161,6 +163,7 @@ VISCA_BYTE_INQUIRIES = {
     '090606': 'menu_on',
     '090608': 'ir_receive',
     '090634': 'ir_condition',
+    '090455': 'flicker_mode',
 }
 
 # Inquiries answered with one setting as "y0 50 00 00 0p 0q"

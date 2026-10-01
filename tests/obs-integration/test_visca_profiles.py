@@ -234,3 +234,12 @@ def test_a_birddog_in_standby_is_only_asked_whether_it_still_is(request, obs_wor
     obs_world.run_ui_test("set_device_state", device_id=device_id, power_on=True)
     sim.wait_for(lambda s: s["power"])
     obs_world.wait_for_device_state(device_id, tmp_path / "on.json", lambda r: READ <= set(r["state"]), timeout=15)
+
+
+def test_a_shipped_command_set_can_have_a_value_the_generic_one_hasnt(request, obs_world, tmp_path):
+    """PTZOptics' flicker reduction, which only its command set has"""
+    sim, state, device_id = camera(request, obs_world, tmp_path, sim_args={"model": "0001:0000", "flags": ()},
+                                   read={"flicker_mode"}, visca_profile="ptzoptics-gen2")
+    assert state["flicker_mode"] == 0
+    obs_world.run_ui_test("set_device_state", device_id=device_id, flicker_mode=2)
+    sim.wait_for(lambda s: s["visca"]["flicker_mode"] == 2)

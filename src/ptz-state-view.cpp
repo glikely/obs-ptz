@@ -284,6 +284,8 @@ PTZStateView::PTZStateView(QWidget *parent) : QWidget(parent)
 		{2, text("PTZ.Device.State.Mid")},
 		{3, text("PTZ.Device.State.High")}});
 	flag(exposure, "defog_mode", "PTZ.Device.State.Defog");
+	choice(exposure, "flicker_mode", "PTZ.Device.State.Flicker",
+	       {{0, text("PTZ.Device.State.Off")}, {1, QStringLiteral("50 Hz")}, {2, QStringLiteral("60 Hz")}});
 	flag(exposure, "high_sensitivity", "PTZ.Device.State.HighSensitivity");
 
 	m_whiteBalanceGroup = new QGroupBox(obs_module_text("PTZ.WhiteBalance"));
