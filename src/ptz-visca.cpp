@@ -71,8 +71,8 @@ void PTZVisca::setInterface(const QString &interface)
 	}
 
 	visca_interface = interface;
-	if (interface == "tcp")
-		transport = new ViscaTCPTransport();
+	if (interface == "tcp" || interface == "dvip")
+		transport = new ViscaTCPTransport(interface == "dvip");
 #if defined(ENABLE_SERIALPORT)
 	else if (interface == "serial")
 		transport = new ViscaSerialTransport();
@@ -162,7 +162,10 @@ void PTZVisca::update(OBSData cfg)
 
 	std::string cfg_type = obs_data_get_string(cfg, "type");
 	type = cfg_type;
-	QString interface = (cfg_type == "visca-over-ip") ? "udp" : (cfg_type == "visca-over-tcp") ? "tcp" : "serial";
+	QString interface = (cfg_type == "visca-over-ip")     ? "udp"
+			    : (cfg_type == "visca-over-tcp")  ? "tcp"
+			    : (cfg_type == "visca-over-dvip") ? "dvip"
+							      : "serial";
 	setInterface(interface);
 	address = (visca_interface == "serial") ? std::clamp((int)obs_data_get_int(cfg, "address"), 1, 7) : 1;
 
@@ -231,12 +234,12 @@ void PTZVisca::save(OBSData cfg) const
 
 /* Add the connection fields for one VISCA transport type ("visca" /
  * "visca-over-ip" / "visca-over-tcp", the same strings the "type" field has
- * always used). Only one transport's fields are ever present in the
+ * always used, or "visca-over-dvip"). Only one transport's fields are ever present in the
  * properties dialog at a time, so they can reuse the original "host"/
  * "port"/"address" field names without colliding with each other. */
 static void visca_add_interface_fields(obs_properties_t *props, const std::string &type)
 {
-	if (type == "visca-over-tcp")
+	if (type == "visca-over-tcp" || type == "visca-over-dvip")
 		ViscaTCPTransport::add_obs_properties(props);
 	else if (type == "visca-over-ip")
 		ViscaUDPTransport::add_obs_properties(props);
@@ -250,6 +253,8 @@ static const char *visca_interface_description(const std::string &type)
 {
 	if (type == "visca-over-tcp")
 		return obs_module_text("PTZ.Visca.TCP.Description");
+	if (type == "visca-over-dvip")
+		return obs_module_text("PTZ.Visca.DVIP.Description");
 	if (type == "visca-over-ip")
 		return obs_module_text("PTZ.Visca.UDP.Description");
 	return obs_module_text("PTZ.Visca.Serial.Description");
@@ -298,6 +303,7 @@ obs_properties_t *PTZVisca::get_obs_properties()
 #endif
 	obs_property_list_add_string(type_list, obs_module_text("PTZ.Visca.UDP.Name"), "visca-over-ip");
 	obs_property_list_add_string(type_list, obs_module_text("PTZ.Visca.TCP.Name"), "visca-over-tcp");
+	obs_property_list_add_string(type_list, obs_module_text("PTZ.Visca.DVIP.Name"), "visca-over-dvip");
 	obs_property_set_modified_callback2(type_list, visca_type_modified_cb, nullptr);
 
 	visca_add_interface_fields(iface_props, type);

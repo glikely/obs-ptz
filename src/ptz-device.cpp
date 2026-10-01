@@ -960,7 +960,7 @@ void ptz_device_create(obs_data_t *config)
 		ptz = new PTZPelco(config);
 	}
 #endif /* ENABLE_SERIALPORT */
-	if (type == "visca" || type == "visca-over-ip" || type == "visca-over-tcp") {
+	if (type == "visca" || type == "visca-over-ip" || type == "visca-over-tcp" || type == "visca-over-dvip") {
 		PTZVisca::defaults(config);
 		ptz = new PTZVisca(config);
 	}
@@ -1085,7 +1085,7 @@ obs_data_array_t *ptz_device_backups_get()
 const char *ptz_device_filter_kind(const char *type)
 {
 	std::string t = type ? type : "";
-	if (t == "visca" || t == "visca-over-ip" || t == "visca-over-tcp")
+	if (t == "visca" || t == "visca-over-ip" || t == "visca-over-tcp" || t == "visca-over-dvip")
 		return "ca.secretlab.obs-ptz.visca";
 #if defined(ENABLE_SERIALPORT)
 	if (t == "pelco" || t == "pelco-p")

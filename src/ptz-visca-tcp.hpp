@@ -19,8 +19,13 @@ private:
 	QString host; /* configured; empty to follow the source's */
 	QString source_host;
 	QString effectiveHost() const { return host.isEmpty() ? source_host : host; }
-	int port = 5678;
+	/* Datavideo's DVIP: each packet, both ways, after its length (and the
+	 * length's own 2 bytes) in 2 bytes, big endian */
+	bool dvip;
+	int default_port() const { return dvip ? 5002 : 5678; }
+	int port;
 
+	void write(const QByteArray &packet);
 	void receive_datagram(const QByteArray &packet);
 
 private slots:
@@ -29,7 +34,7 @@ private slots:
 	void poll();
 
 public:
-	ViscaTCPTransport();
+	explicit ViscaTCPTransport(bool dvip = false);
 
 	QString description(unsigned int address) const override;
 	void update(OBSData config) override;

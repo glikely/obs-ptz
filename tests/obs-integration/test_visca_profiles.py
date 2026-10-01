@@ -35,13 +35,16 @@ class Sim:
     """A VISCA-over-TCP ptzsim that is a BirdDog P100, or with `model` and
     `flags`, another camera"""
 
-    def __init__(self, model="0109:2020", flags=("--visca-no-block-inquiries", "--visca-no-green-tally")):
+    def __init__(self, model="0109:2020", flags=("--visca-no-block-inquiries", "--visca-no-green-tally"),
+                 dvip=False):
+        # with `dvip`, Datavideo's DVIP is on the TCP port instead
         self.tcp_port = free_port()
         self.debug_port = free_port()
         cmd = [
             sys.executable, "-m", "ptzsim",
             "--host", "127.0.0.1",
-            "--visca-tcp-port", str(self.tcp_port),
+            *(("--visca-dvip-port", str(self.tcp_port), "--no-visca-tcp") if dvip else
+              ("--visca-tcp-port", str(self.tcp_port))),
             "--visca-model", model, *flags,
             "--no-visca-udp", "--no-visca-serial", "--no-onvif", "--no-pelco",
             "--debug-http-port", str(self.debug_port),
@@ -243,3 +246,15 @@ def test_a_shipped_command_set_can_have_a_value_the_generic_one_hasnt(request, o
     assert state["flicker_mode"] == 0
     obs_world.run_ui_test("set_device_state", device_id=device_id, flicker_mode=2)
     sim.wait_for(lambda s: s["visca"]["flicker_mode"] == 2)
+
+
+def test_a_datavideo_over_dvip(request, obs_world, tmp_path):
+    """Datavideo's DVIP is VISCA over TCP with each packet's length before
+    it, both ways"""
+    sim, state, device_id = camera(request, obs_world, tmp_path, read={"zoom_pos", "wb_mode"},
+                                   sim_args={"model": "0001:0000", "flags": (), "dvip": True},
+                                   type="visca-over-dvip")
+    assert state["description"].startswith("DVIP ")
+    obs_world.run_ui_test("move_device", device_id=device_id, mode="abs", zoom=0.5)
+    # the generic command set's zoom range, of ptzsim's
+    sim.wait_for(lambda s: abs(s["zoom"] - 0x7ac0 / 2 / 0xe500) < 0.002)
