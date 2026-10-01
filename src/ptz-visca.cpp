@@ -7,7 +7,6 @@
 
 #include <qt-wrappers.hpp>
 #include "ptz-visca.hpp"
-#include "ptz-visca-commands.hpp"
 #include "ptz-visca-udp.hpp"
 #include "ptz-visca-tcp.hpp"
 #if defined(ENABLE_SERIALPORT)
@@ -352,8 +351,8 @@ void PTZVisca::send(PTZCmd cmd, QList<int> args)
 /* Queues the command the camera has for an action, if it has one */
 void PTZVisca::queue_action(const QString &name, QList<int> args)
 {
-	auto action = visca_actions.constFind(name);
-	if (action == visca_actions.constEnd())
+	auto action = profile->actions.constFind(name);
+	if (action == profile->actions.constEnd())
 		return;
 	PTZCmd cmd = *action;
 	cmd.encode(args);
@@ -395,23 +394,20 @@ void PTZVisca::timeout()
 	}
 }
 
-/* One property for each of the camera's different inquiries, in the order they
- * are polled in. The reply to an inquiry marks all of the properties it reads
- * as up to date, so asking for one of them is asking for them all. */
-const QStringList &PTZVisca::inquiry_poll_list()
+/* One property for each of the command set's different inquiries, in the order
+ * they are polled in. The reply to an inquiry marks all of the properties it
+ * reads as up to date, so asking for one of them is asking for them all. */
+QStringList PTZVisca::inquiry_poll_list() const
 {
-	static const QStringList list = []() {
-		QStringList props;
-		QSet<QByteArray> seen;
-		for (const auto &control : visca_controls) {
-			if (control.reads.isEmpty() || seen.contains(control.reads.first().cmd))
-				continue;
-			seen.insert(control.reads.first().cmd);
-			props += control.key;
-		}
-		return props;
-	}();
-	return list;
+	QStringList props;
+	QSet<QByteArray> seen;
+	for (const auto &control : profile->controls) {
+		if (control.reads.isEmpty() || seen.contains(control.reads.first().cmd))
+			continue;
+		seen.insert(control.reads.first().cmd);
+		props += control.key;
+	}
+	return props;
 }
 
 void PTZVisca::update_timer_callback()
@@ -428,7 +424,7 @@ void PTZVisca::update_timer_callback()
 	 * and not while the camera is being moved, so the controls never wait
 	 * behind more than the one request on the wire. */
 	if (!pan_speed && !tilt_speed && !zoom_speed && !focus_speed && pending_cmds.isEmpty()) {
-		const auto &props = inquiry_poll_list();
+		const QStringList props = inquiry_poll_list();
 		if (!props.isEmpty())
 			stale_state += props[poll_next++ % props.size()];
 	}
@@ -585,7 +581,7 @@ void PTZVisca::discover_finish()
 /* Everything the camera can be asked for is to be read again */
 void PTZVisca::mark_all_stale()
 {
-	for (const auto &control : visca_controls) {
+	for (const auto &control : profile->controls) {
 		if (!control.reads.isEmpty())
 			stale_state += control.key;
 	}
@@ -711,7 +707,7 @@ void PTZVisca::receive(const QByteArray &msg)
 			if (active_cmd[0]->isInquiry() && msg.size() > 2 && msg[2] == VISCA_ERROR_SYNTAX) {
 				const QByteArray unsupported = active_cmd[0]->cmd;
 				unsupported_requests.insert(unsupported);
-				for (const auto &control : visca_controls) {
+				for (const auto &control : profile->controls) {
 					for (const auto &read : control.reads) {
 						if (read.cmd == unsupported)
 							stale_state += control.key;
@@ -755,7 +751,7 @@ void PTZVisca::requestState(OBSData requested)
 	obs_data_apply(rest, requested);
 	/* A command that sets more than one value is sent once for them all */
 	QSet<QByteArray> sent;
-	for (const auto &control : visca_controls) {
+	for (const auto &control : profile->controls) {
 		if (!control.settable() || !obs_data_has_user_value(requested, QT_TO_UTF8(control.key)))
 			continue;
 		obs_data_erase(rest, QT_TO_UTF8(control.key));
@@ -792,7 +788,7 @@ void PTZVisca::set_control(const ViscaControl &control, int value, OBSData reque
 
 void PTZVisca::set_control(const QString &key, int value)
 {
-	if (const ViscaControl *control = visca_control(key))
+	if (const ViscaControl *control = profile->control(key))
 		set_control(*control, value);
 }
 
@@ -847,7 +843,7 @@ void PTZVisca::onOBSShutdown()
 {
 	if (!power_off_at_shutdown)
 		return;
-	const ViscaControl *power = visca_control("power_on");
+	const ViscaControl *power = profile->control("power_on");
 	if (!power || !power->set)
 		return;
 	PTZCmd cmd = *power->set;
@@ -859,8 +855,8 @@ void PTZVisca::onOBSShutdown()
 
 bool PTZVisca::runTrigger(const QString &name)
 {
-	if (visca_triggers.contains(name))
-		send(*visca_triggers.constFind(name));
+	if (profile->triggers.contains(name))
+		send(*profile->triggers.constFind(name));
 	/* Diagnostics, for working out what a camera supports */
 	else if (name == "scan_inquiries")
 		scan_commands();
@@ -905,7 +901,7 @@ void PTZVisca::send_pending()
 			QSetIterator<QString> i(stale_state);
 			while (i.hasNext()) {
 				QString prop = i.next();
-				const ViscaControl *control = visca_control(prop);
+				const ViscaControl *control = profile->control(prop);
 				if (!control || control->reads.isEmpty())
 					continue;
 				const PTZInq *inq = nullptr;
