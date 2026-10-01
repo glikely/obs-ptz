@@ -7,7 +7,9 @@
 
 #include "ptz-visca.hpp"
 #include "ptz-visca-commands.hpp"
+#include <QDir>
 #include <QJsonArray>
+#include <QJsonDocument>
 #include <QRegularExpression>
 
 /* Visca specific datagram field classes */
@@ -720,9 +722,19 @@ static std::shared_ptr<const ViscaProfile> visca_birddog_p100_profile()
 	return p100;
 }
 
+static QList<std::shared_ptr<const ViscaProfile>>
+visca_load_user_profiles(const QList<std::shared_ptr<const ViscaProfile>> &builtin);
+
+/* The user's command sets first, so that one for a camera's model is chosen
+ * over a built-in one for it */
 QList<std::shared_ptr<const ViscaProfile>> visca_profiles()
 {
-	return {visca_generic_profile(), visca_birddog_p100_profile()};
+	static const auto profiles = [] {
+		const QList<std::shared_ptr<const ViscaProfile>> builtin = {visca_generic_profile(),
+									    visca_birddog_p100_profile()};
+		return visca_load_user_profiles(builtin) + builtin;
+	}();
+	return profiles;
 }
 
 std::shared_ptr<const ViscaProfile> visca_profile_for_model(int vendor_id, int model_id)
@@ -1020,4 +1032,68 @@ visca_profile_from_json(const QJsonObject &json,
 	if (!profile && error)
 		*error = reader.error;
 	return profile;
+}
+
+/* The user's command sets: the JSON files in "visca-profiles/" in the plugin's
+ * config, read the first time any is needed. One can extend a built-in one,
+ * or another of the user's. One that can't be read is left out, and why is
+ * in the log. */
+static QList<std::shared_ptr<const ViscaProfile>>
+visca_load_user_profiles(const QList<std::shared_ptr<const ViscaProfile>> &builtin)
+{
+	char *path = obs_module_config_path("visca-profiles");
+	const QDir dir(QString::fromUtf8(path));
+	bfree(path);
+
+	QMap<QString, QJsonObject> pending;
+	for (const QFileInfo &info : dir.entryInfoList({"*.json"}, QDir::Files, QDir::Name)) {
+		QFile file(info.filePath());
+		QJsonParseError parseError = {};
+		QJsonDocument json;
+		if (file.open(QIODevice::ReadOnly))
+			json = QJsonDocument::fromJson(file.readAll(), &parseError);
+		if (!json.isObject()) {
+			blog(LOG_WARNING, "visca-profiles/%s: can't be read: %s", QT_TO_UTF8(info.fileName()),
+			     QT_TO_UTF8((file.isOpen() ? parseError.errorString() : file.errorString())));
+			continue;
+		}
+		pending.insert(info.fileName(), json.object());
+	}
+
+	QList<std::shared_ptr<const ViscaProfile>> loaded;
+	auto find = [&](const QString &id) -> std::shared_ptr<const ViscaProfile> {
+		for (const auto &profile : loaded + builtin) {
+			if (profile->id == id)
+				return profile;
+		}
+		return nullptr;
+	};
+	/* One can extend one that is read after it: go round again while any
+	 * more can be read */
+	for (bool progress = true; progress;) {
+		progress = false;
+		for (auto i = pending.begin(); i != pending.end();) {
+			if (!find(i->value("extends").toString("generic"))) {
+				i++;
+				continue;
+			}
+			QString error;
+			auto profile = visca_profile_from_json(*i, find, &error);
+			if (profile && find(profile->id))
+				error = QString("there is already a \"%1\" command set").arg(profile->id);
+			if (!error.isEmpty()) {
+				blog(LOG_WARNING, "visca-profiles/%s: %s", QT_TO_UTF8(i.key()), QT_TO_UTF8(error));
+			} else {
+				blog(LOG_INFO, "visca-profiles/%s: the %s command set", QT_TO_UTF8(i.key()),
+				     QT_TO_UTF8(profile->id));
+				loaded.append(profile);
+			}
+			i = pending.erase(i);
+			progress = true;
+		}
+	}
+	for (auto i = pending.begin(); i != pending.end(); i++)
+		blog(LOG_WARNING, "visca-profiles/%s: there is no \"%s\" command set for it to extend",
+		     QT_TO_UTF8(i.key()), QT_TO_UTF8(i->value("extends").toString()));
+	return loaded;
 }
