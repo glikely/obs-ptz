@@ -143,6 +143,7 @@ void PTZVisca::defaults(obs_data_t *cfg)
 	obs_data_set_default_int(cfg, "visca_tilt_speed_max", 0x14);
 	obs_data_set_default_int(cfg, "visca_zoom_speed_max", 0x7);
 	obs_data_set_default_int(cfg, "visca_focus_speed_max", 0x7);
+	obs_data_set_default_bool(cfg, "visca_ranges_auto", true);
 	obs_data_set_default_int(cfg, "visca_pan_range", VISCA_DEFAULT_PAN_RANGE);
 	obs_data_set_default_int(cfg, "visca_tilt_range", VISCA_DEFAULT_TILT_RANGE);
 	obs_data_set_default_int(cfg, "visca_zoom_range", VISCA_DEFAULT_ZOOM_RANGE);
@@ -176,12 +177,22 @@ void PTZVisca::update(OBSData cfg)
 	visca_focus_near = (int)obs_data_get_int(cfg, "visca_focus_near");
 	if (visca_focus_near == visca_focus_far)
 		visca_focus_near = visca_focus_far + 1;
+	/* A device from before the ranges could be the command set's has its
+	 * own, if they were ever changed from the defaults */
+	if (obs_data_has_user_value(cfg, "visca_ranges_auto"))
+		visca_ranges_auto = obs_data_get_bool(cfg, "visca_ranges_auto");
+	else
+		visca_ranges_auto =
+			visca_pan_range == VISCA_DEFAULT_PAN_RANGE && visca_tilt_range == VISCA_DEFAULT_TILT_RANGE &&
+			visca_zoom_range == VISCA_DEFAULT_ZOOM_RANGE && visca_focus_far == VISCA_DEFAULT_FOCUS_FAR &&
+			visca_focus_near == VISCA_DEFAULT_FOCUS_NEAR;
 	protocol_trace = obs_data_get_bool(cfg, "protocol_trace");
 	tally_auto = obs_data_get_bool(cfg, "tally_auto");
 	power_on_at_startup = obs_data_get_bool(cfg, "power_on_at_startup");
 	power_off_at_shutdown = obs_data_get_bool(cfg, "power_off_at_shutdown");
 	profile_setting = obs_data_get_string(cfg, "visca_profile");
 	choose_profile();
+	apply_ranges();
 
 	transport->update(cfg);
 	transport->setSourceHost(parentSourceHost());
@@ -203,6 +214,7 @@ void PTZVisca::save(OBSData cfg) const
 	obs_data_set_int(cfg, "visca_tilt_speed_max", visca_tilt_speed_max);
 	obs_data_set_int(cfg, "visca_zoom_speed_max", visca_zoom_speed_max);
 	obs_data_set_int(cfg, "visca_focus_speed_max", visca_focus_speed_max);
+	obs_data_set_bool(cfg, "visca_ranges_auto", visca_ranges_auto);
 	obs_data_set_int(cfg, "visca_pan_range", visca_pan_range);
 	obs_data_set_int(cfg, "visca_tilt_range", visca_tilt_range);
 	obs_data_set_int(cfg, "visca_zoom_range", visca_zoom_range);
@@ -314,7 +326,8 @@ obs_properties_t *PTZVisca::get_obs_properties()
 	/* What 1.0 is in the movement API. A camera that is not one of these
 	 * would have its position shown stuck at an end, and absolute moves
 	 * go to the wrong place; "Discover Movement Limits" in the status
-	 * view finds them. */
+	 * view finds them. Unless they are the command set's. */
+	obs_properties_add_bool(visca_grp, "visca_ranges_auto", obs_module_text("PTZ.Visca.RangesAuto"));
 	obs_properties_add_int(visca_grp, "visca_pan_range", obs_module_text("PTZ.Visca.PanRange"), 1, 0xffff, 1);
 	obs_properties_add_int(visca_grp, "visca_tilt_range", obs_module_text("PTZ.Visca.TiltRange"), 1, 0xffff, 1);
 	obs_properties_add_int(visca_grp, "visca_zoom_range", obs_module_text("PTZ.Visca.ZoomRange"), 1, 0xffff, 1);
@@ -323,6 +336,65 @@ obs_properties_t *PTZVisca::get_obs_properties()
 	obs_properties_add_bool(visca_grp, "protocol_trace", obs_module_text("PTZ.Device.ProtocolTraceToLog"));
 
 	return ptz_props;
+}
+
+/* The camera's position on a pan or tilt axis that is centred on 0, at
+ * `pos` in [-1, 1] of the movement API: -1 is `ends.first`, 1 the second.
+ * Either can be on either side of 0. */
+static int visca_from_unit(double pos, QPair<int, int> ends)
+{
+	pos = std::clamp(pos, -1.0, 1.0);
+	return pos >= 0 ? pos * ends.second : -pos * ends.first;
+}
+
+static double visca_to_unit(int pos, QPair<int, int> ends)
+{
+	if (pos == 0)
+		return 0;
+	if ((pos > 0) == (ends.second > 0))
+		return ends.second ? (double)pos / ends.second : 0;
+	return ends.first ? -(double)pos / ends.first : 0;
+}
+
+/* ...and on a zoom or focus axis, from one end at 0 to the other at 1 */
+static int visca_from_span(double pos, QPair<int, int> ends)
+{
+	return ends.first + std::clamp(pos, 0.0, 1.0) * (ends.second - ends.first);
+}
+
+static double visca_to_span(int pos, QPair<int, int> ends)
+{
+	return (pos - ends.first) / (double)(ends.second - ends.first);
+}
+
+/* Where the ends of each axis are: the command set's, if the settings say
+ * to use them and it has them, or the settings', the way round the command
+ * set has them, for a camera whose positions run the other way */
+void PTZVisca::apply_ranges()
+{
+	auto setting = [this](const char *axis, QPair<int, int> fromSettings) {
+		auto ends = profile->ranges.constFind(axis);
+		if (ends == profile->ranges.constEnd())
+			return fromSettings;
+		if (visca_ranges_auto)
+			return *ends;
+		/* settings are magnitudes, centred on 0 */
+		if (ends->second < 0 && fromSettings.first < 0)
+			return QPair<int, int>{-fromSettings.first, -fromSettings.second};
+		return fromSettings;
+	};
+	pan_ends = setting("pan", {-visca_pan_range, visca_pan_range});
+	tilt_ends = setting("tilt", {-visca_tilt_range, visca_tilt_range});
+	zoom_ends = setting("zoom", {0, visca_zoom_range});
+	focus_ends = setting("focus", {visca_focus_far, visca_focus_near});
+	if (zoom_ends.first == zoom_ends.second)
+		zoom_ends.second = zoom_ends.first + 1;
+	if (focus_ends.first == focus_ends.second)
+		focus_ends.second = focus_ends.first + 1;
+	/* what the last reads were of, in the units the ranges were then */
+	stale_state += "pan_pos";
+	stale_state += "zoom_pos";
+	stale_state += "focus_pos";
 }
 
 /* Turn what a reply read back from the camera into the position state, in
@@ -336,14 +408,13 @@ void PTZVisca::update_position(OBSData decoded)
 		return obs_data_has_user_value(decoded, key);
 	};
 	if (has("pan_pos"))
-		setPosition("pan", obs_data_get_int(state, "pan_pos") / (double)visca_pan_range);
+		setPosition("pan", visca_to_unit((int)obs_data_get_int(state, "pan_pos"), pan_ends));
 	if (has("tilt_pos"))
-		setPosition("tilt", obs_data_get_int(state, "tilt_pos") / (double)visca_tilt_range);
+		setPosition("tilt", visca_to_unit((int)obs_data_get_int(state, "tilt_pos"), tilt_ends));
 	if (has("zoom_pos"))
-		setPosition("zoom", obs_data_get_int(state, "zoom_pos") / (double)visca_zoom_range);
+		setPosition("zoom", visca_to_span((int)obs_data_get_int(state, "zoom_pos"), zoom_ends));
 	if (has("focus_pos"))
-		setPosition("focus", (obs_data_get_int(state, "focus_pos") - visca_focus_far) /
-					     (double)(visca_focus_near - visca_focus_far));
+		setPosition("focus", visca_to_span((int)obs_data_get_int(state, "focus_pos"), focus_ends));
 }
 
 void PTZVisca::send(PTZCmd cmd)
@@ -565,26 +636,24 @@ void PTZVisca::discover_finish()
 	}
 	ptz_info("movement limits: pan %d tilt %d zoom %d focus %d to %d", visca_pan_range, visca_tilt_range,
 		 visca_zoom_range, visca_focus_far, visca_focus_near);
+	/* what it found, not what the command set says */
+	visca_ranges_auto = false;
+	apply_ranges();
 
 	/* Back where it was, in the new ranges */
 	auto start = [this](const char *key) {
 		return discover_start.value(key, 0);
 	};
 	if (discover_start.contains("pan_pos") && discover_start.contains("tilt_pos"))
-		pantilt_abs(start("pan_pos") / (double)visca_pan_range, start("tilt_pos") / (double)visca_tilt_range);
+		pantilt_abs(visca_to_unit(start("pan_pos"), pan_ends), visca_to_unit(start("tilt_pos"), tilt_ends));
 	if (focused && discover_start.contains("zoom_pos"))
 		send_action("zoom_focus_abs", {start("zoom_pos"), start("focus_pos") & 0xffff});
 	else if (discover_start.contains("zoom_pos"))
-		zoom_abs(start("zoom_pos") / (double)visca_zoom_range);
+		zoom_abs(visca_to_span(start("zoom_pos"), zoom_ends));
 
 	if (discover_af_was_on)
 		set_autofocus(true);
 	discover_af_was_on = false;
-
-	/* what the last reads were of, in the units the ranges were then */
-	stale_state += "pan_pos";
-	stale_state += "zoom_pos";
-	stale_state += "focus_pos";
 	announceSettingsChanged();
 }
 
@@ -606,6 +675,7 @@ void PTZVisca::set_profile(std::shared_ptr<const ViscaProfile> new_profile)
 		return;
 	ptz_info("using the %s command set", QT_TO_UTF8(new_profile->id));
 	profile = new_profile;
+	apply_ranges();
 	unsupported_requests.clear();
 	mark_all_stale();
 	featuresChanged();
@@ -1035,16 +1105,15 @@ void PTZVisca::do_update(void)
 
 void PTZVisca::pantilt_rel(double pan_, double tilt_)
 {
-	int pan = std::clamp(pan_, -1.0, 1.0) * visca_pan_range * 2;
-	int tilt = std::clamp(tilt_, -1.0, 1.0) * visca_tilt_range * 2;
+	/* 1.0 is all the way from one end to the other */
+	int pan = std::clamp(pan_, -1.0, 1.0) * (pan_ends.second - pan_ends.first);
+	int tilt = std::clamp(tilt_, -1.0, 1.0) * (tilt_ends.second - tilt_ends.first);
 	send_action("pantilt_rel", {0x14, 0x14, pan, tilt});
 }
 
 void PTZVisca::pantilt_abs(double pan_, double tilt_)
 {
-	int pan = std::clamp(pan_, -1.0, 1.0) * visca_pan_range;
-	int tilt = std::clamp(tilt_, -1.0, 1.0) * visca_tilt_range;
-	send_action("pantilt_abs", {0x0f, 0x0f, pan, tilt});
+	send_action("pantilt_abs", {0x0f, 0x0f, visca_from_unit(pan_, pan_ends), visca_from_unit(tilt_, tilt_ends)});
 }
 
 void PTZVisca::pantilt_home()
@@ -1054,8 +1123,7 @@ void PTZVisca::pantilt_home()
 
 void PTZVisca::zoom_abs(double pos_)
 {
-	int pos = std::clamp(pos_, 0.0, 1.0) * visca_zoom_range;
-	send_action("zoom_abs", {pos});
+	send_action("zoom_abs", {visca_from_span(pos_, zoom_ends)});
 }
 
 void PTZVisca::set_autofocus(bool enabled)

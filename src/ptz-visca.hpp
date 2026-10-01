@@ -119,11 +119,18 @@ protected:
 	ViscaTransport *transport = nullptr;
 	void setInterface(const QString &interface);
 
+	/* The range settings, which are what the camera's command set says
+	 * if "visca_ranges_auto" */
+	bool visca_ranges_auto = true;
 	int visca_pan_range = VISCA_DEFAULT_PAN_RANGE;
 	int visca_tilt_range = VISCA_DEFAULT_TILT_RANGE;
 	int visca_zoom_range = VISCA_DEFAULT_ZOOM_RANGE;
 	int visca_focus_far = VISCA_DEFAULT_FOCUS_FAR;
 	int visca_focus_near = VISCA_DEFAULT_FOCUS_NEAR;
+	/* The camera's positions at each end of each axis (left and right, down
+	 * and up, wide and tele, far and near), from those */
+	QPair<int, int> pan_ends, tilt_ends, zoom_ends, focus_ends;
+	void apply_ranges();
 
 	/* Finding out how far the camera goes, by driving each axis to both of
 	 * its ends and watching where it stops; see discover_limits(). A step
