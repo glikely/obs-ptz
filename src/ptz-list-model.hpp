@@ -11,6 +11,7 @@
 #include <QAbstractItemModel>
 #include <QHash>
 #include <QList>
+#include <optional>
 #include "ptz.h"
 
 /**
@@ -48,6 +49,9 @@ private:
 		bool preview = false;
 		bool locked = false;
 		bool supportsSetHome = false;
+		/* The names in its state's "features", or nothing if it has none:
+		 * a device from before there were, which can do anything */
+		std::optional<QStringList> features;
 		int maxPresets = 16;
 		QList<PresetEntry> presets;
 	};
@@ -76,6 +80,7 @@ public:
 		IsLockedRole,
 		SupportsSetHomeRole,
 		ThumbnailRole, /* QPixmap of a preset row, null if it has none */
+		FeaturesRole,  /* QStringList, or invalid if the device doesn't say */
 	};
 
 	PTZListModel();
@@ -96,6 +101,9 @@ public:
 	void do_reset();
 	Qt::ItemFlags flags(const QModelIndex &index) const override;
 	void onSceneChanged();
+
+	/* Whether the device can do `feature` (see PTZDevice::featureNames()) */
+	static bool hasFeature(const QModelIndex &index, const char *feature);
 
 	/* Data Model */
 	void make_device(OBSData config);
