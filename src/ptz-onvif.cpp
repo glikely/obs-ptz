@@ -527,6 +527,7 @@ void PTZOnvif::handleGetProfilesResponse(QDomNode n)
 	}
 	getPresets();
 	applyImagingIfPending();
+	featuresChanged();
 }
 
 void PTZOnvif::handleGetPresetsResponse(QDomDocument &doc)
@@ -814,6 +815,16 @@ void PTZOnvif::do_update()
 		else
 			imagingFocusMove(focus_speed * m_speed_boost);
 	}
+}
+
+/* Focus is in the imaging service, which a camera needn't have, so it can
+ * only be told once the camera has said whether it does */
+PTZDevice::Features PTZOnvif::features() const
+{
+	Features features = PanTilt | Zoom | PanTiltAbs | PanTiltRel | ZoomAbs | Home | HomeSet | Presets;
+	if (!m_imagingXAddr.isEmpty() && !m_selectedMedia.videoSourceToken.isEmpty())
+		features |= Focus | AutoFocus;
+	return features;
 }
 
 void PTZOnvif::set_autofocus(bool enabled)
