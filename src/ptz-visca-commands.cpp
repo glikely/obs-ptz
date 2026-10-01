@@ -1005,6 +1005,14 @@ public:
 		}
 		for (const auto value : json["remove"].toArray())
 			profile->remove(value.toString());
+		/* Inquiries the camera doesn't have, whatever they read */
+		for (const auto value : json["remove_inquiries"].toArray()) {
+			auto inq = command(value, "", true);
+			if (!inq)
+				return nullptr;
+			for (auto &control : profile->controls)
+				control.reads.removeIf([&](const PTZInq &read) { return read.cmd == inq->cmd; });
+		}
 		for (const auto value : json["controls"].toArray()) {
 			if (!control(*profile, value.toObject()))
 				return nullptr;

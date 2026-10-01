@@ -139,6 +139,8 @@ For example (the auto tracking commands are made up):
 - `models`: the cameras "Automatic" chooses it for, by vendor and model ID in hex.
   A user's command set is chosen over a built-in one for the same model.
 - `remove`: controls, actions and triggers it doesn't have.
+- `remove_inquiries`: inquiries the camera doesn't have, which no control reads with then.
+  A camera without the block inquiries has `["81097e7e00ff", "81097e7e01ff", ...]`.
 - `controls`: each replaces what the command set it extends does for its `key`,
   with whichever of `set`, `set_to` and `reads` it has.
   `set_to` is a command for each value: `{"1": "8101043802ff", "0": "8101043803ff"}`.
