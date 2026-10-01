@@ -162,6 +162,39 @@ public:
 	visca_s16(const char *name, int offset) : int_field(name, offset, 0x0f0f0f0f, true) {}
 };
 
+/* A signed 20 bit value, a nibble in each of 5 bytes: the pan and tilt
+ * positions of a camera that has more of them than 16 bits holds */
+class visca_s20 : public datagram_field {
+public:
+	visca_s20(const char *name, int offset) : datagram_field(name, offset) {}
+	void encode(QByteArray &msg, int val) override
+	{
+		if (msg.size() < offset + 5)
+			return;
+		for (int i = 0; i < 5; i++)
+			msg[offset + i] = (val >> (4 * (4 - i))) & 0xf;
+	}
+	bool decode(OBSData data, QByteArray &msg) override
+	{
+		if (msg.size() < offset + 5)
+			return false;
+		int val = 0;
+		for (int i = 0; i < 5; i++)
+			val = val << 4 | (msg[offset + i] & 0xf);
+		obs_data_set_int(data, name, (val ^ 0x80000) - 0x80000);
+		return true;
+	}
+};
+
+/* An argument the command doesn't have, for a camera that does without one
+ * the driver gives it: a tilt speed, where the pan speed is for both */
+class visca_none : public datagram_field {
+public:
+	visca_none(const char *name, int offset) : datagram_field(name, offset) {}
+	void encode(QByteArray &, int) override {}
+	bool decode(OBSData, QByteArray &) override { return false; }
+};
+
 class visca_u16 : public int_field {
 public:
 	visca_u16(const char *name, int offset) : int_field(name, offset, 0x0f0f0f0f) {}
@@ -821,9 +854,12 @@ template<typename T> static datagram_field *make_field(const char *key, int offs
 }
 
 static const QMap<QString, ViscaFieldType> visca_field_types = {
-	{"u4", {1, make_field<visca_u4>}},   {"u7", {1, make_field<visca_u7>}},   {"u8", {2, make_field<visca_u8>}},
-	{"u15", {2, make_field<visca_u15>}}, {"u16", {4, make_field<visca_u16>}}, {"s16", {4, make_field<visca_s16>}},
-	{"s4", {1, make_field<visca_s4>}},   {"s7", {3, make_field<visca_s7>}},   {"flag", {1, make_field<visca_flag>}},
+	{"u4", {1, make_field<visca_u4>}},     {"u7", {1, make_field<visca_u7>}},
+	{"u8", {2, make_field<visca_u8>}},     {"u15", {2, make_field<visca_u15>}},
+	{"u16", {4, make_field<visca_u16>}},   {"s16", {4, make_field<visca_s16>}},
+	{"s4", {1, make_field<visca_s4>}},     {"s7", {3, make_field<visca_s7>}},
+	{"flag", {1, make_field<visca_flag>}}, {"s20", {5, make_field<visca_s20>}},
+	{"none", {0, make_field<visca_none>}},
 };
 
 class ViscaProfileReader {
@@ -866,8 +902,8 @@ public:
 			return nullptr;
 		}
 		/* after the address and the command or inquiry byte, and before
-		 * the terminator */
-		if (offset < 2 || offset + size > length - 1) {
+		 * the terminator; anywhere for one that is nowhere */
+		if (type != "none" && (offset < 2 || offset + size > length - 1)) {
 			fail(QString("field \"%1\" is outside its command").arg(QString(key)));
 			return nullptr;
 		}
@@ -892,8 +928,10 @@ public:
 		cmd.cmd = QByteArray::fromHex(hex.toLatin1());
 		const QByteArray &bytes = cmd.cmd;
 		const QString what = QString(inquiry ? "inquiry " : "command ") + hex;
-		if (bytes.size() < 3 || bytes.size() > 16)
-			fail(what + " is not 3 to 16 bytes long");
+		/* VISCA says up to 16, but a camera with 20 bit positions has a
+		 * longer move */
+		if (bytes.size() < 3 || bytes.size() > 24)
+			fail(what + " is not 3 to 24 bytes long");
 		else if (bytes.indexOf('\xff') != bytes.size() - 1)
 			fail(what + " doesn't end in ff, or has another before");
 		else if ((uint8_t)bytes[0] != 0x81)

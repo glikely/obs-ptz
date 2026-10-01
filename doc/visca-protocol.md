@@ -178,6 +178,8 @@ or an object with them as `cmd` and:
   - `u4` and `u7`: a value in the low 4 or 7 bits of one byte;
   - `u8`, `u16` and `s16`: one in the low 4 bits of each of 2 or 4 bytes, the VISCA way;
   - `u15`: one in the low 7 bits of each of 2 bytes;
+  - `s20`: a signed one in the low 4 bits of each of 5 bytes, a position some cameras have;
+  - `none`: in no byte at all, for an argument the driver gives an action that the camera's command doesn't have;
   - `s4` and `s7`: a speed and direction, as the zoom and pan/tilt drive commands have them;
   - `flag`: 2 for on, 3 for off;
   - `int` and `bool`: the bits a `mask` says, across as many bytes as it has
