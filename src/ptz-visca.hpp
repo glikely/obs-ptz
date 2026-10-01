@@ -147,6 +147,31 @@ protected:
 	void discover_tick();
 	void discover_finish();
 
+	/* Making a camera report, see start_report(): what is asked of the
+	 * camera, one at a time, and what it answered. Raw, as it came, but
+	 * for the result: "reply" with the reply, "ack" or "completed" for a
+	 * command, or the error. */
+	struct ReportProbe {
+		QByteArray cmd;
+		QString key; /* the value a command sets */
+		QString result;
+		QByteArray reply;
+	};
+	QList<ReportProbe> report_probes;
+	int report_next = -1; /* the probe being asked, -1 when none is */
+	bool report_commands = false;
+	int report_buffer_full = 0;
+	QElapsedTimer report_asked;
+	QJsonObject last_report;
+	void start_report();
+	void report_ask();
+	void report_answer(const QByteArray &msg, int slot);
+	void report_resolve(const QString &result, const QByteArray &reply = {});
+	void queue_report_commands();
+	void report_settle();
+	void report_finish();
+	void report_progress(const char *error = nullptr);
+
 	unsigned int visca_pan_speed_max = 0x18;
 	unsigned int visca_tilt_speed_max = 0x14;
 	unsigned int visca_zoom_speed_max = 7;
@@ -192,6 +217,7 @@ public:
 	QString description() const override;
 	obs_properties_t *get_obs_properties() override;
 	Features features() const override;
+	QJsonObject cameraReport() const override { return last_report; }
 	void requestState(OBSData requested) override;
 	void onSceneChanged() override;
 	void onOBSStartup() override;
