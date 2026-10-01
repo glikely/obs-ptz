@@ -1,0 +1,7 @@
+{
+  "id": "bad-removes-no-inquiry",
+  "source": "A test of the checks: tests/visca-profile-check",
+  "remove_inquiries": [
+    "81090999ff"
+  ]
+}

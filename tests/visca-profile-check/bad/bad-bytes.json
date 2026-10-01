@@ -1,0 +1,7 @@
+{
+  "id": "bad-bytes",
+  "source": "A test of the checks: tests/visca-profile-check",
+  "triggers": {
+    "user_x": "8101zzff"
+  }
+}

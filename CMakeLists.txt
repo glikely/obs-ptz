@@ -286,6 +286,15 @@ if(ENABLE_UI_TESTS)
   )
 endif()
 
+option(
+  ENABLE_VISCA_PROFILE_CHECK
+  "Check the VISCA command sets in src/visca-profiles with the plugin's own reader on every build (tests/visca-profile-check)"
+  OFF
+)
+if(ENABLE_VISCA_PROFILE_CHECK)
+  add_subdirectory(tests/visca-profile-check)
+endif()
+
 option(ENABLE_JOYSTICK "Enable Joystick support" OFF)
 if(ENABLE_JOYSTICK)
   add_subdirectory("${CMAKE_SOURCE_DIR}/shared/qjoysticks" "${CMAKE_BINARY_DIR}/shared/qjoysticks")

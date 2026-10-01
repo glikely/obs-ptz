@@ -238,3 +238,11 @@ answering what it answered as it did and refusing what it refused,
 and `tests/obs-integration/test_camera_report_replay.py` checks that the command set
 the plugin chooses for each camera there asks it for nothing it doesn't have.
 So every camera that has been reported stays tested, by people who don't have it.
+
+A command set shipped with the plugin that it can't read is left out, with only a warning in the log,
+so CI checks each one in `src/visca-profiles/` before it can get that far.
+`tests/visca-profile-check` (`ENABLE_VISCA_PROFILE_CHECK`, on in the Ubuntu CI builds) reads them
+with the plugin's own reader, as it reads the ones shipped with it, on every build,
+and fails it if one can't be read, isn't in a file named for its id, doesn't have a `source`,
+or is for a camera another one is for.
+Its `bad/` command sets are wrong on purpose: each must be found to be, so the checks are checked too.
