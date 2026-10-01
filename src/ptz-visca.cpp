@@ -713,16 +713,16 @@ void PTZVisca::receive(const QByteArray &msg)
 
 void PTZVisca::requestState(OBSData requested)
 {
-	for (const auto &[key, cmd] : visca_state_commands) {
-		if (!obs_data_has_user_value(requested, key))
+	for (const auto &control : visca_controls) {
+		if (!control.set || !obs_data_has_user_value(requested, QT_TO_UTF8(control.key)))
 			continue;
 		/* An on/off value can be asked for as a number, and a number
 		 * as a bool, by whoever doesn't know which it is */
-		obs_data_item_t *item = obs_data_item_byname(requested, key);
+		obs_data_item_t *item = obs_data_item_byname(requested, QT_TO_UTF8(control.key));
 		int value = obs_data_item_gettype(item) == OBS_DATA_BOOLEAN ? obs_data_item_get_bool(item)
 									    : (int)obs_data_item_get_int(item);
 		obs_data_item_release(&item);
-		send(cmd, {value});
+		send(*control.set, {value});
 	}
 	/* Both AF times are set by one command, so one asked for on its own
 	 * keeps the other where the camera has it */

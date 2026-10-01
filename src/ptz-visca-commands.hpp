@@ -6,6 +6,7 @@
  */
 #pragma once
 
+#include <optional>
 #include "protocol-helpers.hpp"
 
 /* The ones the driver sends by name */
@@ -32,5 +33,15 @@ extern const PTZCmd VISCA_PanTilt_drive_abs;
 extern const PTZCmd VISCA_PanTilt_drive_rel;
 extern const PTZCmd VISCA_PanTilt_Home;
 
-extern const QList<QPair<const char *, PTZCmd>> visca_state_commands;
+/* A state value, and the commands and inquiries for it */
+struct ViscaControl {
+	/* The state key, e.g. "wb_mode" */
+	QString key;
+	/* The command that sets it, with the value as its one argument */
+	std::optional<PTZCmd> set;
+
+	ViscaControl(const QString &key, const PTZCmd &set) : key(key), set(set) {}
+};
+
+extern const QList<ViscaControl> visca_controls;
 const char *visca_tally_key(const QByteArray &cmd);
