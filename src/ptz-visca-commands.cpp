@@ -654,12 +654,12 @@ const QMap<QString, PTZInq> PTZVisca::inquiresFallback = {
 	{"color_hue", VISCA_CAM_ColorHueInq},
 };
 
-/* The command requestState() sends for a key that is set by its value alone:
- * its one argument is the value, a bool for an on/off one. In the order they
- * are sent when asked for at once, a mode before what can only be set in it
- * (R and B gain in the manual white balance mode, the shutter speed in the
- * manual or shutter priority exposure mode, and so on). */
-const QList<QPair<const char *, PTZCmd>> visca_state_commands = {
+/* Every state value the camera has, and how it is set. A value is set by
+ * the command's one argument, a bool for an on/off one. In the order they are
+ * sent when asked for at once: a mode before what can only be set in it (R and
+ * B gain in the manual white balance mode, the shutter speed in the manual or
+ * shutter priority exposure mode, and so on). */
+const QList<ViscaControl> visca_controls = {
 	{"power_on", VISCA_CAM_Power},
 	{"wb_mode", VISCA_CAM_WB_Mode},
 	{"ae_mode", VISCA_CAM_AE},
