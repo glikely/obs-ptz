@@ -170,6 +170,7 @@ protected:
 	void queue_report_commands();
 	void report_settle();
 	void report_finish();
+	QJsonObject report_draft(const QJsonObject &camera) const;
 	void report_progress(const char *error = nullptr);
 
 	unsigned int visca_pan_speed_max = 0x18;

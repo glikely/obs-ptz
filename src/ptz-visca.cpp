@@ -7,6 +7,7 @@
 
 #include <qt-wrappers.hpp>
 #include <QJsonArray>
+#include "ptz.h"
 #include "ptz-visca.hpp"
 #include "ptz-visca-udp.hpp"
 #include "ptz-visca-tcp.hpp"
@@ -1450,10 +1451,80 @@ void PTZVisca::report_finish()
 	report["inquiries"] = inquiries;
 	report["commands"] = commands;
 	report["buffer_full"] = report_buffer_full;
+	report["draft_command_set"] = report_draft(camera);
 	last_report = report;
 	report_next = -1;
 	ptz_info("camera report made");
 	report_progress();
+}
+
+/* A command set for the camera, from what the report found, for its user to
+ * try: the generic one, without the inquiries the camera didn't answer, the
+ * commands it said it doesn't have, and the values it can neither read nor
+ * set. What wasn't tried, such as the moves, is left as the generic one has
+ * it. */
+QJsonObject PTZVisca::report_draft(const QJsonObject &camera) const
+{
+	QMap<QByteArray, QString> results;
+	for (const auto &probe : report_probes)
+		results.insert(probe.cmd, probe.result);
+	auto failed = [&results](const QByteArray &cmd) {
+		return results.contains(cmd) && results.value(cmd) != "reply" && results.value(cmd) != "ack" &&
+		       results.value(cmd) != "completed";
+	};
+
+	QSet<QByteArray> unanswered;
+	QJsonArray remove, controls;
+	for (const auto &control : visca_generic_profile()->controls) {
+		bool readable = false;
+		for (const auto &read : control.reads) {
+			if (failed(read.cmd))
+				unanswered += read.cmd;
+			else
+				readable = true;
+		}
+		bool unsettable = false;
+		for (const auto &probe : report_probes) {
+			if (probe.key == control.key && probe.result == "syntax error")
+				unsettable = true;
+		}
+		bool settable = (control.set || !control.setTo.isEmpty()) && !unsettable;
+		if (!control.reads.isEmpty() && !readable && !settable)
+			remove.append(control.key);
+		else if (unsettable)
+			controls.append(QJsonObject{{"key", control.key}, {"set", QJsonValue::Null}});
+	}
+	QStringList inquiries;
+	for (const auto &cmd : unanswered)
+		inquiries += QString(cmd.toHex());
+	inquiries.sort();
+
+	QJsonObject draft;
+	if (camera.contains("vendor_id")) {
+		QString ids = camera["vendor_id"].toString() + "-" + camera["model_id"].toString();
+		draft["id"] = "my-camera-" + ids;
+		draft["models"] = QJsonArray{camera["vendor_id"].toString() + ":" + camera["model_id"].toString()};
+	} else {
+		draft["id"] = "my-camera";
+	}
+	QStringList name;
+	for (const char *key : {"vendor_name", "model_name"}) {
+		if (camera.contains(key))
+			name += camera[key].toString();
+	}
+	draft["name"] = name.isEmpty() ? "My camera" : name.join(" ");
+	draft["extends"] = "generic";
+	draft["source"] = QString("Drafted from a camera report by obs-ptz %1").arg(ptz_plugin_version);
+	draft["remove_inquiries"] = QJsonArray::fromStringList(inquiries);
+	draft["remove"] = remove;
+	draft["controls"] = controls;
+	/* That it is one, as the plugin reads a user's */
+	QString error;
+	if (!visca_profile_from_json(draft, [](const QString &id) { return visca_profile(id); }, &error)) {
+		ptz_info("the camera report's command set can't be read: %s", QT_TO_UTF8(error));
+		draft["error"] = error;
+	}
+	return draft;
 }
 
 /* How far the report has got, in the state's "camera_report": whether one is
