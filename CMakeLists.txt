@@ -236,6 +236,10 @@ if(ENABLE_USB_TESTS)
   endif()
 endif()
 
+option(ENABLE_PROTOCOL_TRACE "Enable very verbose protocol tracing" OFF)
+if(ENABLE_PROTOCOL_TRACE)
+  add_compile_definitions(ENABLE_PROTOCOL_TRACE)
+endif()
 option(
   ENABLE_UI_TESTS
   "Link in the UI test harness (tests/ui-harness), driven over obs-websocket; inert unless PTZ_UI_TEST_HARNESS=1 is also set at runtime. See tests/ui-harness/README.md."

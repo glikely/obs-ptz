@@ -23,9 +23,13 @@
 	blog(level, "[%s/%.12s] " format, this->type.c_str(), QT_TO_UTF8(this->m_parentSourceName), ##__VA_ARGS__)
 #define ptz_info(format, ...) ptz_log(LOG_INFO, format, ##__VA_ARGS__)
 #define ptz_debug(format, ...) ptz_log(LOG_DEBUG, format, ##__VA_ARGS__)
+#ifdef ENABLE_PROTOCOL_TRACE
 #define ptz_debug_trace(format, ...) \
 	if (this->protocol_trace)    \
 	ptz_log(LOG_DEBUG, format, ##__VA_ARGS__)
+#else
+#define ptz_debug_trace(format, ...)
+#endif
 
 class PTZDevice : public QObject {
 	Q_OBJECT

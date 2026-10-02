@@ -320,7 +320,9 @@ obs_properties_t *PTZVisca::get_obs_properties()
 	obs_properties_add_int(visca_grp, "visca_zoom_range", obs_module_text("PTZ.Visca.ZoomRange"), 1, 0xffff, 1);
 	obs_properties_add_int(visca_grp, "visca_focus_far", obs_module_text("PTZ.Visca.FocusFar"), 0, 0xffff, 1);
 	obs_properties_add_int(visca_grp, "visca_focus_near", obs_module_text("PTZ.Visca.FocusNear"), 0, 0xffff, 1);
+#ifdef ENABLE_PROTOCOL_TRACE
 	obs_properties_add_bool(visca_grp, "protocol_trace", obs_module_text("PTZ.Device.ProtocolTraceToLog"));
+#endif
 
 	return ptz_props;
 }
@@ -788,7 +790,7 @@ void PTZVisca::receive(const QByteArray &msg)
 				}
 			}
 		}
-		ptz_debug("rx error: %s", msg.toHex(':').data());
+		ptz_debug_trace("rx error: %s", msg.toHex(':').data());
 		active_cmd[0] = std::nullopt;
 		active_cmd[slot] = std::nullopt;
 		break;
