@@ -3,7 +3,7 @@
  * Copyright 2021 Luuk Verhagen <developer@verhagenluuk.nl>
  * Copyright 2020-2021 Grant Likely <grant.likely@secretlab.ca>
  *
- * SPDX-License-Identifier: GPLv2
+ * SPDX-License-Identifier: GPLv2+
  */
 
 #include "ptz-pelco.hpp"
