@@ -35,7 +35,7 @@ void runTriggerDeviceTest(const QMap<QString, QString> &params)
 
 /* trigger_device request params:
  *   device_id - the target device's numeric id
- *   name      - the one-shot action, such as "scan_inquiries"
+ *   name      - the one-shot action, such as "camera_report"
  */
 void registerSetDeviceTest(PTZUITestHarness *harness)
 {
