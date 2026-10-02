@@ -293,6 +293,12 @@ VISCA_PROFILES = {
         "models": ["0123:0005"],
         "controls": [{"key": "ae_mode", "set": None}],
     },
+    # One with a misspelt key, which would otherwise do nothing: left out
+    "misspelt.json": {
+        "id": "test-misspelt",
+        "models": ["0123:0007"],
+        "remove_inquiry": ["81097e7e00ff"],
+    },
     # One with a command that isn't hex, which is left out
     "broken.json": {
         "id": "broken",
