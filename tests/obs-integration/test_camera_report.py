@@ -46,6 +46,7 @@ def test_a_report_has_what_the_camera_answered(request, obs_world, tmp_path):
     assert inquiries["81090400ff"]["reply"] == "905002ff"
     commands = {c["key"]: c for c in made["commands"]}
     assert commands["wb_mode"] == {"key": "wb_mode", "command": "8101043500ff", "result": "completed"}
+    assert "error" not in made["draft_command_set"]
 
     # the values it set are as they were: it changed nothing, and didn't move
     after = sim.state()
@@ -85,3 +86,21 @@ def test_a_report_says_which_commands_never_complete(request, obs_world, tmp_pat
     made = report(obs_world, tmp_path, device_id)
     assert made["commands"]
     assert {c["result"] for c in made["commands"]} == {"ack"}
+
+
+def test_a_report_drafts_a_command_set_for_the_camera(request, obs_world, tmp_path):
+    """For its user to try, and to send in: the generic one, for the camera's
+    model, without what the P100 doesn't have"""
+    sim, _, device_id = camera(request, obs_world, tmp_path)
+    made = report(obs_world, tmp_path, device_id)
+    draft = made["draft_command_set"]
+    assert draft["id"] == "my-camera-0109-2020"
+    assert draft["models"] == ["0109:2020"]
+    assert draft["extends"] == "generic"
+    # the plugin can read it
+    assert "error" not in draft
+    failed = {i["inquiry"] for i in made["inquiries"] if "error" in i}
+    assert "81097e7e00ff" in draft["remove_inquiries"]
+    assert set(draft["remove_inquiries"]) <= failed
+    # everything it can set, it took
+    assert draft["controls"] == []
