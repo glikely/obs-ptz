@@ -24,6 +24,9 @@ static constexpr int VISCA_DISCOVER_STABLE_TICKS = 2;
  * take up to ~130ms to answer, so this must be well over that. */
 static constexpr int VISCA_REPLY_TIMEOUT_MS = 250;
 
+/* How frequently to ask the camera for updates */
+static constexpr int VISCA_UPDATE_PERIOD_MS = 300;
+
 /* Error reply "command buffer full", and how to deal with it */
 /* How long a power-on at startup waits for the camera to answer */
 static constexpr int VISCA_POWER_ON_WAIT_MS = 60000;
@@ -662,7 +665,7 @@ void PTZVisca::cmd_get_camera_info()
 {
 	setConnected(true);
 	mark_all_stale();
-	update_timer.start(1000);
+	update_timer.start(VISCA_UPDATE_PERIOD_MS);
 	send_pending();
 }
 
