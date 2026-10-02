@@ -58,15 +58,25 @@ class Sim:
         except subprocess.TimeoutExpired:
             self.proc.kill()
 
-    def syntax_errors(self):
+    def state(self):
         with urllib.request.urlopen(f"http://127.0.0.1:{self.debug_port}/state", timeout=5) as resp:
-            return json.load(resp)["visca_syntax_errors"]
+            return json.load(resp)
+
+    def syntax_errors(self):
+        return self.state()["visca_syntax_errors"]
+
+    def wait_for(self, predicate, timeout=10):
+        deadline = time.monotonic() + timeout
+        while not predicate(state := self.state()):
+            assert time.monotonic() < deadline, f"ptzsim never got there: {state}"
+            time.sleep(0.1)
+        return state
 
 
-def camera(request, world, tmp_path, sim_args=None, **settings):
+def camera(request, world, tmp_path, sim_args=None, read=READ, **settings):
     """A source with a VISCA filter pointed at a P100 of its own, or the
     camera `sim_args` makes a Sim: the sim, the state the device has read
-    once it has read READ, and the device's id"""
+    once it has read `read`, and the device's id"""
     sim = Sim(**(sim_args or {}))
     request.addfinalizer(sim.stop)
     source = f"profile-cam-{next(_sources)}"
@@ -92,7 +102,7 @@ def camera(request, world, tmp_path, sim_args=None, **settings):
     device_id = world.wait_for_device_by_name(
         source, tmp_path / "device.json", lambda r: r["found"] and r["bound"])["device_id"]
     state = world.wait_for_device_state(
-        device_id, tmp_path / "state.json", lambda r: READ <= set(r["state"]), timeout=15)["state"]
+        device_id, tmp_path / "state.json", lambda r: read <= set(r["state"]), timeout=15)["state"]
     return sim, state, device_id
 
 
