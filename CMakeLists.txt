@@ -271,6 +271,7 @@ if(ENABLE_UI_TESTS)
       tests/ui-harness/preset-export-import-test.cpp
       tests/ui-harness/device-status-test.cpp
       tests/ui-harness/move-device-test.cpp
+      tests/ui-harness/camera-report-test.cpp
       tests/ui-harness/set-device-test.cpp
       tests/ui-harness/update-device-test.cpp
       tests/ui-harness/preset-view-test.cpp

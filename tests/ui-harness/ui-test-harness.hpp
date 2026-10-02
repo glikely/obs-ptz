@@ -76,5 +76,6 @@ void registerDeviceSettingsTest(PTZUITestHarness *harness);
 void registerDeviceStateTest(PTZUITestHarness *harness);
 void registerDeviceSignalsTest(PTZUITestHarness *harness);
 void registerSettingsDialogTest(PTZUITestHarness *harness);
+void registerCameraReportTest(PTZUITestHarness *harness);
 void registerApiVersionTest(PTZUITestHarness *harness);
 void registerDeviceBackupTest(PTZUITestHarness *harness);
