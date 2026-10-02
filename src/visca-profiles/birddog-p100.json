@@ -1,13 +1,25 @@
 {
   "id": "birddog-p100",
   "name": "BirdDog P100",
-  "models": ["0109:2020"],
-  "remove_inquiries": [
-    "81097e7e00ff", "81097e7e01ff", "81097e7e02ff",
-    "81097e7e03ff", "81097e7e04ff", "81097e7e05ff"
+  "models": [
+    "0109:2020"
   ],
-  "remove": ["tally_preview"],
+  "source": "Birddog manual",
+  "remove_inquiries": [
+    "81097e7e00ff",
+    "81097e7e01ff",
+    "81097e7e02ff",
+    "81097e7e03ff",
+    "81097e7e04ff",
+    "81097e7e05ff"
+  ],
+  "remove": [
+    "tally_preview"
+  ],
   "controls": [
-    {"key": "tally_on", "reads": []}
+    {
+      "key": "tally_on",
+      "reads": []
+    }
   ]
 }
