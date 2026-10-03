@@ -42,6 +42,15 @@ void runGetDeviceStateTest(const QMap<QString, QString> &params)
 	ptzDeviceList->callDevice(index, "ptz_get_state", &cd);
 	calldata_free(&cd);
 
+	/* The statistics are read apart from the state, but the tests that look
+	 * at them ask for them with it */
+	OBSDataAutoRelease statistics = obs_data_create();
+	calldata statisticsCd = {};
+	calldata_set_ptr(&statisticsCd, "statistics", statistics.Get());
+	ptzDeviceList->callDevice(index, "ptz_get_statistics", &statisticsCd);
+	calldata_free(&statisticsCd);
+	obs_data_set_obj(state, "statistics", statistics);
+
 	OBSDataAutoRelease result = obs_data_create();
 	obs_data_set_obj(result, "state", state);
 	if (!obs_data_save_json_safe(result, qUtf8Printable(filename), "tmp", "bak"))

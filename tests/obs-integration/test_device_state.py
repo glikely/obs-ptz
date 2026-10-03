@@ -184,3 +184,35 @@ def test_discovering_the_movement_limits(obs_world, cameras, tmp_path):  # noqa:
                      "visca_focus_far": 0, "visca_focus_near": 0xe500}
     # and focusing by itself again
     obs_world.wait_for_device_state(device_id, out, lambda r: r["state"]["focus_af_enabled"] is True, timeout=10)
+
+
+@pytest.mark.parametrize("backend", ["visca-tcp", "visca-udp", "visca-serial"])
+def test_the_camera_is_polled_as_fast_as_it_answers(obs_world, backend, tmp_path):
+    """The poll waits for the camera to answer the last one, then a period (200ms)
+    before the next, so it can't come faster than that, and the statistics say
+    how fast it does."""
+    out = tmp_path / "state.json"
+    stats = obs_world.wait_for_device_state(
+        obs_world.device_ids[backend], out,
+        lambda r: r["state"]["statistics"].get("visca_poll_count", 0) >= 5
+        and "visca_polls_per_second" in r["state"]["statistics"], timeout=15)["state"]["statistics"]
+
+    # (the period is 200ms, and a timer may fire a millisecond or two early)
+    assert 0 < stats["visca_polls_per_second"] <= 1000 / 190
+    assert stats["visca_poll_cycle_ms"] >= 0
+
+
+@pytest.mark.parametrize("backend", ["visca-tcp", "visca-udp", "visca-serial"])
+def test_the_traffic_to_and_from_the_camera_is_measured(obs_world, backend, tmp_path):
+    """Polling alone keeps packets going both ways, a second's worth of which
+    the statistics report as rates, and as counts of bytes"""
+    rates = ["visca_sent_packets_per_second", "visca_recv_packets_per_second",
+             "visca_sent_bytes_per_second", "visca_recv_bytes_per_second"]
+    stats = obs_world.wait_for_device_state(
+        obs_world.device_ids[backend], tmp_path / "state.json",
+        lambda r: all(r["state"]["statistics"].get(k, 0) > 0 for k in rates), timeout=15)["state"]["statistics"]
+
+    # an inquiry is five bytes at the least, and a reply is more
+    assert stats["visca_sent_bytes"] >= 5 * stats["visca_sent_count"]
+    assert stats["visca_recv_bytes"] >= 3 * stats["visca_recv_count"]
+    assert stats["visca_recv_bytes_per_second"] > stats["visca_sent_bytes_per_second"] * 0.5

@@ -87,6 +87,10 @@ def test_a_command_that_finds_the_camera_busy_is_sent_again(obs_world, sony_ptzs
     delta = change(before, settled(sony_ptzsim))
 
     assert delta["buffer_full"] >= 1, "the camera was never busy, so this proved nothing"
+    # which are errors, counted and rated
+    stats = obs_world.device_state(device_id, status_file.with_name("state.json"))["state"]["statistics"]
+    assert stats["visca_error_count"] >= delta["buffer_full"]
+    assert "visca_errors_per_second" in stats
     assert delta["pan_tilt_abs_executed"] == 3
     assert delta["dropped_too_soon"] == 0
     assert obs_world.device_status(device_id, status_file)["connected"] is True
