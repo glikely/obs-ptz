@@ -975,6 +975,10 @@ void PTZVisca::send_pending()
 		} else if (isConnected()) {
 			/* What the camera is decides what else to ask it for */
 			QStringList stale = stale_state.values();
+			/* Whether it is powered is what the device list shows
+			 * first, so don't leave it to the order of a set */
+			if (stale_state.contains("power_on"))
+				stale.prepend("power_on");
 			if (stale_state.contains("vendor_id"))
 				stale.prepend("vendor_id");
 			for (const QString &prop : stale) {
