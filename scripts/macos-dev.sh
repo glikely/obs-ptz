@@ -25,9 +25,9 @@
 # .deps/sdl/cmake and .deps/cmake, which a fresh configure finds before
 # the macOS ones and turns into Windows link flags (-lkernel32 ...).
 #
-# test hands off to scripts/run-macos-integration-tests.sh, which backs up
-# and restores your real OBS profile around the run (OBS on macOS ignores
-# every other way of isolating the tests from it). Quit OBS first.
+# test hands off to scripts/run-macos-integration-tests.sh, which runs OBS on
+# an empty profile in a temporary home directory, so your real one is not
+# touched. Quit OBS first. test-build is the setup it needs, without the run.
 #
 # Env overrides:
 #   OBS_APP   the OBS app bundle to launch (default: newest "/Applications/OBS <version>.app")
@@ -168,10 +168,14 @@ do_run() {
     open "$app"
 }
 
-do_test() {
-    # The same options run-macos-integration-tests.sh configures with.
+# Setup with the options the integration tests need.
+do_test_build() {
     do_setup -DENABLE_SERIALPORT=ON -DENABLE_ONVIF=ON -DENABLE_UI_TESTS=ON
-    PTZSIM_OBS_APP="$(find_obs)" "$ROOT/scripts/run-macos-integration-tests.sh" --skip-build "$@"
+}
+
+do_test() {
+    do_test_build
+    PTZSIM_OBS_APP="$(find_obs)" "$ROOT/scripts/run-macos-integration-tests.sh" "$@"
 }
 
 cmd="${1:-}"
@@ -182,5 +186,6 @@ case "$cmd" in
     run) do_run ;;
     restore) do_restore ;;
     test) do_test "$@" ;;
+    test-build) do_test_build ;;
     *) sed -n '2,/^$/p' "$0" | sed 's/^# \{0,1\}//' && exit 2 ;;
 esac
