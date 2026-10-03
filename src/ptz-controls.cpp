@@ -1471,6 +1471,7 @@ void PTZDeviceListDelegate::refreshTheme()
 	bool isDark = obs_frontend_is_theme_dark();
 	lockedIcon = QIcon(isDark ? "theme:Dark/locked.svg" : ":res/images/locked.svg");
 	unlockedIcon = QIcon(":res/images/unlocked.svg");
+	poweredOffIcon = QIcon(isDark ? ":/icons/icons/power_dark.svg" : ":/icons/icons/power_light.svg");
 	disconnectedIcon = QIcon(isDark ? "theme:Dark/alert.svg" : ":res/images/alert.svg");
 
 	emit sizeHintChanged(QModelIndex());
@@ -1509,7 +1510,7 @@ PTZDeviceListDelegate::CellLayout PTZDeviceListDelegate::layoutCell(const QModel
 	l.text.adjust(tallyBoxWidth, 0, 0, 0);
 
 	/* The disconnected indicator shares the tally slot instead of taking its own */
-	if (!isConnected)
+	if (!isConnected || index.data(PTZListModel::IsPoweredOffRole).toBool())
 		l.status = l.tally;
 
 	if (isLive) {
@@ -1545,7 +1546,9 @@ void PTZDeviceListDelegate::paint(QPainter *painter, const QStyleOptionViewItem 
 	const bool isLiveTally = index.data(PTZListModel::IsLiveRole).toBool();
 	const bool isPreviewTally = index.data(PTZListModel::IsPreviewRole).toBool();
 	if (l.status.width()) {
-		disconnectedIcon.paint(painter, l.status.adjusted(l.iconMargin, 0, -l.iconMargin, 0));
+		const QRect r = l.status.adjusted(l.iconMargin, 0, -l.iconMargin, 0);
+		const bool connected = index.data(PTZListModel::IsConnectedRole).toBool();
+		(connected ? poweredOffIcon : disconnectedIcon).paint(painter, r);
 	} else if (isLiveTally || isPreviewTally) {
 		QColor tallyColor = isLiveTally ? QColor(220, 50, 50) : QColor(60, 180, 60);
 		painter->save();
@@ -1612,7 +1615,11 @@ bool PTZDeviceListDelegate::helpEvent(QHelpEvent *event, QAbstractItemView *view
 	}
 
 	if (l.status.contains(pos)) {
-		QToolTip::showText(event->globalPos(), obs_module_text("PTZ.Device.Status.Disconnected"), view);
+		const bool connected = index.data(PTZListModel::IsConnectedRole).toBool();
+		QToolTip::showText(event->globalPos(),
+				   obs_module_text(connected ? "PTZ.Device.Status.PoweredOff"
+							     : "PTZ.Device.Status.Disconnected"),
+				   view);
 		return true;
 	}
 
