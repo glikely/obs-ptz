@@ -9,6 +9,7 @@
 #   scripts/macos-dev.sh run       # install, then launch OBS
 #   scripts/macos-dev.sh restore   # put back the plugin install() moved aside
 #   scripts/macos-dev.sh test [pytest args]   # setup with the test options, then run tests/obs-integration
+#   scripts/macos-dev.sh quick [pytest args]  # like test, but only the fast part of the suite (about a minute)
 #
 # Why .deps is cloned: a fresh worktree has no .deps, so the first configure
 # would re-download and rebuild every dependency. A worktree gets an APFS
@@ -178,6 +179,25 @@ do_test() {
     PTZSIM_OBS_APP="$(find_obs)" "$ROOT/scripts/run-macos-integration-tests.sh" "$@"
 }
 
+# The test files that took more than about 6 seconds in a full run, which took
+# about 4 minutes in all (it was 257 seconds, 3 October 2026). Skipping them
+# leaves about 45 seconds. A test file not in this list is in the quick run.
+QUICK_SKIP=(
+    test_device_state test_visca_camera_state test_camera_report_replay test_camera_report
+    test_visca_tally test_settings_dialog test_visca_user_profiles test_visca_udp_sony
+    test_ptz_backends test_device_discovery test_filter_devices test_ptz_probe test_visca_profiles
+)
+
+do_quick() {
+    local skip=() name
+    for name in "${QUICK_SKIP[@]}"; do
+        skip+=("--ignore=tests/obs-integration/$name.py")
+    done
+    # -q, unless pytest was given options of its own, as for test.
+    [ "$#" -gt 0 ] || set -- -q
+    do_test "${skip[@]}" "$@"
+}
+
 cmd="${1:-}"
 [ "$#" -eq 0 ] || shift
 case "$cmd" in
@@ -187,5 +207,6 @@ case "$cmd" in
     restore) do_restore ;;
     test) do_test "$@" ;;
     test-build) do_test_build ;;
+    quick) do_quick "$@" ;;
     *) sed -n '2,/^$/p' "$0" | sed 's/^# \{0,1\}//' && exit 2 ;;
 esac
