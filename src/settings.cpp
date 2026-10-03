@@ -16,6 +16,7 @@
 #include <QTimer>
 #include <QApplication>
 #include <QLabel>
+#include <QJsonDocument>
 #include <QDialog>
 #include <QFormLayout>
 #include <QDateTime>
@@ -51,7 +52,11 @@ static PTZSettings *ptzSettingsWindow = nullptr;
 
 obs_properties_t *PTZSettings::getProperties(void)
 {
-	return ptzDeviceList->getProperties(ui->deviceList->currentIndex());
+	obs_properties_t *props = ptzDeviceList->getProperties(ui->deviceList->currentIndex());
+	/* Hold edits until Apply, instead of the view sending each one 500 ms
+	 * after it was made */
+	obs_properties_set_flags(props, obs_properties_get_flags(props) | OBS_PROPERTIES_DEFER_UPDATE);
+	return props;
 }
 
 void PTZSettings::updateProperties(OBSData, OBSData new_settings)
@@ -113,6 +118,15 @@ PTZSettings::PTZSettings() : QWidget(nullptr), ui(new Ui_PTZSettings)
 	propertiesView->setScrolling(false);
 
 	ui->settingsViewLayout->addWidget(propertiesView);
+
+	connect(propertiesView, &OBSPropertiesView::Changed, this, &PTZSettings::settingsEdited);
+	/* Whenever the view redraws without there being edits to keep, what it
+	 * shows is what the device has */
+	connect(propertiesView, &OBSPropertiesView::PropertiesRefreshed, this, [this]() {
+		if (!settingsDirty)
+			settingsBaseline = editedSettings();
+	});
+	setSettingsDirty(false);
 
 	/* The diagnostics are the state view's, but get a tab of their own,
 	 * which is there only while the device has any */
@@ -619,6 +633,54 @@ void PTZSettings::on_removePTZ_clicked()
 void PTZSettings::on_applyButton_clicked()
 {
 	ptzDeviceList->update(ui->deviceList->currentIndex(), propertiesView->GetSettings());
+	settingsBaseline = editedSettings();
+	setSettingsDirty(false);
+}
+
+/* Throw away what was edited and show what the device has */
+void PTZSettings::on_revertButton_clicked()
+{
+	reloadSettings();
+}
+
+QJsonObject PTZSettings::editedSettings() const
+{
+	/* A QJsonObject compares by key, whatever order they were added in */
+	return QJsonDocument::fromJson(obs_data_get_json(propertiesView->GetSettings())).object();
+}
+
+/* The view says something changed, which it also does when it redraws
+ * itself. It is an edit only if what it holds now differs from what it held
+ * when it matched the device. */
+void PTZSettings::settingsEdited()
+{
+	setSettingsDirty(editedSettings() != settingsBaseline);
+}
+
+void PTZSettings::setSettingsDirty(bool dirty)
+{
+	settingsDirty = dirty;
+	/* Blank, not hidden, so the row doesn't change as it comes and goes */
+	ui->unsavedLabel->setText(dirty ? obs_module_text("PTZ.Settings.Unsaved") : QString());
+	ui->applyButton->setEnabled(dirty);
+	ui->revertButton->setEnabled(dirty);
+	/* Seen from the other tabs too */
+	ui->deviceTabs->setTabText(ui->deviceTabs->indexOf(ui->settingsTab),
+				   QString(obs_module_text("PTZ.Settings.DeviceSettings")) + (dirty ? " \u2022" : ""));
+}
+
+/* Replace what is in the settings view with what the device saves */
+void PTZSettings::reloadSettings()
+{
+	QStringList keys;
+	for (obs_data_item_t *item = obs_data_first(settings); item; obs_data_item_next(&item))
+		keys << obs_data_item_get_name(item);
+	for (const auto &key : keys)
+		obs_data_erase(settings, qUtf8Printable(key));
+	ptzDeviceList->save(ui->deviceList->currentIndex(), settings);
+	propertiesView->ReloadProperties();
+	settingsBaseline = editedSettings();
+	setSettingsDirty(false);
 }
 
 /* The header over the tabs: what to see of the device at a glance, which
@@ -676,13 +738,7 @@ void PTZSettings::currentChanged(const QModelIndex &current, const QModelIndex &
 {
 	/* Start from nothing: obs_data_clear() would keep the last device's
 	 * keys, only without their values */
-	QStringList keys;
-	for (obs_data_item_t *item = obs_data_first(settings); item; obs_data_item_next(&item))
-		keys << obs_data_item_get_name(item);
-	for (const auto &key : keys)
-		obs_data_erase(settings, qUtf8Printable(key));
-	ptzDeviceList->save(current, settings);
-	propertiesView->ReloadProperties();
+	reloadSettings();
 
 	OBSDataAutoRelease state = obs_data_create();
 	ptzDeviceList->saveState(current, state.Get());
@@ -714,6 +770,9 @@ void PTZSettings::deviceSettingsUpdated(uint32_t device_id)
 
 	ptzDeviceList->save(ui->deviceList->currentIndex(), settings);
 	QMetaObject::invokeMethod(propertiesView, "RefreshProperties", Qt::QueuedConnection);
+	/* What was edited is gone, replaced by what the device now has */
+	settingsBaseline = editedSettings();
+	setSettingsDirty(false);
 }
 
 /* Fold in only what the device says changed. The state view changes just

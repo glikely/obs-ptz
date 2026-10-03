@@ -313,6 +313,9 @@
                <item>
                 <layout class="QHBoxLayout" name="settingsButtonsLayout">
                  <item>
+                  <widget class="QLabel" name="unsavedLabel"/>
+                 </item>
+                 <item>
                   <spacer name="settingsButtonsSpacer">
                    <property name="orientation">
                     <enum>Qt::Orientation::Horizontal</enum>
@@ -324,6 +327,13 @@
                     </size>
                    </property>
                   </spacer>
+                 </item>
+                 <item>
+                  <widget class="QPushButton" name="revertButton">
+                   <property name="text">
+                    <string>PTZ.Settings.Revert</string>
+                   </property>
+                  </widget>
                  </item>
                  <item>
                   <widget class="QPushButton" name="applyButton">

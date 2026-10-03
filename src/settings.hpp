@@ -11,6 +11,7 @@
 #include <QStyledItemDelegate>
 #include <QString>
 #include <QMenu>
+#include <QJsonObject>
 #include <properties-view.hpp>
 #if defined(ENABLE_JOYSTICK)
 #include <QStringListModel>
@@ -46,18 +47,27 @@ private:
 	Ui_PTZSettings *ui;
 	/* A device is shown as a status header, always visible, over three
 	 * tabs: its state, its settings, and its diagnostics. The state, what
-	 * the camera reports and never persisted, is ui->stateView, a
-	 * PTZStateView, which goes back as requests (see
-	 * PTZDevice::requestState()). The settings are edited in a properties
-	 * view over `settings`, which is what the device saves, and goes back
-	 * through update() (in a filter's case, the filter's own settings). It
-	 * has its own internal scrolling turned off
-	 * (OBSPropertiesView::setScrolling(), which makes it size itself to its
-	 * content instead) so the scroll area around it is what actually
-	 * scrolls. */
+	 * the camera reports and never persisted, is ui->stateView, a PTZStateView,
+	 * which goes back as requests (see PTZDevice::requestState()). The
+	 * settings are edited in a properties view over `settings`, which is
+	 * what the device saves, and goes back through update() (in a filter's
+	 * case, the filter's own settings). The properties view holds its
+	 * edits until Apply, which is what is on the Settings tab for, so the
+	 * tab says whether there are any. It has its own internal scrolling
+	 * turned off (OBSPropertiesView::setScrolling(), which makes it size
+	 * itself to its content instead) so the scroll area around it is what
+	 * actually scrolls. */
 	OBSData settings;
 	OBSPropertiesView *propertiesView = nullptr;
+	bool settingsDirty = false;
+	/* What the settings view held when it last matched the device, to tell
+	 * a real edit from the view redrawing itself */
+	QJsonObject settingsBaseline;
+	QJsonObject editedSettings() const;
+	void setSettingsDirty(bool dirty);
+	void settingsEdited();
 	void updateHeader();
+	void reloadSettings();
 	void current_device_changed();
 	uint32_t currentDeviceId() const;
 	/* The device's statistics aren't told, they are read: every second
@@ -96,6 +106,7 @@ public slots:
 	void addDevice();
 	void on_removePTZ_clicked();
 	void on_applyButton_clicked();
+	void on_revertButton_clicked();
 
 	void currentChanged(const QModelIndex &current, const QModelIndex &previous);
 	void deviceSettingsUpdated(uint32_t device_id);
