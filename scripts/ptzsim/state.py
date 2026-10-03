@@ -79,6 +79,10 @@ class PTZState:
         # How many VISCA requests were answered with a syntax error: ones
         # the camera doesn't have
         self.visca_syntax_errors = 0
+        # The VISCA inquiries received, in order, to see what is asked for
+        # first. Only the first INQUIRY_LOG_MAX, as a camera is asked
+        # forever.
+        self.visca_inquiries = []
         self.home = Position()
         self.presets = {}
         self._next_preset_id = 1

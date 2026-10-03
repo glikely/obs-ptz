@@ -176,6 +176,10 @@ VISCA_DIRECT_INQUIRIES = {
 }
 
 
+# How many of the inquiries received to keep, see PTZState.visca_inquiries
+INQUIRY_LOG_MAX = 200
+
+
 class ViscaCameraLogic:
     """Transport-agnostic VISCA command decoder/encoder for one link.
 
@@ -697,6 +701,9 @@ class ViscaCameraLogic:
         if dg[0] != 0x81:  # Ignore messages not addressed properly
             print("[visca] malformed", dg.hex(), dg[0])
             return
+
+        if dg[1] == 0x09 and len(self.state.visca_inquiries) < INQUIRY_LOG_MAX:
+            self.state.visca_inquiries.append(dg.hex())
 
         if ((not self.block_inquiries and dg[1:4] == b'\x09\x7e\x7e') or
                 (not self.version_inquiry and dg[1:4] == b'\x09\x00\x02')):
