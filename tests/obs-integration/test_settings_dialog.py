@@ -151,6 +151,33 @@ def test_status_view_has_diagnostics_only_for_a_camera_with_them(obs_world, tmp_
     obs_world.wait_for_settings_dialog(out, lambda r: not r["diagnostics_visible"])
 
 
+def test_status_view_shows_how_fast_the_camera_answers_polls(obs_world, tmp_path):
+    out = tmp_path / "dialog.json"
+    open_dialog(obs_world, obs_world.device_ids["visca-tcp"])
+    shown = obs_world.wait_for_settings_dialog(
+        out, lambda r: r["shown"].get("polls_total", "-") not in ("-", "0"), timeout=15)["shown"]
+    assert shown["poll_cycle"].endswith(" ms")
+    # (the period is 200ms, and a timer may fire a millisecond or two early)
+    assert 0 < float(shown["polls_rate"].split()[0]) <= 1000 / 190
+
+
+def test_status_view_shows_the_traffic_to_and_from_the_camera(obs_world, tmp_path):
+    """In a table of a total and a rate for each of what is counted"""
+    out = tmp_path / "dialog.json"
+    open_dialog(obs_world, obs_world.device_ids["visca-tcp"])
+    shown = obs_world.wait_for_settings_dialog(
+        out, lambda r: r["shown"].get("recv_bytes_rate", "-").endswith(" B/s")
+        and r["shown"]["recv_bytes_rate"] != "0 B/s", timeout=15)["shown"]
+    for row in ("sent_packets", "recv_packets", "sent_bytes", "recv_bytes"):
+        assert shown[f"{row}_total"] not in ("-", "0"), row
+    assert shown["sent_packets_rate"].endswith(" /s")
+    assert shown["recv_packets_rate"].endswith(" /s")
+    assert shown["sent_bytes_rate"].endswith(" B/s")
+    # no errors is a total of none, not of nothing
+    assert shown["errors_total"] != "-"
+    assert shown["errors_rate"].endswith(" /s")
+
+
 def test_creating_a_camera_report_from_the_status_view(request, obs_world, cameras, tmp_path):  # noqa: F811
     """The report dialog opens on the device shown, and makes its report"""
     cameras.add_source(obs_world.create_scene(), "dialog-report-cam")
