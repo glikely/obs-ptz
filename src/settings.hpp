@@ -59,6 +59,7 @@ private:
 	 * actually scrolls. */
 	OBSData settings;
 	OBSPropertiesView *propertiesView = nullptr;
+	QString autofocusIconKey;
 	bool settingsDirty = false;
 	/* What the settings view held when it last matched the device, to tell
 	 * a real edit from the view redrawing itself */
@@ -67,6 +68,7 @@ private:
 	void setSettingsDirty(bool dirty);
 	void settingsEdited();
 	void updateHeader();
+	void updateAutofocusIcon(bool known, bool on);
 	void reloadSettings();
 	void current_device_changed();
 	uint32_t currentDeviceId() const;

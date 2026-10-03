@@ -16,6 +16,9 @@
 #include <QTimer>
 #include <QApplication>
 #include <QLabel>
+#include <QPainter>
+#include <QPixmap>
+#include <QIcon>
 #include <QJsonDocument>
 #include <QDialog>
 #include <QFormLayout>
@@ -691,6 +694,7 @@ void PTZSettings::updateHeader()
 	const QString name = shown.value("name").toString();
 	if (!ui->deviceList->currentIndex().isValid()) {
 		ui->statusHeader->clear();
+		updateAutofocusIcon(false, false);
 		return;
 	}
 
@@ -730,8 +734,47 @@ void PTZSettings::updateHeader()
 	if (!position.isEmpty())
 		parts << position.join("&nbsp;&nbsp;");
 
+	updateAutofocusIcon(!poweredOff && shown.contains("focus_af_enabled"),
+			    shown.value("focus_af_enabled").toBool());
+
 	ui->statusHeader->setText(
 		QString("<b>%1</b>&nbsp;&nbsp;&nbsp;%2").arg(name.toHtmlEscaped(), parts.join("&nbsp;&nbsp;&nbsp;")));
+}
+
+/* The AF icon in the header, for a camera that reports whether it is
+ * focusing by itself: as it is when on, faded and struck through when off */
+void PTZSettings::updateAutofocusIcon(bool known, bool on)
+{
+	ui->autofocusIcon->setVisible(known);
+	if (!known)
+		return;
+
+	const bool dark = obs_frontend_is_theme_dark();
+	const int size = ui->statusHeader->fontMetrics().height();
+	const QString key = QString("%1%2%3").arg(on).arg(dark).arg(size);
+	if (key == autofocusIconKey)
+		return;
+	autofocusIconKey = key;
+
+	QIcon icon(dark ? ":/icons/icons/focus_auto_dark.svg" : ":/icons/icons/focus_auto_light.svg");
+	QPixmap pixmap = icon.pixmap(QSize(size, size));
+	if (!on) {
+		QPixmap off(pixmap.size());
+		off.setDevicePixelRatio(pixmap.devicePixelRatio());
+		off.fill(Qt::transparent);
+		QPainter painter(&off);
+		painter.setRenderHint(QPainter::Antialiasing);
+		painter.setOpacity(0.4);
+		painter.drawPixmap(0, 0, pixmap);
+		painter.setOpacity(1.0);
+		painter.setPen(QPen(QColor("#e74c3c"), 1.5));
+		const QSizeF logical = pixmap.deviceIndependentSize();
+		painter.drawLine(QPointF(1, logical.height() - 1), QPointF(logical.width() - 1, 1));
+		pixmap = off;
+	}
+	ui->autofocusIcon->setPixmap(pixmap);
+	ui->autofocusIcon->setToolTip(
+		obs_module_text(on ? "PTZ.Settings.Header.AutofocusOn" : "PTZ.Settings.Header.AutofocusOff"));
 }
 
 void PTZSettings::currentChanged(const QModelIndex &current, const QModelIndex &)

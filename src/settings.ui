@@ -254,14 +254,25 @@
            <property name="rightMargin"><number>0</number></property>
            <property name="bottomMargin"><number>0</number></property>
            <item>
-            <widget class="QLabel" name="statusHeader">
-             <property name="textFormat">
-              <enum>Qt::TextFormat::RichText</enum>
-             </property>
-             <property name="textInteractionFlags">
-              <set>Qt::TextInteractionFlag::TextSelectableByMouse</set>
-             </property>
-            </widget>
+            <layout class="QHBoxLayout" name="headerLayout">
+             <item>
+              <widget class="QLabel" name="statusHeader">
+               <property name="textFormat">
+                <enum>Qt::TextFormat::RichText</enum>
+               </property>
+               <property name="textInteractionFlags">
+                <set>Qt::TextInteractionFlag::TextSelectableByMouse</set>
+               </property>
+              </widget>
+             </item>
+             <item>
+              <widget class="QLabel" name="autofocusIcon">
+               <property name="visible">
+                <bool>false</bool>
+               </property>
+              </widget>
+             </item>
+            </layout>
            </item>
            <item>
             <widget class="QTabWidget" name="deviceTabs">
