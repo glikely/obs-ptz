@@ -204,6 +204,27 @@ void PTZControls::refreshTheme()
 	iconProbe.setProperty("class", "checkbox-icon");
 	m_iconSize = iconProbe.style()->pixelMetric(QStyle::PM_IndicatorHeight, nullptr, &iconProbe);
 
+	/* The button icons come in a light and a dark variant */
+	const char *variant = obs_frontend_is_theme_dark() ? "dark" : "light";
+	const QList<std::pair<QAbstractButton *, const char *>> buttons = {
+		{ui->panTiltButton_upleft, "pantilt_upleft"},
+		{ui->panTiltButton_up, "pantilt_up"},
+		{ui->panTiltButton_upright, "pantilt_upright"},
+		{ui->panTiltButton_left, "pantilt_left"},
+		{ui->panTiltButton_home, "pantilt_home"},
+		{ui->panTiltButton_right, "pantilt_right"},
+		{ui->panTiltButton_downleft, "pantilt_downleft"},
+		{ui->panTiltButton_down, "pantilt_down"},
+		{ui->panTiltButton_downright, "pantilt_downright"},
+		{ui->zoomButton_tele, "zoom_in"},
+		{ui->zoomButton_wide, "zoom_out"},
+		{ui->focusButton_auto, "focus_auto"},
+		{ui->focusButton_near, "focus_near"},
+		{ui->focusButton_far, "focus_far"},
+	};
+	for (const auto &[button, name] : buttons)
+		button->setIcon(QIcon(QString(":/icons/icons/%1_%2.svg").arg(name, variant)));
+
 	if (presetDelegate)
 		presetDelegate->refreshTheme();
 	if (deviceDelegate)

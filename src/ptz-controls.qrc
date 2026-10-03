@@ -1,19 +1,33 @@
 <RCC>
   <qresource prefix="icons">
-    <file>icons/focus_far.svg</file>
-    <file>icons/focus_auto.svg</file>
-    <file>icons/focus_near.svg</file>
-    <file>icons/zoom_in.svg</file>
-    <file>icons/zoom_out.svg</file>
-    <file>icons/pantilt_upleft.svg</file>
-    <file>icons/pantilt_upright.svg</file>
-    <file>icons/pantilt_downright.svg</file>
-    <file>icons/pantilt_downleft.svg</file>
-    <file>icons/pantilt_home.svg</file>
-    <file>icons/pantilt_down.svg</file>
-    <file>icons/pantilt_up.svg</file>
-    <file>icons/pantilt_left.svg</file>
-    <file>icons/pantilt_right.svg</file>
+    <file>icons/focus_far_dark.svg</file>
+    <file>icons/focus_far_light.svg</file>
+    <file>icons/focus_auto_dark.svg</file>
+    <file>icons/focus_auto_light.svg</file>
+    <file>icons/focus_near_dark.svg</file>
+    <file>icons/focus_near_light.svg</file>
+    <file>icons/zoom_in_dark.svg</file>
+    <file>icons/zoom_in_light.svg</file>
+    <file>icons/zoom_out_dark.svg</file>
+    <file>icons/zoom_out_light.svg</file>
+    <file>icons/pantilt_upleft_dark.svg</file>
+    <file>icons/pantilt_upleft_light.svg</file>
+    <file>icons/pantilt_upright_dark.svg</file>
+    <file>icons/pantilt_upright_light.svg</file>
+    <file>icons/pantilt_downright_dark.svg</file>
+    <file>icons/pantilt_downright_light.svg</file>
+    <file>icons/pantilt_downleft_dark.svg</file>
+    <file>icons/pantilt_downleft_light.svg</file>
+    <file>icons/pantilt_home_dark.svg</file>
+    <file>icons/pantilt_home_light.svg</file>
+    <file>icons/pantilt_down_dark.svg</file>
+    <file>icons/pantilt_down_light.svg</file>
+    <file>icons/pantilt_up_dark.svg</file>
+    <file>icons/pantilt_up_light.svg</file>
+    <file>icons/pantilt_left_dark.svg</file>
+    <file>icons/pantilt_left_light.svg</file>
+    <file>icons/pantilt_right_dark.svg</file>
+    <file>icons/pantilt_right_light.svg</file>
     <file>icons/ptz_move_light.svg</file>
     <file>icons/ptz_move_dark.svg</file>
   </qresource>
