@@ -251,21 +251,14 @@ exist at all (off by default), and `-DENABLE_UI_TESTS=ON` if you want
 `test_preset_import_export.py` to actually find anything to drive
 (`test_ptz_backends.py` works fine without it).
 
-**macOS**: real OBS on macOS ignores every isolation mechanism this
-suite relies on and always loads your live profile, so don't run pytest
-against it directly -- use `scripts/run-macos-integration-tests.sh`
-instead, which builds the plugin, backs up and restores your whole OBS
-profile around the run, and redirects obs-ptz's/obs-websocket's config to
-where real OBS actually reads it (see that script's and
-`scripts/macos-integration-test-obs-wrapper.py`'s docstrings for why).
-Last verified end to end this way (20/20 passing, against OBS 32.2.1)
-before the preset export/import suite dropped its vendor-request tests
-in favor of testing only through the real UI action, and
-on_actionPresetImport_triggered() was fixed to restore device selection
-after its model reset (see `src/ptz-controls.cpp`'s own comment there) --
-not yet re-run against that change; expect 14/14 (the vendor-request
-tests are gone, see `test_preset_import_export.py`'s own docstring) if
-it holds.
+**macOS**: use `scripts/run-macos-integration-tests.sh`, which builds the
+plugin, signs it and runs the suite. OBS on macOS finds its config directory
+through a system call that ignores `$HOME`, so the suite also sets
+`CFFIXED_USER_HOME`, which it does honor; OBS then runs on an empty profile
+in the temporary home and your real one is never read or changed. The plugin
+in that home is a symlink to `$PTZSIM_PLUGIN_BUNDLE` (the `obs-ptz.plugin` to
+test), or else to the one installed for your user. To run `pytest` yourself,
+set that and `PTZSIM_OBS_BINARY`.
 
 **Linux**: `$HOME` isolation actually works, so a plain
 
