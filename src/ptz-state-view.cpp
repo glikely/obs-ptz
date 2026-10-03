@@ -798,11 +798,14 @@ void PTZStateView::applyData(obs_data_t *data, bool all)
 		if (diagnostics == m_diagnosticsGroup->isHidden()) {
 			m_diagnosticsGroup->setVisible(diagnostics);
 			changed = true;
+			emit diagnosticsAvailableChanged(diagnostics);
 		}
 	}
 
-	if (changed)
+	if (changed) {
 		m_updateCount++;
+		emit shownChanged();
+	}
 }
 
 /* How the camera and the traffic to and from it are doing, read from the

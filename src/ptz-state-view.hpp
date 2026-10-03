@@ -61,7 +61,17 @@ public:
 	/* How many updates changed something that is shown */
 	int updateCount() const { return m_updateCount; }
 
+	/* The diagnostics buttons' group, which is shown only for a device that
+	 * has diagnostics. It starts in this view; a caller that wants it
+	 * elsewhere (a tab of its own, say) can add it to another layout, and
+	 * follow diagnosticsAvailableChanged() to know when it has anything. */
+	QGroupBox *diagnosticsGroup() const { return m_diagnosticsGroup; }
+
 signals:
+	/* Something that is shown changed (what updateCount() counts) */
+	void shownChanged();
+	/* The device gained or lost diagnostics */
+	void diagnosticsAvailableChanged(bool available);
 	/* The user asked for these values, as a state object with just them in it
 	 * (see PTZDevice::requestState()) */
 	void stateRequested(OBSData requested);
