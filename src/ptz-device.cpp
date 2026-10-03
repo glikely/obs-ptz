@@ -106,6 +106,12 @@ PTZDevice::PTZDevice(OBSData config, obs_source_t *filter) : QObject()
 	 * "wb_onepush" and "diagnostics". It can change, as a device finds out
 	 * what the camera has. A device without "features" predates them. */
 	proc_handler_add(handler, "ptr ptz_get_state(ptr state)", ptz_ph_lambda(get_state), this);
+	/* What the device has counted of its own working, such as how much it has
+	 * sent to the camera and how fast it answers, as an object of numbers
+	 * under the names the driver gives them. It isn't state: it is read when
+	 * wanted, never announced as changing, and what a rate in it is over is
+	 * the time since it was last read. */
+	proc_handler_add(handler, "ptr ptz_get_statistics(ptr statistics)", ptz_ph_lambda(get_statistics), this);
 	proc_handler_add(handler, "void ptz_set_locked(bool locked)", ptz_ph_lambda(setLock), this);
 
 	/* Settings, which are persisted, in the PTZ Control filter's own settings:
@@ -175,7 +181,6 @@ PTZDevice::PTZDevice(OBSData config, obs_source_t *filter) : QObject()
 	obs_data_release(stateChanged);
 	statistics = obs_data_create();
 	obs_data_release(statistics);
-	obs_data_set_obj(state, "statistics", statistics);
 	stale_state = {"pan_pos", "tilt_pos", "zoom_pos", "focus_pos"};
 
 	/* Assign a unique ID -- this is the one place a device's identity is
@@ -691,6 +696,23 @@ void PTZDevice::get_state(calldata_t *cd) const
 	if (!state)
 		return;
 	saveState(state);
+}
+
+/**
+ * Fills the caller-owned obs_data_t with the device's statistics
+ */
+void PTZDevice::get_statistics(calldata_t *cd)
+{
+	if (wrongThread("ptz_get_statistics"))
+		return;
+	auto out = static_cast<obs_data_t *>(calldata_ptr(cd, "statistics"));
+	if (out)
+		saveStatistics(out);
+}
+
+void PTZDevice::saveStatistics(OBSData out)
+{
+	obs_data_apply(out, statistics);
 }
 
 /* The driver's report, after what describes every report: what made it, on
@@ -1544,9 +1566,9 @@ int PTZDevice::findPreset(QString key, QVariant value) const
 	return -1;
 }
 
-void PTZDevice::incrementStatistic(const char *name)
+void PTZDevice::incrementStatistic(const char *name, int amount)
 {
-	obs_data_set_int(statistics, name, obs_data_get_int(statistics, name) + 1);
+	obs_data_set_int(statistics, name, obs_data_get_int(statistics, name) + amount);
 }
 
 void PTZDevice::setConnected(bool _connected)

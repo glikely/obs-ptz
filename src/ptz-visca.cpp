@@ -34,6 +34,12 @@ static constexpr int VISCA_REPORT_SETTLE_MS = 2000;
  * It isn't the period of the polls, which is this and however long the camera
  * took to answer. */
 static constexpr int VISCA_UPDATE_PERIOD_MS = 200;
+/* How much of each new poll counts towards the poll statistics' running
+ * averages */
+static constexpr double VISCA_POLL_STAT_WEIGHT = 0.2;
+/* The least time the traffic rates are over: read more often than this, they
+ * stay what they were */
+static constexpr int VISCA_TRAFFIC_MIN_MS = 500;
 
 /* Error reply "command buffer full", and how to deal with it */
 /* How long a power-on at startup waits for the camera to answer */
@@ -54,6 +60,7 @@ PTZVisca::PTZVisca(OBSData config, obs_source_t *source) : PTZDevice(config, sou
 	connect(&timeout_timer, &QTimer::timeout, this, &PTZVisca::timeout);
 	gap_timer.setSingleShot(true);
 	connect(&gap_timer, &QTimer::timeout, this, &PTZVisca::send_pending);
+	traffic_clock.start();
 	update_timer.setSingleShot(true);
 	connect(&update_timer, &QTimer::timeout, this, &PTZVisca::update_timer_callback);
 
@@ -101,8 +108,39 @@ void PTZVisca::setInterface(const QString &interface)
 
 void PTZVisca::send_immediate(const QByteArray &msg)
 {
+	incrementStatistic("visca_sent_count");
+	incrementStatistic("visca_sent_bytes", (int)msg.size());
 	if (transport)
 		transport->send(msg, address);
+}
+
+/* Works out, from the counts since the last time, how much a second goes to
+ * and comes from the camera: visca_sent_packets_per_second,
+ * visca_recv_packets_per_second, visca_sent_bytes_per_second and
+ * visca_recv_bytes_per_second, and how many of the requests a second go wrong,
+ * with an error for a reply (visca_error_count) or none in time:
+ * visca_errors_per_second. */
+void PTZVisca::sample_traffic()
+{
+	static const char *const counts[5] = {"visca_sent_count", "visca_recv_count", "visca_sent_bytes",
+					      "visca_recv_bytes", "visca_error_count"};
+	static const char *const rates[5] = {"visca_sent_packets_per_second", "visca_recv_packets_per_second",
+					     "visca_sent_bytes_per_second", "visca_recv_bytes_per_second",
+					     "visca_errors_per_second"};
+	if (traffic_clock.elapsed() < VISCA_TRAFFIC_MIN_MS)
+		return;
+	double seconds = traffic_clock.restart() / 1000.0;
+	for (int i = 0; i < 5; i++) {
+		qint64 count = obs_data_get_int(statistics, counts[i]);
+		obs_data_set_double(statistics, rates[i], (count - traffic_last[i]) / seconds);
+		traffic_last[i] = count;
+	}
+}
+
+void PTZVisca::saveStatistics(OBSData out)
+{
+	sample_traffic();
+	PTZDevice::saveStatistics(out);
 }
 
 void PTZVisca::defaults(obs_data_t *cfg)
@@ -356,7 +394,6 @@ void PTZVisca::send_action(const QString &name, QList<int> args)
 void PTZVisca::send_packet(const QByteArray &packet)
 {
 	ptz_debug_trace("--> %s", packet.toHex(':').data());
-	incrementStatistic("visca_sent_count");
 	/* as opposed to the inquiries the device sends on its own, to see what
 	 * the camera is doing */
 	if (packet.size() > 1 && packet[1] != 0x09)
@@ -372,6 +409,7 @@ void PTZVisca::timeout()
 	 * command is waiting on its completion, which can take seconds. */
 	if (!active_cmd[0].has_value())
 		return;
+	incrementStatistic("visca_error_count");
 	/* A camera that doesn't answer what a report asks it once more isn't
 	 * gone: it doesn't have it */
 	if (report_next >= 0 && report_next < report_probes.size() &&
@@ -407,16 +445,43 @@ QStringList PTZVisca::inquiry_poll_list() const
 	return props;
 }
 
-/* The poll has been answered, and nothing is left to ask: wait out the period
- * before the next */
+/* The poll has been answered, and nothing is left to ask: record how it went
+ * and wait out the period before the next. The statistics are what a camera
+ * and its link manage when the plugin asks again as soon as it can:
+ * visca_poll_cycle_ms, how long a poll takes to be answered, and
+ * visca_polls_per_second, how many a second that makes with the wait
+ * between, both running averages, and visca_poll_count. */
 void PTZVisca::poll_done()
 {
+	/* a poll that nothing answered, with the camera gone, says nothing of
+	 * how fast it does */
+	if (poll_active && !isConnected())
+		poll_active = false;
+	if (poll_active) {
+		poll_active = false;
+		incrementStatistic("visca_poll_count");
+		auto average = [this](const char *name, double value) {
+			double last = obs_data_has_user_value(statistics, name) ? obs_data_get_double(statistics, name)
+										: value;
+			obs_data_set_double(statistics, name, last + (value - last) * VISCA_POLL_STAT_WEIGHT);
+		};
+		average("visca_poll_cycle_ms", (double)(poll_clock.elapsed() - poll_started_ms));
+		/* from the start of one poll to the start of the next */
+		if (poll_prev_started_ms >= 0)
+			average("visca_polls_per_second",
+				1000.0 / std::max<qint64>(1, poll_started_ms - poll_prev_started_ms));
+		poll_prev_started_ms = poll_started_ms;
+	}
 	if (!update_timer.isActive())
 		update_timer.start(VISCA_UPDATE_PERIOD_MS);
 }
 
 void PTZVisca::update_timer_callback()
 {
+	if (!poll_clock.isValid())
+		poll_clock.start();
+	poll_active = true;
+	poll_started_ms = poll_clock.elapsed();
 	/* The camera can be moved by something other than this plugin (an IR
 	 * remote, another controller), and tells nobody when it is, so the
 	 * position is read again on every tick, moving or not. */
@@ -683,6 +748,7 @@ void PTZVisca::receive(const QByteArray &msg)
 		return;
 	ptz_debug_trace("<-- %s", msg.toHex(':').data());
 	incrementStatistic("visca_recv_count");
+	incrementStatistic("visca_recv_bytes", (int)msg.size());
 	int slot = msg[1] & 0x7;
 	report_answer(msg, slot);
 	since_last_rx.start();
@@ -748,6 +814,7 @@ void PTZVisca::receive(const QByteArray &msg)
 		active_cmd[slot] = std::nullopt;
 		break;
 	case VISCA_RESPONSE_ERROR:
+		incrementStatistic("visca_error_count");
 		timeout_timer.stop();
 		/* A camera has only a couple of command sockets; when they are
 		 * all busy it answers "command buffer full" to anything sent,

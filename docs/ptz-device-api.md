@@ -89,6 +89,10 @@ _handed to listeners as `proc_handler` on the `ptz_device_create` signal._
 > The device's whole state and what describes it (what PTZListModel shows a device row with, too), and locking it. What describes it includes "features", what the device can do: an object with the name of each it can true, from "pantilt", "zoom", "focus", "pantilt_abs", "pantilt_rel", "zoom_abs", "focus_abs", "home", "home_set", "autofocus", "focus_onetouch", "presets", "power", "wb_onepush" and "diagnostics". It can change, as a device finds out what the camera has. A device without "features" predates them.
 
 - `ptr ptz_get_state(ptr state)`
+
+> What the device has counted of its own working, such as how much it has sent to the camera and how fast it answers, as an object of numbers under the names the driver gives them. It isn't state: it is read when wanted, never announced as changing, and what a rate in it is over is the time since it was last read.
+
+- `ptr ptz_get_statistics(ptr statistics)`
 - `void ptz_set_locked(bool locked)`
 
 > Settings, which are persisted, in the PTZ Control filter's own settings: what save() writes, applying new ones (through the filter, if there is one), and the properties that edit them

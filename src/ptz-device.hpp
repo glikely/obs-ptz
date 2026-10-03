@@ -127,7 +127,7 @@ protected:
 	OBSData stateChanged; /* changed state to be sent via the notify signal */
 	OBSData statistics;
 	QSet<QString> stale_state;
-	void incrementStatistic(const char *name);
+	void incrementStatistic(const char *name, int amount = 1);
 
 	/* Each PTZDevice has a proc handler so methods can be called
 	 * from other plugins -- the filter's own for a filter-owned device,
@@ -304,6 +304,7 @@ protected slots:
 	 * these directly -- see PTZDevice::PTZDevice() for registration and
 	 * PTZListModel::refreshDeviceState()/refreshPresetList() for callers */
 	void get_state(calldata_t *cd) const;
+	void get_statistics(calldata_t *cd);
 	void setLock(calldata_t *cd);
 	void get_config(calldata_t *cd) const;
 	void set_config(calldata_t *cd);
@@ -370,7 +371,7 @@ public:
 	 * never persisted. The parallel of the settings above:
 	 * `saveState()`: fills an OBSData with the device's whole current
 	 *     state -- name, connection, live/preview/locked, whatever the
-	 *     driver has read back from the camera, and "statistics".
+	 *     driver has read back from the camera.
 	 * `requestState()`: asks for some state to change. Only the keys
 	 *     present are acted on, each by issuing the command that should
 	 *     make the camera report it; the value isn't stored here, it
@@ -386,6 +387,10 @@ public:
 	 * bound to anything OBS persists, and changes many times a second.
 	 */
 	virtual void saveState(OBSData state) const;
+	/* Fills an OBSData with the device's statistics, see ptz_get_statistics.
+	 * A driver that has rates works them out here, from what it has
+	 * counted since the last time. */
+	virtual void saveStatistics(OBSData statistics);
 	virtual void requestState(OBSData requested);
 
 	/* One-shot actions on the camera, which aren't state and so have no

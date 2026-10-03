@@ -115,6 +115,16 @@ protected:
 	 * asked again before it has, whatever the period. */
 	QTimer update_timer;
 	unsigned int poll_next = 0;
+	bool poll_active = false;
+	QElapsedTimer poll_clock;
+	qint64 poll_started_ms = 0;
+	qint64 poll_prev_started_ms = -1;
+	/* The traffic to and from the camera, a packet being one VISCA message
+	 * as the driver sees it, without a transport's framing: worked out into
+	 * rates when the statistics are read */
+	QElapsedTimer traffic_clock;
+	qint64 traffic_last[5] = {0, 0, 0, 0, 0};
+	void sample_traffic();
 	void poll_done();
 	QStringList inquiry_poll_list() const;
 
@@ -214,6 +224,7 @@ public:
 	Features features() const override;
 	QJsonObject cameraReport() const override { return last_report; }
 	void requestState(OBSData requested) override;
+	void saveStatistics(OBSData out) override;
 	void onSceneChanged() override;
 	void onOBSStartup() override;
 	void onOBSShutdown() override;
