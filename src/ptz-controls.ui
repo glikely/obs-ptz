@@ -126,7 +126,7 @@
               </property>
               <property name="icon">
                <iconset resource="ptz-controls.qrc">
-                <normaloff>:/icons/icons/pantilt_upleft.svg</normaloff>:/icons/icons/pantilt_upleft.svg</iconset>
+                <normaloff>:/icons/icons/pantilt_upleft_dark.svg</normaloff>:/icons/icons/pantilt_upleft_dark.svg</iconset>
               </property>
              </widget>
             </item>
@@ -146,7 +146,7 @@
               </property>
               <property name="icon">
                <iconset resource="ptz-controls.qrc">
-                <normaloff>:/icons/icons/pantilt_up.svg</normaloff>:/icons/icons/pantilt_up.svg</iconset>
+                <normaloff>:/icons/icons/pantilt_up_dark.svg</normaloff>:/icons/icons/pantilt_up_dark.svg</iconset>
               </property>
              </widget>
             </item>
@@ -166,7 +166,7 @@
               </property>
               <property name="icon">
                <iconset resource="ptz-controls.qrc">
-                <normaloff>:/icons/icons/pantilt_downright.svg</normaloff>:/icons/icons/pantilt_downright.svg</iconset>
+                <normaloff>:/icons/icons/pantilt_downright_dark.svg</normaloff>:/icons/icons/pantilt_downright_dark.svg</iconset>
               </property>
              </widget>
             </item>
@@ -186,7 +186,7 @@
               </property>
               <property name="icon">
                <iconset resource="ptz-controls.qrc">
-                <normaloff>:/icons/icons/pantilt_upright.svg</normaloff>:/icons/icons/pantilt_upright.svg</iconset>
+                <normaloff>:/icons/icons/pantilt_upright_dark.svg</normaloff>:/icons/icons/pantilt_upright_dark.svg</iconset>
               </property>
              </widget>
             </item>
@@ -203,7 +203,7 @@
               </property>
               <property name="icon">
                <iconset resource="ptz-controls.qrc">
-                <normaloff>:/icons/icons/pantilt_home.svg</normaloff>:/icons/icons/pantilt_home.svg</iconset>
+                <normaloff>:/icons/icons/pantilt_home_dark.svg</normaloff>:/icons/icons/pantilt_home_dark.svg</iconset>
               </property>
              </widget>
             </item>
@@ -223,7 +223,7 @@
               </property>
               <property name="icon">
                <iconset resource="ptz-controls.qrc">
-                <normaloff>:/icons/icons/pantilt_left.svg</normaloff>:/icons/icons/pantilt_left.svg</iconset>
+                <normaloff>:/icons/icons/pantilt_left_dark.svg</normaloff>:/icons/icons/pantilt_left_dark.svg</iconset>
               </property>
              </widget>
             </item>
@@ -243,7 +243,7 @@
               </property>
               <property name="icon">
                <iconset resource="ptz-controls.qrc">
-                <normaloff>:/icons/icons/pantilt_down.svg</normaloff>:/icons/icons/pantilt_down.svg</iconset>
+                <normaloff>:/icons/icons/pantilt_down_dark.svg</normaloff>:/icons/icons/pantilt_down_dark.svg</iconset>
               </property>
              </widget>
             </item>
@@ -263,7 +263,7 @@
               </property>
               <property name="icon">
                <iconset resource="ptz-controls.qrc">
-                <normaloff>:/icons/icons/pantilt_downleft.svg</normaloff>:/icons/icons/pantilt_downleft.svg</iconset>
+                <normaloff>:/icons/icons/pantilt_downleft_dark.svg</normaloff>:/icons/icons/pantilt_downleft_dark.svg</iconset>
               </property>
              </widget>
             </item>
@@ -283,7 +283,7 @@
               </property>
               <property name="icon">
                <iconset resource="ptz-controls.qrc">
-                <normaloff>:/icons/icons/pantilt_right.svg</normaloff>:/icons/icons/pantilt_right.svg</iconset>
+                <normaloff>:/icons/icons/pantilt_right_dark.svg</normaloff>:/icons/icons/pantilt_right_dark.svg</iconset>
               </property>
              </widget>
             </item>
@@ -328,7 +328,7 @@
             </property>
             <property name="icon">
              <iconset resource="ptz-controls.qrc">
-              <normaloff>:/icons/icons/zoom_in.svg</normaloff>:/icons/icons/zoom_in.svg</iconset>
+              <normaloff>:/icons/icons/zoom_in_dark.svg</normaloff>:/icons/icons/zoom_in_dark.svg</iconset>
             </property>
            </widget>
           </item>
@@ -345,7 +345,7 @@
             </property>
             <property name="icon">
              <iconset resource="ptz-controls.qrc">
-              <normaloff>:/icons/icons/zoom_out.svg</normaloff>:/icons/icons/zoom_out.svg</iconset>
+              <normaloff>:/icons/icons/zoom_out_dark.svg</normaloff>:/icons/icons/zoom_out_dark.svg</iconset>
             </property>
            </widget>
           </item>
@@ -364,7 +364,7 @@
           </property>
           <property name="icon">
            <iconset resource="ptz-controls.qrc">
-            <normaloff>:/icons/icons/focus_auto.svg</normaloff>:/icons/icons/focus_auto.svg</iconset>
+            <normaloff>:/icons/icons/focus_auto_dark.svg</normaloff>:/icons/icons/focus_auto_dark.svg</iconset>
           </property>
           <property name="checkable">
            <bool>true</bool>
@@ -384,7 +384,7 @@
           </property>
           <property name="icon">
            <iconset resource="ptz-controls.qrc">
-            <normaloff>:/icons/icons/focus_near.svg</normaloff>:/icons/icons/focus_near.svg</iconset>
+            <normaloff>:/icons/icons/focus_near_dark.svg</normaloff>:/icons/icons/focus_near_dark.svg</iconset>
           </property>
          </widget>
         </item>
@@ -404,7 +404,7 @@
           </property>
           <property name="icon">
            <iconset resource="ptz-controls.qrc">
-            <normaloff>:/icons/icons/focus_far.svg</normaloff>:/icons/icons/focus_far.svg</iconset>
+            <normaloff>:/icons/icons/focus_far_dark.svg</normaloff>:/icons/icons/focus_far_dark.svg</iconset>
           </property>
          </widget>
         </item>
