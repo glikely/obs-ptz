@@ -999,6 +999,42 @@ def flaky_ptzsim(obs_world, ptz_ports):
     sim.stop()
 
 
+def isolate_macos_obs(home: Path, env):
+    """Point OBS on macOS at home instead of the real user's.
+
+    OBS finds its config directory through NSSearchPathForDirectoriesInDomains,
+    which asks the system for the account's home directory rather than reading
+    $HOME, so setting $HOME isolates nothing and a test run would load, and
+    change, the real profile. Core Foundation does honor CFFIXED_USER_HOME,
+    which gives OBS an empty profile here, as $HOME does on Linux. So:
+
+    - the plugin is not in this home's plugins/, where OBS now looks for it:
+      PTZSIM_PLUGIN_BUNDLE is the obs-ptz.plugin to test, else the one
+      installed for the real user;
+    - OBS opens its first-run wizard, a modal dialog, unless it has run before
+      (user.ini's FirstRun), and another one asking for permissions it will
+      never be given, unless it has shown that already (global.ini's
+      MacOSPermissionsDialogLastShown, which is a dialog version, so set it
+      high enough to cover any a later OBS has).
+    """
+    env["CFFIXED_USER_HOME"] = str(home)
+
+    bundle = os.environ.get("PTZSIM_PLUGIN_BUNDLE")
+    if not bundle:
+        import pwd
+        bundle = Path(pwd.getpwuid(os.getuid()).pw_dir) / "Library" / "Application Support" / "obs-studio" / \
+            "plugins" / "obs-ptz.plugin"
+    if not Path(bundle).is_dir():
+        raise RuntimeError(f"no plugin to test at {bundle}: set PTZSIM_PLUGIN_BUNDLE to the obs-ptz.plugin to use")
+    plugins = obs_config_root(home) / "plugins"
+    plugins.mkdir(parents=True, exist_ok=True)
+    (plugins / "obs-ptz.plugin").symlink_to(Path(bundle).resolve())
+
+    (obs_config_root(home) / "user.ini").write_text("[General]\nFirstRun=true\n")
+    with open(obs_config_root(home) / "global.ini", "a") as f:
+        f.write("\n[General]\nMacOSPermissionsDialogLastShown=1000\n")
+
+
 @pytest.fixture(scope="session")
 def obs_world(tmp_path_factory, ptzsim_process, sony_ptzsim, birddog_ptzsim, power_ptzsim, filter_power_ptzsim,
               late_power_ptzsim, no_power_ptzsim):
@@ -1023,6 +1059,8 @@ def obs_world(tmp_path_factory, ptzsim_process, sony_ptzsim, birddog_ptzsim, pow
     # otherwise (ptz_load_ui_tests() is a stub in that case -- see
     # src/ptz.h), so always setting it keeps this fixture usable either way.
     env["PTZ_UI_TEST_HARNESS"] = "1"
+    if platform.system() == "Darwin":
+        isolate_macos_obs(home, env)
 
     # With no display, start an Xvfb here rather than through xvfb-run: a
     # SIGTERM to xvfb-run ends xvfb-run and leaves OBS and its Xvfb running.
