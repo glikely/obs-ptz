@@ -43,6 +43,7 @@ VNC="${VNC:-1}"
 VNC_DISPLAY=":99"
 VNC_PORT=5900
 VNC_PASSWORD="ptzdev"
+DATA_PATH="/usr/share/obs/obs-plugins/obs-ptz"
 PLUGIN_PATH="/usr/lib/aarch64-linux-gnu/obs-plugins/obs-ptz.so"
 
 ensure_shared_folder() {
@@ -68,7 +69,10 @@ run_vm_script() {
 }
 
 cmd_build() {
-	cmake_extra=""
+	# The serial-port device types are off by default but tests/obs-integration
+	# needs them (VISCA-serial, Pelco); an explicit -DENABLE_SERIALPORT=OFF
+	# in the extra args still wins, being later.
+	cmake_extra="-DENABLE_SERIALPORT=ON"
 	for a in "$@"; do
 		if [ "$a" = "--ui-tests" ]; then
 			cmake_extra="$cmake_extra -DENABLE_UI_TESTS=ON"
@@ -92,6 +96,10 @@ if [ ! -f "$PLUGIN_PATH.orig-backup" ]; then
 fi
 cp "$BUILD_VM/obs-ptz.so" "$PLUGIN_PATH"
 chmod 755 "$PLUGIN_PATH"
+# The plugin's strings come from its data dir, not the .so, and the
+# packaged copy there goes stale: tests then see raw keys, not text.
+mkdir -p "$DATA_PATH/locale"
+cp "$SRC_VM"/data/locale/*.ini "$DATA_PATH/locale/"
 echo INSTALL_OK
 EOF
 }
@@ -162,6 +170,13 @@ EOF
 }
 
 cmd_test() {
+	# Every test drives the plugin through the UI test harness's
+	# obs-websocket vendor, which only a --ui-tests build contains; without
+	# it each test fails with "No vendor was found by that name".
+	if ! grep -qa ui_test_run "$SRC_MAC/build_vm/obs-ptz.so" 2>/dev/null; then
+		echo "vm-linux-dev: build_vm/obs-ptz.so is missing or lacks the UI test harness; run \`$0 build --ui-tests\` first" >&2
+		return 1
+	fi
 	cmd_install
 	cmd_venv
 	display_env=""
