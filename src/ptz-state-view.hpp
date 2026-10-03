@@ -51,6 +51,9 @@ public:
 	/* Fold in only what changed, the diff a device's state_changed signal
 	 * carries, leaving the rest as it was. */
 	void applyChanges(OBSData changed);
+	/* Show a device's statistics, as PTZDevice::saveStatistics() gives
+	 * them: read from it now and then, not part of its state */
+	void setStatistics(OBSData statistics);
 
 	/* What is shown, key by key: the value of each row that is visible. For
 	 * tests, and anything else that wants to know what the user sees. */
@@ -116,6 +119,21 @@ private:
 
 	/* Buttons for a driver's diagnostics, for a device that has them */
 	QGroupBox *m_diagnosticsGroup;
+	/* The device's statistics, in a table of what it has counted and how
+	 * fast: a row for each, with the statistic it shows a total from and a
+	 * rate from, and the labels the two are shown in */
+	struct StatisticRow {
+		const char *name;
+		const char *label;
+		const char *total;
+		const char *rate;
+		const char *rateFormat;
+		QLabel *totalLabel = nullptr;
+		QLabel *rateLabel = nullptr;
+	};
+	std::vector<StatisticRow> m_statisticRows;
+	/* ...and how long the camera takes to answer a poll */
+	QLabel *m_pollCycle;
 
 	std::vector<std::unique_ptr<Field>> m_fields;
 	/* The group boxes the fields are in; each is shown while any of its

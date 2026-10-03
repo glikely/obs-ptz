@@ -4,8 +4,10 @@
 #include <QCheckBox>
 #include <QComboBox>
 #include <QFormLayout>
+#include <QGridLayout>
 #include <QGroupBox>
 #include <QLabel>
+#include <QLocale>
 #include <QPushButton>
 #include <QSignalBlocker>
 #include <QSpinBox>
@@ -379,6 +381,49 @@ PTZStateView::PTZStateView(QWidget *parent) : QWidget(parent)
 	m_diagnosticsGroup = new QGroupBox(obs_module_text("PTZ.Device.State.Diagnostics"));
 	m_diagnosticsGroup->setObjectName("diagnostics");
 	auto diagnostics = new QVBoxLayout(m_diagnosticsGroup);
+	auto statistics = new QGridLayout();
+	auto addHeader = [statistics](const char *text, int column) {
+		auto header = new QLabel(QString::fromUtf8(obs_module_text(text)));
+		header->setAlignment(Qt::AlignRight);
+		statistics->addWidget(header, 0, column);
+	};
+	addHeader("PTZ.Device.State.StatisticTotal", 1);
+	addHeader("PTZ.Device.State.StatisticRate", 2);
+	m_statisticRows = {
+		{"polls", "PTZ.Device.State.PollCount", "visca_poll_count", "visca_polls_per_second", "%.2f /s"},
+		{"sent_packets", "PTZ.Device.State.SentPackets", "visca_sent_count", "visca_sent_packets_per_second",
+		 "%.1f /s"},
+		{"recv_packets", "PTZ.Device.State.RecvPackets", "visca_recv_count", "visca_recv_packets_per_second",
+		 "%.1f /s"},
+		{"sent_bytes", "PTZ.Device.State.SentBytes", "visca_sent_bytes", "visca_sent_bytes_per_second",
+		 "%.0f B/s"},
+		{"recv_bytes", "PTZ.Device.State.RecvBytes", "visca_recv_bytes", "visca_recv_bytes_per_second",
+		 "%.0f B/s"},
+		{"errors", "PTZ.Device.State.Errors", "visca_error_count", "visca_errors_per_second", "%.2f /s"},
+	};
+	int statisticRow = 1;
+	for (auto &row : m_statisticRows) {
+		auto cell = [&](const QString &objectName, int column) {
+			auto value = new QLabel(QStringLiteral("-"));
+			value->setObjectName(objectName);
+			value->setAlignment(Qt::AlignRight);
+			value->setTextInteractionFlags(Qt::TextSelectableByMouse);
+			statistics->addWidget(value, statisticRow, column);
+			return value;
+		};
+		statistics->addWidget(new QLabel(QString::fromUtf8(obs_module_text(row.label))), statisticRow, 0);
+		row.totalLabel = cell(QString::fromUtf8(row.name) + "Total", 1);
+		row.rateLabel = cell(QString::fromUtf8(row.name) + "Rate", 2);
+		statisticRow++;
+	}
+	statistics->setColumnStretch(0, 1);
+	diagnostics->addLayout(statistics);
+	auto pollTime = new QFormLayout();
+	m_pollCycle = new QLabel(QStringLiteral("-"));
+	m_pollCycle->setObjectName("pollCycle");
+	m_pollCycle->setTextInteractionFlags(Qt::TextSelectableByMouse);
+	pollTime->addRow(QString::fromUtf8(obs_module_text("PTZ.Device.State.PollCycle")), m_pollCycle);
+	diagnostics->addLayout(pollTime);
 	auto addAction = [this, diagnostics](const char *name, const char *text, const char *trigger) {
 		auto button = new QPushButton(obs_module_text(text));
 		button->setObjectName(name);
@@ -760,6 +805,30 @@ void PTZStateView::applyData(obs_data_t *data, bool all)
 		m_updateCount++;
 }
 
+/* How the camera and the traffic to and from it are doing, read from the
+ * device when wanted rather than told. Not counted as the view changing: they
+ * change all the time, whatever else does. */
+void PTZStateView::setStatistics(OBSData stats)
+{
+	auto has = [&stats](const char *key) {
+		return obs_data_has_user_value(stats, key);
+	};
+	m_pollCycle->setText(has("visca_poll_cycle_ms")
+				     ? QString::asprintf("%.0f ms", obs_data_get_double(stats, "visca_poll_cycle_ms"))
+				     : QStringLiteral("-"));
+	for (const auto &row : m_statisticRows) {
+		/* a count that has never been counted isn't there, once there is
+		 * a rate of it: it is none */
+		row.totalLabel->setText(has(row.total)
+						? QLocale().toString((qlonglong)obs_data_get_int(stats, row.total))
+					: has(row.rate) ? QLocale().toString(0)
+							: QStringLiteral("-"));
+		row.rateLabel->setText(has(row.rate)
+					       ? QString::asprintf(row.rateFormat, obs_data_get_double(stats, row.rate))
+					       : QStringLiteral("-"));
+	}
+}
+
 QVariantMap PTZStateView::shownValues() const
 {
 	QVariantMap shown;
@@ -797,6 +866,13 @@ QVariantMap PTZStateView::shownValues() const
 		case TextField:
 			shown[field->key] = static_cast<QLabel *>(field->widget)->text();
 			break;
+		}
+	}
+	if (!m_diagnosticsGroup->isHidden()) {
+		shown["poll_cycle"] = m_pollCycle->text();
+		for (const auto &row : m_statisticRows) {
+			shown[QString::fromUtf8(row.name) + "_total"] = row.totalLabel->text();
+			shown[QString::fromUtf8(row.name) + "_rate"] = row.rateLabel->text();
 		}
 	}
 	return shown;

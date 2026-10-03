@@ -7,6 +7,7 @@
 #pragma once
 
 #include <QWidget>
+#include <QTimer>
 #include <QStyledItemDelegate>
 #include <QString>
 #include <QMenu>
@@ -55,6 +56,10 @@ private:
 	OBSPropertiesView *propertiesView = nullptr;
 	void current_device_changed();
 	uint32_t currentDeviceId() const;
+	/* The device's statistics aren't told, they are read: every second
+	 * while the dialog is showing, for the state view's diagnostics */
+	QTimer statisticsTimer;
+	void refreshStatistics();
 
 public:
 	PTZSettings();

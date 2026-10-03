@@ -120,6 +120,10 @@ PTZSettings::PTZSettings() : QWidget(nullptr), ui(new Ui_PTZSettings)
 	connect(ui->speedRampCheckBox, &QCheckBox::clicked, PTZControls::getInstance(),
 		&PTZControls::setSpeedRampEnabled);
 
+	statisticsTimer.setInterval(1000);
+	connect(&statisticsTimer, &QTimer::timeout, this, &PTZSettings::refreshStatistics);
+	statisticsTimer.start();
+
 	auto snd = new SourceNameDelegate(this);
 	ui->deviceList->setModel(ptzDeviceList);
 	ui->deviceList->setItemDelegateForColumn(0, snd);
@@ -655,6 +659,20 @@ void PTZSettings::currentChanged(const QModelIndex &current, const QModelIndex &
 	OBSDataAutoRelease state = obs_data_create();
 	ptzDeviceList->saveState(current, state.Get());
 	ui->stateView->setState(state.Get());
+	refreshStatistics();
+}
+
+void PTZSettings::refreshStatistics()
+{
+	if (!isVisible())
+		return;
+	OBSDataAutoRelease statistics = obs_data_create();
+	calldata_t cd = {};
+	calldata_set_ptr(&cd, "statistics", statistics.Get());
+	bool called = ptzDeviceList->callDevice(ui->deviceList->currentIndex(), "ptz_get_statistics", &cd);
+	calldata_free(&cd);
+	if (called)
+		ui->stateView->setStatistics(statistics.Get());
 }
 
 /* Only the settings view hears about this: state changing all the time
