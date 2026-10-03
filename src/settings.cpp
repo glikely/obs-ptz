@@ -49,34 +49,6 @@ static PTZSettings *ptzSettingsWindow = nullptr;
 
 /* ----------------------------------------------------------------- */
 
-class SourceNameDelegate : public QStyledItemDelegate {
-	Q_DISABLE_COPY(SourceNameDelegate)
-
-public:
-	using QStyledItemDelegate::QStyledItemDelegate;
-	void fixName(QStyleOptionViewItem *opt, const QModelIndex &index) const
-	{
-		initStyleOption(opt, index);
-		opt->text = opt->text + " [" + index.data(PTZListModel::DescriptionRole).toString() + "]";
-	}
-	void paint(QPainter *painter, const QStyleOptionViewItem &option, const QModelIndex &index) const override
-	{
-		Q_ASSERT(index.isValid());
-		QStyleOptionViewItem opt = option;
-		fixName(&opt, index);
-		QStyle *style = option.widget ? option.widget->style() : QApplication::style();
-		style->drawControl(QStyle::CE_ItemViewItem, &opt, painter, option.widget);
-	}
-	QSize sizeHint(const QStyleOptionViewItem &option, const QModelIndex &index) const override
-	{
-		Q_ASSERT(index.isValid());
-		QStyleOptionViewItem opt = option;
-		fixName(&opt, index);
-		QStyle *style = option.widget ? option.widget->style() : QApplication::style();
-		return style->sizeFromContents(QStyle::CT_ItemViewItem, &opt, QSize(), option.widget);
-	}
-};
-
 obs_properties_t *PTZSettings::getProperties(void)
 {
 	return ptzDeviceList->getProperties(ui->deviceList->currentIndex());
@@ -124,9 +96,8 @@ PTZSettings::PTZSettings() : QWidget(nullptr), ui(new Ui_PTZSettings)
 	connect(&statisticsTimer, &QTimer::timeout, this, &PTZSettings::refreshStatistics);
 	statisticsTimer.start();
 
-	auto snd = new SourceNameDelegate(this);
 	ui->deviceList->setModel(ptzDeviceList);
-	ui->deviceList->setItemDelegateForColumn(0, snd);
+	ui->deviceList->setItemDelegate(new PTZDeviceListDelegate(ui->deviceList));
 
 	QItemSelectionModel *selectionModel = ui->deviceList->selectionModel();
 	connect(selectionModel, &QItemSelectionModel::currentChanged, this, &PTZSettings::currentChanged);
