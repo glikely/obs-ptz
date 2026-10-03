@@ -30,8 +30,10 @@ static constexpr int VISCA_REPORT_WAIT_MS = 10000;
 /* ...and for the commands it sent to complete, once it has sent them all */
 static constexpr int VISCA_REPORT_SETTLE_MS = 2000;
 
-/* How frequently to ask the camera for updates */
-static constexpr int VISCA_UPDATE_PERIOD_MS = 300;
+/* How long after the camera has answered a poll to ask it for updates again.
+ * It isn't the period of the polls, which is this and however long the camera
+ * took to answer. */
+static constexpr int VISCA_UPDATE_PERIOD_MS = 200;
 
 /* Error reply "command buffer full", and how to deal with it */
 /* How long a power-on at startup waits for the camera to answer */
@@ -52,6 +54,7 @@ PTZVisca::PTZVisca(OBSData config, obs_source_t *source) : PTZDevice(config, sou
 	connect(&timeout_timer, &QTimer::timeout, this, &PTZVisca::timeout);
 	gap_timer.setSingleShot(true);
 	connect(&gap_timer, &QTimer::timeout, this, &PTZVisca::send_pending);
+	update_timer.setSingleShot(true);
 	connect(&update_timer, &QTimer::timeout, this, &PTZVisca::update_timer_callback);
 
 	update(config);
@@ -404,6 +407,14 @@ QStringList PTZVisca::inquiry_poll_list() const
 	return props;
 }
 
+/* The poll has been answered, and nothing is left to ask: wait out the period
+ * before the next */
+void PTZVisca::poll_done()
+{
+	if (!update_timer.isActive())
+		update_timer.start(VISCA_UPDATE_PERIOD_MS);
+}
+
 void PTZVisca::update_timer_callback()
 {
 	/* The camera can be moved by something other than this plugin (an IR
@@ -650,7 +661,6 @@ void PTZVisca::cmd_get_camera_info()
 {
 	setConnected(true);
 	mark_all_stale();
-	update_timer.start(VISCA_UPDATE_PERIOD_MS);
 	send_pending();
 }
 
@@ -1003,8 +1013,11 @@ void PTZVisca::send_pending()
 		}
 	}
 
-	if (pending_cmds.isEmpty())
+	if (pending_cmds.isEmpty()) {
+		/* Nothing left to ask: the poll is answered */
+		poll_done();
 		return;
+	}
 
 	active_cmd[0] = pending_cmds.takeFirst();
 	for (const auto &key : active_cmd[0]->affects)

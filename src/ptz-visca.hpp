@@ -109,8 +109,13 @@ protected:
 	QTimer timeout_timer;
 	QTimer gap_timer;
 	QElapsedTimer since_last_rx;
+	/* The poll that reads the camera again is self-clocking: update_timer is
+	 * a single shot, started when a poll has been answered, not on a fixed
+	 * period. A camera or link too slow to answer in the period is then not
+	 * asked again before it has, whatever the period. */
 	QTimer update_timer;
 	unsigned int poll_next = 0;
+	void poll_done();
 	QStringList inquiry_poll_list() const;
 
 	QString visca_interface;
