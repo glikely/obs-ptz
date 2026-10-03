@@ -44,7 +44,8 @@ class PTZSettings : public QWidget {
 
 private:
 	Ui_PTZSettings *ui;
-	/* A device is shown in three tabs: its state, its settings, and its diagnostics. The state, what
+	/* A device is shown as a status header, always visible, over three
+	 * tabs: its state, its settings, and its diagnostics. The state, what
 	 * the camera reports and never persisted, is ui->stateView, a
 	 * PTZStateView, which goes back as requests (see
 	 * PTZDevice::requestState()). The settings are edited in a properties
@@ -56,6 +57,7 @@ private:
 	 * scrolls. */
 	OBSData settings;
 	OBSPropertiesView *propertiesView = nullptr;
+	void updateHeader();
 	void current_device_changed();
 	uint32_t currentDeviceId() const;
 	/* The device's statistics aren't told, they are read: every second

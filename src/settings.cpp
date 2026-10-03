@@ -121,6 +121,8 @@ PTZSettings::PTZSettings() : QWidget(nullptr), ui(new Ui_PTZSettings)
 	connect(ui->stateView, &PTZStateView::diagnosticsAvailableChanged, this, [this](bool available) {
 		ui->deviceTabs->setTabVisible(ui->deviceTabs->indexOf(ui->diagnosticsTab), available);
 	});
+	connect(ui->stateView, &PTZStateView::shownChanged, this, &PTZSettings::updateHeader);
+	updateHeader();
 
 	/* What the user asks of the camera in the state view is a request, not
 	 * an update: the camera changes what it reports of itself once it has
@@ -619,6 +621,57 @@ void PTZSettings::on_applyButton_clicked()
 	ptzDeviceList->update(ui->deviceList->currentIndex(), propertiesView->GetSettings());
 }
 
+/* The header over the tabs: what to see of the device at a glance, which
+ * stays in view whichever tab is showing */
+void PTZSettings::updateHeader()
+{
+	const QVariantMap shown = ui->stateView->shownValues();
+	const QString name = shown.value("name").toString();
+	if (!ui->deviceList->currentIndex().isValid()) {
+		ui->statusHeader->clear();
+		return;
+	}
+
+	auto badge = [](const char *dot, const char *color, const QString &text) {
+		return QString("<span style='color:%1'>%2</span>&nbsp;%3").arg(color, dot, text.toHtmlEscaped());
+	};
+	QStringList parts;
+	if (shown.value("connected").toBool())
+		parts << badge("\u25cf", "#3cb44b", obs_module_text("PTZ.Device.Status.Connected"));
+	else
+		parts << badge("\u25cb", "#e74c3c", obs_module_text("PTZ.Device.Status.Disconnected"));
+	if (shown.value("live").toBool())
+		parts << badge("\u25cf", "#e74c3c", obs_module_text("PTZ.Settings.Header.Live"));
+	if (shown.value("preview").toBool())
+		parts << badge("\u25cf", "#3cb44b", obs_module_text("PTZ.Settings.Header.Preview"));
+	if (shown.value("locked").toBool())
+		parts << badge("\u25cf", "#e0a030", obs_module_text("PTZ.Settings.Header.Locked"));
+
+	/* A camera that is switched off isn't anywhere in particular, so its
+	 * position isn't shown, whatever it last reported */
+	const bool powerKnown = shown.contains("power_on");
+	const bool poweredOff = powerKnown && !shown.value("power_on").toBool();
+	if (powerKnown) {
+		if (poweredOff)
+			parts << badge("\u25cb", "#999999", obs_module_text("PTZ.Settings.Header.PowerOff"));
+		else
+			parts << badge("\u25cf", "#3cb44b", obs_module_text("PTZ.Settings.Header.PowerOn"));
+	}
+
+	QStringList position;
+	if (!poweredOff)
+		for (const char *axis : {"pan", "tilt", "zoom", "focus"})
+			if (shown.contains(axis))
+				position << QString("%1&nbsp;%2")
+						    .arg(QString(axis).left(1).toUpper(),
+							 QString::asprintf("%.3f", shown.value(axis).toDouble()));
+	if (!position.isEmpty())
+		parts << position.join("&nbsp;&nbsp;");
+
+	ui->statusHeader->setText(
+		QString("<b>%1</b>&nbsp;&nbsp;&nbsp;%2").arg(name.toHtmlEscaped(), parts.join("&nbsp;&nbsp;&nbsp;")));
+}
+
 void PTZSettings::currentChanged(const QModelIndex &current, const QModelIndex &)
 {
 	/* Start from nothing: obs_data_clear() would keep the last device's
@@ -634,6 +687,7 @@ void PTZSettings::currentChanged(const QModelIndex &current, const QModelIndex &
 	OBSDataAutoRelease state = obs_data_create();
 	ptzDeviceList->saveState(current, state.Get());
 	ui->stateView->setState(state.Get());
+	updateHeader();
 	refreshStatistics();
 }
 
