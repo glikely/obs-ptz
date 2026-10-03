@@ -92,9 +92,11 @@ private:
 	 * regardless of whether time-sync succeeded or failed. */
 	bool m_capabilitiesRequested = false;
 
-	void genericMove(QString movetype, QString property, double pan, double tilt, double zoom);
+	/* An axis left out (panTilt or zoom false) isn't moved */
+	void genericMove(QString movetype, QString property, double pan, double tilt, double zoom, bool panTilt = true,
+			 bool zoomAxis = true);
 	void continuousMove(double x, double y, double z);
-	void absoluteMove(double x, double y, double z);
+	void absoluteMove(double x, double y, double z, bool panTilt = true, bool zoomAxis = true);
 	void relativeMove(double x, double y, double z);
 	void stop();
 	void goToHomePosition();
