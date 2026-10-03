@@ -30,5 +30,7 @@
     <file>icons/pantilt_right_light.svg</file>
     <file>icons/ptz_move_light.svg</file>
     <file>icons/ptz_move_dark.svg</file>
+    <file>icons/power_light.svg</file>
+    <file>icons/power_dark.svg</file>
   </qresource>
 </RCC>

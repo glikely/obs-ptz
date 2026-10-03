@@ -47,6 +47,8 @@ private:
 		bool connected = false;
 		bool live = false;
 		bool preview = false;
+		/* Only when the camera says it is, not when it doesn't say */
+		bool poweredOff = false;
 		bool locked = false;
 		/* The names in its state's "features", or nothing if it has none:
 		 * a device from before there were, which can do anything */
@@ -76,6 +78,7 @@ public:
 		IsLiveRole,
 		IsPreviewRole,
 		IsConnectedRole,
+		IsPoweredOffRole,
 		IsLockedRole,
 		ThumbnailRole, /* QPixmap of a preset row, null if it has none */
 		FeaturesRole,  /* QStringList, or invalid if the device doesn't say */

@@ -261,6 +261,7 @@ private:
 	QIcon lockedIcon;
 	QIcon unlockedIcon;
 	QIcon disconnectedIcon;
+	QIcon poweredOffIcon;
 	mutable int m_iconSize = 0;
 };
 
