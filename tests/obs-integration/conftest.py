@@ -33,6 +33,65 @@ from obsws import Client, ObsWebSocketError
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 
+def ptzsim_processes():
+    """(pid, parent pid, how long it has run, command) of each ptzsim running
+    on this computer, whoever started it. None where there is no ps to ask
+    (Windows)."""
+    try:
+        out = subprocess.run(["ps", "-eo", "pid=,ppid=,etime=,command="], capture_output=True, text=True,
+                             check=True).stdout
+    except (OSError, subprocess.CalledProcessError):
+        return None
+    found = []
+    for line in out.splitlines():
+        fields = line.split(None, 3)
+        if len(fields) < 4 or int(fields[0]) == os.getpid():
+            continue
+        # python itself running the module, not a shell whose command line
+        # mentions it
+        argv = fields[3].split()
+        if os.path.basename(argv[0]).lower().startswith("python") and any(
+                a == "-m" and b == "ptzsim" for a, b in zip(argv, argv[1:])):
+            found.append((int(fields[0]), int(fields[1]), fields[2], fields[3]))
+    return found
+
+
+# The ptzsims there were when the session started, which the session didn't
+# start and isn't to blame for
+_strays = []
+
+
+def pytest_sessionstart(session):
+    """Stop, before booting anything, if a ptzsim is left over from an earlier
+    run. One that is still listening answers in place of the tests' own: Sony's
+    discovery answers from two cameras, a UDP port is shared, a state the tests
+    didn't set up is read. The tests then fail in ways that look like nothing
+    at all, only some of the time. Set PTZSIM_ALLOW_STRAYS=1 to run anyway."""
+    found = ptzsim_processes()
+    if not found:
+        return
+    _strays.extend(pid for pid, *_ in found)
+    lines = "\n".join(f"  {pid} (parent {ppid}, running {etime}): {command[:100]}"
+                      for pid, ppid, etime, command in found)
+    message = (f"{len(found)} ptzsim left running by an earlier run:\n{lines}\n"
+               "Stop them (kill " + " ".join(str(pid) for pid, *_ in found) + ") and run again, "
+               "or set PTZSIM_ALLOW_STRAYS=1 to run with them.")
+    if os.environ.get("PTZSIM_ALLOW_STRAYS"):
+        print(f"\nWARNING: {message}", file=sys.stderr)
+    else:
+        pytest.exit(message, returncode=3)
+
+
+def pytest_sessionfinish(session, exitstatus):
+    """Say if the session left a ptzsim running, which the next run is then
+    stopped by"""
+    found = ptzsim_processes()
+    left = [f for f in found or [] if f[0] not in _strays]
+    if left:
+        lines = "\n".join(f"  {pid}: {command[:100]}" for pid, _, _, command in left)
+        print(f"\nWARNING: this run left {len(left)} ptzsim running:\n{lines}", file=sys.stderr)
+
+
 # obs-websocket RequestStatus::NotReady -- returned while OBS's frontend
 # is still starting up, even after the websocket handshake has completed.
 OBS_NOT_READY = 207

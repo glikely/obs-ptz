@@ -8,6 +8,16 @@ protocols are decoded correctly, this suite confirms obs-ptz's real
 place, and that OBS's device-config loading and `ptz_action_source`
 actually work end to end.
 
+## Stray ptzsims
+
+A `ptzsim` left running by an earlier run (a run that was interrupted, say)
+still listens, and answers in place of the tests' own: Sony's discovery gets
+two cameras, a UDP port is shared, a state is read that the tests didn't set
+up. The tests then fail only some of the time, in ways that look like nothing.
+So the session refuses to start while there is one, and lists them to stop
+(`pkill -f "python.*-m ptzsim"`); `PTZSIM_ALLOW_STRAYS=1` runs with them
+anyway. It also says if the run itself left one behind.
+
 ## How it works
 
 1. **`ptzsim`** is started as a subprocess on fixed local ports, one
