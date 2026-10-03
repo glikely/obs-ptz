@@ -18,3 +18,12 @@ trailers adjacent.
 
 Never open a PR for untested code. Tell the human to test first, and
 offer to help them build and run locally.
+
+## Building and running on macOS
+
+Use `scripts/macos-dev.sh` (`setup`, `install`, `run`, `restore`) to configure,
+build, sign and run in any checkout, worktrees included, instead of running
+`cmake` and `open` by hand. It gives the worktree its own copy-on-write clone
+of the main checkout's `.deps` (never a symlink: worktrees sharing one `.deps`
+break each other's configure), and it pins the macOS packages when configuring, which a plain
+`cmake --preset macos` gets wrong when `.deps` also holds Windows builds.
