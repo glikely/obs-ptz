@@ -254,11 +254,20 @@
             <verstretch>0</verstretch>
            </sizepolicy>
           </property>
-          <layout class="QVBoxLayout" name="devicePaneLayout">
-           <property name="leftMargin"><number>0</number></property>
-           <property name="topMargin"><number>0</number></property>
-           <property name="rightMargin"><number>0</number></property>
-           <property name="bottomMargin"><number>0</number></property>
+          <layout class="QVBoxLayout" name="devicePaneLayout" stretch="0,0,1">
+           <item>
+            <widget class="QLabel" name="deviceName">
+             <property name="sizePolicy">
+              <sizepolicy hsizetype="Ignored" vsizetype="Preferred">
+               <horstretch>0</horstretch>
+               <verstretch>0</verstretch>
+              </sizepolicy>
+             </property>
+             <property name="textFormat">
+              <enum>Qt::TextFormat::PlainText</enum>
+             </property>
+            </widget>
+           </item>
            <item>
             <layout class="QHBoxLayout" name="headerLayout" stretch="1,0">
              <item>

@@ -720,8 +720,8 @@ void PTZSettings::reloadSettings()
 void PTZSettings::updateHeader()
 {
 	const QVariantMap shown = ui->stateView->shownValues();
-	const QString name = shown.value("name").toString();
 	if (!ui->deviceList->currentIndex().isValid()) {
+		ui->deviceName->clear();
 		ui->statusHeader->clear();
 		updateAutofocusIcon(false, false);
 		return;
@@ -766,8 +766,8 @@ void PTZSettings::updateHeader()
 	updateAutofocusIcon(!poweredOff && shown.contains("focus_af_enabled"),
 			    shown.value("focus_af_enabled").toBool());
 
-	ui->statusHeader->setText(
-		QString("<b>%1</b>&nbsp;&nbsp;&nbsp;%2").arg(name.toHtmlEscaped(), parts.join("&nbsp;&nbsp;&nbsp;")));
+	ui->deviceName->setText(shown.value("name").toString());
+	ui->statusHeader->setText(parts.join("&nbsp;&nbsp;&nbsp;"));
 }
 
 /* The AF icon in the header, for a camera that reports whether it is
