@@ -75,6 +75,13 @@ if(ENABLE_QT)
     ${CMAKE_PROJECT_NAME}
     PROPERTIES AUTOMOC ON AUTOUIC ON AUTORCC ON
   )
+  # CMake 3.27+ adds the directory ui_*.h and moc files are generated in as a
+  # system include directory, and headers included from a system header are
+  # system headers too, which a compiler leaves out of its dependency file.
+  # Xcode then doesn't rebuild what includes a widget's header only through
+  # ui_*.h when that header changes, and the stale objects have the widget the
+  # wrong size. Make it a normal include directory so they are tracked.
+  set_target_properties(${CMAKE_PROJECT_NAME} PROPERTIES AUTOGEN_USE_SYSTEM_INCLUDE OFF)
 endif()
 
 add_dependencies(${CMAKE_PROJECT_NAME} plugin_version)
