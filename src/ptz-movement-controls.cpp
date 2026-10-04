@@ -14,6 +14,7 @@
 #include <QIcon>
 #include <QItemSelectionRange>
 #include <QMenu>
+#include <QToolButton>
 #include <QResizeEvent>
 
 #include "ptz-movement-controls.hpp"
@@ -45,6 +46,7 @@ public:
 PTZMovementControls::PTZMovementControls(QWidget *parent) : QWidget(parent), ui(new Ui::PTZMovementControls)
 {
 	ui->setupUi(this);
+	m_margins = ui->movementControlsGridLayout->contentsMargins();
 
 	/* The directional pan/tilt/zoom/focus buttons each have their own
 	 * translated tooltip describing the action, but all share the same
@@ -93,9 +95,9 @@ PTZMovementControls::PTZMovementControls(QWidget *parent) : QWidget(parent), ui(
 	updateControls();
 
 	/* Keep the buttons square */
-	auto filter = new squareResizeFilter(this);
-	installEventFilter(filter);
-	ui->pantiltStack->installEventFilter(filter);
+	m_squareFilter = new squareResizeFilter(this);
+	installEventFilter(m_squareFilter);
+	ui->pantiltStack->installEventFilter(m_squareFilter);
 }
 
 PTZMovementControls::~PTZMovementControls() = default;
@@ -122,6 +124,59 @@ void PTZMovementControls::refreshTheme()
 	};
 	for (const auto &[button, name] : buttons)
 		button->setIcon(QIcon(QString(":/icons/icons/%1_%2.svg").arg(name, variant)));
+
+	/* The theme's density may have changed too */
+	applySize();
+}
+
+void PTZMovementControls::setThemeSized(bool themeSized)
+{
+	m_themeSized = themeSized;
+	applySize();
+}
+
+/* Theme sized: every button is a square of the height of a row of the dock's
+ * lists (what the theme's density makes of a control), the pan and tilt
+ * block is three of them across and down, and the zoom pair fills the same
+ * height. Otherwise, the buttons stretch, and are kept square. */
+void PTZMovementControls::applySize()
+{
+	auto controls = PTZControls::getInstance();
+	const QList<QToolButton *> buttons = findChildren<QToolButton *>();
+
+	if (!m_themeSized) {
+		ui->movementControlsGridLayout->setContentsMargins(m_margins);
+		installEventFilter(m_squareFilter);
+		ui->pantiltStack->installEventFilter(m_squareFilter);
+		for (QToolButton *button : buttons) {
+			button->setMinimumSize(0, 0);
+			button->setMaximumSize(QWIDGETSIZE_MAX, QWIDGETSIZE_MAX);
+		}
+		ui->pantiltStack->setMinimumSize(0, 0);
+		ui->pantiltStack->setMaximumSize(QWIDGETSIZE_MAX, QWIDGETSIZE_MAX);
+		setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Fixed);
+		return;
+	}
+
+	/* No margin round the buttons either, so that what is beside them, the
+	 * video, can be as tall as they are and line up with them */
+	ui->movementControlsGridLayout->setContentsMargins(0, 0, 0, 0);
+	removeEventFilter(m_squareFilter);
+	ui->pantiltStack->removeEventFilter(m_squareFilter);
+	setMinimumHeight(0);
+	ui->pantiltStack->setMinimumHeight(0);
+
+	const int side = controls && controls->rowHeight() > 0 ? controls->rowHeight() : 30;
+	const int gap = ui->pantiltGridLayout->spacing();
+	const int block = 3 * side + 2 * gap;
+	for (QToolButton *button : buttons)
+		button->setFixedSize(side, side);
+	ui->pantiltStack->setFixedSize(block, block);
+	/* Two buttons and the gap between them, as tall as the block */
+	for (QToolButton *zoom : {ui->zoomButton_tele, ui->zoomButton_wide})
+		zoom->setFixedSize(side, (block - gap) / 2);
+	setSizePolicy(QSizePolicy::Fixed, QSizePolicy::Fixed);
+	updateGeometry();
 }
 
 /* Stop a camera that is being moved, and forget how it was */

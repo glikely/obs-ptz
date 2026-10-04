@@ -53,6 +53,12 @@ public:
 	void requestAutofocus(bool on);
 	bool autofocusOn() const;
 
+	/* Size the buttons by the theme, the way the dock sizes its rows, and
+	 * keep them that size, instead of stretching them to fill whatever room
+	 * there is, as the dock's do. The controls are then a fixed size, which
+	 * follows the theme's density. */
+	void setThemeSized(bool themeSized);
+
 	/* Whether pan and tilt are the touch pad rather than the buttons */
 	bool onscreenJoystick() const;
 	void setOnscreenJoystick(bool enabled);
@@ -70,6 +76,11 @@ private:
 	double focus_speed = 0.0;
 	double focus_accel = 0.0;
 	QTimer accel_timer;
+	/* Keeps the buttons square as they stretch, unless they are theme sized */
+	QObject *m_squareFilter = nullptr;
+	bool m_themeSized = false;
+	/* The grid's margins as the .ui has them, which theme sizing takes off */
+	QMargins m_margins;
 
 	bool pantiltingFlag = false;
 	bool zoomingFlag = false;
@@ -81,6 +92,7 @@ private:
 	void showAutofocus(bool on);
 	void updateFocusControls();
 	void stop();
+	void applySize();
 
 private slots:
 	void accelTimerHandler();
