@@ -20,6 +20,8 @@
 #include <QLabel>
 #include <QPixmap>
 #include <QCheckBox>
+#include <QScrollBar>
+#include <QSlider>
 #include <QFileDialog>
 #include <QMessageBox>
 
@@ -241,6 +243,25 @@ PTZControls::PTZControls(QWidget *parent) : QFrame(parent), ui(new Ui::PTZContro
 
 	presetDelegate = new PTZPresetListDelegate(ui->presetListView);
 	ui->presetListView->setItemDelegate(presetDelegate);
+
+	/* A slider on the preset toolbar sizes the grid's thumbnails; it is
+	 * shown along with the grid */
+	ui->presetListView->viewport()->installEventFilter(this);
+	presetZoomSlider = new QSlider(Qt::Horizontal, ui->presetToolbar);
+	presetZoomSlider->setRange(PTZPresetListDelegate::minGridZoom, PTZPresetListDelegate::maxGridZoom);
+	presetZoomSlider->setSingleStep(10);
+	presetZoomSlider->setPageStep(25);
+	presetZoomSlider->setValue(presetDelegate->gridZoom());
+	presetZoomSlider->setFixedWidth(60);
+	presetZoomSlider->setToolTip(obs_module_text("PTZ.Action.Preset.ThumbnailSize"));
+	connect(presetZoomSlider, &QSlider::valueChanged, this, &PTZControls::setPresetGridZoom);
+	/* An expanding spacer pushes the slider to the toolbar's right edge */
+	auto *spacer = new QWidget(ui->presetToolbar);
+	spacer->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Preferred);
+	presetZoomSpacer = ui->presetToolbar->addWidget(spacer);
+	presetZoomAction = ui->presetToolbar->addWidget(presetZoomSlider);
+	presetZoomSpacer->setVisible(false);
+	presetZoomAction->setVisible(false);
 	updatePresetList();
 	/* A model reset makes the views throw away their root index, and the
 	 * camera list its selection, so the preset list has to be set up again.
@@ -613,6 +634,7 @@ void PTZControls::SaveConfig()
 	obs_data_set_bool(savedata, "speed_ramp_enabled", speedRampEnabled());
 	obs_data_set_bool(savedata, "onscreen_joystick_enabled", ui->movementControlsWidget->onscreenJoystick());
 	obs_data_set_bool(savedata, "refresh_thumbnail_on_recall", refresh_thumbnail_on_recall);
+	obs_data_set_int(savedata, "preset_grid_zoom", presetDelegate->gridZoom());
 	obs_data_set_bool(savedata, "preset_grid_view", ui->actionPresetGridView->isChecked());
 	obs_data_set_bool(savedata, "joystick_enable", m_joystick_enable);
 	obs_data_set_int(savedata, "joystick_id", m_joystick_id);
@@ -685,6 +707,7 @@ void PTZControls::LoadConfig()
 	obs_data_set_default_bool(loaddata, "speed_ramp_enabled", true);
 	obs_data_set_default_bool(loaddata, "onscreen_joystick_enabled", false);
 	obs_data_set_default_bool(loaddata, "refresh_thumbnail_on_recall", true);
+	obs_data_set_default_int(loaddata, "preset_grid_zoom", 100);
 	obs_data_set_default_bool(loaddata, "preset_grid_view", false);
 	obs_data_set_default_bool(loaddata, "joystick_enable", false);
 	obs_data_set_default_int(loaddata, "joystick_id", -1);
@@ -696,6 +719,7 @@ void PTZControls::LoadConfig()
 	speed_ramp_enabled = obs_data_get_bool(loaddata, "speed_ramp_enabled");
 	ui->movementControlsWidget->setOnscreenJoystick(obs_data_get_bool(loaddata, "onscreen_joystick_enabled"));
 	refresh_thumbnail_on_recall = obs_data_get_bool(loaddata, "refresh_thumbnail_on_recall");
+	presetZoomSlider->setValue((int)obs_data_get_int(loaddata, "preset_grid_zoom"));
 	ui->actionPresetGridView->setChecked(obs_data_get_bool(loaddata, "preset_grid_view"));
 	m_joystick_enable = obs_data_get_bool(loaddata, "joystick_enable");
 	m_joystick_id = (int)obs_data_get_int(loaddata, "joystick_id");
@@ -1056,14 +1080,39 @@ void PTZControls::on_actionPresetGridView_toggled(bool checked)
 		view->setMovement(QListView::Static);
 		view->setResizeMode(QListView::Adjust);
 		view->setUniformItemSizes(true);
-		view->setSpacing(2);
+		view->setSpacing(PTZPresetListDelegate::gridSpacing);
 		view->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
 	} else {
 		view->setViewMode(QListView::ListMode);
 		view->setSpacing(0);
 		view->setHorizontalScrollBarPolicy(Qt::ScrollBarAsNeeded);
 	}
+	presetZoomSpacer->setVisible(checked);
+	presetZoomAction->setVisible(checked);
 	view->doItemsLayout();
+}
+
+/* The grid's columns depend on the view's width, so lay it out again when that changes */
+bool PTZControls::eventFilter(QObject *watched, QEvent *event)
+{
+	if (watched == ui->presetListView->viewport() && event->type() == QEvent::Resize &&
+	    presetDelegate->gridMode() && presetDelegate->layoutWidthChanged(ui->presetListView)) {
+		/* Not from here: laying out can resize the viewport again */
+		QMetaObject::invokeMethod(
+			this,
+			[this] {
+				emit presetDelegate->sizeHintChanged(QModelIndex());
+				ui->presetListView->doItemsLayout();
+			},
+			Qt::QueuedConnection);
+	}
+	return QFrame::eventFilter(watched, event);
+}
+
+void PTZControls::setPresetGridZoom(int percent)
+{
+	presetDelegate->setGridZoom(percent);
+	ui->presetListView->doItemsLayout();
 }
 
 void PTZControls::on_actionPresetExport_triggered(QString filename)
@@ -1336,9 +1385,53 @@ void PTZPresetListDelegate::setGridMode(bool grid)
 }
 
 /* A grid cell is just a 16:9 thumbnail, with the name drawn over it */
-int PTZPresetListDelegate::gridCellWidth() const
+/* The width QListView lays its cells out in. It leaves room for the vertical
+ * scrollbar whether or not it is showing, so that the scrollbar appearing
+ * doesn't change the layout, and neither should this. */
+int PTZPresetListDelegate::layoutWidth(const QAbstractScrollArea *view)
 {
-	return PTZControls::getInstance()->rowHeight() * 3;
+	QScrollBar *vbar = view->verticalScrollBar();
+	QStyle *style = view->style();
+	int width = view->maximumViewportSize().width();
+	if (view->verticalScrollBarPolicy() == Qt::ScrollBarAsNeeded &&
+	    !style->pixelMetric(QStyle::PM_ScrollView_ScrollBarOverlap, nullptr, vbar)) {
+		width -= style->pixelMetric(QStyle::PM_ScrollBarExtent, nullptr, vbar);
+		if (style->styleHint(QStyle::SH_ScrollView_FrameOnlyAroundContents))
+			width -= style->pixelMetric(QStyle::PM_DefaultFrameWidth, nullptr, view) * 2;
+	}
+	return width;
+}
+
+bool PTZPresetListDelegate::layoutWidthChanged(const QAbstractScrollArea *view)
+{
+	int width = layoutWidth(view);
+	if (width == m_lastLayoutWidth)
+		return false;
+	m_lastLayoutWidth = width;
+	return true;
+}
+
+int PTZPresetListDelegate::gridCellWidth(const QWidget *view) const
+{
+	int target = PTZControls::getInstance()->rowHeight() * 3 * m_gridZoom / 100;
+	auto *area = qobject_cast<const QAbstractScrollArea *>(view);
+	if (!area)
+		return target;
+	/* Cells sit gridSpacing from each other and from the left edge, and the
+	 * view wraps a cell whose right edge, plus a gridSpacing, reaches the
+	 * layout's last pixel */
+	int available = layoutWidth(area) - 1 - gridSpacing;
+	int columns = qMax(1, available / (target + gridSpacing));
+	return qMax(1, (available - columns * gridSpacing) / columns);
+}
+
+void PTZPresetListDelegate::setGridZoom(int percent)
+{
+	percent = std::clamp(percent, minGridZoom, maxGridZoom);
+	if (m_gridZoom == percent)
+		return;
+	m_gridZoom = percent;
+	emit sizeHintChanged(QModelIndex());
 }
 
 QSize PTZPresetListDelegate::sizeHint(const QStyleOptionViewItem &option, const QModelIndex &index) const
@@ -1346,8 +1439,9 @@ QSize PTZPresetListDelegate::sizeHint(const QStyleOptionViewItem &option, const 
 	QSize size = QStyledItemDelegate::sizeHint(option, index);
 	int rowHeight = PTZControls::getInstance()->rowHeight();
 	if (m_gridMode) {
-		int thumbWidth = gridCellWidth() - 2 * thumbnailMargin;
-		return QSize(gridCellWidth(), thumbWidth * 9 / 16 + 2 * thumbnailMargin);
+		int cellWidth = gridCellWidth(option.widget);
+		int thumbWidth = cellWidth - 2 * thumbnailMargin;
+		return QSize(cellWidth, thumbWidth * 9 / 16 + 2 * thumbnailMargin);
 	}
 	size.setHeight(rowHeight);
 	return size;

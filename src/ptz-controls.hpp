@@ -54,6 +54,9 @@ private:
 	std::unique_ptr<Ui::PTZControls> ui;
 	TouchControl *pantilt_widget;
 	PTZPresetListDelegate *presetDelegate = nullptr;
+	QSlider *presetZoomSlider = nullptr;
+	QAction *presetZoomSpacer = nullptr;
+	QAction *presetZoomAction = nullptr;
 	QMetaObject::Connection presetSelectionConnection;
 	PTZDeviceListDelegate *deviceDelegate = nullptr;
 
@@ -62,6 +65,7 @@ private:
 	bool speed_ramp_enabled = false;
 	bool refresh_thumbnail_on_recall = true;
 
+	void setPresetGridZoom(int percent);
 	void copyActionsDynamicProperties();
 	void SaveConfig();
 	void LoadConfig();
@@ -104,6 +108,7 @@ private slots:
 
 	/* Joystick support */
 protected:
+	bool eventFilter(QObject *watched, QEvent *event) override;
 	bool m_joystick_enable = false;
 	int m_joystick_id = -1;
 	double m_joystick_deadzone = 0.0;
@@ -244,11 +249,26 @@ public:
 	/* Show the presets as a grid of thumbnails, rather than as a list */
 	void setGridMode(bool grid);
 	bool gridMode() const { return m_gridMode; }
+	/* The gap the grid leaves around each cell */
+	static constexpr int gridSpacing = 2;
+	/* The zoom sets how wide a thumbnail should be, as a percent of its
+	 * default. That decides how many columns fit across the view; the
+	 * columns are then widened to take up the space left over. */
+	static constexpr int minGridZoom = 50;
+	static constexpr int maxGridZoom = 200;
+	void setGridZoom(int percent);
+	int gridZoom() const { return m_gridZoom; }
+	/* Whether the width the view lays its cells out in has changed since
+	 * this was last asked, which means the cell sizes need working out again */
+	bool layoutWidthChanged(const QAbstractScrollArea *view);
 
 private:
 	CellLayout layoutCell(const QModelIndex &index, const QStyleOptionViewItem &option) const;
-	int gridCellWidth() const;
+	int gridCellWidth(const QWidget *view) const;
+	static int layoutWidth(const QAbstractScrollArea *view);
 
 	QIcon recallIcon;
 	bool m_gridMode = false;
+	int m_gridZoom = 100;
+	int m_lastLayoutWidth = 0;
 };
