@@ -14,8 +14,10 @@
 #include <QJsonDocument>
 #include <QMutex>
 #include <QThread>
+#include <QTimer>
 #include <QUrl>
 #include "ptz-device.hpp"
+#include "ptz-controls.hpp"
 #include "ptz-list-model.hpp"
 #include "ptz-discovery.hpp"
 #include "ptz-thumbnail.hpp"
@@ -678,8 +680,10 @@ void PTZDevice::preset_save(calldata_t *cd)
 void PTZDevice::preset_recall(calldata_t *cd)
 {
 	long long id;
-	if (calldata_get_int(cd, "preset_id", &id))
+	if (calldata_get_int(cd, "preset_id", &id)) {
 		QMetaObject::invokeMethod(this, "memory_recall", Q_ARG(int, id));
+		QMetaObject::invokeMethod(this, [this, id] { refreshThumbnailAfterRecall((size_t)id); });
+	}
 }
 
 void PTZDevice::preset_clear(calldata_t *cd)
@@ -1485,6 +1489,22 @@ void PTZDevice::capturePresetThumbnail(size_t id)
 	if (!src)
 		return;
 	ptz_capture_source_thumbnail(src, this, [this, id](QImage image) { setPresetThumbnail(id, image); });
+}
+
+/* Once the camera has had time to reach a recalled preset, replace that
+ * preset's thumbnail with what it sees now. A newer recall cancels this one,
+ * since the camera will have moved on before the capture. */
+void PTZDevice::refreshThumbnailAfterRecall(size_t id)
+{
+	uint generation = ++m_recallGeneration;
+	PTZControls *controls = PTZControls::getInstance();
+	if (!controls || !controls->refreshThumbnailOnRecall())
+		return;
+	static constexpr int recallSettleMs = 3000;
+	QTimer::singleShot(recallSettleMs, this, [this, id, generation] {
+		if (generation == m_recallGeneration)
+			capturePresetThumbnail(id);
+	});
 }
 
 /* Insert a new preset and return the ID */

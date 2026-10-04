@@ -60,6 +60,7 @@ private:
 	bool live_move_lock_enabled = true;
 	bool autoselect_enabled = false;
 	bool speed_ramp_enabled = false;
+	bool refresh_thumbnail_on_recall = true;
 
 	void copyActionsDynamicProperties();
 	void SaveConfig();
@@ -157,6 +158,7 @@ public:
 	bool liveMoveLockEnabled() { return live_move_lock_enabled; };
 	bool liveMoveLockActive() { return live_move_lock_enabled && obs_frontend_preview_program_mode_active(); };
 	bool speedRampEnabled() { return speed_ramp_enabled; };
+	bool refreshThumbnailOnRecall() const { return refresh_thumbnail_on_recall; };
 	static PTZControls *getInstance() { return instance; };
 	int rowHeight() const { return m_rowHeight; }
 	int iconSize() const { return m_iconSize; }
@@ -165,6 +167,7 @@ public slots:
 	void setAutoselectEnabled(bool enable);
 	void setLiveMoveLockEnabled(bool enable);
 	void setSpeedRampEnabled(bool enable);
+	void setRefreshThumbnailOnRecall(bool enable);
 
 signals:
 	/* The movement controls may need enabling differently: the selected
@@ -176,6 +179,7 @@ signals:
 	void autoselectEnabledChanged(bool enabled);
 	void liveMoveLockEnabledChanged(bool enabled);
 	void speedRampEnabledChanged(bool enabled);
+	void refreshThumbnailOnRecallChanged(bool enabled);
 };
 
 class PTZDeviceListDelegate : public QStyledItemDelegate {

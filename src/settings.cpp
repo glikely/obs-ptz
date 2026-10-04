@@ -152,6 +152,12 @@ PTZSettings::PTZSettings() : QWidget(nullptr), ui(new Ui_PTZSettings)
 	connect(ui->speedRampCheckBox, &QCheckBox::clicked, PTZControls::getInstance(),
 		&PTZControls::setSpeedRampEnabled);
 
+	ui->refreshThumbnailCheckBox->setChecked(PTZControls::getInstance()->refreshThumbnailOnRecall());
+	connect(PTZControls::getInstance(), &PTZControls::refreshThumbnailOnRecallChanged, ui->refreshThumbnailCheckBox,
+		&QCheckBox::setChecked);
+	connect(ui->refreshThumbnailCheckBox, &QCheckBox::clicked, PTZControls::getInstance(),
+		&PTZControls::setRefreshThumbnailOnRecall);
+
 	statisticsTimer.setInterval(1000);
 	connect(&statisticsTimer, &QTimer::timeout, this, &PTZSettings::refreshStatistics);
 	statisticsTimer.start();

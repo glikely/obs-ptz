@@ -612,6 +612,7 @@ void PTZControls::SaveConfig()
 	obs_data_set_bool(savedata, "autoselect_enabled", autoselectEnabled());
 	obs_data_set_bool(savedata, "speed_ramp_enabled", speedRampEnabled());
 	obs_data_set_bool(savedata, "onscreen_joystick_enabled", ui->movementControlsWidget->onscreenJoystick());
+	obs_data_set_bool(savedata, "refresh_thumbnail_on_recall", refresh_thumbnail_on_recall);
 	obs_data_set_bool(savedata, "preset_grid_view", ui->actionPresetGridView->isChecked());
 	obs_data_set_bool(savedata, "joystick_enable", m_joystick_enable);
 	obs_data_set_int(savedata, "joystick_id", m_joystick_id);
@@ -683,6 +684,7 @@ void PTZControls::LoadConfig()
 	obs_data_set_default_bool(loaddata, "autoselect_enabled", true);
 	obs_data_set_default_bool(loaddata, "speed_ramp_enabled", true);
 	obs_data_set_default_bool(loaddata, "onscreen_joystick_enabled", false);
+	obs_data_set_default_bool(loaddata, "refresh_thumbnail_on_recall", true);
 	obs_data_set_default_bool(loaddata, "preset_grid_view", false);
 	obs_data_set_default_bool(loaddata, "joystick_enable", false);
 	obs_data_set_default_int(loaddata, "joystick_id", -1);
@@ -693,6 +695,7 @@ void PTZControls::LoadConfig()
 	autoselect_enabled = obs_data_get_bool(loaddata, "autoselect_enabled");
 	speed_ramp_enabled = obs_data_get_bool(loaddata, "speed_ramp_enabled");
 	ui->movementControlsWidget->setOnscreenJoystick(obs_data_get_bool(loaddata, "onscreen_joystick_enabled"));
+	refresh_thumbnail_on_recall = obs_data_get_bool(loaddata, "refresh_thumbnail_on_recall");
 	ui->actionPresetGridView->setChecked(obs_data_get_bool(loaddata, "preset_grid_view"));
 	m_joystick_enable = obs_data_get_bool(loaddata, "joystick_enable");
 	m_joystick_id = (int)obs_data_get_int(loaddata, "joystick_id");
@@ -757,6 +760,14 @@ void PTZControls::setSpeedRampEnabled(bool enabled)
 		return;
 	speed_ramp_enabled = enabled;
 	emit speedRampEnabledChanged(enabled);
+}
+
+void PTZControls::setRefreshThumbnailOnRecall(bool enabled)
+{
+	if (enabled == refresh_thumbnail_on_recall)
+		return;
+	refresh_thumbnail_on_recall = enabled;
+	emit refreshThumbnailOnRecallChanged(enabled);
 }
 
 /**
@@ -903,6 +914,10 @@ void PTZControls::on_presetListView_customContextMenuRequested(const QPoint &pos
 	presetContext.addAction(ui->actionPresetExport);
 	presetContext.addAction(ui->actionPresetImport);
 	presetContext.addSeparator();
+	QAction *refreshAction = presetContext.addAction(obs_module_text("PTZ.Preset.RefreshThumbnailOnRecall"));
+	refreshAction->setCheckable(true);
+	refreshAction->setChecked(refresh_thumbnail_on_recall);
+	connect(refreshAction, &QAction::toggled, this, &PTZControls::setRefreshThumbnailOnRecall);
 	presetContext.addAction(ui->actionPresetGridView);
 	presetContext.exec(globalpos);
 }

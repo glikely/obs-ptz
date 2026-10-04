@@ -93,6 +93,7 @@ protected:
 	bool focus_changed = false;
 
 private:
+	uint m_recallGeneration = 0;
 	bool m_frontendCallback = false;
 	void onFrontendEvent(enum obs_frontend_event event);
 	static void frontendEventCallback(enum obs_frontend_event event, void *data);
@@ -218,6 +219,7 @@ public:
 	void clearPresetThumbnail(size_t id);
 	/* Grabs a frame of the device's source as the preset's thumbnail */
 	void capturePresetThumbnail(size_t id);
+	void refreshThumbnailAfterRecall(size_t id);
 	QVariant presetProperty(size_t id, QString key) const;
 	bool updatePreset(size_t id, const QVariantMap &map);
 	int findPreset(QString key, QVariant value) const;

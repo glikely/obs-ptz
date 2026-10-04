@@ -72,6 +72,13 @@
             </widget>
            </item>
            <item>
+            <widget class="QCheckBox" name="refreshThumbnailCheckBox">
+             <property name="text">
+              <string>PTZ.Preset.RefreshThumbnailOnRecall</string>
+             </property>
+            </widget>
+           </item>
+           <item>
             <widget class="QCheckBox" name="speedRampCheckBox">
              <property name="toolTip">
               <string>PTZ.Settings.SpeedRamp.Tooltip</string>
