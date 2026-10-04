@@ -102,6 +102,19 @@ PTZSettings::PTZSettings() : QWidget(nullptr), ui(new Ui_PTZSettings)
 	ui->splitter->setSizes({listWidth, 1000});
 	ui->splitter->handle(1)->installEventFilter(this);
 
+	/* The controls and video can be put away, leaving the status line. It is
+	 * the theme's expand and collapse checkbox, as the Sources list has for
+	 * its groups, which is checked while what it controls is collapsed. */
+#ifdef __APPLE__
+	ui->topToggle->setAttribute(Qt::WA_LayoutUsesWidgetRect);
+#endif
+	connect(ui->topToggle, &QCheckBox::toggled, this, [this](bool collapsed) {
+		ui->topSection->setVisible(!collapsed);
+		ui->topToggle->setToolTip(
+			obs_module_text(collapsed ? "PTZ.Settings.Controls.Show" : "PTZ.Settings.Controls.Hide"));
+	});
+	ui->topToggle->setToolTip(obs_module_text("PTZ.Settings.Controls.Hide"));
+
 	/* The controls are the size the theme gives a control, and don't stretch
 	 * to the window as the dock's do, and the video is as tall as they are.
 	 * The theme's density can change, so follow it, after everything that
@@ -751,8 +764,9 @@ void PTZSettings::matchVideoHeight()
 	ui->sourcePreview->setFixedSize(height * 16 / 9, height);
 }
 
-/* The status line in the group over the tabs: what to see of the device at a
- * glance, which stays in view whichever tab is showing */
+/* The status line, the header of the group over the controls and video: what
+ * to see of the device at a glance, which stays in view whichever tab is
+ * showing, and while the rest of the group is hidden */
 void PTZSettings::updateHeader()
 {
 	const QVariantMap shown = ui->stateView->shownValues();

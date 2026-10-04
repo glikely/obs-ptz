@@ -284,7 +284,20 @@
                <number>0</number>
               </property>
               <item>
-               <layout class="QHBoxLayout" name="headerLayout" stretch="1,0">
+               <layout class="QHBoxLayout" name="headerLayout" stretch="0,1,0">
+                <item>
+                 <widget class="QCheckBox" name="topToggle">
+                  <property name="sizePolicy">
+                   <sizepolicy hsizetype="Maximum" vsizetype="Maximum">
+                    <horstretch>0</horstretch>
+                    <verstretch>0</verstretch>
+                   </sizepolicy>
+                  </property>
+                  <property name="class" stdset="0">
+                   <string notr="true">checkbox-icon indicator-expand</string>
+                  </property>
+                 </widget>
+                </item>
                 <item>
                  <widget class="QLabel" name="statusHeader">
                   <property name="sizePolicy">
