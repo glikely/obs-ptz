@@ -1,0 +1,394 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ui version="4.0">
+ <class>PTZMovementControls</class>
+ <widget class="QWidget" name="PTZMovementControls">
+  <property name="geometry">
+   <rect>
+    <x>0</x>
+    <y>0</y>
+    <width>200</width>
+    <height>200</height>
+   </rect>
+  </property>
+  <property name="sizePolicy">
+   <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
+    <horstretch>0</horstretch>
+    <verstretch>0</verstretch>
+   </sizepolicy>
+  </property>
+  <layout class="QGridLayout" name="movementControlsGridLayout">
+   <property name="leftMargin">
+    <number>4</number>
+   </property>
+   <property name="topMargin">
+    <number>4</number>
+   </property>
+   <property name="rightMargin">
+    <number>4</number>
+   </property>
+   <property name="bottomMargin">
+    <number>4</number>
+   </property>
+   <property name="spacing">
+    <number>4</number>
+   </property>
+   <item row="0" column="0" rowspan="3" colspan="3">
+    <widget class="QStackedWidget" name="pantiltStack">
+     <property name="contextMenuPolicy">
+      <enum>Qt::ContextMenuPolicy::CustomContextMenu</enum>
+     </property>
+     <property name="currentIndex">
+      <number>0</number>
+     </property>
+     <widget class="QWidget" name="buttonsPage">
+      <layout class="QGridLayout" name="pantiltGridLayout">
+       <property name="leftMargin">
+        <number>0</number>
+       </property>
+       <property name="topMargin">
+        <number>0</number>
+       </property>
+       <property name="rightMargin">
+        <number>0</number>
+       </property>
+       <property name="bottomMargin">
+        <number>0</number>
+       </property>
+       <property name="spacing">
+        <number>4</number>
+       </property>
+       <item row="0" column="0">
+        <widget class="SquareToolButton" name="panTiltButton_upleft">
+         <property name="sizePolicy">
+          <sizepolicy hsizetype="Expanding" vsizetype="Expanding">
+           <horstretch>0</horstretch>
+           <verstretch>0</verstretch>
+          </sizepolicy>
+         </property>
+         <property name="toolTip">
+          <string>PTZ.Action.PanTiltUpLeft.Tooltip</string>
+         </property>
+         <property name="text">
+          <string/>
+         </property>
+         <property name="icon">
+          <iconset resource="ptz-controls.qrc">
+           <normaloff>:/icons/icons/pantilt_upleft_dark.svg</normaloff>:/icons/icons/pantilt_upleft_dark.svg</iconset>
+         </property>
+        </widget>
+       </item>
+       <item row="0" column="1">
+        <widget class="SquareToolButton" name="panTiltButton_up">
+         <property name="sizePolicy">
+          <sizepolicy hsizetype="Expanding" vsizetype="Expanding">
+           <horstretch>0</horstretch>
+           <verstretch>0</verstretch>
+          </sizepolicy>
+         </property>
+         <property name="toolTip">
+          <string>PTZ.Action.PanTiltUp.Tooltip</string>
+         </property>
+         <property name="text">
+          <string/>
+         </property>
+         <property name="icon">
+          <iconset resource="ptz-controls.qrc">
+           <normaloff>:/icons/icons/pantilt_up_dark.svg</normaloff>:/icons/icons/pantilt_up_dark.svg</iconset>
+         </property>
+        </widget>
+       </item>
+       <item row="2" column="2">
+        <widget class="SquareToolButton" name="panTiltButton_downright">
+         <property name="sizePolicy">
+          <sizepolicy hsizetype="Expanding" vsizetype="Expanding">
+           <horstretch>0</horstretch>
+           <verstretch>0</verstretch>
+          </sizepolicy>
+         </property>
+         <property name="toolTip">
+          <string>PTZ.Action.PanTiltDownRight.Tooltip</string>
+         </property>
+         <property name="text">
+          <string/>
+         </property>
+         <property name="icon">
+          <iconset resource="ptz-controls.qrc">
+           <normaloff>:/icons/icons/pantilt_downright_dark.svg</normaloff>:/icons/icons/pantilt_downright_dark.svg</iconset>
+         </property>
+        </widget>
+       </item>
+       <item row="0" column="2">
+        <widget class="SquareToolButton" name="panTiltButton_upright">
+         <property name="sizePolicy">
+          <sizepolicy hsizetype="Expanding" vsizetype="Expanding">
+           <horstretch>0</horstretch>
+           <verstretch>0</verstretch>
+          </sizepolicy>
+         </property>
+         <property name="toolTip">
+          <string>PTZ.Action.PanTiltUpRight.Tooltip</string>
+         </property>
+         <property name="text">
+          <string/>
+         </property>
+         <property name="icon">
+          <iconset resource="ptz-controls.qrc">
+           <normaloff>:/icons/icons/pantilt_upright_dark.svg</normaloff>:/icons/icons/pantilt_upright_dark.svg</iconset>
+         </property>
+        </widget>
+       </item>
+       <item row="1" column="1">
+        <widget class="SquareToolButton" name="panTiltButton_home">
+         <property name="sizePolicy">
+          <sizepolicy hsizetype="Expanding" vsizetype="Expanding">
+           <horstretch>0</horstretch>
+           <verstretch>0</verstretch>
+          </sizepolicy>
+         </property>
+         <property name="text">
+          <string/>
+         </property>
+         <property name="icon">
+          <iconset resource="ptz-controls.qrc">
+           <normaloff>:/icons/icons/pantilt_home_dark.svg</normaloff>:/icons/icons/pantilt_home_dark.svg</iconset>
+         </property>
+        </widget>
+       </item>
+       <item row="1" column="0">
+        <widget class="SquareToolButton" name="panTiltButton_left">
+         <property name="sizePolicy">
+          <sizepolicy hsizetype="Expanding" vsizetype="Expanding">
+           <horstretch>0</horstretch>
+           <verstretch>0</verstretch>
+          </sizepolicy>
+         </property>
+         <property name="toolTip">
+          <string>PTZ.Action.PanTiltLeft.Tooltip</string>
+         </property>
+         <property name="text">
+          <string/>
+         </property>
+         <property name="icon">
+          <iconset resource="ptz-controls.qrc">
+           <normaloff>:/icons/icons/pantilt_left_dark.svg</normaloff>:/icons/icons/pantilt_left_dark.svg</iconset>
+         </property>
+        </widget>
+       </item>
+       <item row="2" column="1">
+        <widget class="SquareToolButton" name="panTiltButton_down">
+         <property name="sizePolicy">
+          <sizepolicy hsizetype="Expanding" vsizetype="Expanding">
+           <horstretch>0</horstretch>
+           <verstretch>0</verstretch>
+          </sizepolicy>
+         </property>
+         <property name="toolTip">
+          <string>PTZ.Action.PanTiltDown.Tooltip</string>
+         </property>
+         <property name="text">
+          <string/>
+         </property>
+         <property name="icon">
+          <iconset resource="ptz-controls.qrc">
+           <normaloff>:/icons/icons/pantilt_down_dark.svg</normaloff>:/icons/icons/pantilt_down_dark.svg</iconset>
+         </property>
+        </widget>
+       </item>
+       <item row="2" column="0">
+        <widget class="SquareToolButton" name="panTiltButton_downleft">
+         <property name="sizePolicy">
+          <sizepolicy hsizetype="Expanding" vsizetype="Expanding">
+           <horstretch>0</horstretch>
+           <verstretch>0</verstretch>
+          </sizepolicy>
+         </property>
+         <property name="toolTip">
+          <string>PTZ.Action.PanTiltDownLeft.Tooltip</string>
+         </property>
+         <property name="text">
+          <string/>
+         </property>
+         <property name="icon">
+          <iconset resource="ptz-controls.qrc">
+           <normaloff>:/icons/icons/pantilt_downleft_dark.svg</normaloff>:/icons/icons/pantilt_downleft_dark.svg</iconset>
+         </property>
+        </widget>
+       </item>
+       <item row="1" column="2">
+        <widget class="SquareToolButton" name="panTiltButton_right">
+         <property name="sizePolicy">
+          <sizepolicy hsizetype="Expanding" vsizetype="Expanding">
+           <horstretch>0</horstretch>
+           <verstretch>0</verstretch>
+          </sizepolicy>
+         </property>
+         <property name="toolTip">
+          <string>PTZ.Action.PanTiltRight.Tooltip</string>
+         </property>
+         <property name="text">
+          <string/>
+         </property>
+         <property name="icon">
+          <iconset resource="ptz-controls.qrc">
+           <normaloff>:/icons/icons/pantilt_right_dark.svg</normaloff>:/icons/icons/pantilt_right_dark.svg</iconset>
+         </property>
+        </widget>
+       </item>
+      </layout>
+     </widget>
+     <widget class="QWidget" name="touchPage">
+      <layout class="QVBoxLayout" name="touchPageVerticalLayout">
+       <property name="leftMargin">
+        <number>0</number>
+       </property>
+       <property name="topMargin">
+        <number>0</number>
+       </property>
+       <property name="rightMargin">
+        <number>0</number>
+       </property>
+       <property name="bottomMargin">
+        <number>0</number>
+       </property>
+       <item>
+        <widget class="TouchControl" name="panTiltTouch" native="true"/>
+       </item>
+      </layout>
+     </widget>
+    </widget>
+   </item>
+   <item row="0" column="3" rowspan="3">
+    <layout class="QVBoxLayout" name="zoomControlsVerticalLayout">
+     <item>
+      <widget class="SquareToolButton" name="zoomButton_tele">
+       <property name="sizePolicy">
+        <sizepolicy hsizetype="Expanding" vsizetype="Expanding">
+         <horstretch>0</horstretch>
+         <verstretch>0</verstretch>
+        </sizepolicy>
+       </property>
+       <property name="toolTip">
+        <string>PTZ.Action.ZoomTele.Tooltip</string>
+       </property>
+       <property name="layoutDirection">
+        <enum>Qt::LayoutDirection::LeftToRight</enum>
+       </property>
+       <property name="icon">
+        <iconset resource="ptz-controls.qrc">
+         <normaloff>:/icons/icons/zoom_in_dark.svg</normaloff>:/icons/icons/zoom_in_dark.svg</iconset>
+       </property>
+      </widget>
+     </item>
+     <item>
+      <widget class="SquareToolButton" name="zoomButton_wide">
+       <property name="sizePolicy">
+        <sizepolicy hsizetype="Expanding" vsizetype="Expanding">
+         <horstretch>0</horstretch>
+         <verstretch>0</verstretch>
+        </sizepolicy>
+       </property>
+       <property name="toolTip">
+        <string>PTZ.Action.ZoomWide.Tooltip</string>
+       </property>
+       <property name="icon">
+        <iconset resource="ptz-controls.qrc">
+         <normaloff>:/icons/icons/zoom_out_dark.svg</normaloff>:/icons/icons/zoom_out_dark.svg</iconset>
+       </property>
+      </widget>
+     </item>
+    </layout>
+   </item>
+   <item row="3" column="0">
+    <widget class="SquareToolButton" name="focusButton_auto">
+     <property name="sizePolicy">
+      <sizepolicy hsizetype="Expanding" vsizetype="Expanding">
+       <horstretch>0</horstretch>
+       <verstretch>0</verstretch>
+      </sizepolicy>
+     </property>
+     <property name="toolTip">
+      <string>PTZ.Action.FocusAutoToggle.Tooltip</string>
+     </property>
+     <property name="icon">
+      <iconset resource="ptz-controls.qrc">
+       <normaloff>:/icons/icons/focus_auto_dark.svg</normaloff>:/icons/icons/focus_auto_dark.svg</iconset>
+     </property>
+     <property name="checkable">
+      <bool>true</bool>
+     </property>
+    </widget>
+   </item>
+   <item row="3" column="1">
+    <widget class="SquareToolButton" name="focusButton_near">
+     <property name="sizePolicy">
+      <sizepolicy hsizetype="Expanding" vsizetype="Expanding">
+       <horstretch>0</horstretch>
+       <verstretch>0</verstretch>
+      </sizepolicy>
+     </property>
+     <property name="toolTip">
+      <string>PTZ.Action.FocusNear.Tooltip</string>
+     </property>
+     <property name="icon">
+      <iconset resource="ptz-controls.qrc">
+       <normaloff>:/icons/icons/focus_near_dark.svg</normaloff>:/icons/icons/focus_near_dark.svg</iconset>
+     </property>
+    </widget>
+   </item>
+   <item row="3" column="2">
+    <widget class="SquareToolButton" name="focusButton_far">
+     <property name="sizePolicy">
+      <sizepolicy hsizetype="Expanding" vsizetype="Expanding">
+       <horstretch>0</horstretch>
+       <verstretch>0</verstretch>
+      </sizepolicy>
+     </property>
+     <property name="toolTip">
+      <string>PTZ.Action.FocusFar.Tooltip</string>
+     </property>
+     <property name="layoutDirection">
+      <enum>Qt::LayoutDirection::LeftToRight</enum>
+     </property>
+     <property name="icon">
+      <iconset resource="ptz-controls.qrc">
+       <normaloff>:/icons/icons/focus_far_dark.svg</normaloff>:/icons/icons/focus_far_dark.svg</iconset>
+     </property>
+    </widget>
+   </item>
+   <item row="3" column="3">
+    <widget class="SquareToolButton" name="focusButton_onetouch">
+     <property name="sizePolicy">
+      <sizepolicy hsizetype="Expanding" vsizetype="Expanding">
+       <horstretch>0</horstretch>
+       <verstretch>0</verstretch>
+      </sizepolicy>
+     </property>
+     <property name="toolTip">
+      <string>PTZ.Action.FocusOneTouch.Tooltip</string>
+     </property>
+     <property name="text">
+      <string/>
+     </property>
+     <property name="class" stdset="0">
+      <string notr="true">icon-touch</string>
+     </property>
+    </widget>
+   </item>
+  </layout>
+ </widget>
+ <customwidgets>
+  <customwidget>
+   <class>TouchControl</class>
+   <extends>QWidget</extends>
+   <header>touch-control.hpp</header>
+   <container>1</container>
+  </customwidget>
+  <customwidget>
+   <class>SquareToolButton</class>
+   <extends>QToolButton</extends>
+   <header>square-tool-button.hpp</header>
+  </customwidget>
+ </customwidgets>
+ <resources/>
+ <connections/>
+</ui>

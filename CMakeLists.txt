@@ -104,10 +104,12 @@ target_sources(
     ${PLUGIN_VERSION_SOURCE}
     src/ptz-camera-report.ui
     src/ptz-controls.ui
+    src/ptz-movement-controls.ui
     src/settings.ui
     src/ptz-controls.qrc
     src/ptz.c
     src/ptz-controls.cpp
+    src/ptz-movement-controls.cpp
     src/ptz-device.cpp
     src/ptz-thumbnail.cpp
     src/ptz-list-model.cpp
@@ -126,6 +128,7 @@ target_sources(
     src/touch-control.cpp
     src/ptz.h
     src/ptz-controls.hpp
+    src/ptz-movement-controls.hpp
     src/ptz-device.hpp
     src/ptz-thumbnail.hpp
     src/ptz-list-model.hpp

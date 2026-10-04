@@ -61,39 +61,18 @@ private:
 	bool autoselect_enabled = false;
 	bool speed_ramp_enabled = false;
 
-	// Current status
-	double pan_speed = 0.0;
-	double pan_accel = 0.0;
-	double tilt_speed = 0.0;
-	double tilt_accel = 0.0;
-	double zoom_speed = 0.0;
-	double zoom_accel = 0.0;
-	double focus_speed = 0.0;
-	double focus_accel = 0.0;
-	QTimer accel_timer;
-
-	bool pantiltingFlag = false;
-	bool zoomingFlag = false;
-	bool focusingFlag = false;
-
 	void copyActionsDynamicProperties();
 	void SaveConfig();
 	void LoadConfig();
-
-	void setZoom(double speed);
-	void setFocus(double speed);
 
 	void setCurrent(unsigned int index);
 	int presetIndexToId(QModelIndex index);
 	void presetSet(long long id);
 	void presetRecall(long long id);
 	void presetReset(long long id);
-	void setAutofocusEnabled(bool autofocus_on);
-	void updateFocusControls();
 
 	bool callCurrentDevice(const char *method, calldata_t *cd = nullptr) const;
 	bool callCurrentDevice(const char *method, const char *arg, long long val) const;
-	bool callCurrentDevice(const char *method, const char *arg, double val) const;
 
 	QList<obs_hotkey_id> hotkeys;
 	QMap<obs_hotkey_id, int> preset_hotkey_map;
@@ -102,46 +81,12 @@ public slots:
 	void autoselectDevice(OBSSource scene);
 private slots:
 	void updateMoveControls();
-	void onHomeButtonContextMenu(const QPoint &pos);
-	void setPanTilt(double pan, double tilt, double pan_accel = 0, double tilt_accel = 0);
-	void keypressPanTilt(double pan, double tilt);
-	void on_panTiltButton_up_pressed();
-	void on_panTiltButton_up_released();
-	void on_panTiltButton_upleft_pressed();
-	void on_panTiltButton_upleft_released();
-	void on_panTiltButton_upright_pressed();
-	void on_panTiltButton_upright_released();
-	void on_panTiltButton_left_pressed();
-	void on_panTiltButton_left_released();
-	void on_panTiltButton_right_pressed();
-	void on_panTiltButton_right_released();
-	void on_panTiltButton_down_pressed();
-	void on_panTiltButton_down_released();
-	void on_panTiltButton_downleft_pressed();
-	void on_panTiltButton_downleft_released();
-	void on_panTiltButton_downright_pressed();
-	void on_panTiltButton_downright_released();
-	void on_panTiltButton_home_released();
-
-	void on_zoomButton_tele_pressed();
-	void on_zoomButton_tele_released();
-	void on_zoomButton_wide_pressed();
-	void on_zoomButton_wide_released();
-
-	void on_focusButton_auto_clicked(bool checked);
-	void on_focusButton_near_pressed();
-	void on_focusButton_near_released();
-	void on_focusButton_far_pressed();
-	void on_focusButton_far_released();
-	void on_focusButton_onetouch_clicked();
-
 	void currentChanged(QModelIndex current, QModelIndex previous);
 	void settingsChanged(const QModelIndex &topleft, const QModelIndex &bottomRight);
 
 	void updatePresetList();
 	void presetUpdateActions();
 	void on_presetListView_activated(QModelIndex index);
-	void on_pantiltStack_customContextMenuRequested(const QPoint &pos);
 	void on_presetListView_customContextMenuRequested(const QPoint &pos);
 	void on_deviceList_customContextMenuRequested(const QPoint &pos);
 	void on_actionProperties_triggered();
@@ -155,8 +100,6 @@ private slots:
 	void on_actionPresetExport_triggered(QString filename = "");
 	void on_actionPresetImport_triggered(QString filename = "");
 	void on_actionPresetGridView_toggled(bool checked);
-
-	void accelTimerHandler();
 
 	/* Joystick support */
 protected:
@@ -224,6 +167,12 @@ public slots:
 	void setSpeedRampEnabled(bool enable);
 
 signals:
+	/* The movement controls may need enabling differently: the selected
+	 * device, or what locks it, changed. The dock's own controls and any
+	 * other PTZMovementControls (the settings dialog's) listen. */
+	void moveControlsChanged();
+	/* The theme has changed, and the icons that follow it should too */
+	void themeRefreshed();
 	void autoselectEnabledChanged(bool enabled);
 	void liveMoveLockEnabledChanged(bool enabled);
 	void speedRampEnabledChanged(bool enabled);
