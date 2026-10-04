@@ -6,7 +6,7 @@
 # Usage (run from anywhere; it locates the repo root from its own path):
 #   scripts/macos-dev.sh setup     # clone .deps, configure, build, sign
 #   scripts/macos-dev.sh install   # setup, then point OBS's plugin dir at this build
-#   scripts/macos-dev.sh run       # install, then launch OBS
+#   scripts/macos-dev.sh run [OBS args]   # install, then run OBS here with --verbose, its log in this terminal
 #   scripts/macos-dev.sh restore   # put back the plugin install() moved aside
 #   scripts/macos-dev.sh test [pytest args]   # setup with the test options, then run tests/obs-integration
 #   scripts/macos-dev.sh quick [pytest args]  # like test, but only the fast part of the suite (about a minute)
@@ -165,8 +165,10 @@ do_run() {
     # A second launch races the first and can leave a stale .sentinel file,
     # which blocks the next start on a Safe Mode dialog.
     ! pgrep -x OBS >/dev/null || die "OBS is already running; quit it first"
-    log "launching $app"
-    open "$app"
+    log "running $app (Ctrl-C quits it)"
+    # Not `open`, which detaches OBS from this terminal: its log goes to stdout.
+    # SIGINT is a normal quit for OBS, so it shuts down cleanly on Ctrl-C.
+    exec "$app/Contents/MacOS/OBS" --verbose "$@"
 }
 
 # Setup with the options the integration tests need.
@@ -203,7 +205,7 @@ cmd="${1:-}"
 case "$cmd" in
     setup) do_setup ;;
     install) do_install ;;
-    run) do_run ;;
+    run) do_run "$@" ;;
     restore) do_restore ;;
     test) do_test "$@" ;;
     test-build) do_test_build ;;
