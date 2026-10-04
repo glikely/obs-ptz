@@ -269,31 +269,49 @@
             </widget>
            </item>
            <item>
-            <layout class="QHBoxLayout" name="headerLayout" stretch="1,0">
-             <item>
-              <widget class="QLabel" name="statusHeader">
-               <property name="sizePolicy">
-                <sizepolicy hsizetype="Ignored" vsizetype="Preferred">
-                 <horstretch>0</horstretch>
-                 <verstretch>0</verstretch>
-                </sizepolicy>
-               </property>
-               <property name="textFormat">
-                <enum>Qt::TextFormat::RichText</enum>
-               </property>
-               <property name="textInteractionFlags">
-                <set>Qt::TextInteractionFlag::TextSelectableByMouse</set>
-               </property>
-              </widget>
-             </item>
-             <item>
-              <widget class="QLabel" name="autofocusIcon">
-               <property name="visible">
-                <bool>false</bool>
-               </property>
-              </widget>
-             </item>
-            </layout>
+            <widget class="QGroupBox" name="statusGroup">
+             <property name="accessibleName">
+              <string notr="true">group</string>
+             </property>
+             <property name="styleSheet">
+              <string notr="true">QGroupBox { padding-top: 0px; padding-bottom: 0px; }</string>
+             </property>
+             <layout class="QVBoxLayout" name="statusGroupLayout">
+              <property name="topMargin">
+               <number>0</number>
+              </property>
+              <property name="bottomMargin">
+               <number>0</number>
+              </property>
+              <item>
+               <layout class="QHBoxLayout" name="headerLayout" stretch="1,0">
+                <item>
+                 <widget class="QLabel" name="statusHeader">
+                  <property name="sizePolicy">
+                   <sizepolicy hsizetype="Ignored" vsizetype="Preferred">
+                    <horstretch>0</horstretch>
+                    <verstretch>0</verstretch>
+                   </sizepolicy>
+                  </property>
+                  <property name="textFormat">
+                   <enum>Qt::TextFormat::RichText</enum>
+                  </property>
+                  <property name="textInteractionFlags">
+                   <set>Qt::TextInteractionFlag::TextSelectableByMouse</set>
+                  </property>
+                 </widget>
+                </item>
+                <item>
+                 <widget class="QLabel" name="autofocusIcon">
+                  <property name="visible">
+                   <bool>false</bool>
+                  </property>
+                 </widget>
+                </item>
+               </layout>
+              </item>
+             </layout>
+            </widget>
            </item>
            <item>
             <widget class="QTabWidget" name="deviceTabs">

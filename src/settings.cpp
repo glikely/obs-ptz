@@ -721,8 +721,8 @@ void PTZSettings::reloadSettings()
 	setSettingsDirty(false);
 }
 
-/* The header over the tabs: what to see of the device at a glance, which
- * stays in view whichever tab is showing */
+/* The status line in the group over the tabs: what to see of the device at a
+ * glance, which stays in view whichever tab is showing */
 void PTZSettings::updateHeader()
 {
 	const QVariantMap shown = ui->stateView->shownValues();
