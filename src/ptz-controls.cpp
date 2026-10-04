@@ -247,6 +247,7 @@ PTZControls::PTZControls(QWidget *parent) : QFrame(parent), ui(new Ui::PTZContro
 	/* A slider on the preset toolbar sizes the grid's thumbnails; it is
 	 * shown along with the grid */
 	ui->presetListView->viewport()->installEventFilter(this);
+	ui->splitter->handle(1)->installEventFilter(this);
 	presetZoomSlider = new QSlider(Qt::Horizontal, ui->presetToolbar);
 	presetZoomSlider->setRange(PTZPresetListDelegate::minGridZoom, PTZPresetListDelegate::maxGridZoom);
 	presetZoomSlider->setSingleStep(10);
@@ -746,6 +747,7 @@ void PTZControls::LoadConfig()
 	if (splitterStateStr) {
 		QByteArray splitterState = QByteArray::fromBase64(QByteArray(splitterStateStr));
 		ui->splitter->restoreState(splitterState);
+		holdCameraColumnWidth();
 	}
 
 	const char *vertsplitterStateStr = obs_data_get_string(loaddata, "vertsplitter_state");
@@ -1093,8 +1095,26 @@ void PTZControls::on_actionPresetGridView_toggled(bool checked)
 }
 
 /* The grid's columns depend on the view's width, so lay it out again when that changes */
+/* The camera column, with the movement controls, keeps its width when the
+ * dock is resized: giving the preset column all of the splitter's stretch
+ * does that when the dock grows, but a splitter that has to give up width
+ * takes it from every child that can spare any. So the column's minimum
+ * width is the width it has, and the preset list is what shrinks. */
+void PTZControls::holdCameraColumnWidth()
+{
+	ui->cameraColumn->setMinimumWidth(qMax(0, ui->splitter->sizes().value(0)));
+}
+
 bool PTZControls::eventFilter(QObject *watched, QEvent *event)
 {
+	/* The minimum has to come off while the splitter handle is dragged, or
+	 * the column could only be made wider */
+	if (watched == ui->splitter->handle(1)) {
+		if (event->type() == QEvent::MouseButtonPress)
+			ui->cameraColumn->setMinimumWidth(0);
+		else if (event->type() == QEvent::MouseButtonRelease)
+			holdCameraColumnWidth();
+	}
 	if (watched == ui->presetListView->viewport() && event->type() == QEvent::Resize &&
 	    presetDelegate->gridMode() && presetDelegate->layoutWidthChanged(ui->presetListView)) {
 		/* Not from here: laying out can resize the viewport again */

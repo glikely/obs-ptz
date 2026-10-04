@@ -66,6 +66,7 @@ private:
 	bool refresh_thumbnail_on_recall = true;
 
 	void setPresetGridZoom(int percent);
+	void holdCameraColumnWidth();
 	void copyActionsDynamicProperties();
 	void SaveConfig();
 	void LoadConfig();
