@@ -24,6 +24,9 @@ endif()
 add_subdirectory("${CMAKE_SOURCE_DIR}/shared/properties-view" "${CMAKE_BINARY_DIR}/shared/properties-view")
 target_link_libraries(${CMAKE_PROJECT_NAME} PRIVATE OBS::properties-view)
 
+add_subdirectory("${CMAKE_SOURCE_DIR}/shared/qt/display" "${CMAKE_BINARY_DIR}/shared/qt/display")
+target_link_libraries(${CMAKE_PROJECT_NAME} PRIVATE OBS::qt-display)
+
 if(ENABLE_QT)
   # AGL was removed from Xcode 15+, but the prebuilt libraries ask for it
   if(APPLE)
