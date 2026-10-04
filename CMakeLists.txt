@@ -121,6 +121,7 @@ target_sources(
     src/settings.cpp
     src/ptz-camera-report.cpp
     src/ptz-state-view.cpp
+    src/ptz-source-display.cpp
     src/ptz-visca.cpp
     src/ptz-visca-commands.cpp
     src/ptz-visca-udp.cpp
@@ -140,6 +141,7 @@ target_sources(
     src/settings.hpp
     src/ptz-camera-report.hpp
     src/ptz-state-view.hpp
+    src/ptz-source-display.hpp
     src/contributors-generated.hpp
     src/translators-generated.hpp
     src/ptz-visca.hpp
