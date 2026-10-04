@@ -93,6 +93,10 @@ _handed to listeners as `proc_handler` on the `ptz_device_create` signal._
 > What the device has counted of its own working, such as how much it has sent to the camera and how fast it answers, as an object of numbers under the names the driver gives them. It isn't state: it is read when wanted, never announced as changing, and what a rate in it is over is the time since it was last read.
 
 - `ptr ptz_get_statistics(ptr statistics)`
+
+> The source the device is on, whose video is what its camera shows: the one its filter is on or, for a device that isn't a filter, the one named like it. A new reference, which the caller releases, as "return", or nothing in it while the device has none, or its source has been removed.
+
+- `ptr ptz_get_parent_source()`
 - `void ptz_set_locked(bool locked)`
 
 > Settings, which are persisted, in the PTZ Control filter's own settings: what save() writes, applying new ones (through the filter, if there is one), and the properties that edit them

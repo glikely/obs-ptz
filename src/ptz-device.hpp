@@ -305,6 +305,7 @@ protected slots:
 	 * PTZListModel::refreshDeviceState()/refreshPresetList() for callers */
 	void get_state(calldata_t *cd) const;
 	void get_statistics(calldata_t *cd);
+	void get_parent_source(calldata_t *cd) const;
 	void setLock(calldata_t *cd);
 	void get_config(calldata_t *cd) const;
 	void set_config(calldata_t *cd);

@@ -112,6 +112,12 @@ PTZDevice::PTZDevice(OBSData config, obs_source_t *filter) : QObject()
 	 * wanted, never announced as changing, and what a rate in it is over is
 	 * the time since it was last read. */
 	proc_handler_add(handler, "ptr ptz_get_statistics(ptr statistics)", ptz_ph_lambda(get_statistics), this);
+	/* The source the device is on, whose video is what its camera shows: the
+	 * one its filter is on or, for a device that isn't a filter, the one
+	 * named like it. A new reference, which the caller releases, as
+	 * "return", or nothing in it while the device has none, or its source
+	 * has been removed. */
+	proc_handler_add(handler, "ptr ptz_get_parent_source()", ptz_ph_lambda(get_parent_source), this);
 	proc_handler_add(handler, "void ptz_set_locked(bool locked)", ptz_ph_lambda(setLock), this);
 
 	/* Settings, which are persisted, in the PTZ Control filter's own settings:
@@ -786,6 +792,12 @@ void PTZDevice::set_config(calldata_t *cd)
 	obs_data_apply(settings, config);
 	stripIdentity(settings);
 	obs_source_update(filter, settings);
+}
+
+void PTZDevice::get_parent_source(calldata_t *cd) const
+{
+	/* Any thread: parentSource() has its own lock */
+	calldata_set_ptr(cd, "return", parentSource());
 }
 
 void PTZDevice::get_obs_properties(calldata_t *cd)
