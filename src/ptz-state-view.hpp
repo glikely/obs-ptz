@@ -7,6 +7,7 @@
 #pragma once
 
 #include <memory>
+#include <optional>
 #include <vector>
 #include <QWidget>
 #include <QTimer>
@@ -22,8 +23,8 @@ class QPushButton;
 class QVBoxLayout;
 
 /* Shows what a device reports of itself (the "ptz_get_state" proc): its name,
- * whether it is connected, live, in the preview and locked, where the camera
- * is, and, for a camera that reports them, its power, autofocus and tally
+ * whether it is connected, live, in the preview and locked, and, for a camera
+ * that reports them, its power, autofocus and tally
  * lamps' state, its white balance, and the rest of what a VISCA camera reports
  * of its focus, exposure, picture, system and pan/tilt, most of which can be
  * changed. For a device that has them ("diagnostics" in its "features"),
@@ -114,10 +115,11 @@ private:
 	QCheckBox *m_tally;
 	QCheckBox *m_tallyPreview;
 
-	QGroupBox *m_positionGroup;
+	/* Where the camera is. Not shown here: the settings dialog's status line
+	 * shows it, from shownValues(), so it is only kept, to 3 places, and
+	 * reported when it changes (shownChanged()). */
 	const char *m_axisKeys[AxisCount] = {"pan", "tilt", "zoom", "focus"};
-	QLabel *m_axisLabels[AxisCount];
-	QLabel *m_axisValues[AxisCount];
+	std::optional<double> m_axis[AxisCount];
 
 	QGroupBox *m_whiteBalanceGroup;
 	QComboBox *m_whiteBalanceMode;

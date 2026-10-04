@@ -153,20 +153,6 @@ PTZStateView::PTZStateView(QWidget *parent) : QWidget(parent)
 	m_tallyPreview->hide();
 	page->addLayout(top);
 
-	m_positionGroup = new QGroupBox(obs_module_text("PTZ.Device.State.Position"));
-	auto position = new QFormLayout(m_positionGroup);
-	const char *axisText[AxisCount] = {"PTZ.Device.State.Pan", "PTZ.Device.State.Tilt", "PTZ.Device.State.Zoom",
-					   "PTZ.Device.State.Focus"};
-	for (int i = 0; i < AxisCount; i++) {
-		m_axisLabels[i] = new QLabel(obs_module_text(axisText[i]));
-		m_axisValues[i] = new QLabel();
-		m_axisValues[i]->setTextInteractionFlags(Qt::TextSelectableByMouse);
-		position->addRow(m_axisLabels[i], m_axisValues[i]);
-		setRowVisible(m_axisLabels[i], m_axisValues[i], false);
-	}
-	m_positionGroup->hide();
-	page->addWidget(m_positionGroup);
-
 	/* The rest of what a camera reports, in rows made from these. A number
 	 * or list the user edits is asked of the camera; a text field, or an
 	 * indicator, can't be edited. */
@@ -707,24 +693,16 @@ void PTZStateView::applyData(obs_data_t *data, bool all)
 
 	for (int i = 0; i < AxisCount; i++) {
 		const char *key = m_axisKeys[i];
-		bool shown = !m_axisLabels[i]->isHidden();
 		if (has(key)) {
-			setText(m_axisValues[i], QString::asprintf("%.3f", obs_data_get_double(data, key)));
-			if (!shown) {
-				setRowVisible(m_axisLabels[i], m_axisValues[i], true);
+			double value = QString::asprintf("%.3f", obs_data_get_double(data, key)).toDouble();
+			if (m_axis[i] != value) {
+				m_axis[i] = value;
 				changed = true;
 			}
-		} else if (all && shown) {
-			setRowVisible(m_axisLabels[i], m_axisValues[i], false);
+		} else if (all && m_axis[i]) {
+			m_axis[i].reset();
 			changed = true;
 		}
-	}
-	bool anyAxis = false;
-	for (int i = 0; i < AxisCount; i++)
-		anyAxis |= !m_axisLabels[i]->isHidden();
-	if (anyAxis == m_positionGroup->isHidden()) {
-		m_positionGroup->setVisible(anyAxis);
-		changed = true;
 	}
 
 	if (has("wb_mode")) {
@@ -849,8 +827,8 @@ QVariantMap PTZStateView::shownValues() const
 	if (!m_tallyPreview->isHidden())
 		shown["tally_preview"] = m_tallyPreview->isChecked();
 	for (int i = 0; i < AxisCount; i++)
-		if (!m_axisLabels[i]->isHidden())
-			shown[m_axisKeys[i]] = m_axisValues[i]->text().toDouble();
+		if (m_axis[i])
+			shown[m_axisKeys[i]] = *m_axis[i];
 	if (m_reportedWhiteBalance >= 0)
 		shown["wb_mode"] = m_whiteBalanceMode->currentData().toInt();
 	for (const auto &field : m_fields) {
