@@ -328,6 +328,9 @@
                  <item alignment="Qt::AlignmentFlag::AlignTop">
                   <widget class="PTZMovementControls" name="movementControls"/>
                  </item>
+                 <item alignment="Qt::AlignmentFlag::AlignTop">
+                  <widget class="PTZSourceDisplay" name="sourcePreview"/>
+                 </item>
                  <item>
                   <spacer name="topSpacer">
                    <property name="orientation">
@@ -543,6 +546,11 @@
    <extends>QWidget</extends>
    <header>ptz-movement-controls.hpp</header>
    <container>1</container>
+  </customwidget>
+  <customwidget>
+   <class>PTZSourceDisplay</class>
+   <extends>QWidget</extends>
+   <header>ptz-source-display.hpp</header>
   </customwidget>
  </customwidgets>
  <resources/>

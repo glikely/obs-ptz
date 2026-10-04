@@ -68,6 +68,7 @@ private:
 	void setSettingsDirty(bool dirty);
 	void settingsEdited();
 	void updateHeader();
+	void matchVideoHeight();
 	void updateAutofocusIcon(bool known, bool on);
 	void reloadSettings();
 	void current_device_changed();

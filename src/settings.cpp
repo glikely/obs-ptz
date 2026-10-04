@@ -78,6 +78,12 @@ PTZSettings::PTZSettings() : QWidget(nullptr), ui(new Ui_PTZSettings)
 	settings = obs_data_create();
 	obs_data_release(settings);
 
+	/* The video display is a widget with a window of its own, which Qt
+	 * makes when the widget is, and parents to the nearest ancestor that has
+	 * one. If this window didn't exist yet, it would have none, and on
+	 * macOS the display ended up away from where its widget is. So make
+	 * this one first. */
+	createWinId();
 	ui->setupUi(this);
 
 	/* The camera list is as wide as it was, whatever the window or the
@@ -97,11 +103,23 @@ PTZSettings::PTZSettings() : QWidget(nullptr), ui(new Ui_PTZSettings)
 	ui->splitter->handle(1)->installEventFilter(this);
 
 	/* The controls are the size the theme gives a control, and don't stretch
-	 * to the window as the dock's do */
+	 * to the window as the dock's do, and the video is as tall as they are.
+	 * The theme's density can change, so follow it, after everything that
+	 * resizes the controls for it has. */
 	ui->movementControls->setThemeSized(true);
+	matchVideoHeight();
+	connect(PTZControls::getInstance(), &PTZControls::themeRefreshed, this,
+		[this]() { QTimer::singleShot(0, this, &PTZSettings::matchVideoHeight); });
 
 	connect(ptzDeviceList, &PTZListModel::deviceSettingsUpdated, this, &PTZSettings::deviceSettingsUpdated);
 	connect(ptzDeviceList, &PTZListModel::deviceStateUpdated, this, &PTZSettings::deviceStateUpdated);
+	/* A device can be moved to another source, which changes what it shows */
+	connect(ptzDeviceList, &PTZListModel::dataChanged, this,
+		[this](const QModelIndex &topLeft, const QModelIndex &bottomRight) {
+			QModelIndex current = ui->deviceList->currentIndex();
+			if (QItemSelectionRange(topLeft, bottomRight).contains(current))
+				ui->sourcePreview->setSource(ptzDeviceList->parentSource(current));
+		});
 
 	ui->autoselectCheckBox->setChecked(PTZControls::getInstance()->autoselectEnabled());
 	connect(PTZControls::getInstance(), &PTZControls::autoselectEnabledChanged, ui->autoselectCheckBox,
@@ -725,6 +743,14 @@ void PTZSettings::reloadSettings()
 	setSettingsDirty(false);
 }
 
+/* The video is as tall as the controls beside it, and 16:9 wide, which is
+ * what it is scaled to fit, so it needs no more room than that */
+void PTZSettings::matchVideoHeight()
+{
+	const int height = ui->movementControls->sizeHint().height();
+	ui->sourcePreview->setFixedSize(height * 16 / 9, height);
+}
+
 /* The status line in the group over the tabs: what to see of the device at a
  * glance, which stays in view whichever tab is showing */
 void PTZSettings::updateHeader()
@@ -819,6 +845,7 @@ void PTZSettings::updateAutofocusIcon(bool known, bool on)
 void PTZSettings::currentChanged(const QModelIndex &current, const QModelIndex &)
 {
 	ui->movementControls->setDevice(current);
+	ui->sourcePreview->setSource(ptzDeviceList->parentSource(current));
 
 	/* Start from nothing: obs_data_clear() would keep the last device's
 	 * keys, only without their values */
