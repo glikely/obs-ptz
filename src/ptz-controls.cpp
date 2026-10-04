@@ -21,6 +21,7 @@
 #include <QPixmap>
 #include <QCheckBox>
 #include <QScrollBar>
+#include <QLineEdit>
 #include <QSlider>
 #include <QFileDialog>
 #include <QMessageBox>
@@ -1500,6 +1501,42 @@ QSize PTZPresetListDelegate::sizeHint(const QStyleOptionViewItem &option, const 
 	return size;
 }
 
+/* In the grid the name is edited over the thumbnail, in the band it is drawn
+ * in, rather than the editor covering the whole cell and hiding the picture */
+QWidget *PTZPresetListDelegate::createEditor(QWidget *parent, const QStyleOptionViewItem &option,
+					     const QModelIndex &index) const
+{
+	QWidget *editor = QStyledItemDelegate::createEditor(parent, option, index);
+	if (m_gridMode) {
+		/* The name drawn underneath would show through the editor */
+		m_editing = index;
+		if (auto *lineEdit = qobject_cast<QLineEdit *>(editor)) {
+			lineEdit->setFrame(false);
+			lineEdit->setAlignment(Qt::AlignCenter);
+			/* The same translucent band, and white text, as when it isn't being edited */
+			lineEdit->setStyleSheet("QLineEdit { background: rgba(0, 0, 0, 160); color: white; "
+						"border: 0; padding: 0; margin: 0; }");
+		}
+	}
+	return editor;
+}
+
+void PTZPresetListDelegate::destroyEditor(QWidget *editor, const QModelIndex &index) const
+{
+	m_editing = QModelIndex();
+	QStyledItemDelegate::destroyEditor(editor, index);
+}
+
+void PTZPresetListDelegate::updateEditorGeometry(QWidget *editor, const QStyleOptionViewItem &option,
+						 const QModelIndex &index) const
+{
+	if (!m_gridMode) {
+		QStyledItemDelegate::updateEditorGeometry(editor, option, index);
+		return;
+	}
+	editor->setGeometry(layoutCell(index, option).text);
+}
+
 PTZPresetListDelegate::CellLayout PTZPresetListDelegate::layoutCell(const QModelIndex &,
 								    const QStyleOptionViewItem &option) const
 {
@@ -1572,7 +1609,9 @@ void PTZPresetListDelegate::paint(QPainter *painter, const QStyleOptionViewItem 
 		painter->restore();
 		recallIcon.paint(painter, l.recall.adjusted(l.iconMargin, l.iconMargin, -l.iconMargin, -l.iconMargin),
 				 Qt::AlignCenter, iconMode);
-		/* The name, in white on a translucent band */
+		/* The name, in white on a translucent band, unless the editor is there */
+		if (QModelIndex(m_editing) == index)
+			return;
 		painter->fillRect(l.text, QColor(0, 0, 0, 128));
 		QString text = opt.fontMetrics.elidedText(opt.text, Qt::ElideRight, l.text.width() - 2 * textMargin);
 		painter->save();

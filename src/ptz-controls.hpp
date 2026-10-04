@@ -243,6 +243,11 @@ public:
 				 const QModelIndex &index) override;
 	virtual bool helpEvent(QHelpEvent *event, QAbstractItemView *view, const QStyleOptionViewItem &option,
 			       const QModelIndex &index) override;
+	virtual QWidget *createEditor(QWidget *parent, const QStyleOptionViewItem &option,
+				      const QModelIndex &index) const override;
+	virtual void updateEditorGeometry(QWidget *editor, const QStyleOptionViewItem &option,
+					  const QModelIndex &index) const override;
+	virtual void destroyEditor(QWidget *editor, const QModelIndex &index) const override;
 
 	int iconSize() const { return PTZControls::getInstance()->iconSize(); }
 	void refreshTheme();
@@ -270,5 +275,7 @@ private:
 	QIcon recallIcon;
 	bool m_gridMode = false;
 	int m_gridZoom = 100;
+	/* The preset whose name is being edited, if any */
+	mutable QPersistentModelIndex m_editing;
 	int m_lastLayoutWidth = 0;
 };
