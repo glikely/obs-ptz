@@ -556,6 +556,18 @@ QModelIndex PTZListModel::indexFromFilter(obs_source_t *filter) const
 	return QModelIndex();
 }
 
+OBSSource PTZListModel::parentSource(const QModelIndex &index) const
+{
+	auto entry = entryAt(index);
+	if (!entry)
+		return nullptr;
+	calldata_t cd = {};
+	callEntry(*entry, "ptz_get_parent_source", &cd);
+	OBSSourceAutoRelease source = static_cast<obs_source_t *>(calldata_ptr(&cd, "return"));
+	calldata_free(&cd);
+	return source.Get();
+}
+
 /**
  * Look up model index from the device name
  */

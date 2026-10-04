@@ -111,6 +111,10 @@ public:
 	QModelIndex indexFromDeviceId(uint32_t device_id) const;
 	QModelIndex indexFromName(const QString &name) const;
 	QModelIndex indexFromFilter(obs_source_t *filter) const;
+	/* The source a device is on, whose video is what the camera shows, as
+	 * the device says (see PTZDevice::parentSource()). Null while it has
+	 * none. */
+	OBSSource parentSource(const QModelIndex &index) const;
 	bool callDevice(const QModelIndex &index, const char *method, calldata_t *cd = nullptr);
 	bool callDevice(const char *method, calldata_t *cd = nullptr);
 	void save(OBSDataArray configs) const;
