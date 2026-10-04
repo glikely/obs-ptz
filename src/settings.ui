@@ -310,6 +310,40 @@
                 </item>
                </layout>
               </item>
+              <item>
+               <widget class="QWidget" name="topSection" native="true">
+                <layout class="QHBoxLayout" name="topLayout">
+                 <property name="leftMargin">
+                  <number>0</number>
+                 </property>
+                 <property name="topMargin">
+                  <number>0</number>
+                 </property>
+                 <property name="rightMargin">
+                  <number>0</number>
+                 </property>
+                 <property name="bottomMargin">
+                  <number>10</number>
+                 </property>
+                 <item alignment="Qt::AlignmentFlag::AlignTop">
+                  <widget class="PTZMovementControls" name="movementControls"/>
+                 </item>
+                 <item>
+                  <spacer name="topSpacer">
+                   <property name="orientation">
+                    <enum>Qt::Orientation::Horizontal</enum>
+                   </property>
+                   <property name="sizeHint" stdset="0">
+                    <size>
+                     <width>40</width>
+                     <height>20</height>
+                    </size>
+                   </property>
+                  </spacer>
+                 </item>
+                </layout>
+               </widget>
+              </item>
              </layout>
             </widget>
            </item>
@@ -502,6 +536,12 @@
    <class>VScrollArea</class>
    <extends>QScrollArea</extends>
    <header>vertical-scroll-area.hpp</header>
+   <container>1</container>
+  </customwidget>
+  <customwidget>
+   <class>PTZMovementControls</class>
+   <extends>QWidget</extends>
+   <header>ptz-movement-controls.hpp</header>
    <container>1</container>
   </customwidget>
  </customwidgets>

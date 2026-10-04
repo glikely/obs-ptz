@@ -96,6 +96,10 @@ PTZSettings::PTZSettings() : QWidget(nullptr), ui(new Ui_PTZSettings)
 	ui->splitter->setSizes({listWidth, 1000});
 	ui->splitter->handle(1)->installEventFilter(this);
 
+	/* The controls are the size the theme gives a control, and don't stretch
+	 * to the window as the dock's do */
+	ui->movementControls->setThemeSized(true);
+
 	connect(ptzDeviceList, &PTZListModel::deviceSettingsUpdated, this, &PTZSettings::deviceSettingsUpdated);
 	connect(ptzDeviceList, &PTZListModel::deviceStateUpdated, this, &PTZSettings::deviceStateUpdated);
 
@@ -814,6 +818,8 @@ void PTZSettings::updateAutofocusIcon(bool known, bool on)
 
 void PTZSettings::currentChanged(const QModelIndex &current, const QModelIndex &)
 {
+	ui->movementControls->setDevice(current);
+
 	/* Start from nothing: obs_data_clear() would keep the last device's
 	 * keys, only without their values */
 	reloadSettings();
