@@ -31,7 +31,8 @@
 # touched. Quit OBS first. test-build is the setup it needs, without the run.
 #
 # Env overrides:
-#   OBS_APP   the OBS app bundle to launch (default: newest "/Applications/OBS <version>.app")
+#   OBS_APP   the OBS app bundle to launch (default: "/Applications/OBS.app" if it is
+#             installed, else the newest "/Applications/OBS <version>.app")
 #   CONFIG    build configuration (default RelWithDebInfo)
 
 set -eu
@@ -150,11 +151,16 @@ find_obs() {
         echo "$OBS_APP"
         return
     fi
-    # Not `open -a OBS`: Launch Services can resolve that to a stray
-    # locally built OBS with different bundled Qt.
+    # The plain OBS.app, if there is one, is the one installed to be used. By
+    # explicit path, not `open -a OBS`: Launch Services can resolve that to a
+    # stray locally built OBS with different bundled Qt.
+    if [ -d /Applications/OBS.app ]; then
+        echo /Applications/OBS.app
+        return
+    fi
     local app
     app="$(ls -d /Applications/OBS\ [0-9]*.app 2>/dev/null | sort -V | tail -1)"
-    [ -n "$app" ] || die "no /Applications/OBS <version>.app found; set OBS_APP"
+    [ -n "$app" ] || die "no /Applications/OBS.app or /Applications/OBS <version>.app found; set OBS_APP"
     echo "$app"
 }
 
