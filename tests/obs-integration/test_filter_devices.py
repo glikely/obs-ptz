@@ -177,6 +177,26 @@ def test_adding_a_filter_creates_a_device_for_its_source(obs_world, cameras, tmp
     assert device["device_id"] not in obs_world.device_ids.values()
 
 
+def test_filter_device_says_its_source_with_its_proc(obs_world, cameras, tmp_path):
+    """A filter's device says the source the filter is on when asked with
+    ptz_get_parent_source, as the device list does to show its video, and
+    keeps saying it when the source is renamed."""
+    out = tmp_path / "device.json"
+    cameras.add_source(obs_world.create_scene(), "filter-cam-proc")
+    cameras.add_filter("filter-cam-proc")
+
+    device = obs_world.wait_for_device_by_name("filter-cam-proc", out, lambda r: r["found"] and r["proc_bound"])
+    assert device["proc_source"] == "filter-cam-proc"
+    assert device["proc_source_uuid"]
+    assert device["proc_source_uuid"] == device["source_uuid"]
+
+    cameras.rename("filter-cam-proc", "filter-cam-proc-renamed")
+
+    renamed = obs_world.wait_for_device_source(device["device_id"], out,
+                                               lambda r: r["proc_source"] == "filter-cam-proc-renamed")
+    assert renamed["proc_source_uuid"] == device["proc_source_uuid"]
+
+
 def test_filter_device_is_named_after_its_source_without_a_camera(obs_world, unreachable_cameras, tmp_path):
     """The device is in the device list under its source's name as soon as the
     filter is added, not only once the camera answers -- which is when the

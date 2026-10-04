@@ -36,10 +36,17 @@ namespace {
  *                  a behavioural check on the binding, not just a name
  *                  comparison
  *
+ *   proc_bound, proc_source, proc_source_uuid
+ *                - the same three, as the device says them itself when asked
+ *                  with its ptz_get_parent_source proc, through its proc
+ *                  handler, as PTZListModel::parentSource() asks
+ *
  * The source is found the way the rest of the plugin finds it
  * (ptz_device_get_parent_source(), i.e. PTZDevice::source()),
  * which is also what binds a device to a source that has only just
- * appeared, so asking is not a neutral observation. */
+ * appeared, so asking is not a neutral observation. The proc is asked
+ * first, so that when it is the one that binds a late source, it is what is
+ * seen to. */
 void runDeviceSourceTest(const QMap<QString, QString> &params)
 {
 	QString filename = params.value(QStringLiteral("filename"));
@@ -69,8 +76,16 @@ void runDeviceSourceTest(const QMap<QString, QString> &params)
 		OBSDataAutoRelease config = obs_data_create();
 		ptzDeviceList->save(index, config.Get());
 
+		calldata_t cd = {};
+		ptzDeviceList->callDevice(index, "ptz_get_parent_source", &cd);
+		OBSSourceAutoRelease procSource = static_cast<obs_source_t *>(calldata_ptr(&cd, "return"));
+		calldata_free(&cd);
+
 		OBSSourceAutoRelease source = ptz_device_get_parent_source(deviceId);
 
+		obs_data_set_bool(result, "proc_bound", procSource != nullptr);
+		obs_data_set_string(result, "proc_source", procSource ? obs_source_get_name(procSource) : "");
+		obs_data_set_string(result, "proc_source_uuid", procSource ? obs_source_get_uuid(procSource) : "");
 		obs_data_set_int(result, "device_id", deviceId);
 		obs_data_set_string(result, "name",
 				    qUtf8Printable(ptzDeviceList->data(index, Qt::DisplayRole).toString()));

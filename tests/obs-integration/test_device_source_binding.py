@@ -136,6 +136,23 @@ def test_binds_to_a_source_created_after_loading(obs_world, sources, tmp_path):
     assert result["locked"] is False
 
 
+def test_device_says_its_source_with_its_proc(obs_world, sources, tmp_path):
+    """A device that isn't a filter is on the source named like it, and says
+    so when asked with ptz_get_parent_source, as the device list does to show
+    its video: nothing until there is one, then the same source the registry
+    lookup (ptz_device_get_parent_source()) finds."""
+    device_id = obs_world.device_ids["source-late"]
+    out = tmp_path / "source.json"
+    obs_world.wait_for_device_source(device_id, out, lambda r: not r["proc_bound"])
+
+    sources.create(obs_world.create_scene(), "sim-source-late")
+
+    result = obs_world.wait_for_device_source(device_id, out, lambda r: r["proc_bound"])
+    assert result["proc_source"] == "sim-source-late"
+    assert result["proc_source_uuid"]
+    assert result["proc_source_uuid"] == result["source_uuid"]
+
+
 def test_follows_source_renames(obs_world, sources, tmp_path):
     device_id = obs_world.device_ids["source-rename"]
     out = tmp_path / "source.json"
