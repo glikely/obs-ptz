@@ -15,6 +15,7 @@
 #include <QStringList>
 #include <QTimer>
 #include <QApplication>
+#include <QGroupBox>
 #include <QLabel>
 #include <QPainter>
 #include <QPixmap>
@@ -149,7 +150,12 @@ PTZSettings::PTZSettings() : QWidget(nullptr), ui(new Ui_PTZSettings)
 
 	/* The diagnostics are the state view's, but get a tab of their own,
 	 * which is there only while the device has any */
-	ui->diagnosticsLayout->insertWidget(0, ui->stateView->diagnosticsGroup());
+	QGroupBox *diagnostics = ui->stateView->diagnosticsGroup();
+	/* The tab says what it is, so the group has no need of a title, nor of
+	 * the room the theme keeps for one */
+	diagnostics->setTitle(QString());
+	diagnostics->setStyleSheet("QGroupBox { padding-top: 4px; }");
+	ui->diagnosticsLayout->insertWidget(0, diagnostics);
 	ui->deviceTabs->setTabVisible(ui->deviceTabs->indexOf(ui->diagnosticsTab), false);
 	connect(ui->stateView, &PTZStateView::diagnosticsAvailableChanged, this, [this](bool available) {
 		ui->deviceTabs->setTabVisible(ui->deviceTabs->indexOf(ui->diagnosticsTab), available);

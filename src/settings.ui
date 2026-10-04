@@ -324,6 +324,18 @@
                <string>PTZ.Settings.DeviceSettings</string>
               </attribute>
               <layout class="QVBoxLayout" name="settingsTabLayout">
+               <property name="leftMargin">
+                <number>0</number>
+               </property>
+               <property name="topMargin">
+                <number>0</number>
+               </property>
+               <property name="rightMargin">
+                <number>0</number>
+               </property>
+               <property name="bottomMargin">
+                <number>0</number>
+               </property>
                <item>
                 <widget class="VScrollArea" name="settingsScroll">
                  <property name="frameShape">
@@ -344,6 +356,18 @@
                </item>
                <item>
                 <layout class="QHBoxLayout" name="settingsButtonsLayout">
+                 <property name="leftMargin">
+                  <number>0</number>
+                 </property>
+                 <property name="topMargin">
+                  <number>0</number>
+                 </property>
+                 <property name="rightMargin">
+                  <number>0</number>
+                 </property>
+                 <property name="bottomMargin">
+                  <number>0</number>
+                 </property>
                  <item>
                   <widget class="QLabel" name="unsavedLabel"/>
                  </item>
@@ -383,6 +407,18 @@
                <string>PTZ.Device.State.Diagnostics</string>
               </attribute>
               <layout class="QVBoxLayout" name="diagnosticsLayout">
+               <property name="leftMargin">
+                <number>0</number>
+               </property>
+               <property name="topMargin">
+                <number>0</number>
+               </property>
+               <property name="rightMargin">
+                <number>0</number>
+               </property>
+               <property name="bottomMargin">
+                <number>0</number>
+               </property>
                <item>
                 <spacer name="diagnosticsSpacer">
                  <property name="orientation">
