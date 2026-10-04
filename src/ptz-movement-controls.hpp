@@ -15,6 +15,8 @@ namespace Ui {
 class PTZMovementControls;
 }
 class QAbstractButton;
+class QMenu;
+class QContextMenuEvent;
 
 /* The buttons and touch pad that move a camera: pan and tilt, home, zoom and
  * focus. It moves whichever device it has been given (setDevice()), so the
@@ -36,6 +38,15 @@ public:
 	/* The device to move. Stops the previous one, if it was moving */
 	void setDevice(const QModelIndex &index);
 	QModelIndex device() const { return QModelIndex(m_device); }
+
+	/* What the controls add to a context menu: "Save current position as
+	 * Home" over the Home button, and the on-screen joystick. pos is in this
+	 * widget's coordinates. */
+	void addContextActions(QMenu *menu, const QPoint &pos);
+	/* Whether a right-click shows those in a menu of their own, as it does in
+	 * the settings dialog. The dock turns that off, and shows them in its
+	 * own menu. */
+	void setOwnContextMenu(bool own) { m_ownContextMenu = own; }
 
 	/* Enable only what the device can do, and what is not locked */
 	void updateControls();
@@ -79,6 +90,9 @@ private:
 	/* Keeps the buttons square as they stretch, unless they are theme sized */
 	QObject *m_squareFilter = nullptr;
 	bool m_themeSized = false;
+	/* The camera is locked against moves from here */
+	bool m_locked = false;
+	bool m_ownContextMenu = true;
 	/* The grid's margins as the .ui has them, which theme sizing takes off */
 	QMargins m_margins;
 
@@ -94,10 +108,11 @@ private:
 	void stop();
 	void applySize();
 
+protected:
+	void contextMenuEvent(QContextMenuEvent *event) override;
+
 private slots:
 	void accelTimerHandler();
-	void onHomeButtonContextMenu(const QPoint &pos);
-	void on_pantiltStack_customContextMenuRequested(const QPoint &pos);
 	void on_panTiltButton_up_pressed();
 	void on_panTiltButton_up_released();
 	void on_panTiltButton_upleft_pressed();

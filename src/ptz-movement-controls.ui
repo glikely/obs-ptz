@@ -34,9 +34,6 @@
    </property>
    <item row="0" column="0" rowspan="3" colspan="3">
     <widget class="QStackedWidget" name="pantiltStack">
-     <property name="contextMenuPolicy">
-      <enum>Qt::ContextMenuPolicy::CustomContextMenu</enum>
-     </property>
      <property name="currentIndex">
       <number>0</number>
      </property>

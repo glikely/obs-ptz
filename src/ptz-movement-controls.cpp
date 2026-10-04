@@ -13,6 +13,7 @@
 #include <QGuiApplication>
 #include <QIcon>
 #include <QItemSelectionRange>
+#include <QContextMenuEvent>
 #include <QMenu>
 #include <QToolButton>
 #include <QResizeEvent>
@@ -72,13 +73,6 @@ PTZMovementControls::PTZMovementControls(QWidget *parent) : QWidget(parent), ui(
 
 	connect(&accel_timer, &QTimer::timeout, this, &PTZMovementControls::accelTimerHandler);
 	connect(ui->panTiltTouch, &TouchControl::positionChanged, [this](double p, double t) { setPanTilt(p, t); });
-
-	/* Right-click on the Home button -> "Save current position as Home"
-	 * (only shown for a device whose features have "home_set"). Single-click
-	 * still triggers GotoHome; the context menu is purely additive. */
-	ui->panTiltButton_home->setContextMenuPolicy(Qt::CustomContextMenu);
-	connect(ui->panTiltButton_home, &QWidget::customContextMenuRequested, this,
-		&PTZMovementControls::onHomeButtonContextMenu);
 
 	/* What the controls may do follows the device, and the dock's settings
 	 * that lock a live camera. The dock says when those or the theme change,
@@ -206,10 +200,11 @@ void PTZMovementControls::updateFocusControls()
 {
 	auto index = device();
 	bool manual = !ui->focusButton_auto->isChecked();
-	ui->focusButton_auto->setEnabled(PTZListModel::hasFeature(index, "autofocus"));
-	ui->focusButton_near->setEnabled(manual && PTZListModel::hasFeature(index, "focus"));
-	ui->focusButton_far->setEnabled(manual && PTZListModel::hasFeature(index, "focus"));
-	ui->focusButton_onetouch->setEnabled(manual && PTZListModel::hasFeature(index, "focus_onetouch"));
+	bool free = !m_locked;
+	ui->focusButton_auto->setEnabled(free && PTZListModel::hasFeature(index, "autofocus"));
+	ui->focusButton_near->setEnabled(free && manual && PTZListModel::hasFeature(index, "focus"));
+	ui->focusButton_far->setEnabled(free && manual && PTZListModel::hasFeature(index, "focus"));
+	ui->focusButton_onetouch->setEnabled(free && manual && PTZListModel::hasFeature(index, "focus_onetouch"));
 }
 
 void PTZMovementControls::updateControls()
@@ -217,10 +212,13 @@ void PTZMovementControls::updateControls()
 	auto index = device();
 	auto controls = PTZControls::getInstance();
 	bool is_locked = controls && controls->liveMoveLockActive() && index.data(PTZListModel::IsLockedRole).toBool();
-	setEnabled(!is_locked);
+	/* A locked camera's controls are disabled one by one, not as a whole:
+	 * a disabled widget has no context menu, and the ones on the pan/tilt
+	 * area still have to show. */
+	m_locked = is_locked;
 
-	/* Only what the camera can do */
-	bool pantilt = PTZListModel::hasFeature(index, "pantilt");
+	/* Only what the camera can do, and only when it isn't locked */
+	bool pantilt = !is_locked && PTZListModel::hasFeature(index, "pantilt");
 	const QList<QWidget *> pantiltControls = {
 		ui->panTiltButton_upleft, ui->panTiltButton_up,        ui->panTiltButton_upright,
 		ui->panTiltButton_left,   ui->panTiltButton_right,     ui->panTiltButton_downleft,
@@ -228,9 +226,9 @@ void PTZMovementControls::updateControls()
 	};
 	for (QWidget *control : pantiltControls)
 		control->setEnabled(pantilt);
-	ui->panTiltButton_home->setEnabled(PTZListModel::hasFeature(index, "home"));
-	ui->zoomButton_tele->setEnabled(PTZListModel::hasFeature(index, "zoom"));
-	ui->zoomButton_wide->setEnabled(PTZListModel::hasFeature(index, "zoom"));
+	ui->panTiltButton_home->setEnabled(!is_locked && PTZListModel::hasFeature(index, "home"));
+	ui->zoomButton_tele->setEnabled(!is_locked && PTZListModel::hasFeature(index, "zoom"));
+	ui->zoomButton_wide->setEnabled(!is_locked && PTZListModel::hasFeature(index, "zoom"));
 
 	OBSDataAutoRelease state = obs_data_create();
 	ptzDeviceList->saveState(index, state.Get());
@@ -406,17 +404,6 @@ void PTZMovementControls::on_panTiltButton_home_released()
 	callDevice("ptz_home_recall");
 }
 
-void PTZMovementControls::onHomeButtonContextMenu(const QPoint &pos)
-{
-	if (!PTZListModel::hasFeature(device(), "home_set"))
-		return;
-	QMenu menu(this);
-	QAction *setHome = menu.addAction(obs_module_text("PTZ.Action.SetHome"));
-	QAction *picked = menu.exec(ui->panTiltButton_home->mapToGlobal(pos));
-	if (picked == setHome)
-		callDevice("ptz_home_save");
-}
-
 /* There are fewer buttons for zoom or focus; so don't bother with macros */
 void PTZMovementControls::on_zoomButton_tele_pressed()
 {
@@ -493,19 +480,33 @@ bool PTZMovementControls::autofocusOn() const
 	return ui->focusButton_auto->isChecked();
 }
 
-void PTZMovementControls::on_pantiltStack_customContextMenuRequested(const QPoint &pos)
+void PTZMovementControls::addContextActions(QMenu *menu, const QPoint &pos)
 {
-	QPoint globalpos = ui->pantiltStack->mapToGlobal(pos);
-	QMenu menu;
-	bool enabled = (ui->pantiltStack->currentIndex() != 0);
+	/* Right-click on the Home button -> "Save current position as Home"
+	 * (only shown for a device whose features have "home_set"). Single-click
+	 * still triggers GotoHome; the context menu is purely additive. */
+	if (childAt(pos) == ui->panTiltButton_home && PTZListModel::hasFeature(device(), "home_set")) {
+		QAction *setHome = menu->addAction(obs_module_text("PTZ.Action.SetHome"));
+		setHome->setEnabled(!m_locked);
+		connect(setHome, &QAction::triggered, this, [this] { callDevice("ptz_home_save"); });
+		menu->addSeparator();
+	}
 
-	QAction *touchpadAction = menu.addAction(obs_module_text("PTZ.Dock.OnscreenJoystick"));
-	touchpadAction->setCheckable(true);
-	touchpadAction->setChecked(enabled);
-	QAction *action = menu.exec(globalpos);
-	if (action == nullptr)
+	QAction *touchpad = menu->addAction(obs_module_text("PTZ.Dock.OnscreenJoystick"));
+	touchpad->setCheckable(true);
+	touchpad->setChecked(onscreenJoystick());
+	connect(touchpad, &QAction::toggled, this, &PTZMovementControls::setOnscreenJoystick);
+}
+
+void PTZMovementControls::contextMenuEvent(QContextMenuEvent *event)
+{
+	/* Left to whatever it is in, to show a menu of its own */
+	if (!m_ownContextMenu) {
+		event->ignore();
 		return;
-
-	if (action == touchpadAction)
-		ui->pantiltStack->setCurrentIndex(!enabled ? 1 : 0);
+	}
+	QMenu menu(this);
+	addContextActions(&menu, event->pos());
+	menu.exec(event->globalPos());
+	event->accept();
 }

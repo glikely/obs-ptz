@@ -247,6 +247,10 @@ PTZControls::PTZControls(QWidget *parent) : QFrame(parent), ui(new Ui::PTZContro
 	/* A slider on the preset toolbar sizes the grid's thumbnails; it is
 	 * shown along with the grid */
 	ui->presetListView->viewport()->installEventFilter(this);
+	/* The dock has the one context menu: the movement controls' own would
+	 * keep it from seeing right-clicks there */
+	ui->movementControlsWidget->setOwnContextMenu(false);
+	connect(this, &QWidget::customContextMenuRequested, this, &PTZControls::showContextMenu);
 	ui->splitter->handle(1)->installEventFilter(this);
 	presetZoomSlider = new QSlider(Qt::Horizontal, ui->presetToolbar);
 	presetZoomSlider->setRange(PTZPresetListDelegate::minGridZoom, PTZPresetListDelegate::maxGridZoom);
@@ -924,77 +928,106 @@ void PTZControls::on_presetListView_activated(QModelIndex index)
 	presetRecall(presetIndexToId(index));
 }
 
-void PTZControls::on_presetListView_customContextMenuRequested(const QPoint &pos)
+/* The dock's one context menu. Every right-click that nothing below has
+ * accepted comes here, disabled widgets included, which pass it on. Where it
+ * landed adds what is for that camera, preset or control at the top, and the
+ * settings that are the dock's own follow wherever it was. */
+void PTZControls::showContextMenu(const QPoint &pos)
 {
-	QPoint globalpos = ui->presetListView->mapToGlobal(pos);
-	QModelIndex index = ui->presetListView->indexAt(pos);
-	QMenu presetContext;
-	if (index.isValid()) {
-		presetContext.addAction(ui->actionPresetRename);
-		presetContext.addAction(ui->actionPresetSave);
-		presetContext.addAction(ui->actionPresetClear);
-		presetContext.addAction(ui->actionPresetRemove);
-	}
-	presetContext.addAction(ui->actionPresetAdd);
-	presetContext.addSeparator();
-	presetContext.addAction(ui->actionPresetExport);
-	presetContext.addAction(ui->actionPresetImport);
-	presetContext.addSeparator();
-	QAction *refreshAction = presetContext.addAction(obs_module_text("PTZ.Preset.RefreshThumbnailOnRecall"));
-	refreshAction->setCheckable(true);
-	refreshAction->setChecked(refresh_thumbnail_on_recall);
-	connect(refreshAction, &QAction::toggled, this, &PTZControls::setRefreshThumbnailOnRecall);
-	presetContext.addAction(ui->actionPresetGridView);
-	presetContext.exec(globalpos);
-}
+	QWidget *under = childAt(pos);
+	auto within = [under](QWidget *widget) {
+		return under && (under == widget || widget->isAncestorOf(under));
+	};
+	QMenu menu;
 
-void PTZControls::on_deviceList_customContextMenuRequested(const QPoint &pos)
-{
-	QPoint globalpos = ui->deviceList->mapToGlobal(pos);
-	QModelIndex index = ui->deviceList->indexAt(pos);
-	QMenu context;
+	/* A camera: its power and white balance */
+	QModelIndex device;
 	QAction *powerAction = nullptr;
 	QAction *wbOnetouchAction = nullptr;
 	bool power_on = false;
-
-	if (index.isValid()) {
+	if (within(ui->deviceList))
+		device = ui->deviceList->indexAt(ui->deviceList->viewport()->mapFrom(this, pos));
+	if (device.isValid()) {
 		OBSDataAutoRelease state = obs_data_create();
-		ptzDeviceList->saveState(index, state.Get());
+		ptzDeviceList->saveState(device, state.Get());
 		power_on = obs_data_get_bool(state, "power_on");
-		if (PTZListModel::hasFeature(index, "power"))
-			powerAction = context.addAction(
+		if (PTZListModel::hasFeature(device, "power"))
+			powerAction = menu.addAction(
 				obs_module_text(power_on ? "PTZ.Action.PowerOff" : "PTZ.Action.PowerOn"));
 
 		/* only in the one-push white balance mode */
 		bool wb_onepush = (obs_data_get_int(state, "wb_mode") == 3);
-		if (wb_onepush && PTZListModel::hasFeature(index, "wb_onepush"))
-			wbOnetouchAction = context.addAction(obs_module_text("PTZ.Action.WhiteBalance.OnePushTrigger"));
+		if (wb_onepush && PTZListModel::hasFeature(device, "wb_onepush"))
+			wbOnetouchAction = menu.addAction(obs_module_text("PTZ.Action.WhiteBalance.OnePushTrigger"));
 		if (powerAction || wbOnetouchAction)
-			context.addSeparator();
+			menu.addSeparator();
 	}
-	QAction *autoselectAction = context.addAction(obs_module_text("PTZ.Settings.CameraAutoselect"));
+
+	/* The presets: what acts on the one clicked on, which a locked camera's
+	 * disabled list doesn't select, so it is left out then, and what acts on
+	 * the list */
+	if (within(ui->presetListView)) {
+		QPoint viewPos = ui->presetListView->viewport()->mapFrom(this, pos);
+		if (ui->presetListView->isEnabled() && ui->presetListView->indexAt(viewPos).isValid()) {
+			menu.addAction(ui->actionPresetRename);
+			menu.addAction(ui->actionPresetSave);
+			menu.addAction(ui->actionPresetClear);
+			menu.addAction(ui->actionPresetRemove);
+			menu.addSeparator();
+		}
+		menu.addAction(ui->actionPresetAdd);
+		menu.addAction(ui->actionPresetExport);
+		menu.addAction(ui->actionPresetImport);
+		menu.addSeparator();
+	}
+
+	/* A movement control: Set Home */
+	int controlsActions = menu.actions().size();
+	if (within(ui->movementControlsWidget)) {
+		ui->movementControlsWidget->addContextActions(&menu, ui->movementControlsWidget->mapFrom(this, pos));
+		if (menu.actions().size() > controlsActions)
+			menu.addSeparator();
+	}
+
+	/* The dock's own settings */
+	QAction *autoselectAction = menu.addAction(obs_module_text("PTZ.Settings.CameraAutoselect"));
 	autoselectAction->setCheckable(true);
 	autoselectAction->setChecked(autoselectEnabled());
 	connect(autoselectAction, &QAction::toggled, this, &PTZControls::setAutoselectEnabled);
 	if (obs_frontend_preview_program_mode_active()) {
-		QAction *blockliveAction = context.addAction(obs_module_text("PTZ.Settings.BlockLiveMoves"));
+		QAction *blockliveAction = menu.addAction(obs_module_text("PTZ.Settings.BlockLiveMoves"));
 		blockliveAction->setCheckable(true);
 		blockliveAction->setChecked(liveMoveLockEnabled());
 		connect(blockliveAction, &QAction::toggled, this, &PTZControls::setLiveMoveLockEnabled);
 	}
-	context.addAction(ui->actionProperties);
-	QAction *action = context.exec(globalpos);
+	QAction *refreshAction = menu.addAction(obs_module_text("PTZ.Preset.RefreshThumbnailOnRecall"));
+	refreshAction->setCheckable(true);
+	refreshAction->setChecked(refresh_thumbnail_on_recall);
+	connect(refreshAction, &QAction::toggled, this, &PTZControls::setRefreshThumbnailOnRecall);
+	menu.addAction(ui->actionPresetGridView);
+	menu.addSeparator();
 
+	if (!ui->movementControlsWidget->isHidden() && !within(ui->movementControlsWidget)) {
+		/* Over the controls the joystick toggle is already above */
+		QAction *joystickAction = menu.addAction(obs_module_text("PTZ.Dock.OnscreenJoystick"));
+		joystickAction->setCheckable(true);
+		joystickAction->setChecked(ui->movementControlsWidget->onscreenJoystick());
+		connect(joystickAction, &QAction::toggled, ui->movementControlsWidget,
+			&PTZMovementControls::setOnscreenJoystick);
+	}
+	menu.addAction(ui->actionProperties);
+
+	QAction *action = menu.exec(mapToGlobal(pos));
 	if (action == nullptr)
 		return;
 	if (action == powerAction) {
 		OBSDataAutoRelease request = obs_data_create();
 		obs_data_set_bool(request, "power_on", !power_on);
-		ptzDeviceList->setState(index, request.Get());
+		ptzDeviceList->setState(device, request.Get());
 	} else if (action == wbOnetouchAction) {
 		calldata cd = {};
 		calldata_set_string(&cd, "name", "wb_onepush");
-		ptzDeviceList->callDevice(index, "ptz_trigger", &cd);
+		ptzDeviceList->callDevice(device, "ptz_trigger", &cd);
 		calldata_free(&cd);
 	}
 }
