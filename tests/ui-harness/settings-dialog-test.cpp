@@ -13,6 +13,7 @@
 #include <QComboBox>
 #include <QSpinBox>
 #include <QPushButton>
+#include <QTabWidget>
 #include <QWidget>
 
 #include "ptz-list-model.hpp"
@@ -90,7 +91,7 @@ void runOpenSettingsDialogTest(const QMap<QString, QString> &params)
 /* Reports what the two views hold: the keys the settings view edits and the
  * ones the state view shows, its "wb_mode"/"connected"/position values, how
  * often the settings view redrew and the state view changed since opening,
- * whether Apply is showing, and how many widgets the state view is made of,
+ * whether Apply is enabled (there are edits to apply), the visible tabs, and how many widgets the state view is made of,
  * with the identity of its white balance list, to tell whether an update
  * kept them or replaced them. */
 void runGetSettingsDialogTest(const QMap<QString, QString> &params)
@@ -150,11 +151,24 @@ void runGetSettingsDialogTest(const QMap<QString, QString> &params)
 		obs_data_set_double(result, axis, shown.value(axis).toDouble());
 	obs_data_set_int(result, "settings_refreshes", settingsRefreshes);
 	obs_data_set_int(result, "state_updates", state->updateCount() - stateUpdatesAtOpen);
-	obs_data_set_bool(result, "apply_visible", apply && apply->isVisibleTo(dialog));
+	obs_data_set_bool(result, "apply_enabled", apply && apply->isEnabled());
+	OBSDataArrayAutoRelease tabNames = obs_data_array_create();
+	if (auto tabs = dialog->findChild<QTabWidget *>(QStringLiteral("deviceTabs"))) {
+		for (int i = 0; i < tabs->count(); i++) {
+			if (!tabs->isTabVisible(i))
+				continue;
+			OBSDataAutoRelease entry = obs_data_create();
+			obs_data_set_string(entry, "name", qUtf8Printable(tabs->tabText(i)));
+			obs_data_array_push_back(tabNames, entry);
+		}
+	}
+	obs_data_set_array(result, "tabs", tabNames);
 	obs_data_set_int(result, "state_widgets", state->findChildren<QWidget *>().size());
 	obs_data_set_int(result, "wb_widget", (long long)(quintptr)whiteBalanceList(dialog));
-	auto diagnostics = state->findChild<QWidget *>(QStringLiteral("diagnostics"));
-	obs_data_set_bool(result, "diagnostics_visible", diagnostics && diagnostics->isVisibleTo(dialog));
+	/* It is on a tab of its own, which isn't the one showing, so ask
+	 * whether it is shown at all, not whether it can be seen right now */
+	auto diagnostics = dialog->findChild<QWidget *>(QStringLiteral("diagnostics"));
+	obs_data_set_bool(result, "diagnostics_visible", diagnostics && !diagnostics->isHidden());
 	if (!obs_data_save_json_safe(result, qUtf8Printable(filename), "tmp", "bak"))
 		blog(LOG_INFO, "[ptz-ui-test] get_settings_dialog: failed to write %s", qUtf8Printable(filename));
 }
@@ -191,13 +205,12 @@ void runEditDialogStateTest(const QMap<QString, QString> &params)
 	}
 }
 
-/* Presses one of the state view's buttons, by its object name
+/* Presses one of the dialog's buttons, by its object name
  * ("cameraReport", say), as a user would */
 void runPressDialogButtonTest(const QMap<QString, QString> &params)
 {
 	PTZSettings *dialog = findDialog();
-	PTZStateView *view = dialog ? stateView(dialog) : nullptr;
-	auto button = view ? view->findChild<QPushButton *>(params.value(QStringLiteral("button"))) : nullptr;
+	auto button = dialog ? dialog->findChild<QPushButton *>(params.value(QStringLiteral("button"))) : nullptr;
 	if (!button) {
 		blog(LOG_INFO, "[ptz-ui-test] press_dialog_button: no such button");
 		return;
@@ -211,7 +224,7 @@ void runPressDialogButtonTest(const QMap<QString, QString> &params)
  *   device_id - the device to show
  * get_settings_dialog: filename - where to write the {"settings_keys",
  *   "state_keys": [{"key"}...], "wb_mode", "connected", "pan", "tilt", "zoom",
- *   "focus", "settings_refreshes", "state_updates", "apply_visible",
+ *   "focus", "settings_refreshes", "state_updates", "apply_enabled", "tabs": [{"name"}...],
  *   "state_widgets", "wb_widget", "diagnostics_visible", "shown": {every
  *   shown state key: the value shown}} JSON result
  * edit_dialog_state: each param a state key ("wb_mode", say) and the value to

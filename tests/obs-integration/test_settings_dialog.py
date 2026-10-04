@@ -36,8 +36,10 @@ def test_status_view_shows_the_cameras_real_state(obs_world, tmp_path):
     # the white balance the camera reports, not whatever its list started on
     dialog = obs_world.wait_for_settings_dialog(out, lambda r: r["connected"] and r["wb_mode"] == 2)
     assert "wb_mode" in dialog["state_keys"]
-    # both views are showing at once, not one at a time behind a tab
-    assert dialog["apply_visible"] is True
+    # the state and the settings are tabs, state first, and nothing has been
+    # edited, so there is nothing to apply
+    assert [tab["name"] for tab in dialog["tabs"]][:2] == ["Status", "Settings"]
+    assert dialog["apply_enabled"] is False
 
 
 def test_status_view_shows_where_the_camera_is(obs_world, tmp_path):
