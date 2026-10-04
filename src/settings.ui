@@ -168,11 +168,11 @@
          <property name="orientation">
           <enum>Qt::Orientation::Horizontal</enum>
          </property>
+         <property name="childrenCollapsible">
+          <bool>false</bool>
+         </property>
          <widget class="QWidget" name="widget_1" native="true">
           <layout class="QVBoxLayout" name="verticalLayout_3">
-           <property name="sizeConstraint">
-            <enum>QLayout::SizeConstraint::SetMinimumSize</enum>
-           </property>
            <item>
             <widget class="QLabel" name="label_2">
              <property name="text">
@@ -248,15 +248,27 @@
           </layout>
          </widget>
          <widget class="QWidget" name="devicePane" native="true">
+          <property name="sizePolicy">
+           <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
+            <horstretch>1</horstretch>
+            <verstretch>0</verstretch>
+           </sizepolicy>
+          </property>
           <layout class="QVBoxLayout" name="devicePaneLayout">
            <property name="leftMargin"><number>0</number></property>
            <property name="topMargin"><number>0</number></property>
            <property name="rightMargin"><number>0</number></property>
            <property name="bottomMargin"><number>0</number></property>
            <item>
-            <layout class="QHBoxLayout" name="headerLayout">
+            <layout class="QHBoxLayout" name="headerLayout" stretch="1,0">
              <item>
               <widget class="QLabel" name="statusHeader">
+               <property name="sizePolicy">
+                <sizepolicy hsizetype="Ignored" vsizetype="Preferred">
+                 <horstretch>0</horstretch>
+                 <verstretch>0</verstretch>
+                </sizepolicy>
+               </property>
                <property name="textFormat">
                 <enum>Qt::TextFormat::RichText</enum>
                </property>

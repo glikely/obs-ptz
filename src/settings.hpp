@@ -81,6 +81,8 @@ public:
 	PTZSettings();
 	~PTZSettings();
 
+	bool eventFilter(QObject *watched, QEvent *event) override;
+
 /* Joystick Support */
 #if defined(ENABLE_JOYSTICK)
 protected:

@@ -79,6 +79,22 @@ PTZSettings::PTZSettings() : QWidget(nullptr), ui(new Ui_PTZSettings)
 
 	ui->setupUi(this);
 
+	/* The camera list is as wide as it was, whatever the window or the
+	 * camera shown does: settings.ui gives the device pane all the stretch,
+	 * whose own width is nothing to it (the status line asks for none), so
+	 * the list keeps its width when the window is resized.
+	 *
+	 * A splitter that has to give up width, because the window got narrower,
+	 * takes it from every child that can spare any, the list included. So
+	 * the list's minimum width is the width it has, which the window can't
+	 * go below, and the device pane is what has none to spare. It has to
+	 * come off while the handle is dragged, or the list could only be made
+	 * wider: see eventFilter(). */
+	const int listWidth = ui->widget_1->sizeHint().width();
+	ui->widget_1->setMinimumWidth(listWidth);
+	ui->splitter->setSizes({listWidth, 1000});
+	ui->splitter->handle(1)->installEventFilter(this);
+
 	connect(ptzDeviceList, &PTZListModel::deviceSettingsUpdated, this, &PTZSettings::deviceSettingsUpdated);
 	connect(ptzDeviceList, &PTZListModel::deviceStateUpdated, this, &PTZSettings::deviceStateUpdated);
 
@@ -179,6 +195,19 @@ PTZSettings::PTZSettings() : QWidget(nullptr), ui(new Ui_PTZSettings)
 					  .arg(urls)
 					  .arg(contributors)
 					  .arg(translators));
+}
+
+/* The splitter handle: free the list's width while it is dragged, and hold
+ * the list at the width it was left at */
+bool PTZSettings::eventFilter(QObject *watched, QEvent *event)
+{
+	if (watched == ui->splitter->handle(1)) {
+		if (event->type() == QEvent::MouseButtonPress)
+			ui->widget_1->setMinimumWidth(0);
+		else if (event->type() == QEvent::MouseButtonRelease)
+			ui->widget_1->setMinimumWidth(ui->widget_1->width());
+	}
+	return QWidget::eventFilter(watched, event);
 }
 
 PTZSettings::~PTZSettings()
