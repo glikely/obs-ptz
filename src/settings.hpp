@@ -19,6 +19,8 @@
 #endif
 
 class Ui_PTZSettings;
+class QLabel;
+class QPushButton;
 
 #if defined(ENABLE_JOYSTICK)
 class PTZJoyButtonMapper : public QPushButton {
@@ -42,16 +44,16 @@ class PTZSettings : public QWidget {
 
 private:
 	Ui_PTZSettings *ui;
-	/* A device's settings and its state are shown apart, one above the
-	 * other on one scrolling page rather than as two tabs. The settings
-	 * are edited in a properties view over `settings`, which is what the
-	 * device saves, and goes back through update() (in a filter's case,
-	 * the filter's own settings). It has its own internal scrolling turned
-	 * off (OBSPropertiesView::setScrolling(), which makes it size itself to
-	 * its content instead) so the outer VScrollArea is the only thing that
-	 * actually scrolls. The state, what the camera reports and never
-	 * persisted, is ui->stateView, a PTZStateView, which goes back as
-	 * requests (see PTZDevice::requestState()). */
+	/* A device is shown in three tabs: its state, its settings, and its diagnostics. The state, what
+	 * the camera reports and never persisted, is ui->stateView, a
+	 * PTZStateView, which goes back as requests (see
+	 * PTZDevice::requestState()). The settings are edited in a properties
+	 * view over `settings`, which is what the device saves, and goes back
+	 * through update() (in a filter's case, the filter's own settings). It
+	 * has its own internal scrolling turned off
+	 * (OBSPropertiesView::setScrolling(), which makes it size itself to its
+	 * content instead) so the scroll area around it is what actually
+	 * scrolls. */
 	OBSData settings;
 	OBSPropertiesView *propertiesView = nullptr;
 	void current_device_changed();

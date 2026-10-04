@@ -247,87 +247,106 @@
            </item>
           </layout>
          </widget>
-         <widget class="QWidget" name="widget" native="true">
-          <layout class="QVBoxLayout" name="propertiesLayout" stretch="1,0">
-           <property name="sizeConstraint">
-            <enum>QLayout::SizeConstraint::SetDefaultConstraint</enum>
-           </property>
+         <widget class="QWidget" name="devicePane" native="true">
+          <layout class="QVBoxLayout" name="devicePaneLayout">
+           <property name="leftMargin"><number>0</number></property>
+           <property name="topMargin"><number>0</number></property>
+           <property name="rightMargin"><number>0</number></property>
+           <property name="bottomMargin"><number>0</number></property>
            <item>
-            <widget class="VScrollArea" name="propertiesScroll">
-             <property name="widgetResizable">
-              <bool>true</bool>
-             </property>
-             <widget class="QWidget" name="propertiesStack">
-              <layout class="QVBoxLayout" name="propertiesStackLayout">
-               <property name="leftMargin">
-                <number>0</number>
-               </property>
-               <property name="topMargin">
-                <number>0</number>
-               </property>
-               <property name="rightMargin">
-                <number>0</number>
-               </property>
-               <property name="bottomMargin">
-                <number>0</number>
-               </property>
+            <widget class="QTabWidget" name="deviceTabs">
+             <widget class="QWidget" name="statusTab">
+              <attribute name="title">
+               <string>PTZ.Settings.DeviceStatus</string>
+              </attribute>
+              <layout class="QVBoxLayout" name="statusTabLayout">
+               <property name="leftMargin"><number>0</number></property>
+               <property name="topMargin"><number>0</number></property>
+               <property name="rightMargin"><number>0</number></property>
+               <property name="bottomMargin"><number>0</number></property>
                <item>
-                <widget class="QLabel" name="settingsLabel">
-                 <property name="font">
-                  <font>
-                   <bold>true</bold>
-                  </font>
+                <widget class="VScrollArea" name="statusScroll">
+                 <property name="frameShape">
+                  <enum>QFrame::Shape::NoFrame</enum>
                  </property>
-                 <property name="text">
-                  <string>PTZ.Settings.DeviceSettings</string>
+                 <property name="widgetResizable">
+                  <bool>true</bool>
                  </property>
+                 <widget class="PTZStateView" name="stateView"/>
+                </widget>
+               </item>
+              </layout>
+             </widget>
+             <widget class="QWidget" name="settingsTab">
+              <attribute name="title">
+               <string>PTZ.Settings.DeviceSettings</string>
+              </attribute>
+              <layout class="QVBoxLayout" name="settingsTabLayout">
+               <item>
+                <widget class="VScrollArea" name="settingsScroll">
+                 <property name="frameShape">
+                  <enum>QFrame::Shape::NoFrame</enum>
+                 </property>
+                 <property name="widgetResizable">
+                  <bool>true</bool>
+                 </property>
+                 <widget class="QWidget" name="settingsViewHost">
+                  <layout class="QVBoxLayout" name="settingsViewLayout">
+                   <property name="leftMargin"><number>0</number></property>
+                   <property name="topMargin"><number>0</number></property>
+                   <property name="rightMargin"><number>0</number></property>
+                   <property name="bottomMargin"><number>0</number></property>
+                  </layout>
+                 </widget>
                 </widget>
                </item>
                <item>
-                <layout class="QVBoxLayout" name="settingsViewLayout"/>
+                <layout class="QHBoxLayout" name="settingsButtonsLayout">
+                 <item>
+                  <spacer name="settingsButtonsSpacer">
+                   <property name="orientation">
+                    <enum>Qt::Orientation::Horizontal</enum>
+                   </property>
+                   <property name="sizeHint" stdset="0">
+                    <size>
+                     <width>40</width>
+                     <height>20</height>
+                    </size>
+                   </property>
+                  </spacer>
+                 </item>
+                 <item>
+                  <widget class="QPushButton" name="applyButton">
+                   <property name="text">
+                    <string>PTZ.Settings.Apply</string>
+                   </property>
+                  </widget>
+                 </item>
+                </layout>
                </item>
+              </layout>
+             </widget>
+             <widget class="QWidget" name="diagnosticsTab">
+              <attribute name="title">
+               <string>PTZ.Device.State.Diagnostics</string>
+              </attribute>
+              <layout class="QVBoxLayout" name="diagnosticsLayout">
                <item>
-                <widget class="QLabel" name="stateLabel">
-                 <property name="font">
-                  <font>
-                   <bold>true</bold>
-                  </font>
+                <spacer name="diagnosticsSpacer">
+                 <property name="orientation">
+                  <enum>Qt::Orientation::Vertical</enum>
                  </property>
-                 <property name="text">
-                  <string>PTZ.Settings.DeviceStatus</string>
+                 <property name="sizeHint" stdset="0">
+                  <size>
+                   <width>20</width>
+                   <height>40</height>
+                  </size>
                  </property>
-                </widget>
-               </item>
-               <item>
-                <widget class="PTZStateView" name="stateView"/>
+                </spacer>
                </item>
               </layout>
              </widget>
             </widget>
-           </item>
-           <item>
-            <layout class="QHBoxLayout" name="horizontalLayout_4">
-             <item>
-              <spacer name="horizontalSpacer">
-               <property name="orientation">
-                <enum>Qt::Orientation::Horizontal</enum>
-               </property>
-               <property name="sizeHint" stdset="0">
-                <size>
-                 <width>40</width>
-                 <height>20</height>
-                </size>
-               </property>
-              </spacer>
-             </item>
-             <item>
-              <widget class="QPushButton" name="applyButton">
-               <property name="text">
-                <string>Apply</string>
-               </property>
-              </widget>
-             </item>
-            </layout>
            </item>
           </layout>
          </widget>

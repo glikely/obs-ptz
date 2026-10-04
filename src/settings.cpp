@@ -110,13 +110,17 @@ PTZSettings::PTZSettings() : QWidget(nullptr), ui(new Ui_PTZSettings)
 	};
 	propertiesView = new OBSPropertiesView(settings, this, reload_cb, update_cb);
 	propertiesView->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
-
-	/* The properties view does its own scrolling by default (it's a
-	 * QScrollArea itself); turn that off so it instead sizes itself to its
-	 * content, and stack it with the state view on the one page in
-	 * settings.ui, whose propertiesScroll is the only thing that scrolls. */
 	propertiesView->setScrolling(false);
+
 	ui->settingsViewLayout->addWidget(propertiesView);
+
+	/* The diagnostics are the state view's, but get a tab of their own,
+	 * which is there only while the device has any */
+	ui->diagnosticsLayout->insertWidget(0, ui->stateView->diagnosticsGroup());
+	ui->deviceTabs->setTabVisible(ui->deviceTabs->indexOf(ui->diagnosticsTab), false);
+	connect(ui->stateView, &PTZStateView::diagnosticsAvailableChanged, this, [this](bool available) {
+		ui->deviceTabs->setTabVisible(ui->deviceTabs->indexOf(ui->diagnosticsTab), available);
+	});
 
 	/* What the user asks of the camera in the state view is a request, not
 	 * an update: the camera changes what it reports of itself once it has
