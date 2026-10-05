@@ -26,6 +26,8 @@
 # Usage (run from anywhere; it locates the repo root from its own path):
 #   scripts/vm-windows-dev.sh setup            # check the VM is reachable and one-time setup is done
 #   scripts/vm-windows-dev.sh test <arm64|x64> # build, overlay into C:\OBS-Test\<arch>, run test_preset_row_sizing.py
+#   scripts/vm-windows-dev.sh build <arm64|x64> # build and overlay into C:\OBS-Test\<arch>, without testing
+#   scripts/vm-windows-dev.sh screenshots <arm64|x64> # build, then retake the docs/ screenshots (see scripts/update-screenshots.sh)
 #   scripts/vm-windows-dev.sh run <arm64|x64>  # launch that arch's C:\OBS-Test obs64.exe for interactive poking
 #   scripts/vm-windows-dev.sh clean            # kill a stray obs64.exe left over from a previous run
 #
@@ -149,6 +151,30 @@ exit /b %ERRORLEVEL%
 EOF
 }
 
+cmd_build() {
+	require_arch "${1:-}" build
+	src_win="$(win_src)"
+	run_vm_bat build <<EOF
+@echo off
+pushd "$src_win"
+call scripts\\windows-build-and-test.bat $1 build-only
+exit /b %ERRORLEVEL%
+EOF
+}
+
+# Retakes the documentation's screenshots, in the VM's own desktop session.
+cmd_screenshots() {
+	require_arch "${1:-}" screenshots
+	cmd_build "$1"
+	src_win="$(win_src)"
+	run_vm_bat screenshots <<EOF
+@echo off
+pushd "$src_win"
+python scripts\\update-screenshots.py --obs-dir C:\\OBS-Test\\$1
+exit /b %ERRORLEVEL%
+EOF
+}
+
 cmd_run() {
 	require_arch "${1:-}" run
 	# OBS resolves its data path against the *launching process's* cwd on
@@ -171,10 +197,12 @@ main() {
 	case "$cmd" in
 	setup) cmd_setup ;;
 	test) cmd_test "$@" ;;
+	build) cmd_build "$@" ;;
+	screenshots) cmd_screenshots "$@" ;;
 	run) cmd_run "$@" ;;
 	clean) cmd_clean ;;
 	*)
-		echo "usage: $0 {setup|test <arm64|x64>|run <arm64|x64>|clean}" >&2
+		echo "usage: $0 {setup|test <arm64|x64>|build <arm64|x64>|screenshots <arm64|x64>|run <arm64|x64>|clean}" >&2
 		exit 2
 		;;
 	esac

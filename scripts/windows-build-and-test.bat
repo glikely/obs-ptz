@@ -8,7 +8,8 @@ rem against it. See tests/ui-harness/README.md's "Testing on Windows"
 rem section for the one-time setup this depends on (C:\OBS-Test\arm64
 rem and C:\OBS-Test\x64 must already exist).
 rem
-rem Usage: windows-build-and-test.bat <arm64|x64>
+rem Usage: windows-build-and-test.bat <arm64|x64> [build-only]
+rem With build-only it stops after the overlay, without running the test.
 rem Run from the repo root (the directory this script's own CMakePresets.json lives in).
 
 set ARCH=%1
@@ -56,6 +57,8 @@ if errorlevel 8 (
   echo overlay robocopy failed
   exit /b 1
 )
+
+if /i "%2"=="build-only" exit /b 0
 
 echo === running scripts\test_preset_row_sizing.py against %ARCH% ===
 set PTZ_TEST_OBS_BIN=%OBSDIR%\bin\64bit\obs64.exe
