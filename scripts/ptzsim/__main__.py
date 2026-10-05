@@ -15,7 +15,7 @@ Run modes
     python3 scripts/ptzsim --web-port 8080        # also serve the WebGL camera view
     python3 scripts/ptzsim --no-onvif --no-pelco  # VISCA only (all 3 transports)
     python3 scripts/ptzsim --no-visca-tcp --no-visca-serial   # VISCA/UDP only
-    python3 scripts/ptzsim --host 0.0.0.0 --onvif-http-port 8899 --rtsp-port 8554
+    python3 scripts/ptzsim --host 0.0.0.0 --onvif-http-port 8899   # reachable from other machines
 
 The emulated serial ports (VISCA and Pelco) are pty pairs; point obs-ptz's
 serial device field at the printed path, or at the fixed symlink
@@ -55,6 +55,7 @@ Single file tree, no third-party Python dependencies.
 
 import argparse
 import asyncio
+import ipaddress
 import signal
 import socket
 import sys
@@ -88,8 +89,12 @@ def parse_args():
         description="Unified PTZ camera simulator exposing VISCA (TCP/UDP/"
                     "serial), ONVIF and Pelco-D/P protocol backends, with an "
                     "optional WebGL camera view for OBS.")
-    ap.add_argument("--host", default=primary_ipv4(),
-                     help="IP advertised for ONVIF discovery/stream URIs (default: auto)")
+    ap.add_argument("--host", default="127.0.0.1",
+                     help="the one address the simulator listens on and says it is at, for VISCA, "
+                          "ONVIF, the web view and --debug-http-port alike (default 127.0.0.1: "
+                          "this machine only; give this machine's address, or 0.0.0.0 for all of "
+                          "them, to be reached from another, such as a VM; ONVIF and Sony "
+                          "discovery only work then)")
 
     ap.add_argument("--no-visca", action="store_true",
                      help="disable the VISCA backend entirely (all transports)")
@@ -211,6 +216,12 @@ def parse_args():
         print(f"[room] {room['title']}, camera '{room['camera']}'")
     elif args.camera:
         ap.error("--camera is for a --room")
+    # Where the simulator says it is, for what it advertises: a wildcard
+    # means this machine's address on the network
+    args.advertise = primary_ipv4() if args.host in ("0.0.0.0", "") else args.host
+    args.local_only = ipaddress.ip_address(args.advertise).is_loopback
+    if args.sony_discovery_name and args.local_only:
+        ap.error("--sony-discovery-name is answered on the network: give --host a LAN address, or 0.0.0.0")
     if (args.backdrop or args.scene) and not args.web_port:
         ap.error("--backdrop and --scene are for the web view: add --web-port")
     if args.backdrop and args.scene:
@@ -271,12 +282,13 @@ def main():
             print("[sim] VISCA enabled but all its transports are disabled; skipping")
 
     if args.sony_discovery_name:
-        sony_setup = SonySetupBackend(args.host, args.sony_discovery_name)
+        sony_setup = SonySetupBackend(args.advertise, args.sony_discovery_name)
         sony_setup.start()
         backends.append(sony_setup)
 
     if not args.no_onvif:
-        onvif = OnvifBackend(state, args.host, args.onvif_http_port, args.rtsp_port)
+        onvif = OnvifBackend(state, args.advertise, args.onvif_http_port, args.rtsp_port,
+                             bind=args.host, discovery=not args.local_only)
         onvif.start()
         backends.append(onvif)
         print(f"[sim] onvif uuid = {onvif.uuid}")
@@ -310,8 +322,8 @@ def main():
                          "vendor": scene_module.ensure_three(args.scene_cache)}
             except backdrop.BackdropError as e:
                 sys.exit(f"[scene] {e}")
-        web = WebViewServer(state, args.host if args.host.startswith("127.") else "0.0.0.0", args.web_port,
-                            picture, scene, args.heading)
+        web = WebViewServer(state, args.host, args.web_port, picture, scene, args.heading,
+                            advertise=args.advertise)
         web.start()
 
     def shutdown(*_):

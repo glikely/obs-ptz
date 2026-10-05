@@ -346,9 +346,11 @@ class OnvifHandler(BaseHTTPRequestHandler):
 
 
 class OnvifBackend(Backend):
-    def __init__(self, state, host, http_port=8899, rtsp_port=8554):
+    def __init__(self, state, host, http_port=8899, rtsp_port=8554, bind="0.0.0.0", discovery=True):
         self.state = state
-        self.host = host
+        self.host = host                  # what it advertises
+        self.bind = bind                  # what it listens on
+        self.discovery = discovery        # answer WS-Discovery probes, which need the network
         self.http_port = http_port
         self.rtsp_port = rtsp_port
         self.uuid = "urn:uuid:" + str(uuid.uuid4())
@@ -359,12 +361,15 @@ class OnvifBackend(Backend):
         self._running.set()
 
         handler_cls = type("BoundOnvifHandler", (OnvifHandler,), {"backend": self})
-        self._httpd = ThreadingHTTPServer(("0.0.0.0", self.http_port), handler_cls)
+        self._httpd = ThreadingHTTPServer((self.bind, self.http_port), handler_cls)
         threading.Thread(target=self._httpd.serve_forever, daemon=True).start()
-        print(f"[onvif] HTTP listening on 0.0.0.0:{self.http_port}")
+        print(f"[onvif] HTTP listening on {self.bind}:{self.http_port}")
         print(f"[onvif] advertise = http://{self.host}:{self.http_port}/onvif/device_service")
 
-        threading.Thread(target=self._ws_discovery_loop, daemon=True).start()
+        if self.discovery:
+            threading.Thread(target=self._ws_discovery_loop, daemon=True).start()
+        else:
+            print("[onvif] not answering WS-Discovery: --host is this machine only")
 
     def stop(self):
         self._running.clear()

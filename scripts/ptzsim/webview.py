@@ -158,12 +158,14 @@ class WebHandler(BaseHTTPRequestHandler):
 
 
 class WebViewServer:
-    def __init__(self, state, host="0.0.0.0", port=8080, backdrop=None, scene=None, heading=0.0):
+    def __init__(self, state, host="127.0.0.1", port=8080, backdrop=None, scene=None, heading=0.0,
+                 advertise=None):
         self.state = state
         self.heading = heading
         self.backdrop = backdrop
         self.scene = scene
         self.host = host
+        self.advertise = advertise or host
         self.port = port
         self._httpd = None
 
@@ -173,7 +175,7 @@ class WebViewServer:
         self._httpd.daemon_threads = True
         self.port = self._httpd.server_address[1]
         threading.Thread(target=self._httpd.serve_forever, daemon=True).start()
-        print(f"[web] camera view at http://127.0.0.1:{self.port}/ "
+        print(f"[web] camera view at http://{self.advertise}:{self.port}/ "
               "(add as an OBS Browser Source; ?hud=0 hides the readout)")
 
     def stop(self):

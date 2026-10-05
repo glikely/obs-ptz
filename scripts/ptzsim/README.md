@@ -157,7 +157,7 @@ below), or the simulator itself under "Detected devices":
 | VISCA (over IP/UDP)| host = the machine running `ptzsim`, port 52381 |
 | VISCA (serial)     | the printed `/tmp/ptzsim-visca-serial` path (or `--visca-serial-path`) |
 | Pelco              | the printed `/tmp/ptzsim-pelco-serial` path (or `--pelco-serial-path`), device ID matching `--pelco-address` (default 1) |
-| ONVIF (experimental) | detected as `obs-ptz-sim SIM-PTZ-1`, with its host and port; credentials aren't enforced, `admin`/`admin` works |
+| ONVIF (experimental) | with a network `--host`, detected as `obs-ptz-sim SIM-PTZ-1`, with its host and port; credentials aren't enforced, `admin`/`admin` works |
 | VISCA (over IP/UDP), detected | with `--sony-discovery-name NAME`, detected as `NAME SIM-PTZ-1`, at host port 52381 (so leave `--visca-udp-port` at its default) |
 
 The VISCA-serial and Pelco entries require `ENABLE_SERIALPORT=ON` at
@@ -190,8 +190,13 @@ rather than manual use.
 Run `python3 scripts/ptzsim --help` for the authoritative list; the
 highlights:
 
-- `--host HOST`: IP advertised for ONVIF discovery/stream URIs (default:
-  auto-detected).
+- `--host HOST`: the one address everything listens on and says it is at:
+  VISCA (TCP and UDP), ONVIF, the web view and `--debug-http-port`. The
+  default, `127.0.0.1`, is this machine only. To be reached from another
+  machine, such as a VM, give this machine's address, or `0.0.0.0` for all of
+  them (ptzsim then advertises its address on the network). ONVIF's
+  WS-Discovery and `--sony-discovery-name`, which are answered over the
+  network, only work with such an address.
 - `--visca-tcp-port`, `--visca-udp-port` (defaults 5678, 52381).
 - `--visca-serial-path`, `--pelco-serial-path` (symlink paths, defaults
   under `/tmp`).
