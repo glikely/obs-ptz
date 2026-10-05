@@ -9,13 +9,15 @@ a wire.
 """
 
 import os
-import pty
 import sys
-import tty
 
 
 class EmulatedSerialPort:
     def __init__(self, symlink_path=None):
+        # POSIX only, so imported here: the rest of ptzsim runs on Windows
+        import pty
+        import tty
+
         self.master_fd, self.slave_fd = pty.openpty()
         # A freshly opened pty defaults to cooked mode with echo on, which
         # would loop our own writes (arriving as "input" on the slave)

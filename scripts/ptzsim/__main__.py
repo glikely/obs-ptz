@@ -228,7 +228,7 @@ def main():
 
     web = None
     if args.web_port:
-        web = WebViewServer(state, "0.0.0.0", args.web_port)
+        web = WebViewServer(state, args.host if args.host.startswith("127.") else "0.0.0.0", args.web_port)
         web.start()
 
     def shutdown(*_):
