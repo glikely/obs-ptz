@@ -55,7 +55,9 @@ Good indoor ones: `chapel_day`, `afrikaans_church_interior`, `ballroom`,
 `cinema_hall`, `cyclorama_hard_light`, `climbing_gym`. `--backdrop-res`
 picks the download's size (`1k` to `8k`, default `4k`, about 26 MB for a
 `.hdr`), and `--backdrop-cache DIR` where it goes. The page tonemaps an HDR
-itself; pan 0 is the middle of the picture and tilt 0 its horizon.
+itself; pan 0 is the middle of the picture and tilt 0 its horizon. The
+degree lines are drawn over it, as on the grid; add `?grid=0` to the page's
+URL to leave the room bare.
 
 ## Moving like a camera
 
