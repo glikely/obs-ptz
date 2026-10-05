@@ -167,6 +167,17 @@ class PTZState:
         with self._lock:
             self._go_to(pan, tilt, zoom, focus)
 
+    def jump_to(self, pan=None, tilt=None, zoom=None):
+        """Put the camera at a position now, whatever move_rate is, and
+        cancel any move or drive of those axes: for something that holds
+        the camera, such as the web view being dragged"""
+        with self._lock:
+            for axis, value, lo in (("pan", pan, -1.0), ("tilt", tilt, -1.0), ("zoom", zoom, 0.0)):
+                if value is not None:
+                    self._cancel(axis)
+                    setattr(self, axis, clamp(value, lo, 1.0))
+                    setattr(self, axis + "_speed", 0.0)
+
     def move_relative(self, dpan=0.0, dtilt=0.0, dzoom=0.0, dfocus=0.0):
         with self._lock:
             # From where the camera is going, so two in a row add up

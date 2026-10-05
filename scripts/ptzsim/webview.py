@@ -2,7 +2,9 @@
 
 Serves web/index.html, which renders a panorama through a virtual camera
 whose yaw/pitch/FOV/blur follow the shared PTZState, and GET /events, a
-Server-Sent Events stream of that state at ~50 Hz. Unlike the RTSP feed
+Server-Sent Events stream of that state at ~50 Hz. Dragging the view
+(in an OBS Browser Source's Interact window, say) moves the camera:
+the page POSTs the position it wants to /move. Unlike the RTSP feed
 this needs no ffmpeg or MediaMTX, but it is not a video stream: it
 doesn't exercise OBS's Media Source decode path.
 """
@@ -44,6 +46,30 @@ class WebHandler(BaseHTTPRequestHandler):
         else:
             self.send_response(404)
             self.end_headers()
+
+    def do_POST(self):
+        """The page holding the camera: POST /move {"pan", "tilt", "zoom"}
+        (any of them, normalized as in PTZState) puts it there now, and
+        POST /home sends it home"""
+        path = self.path.split("?", 1)[0]
+        length = int(self.headers.get("Content-Length") or 0)
+        try:
+            body = json.loads(self.rfile.read(length) or b"{}")
+            if path == "/move":
+                self.state.jump_to(*(float(body[k]) if k in body else None
+                                     for k in ("pan", "tilt", "zoom")))
+            elif path == "/home":
+                self.state.goto_home()
+            else:
+                self.send_response(404)
+                self.end_headers()
+                return
+        except (ValueError, TypeError, AttributeError):
+            self.send_response(400)
+            self.end_headers()
+            return
+        self.send_response(204)
+        self.end_headers()
 
     def _send_file(self, name, content_type):
         with open(os.path.join(WEB_DIR, name), "rb") as f:

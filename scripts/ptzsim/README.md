@@ -59,6 +59,10 @@ labelled panorama (degree grid, lettered landmarks) seen through a virtual
 camera that follows the simulated pan, tilt, zoom and focus, with the tally
 lamp as a coloured border and a standby screen when powered off. Add it in
 OBS as a **Browser Source** (e.g. 1280x720); `?hud=0` hides the text readout.
+You can also move the camera from the view: right-click the Browser Source
+in OBS and choose **Interact**, then drag to pan and tilt (the view follows
+the pointer, so the camera moves the other way), scroll to zoom, and
+double-click to send it home. Every protocol sees the new position.
 It needs OBS's browser source (CEF), and unlike `--with-video` it doesn't
 exercise OBS's Media Source/RTSP path.
 

@@ -3,7 +3,8 @@
 <title>ptzsim camera view</title>
 <style>
   html, body { margin: 0; height: 100%; background: #000; overflow: hidden; }
-  canvas { display: block; width: 100vw; height: 100vh; }
+  canvas { display: block; width: 100vw; height: 100vh; cursor: grab; touch-action: none; }
+  canvas.dragging { cursor: grabbing; }
   #hud { position: fixed; left: 16px; top: 12px; color: #fff; font: 600 20px/1.35 ui-monospace, Menlo, monospace;
          text-shadow: 0 0 4px #000, 0 0 2px #000; white-space: pre; pointer-events: none; }
   #tally { position: fixed; inset: 0; pointer-events: none; box-sizing: border-box; }
@@ -148,12 +149,59 @@ es.onerror = () => { connected = false; };
 
 const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
 function current() {
+  if (holding) return holding;
   const dt = Math.min((performance.now() - stamp) / 1000, 0.1) * SPEED_SCALE;
   return {
     pan: clamp(cam.pan + cam.pan_speed * dt, -1, 1), tilt: clamp(cam.tilt + cam.tilt_speed * dt, -1, 1),
     zoom: clamp(cam.zoom + cam.zoom_speed * dt, 0, 1), focus: clamp(cam.focus + cam.focus_speed * dt, 0, 1),
   };
 }
+
+// ---- Interaction: drag to pan/tilt, wheel to zoom, double-click for home ----
+// Dragging holds the world under the pointer, so the camera moves the
+// opposite way. The page follows the pointer at once and tells the
+// simulator where the camera now is.
+let drag = null, holding = null;   // holding: {pan, tilt, zoom} while the page leads
+let sending = false, wanted = null;
+function post(path, body) {
+  return fetch(path, { method: "POST", body: JSON.stringify(body || {}) }).catch(() => {});
+}
+function send(pos) {   // at most one request in flight, always the latest position
+  wanted = pos;
+  if (sending) return;
+  sending = true;
+  (async function next() {
+    const pos = wanted; wanted = null;
+    await post("move", pos);
+    if (wanted) next(); else sending = false;
+  })();
+}
+function degPerPx(zoom) { return FOV_WIDE * Math.pow(FOV_TELE / FOV_WIDE, zoom) / canvas.clientWidth; }
+canvas.addEventListener("pointerdown", e => {
+  if (e.button !== 0) return;
+  canvas.setPointerCapture(e.pointerId);
+  canvas.classList.add("dragging");
+  const s = current();
+  drag = { x: e.clientX, y: e.clientY, ...s };
+  holding = { ...s };
+});
+canvas.addEventListener("pointermove", e => {
+  if (!drag) return;
+  const k = degPerPx(drag.zoom);
+  holding.pan = clamp(drag.pan - (e.clientX - drag.x) * k / PAN_RANGE, -1, 1);
+  holding.tilt = clamp(drag.tilt + (e.clientY - drag.y) * k / TILT_RANGE, -1, 1);
+  send({ pan: holding.pan, tilt: holding.tilt });
+});
+const release = () => { drag = null; holding = null; canvas.classList.remove("dragging"); };
+canvas.addEventListener("pointerup", release);
+canvas.addEventListener("pointercancel", release);
+canvas.addEventListener("wheel", e => {
+  e.preventDefault();
+  const zoom = clamp((holding || current()).zoom - Math.sign(e.deltaY) * 0.03, 0, 1);
+  if (holding) holding.zoom = zoom;
+  send({ zoom });
+}, { passive: false });
+canvas.addEventListener("dblclick", () => post("home"));
 
 const tallyEl = document.getElementById("tally"), standby = document.getElementById("standby");
 function frame() {
