@@ -67,7 +67,7 @@ from .backends.visca import ViscaBackend, ViscaCameraLogic, SonyUdpQuirks
 from .backends.visca_report import ViscaReportReplay
 from .debug_http import DebugHttpServer
 from .state import PTZState, run_ticker
-from . import backdrop, scene as scene_module
+from . import backdrop, rooms, scene as scene_module
 from .webview import WebViewServer
 
 
@@ -173,12 +173,44 @@ def parse_args():
     ap.add_argument("--camera-pos", default=None, metavar="X,Y,Z",
                      help="where the camera stands in the --scene, in its units (default: "
                           "the middle of it, a third of the way up)")
+    ap.add_argument("--heading", type=float, default=0.0, metavar="DEGREES",
+                     help="turn the web view's world this many degrees to the right, so that "
+                          "pan 0 looks that way (default 0)")
+    ap.add_argument("--room", default=None, metavar="NAME",
+                     help="a ready-made room for the web view: a backdrop or 3D scene with "
+                          "camera positions in it; --list-rooms says which")
+    ap.add_argument("--camera", default=None, metavar="NAME",
+                     help="which of the --room's cameras to be (default: its first)")
+    ap.add_argument("--list-rooms", action="store_true",
+                     help="list the --room names and their cameras, then exit")
     ap.add_argument("--scene-cache", default=None, metavar="DIR",
                      help="where scenes and three.js are downloaded to (default ~/.cache/ptzsim)")
     ap.add_argument("--debug-http-port", type=int, default=0,
                      help="serve GET /state as JSON on this port for test "
                           "harnesses (0 disables it, the default)")
     args = ap.parse_args()
+    if args.list_rooms:
+        print(rooms.describe())
+        sys.exit(0)
+    args.initial_view = None
+    if args.room:
+        if args.backdrop or args.scene:
+            ap.error("--room sets the backdrop or scene itself: don't also give --backdrop or --scene")
+        if not args.web_port:
+            ap.error("--room is for the web view: add --web-port")
+        try:
+            room = rooms.pick(args.room, args.camera)
+        except rooms.RoomError as e:
+            ap.error(str(e))
+        args.backdrop, args.scene = room.get("backdrop"), room.get("scene")
+        if args.camera_pos is None and room.get("position"):
+            args.camera_pos = ",".join(str(v) for v in room["position"])
+        if not args.heading:
+            args.heading = room.get("heading", 0.0)
+        args.initial_view = room.get("view")
+        print(f"[room] {room['title']}, camera '{room['camera']}'")
+    elif args.camera:
+        ap.error("--camera is for a --room")
     if (args.backdrop or args.scene) and not args.web_port:
         ap.error("--backdrop and --scene are for the web view: add --web-port")
     if args.backdrop and args.scene:
@@ -200,6 +232,10 @@ def main():
         state.move_rate = 2.0 / args.move_time
     if args.start_in_standby:
         state.power = False
+    if args.initial_view:
+        # Where the camera starts, and goes back to for Home
+        state.set_position(**args.initial_view)
+        state.set_home()
     stop_event = threading.Event()
     threading.Thread(target=run_ticker, args=(state, stop_event), daemon=True).start()
 
@@ -275,7 +311,7 @@ def main():
             except backdrop.BackdropError as e:
                 sys.exit(f"[scene] {e}")
         web = WebViewServer(state, args.host if args.host.startswith("127.") else "0.0.0.0", args.web_port,
-                            picture, scene)
+                            picture, scene, args.heading)
         web.start()
 
     def shutdown(*_):

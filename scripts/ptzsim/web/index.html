@@ -163,6 +163,7 @@ const U = n => gl.getUniformLocation(prog, n);
 const u = { res: U("res"), yaw: U("yaw"), pitch: U("pitch"), hfov: U("hfov"), blur: U("blurLod"), texW: U("texW") };
 gl.uniform1i(U("pano"), 0); gl.uniform1f(u.texW, TEX_W);
 
+let heading = 0;      // degrees the world is turned to the right: pan 0 looks this way
 // ---- Backdrop: the room from ptzsim --backdrop, if it has one ---------------
 // A Radiance .hdr is decoded and tonemapped here (a canvas can't hold HDR);
 // a JPEG or PNG is drawn as it is. Either is shrunk to what the GPU takes.
@@ -249,6 +250,7 @@ loadBackdrop().catch(e => console.error("backdrop:", e));
 // ---- 3D scene: ptzsim --scene hands the page a glTF and three.js to draw it ----
 let sceneMode = false;
 fetch("config").then(r => r.json()).then(async config => {
+  heading = config.heading || 0;
   if (!config.scene) return;
   const { start } = await import("./scene.js");
   let grid = null;
@@ -261,7 +263,7 @@ fetch("config").then(r => r.json()).then(async config => {
     url: config.scene, cameraPos: config.cameraPos, grid,
     view: () => {
       const s = current();
-      return { yaw: s.pan * PAN_RANGE * Math.PI / 180, pitch: s.tilt * TILT_RANGE * Math.PI / 180,
+      return { yaw: (s.pan * PAN_RANGE + heading) * Math.PI / 180, pitch: s.tilt * TILT_RANGE * Math.PI / 180,
                hfov: FOV_WIDE * Math.pow(FOV_TELE / FOV_WIDE, s.zoom) * Math.PI / 180, focus: s.focus };
     },
   });
@@ -342,7 +344,7 @@ function frame() {
   const fov = FOV_WIDE * Math.pow(FOV_TELE / FOV_WIDE, s.zoom);
   const rad = Math.PI / 180;
   gl.uniform2f(u.res, w, h);
-  gl.uniform1f(u.yaw, s.pan * PAN_RANGE * rad);
+  gl.uniform1f(u.yaw, (s.pan * PAN_RANGE + heading) * rad);
   gl.uniform1f(u.pitch, s.tilt * TILT_RANGE * rad);
   gl.uniform1f(u.hfov, fov * rad);
   gl.uniform1f(u.blur, Math.abs(s.focus - FOCUS_SHARP) / FOCUS_SHARP * FOCUS_BLUR_LOD);

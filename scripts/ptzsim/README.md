@@ -83,6 +83,30 @@ and focus is real depth of field: focus 0 is sharp at 0.5 m and 1 at 100 m
 (0.5 is 7 m), and what is nearer or farther blurs more the more you zoom
 (`?dof=0` turns the blur off). It can't be combined with `--backdrop`. `--scene-cache DIR` moves the cache.
 
+### Ready-made rooms
+
+`--room NAME` is a backdrop or 3D scene with cameras standing in it, so you
+don't have to find a good spot yourself; `--camera NAME` picks one of its
+cameras (the first by default) and `--list-rooms` lists them:
+
+```
+python3 scripts/ptzsim --web-port 8080 --room sponza --camera east-end
+```
+
+| Room | Cameras |
+|---|---|
+| `sponza` (3D) | `west-end`, `east-end`, `north-gallery`, `south-gallery` |
+| `chapel` | `pews`, `platform`, `windows` |
+| `church` | `platform`, `aisle` |
+| `gallery` | `hall`, `doorway` |
+
+Run one simulator per camera, each on its own `--web-port` and protocol
+ports, to get a multi-camera set in the same room. A panorama is one spot,
+so its cameras are different ways of looking from it. `--heading DEGREES`
+turns any picture or scene so that pan 0 looks that way; a camera's heading
+is what a room sets. Licences are those of the sources: Poly Haven's are CC0,
+Sponza's is the Cryengine Limited License.
+
 ## Moving like a camera
 
 By default an absolute move, preset recall or home jumps straight to its

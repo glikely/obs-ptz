@@ -34,6 +34,7 @@ def state_event(state):
 class WebHandler(BaseHTTPRequestHandler):
     state = None  # injected
     backdrop = None  # path of the room picture, if any, injected
+    heading = 0.0    # degrees the world is turned to the right, injected
     scene = None     # {"dir", "entry", "camera_pos", "vendor"} of a 3D scene, if any, injected
 
     def log_message(self, fmt, *args):
@@ -47,7 +48,8 @@ class WebHandler(BaseHTTPRequestHandler):
             self._send_file("scene.js", "text/javascript; charset=utf-8")
         elif path == "/config":
             self._send_json({"scene": f"scene/{urllib.parse.quote(self.scene['entry'])}" if self.scene else None,
-                             "cameraPos": self.scene["camera_pos"] if self.scene else None})
+                             "cameraPos": self.scene["camera_pos"] if self.scene else None,
+                             "heading": self.heading})
         elif path.startswith("/scene/") and self.scene:
             self._send_under(self.scene["dir"], path[len("/scene/"):])
         elif path.startswith("/vendor/") and self.scene:
@@ -101,28 +103,32 @@ class WebHandler(BaseHTTPRequestHandler):
             self.send_response(404)
             self.end_headers()
             return
+        self._send_big_file(path)
+
+    def _send_backdrop(self):
+        self._send_big_file(self.backdrop)
+
+    def _send_big_file(self, path):
+        """A picture, model or script from disk. The browser may keep it but must
+        ask first, as a new run can serve something else at the same address."""
         ext = os.path.splitext(path)[1].lower()
+        stat = os.stat(path)
+        etag = f'"{stat.st_size}-{stat.st_mtime_ns}"'
+        if self.headers.get("If-None-Match") == etag:
+            self.send_response(304)
+            self.send_header("ETag", etag)
+            self.end_headers()
+            return
         self.send_response(200)
         self.send_header("Content-Type", {
             ".js": "text/javascript", ".gltf": "model/gltf+json", ".glb": "model/gltf-binary",
             ".jpg": "image/jpeg", ".jpeg": "image/jpeg", ".png": "image/png", ".webp": "image/webp",
         }.get(ext, "application/octet-stream"))
-        self.send_header("Content-Length", str(os.path.getsize(path)))
-        self.send_header("Cache-Control", "max-age=3600")
+        self.send_header("Content-Length", str(stat.st_size))
+        self.send_header("ETag", etag)
+        self.send_header("Cache-Control", "no-cache")
         self.end_headers()
         with open(path, "rb") as f:
-            while chunk := f.read(1 << 20):
-                self.wfile.write(chunk)
-
-    def _send_backdrop(self):
-        ext = os.path.splitext(self.backdrop)[1].lower()
-        self.send_response(200)
-        self.send_header("Content-Type", {".jpg": "image/jpeg", ".jpeg": "image/jpeg",
-                                          ".png": "image/png"}.get(ext, "application/octet-stream"))
-        self.send_header("Content-Length", str(os.path.getsize(self.backdrop)))
-        self.send_header("Cache-Control", "max-age=3600")
-        self.end_headers()
-        with open(self.backdrop, "rb") as f:
             while chunk := f.read(1 << 20):
                 self.wfile.write(chunk)
 
@@ -152,8 +158,9 @@ class WebHandler(BaseHTTPRequestHandler):
 
 
 class WebViewServer:
-    def __init__(self, state, host="0.0.0.0", port=8080, backdrop=None, scene=None):
+    def __init__(self, state, host="0.0.0.0", port=8080, backdrop=None, scene=None, heading=0.0):
         self.state = state
+        self.heading = heading
         self.backdrop = backdrop
         self.scene = scene
         self.host = host
@@ -161,7 +168,7 @@ class WebViewServer:
         self._httpd = None
 
     def start(self):
-        handler_cls = type("BoundWebHandler", (WebHandler,), {"state": self.state, "backdrop": self.backdrop, "scene": self.scene})
+        handler_cls = type("BoundWebHandler", (WebHandler,), {"state": self.state, "backdrop": self.backdrop, "scene": self.scene, "heading": self.heading})
         self._httpd = ThreadingHTTPServer((self.host, self.port), handler_cls)
         self._httpd.daemon_threads = True
         self.port = self._httpd.server_address[1]
