@@ -29,29 +29,26 @@ const hud = document.getElementById("hud");
 if (params.get("hud") === "0") hud.style.display = "none";
 
 // ---- Panorama: equirectangular, drawn on a 2D canvas -----------------------
-function makePanorama() {
-  const c = document.createElement("canvas");
-  c.width = TEX_W; c.height = TEX_H;
-  const g = c.getContext("2d");
-  const X = deg => (deg + 180) / 360 * TEX_W;        // longitude -> x
-  const Y = deg => (90 - deg) / 180 * TEX_H;         // latitude  -> y
-  const sky = g.createLinearGradient(0, 0, 0, Y(0));
-  sky.addColorStop(0, "#14284b"); sky.addColorStop(1, "#8fb8e8");
-  g.fillStyle = sky; g.fillRect(0, 0, TEX_W, Y(0));
-  const floor = g.createLinearGradient(0, Y(0), 0, TEX_H);
-  floor.addColorStop(0, "#4a5a3a"); floor.addColorStop(1, "#1d2616");
-  g.fillStyle = floor; g.fillRect(0, Y(0), TEX_W, TEX_H - Y(0));
+const X = deg => (deg + 180) / 360 * TEX_W;          // longitude -> x
+const Y = deg => (90 - deg) / 180 * TEX_H;           // latitude  -> y
 
-  // Grid every 5 degrees, heavier every 15 and 45.
+// Degree lines every 5 degrees, heavier every 15 and 45, labelled every 15,
+// on a TEX_W x TEX_H canvas: over the drawn world, or over a backdrop
+// (?grid=0 leaves the backdrop bare). Each line has a dark edge so it
+// shows on a bright wall as well as a dark floor.
+function drawGrid(g) {
+  const line = (x0, y0, x1, y1, width, colour) => {
+    g.beginPath(); g.moveTo(x0, y0); g.lineTo(x1, y1);
+    g.lineWidth = width + 3; g.strokeStyle = "rgba(0,0,0,.45)"; g.stroke();
+    g.lineWidth = width; g.strokeStyle = colour; g.stroke();
+  };
   for (let lon = -180; lon <= 180; lon += 5) {
-    g.strokeStyle = lon % 45 === 0 ? "rgba(255,255,255,.9)" : lon % 15 === 0 ? "rgba(255,255,255,.55)" : "rgba(255,255,255,.2)";
-    g.lineWidth = lon % 45 === 0 ? 6 : lon % 15 === 0 ? 3 : 1.5;
-    g.beginPath(); g.moveTo(X(lon), 0); g.lineTo(X(lon), TEX_H); g.stroke();
+    line(X(lon), 0, X(lon), TEX_H, lon % 45 === 0 ? 6 : lon % 15 === 0 ? 3 : 1.5,
+         lon % 45 === 0 ? "rgba(255,255,255,.9)" : lon % 15 === 0 ? "rgba(255,255,255,.65)" : "rgba(255,255,255,.35)");
   }
   for (let lat = -85; lat <= 85; lat += 5) {
-    g.strokeStyle = lat === 0 ? "rgba(255,230,120,.95)" : lat % 15 === 0 ? "rgba(255,255,255,.55)" : "rgba(255,255,255,.2)";
-    g.lineWidth = lat === 0 ? 6 : lat % 15 === 0 ? 3 : 1.5;
-    g.beginPath(); g.moveTo(0, Y(lat)); g.lineTo(TEX_W, Y(lat)); g.stroke();
+    line(0, Y(lat), TEX_W, Y(lat), lat === 0 ? 6 : lat % 15 === 0 ? 3 : 1.5,
+         lat === 0 ? "rgba(255,230,120,.95)" : lat % 15 === 0 ? "rgba(255,255,255,.65)" : "rgba(255,255,255,.35)");
   }
   // Degree labels along the horizon and at +-20 degrees.
   g.fillStyle = "#fff"; g.textAlign = "center"; g.textBaseline = "middle";
@@ -63,6 +60,20 @@ function makePanorama() {
       g.lineWidth = 6; g.strokeStyle = "rgba(0,0,0,.7)"; g.strokeText(t, x, y); g.fillText(t, x, y);
     }
   }
+}
+
+function makePanorama() {
+  const c = document.createElement("canvas");
+  c.width = TEX_W; c.height = TEX_H;
+  const g = c.getContext("2d");
+  const sky = g.createLinearGradient(0, 0, 0, Y(0));
+  sky.addColorStop(0, "#14284b"); sky.addColorStop(1, "#8fb8e8");
+  g.fillStyle = sky; g.fillRect(0, 0, TEX_W, Y(0));
+  const floor = g.createLinearGradient(0, Y(0), 0, TEX_H);
+  floor.addColorStop(0, "#4a5a3a"); floor.addColorStop(1, "#1d2616");
+  g.fillStyle = floor; g.fillRect(0, Y(0), TEX_W, TEX_H - Y(0));
+  drawGrid(g);
+
   // Big landmarks so zoom, focus and direction are obvious.
   const marks = [
     [0, 8, "#e53935", "A", 7], [30, 4, "#fb8c00", "B", 4], [-45, 12, "#43a047", "C", 5],
@@ -211,6 +222,17 @@ async function loadBackdrop() {
     const c = document.createElement("canvas");
     c.width = Math.floor(image.width * k); c.height = Math.floor(image.height * k);
     c.getContext("2d").drawImage(image, 0, 0, c.width, c.height);
+    image = c;
+  }
+  if (params.get("grid") !== "0") {
+    const c = document.createElement("canvas");
+    c.width = image.width; c.height = image.height;
+    const g = c.getContext("2d");
+    g.drawImage(image, 0, 0);
+    const grid = document.createElement("canvas");
+    grid.width = TEX_W; grid.height = TEX_H;
+    drawGrid(grid.getContext("2d"));
+    g.drawImage(grid, 0, 0, c.width, c.height);
     image = c;
   }
   setPanorama(image, image.width);
