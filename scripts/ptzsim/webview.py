@@ -2,7 +2,7 @@
 
 Serves web/index.html, which renders a panorama through a virtual camera
 whose yaw/pitch/FOV/blur follow the shared PTZState, and GET /events, a
-Server-Sent Events stream of that state at ~30 Hz. Unlike the RTSP feed
+Server-Sent Events stream of that state at ~50 Hz. Unlike the RTSP feed
 this needs no ffmpeg or MediaMTX, but it is not a video stream: it
 doesn't exercise OBS's Media Source decode path.
 """
@@ -14,7 +14,7 @@ import time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 WEB_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "web")
-EVENT_HZ = 30
+EVENT_HZ = 50
 
 
 def state_event(state):

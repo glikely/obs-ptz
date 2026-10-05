@@ -62,6 +62,15 @@ OBS as a **Browser Source** (e.g. 1280x720); `?hud=0` hides the text readout.
 It needs OBS's browser source (CEF), and unlike `--with-video` it doesn't
 exercise OBS's Media Source/RTSP path.
 
+## Moving like a camera
+
+By default an absolute move, preset recall or home jumps straight to its
+destination. `--move-time SECONDS` makes them take time, as a camera's
+motors do: SECONDS to cross the full pan range, with tilt, zoom and focus
+at the same rate. Every protocol reads the in-transit position back while
+it moves, and a drive command or stop cancels the move. For the WebGL view,
+try `--web-port 8080 --move-time 4`.
+
 ## Running it
 
 From the repository root:

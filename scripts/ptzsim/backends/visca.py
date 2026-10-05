@@ -499,13 +499,13 @@ class ViscaCameraLogic:
 
     def cmd010604(self, dg):
         '''Pan-tiltDrive-Home'''
-        self.state.set_position(pan=0.0, tilt=0.0)
         self.state.stop(pan_tilt=True, zoom=False)
+        self.state.set_position(pan=0.0, tilt=0.0)
 
     def cmd010605(self, dg):
         '''Pan-tiltDrive-Reset'''
-        self.state.set_position(pan=0.0, tilt=0.0)
         self.state.stop(pan_tilt=True, zoom=False)
+        self.state.set_position(pan=0.0, tilt=0.0)
 
     def cmd01043f00(self, dg):
         '''CAM_Memory Reset'''

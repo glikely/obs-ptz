@@ -161,6 +161,10 @@ def parse_args():
     ap.add_argument("--state-file", default="/tmp/ptzsim-state.txt",
                      help="path the video overlay text is written to")
 
+    ap.add_argument("--move-time", type=float, default=0.0, metavar="SECONDS",
+                     help="make absolute moves, presets and home take time, as a camera's "
+                          "motors do: SECONDS to cross the full pan range, the other axes at "
+                          "the same rate (0, the default, makes them instant)")
     ap.add_argument("--web-port", type=int, default=0,
                      help="serve a WebGL camera view on this port, for an OBS Browser "
                           "Source (0 disables it, the default; try 8080)")
@@ -174,6 +178,8 @@ def main():
     args = parse_args()
 
     state = PTZState()
+    if args.move_time > 0:
+        state.move_rate = 2.0 / args.move_time
     if args.start_in_standby:
         state.power = False
     stop_event = threading.Event()

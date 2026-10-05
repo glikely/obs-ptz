@@ -6,6 +6,11 @@ where sign indicates direction. A single background ticker (see
 run_ticker()) integrates speed into position at a fixed rate, so the
 simulated camera keeps moving smoothly regardless of which backends are
 attached or how often they poll.
+
+Absolute moves (set_position, goto_home, goto_preset, move_relative) go
+to their destination at move_rate per second, as a real camera's motors
+do, instead of jumping there; move_rate 0 makes them instant. Drive
+commands (set_*_speed) and stop() cancel a move in progress.
 """
 
 import threading
@@ -83,6 +88,10 @@ class PTZState:
         # first. Only the first INQUIRY_LOG_MAX, as a camera is asked
         # forever.
         self.visca_inquiries = []
+        # Where each axis is heading after an absolute move, and how fast
+        # it gets there in normalized units per second (0: it jumps)
+        self.move_rate = 0.0
+        self._targets = {}
         self.home = Position()
         self.presets = {}
         self._next_preset_id = 1
@@ -93,17 +102,43 @@ class PTZState:
                                 self.pan_speed, self.tilt_speed,
                                 self.zoom_speed, self.focus_speed, self.power)
 
+    def _go_to(self, pan=None, tilt=None, zoom=None, focus=None):
+        """Send each given axis to its position: now if move_rate is 0,
+        else at move_rate per second. Called with the lock held."""
+        for axis, value, lo in (("pan", pan, -1.0), ("tilt", tilt, -1.0),
+                                ("zoom", zoom, 0.0), ("focus", focus, 0.0)):
+            if value is None:
+                continue
+            value = clamp(value, lo, 1.0)
+            if self.move_rate > 0:
+                self._targets[axis] = value
+            else:
+                setattr(self, axis, value)
+                self._targets.pop(axis, None)
+
+    def _cancel(self, *axes):
+        for axis in axes:
+            self._targets.pop(axis, None)
+
+    @property
+    def moving_to_target(self):
+        with self._lock:
+            return bool(self._targets)
+
     def set_pt_speed(self, pan_speed, tilt_speed):
         with self._lock:
+            self._cancel("pan", "tilt")
             self.pan_speed = clamp(pan_speed, -1.0, 1.0)
             self.tilt_speed = clamp(tilt_speed, -1.0, 1.0)
 
     def set_zoom_speed(self, speed):
         with self._lock:
+            self._cancel("zoom")
             self.zoom_speed = clamp(speed, -1.0, 1.0)
 
     def set_focus_speed(self, speed):
         with self._lock:
+            self._cancel("focus")
             self.focus_speed = clamp(speed, -1.0, 1.0)
 
     def set_power(self, power):
@@ -113,37 +148,32 @@ class PTZState:
     def stop(self, pan_tilt=True, zoom=True, focus=False):
         with self._lock:
             if pan_tilt:
+                self._cancel("pan", "tilt")
                 self.pan_speed = 0.0
                 self.tilt_speed = 0.0
             if zoom:
+                self._cancel("zoom")
                 self.zoom_speed = 0.0
             if focus:
+                self._cancel("focus")
                 self.focus_speed = 0.0
 
     def set_position(self, pan=None, tilt=None, zoom=None, focus=None):
         with self._lock:
-            if pan is not None:
-                self.pan = clamp(pan, -1.0, 1.0)
-            if tilt is not None:
-                self.tilt = clamp(tilt, -1.0, 1.0)
-            if zoom is not None:
-                self.zoom = clamp(zoom, 0.0, 1.0)
-            if focus is not None:
-                self.focus = clamp(focus, 0.0, 1.0)
+            self._go_to(pan, tilt, zoom, focus)
 
     def move_relative(self, dpan=0.0, dtilt=0.0, dzoom=0.0, dfocus=0.0):
         with self._lock:
-            self.pan = clamp(self.pan + dpan, -1.0, 1.0)
-            self.tilt = clamp(self.tilt + dtilt, -1.0, 1.0)
-            self.zoom = clamp(self.zoom + dzoom, 0.0, 1.0)
-            self.focus = clamp(self.focus + dfocus, 0.0, 1.0)
+            # From where the camera is going, so two in a row add up
+            def base(axis):
+                return self._targets.get(axis, getattr(self, axis))
+            self._go_to(base("pan") + dpan, base("tilt") + dtilt,
+                        base("zoom") + dzoom, base("focus") + dfocus)
 
     def goto_home(self):
         with self._lock:
-            self.pan = self.home.pan
-            self.tilt = self.home.tilt
-            self.zoom = self.home.zoom
             self.stop(pan_tilt=True, zoom=True)
+            self._go_to(self.home.pan, self.home.tilt, self.home.zoom)
 
     def set_home(self):
         with self._lock:
@@ -163,10 +193,8 @@ class PTZState:
             preset = self.presets.get(token)
             if preset is None:
                 return False
-            self.pan = preset.position.pan
-            self.tilt = preset.position.tilt
-            self.zoom = preset.position.zoom
-            self.focus = preset.position.focus
+            self._go_to(preset.position.pan, preset.position.tilt,
+                        preset.position.zoom, preset.position.focus)
             return True
 
     def remove_preset(self, token):
@@ -181,10 +209,21 @@ class PTZState:
         """Integrate speed into position. speed_scale sets how much of the
         full range a speed of 1.0 covers per second."""
         with self._lock:
-            self.pan = clamp(self.pan + self.pan_speed * dt * speed_scale, -1.0, 1.0)
-            self.tilt = clamp(self.tilt + self.tilt_speed * dt * speed_scale, -1.0, 1.0)
-            self.zoom = clamp(self.zoom + self.zoom_speed * dt * speed_scale, 0.0, 1.0)
-            self.focus = clamp(self.focus + self.focus_speed * dt * speed_scale, 0.0, 1.0)
+            # An axis heading for a position ignores its drive speed
+            heading = set(self._targets)
+            reach = self.move_rate * dt
+            for axis in heading:
+                target = self._targets[axis]
+                here = getattr(self, axis)
+                if abs(target - here) <= reach:
+                    setattr(self, axis, target)
+                    del self._targets[axis]
+                else:
+                    setattr(self, axis, here + (reach if target > here else -reach))
+            for axis, speed, lo in (("pan", self.pan_speed, -1.0), ("tilt", self.tilt_speed, -1.0),
+                                    ("zoom", self.zoom_speed, 0.0), ("focus", self.focus_speed, 0.0)):
+                if axis not in heading:
+                    setattr(self, axis, clamp(getattr(self, axis) + speed * dt * speed_scale, lo, 1.0))
 
     def status_lines(self):
         snap = self.snapshot()
@@ -202,7 +241,7 @@ class PTZState:
         ]
 
 
-def run_ticker(state, stop_event, hz=20):
+def run_ticker(state, stop_event, hz=50):
     """Continuously integrate state.step() until stop_event is set."""
     interval = 1.0 / hz
     last = time.time()
