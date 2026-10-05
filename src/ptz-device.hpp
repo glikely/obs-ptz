@@ -180,7 +180,8 @@ public:
 	void setParentSourceByName(const char *name);
 	/* The hostname or IP address the parent source reports for the device
 	 * it receives from, or "" if it doesn't or there is no parent. Read
-	 * from the settings of a DistroAV NDI source ("web_control_url"). */
+	 * from the settings of a DistroAV NDI source ("web_control_url") or
+	 * of a browser source showing a page from a server ("url"). */
 	QString parentSourceHost() const;
 	/* Tells the driver if the parent's host changed since it last looked */
 	void checkParentHost();

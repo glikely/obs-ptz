@@ -384,10 +384,21 @@ QString PTZDevice::parentSourceHost() const
 	if (!src)
 		return QString();
 	const char *id = obs_source_get_id(src);
-	if (!id || strcmp(id, "ndi_source") != 0)
+	if (!id)
 		return QString();
 	OBSDataAutoRelease settings = obs_source_get_settings(src);
-	QString url = QT_UTF8(obs_data_get_string(settings, "web_control_url"));
+	QString url;
+	if (strcmp(id, "ndi_source") == 0) {
+		url = QT_UTF8(obs_data_get_string(settings, "web_control_url"));
+	} else if (strcmp(id, "browser_source") == 0) {
+		/* A page from a file has no host, and a new source starts on
+		 * OBS's own page, which isn't a camera */
+		if (obs_data_get_bool(settings, "is_local_file"))
+			return QString();
+		url = QT_UTF8(obs_data_get_string(settings, "url"));
+		if (url == QStringLiteral("https://obsproject.com/browser-source"))
+			return QString();
+	}
 	if (url.isEmpty())
 		return QString();
 	return QUrl::fromUserInput(url).host();
