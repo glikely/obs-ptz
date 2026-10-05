@@ -216,24 +216,6 @@ void PTZDevice::onFrontendEvent(enum obs_frontend_event event)
 	}
 }
 
-/**
- * Fires the "ptz_device_create" signal -- deliberately *not* done from the
- * constructor so that subclasses of PTZDevice can finish their
- * initialization before the announce is sent.
- */
-void PTZDevice::announceCreated()
-{
-	/* Held across the signal, which only lends it: a listener that wants it
-	 * later takes its own reference */
-	OBSSourceAutoRelease filter = obs_weak_source_get_source(m_filter);
-	if (!filter)
-		return; /* being destroyed already */
-	calldata_t cd = {};
-	calldata_set_ptr(&cd, "filter", filter.Get());
-	signal_handler_signal(ptz_get_signal_handler(), "ptz_device_create", &cd);
-	calldata_free(&cd);
-}
-
 PTZDevice::~PTZDevice()
 {
 	if (m_frontendCallback)
@@ -1104,9 +1086,6 @@ void *ptz_filter_create(const std::function<PTZDevice *()> &make)
 	PTZDevice *ptz = nullptr;
 	auto build = [&]() {
 		ptz = make();
-		/* Only announce once the full (base + derived) object is
-		 * constructed -- see PTZDevice::announceCreated() */
-		ptz->announceCreated();
 	};
 	/* Creating the device must happen on the main thread */
 	if (QThread::currentThread() != qApp->thread())
@@ -1156,6 +1135,19 @@ void ptz_filter_save(void *data, obs_data_t *settings)
 	PTZDevice::stripIdentity(settings);
 }
 
+bool ptz_filter_is_device(obs_source_t *filter)
+{
+	proc_handler_t *ph = filter ? obs_source_get_proc_handler(filter) : nullptr;
+	if (!ph)
+		return false;
+	calldata_t cd = {};
+	bool usable = proc_handler_call(ph, "ptz_get_api_version", &cd) &&
+		      calldata_int(&cd, "major") == PTZ_API_VERSION_MAJOR &&
+		      calldata_int(&cd, "minor") >= PTZ_API_VERSION_MINOR;
+	calldata_free(&cd);
+	return usable;
+}
+
 void ptz_device_startup(obs_source_t *filter)
 {
 	/* The data of a PTZ Control filter is its device */
@@ -1164,25 +1156,8 @@ void ptz_device_startup(obs_source_t *filter)
 		QMetaObject::invokeMethod(ptz, [ptz]() { ptz->onOBSStartup(); }, Qt::QueuedConnection);
 }
 
-/* Announces a device being made to the device list, inside the plugin: not
- * part of the API, for which a device's own filter is the way in */
-static signal_handler_t *ptz_sh = NULL;
-
-signal_handler_t *ptz_get_signal_handler()
-{
-	return ptz_sh;
-}
-
 void ptz_load_devices()
 {
-	/* Register the signal handler used to announce a device being made */
-	ptz_sh = signal_handler_create();
-	if (!ptz_sh) {
-		blog(LOG_ERROR, "could not allocate signal_handler for PTZ devices");
-		return;
-	}
-	signal_handler_add(ptz_sh, "void ptz_device_create(ptr filter)");
-
 	/* Constructed here rather than as a plain static-storage global so
 	 * its constructor happens at a well-defined point in the module load
 	 * instead of at plugin-library-load time -- see PTZListModel::create() */
@@ -1213,8 +1188,6 @@ void ptz_unload_devices(void)
 		QMutexLocker locker(&ptz_backup_mutex);
 		ptz_backups = nullptr;
 	}
-	signal_handler_destroy(ptz_sh);
-	ptz_sh = nullptr;
 }
 
 void PTZDevice::sanitizePreset(size_t id)

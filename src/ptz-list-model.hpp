@@ -17,8 +17,8 @@
 /**
  * PTZListModel never holds a PTZDevice* (see AGENTS.md / the decoupling
  * design in ptz-device.cpp): every device it knows about is represented
- * purely by its filter, a weak reference to the source
- * handed over on the "ptz_device_create" signal, and a local cache of the
+ * purely by its filter, a weak reference to the source it found through
+ * OBS's "source_filter_add" signal, and a local cache of the
  * fields QAbstractItemModel::data() needs to stay synchronous. All control
  * goes out through proc_handler_call(); the cache is kept in sync purely by
  * signal_handler notifications (see PTZListModel()'s constructor/the *_cb

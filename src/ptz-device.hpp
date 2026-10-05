@@ -157,10 +157,6 @@ protected:
 public:
 	~PTZDevice();
 	PTZDevice(OBSData config, obs_source_t *filter);
-	/* Fires the create signal PTZListModel discovers new devices through.
-	 * Called by ptz_filter_create() once the full object (base and
-	 * derived) is constructed -- see the comment on the definition. */
-	void announceCreated();
 
 	/* Refresh the device's name from its source -- the device's name is
 	 * always the name of its source (or the last one it had, while that

@@ -33,6 +33,7 @@ PTZUITestHarness::PTZUITestHarness(QObject *parent) : QObject(parent)
 	registerApiVersionTest(this);
 	registerDeviceBackupTest(this);
 	registerCameraReportTest(this);
+	registerThirdPartyDeviceTest(this);
 }
 
 QModelIndex ptzUITestDeviceIndex(const QString &device)

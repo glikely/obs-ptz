@@ -22,10 +22,6 @@ PTZListModel *ptzDeviceList = nullptr;
  * calldata arguments and uses QMetaObject::invokeMethod() to make the
  * method call on the correct thread.
  */
-/**
- * Device lifetime is detected through the global PTZ signal_handler
- * (see ptz_get_signal_handler() / ptz_load_devices())
- */
 /* Which device a per-device signal is from: the UUID of the filter it carries,
  * lent for the duration of the call */
 static QString filterUuid(calldata_t *cd)
@@ -34,15 +30,19 @@ static QString filterUuid(calldata_t *cd)
 	return filter ? QString::fromUtf8(obs_source_get_uuid(filter)) : QString();
 }
 
-static void device_create_cb(void *data, calldata_t *cd)
+/* OBS says so, through its own global signal, every time a filter is added to a
+ * source: the one way to hear of devices from any plugin, since a filter is always
+ * private, and so never announces itself as a source being created. A filter is a
+ * device of the PTZ API if it implements it, and that is all it takes.
+ *
+ * It is lent for the duration of the call, and the filter, and its handlers, may be
+ * gone by the time the queued call runs, so make a weak reference first. */
+static void filter_add_cb(void *data, calldata_t *cd)
 {
 	auto ptzlm = static_cast<PTZListModel *>(data);
 	auto filter = static_cast<obs_source_t *>(calldata_ptr(cd, "filter"));
-	if (!filter)
+	if (!filter || !ptz_filter_is_device(filter))
 		return;
-	/* filter is only lent for the duration of this call. Make a weak
-	 * reference to it before the invokeMethod(): by the time that runs the
-	 * filter, and its handlers, may be gone */
 	OBSWeakSource weakFilter = OBSGetWeakRef(filter);
 	QMetaObject::invokeMethod(ptzlm, [ptzlm, weakFilter] { ptzlm->deviceCreated(weakFilter); });
 }
@@ -126,11 +126,14 @@ static void preset_renamed_cb(void *data, calldata_t *cd)
 
 PTZListModel::PTZListModel() : QAbstractItemModel()
 {
-	signal_handler_t *ptz_sh = ptz_get_signal_handler();
-	signal_handler_connect(ptz_sh, "ptz_device_create", device_create_cb, this);
+	/* Plugins are loaded before any source is, so there are no filters to look for yet */
+	signal_handler_connect(obs_get_signal_handler(), "source_filter_add", filter_add_cb, this);
 }
 
-PTZListModel::~PTZListModel() {}
+PTZListModel::~PTZListModel()
+{
+	signal_handler_disconnect(obs_get_signal_handler(), "source_filter_add", filter_add_cb, this);
+}
 
 void PTZListModel::create()
 {
@@ -688,16 +691,20 @@ void PTZListModel::preset_save(const QString &uuid, int preset_id)
 
 void PTZListModel::deviceCreated(OBSWeakSource weakFilter)
 {
-	/* Not there to be asked about if its filter has gone since it was announced */
+	/* Not there to be asked about if its filter has gone since it was added */
 	OBSSourceAutoRelease filter = obs_weak_source_get_source(weakFilter);
 	if (!filter)
+		return;
+	/* A filter can be added to a source more than once */
+	QString uuid = QString::fromUtf8(obs_source_get_uuid(filter));
+	if (rowByUuid.contains(uuid))
 		return;
 	signal_handler_t *sh = obs_source_get_signal_handler(filter);
 
 	PTZDeviceEntry entry;
 	entry.serial = nextSerial++;
 	/* Kept, since once the filter is destroyed there is no asking it */
-	entry.uuid = QString::fromUtf8(obs_source_get_uuid(filter));
+	entry.uuid = uuid;
 	entry.weakFilter = weakFilter;
 	devices.append(entry);
 	rebuildRowIndex();

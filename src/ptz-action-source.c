@@ -58,8 +58,6 @@ static void ptz_action_source_update(void *data, obs_data_t *settings)
 	context->tilt_speed = obs_data_get_double(settings, "tilt_speed");
 }
 
-#define PTZ_FILTER_PREFIX "ca.secretlab.obs-ptz."
-
 static void ptz_action_source_do_action(struct ptz_action_source_data *context)
 {
 	/* The camera is its filter, found by the UUID it was saved with. Its
@@ -67,7 +65,7 @@ static void ptz_action_source_do_action(struct ptz_action_source_data *context)
 	obs_source_t *filter =
 		context->device_uuid && *context->device_uuid ? obs_get_source_by_uuid(context->device_uuid) : NULL;
 	proc_handler_t *ph = NULL;
-	if (filter && strncmp(obs_source_get_id(filter), PTZ_FILTER_PREFIX, strlen(PTZ_FILTER_PREFIX)) == 0)
+	if (filter && ptz_filter_is_device(filter))
 		ph = obs_source_get_proc_handler(filter);
 	if (!ph) {
 		obs_source_release(filter);
@@ -249,10 +247,10 @@ static bool ptz_action_source_test_clicked_cb(obs_properties_t *props, obs_prope
 	return false;
 }
 
-/* Each filter of a source that is a PTZ Control filter is a camera */
+/* Each filter of a source that is a PTZ device, whoever provides it, is a camera */
 static void add_camera_filter_cb(obs_source_t *parent, obs_source_t *filter, void *param)
 {
-	if (strncmp(obs_source_get_id(filter), PTZ_FILTER_PREFIX, strlen(PTZ_FILTER_PREFIX)) != 0)
+	if (!ptz_filter_is_device(filter))
 		return;
 	const char *name = obs_source_get_name(parent);
 	obs_property_list_add_string(param, name && *name ? name : obs_module_text("PTZ.Device.DefaultName"),

@@ -152,8 +152,9 @@ of the API through them, not with `proc_handler_add()` directly.
 
 A device is named by its filter, and found again by the filter's UUID; the
 plugin has no ids, and no handlers of its own for a caller to reach a device
-through. The `ptz_device_create` signal on `ptz_get_signal_handler()` only tells
-the device list that a device exists, and is not API.
+through. The device list finds devices the way any other plugin could, from OBS's
+`source_filter_add` signal and a filter's answer to `ptz_get_api_version`,
+with nothing private between the plugin's devices and it.
 
 ## Verification practices
 
