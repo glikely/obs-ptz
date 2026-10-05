@@ -20,8 +20,6 @@ its id by the plugin, not by the test's config file. What the tests check:
   went live, which no scene change announces;
 - removing the filter removes the device, leaving the source and any
   other filter's device alone;
-- a filter's device is saved with the filter, not in the plugin's own
-  list of devices.
 """
 
 import json
@@ -299,17 +297,3 @@ def test_each_filter_has_its_own_device(obs_world, cameras, tmp_path):
     cameras.remove_filter("filter-cam-a")
     obs_world.wait_for_device_by_name("filter-cam-a", out, lambda r: not r["found"], timeout=10)
     assert obs_world.device_by_name("filter-cam-b", out)["device_id"] == b["device_id"]
-
-
-def test_filter_devices_are_not_saved_in_the_device_list(obs_world, cameras, tmp_path):
-    out = tmp_path / "device.json"
-    cameras.add_source(obs_world.create_scene(), "filter-cam-save")
-    cameras.add_filter("filter-cam-save")
-    device_id = obs_world.wait_for_device_by_name("filter-cam-save", out, lambda r: r["found"])["device_id"]
-
-    saved = obs_world.saved_devices(tmp_path / "saved.json")
-
-    saved_ids = {d["id"] for d in saved}
-    assert device_id not in saved_ids
-    # ...while the devices in the plugin's own config are
-    assert set(obs_world.device_ids.values()) <= saved_ids

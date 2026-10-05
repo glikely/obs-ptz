@@ -21,7 +21,7 @@ import pytest
 # The filter fixtures live in test_filter_devices.py
 from test_filter_devices import camera_sim, cameras  # noqa: F401
 
-IDENTITY_KEYS = {"id", "name", "is-self-managed"}
+IDENTITY_KEYS = {"id", "name"}
 
 @pytest.mark.parametrize("backend", ["visca-tcp", "visca-udp", "visca-serial", "pelco-d", "pelco-p"])
 def test_settings_properties_are_all_saved(obs_world, backend, tmp_path):
@@ -68,10 +68,15 @@ def test_dialog_settings_reach_the_filter(obs_world, cameras, tmp_path):  # noqa
 
 
 def test_filter_updated_with_one_setting_keeps_the_rest_at_their_defaults(obs_world, cameras, tmp_path):  # noqa: F811
-    cameras.add_source(obs_world.create_scene(), "partial-cam")
+    scene = obs_world.create_scene()
+    cameras.add_source(scene, "partial-cam")
     cameras.add_filter("partial-cam")
     out = tmp_path / "settings.json"
     device_id = obs_world.wait_for_device_by_name("partial-cam", out, lambda r: r["found"] and r["bound"])["device_id"]
+
+    # libobs gives a video source its new settings when it is next ticked, which
+    # one that is not showing never is: the filter's .update would not be called
+    obs_world.ws.call("SetCurrentProgramScene", {"sceneName": scene})
 
     # As OBS's Filters dialog or a script does: just the one setting, not the whole set
     obs_world.ws.call("SetSourceFilterSettings", {

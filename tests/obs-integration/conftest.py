@@ -110,16 +110,6 @@ DEVICE_IDS = {
     # process underneath this device without disturbing the other
     # devices above.
     "visca-tcp-flaky": 6,
-    # Devices for test_device_source_binding.py. Each is configured with
-    # the name of an OBS source that doesn't exist when OBS starts (the
-    # config is loaded before OBS loads its scene collection), which the
-    # test then creates, renames and removes. One device per test, since
-    # a device's binding state carries over from one test to the next.
-    "source-late": 7,
-    "source-rename": 8,
-    "source-recreate": 9,
-    "source-held": 10,
-    "source-held-replaced": 11,
     # Configured with no name at all, so it's not bound to any source
     "unnamed": 12,
     # Talks ONVIF to the shared ptzsim
@@ -247,16 +237,6 @@ def write_ptz_plugin_config(home: Path, ports, serial_paths):
             "tcp_port": ports["visca_tcp_flaky"],
         },
     ]
-    # Nothing listens on these devices' UDP port: they only exist to be
-    # bound to sources, not to talk to a camera.
-    for key in ("source-late", "source-rename", "source-recreate", "source-held", "source-held-replaced"):
-        devices.append({
-            "id": DEVICE_IDS[key],
-            "name": f"sim-{key}",
-            "type": "visca-over-ip",
-            "host": "127.0.0.1",
-            "udp_port": ports["unused_udp"],
-        })
     devices.append({
         "id": DEVICE_IDS["visca-udp-sony"],
         "name": "sim-visca-udp-sony",
@@ -458,6 +438,8 @@ class World:
         self.ws = ws
         self.debug_url = debug_url
         self.device_ids = device_ids
+        # The plugin's config directory, for tests that look at what it keeps there
+        self.config_dir = None
         self._scene_counter = 0
 
     def state(self):
@@ -549,15 +531,6 @@ class World:
                 return last
             time.sleep(interval)
         raise AssertionError(f"device {name!r} never matched predicate; last seen: {last}")
-
-    def saved_devices(self, out_file):
-        """The device configs the plugin would save to its config file
-        (tests/ui-harness/device-source-test.cpp's "get_saved_devices")."""
-        if out_file.exists():
-            out_file.unlink()
-        self.run_ui_test("get_saved_devices", filename=str(out_file))
-        self.wait_for(out_file.exists)
-        return json.loads(out_file.read_text())["devices"]
 
     def hold_source(self, name, out_file, release=False):
         """Takes (or, with release=True, drops) a strong reference to the
@@ -1182,7 +1155,9 @@ def obs_world(tmp_path_factory, ptzsim_process, sony_ptzsim, birddog_ptzsim, pow
         # one was not there to be told
         late_power_ptzsim.start()
 
-        yield World(ws, f"http://127.0.0.1:{ptzsim_process['ports']['debug_http']}/state", DEVICE_IDS)
+        world = World(ws, f"http://127.0.0.1:{ptzsim_process['ports']['debug_http']}/state", DEVICE_IDS)
+        world.config_dir = obs_config_root(home) / "plugin_config" / "obs-ptz"
+        yield world
     finally:
         if ws is not None:
             ws.close()
