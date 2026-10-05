@@ -98,6 +98,27 @@ it back to `update()` on load. An action on the camera that isn't a state
 change (a one-push white balance, a diagnostic) goes through the `ptz_trigger`
 proc instead.
 
+## Legacy self-managed devices
+
+Before devices were owned by filters, they were kept in the plugin's own
+`config.json`, bound to a source by name. `src/ptz-legacy-migration.cpp` turns
+what an old `config.json` still has into filters when a scene collection loads,
+and is to be removed two releases after the first one that has it (see
+TODO.md, which lists what goes with it).
+
+- It copies `config.json` to `config.json.pre-filter-migration`, and the
+  scene collection to `<name>.json.pre-ptz-filter-migration`, before
+  changing either, and never overwrites a copy. They are a user's way back.
+- A device whose source is in the collection becomes a filter on it. One whose
+  source no collection has, or that never had one, gets a hidden colour
+  source in the current scene. So does a source of the user's that refuses the
+  filter, which OBS does without saying.
+- A device keeps its old id if it is free, and action sources follow it if
+  not. A filter's id is otherwise only whatever is free when it is made.
+- An entry is kept in `config.json`, with the collections it was made into,
+  until every collection that has its source has it, so a source that is in
+  more than one collection gets a device in each.
+
 ## What a device can do
 
 A `PTZDevice` says what it can do with `features()`, flags the UI enables
