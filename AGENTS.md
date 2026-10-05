@@ -120,8 +120,12 @@ proc_handler and on each device's own (another plugin can implement the
 per-device API, at another version, so callers check per device). Any change to
 them, or to the calldata fields, state keys or trigger names they take,
 bumps it: the minor version for an addition, the major version (minor back
-to 0) for a removal, rename or change of meaning. Then rerun
-`scripts/gen-api-docs.py`, which writes the version into the doc.
+to 0) for a removal, rename or change of meaning. Then change
+`docs/ptz-device-api.md` to match, which is written by hand: it is the
+specification, and `tests/obs-integration/test_api_doc.py` fails when it and the
+plugin disagree. That test compares it with what `ptz_proc_add()` and
+`ptz_signal_add()` in `src/ptz-device.cpp` log, so register every proc and signal
+of the API through them, not with `proc_handler_add()` directly.
 
 ## Verification practices
 

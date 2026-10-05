@@ -64,10 +64,10 @@ extern signal_handler_t *ptz_get_signal_handler();
  * signals in docs/ptz-device-api.md, and the keys and names they take. Bump
  * the minor version for a change an existing caller can't notice (something
  * added), and the major version, resetting the minor, for one it can
- * (something removed, renamed or changing meaning). Then regenerate the doc,
+ * (something removed, renamed or changing meaning). Then update the doc,
  * which states it. */
-#define PTZ_API_VERSION_MAJOR 1
-#define PTZ_API_VERSION_MINOR 0
+#define PTZ_API_VERSION_MAJOR 0
+#define PTZ_API_VERSION_MINOR 1
 
 #ifdef __cplusplus
 }
