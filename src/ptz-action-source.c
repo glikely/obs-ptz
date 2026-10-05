@@ -9,7 +9,6 @@
  */
 #include <obs-module.h>
 #include <obs-frontend-api.h>
-#include <util/dstr.h>
 #include <callback/signal.h>
 #include "ptz.h"
 
@@ -30,7 +29,8 @@ enum ptz_action_type {
 
 struct ptz_action_source_data {
 	enum ptz_action_trigger_type trigger;
-	uint32_t device_id;
+	/* The UUID of the PTZ Control filter of the camera */
+	char *device_uuid;
 	enum ptz_action_type action;
 	uint32_t preset_id;
 	double pan_speed;
@@ -50,40 +50,56 @@ static void ptz_action_source_update(void *data, obs_data_t *settings)
 	struct ptz_action_source_data *context = data;
 
 	context->trigger = (unsigned int)obs_data_get_int(settings, "trigger");
-	context->device_id = (uint32_t)obs_data_get_int(settings, "device_id");
+	bfree(context->device_uuid);
+	context->device_uuid = bstrdup(obs_data_get_string(settings, "device_uuid"));
 	context->action = (unsigned int)obs_data_get_int(settings, "action");
 	context->preset_id = (uint32_t)obs_data_get_int(settings, "preset_id");
 	context->pan_speed = obs_data_get_double(settings, "pan_speed");
 	context->tilt_speed = obs_data_get_double(settings, "tilt_speed");
 }
 
+#define PTZ_FILTER_PREFIX "ca.secretlab.obs-ptz."
+
 static void ptz_action_source_do_action(struct ptz_action_source_data *context)
 {
+	/* The camera is its filter, found by the UUID it was saved with. Its
+	 * proc_handler is good while the reference is held. */
+	obs_source_t *filter =
+		context->device_uuid && *context->device_uuid ? obs_get_source_by_uuid(context->device_uuid) : NULL;
+	proc_handler_t *ph = NULL;
+	if (filter && strncmp(obs_source_get_id(filter), PTZ_FILTER_PREFIX, strlen(PTZ_FILTER_PREFIX)) == 0)
+		ph = obs_source_get_proc_handler(filter);
+	if (!ph) {
+		obs_source_release(filter);
+		return;
+	}
+
 	calldata_t cd = {0};
-	calldata_set_int(&cd, "device_id", context->device_id);
 	switch (context->action) {
 	case PTZ_ACTION_PRESET_RECALL:
 		calldata_set_int(&cd, "preset_id", context->preset_id);
-		proc_handler_call(ptz_get_proc_handler(), "ptz_preset_recall", &cd);
+		proc_handler_call(ph, "ptz_preset_recall", &cd);
 		break;
 	case PTZ_ACTION_PRESET_SAVE:
 		calldata_set_int(&cd, "preset_id", context->preset_id);
-		proc_handler_call(ptz_get_proc_handler(), "ptz_preset_save", &cd);
+		proc_handler_call(ph, "ptz_preset_save", &cd);
 		break;
 	case PTZ_ACTION_PAN_TILT:
 		calldata_set_float(&cd, "pan", context->pan_speed);
 		calldata_set_float(&cd, "tilt", context->tilt_speed);
-		proc_handler_call(ptz_get_proc_handler(), "ptz_move_continuous", &cd);
+		proc_handler_call(ph, "ptz_move", &cd);
 		break;
 	case PTZ_ACTION_STOP:
+		/* Pan and tilt, as before: zoom and focus are left as they are */
 		calldata_set_float(&cd, "pan", 0.0);
 		calldata_set_float(&cd, "tilt", 0.0);
-		proc_handler_call(ptz_get_proc_handler(), "ptz_move_continuous", &cd);
+		proc_handler_call(ph, "ptz_move", &cd);
 		break;
 	default:
 		break;
 	}
 	calldata_free(&cd);
+	obs_source_release(filter);
 }
 
 static void ptz_action_source_activate(void *data)
@@ -104,16 +120,18 @@ static bool is_ptz_in_preview(struct ptz_action_source_data *context)
 	return false;
 }
 
-static bool is_ptz_device_id_active_in_program(uint32_t device_id)
+static bool is_ptz_device_active_in_program(const char *uuid)
 {
-	obs_source_t *cam_source = ptz_device_get_parent_source(device_id);
-	if (!cam_source)
-		return false;
-
-	obs_source_t *program = obs_frontend_get_current_scene();
-	bool ptz_in_use = ptz_scene_is_source_active(program, cam_source);
-	obs_source_release(program);
-	obs_source_release(cam_source);
+	obs_source_t *filter = uuid && *uuid ? obs_get_source_by_uuid(uuid) : NULL;
+	/* The camera's source is the filter's parent, which the filter holds */
+	obs_source_t *cam_source = filter ? obs_filter_get_parent(filter) : NULL;
+	bool ptz_in_use = false;
+	if (cam_source) {
+		obs_source_t *program = obs_frontend_get_current_scene();
+		ptz_in_use = ptz_scene_is_source_active(program, cam_source);
+		obs_source_release(program);
+	}
+	obs_source_release(filter);
 	return ptz_in_use;
 }
 
@@ -136,7 +154,7 @@ static void ptz_action_source_fe_callback(enum obs_frontend_event event, void *d
 		case PTZ_ACTION_TRIGGER_PREVIEW_ONLY_ACTIVE:
 			is_preview = is_ptz_in_preview(context);
 			if (!context->was_preview && is_preview &&
-			    !is_ptz_device_id_active_in_program(context->device_id))
+			    !is_ptz_device_active_in_program(context->device_uuid))
 				ptz_action_source_do_action(context);
 			context->was_preview = is_preview;
 			break;
@@ -163,8 +181,10 @@ static void *ptz_action_source_create(obs_data_t *settings, obs_source_t *source
 
 static void ptz_action_source_destroy(void *data)
 {
+	struct ptz_action_source_data *context = data;
 	obs_frontend_remove_event_callback(ptz_action_source_fe_callback, data);
-	bfree(data);
+	bfree(context->device_uuid);
+	bfree(context);
 }
 
 static bool ptz_action_source_device_changed_cb(obs_properties_t *props, obs_property_t *prop_camera,
@@ -174,15 +194,18 @@ static bool ptz_action_source_device_changed_cb(obs_properties_t *props, obs_pro
 	obs_property_list_clear(prop_preset);
 	UNUSED_PARAMETER(prop_camera);
 
-	/* Find the camera config */
-	uint32_t id = (uint32_t)obs_data_get_int(settings, "device_id");
-	obs_data_array_t *device_array = ptz_devices_get_config();
+	/* Ask the camera's filter for its presets, in its settings */
+	const char *uuid = obs_data_get_string(settings, "device_uuid");
+	obs_source_t *filter = uuid && *uuid ? obs_get_source_by_uuid(uuid) : NULL;
+	proc_handler_t *ph = filter ? obs_source_get_proc_handler(filter) : NULL;
+	obs_data_t *config = obs_data_create();
 	obs_data_array_t *preset_array = NULL;
-	for (size_t i = 0; i < obs_data_array_count(device_array) && !preset_array; i++) {
-		obs_data_t *config = obs_data_array_item(device_array, i);
-		if (obs_data_get_int(config, "id") == id)
-			preset_array = obs_data_get_array(config, "presets");
-		obs_data_release(config);
+	if (ph) {
+		calldata_t cd = {0};
+		calldata_set_ptr(&cd, "config", config);
+		proc_handler_call(ph, "ptz_get_config", &cd);
+		calldata_free(&cd);
+		preset_array = obs_data_get_array(config, "presets");
 	}
 
 	if (preset_array) {
@@ -195,7 +218,8 @@ static bool ptz_action_source_device_changed_cb(obs_properties_t *props, obs_pro
 	}
 
 	obs_data_array_release(preset_array);
-	obs_data_array_release(device_array);
+	obs_data_release(config);
+	obs_source_release(filter);
 	return true;
 }
 
@@ -225,6 +249,22 @@ static bool ptz_action_source_test_clicked_cb(obs_properties_t *props, obs_prope
 	return false;
 }
 
+/* Each filter of a source that is a PTZ Control filter is a camera */
+static void add_camera_filter_cb(obs_source_t *parent, obs_source_t *filter, void *param)
+{
+	if (strncmp(obs_source_get_id(filter), PTZ_FILTER_PREFIX, strlen(PTZ_FILTER_PREFIX)) != 0)
+		return;
+	const char *name = obs_source_get_name(parent);
+	obs_property_list_add_string(param, name && *name ? name : obs_module_text("PTZ.Device.DefaultName"),
+				     obs_source_get_uuid(filter));
+}
+
+static bool add_camera_cb(void *param, obs_source_t *source)
+{
+	obs_source_enum_filters(source, add_camera_filter_cb, param);
+	return true;
+}
+
 static obs_properties_t *ptz_action_source_get_properties(void *data)
 {
 	obs_properties_t *props = obs_properties_create();
@@ -237,25 +277,10 @@ static obs_properties_t *ptz_action_source_get_properties(void *data)
 	obs_property_list_add_int(prop, "Scene becomes active preview only if not already active program",
 				  PTZ_ACTION_TRIGGER_PREVIEW_ONLY_ACTIVE);
 
-	/* Enumerate the cameras */
-	prop = obs_properties_add_list(props, "device_id", "Camera", OBS_COMBO_TYPE_LIST, OBS_COMBO_FORMAT_INT);
+	/* Enumerate the cameras: the sources with a PTZ Control filter, named for the source */
+	prop = obs_properties_add_list(props, "device_uuid", "Camera", OBS_COMBO_TYPE_LIST, OBS_COMBO_FORMAT_STRING);
 	obs_property_set_modified_callback(prop, ptz_action_source_device_changed_cb);
-	obs_data_array_t *array = ptz_devices_get_config();
-	struct dstr label;
-	dstr_init(&label);
-	for (size_t i = 0; i < obs_data_array_count(array); i++) {
-		obs_data_t *config = obs_data_array_item(array, i);
-		uint32_t id = (uint32_t)obs_data_get_int(config, "id");
-		const char *name = obs_data_get_string(config, "name");
-		if (!name || !*name) {
-			dstr_printf(&label, "%s %u", obs_module_text("PTZ.Device.DefaultName"), id);
-			name = label.array;
-		}
-		obs_property_list_add_int(prop, name, id);
-		obs_data_release(config);
-	}
-	dstr_free(&label);
-	obs_data_array_release(array);
+	obs_enum_sources(add_camera_cb, prop);
 
 	/* List the possible actions */
 	prop = obs_properties_add_list(props, "action", "Action", OBS_COMBO_TYPE_LIST, OBS_COMBO_FORMAT_INT);

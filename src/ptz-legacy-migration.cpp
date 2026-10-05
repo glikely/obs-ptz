@@ -164,30 +164,32 @@ static uint32_t filter_device_id(obs_source_t *filter)
 	return (uint32_t)obs_data_get_int(config, "id");
 }
 
-/* Action sources name a camera by device id; follow the ones that have just moved */
-static void remap_action_sources(const QHash<uint32_t, uint32_t> &map)
+/* Action sources named a camera by the id of its old device; they now name its
+ * filter by UUID, so move the ones whose camera has just got one */
+static void remap_action_sources(const QHash<uint32_t, QByteArray> &uuids)
 {
-	if (map.isEmpty())
+	if (uuids.isEmpty())
 		return;
 	auto cb = [](void *param, obs_source_t *source) {
-		auto map = static_cast<const QHash<uint32_t, uint32_t> *>(param);
+		auto uuids = static_cast<const QHash<uint32_t, QByteArray> *>(param);
 		if (strcmp(obs_source_get_id(source), "ptz_action_source") != 0)
 			return true;
 		OBSDataAutoRelease settings = obs_source_get_settings(source);
-		if (obs_data_get_bool(settings, "device_id_migrated"))
+		if (obs_data_has_user_value(settings, "device_uuid") || !obs_data_has_user_value(settings, "device_id"))
 			return true;
 		uint32_t old_id = (uint32_t)obs_data_get_int(settings, "device_id");
-		if (!map->contains(old_id))
+		auto it = uuids->constFind(old_id);
+		if (it == uuids->constEnd())
 			return true;
+		obs_data_erase(settings, "device_id");
 		OBSDataAutoRelease update = obs_data_create();
-		obs_data_set_int(update, "device_id", map->value(old_id));
-		obs_data_set_bool(update, "device_id_migrated", true);
+		obs_data_set_string(update, "device_uuid", it->constData());
 		obs_source_update(source, update);
-		blog(LOG_INFO, "action source '%s' now uses device %u (was %u)", obs_source_get_name(source),
-		     map->value(old_id), old_id);
+		blog(LOG_INFO, "action source '%s' now uses the filter %s (was device %u)", obs_source_get_name(source),
+		     it->constData(), old_id);
 		return true;
 	};
-	obs_enum_sources(cb, const_cast<QHash<uint32_t, uint32_t> *>(&map));
+	obs_enum_sources(cb, const_cast<QHash<uint32_t, QByteArray> *>(&uuids));
 }
 
 bool ptz_legacy_migrate(bool finishing_loading)
@@ -208,6 +210,7 @@ bool ptz_legacy_migrate(bool finishing_loading)
 
 	bool changed = false, backed_up = false;
 	QHash<uint32_t, uint32_t> pass_map;
+	QHash<uint32_t, QByteArray> pass_uuids;
 
 	for (size_t i = 0; i < obs_data_array_count(legacy_devices); i++) {
 		OBSDataAutoRelease item = obs_data_array_item(legacy_devices, i);
@@ -283,6 +286,7 @@ bool ptz_legacy_migrate(bool finishing_loading)
 		uint32_t new_id = filter_device_id(filter);
 		if (new_id && finishing_loading)
 			ptz_device_startup(new_id);
+		pass_uuids.insert(old_id, obs_source_get_uuid(filter));
 		if (new_id) {
 			pass_map.insert(old_id, new_id);
 			legacy_id_map.insert(old_id, new_id);
@@ -322,7 +326,7 @@ bool ptz_legacy_migrate(bool finishing_loading)
 		}
 	}
 
-	remap_action_sources(pass_map);
+	remap_action_sources(pass_uuids);
 	if (!pass_map.isEmpty())
 		obs_frontend_save();
 	return changed;
