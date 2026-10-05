@@ -3,29 +3,30 @@
 [![Push](https://github.com/glikely/obs-ptz/actions/workflows/push.yaml/badge.svg)](https://github.com/glikely/obs-ptz/actions/workflows/push.yaml)
 [![Crowdin](https://badges.crowdin.net/obs-ptz/localized.svg)](https://crowdin.com/project/obs-ptz)
 
-This is a plugin for controlling PTZ Cameras from OBS studio.
+This is a plugin for controlling PTZ Cameras from OBS Studio.
 
-This plugin adds a new control dock window that can be used to control pan,
-tilt, zoom camera directly from the OBS Studio main window.
-It also tracks the current active scenes to automatically select the
-correct camera for control and can be automated by adding PTZ Actions sources
-to trigger camera actions when scenes change.
+It adds a control dock to the OBS Studio main window for pan, tilt, zoom,
+focus and presets, and tracks the active scenes to select the right camera
+automatically. Cameras are added as a `PTZ Control` filter on the source that
+shows the camera's video, so each camera's settings and presets stay with its
+source. Camera actions can also be automated with PTZ Actions sources that
+trigger when scenes change.
 
 ![PTZ Controls Screenshot](/docs/ptz-controls-screenshot.png?raw=true "OBS Studio PTZ Controls")
+
+![PTZ Controls with thumbnail presets](/docs/ptz-presets-screenshot.png?raw=true "Presets shown as thumbnails")
 
 ![PTZ Controls Screenshot](/docs/ptz-settings-screenshot.png?raw=true "OBS Studio PTZ Device Settings")
 
 Features:
 
-- Adjusts camera Pan, Tilt, Zoom and Focus settings
-- Toggle between manual and auto focus modes
-- Assign hotkeys to camera controls
-- Use a joystick to control camera position
-- Save and recall camera presets
-- Control multiple cameras from OBS
-- Auto select active camera based on active scene
-- Control camera power
-- Adjust camera whitebalance
+- Pan, tilt, zoom and focus control
+- Save and recall presets, shown as a list or as a grid of thumbnails
+- Control multiple cameras, and auto select the camera for the active scene
+- Lock out moves on cameras that are live in Studio Mode
+- Control power, white balance and tally lamps
+- Assign hotkeys to camera controls, or use a joystick or the onscreen joystick
+- Detect cameras on the network (ONVIF and Sony VISCA over IP)
 - Supports multiple camera control protocols, including:
   - VISCA (RS232, RS422, UDP and TCP)
   - Pelco-P
@@ -54,54 +55,50 @@ to follow the building from source instructions below.
 ## Configuration
 
 To show the controls dock, in the `Docks` menu select `PTZ Controls`.
-The PTZ Controls window should appear.
 You can drag the window to any side of the OBS Studio main window to dock it
 into place, or just leave it floating.
 
-Initially no PTZ cameras will be configured.
-To add a camera, click on the gear icon at the bottom of the dock window,
+To open the settings, click on the gear icon at the bottom of the dock,
 or in the `Tools` menu select `PTZ Controls`.
-The PTZ Settings window will appear.
-
-The Settings window has three tabs, `General`, `Cameras` and `About`.
-The `General` tab has settings that affect every camera.
-The `Cameras` tab is where you add and remove cameras,
-and change individual camera settings.
-The `About` tab give some details about the plugin and what version is installed.
+The settings window has three tabs.
+`General` has settings that affect every camera,
+`Cameras` is where you add, remove and configure cameras,
+and `About` shows which version of the plugin is installed.
 
 ### Adding a Camera
-In this plugin, cameras are associated with OBS Studio video sources.
-To add a camera, you should first add a source for the camera's video feed in
-the OBS Studio `Sources` dock.
-Once you've got the camera video working, add PTZ controls to the source in the
-PTZ Controls settings dialog `Tools->PTZ Devices'.
 
-On the `Cameras` tab, click the `+` button in the bottom toolbar to add a
-device.
-It will expand to a list of camera control connections that are available.
-Select the control protocol that is used by your camera.
-A new entry will be added to the device list.
-Click on the new camera and the camera settings will appear on the right hand
-side of the window.
-You'll need to enter the camera connection details, either the network address
-or serial port used for control.
-Click the `Apply` button to connect to the camera.
-Finally associate the camera with an OBS source by using the `Source` combo box.
-This lets the plugin automatically select the right camera for control when
-the preview or program scene changes in OBS.
+First add a source for the camera's video feed in the OBS Studio `Sources`
+dock. Then, on the `Cameras` tab, click the `+` button.
+Choose the source, then choose what the new device starts from:
+a new device using one of the control protocols,
+or a camera detected on the network.
+The device is added as a `PTZ Control` filter on that source, so it also
+appears in the source's `Filters` dialog.
+
+Select the new camera in the list and enter its connection details on the
+`Settings` tab, either the network address or the serial port used for
+control. Click `Apply` to connect, or `Revert` to discard your edits.
+The `Status` tab shows what the camera is doing, and the `Diagnostics` tab
+shows statistics about its connection.
+
+Because the camera is tied to its source, the plugin selects the right
+camera when the preview or program scene changes in OBS.
 
 ### Removing a camera
 
-To remove a camera, select the camera in the settings dialog can click the `-`
-button in the toolbar.
+Select the camera on the `Cameras` tab and click the `-` button.
+The camera's settings and presets are kept as a backup.
+To bring them back, click `+` and pick the removed device from the
+`Restore a removed device` list.
+If you recreate a source with the same name, its backup is picked by default.
 
 ## Controlling Cameras
 
 Cameras are controlled with the arrow buttons in the control dock.
 To adjust a camera, it needs to be selected from the camera list in the PTZ
-dock (bottom left of the control dock).
-By default (if `Auto Select Active Camera` is enabled in settings), then the
-plugin will automatically select the correct camera when the current scene
+dock .
+If `Auto select active camera` is enabled on the `General` tab,
+the plugin will automatically select the correct camera when the current scene
 changes.
 Then, clicking the camera control buttons will adjust the camera position.
 The arrow buttons will pan/tilt the camera,
@@ -109,17 +106,22 @@ The magnifying glass buttons will zoom in and out,
 and the small/large buttons will change the focus.
 You can also toggle autofocus on and off with the `AF` button and trigger
 a one-touch refocus action.
+Buttons for controls that the selected camera doesn't have are disabled or
+hidden. Right click anywhere in the dock for a menu of the other actions,
+such as showing the presets as thumbnails.
 
 Presets are listed on the right hand side of the dock.
-Presets can be saved, recalled, and renamed from the dock window.
+Double click a preset to recall it.
+To save the camera's current position, right click a preset and select
+`Save Preset`. A thumbnail of the camera's view is saved with it.
+Right click and select `Rename Preset` to rename it,
+or `Clear Preset` to reset it.
 
-To save a preset, right click on the preset that you want to change and select
-`Save Preset`. A thumbnail of the camera's view is saved with the preset and
-shown in the list.
-Similarly, to rename a preset, right click and select `Rename Preset`,
-or select `Clear Preset` to reset the name back to default.
-
-Double click to recall a preset.
+Select `Show Presets as Thumbnails` for a grid of thumbnails,
+sized with the slider. By default a preset's thumbnail is refreshed
+whenever it is recalled; turn that off with `Refresh preset thumbnail when
+recalled` on the `General` tab.
+Presets can be exported to a file and imported again.
 
 ### Joystick Control
 
@@ -141,7 +143,7 @@ be quite abrupt and unpleasant to watch.
 
 OBS PTZ can by default block out manual moves of cameras visible in Program.
 To enable this feature, check the `Lockout live PTZ moves in studio mode`
-checkbox in the Setting dialog `About` tab.
+checkbox on the settings `General` tab.
 
 With the feature enabled the pan, tilt, zoom and preset controls will be
 disabled for any camera visible in Program, preventing live moves.
@@ -149,13 +151,37 @@ If you need to override the block and do a live movement anyway
 then you can temporarily override the block by clicking the lock icon in
 the toolbar.
 
+### Tally lamps and power
+
+Cameras with tally lamps (VISCA) light red when their source is live and
+green when it is in preview. Cameras can also be turned on when OBS starts
+and put in standby when it closes; see the camera's `Settings` tab.
+
+### VISCA command sets
+
+Not every VISCA camera follows the Sony standard, so the plugin picks a
+command set for the camera's model, with built in sets for the Sony SRG-120DH
+and BirdDog P100. You can choose one yourself in the camera's advanced
+settings, or add your own as a JSON file.
+See [doc/visca-protocol.md](doc/visca-protocol.md) for the format.
+
+If your camera isn't handled well, the `Diagnostics` tab can create a
+`Camera Report` of what the camera answers, including a draft command set.
+It doesn't contain the camera's address or anything about you. Look it over,
+then send it in with the `Open Issue Page` button.
+
 ### Debugging data
 
 The plugin can generate a large amount of debug data with all the protocol
 messages sent to and received by the cameras.
 Debug logs appear in the main obs-studio log, but are disabled by default.
 To enable debug logs, select `Write protocol trace to OBS log file` in the
-device settings, and run OBS Studio with the --verbose command line option.
+camera's advanced settings, and run OBS Studio with the --verbose command line option.
+
+### Testing without a camera
+
+`scripts/ptzsim` is a simulated camera that speaks VISCA, Pelco and ONVIF.
+See [scripts/ptzsim/README.md](scripts/ptzsim/README.md).
 
 # Building from Source
 
@@ -187,14 +213,13 @@ $ sudo cp -r release/RelWithDebInfo/* /usr/
 
 ## MacOS Quickstart
 
-The easiest way to build the plugin is to use the CMake presets.
-Use the following commands to configure, build and install the plugin in your
-OBS Studio plugins directory.
+Use `scripts/macos-dev.sh` to configure, build, sign and install the plugin,
+and to run OBS with it:
 
 ```
-$ cmake -B build_macos --preset macos
-$ cmake --build build_macos --config RelWithDebInfo
-$ cmake --install build_macos --config RelWithDebInfo
+$ scripts/macos-dev.sh setup     # configure, build and sign
+$ scripts/macos-dev.sh run       # install, then run OBS with the plugin
+$ scripts/macos-dev.sh restore   # put back the plugin it replaced
 ```
 
 ## Windows Quickstart
@@ -222,6 +247,9 @@ Help is also needed to translate into other languages.
 Go to the Crowdin project page to help: [PTZ Controls on Crowdin](https://crowdin.com/project/obs-ptz)
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) for more details.
+
+The screenshots in `doc/` are retaken with `scripts/update-screenshots.sh`,
+which runs OBS Studio with a simulated camera in the Parallels Windows VM.
 
 # Acknowledgements
 
