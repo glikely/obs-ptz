@@ -248,7 +248,7 @@ def main():
                 picture = backdrop.resolve(args.backdrop, args.backdrop_res, args.backdrop_cache)
             except backdrop.BackdropError as e:
                 sys.exit(f"[backdrop] {e}")
-        web = WebViewServer(state, args.host if args.host.startswith("127.") else "0.0.0.0", args.web_port)
+        web = WebViewServer(state, args.host if args.host.startswith("127.") else "0.0.0.0", args.web_port, picture)
         web.start()
 
     def shutdown(*_):
