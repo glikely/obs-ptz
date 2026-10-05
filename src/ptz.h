@@ -55,8 +55,13 @@ extern obs_data_array_t *ptz_device_backups_get(void);
 extern const char *ptz_device_filter_kind(const char *type);
 /* Adds a PTZ Control filter, and so a device, to `parent`, for the "type"
  * in `config` and with its settings. Returns a new reference to the filter,
- * or NULL. */
-extern obs_source_t *ptz_device_create_filter(obs_source_t *parent, obs_data_t *config);
+ * or NULL. The device takes `preferred_id` if it is not 0 and no other device
+ * has it, the lowest free id otherwise. */
+extern obs_source_t *ptz_device_create_filter(obs_source_t *parent, obs_data_t *config, uint32_t preferred_id);
+
+/* Does what a device does when OBS has finished loading, for a device made
+ * while it was doing that, which is too late to have heard of it */
+extern void ptz_device_startup(uint32_t device_id);
 
 extern bool ptz_scene_is_source_active(obs_source_t *scene, obs_source_t *source);
 

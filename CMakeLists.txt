@@ -115,6 +115,7 @@ target_sources(
     src/ptz-movement-controls.cpp
     src/ptz-device.cpp
     src/ptz-thumbnail.cpp
+    src/ptz-legacy-migration.cpp
     src/ptz-list-model.cpp
     src/ptz-discovery.cpp
     src/ptz-sony-discovery.cpp
@@ -135,6 +136,7 @@ target_sources(
     src/ptz-movement-controls.hpp
     src/ptz-device.hpp
     src/ptz-thumbnail.hpp
+    src/ptz-legacy-migration.hpp
     src/ptz-list-model.hpp
     src/ptz-discovery.hpp
     src/ptz-sony-discovery.hpp

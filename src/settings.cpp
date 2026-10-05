@@ -689,7 +689,7 @@ void PTZSettings::addDevice()
 	OBSSourceAutoRelease parent = obs_get_source_by_name(QT_TO_UTF8(sourceCombo->currentText()));
 	if (!parent)
 		return;
-	OBSSourceAutoRelease filter = ptz_device_create_filter(parent, choices[choice]);
+	OBSSourceAutoRelease filter = ptz_device_create_filter(parent, choices[choice], 0);
 	if (!filter)
 		return;
 	QModelIndex index = ptzDeviceList->indexFromFilter(filter);

@@ -32,6 +32,7 @@
 #include "ptz-controls.hpp"
 #include "ptz-list-model.hpp"
 #include "ptz-thumbnail.hpp"
+#include "ptz-legacy-migration.hpp"
 #include "settings.hpp"
 #include "ptz.h"
 
@@ -122,7 +123,11 @@ void PTZControls::handleFrontendEvent(enum obs_frontend_event event)
 		updateMoveControls();
 		break;
 	case OBS_FRONTEND_EVENT_FINISHED_LOADING:
+		migrateLegacyDevices(true);
 		ptz_thumbnail_sweep();
+		break;
+	case OBS_FRONTEND_EVENT_SCENE_COLLECTION_CHANGED:
+		migrateLegacyDevices(false);
 		break;
 	case OBS_FRONTEND_EVENT_EXIT:
 		/* OBS is shutting down. It has already run its own save pass (and
@@ -668,9 +673,11 @@ void PTZControls::SaveConfig()
 		obs_data_set_int(savedata, "current_selected",
 				 ui->deviceList->currentIndex().data(PTZListModel::DeviceIdRole).toInt());
 
-	OBSDataArrayAutoRelease devices = obs_data_array_create();
-	ptzDeviceList->save(devices.Get());
-	obs_data_set_array(savedata, "devices", devices);
+	/* Devices are saved with their filters. What is left here is those not
+	 * yet migrated from the old self-managed backend */
+	OBSDataArrayAutoRelease devices = ptz_legacy_devices_save();
+	if (obs_data_array_count(devices))
+		obs_data_set_array(savedata, "devices", devices);
 
 	/* Save data structure to json */
 	if (!obs_data_save_json_pretty_safe(savedata, file, "tmp", "bak")) {
@@ -692,11 +699,14 @@ void PTZControls::LoadConfig()
 	if (!file)
 		return;
 
+	QString loadedFrom = QT_UTF8(file);
 	OBSDataAutoRelease loaddata = obs_data_create_from_json_file_safe(file, "bak");
 	if (!loaddata) {
 		/* Try loading from the old configuration path */
 		auto f = QString(file).replace("obs-ptz", "ptz-controls");
 		loaddata = obs_data_create_from_json_file_safe(QT_TO_UTF8(f), "bak");
+		if (loaddata)
+			loadedFrom = f;
 	}
 	bfree(file);
 	if (!loaddata)
@@ -756,11 +766,23 @@ void PTZControls::LoadConfig()
 		ui->vertsplitter->restoreState(splitterState);
 	}
 
-	array = obs_data_get_array(loaddata, "devices");
-	obs_data_array_release(array);
-	ptz_devices_set_config(array);
-	ui->deviceList->setCurrentIndex(
-		ptzDeviceList->indexFromDeviceId(obs_data_get_int(loaddata, "current_selected")));
+	/* The devices that config.json has are the old self-managed ones. They
+	 * become filters once a scene collection is loaded, see migrateLegacyDevices() */
+	ptz_legacy_load(QT_TO_UTF8(loadedFrom), loaddata);
+	legacy_current_selected = (uint32_t)obs_data_get_int(loaddata, "current_selected");
+}
+
+void PTZControls::migrateLegacyDevices(bool finishingLoading)
+{
+	if (ptz_legacy_migrate(finishingLoading))
+		SaveConfig();
+	if (legacy_current_selected) {
+		uint32_t id = ptz_legacy_remap_id(legacy_current_selected);
+		if (id) {
+			ui->deviceList->setCurrentIndex(ptzDeviceList->indexFromDeviceId(id));
+			legacy_current_selected = 0;
+		}
+	}
 }
 
 void PTZControls::setAutoselectEnabled(bool enabled)

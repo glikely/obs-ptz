@@ -1178,7 +1178,7 @@ const char *ptz_device_filter_kind(const char *type)
 	return nullptr;
 }
 
-obs_source_t *ptz_device_create_filter(obs_source_t *parent, obs_data_t *config)
+obs_source_t *ptz_device_create_filter(obs_source_t *parent, obs_data_t *config, uint32_t preferred_id)
 {
 	const char *kind = ptz_device_filter_kind(obs_data_get_string(config, "type"));
 	if (!parent || !kind)
@@ -1189,6 +1189,9 @@ obs_source_t *ptz_device_create_filter(obs_source_t *parent, obs_data_t *config)
 	obs_data_apply(settings, config);
 	PTZDevice::stripIdentity(settings);
 	obs_data_erase(settings, "backup_time");
+	/* Only to make the device with: ptz_filter_save() strips it again */
+	if (preferred_id)
+		obs_data_set_int(settings, "id", preferred_id);
 
 	QString base = QT_UTF8(obs_source_get_display_name(kind));
 	QString name = base;
@@ -1298,6 +1301,14 @@ obs_data_array_t *ptz_devices_get_config()
 		obs_data_array_push_back(devices, cfg);
 	}
 	return devices;
+}
+
+void ptz_device_startup(uint32_t device_id)
+{
+	QMutexLocker locker(&ptz_device_registry_mutex);
+	PTZDevice *ptz = ptz_device_registry.value(device_id, nullptr);
+	if (ptz)
+		QMetaObject::invokeMethod(ptz, [ptz]() { ptz->onOBSStartup(); }, Qt::QueuedConnection);
 }
 
 obs_source_t *ptz_device_get_parent_source(uint32_t device_id)

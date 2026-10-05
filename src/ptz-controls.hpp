@@ -70,6 +70,9 @@ private:
 	void copyActionsDynamicProperties();
 	void SaveConfig();
 	void LoadConfig();
+	void migrateLegacyDevices(bool finishingLoading);
+	/* The old self-managed selection, until its device has a new id */
+	uint32_t legacy_current_selected = 0;
 
 	void setCurrent(unsigned int index);
 	int presetIndexToId(QModelIndex index);
