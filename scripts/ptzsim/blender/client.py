@@ -42,6 +42,9 @@ def parse_args():
     ap.add_argument("--samples", type=int, default=4, help="EEVEE samples per frame")
     ap.add_argument("--size", default="1280x720")
     ap.add_argument("--fps", type=float, default=15.0, help="the most frames a second to render")
+    ap.add_argument("--exposure", type=float, default=0.0, help="stops to brighten by (EV)")
+    ap.add_argument("--raytracing", action="store_true",
+                    help="EEVEE ray tracing, for reflections and bounced light: slower")
     ap.add_argument("--fstop", type=float, default=2.8, help="aperture, for the depth of field")
     return ap.parse_args(argv)
 
@@ -191,8 +194,11 @@ def main():
     render.image_settings.file_format = "JPEG"
     render.image_settings.quality = 85
     scene.view_settings.view_transform = "Standard"
+    scene.view_settings.exposure = args.exposure
     if args.engine == "eevee":
         scene.eevee.taa_render_samples = args.samples
+        if args.raytracing:
+            scene.eevee.use_raytracing = True
     else:
         scene.display.shading.light = "STUDIO"
         scene.display.shading.color_type = "TEXTURE"

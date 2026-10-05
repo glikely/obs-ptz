@@ -194,6 +194,11 @@ def parse_args():
     ap.add_argument("--blender-samples", type=int, default=4, help="EEVEE samples per frame (default 4)")
     ap.add_argument("--blender-size", default="1280x720", metavar="WxH")
     ap.add_argument("--blender-fps", type=float, default=15.0, help="the most frames a second (default 15)")
+    ap.add_argument("--blender-exposure", type=float, default=0.0, metavar="EV",
+                     help="brighten Blender's picture by this many stops: a scene made for Cycles "
+                          "is dark in EEVEE, which has no bounced light")
+    ap.add_argument("--blender-raytracing", action="store_true",
+                     help="turn on EEVEE's ray tracing for reflections and bounced light (slower)")
     ap.add_argument("--blender-exe", default=None, metavar="PATH",
                      help="the Blender to run (default: $BLENDER, the macOS app, or blender on $PATH)")
     ap.add_argument("--heading", type=float, default=0.0, metavar="DEGREES",
@@ -372,7 +377,8 @@ def main():
                     None if args.blender == "builtin" else os.path.abspath(args.blender),
                     f"http://{args.advertise}:{web.port}", frames.token, exe=args.blender_exe,
                     camera=args.blender_camera, heading=args.heading, engine=args.blender_engine,
-                    samples=args.blender_samples, size=args.blender_size, fps=args.blender_fps)
+                    samples=args.blender_samples, size=args.blender_size, fps=args.blender_fps,
+                    exposure=args.blender_exposure, raytracing=args.blender_raytracing)
             except blenderview.BlenderError as e:
                 sys.exit(f"[blender] {e}")
             renderer.start()

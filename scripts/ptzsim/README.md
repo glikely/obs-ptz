@@ -109,7 +109,19 @@ along the way you want pan 0 to look. Blender is found as `$BLENDER`,
 On a 2026 Apple-silicon Mac the built-in room gives about 5 frames a second
 in EEVEE at 1280x720 with 4 samples; `--blender-engine workbench` (flat, no
 lighting) is about ten times faster, and `--blender-size`, `--blender-samples`
-and `--blender-fps` trade quality for speed. A real room will be slower. The
+and `--blender-fps` trade quality for speed. A real room is slower: Blender's CC0 [Classroom demo](https://download.blender.org/demo/test/classroom.zip)
+(300 meshes, 10 lights, made for Cycles) takes about 20 seconds to
+compile its shaders on the first frame, then gives 2 to 3 frames a second
+at 1280x720. EEVEE has no bounced light, so such a scene comes out dark:
+`--blender-exposure` (stops) brightens it and `--blender-raytracing` turns
+on EEVEE's ray tracing for bounced light, at little extra cost here.
+For example, `--blender classroom/classroom.blend --blender-camera renderCam
+--blender-exposure 2.5 --blender-raytracing`.
+
+Workbench is the practical choice for a live picture: it draws a scene's textures
+with studio lighting, so the Classroom comes out bright and clear at about 6
+frames a second, with depth of field and no bounced-light tuning:
+`--blender classroom/classroom.blend --blender-camera renderCam --blender-engine workbench`. The
 degree lines aren't drawn over Blender's picture, and `--blender` can't be
 combined with `--backdrop`, `--scene` or `--room`.
 

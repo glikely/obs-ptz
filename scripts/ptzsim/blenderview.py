@@ -53,12 +53,14 @@ class FrameStore:
 
 class BlenderRenderer:
     def __init__(self, scene, url, token, exe=None, camera=None, heading=0.0, engine="eevee",
-                 samples=4, size="1280x720", fps=15.0, fstop=2.8, log_path=None):
+                 samples=4, size="1280x720", fps=15.0, fstop=2.8, exposure=0.0, raytracing=False,
+                 log_path=None):
         self.scene = scene          # a .blend, or None for the built-in room
         self.url, self.token = url, token
         self.exe = find_blender(exe)
         self.camera, self.heading, self.engine = camera, heading, engine
         self.samples, self.size, self.fps, self.fstop = samples, size, fps, fstop
+        self.exposure, self.raytracing = exposure, raytracing
         self.log_path = log_path or os.path.join(os.path.expanduser("~"), ".cache", "ptzsim", "blender.log")
         self._proc = None
 
@@ -69,6 +71,9 @@ class BlenderRenderer:
         cmd += ["--python", CLIENT, "--", "--url", self.url, "--token", self.token,
                 "--heading", str(self.heading), "--engine", self.engine, "--samples", str(self.samples),
                 "--size", self.size, "--fps", str(self.fps), "--fstop", str(self.fstop)]
+        cmd += ["--exposure", str(self.exposure)]
+        if self.raytracing:
+            cmd += ["--raytracing"]
         if self.camera:
             cmd += ["--camera", self.camera]
         if not self.scene:
