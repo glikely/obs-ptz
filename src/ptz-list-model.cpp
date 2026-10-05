@@ -29,18 +29,16 @@ PTZListModel *ptzDeviceList = nullptr;
 static void device_create_cb(void *data, calldata_t *cd)
 {
 	auto ptzlm = static_cast<PTZListModel *>(data);
-	auto ph = static_cast<proc_handler_t *>(calldata_ptr(cd, "proc_handler"));
-	auto sh = static_cast<signal_handler_t *>(calldata_ptr(cd, "signal_handler"));
-	auto weak_filter = static_cast<obs_weak_source_t *>(calldata_ptr(cd, "filter"));
+	auto filter = static_cast<obs_source_t *>(calldata_ptr(cd, "filter"));
 	auto device_id = (uint32_t)calldata_int(cd, "device_id");
-	if (!ph || !sh)
+	if (!filter)
 		return;
-	/* weak_filter is a borrowed pointer; only valid for the duration of this call.
-	 * Use it to create a new, safe OBSWeakSource before the invokeMethod() */
-	OBSWeakSource weakFilter = weak_filter;
-	QMetaObject::invokeMethod(ptzlm, [ptzlm, device_id, ph, sh, weakFilter] {
-		ptzlm->deviceCreated(device_id, ph, sh, weakFilter);
-	});
+	/* filter is only lent for the duration of this call. Make a weak
+	 * reference to it before the invokeMethod(): by the time that runs the
+	 * filter, and its handlers, may be gone */
+	OBSWeakSource weakFilter = OBSGetWeakRef(filter);
+	QMetaObject::invokeMethod(ptzlm,
+				  [ptzlm, device_id, weakFilter] { ptzlm->deviceCreated(device_id, weakFilter); });
 }
 
 static void device_destroy_cb(void *data, calldata_t *cd)
@@ -186,14 +184,15 @@ const PTZListModel::PTZDeviceEntry *PTZListModel::entryById(uint32_t device_id) 
 
 /**
  * Promotes entry.weakFilter to a strong reference for the duration of the
- * call, guaranteeing the proc_handler is valid.
+ * call, guaranteeing the filter's proc_handler is valid.
  */
 bool PTZListModel::callEntry(const PTZDeviceEntry &entry, const char *method, calldata_t *cd) const
 {
 	OBSSourceAutoRelease filter = obs_weak_source_get_source(entry.weakFilter);
 	if (!filter)
 		return false;
-	return proc_handler_call(entry.ph, method, cd);
+	proc_handler_t *ph = obs_source_get_proc_handler(filter);
+	return ph && proc_handler_call(ph, method, cd);
 }
 
 /**
@@ -684,12 +683,16 @@ void PTZListModel::preset_save(uint32_t device_id, int preset_id)
 	calldata_free(&cd);
 }
 
-void PTZListModel::deviceCreated(uint32_t device_id, proc_handler_t *ph, signal_handler_t *sh, OBSWeakSource weakFilter)
+void PTZListModel::deviceCreated(uint32_t device_id, OBSWeakSource weakFilter)
 {
+	/* Not there to be asked about if its filter has gone since it was announced */
+	OBSSourceAutoRelease filter = obs_weak_source_get_source(weakFilter);
+	if (!filter)
+		return;
+	signal_handler_t *sh = obs_source_get_signal_handler(filter);
+
 	PTZDeviceEntry entry;
 	entry.id = device_id;
-	entry.ph = ph;
-	entry.sh = sh;
 	entry.weakFilter = weakFilter;
 	devices.append(entry);
 	rebuildRowIndex();

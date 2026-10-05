@@ -17,7 +17,7 @@
 /**
  * PTZListModel never holds a PTZDevice* (see AGENTS.md / the decoupling
  * design in ptz-device.cpp): every device it knows about is represented
- * purely by its device_id plus the proc_handler_t/signal_handler_t pair
+ * purely by its device_id plus its filter, a weak reference to the source
  * handed over on the "ptz_device_create" signal, and a local cache of the
  * fields QAbstractItemModel::data() needs to stay synchronous. All control
  * goes out through proc_handler_call(); the cache is kept in sync purely by
@@ -38,9 +38,9 @@ public:
 private:
 	struct PTZDeviceEntry {
 		uint32_t id = 0;
-		proc_handler_t *ph = nullptr;
-		signal_handler_t *sh = nullptr;
-		/* Reference to this device's filter */
+		/* This device's filter. Its proc_handler and signal_handler are the
+		 * device's, so they are asked for when needed, from a strong
+		 * reference, never kept: they go when the filter does */
 		OBSWeakSource weakFilter;
 		QString name;
 		bool connected = false;
@@ -136,7 +136,7 @@ public:
 	/* Called by the signal_handler trampolines in ptz-list-model.cpp;
 	 * not Qt slots, they bring the cache up to date and then, for the
 	 * two below, tell listeners with the signals of the same name. */
-	void deviceCreated(uint32_t device_id, proc_handler_t *ph, signal_handler_t *sh, OBSWeakSource weakFilter);
+	void deviceCreated(uint32_t device_id, OBSWeakSource weakFilter);
 	void deviceDestroyed(uint32_t device_id);
 	void deviceStateChanged(uint32_t device_id, OBSData changed);
 	void deviceSettingsChanged(uint32_t device_id);

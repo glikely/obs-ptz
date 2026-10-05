@@ -243,11 +243,14 @@ void PTZDevice::onFrontendEvent(enum obs_frontend_event event)
  */
 void PTZDevice::announceCreated()
 {
+	/* Held across the signal, which only lends it: a listener that wants it
+	 * later takes its own reference */
+	OBSSourceAutoRelease filter = obs_weak_source_get_source(m_filter);
+	if (!filter)
+		return; /* being destroyed already */
 	calldata_t cd = {};
 	calldata_set_int(&cd, "device_id", id);
-	calldata_set_ptr(&cd, "proc_handler", handler);
-	calldata_set_ptr(&cd, "signal_handler", sigs);
-	calldata_set_ptr(&cd, "filter", m_filter.Get());
+	calldata_set_ptr(&cd, "filter", filter.Get());
 	signal_handler_signal(ptz_get_signal_handler(), "ptz_device_create", &cd);
 	calldata_free(&cd);
 }
@@ -1258,7 +1261,7 @@ void ptz_load_devices()
 		blog(LOG_ERROR, "could not allocate signal_handler for PTZ devices");
 		return;
 	}
-	ptz_global_signal_add("void ptz_device_create(int device_id, ptr proc_handler, ptr signal_handler)");
+	ptz_global_signal_add("void ptz_device_create(int device_id, ptr filter)");
 	ptz_global_signal_add("void ptz_device_destroy(int device_id)");
 
 	/* Constructed here rather than as a plain static-storage global so
