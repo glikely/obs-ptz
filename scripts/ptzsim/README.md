@@ -68,7 +68,10 @@ By default an absolute move, preset recall or home jumps straight to its
 destination. `--move-time SECONDS` makes them take time, as a camera's
 motors do: SECONDS to cross the full pan range, with tilt, zoom and focus
 at the same rate. Every protocol reads the in-transit position back while
-it moves, and a drive command or stop cancels the move. For the WebGL view,
+it moves, and a drive command or stop cancels the move. VISCA ACKs such a
+command at once and sends its completion when the camera gets there, on the
+command socket (1 or 2) it ACKed on; a move that replaces one still under
+way cancels it with a "command canceled" error. For the WebGL view,
 try `--web-port 8080 --move-time 4`.
 
 ## Running it

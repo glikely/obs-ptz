@@ -125,6 +125,11 @@ class PTZState:
         with self._lock:
             return bool(self._targets)
 
+    def target_axes(self):
+        """The axes still heading for a position, by name"""
+        with self._lock:
+            return set(self._targets)
+
     def set_pt_speed(self, pan_speed, tilt_speed):
         with self._lock:
             self._cancel("pan", "tilt")

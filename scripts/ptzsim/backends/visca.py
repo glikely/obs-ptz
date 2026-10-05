@@ -209,10 +209,21 @@ class ViscaCameraLogic:
     # visca_report.py), or None
     report = None
     _capturing = False
+    # Whether a move that takes time is ACKed now and completed when the
+    # camera gets there, as a real camera does, rather than completed with
+    # its ACK. Off for SonyUdpQuirks, which times its own completions.
+    defer_completions = True
+    # Which of the camera's two command sockets each move still under way
+    # is on, so the completion can say, and what to hand the transport to
+    # route that completion to the link that asked: see poll_completions()
+    SOCKETS = (1, 2)
 
     def __init__(self, state):
         self.state = state
         self._out = []
+        self.context = None
+        self._pending = []   # [axes, socket, context]
+        self._ready = []     # [(context, datagram)] to send when polled
         # The camera's settings, shared with every other link to it
         self.cam = state.visca
         for key, value in VISCA_SETTINGS.items():
@@ -327,10 +338,44 @@ class ViscaCameraLogic:
         return bytes([(value >> 12) & 0xf, (value >> 8) & 0xf,
                       (value >> 4) & 0xf, value & 0xf])
 
-    def cmd_ack(self):
-        self.send_datagram(b'\x41')
-        if self.completions:
-            self.send_datagram(b'\x51')
+    def cmd_ack(self, axes=()):
+        """ACK a command, and complete it, now or if it started a move of
+        `axes`, once the camera has got there (see poll_completions())"""
+        moving = set(axes) & self.state.target_axes()
+        if not (moving and self.defer_completions and self.completions):
+            self.send_datagram(b'\x41')
+            if self.completions:
+                self.send_datagram(b'\x51')
+            return
+        # A move of an axis another is still making cancels it
+        for pending in list(self._pending):
+            if pending[0] & moving:
+                self._pending.remove(pending)
+                self._ready.append((pending[2], self._frame(bytes([0x60 | pending[1], 0x04]))))
+        free = [s for s in self.SOCKETS if all(p[1] != s for p in self._pending)]
+        if not free:
+            self.send_datagram(b'\x60\x03')  # command buffer full
+            return
+        self._pending.append([moving, free[0], self.context])
+        self.send_datagram(bytes([0x40 | free[0]]))
+
+    def _frame(self, dg):
+        return b'\x90%b\xff' % dg
+
+    def poll_completions(self):
+        """The completions of the moves that have got there since the last
+        call, and the cancellations of those another move replaced, as
+        (context, datagram) pairs: each goes to the link whose context it
+        was started with"""
+        out, self._ready = self._ready, []
+        heading = self.state.target_axes()
+        for pending in list(self._pending):
+            if not pending[0] & heading:
+                self._pending.remove(pending)
+                out.append((pending[2], self._frame(bytes([0x50 | pending[1]]))))
+        for _context, dg in out:
+            self.print_state('<--', dg.hex())
+        return out
 
     def cmd_error(self):
         self.send_datagram(b'\x60\x01')
@@ -379,7 +424,7 @@ class ViscaCameraLogic:
         '''CAM_Zoom-Direct (absolute)'''
         zoom = self.decode_s16(dg[4:8])
         self.state.set_position(zoom=to_shared_unsigned(zoom, ZF_POS_RANGE))
-        self.cmd_ack()
+        self.cmd_ack(('zoom',))
 
     def cmd010438(self, dg):
         '''CAM_Focus Auto/Manual/AutoManual'''
@@ -487,7 +532,7 @@ class ViscaCameraLogic:
         tilt = self.decode_s16(dg[10:14])
         self.state.set_position(pan=to_shared_signed(pan, PT_POS_RANGE),
                                  tilt=to_shared_signed(tilt, PT_POS_RANGE))
-        self.cmd_ack()
+        self.cmd_ack(('pan', 'tilt'))
 
     def cmd010603(self, dg):
         '''Pan-tiltDrive-RelativePosition'''
@@ -495,17 +540,19 @@ class ViscaCameraLogic:
         dtilt = self.decode_s16(dg[10:14])
         self.state.move_relative(dpan=to_shared_signed(dpan, PT_POS_RANGE),
                                   dtilt=to_shared_signed(dtilt, PT_POS_RANGE))
-        self.cmd_ack()
+        self.cmd_ack(('pan', 'tilt'))
 
     def cmd010604(self, dg):
         '''Pan-tiltDrive-Home'''
         self.state.stop(pan_tilt=True, zoom=False)
         self.state.set_position(pan=0.0, tilt=0.0)
+        self.cmd_ack(('pan', 'tilt'))
 
     def cmd010605(self, dg):
         '''Pan-tiltDrive-Reset'''
         self.state.stop(pan_tilt=True, zoom=False)
         self.state.set_position(pan=0.0, tilt=0.0)
+        self.cmd_ack(('pan', 'tilt'))
 
     def cmd01043f00(self, dg):
         '''CAM_Memory Reset'''
@@ -520,7 +567,7 @@ class ViscaCameraLogic:
     def cmd01043f02(self, dg):
         '''CAM_Memory Recall'''
         self.state.goto_preset(str(dg[5] & 0x7f))
-        self.cmd_ack()
+        self.cmd_ack(('pan', 'tilt', 'zoom', 'focus'))
 
     def cmd090002(self, dg):
         '''CAM_VersionInq'''
@@ -742,6 +789,15 @@ class ViscaCameraLogic:
             break
 
 
+async def send_completions(logic, send, interval=0.02):
+    """Hands each completion of a move that takes time to send(context,
+    datagram), until cancelled"""
+    while True:
+        await asyncio.sleep(interval)
+        for context, dg in logic.poll_completions():
+            send(context, dg)
+
+
 # ---------------------------------------------------------------------------
 # TCP transport: raw VISCA datagrams terminated by 0xff.
 # ---------------------------------------------------------------------------
@@ -755,6 +811,11 @@ class ViscaTcpConnection(asyncio.Protocol):
         print('[visca-tcp] connection from', transport.get_extra_info('peername'))
         for reply in self.logic.hello():
             self.transport.write(reply)
+        self._completions = asyncio.get_running_loop().create_task(
+            send_completions(self.logic, lambda _context, dg: self.transport.write(dg)))
+
+    def connection_lost(self, exc):
+        self._completions.cancel()
 
     def data_received(self, data):
         self.framer.feed(data)
@@ -844,9 +905,16 @@ class ViscaUdpProtocol(asyncio.DatagramProtocol):
         self._last_reply = float('-inf')
         self._busy_sockets = set()
         self._awaiting = {}
+        # SonyUdpQuirks times its own completions
+        self.logic.defer_completions = quirks is None
 
     def connection_made(self, transport):
         self.transport = transport
+        self._completions = asyncio.get_running_loop().create_task(
+            send_completions(self.logic, lambda context, dg: self._send(context[0], VISCA_IP_REPLY, context[1], dg)))
+
+    def connection_lost(self, exc):
+        self._completions.cancel()
 
     def datagram_received(self, data, addr):
         if len(data) < 9:
@@ -859,6 +927,7 @@ class ViscaUdpProtocol(asyncio.DatagramProtocol):
             if self.quirks:
                 self._sony_request(addr, seq, dg)
                 return
+            self.logic.context = (addr, seq)
             for reply in self.logic.handle_datagram(dg):
                 self._send(addr, VISCA_IP_REPLY, seq, reply)
         elif ptype == VISCA_IP_CONTROL_CMD:
@@ -959,6 +1028,8 @@ class ViscaSerialLink:
 
     def start(self, loop):
         self._loop = loop
+        self._completions = loop.create_task(
+            send_completions(self.logic, lambda _context, dg: self.port.write(dg)))
         self.port.register(loop, self.framer.feed)
         print(f'[visca-serial] emulated serial port at {self.port.path}')
         for reply in self.logic.hello():
@@ -969,6 +1040,7 @@ class ViscaSerialLink:
             self.port.write(reply)
 
     def stop(self):
+        self._completions.cancel()
         self.port.close(self._loop)
 
 
