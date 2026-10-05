@@ -143,6 +143,19 @@ def _auth_string(password, salt, challenge):
 
 
 def call_vendor_request(host, port, password, vendor_name, request_type, request_data, timeout):
+    return call_request(
+        host,
+        port,
+        password,
+        "CallVendorRequest",
+        {"vendorName": vendor_name, "requestType": request_type, "requestData": request_data},
+        timeout,
+    )
+
+
+def call_request(host, port, password, request_type, request_data, timeout):
+    """Sends one obs-websocket request of any type (CreateInput, say) and
+    returns the RequestResponse's "d" object."""
     sock = socket.create_connection((host, port), timeout=timeout)
     try:
         leftover = _ws_handshake(sock, host, port)
@@ -170,13 +183,9 @@ def call_vendor_request(host, port, password, vendor_name, request_type, request
         request_msg = {
             "op": 6,
             "d": {
-                "requestType": "CallVendorRequest",
+                "requestType": request_type,
                 "requestId": request_id,
-                "requestData": {
-                    "vendorName": vendor_name,
-                    "requestType": request_type,
-                    "requestData": request_data,
-                },
+                "requestData": request_data,
             },
         }
         _ws_send_text(sock, json.dumps(request_msg))
