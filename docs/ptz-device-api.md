@@ -3,16 +3,12 @@
 This is the API used to interact with PTZ Devices.
 It covers how to find and manage PTZ devices, to move them, to recall
 their presets, and to be notified of state changes.
-It is the interface this plugin uses to communicate between the front
-end UI and the back end driver.
-It can also be called by other plugins and scripts.
-It is built on the OBS `proc_handler` abi for making calls to the
-camera, and `signal_handler` for receiving notifications.
-See [AGENTS.md](../AGENTS.md) for the design it is part of.
+It is the API that PTZ Controls uses internally to communicate between the front
+end UI and the back end protocol drivers.
 
-Other plugins can implement this API, either to discover and control PTZ
-devices, or to implement PTZ device instances and have them exposed in
-the PTZ User Interface.
+Any plugin can also implement this API, either to control PTZ
+devices, or to implement PTZ device instances and have them exposed to
+PTZ controllers.
 
 This file is the specification.
 `tests/obs-integration/test_api_doc.py` reads it and holds the plugin to it.
@@ -20,19 +16,41 @@ The signatures in the headings and the names in the tables below are checked
 against the source, and the keys against a running plugin.
 A change to the API that isn't made here fails that test.
 
+## Design
+
+A PTZ device is a source in the OBS source tree, an input or a filter, that
+implements the PTZ Device API.
+A PTZ controller is a plugin or script that consumes the PTZ Device to
+read camera status or send camera commands.
+The PTZ Controls Dock is an example of a controller.
+
+note: PTZ Controls implements PTZ Devices as source filters, but a regular
+source can implement the API as well.
+
+The API consists of endpoints registered with the PTZ device's
+`proc_handler` and `signal_handler`.
+`proc_handler` endpoints are used by a controller to send commands
+and query the device.
+`signal_handler` endpoints are used to notify the controller of state
+changes in the camera.
+
+See [AGENTS.md](../AGENTS.md) for the design it is part of.
+
 ## API version
 
 This is version **0.1** of the PTZ API.
 The API is in a pre-release state, published as an RFC.
 It is subject to change at any time.
-Please provide feedback on the [API discussion page](https://github.com/glikely/obs-ptz/discussions/API)
+Please provide feedback on the [API discussion
+page](https://github.com/glikely/obs-ptz/discussions/391)
 
-A caller asks the plugin which version it implements with `ptz_get_api_version`
-on OBS's own proc_handler, before relying on anything else here:
+A caller asks a device which version it implements with `ptz_get_api_version`
+on the device's own `proc_handler`, before relying on anything else here:
 
 ```c
+proc_handler_t *ph = obs_source_get_proc_handler(source);
 calldata_t cd = {0};
-if (proc_handler_call(obs_get_proc_handler(), "ptz_get_api_version", &cd)) {
+if (proc_handler_call(ph, "ptz_get_api_version", &cd)) {
 	long long major = calldata_int(&cd, "major");
 	long long minor = calldata_int(&cd, "minor");
 }
@@ -41,52 +59,75 @@ calldata_free(&cd);
 
 The version covers the procs and signals below, and the calldata fields, state
 keys and trigger names they take.
-The minor version goes up when something is added, which an existing caller
-can't notice.
+The minor version goes up when something is added that doesn't change the
+existing API.
 The major version goes up, and the minor goes back to 0, when something
 is removed, renamed or changes meaning.
-So a caller written for version M.m works with any version M.n where n >= m,
-and isn't promised to with any other.
+So a caller written for version M.m works with any version M.n where n >= m.
 For example, a caller written for 1.0 works with any 1.x.
 
-Each device also has `ptz_get_api_version` on its own proc_handler.
-Other plugins that implement this API may be implementing a different
-version than this plugin.
-A caller must check the API level of the device before making any other
-calls to make sure the API is implemented as expected.
+Controllers must check the version number on each PTZ device.
+PTZ device instances can come from different plugins, which may not all
+implement the same API version.
+The API level check must be made before making any other calls to the
+device.
 
 ## Quick start
 
-PTZ devices are exposed as filters to the rest of OBS.
-The filter is attached to the camera video source and this API is
-attached to the filter's proc_handler and signal_handler.
-A caller finds them by walking the filters of the sources it cares about:
+PTZ devices are exposed as OBS sources.
+This API is attached to the source's proc_handler and signal_handler.
+A controller finds them by walking the source tree, and asking each source and
+each of its filters for its version.
 
 ```c
-#define PTZ_FILTER_PREFIX "ca.secretlab.obs-ptz."
+/* the version this caller was written for */
+#define WRITTEN_FOR_MAJOR 0
+#define WRITTEN_FOR_MINOR 1
+
+static bool is_ptz_device(obs_source_t *source)
+{
+	proc_handler_t *ph = obs_source_get_proc_handler(source);
+	calldata_t v = {0};
+	bool ok = proc_handler_call(ph, "ptz_get_api_version", &v) &&
+		  calldata_int(&v, "major") == WRITTEN_FOR_MAJOR &&
+		  calldata_int(&v, "minor") >= WRITTEN_FOR_MINOR;
+	calldata_free(&v);
+	return ok;
+}
+
+static void use_device(obs_source_t *source, void *data)
+{
+	signal_handler_t *sh = obs_source_get_signal_handler(source);
+	signal_handler_connect(sh, "ptz_state_changed", device_state_changed, data);
+	/* keep a weak reference to the source, for as long as it exists */
+}
 
 static void each_filter(obs_source_t *parent, obs_source_t *filter, void *data)
 {
-	if (strncmp(obs_source_get_id(filter), PTZ_FILTER_PREFIX,
-		    strlen(PTZ_FILTER_PREFIX)))
-		return;
-	proc_handler_t *ph = obs_source_get_proc_handler(filter);
-	signal_handler_t *sh = obs_source_get_signal_handler(filter);
-
-	/* check the version of this device before relying on it */
-	calldata_t v = {0};
-	bool ok = proc_handler_call(ph, "ptz_get_api_version", &v) &&
-		  calldata_int(&v, "major") == 1;
-	calldata_free(&v);
-	if (!ok)
-		return;
-
-	signal_handler_connect(sh, "state_changed", device_state_changed, data);
-	/* keep ph and sh, for as long as the filter exists */
+	if (is_ptz_device(filter))
+		use_device(filter, data);
 }
 
-/* for each source: obs_source_enum_filters(source, each_filter, data); */
+static bool each_source(void *data, obs_source_t *source)
+{
+	if (is_ptz_device(source))
+		use_device(source, data);
+	obs_source_enum_filters(source, each_filter, data);
+	return true;
+}
+
+/* for every source: obs_enum_sources(each_source, data);
+ * obs_enum_all_sources() has the private ones as well */
 ```
+
+To hear of devices added later, connect two of the global signals, on
+`obs_get_signal_handler()`: `source_create`, whose calldata has the `source`,
+for a device that is a source, and `source_filter_add`, whose calldata has the
+`source` and the `filter`, for one that is a filter.
+Ask each for its version, as above.
+A private source never says it was created, so a device that is one is not
+heard of that way.
+The plugin does both.
 
 Then call procs on a device's handler by name, with the fields each one reads
 (they are listed under each proc below):
@@ -99,7 +140,7 @@ proc_handler_call(ph, "ptz_move", &cd);   /* pan right at half speed */
 calldata_free(&cd);
 ```
 
-And read what changed in a `state_changed` handler:
+And read what changed in a `ptz_state_changed` handler:
 
 ```c
 static void device_state_changed(void *data, calldata_t *cd)
@@ -116,9 +157,23 @@ static void device_state_changed(void *data, calldata_t *cd)
 }
 ```
 
-Any device, with or without a filter, can also be reached by its `device_id`
-through the [global proc_handler](#global-ptz-proc_handler), for the few
-things it offers.
+To store a long term reference to a PTZ Device that can be saved to a
+configuration file, record its UUID from `obs_source_get_uuid()`:
+OBS saves it in the scene collection, so it is the same on the next run, and
+`obs_get_source_by_uuid()` finds the device again.
+A caller that has only the UUID looks the device up, and calls the proc before
+it releases the reference, which is what keeps the proc_handler good:
+
+```c
+obs_source_t *source = obs_get_source_by_uuid(uuid);
+if (source) {
+	calldata_t cd = {0};
+	calldata_set_int(&cd, "preset_id", 3);
+	proc_handler_call(obs_source_get_proc_handler(source), "ptz_preset_recall", &cd);
+	calldata_free(&cd);
+	obs_source_release(source);
+}
+```
 
 ### Rules for calling
 
@@ -142,71 +197,34 @@ things it offers.
 - **Units.** A speed is -1.0 to 1.0 and a position is -1.0 to 1.0 for pan and
   tilt and 0.0 to 1.0 for zoom and focus, whatever the camera's own units.
 
-## Global PTZ proc_handler
+## Providing a device
 
-Obtained with `ptz_get_proc_handler()` on OBS's proc_handler.
-It reaches any device by `device_id`, for a caller that does not or
-cannot lookup the filter source.
+Any plugin can provide devices, and the plugin's own camera list and dock find
+them the same way another caller would, with nothing private between them.
 
-### `void ptz_preset_save(int device_id, int preset_id)`
+A device is a source, either a regular source (`OBS_SOURCE_TYPE_INPUT`) or a
+filter (`OBS_SOURCE_TYPE_FILTER`), whose proc_handler has the
+[procs below](#per-device-proc_handler) and whose signal_handler has the
+[signals](#per-device-signal_handler).
+It is found when OBS says a source was created, with the global `source_create`
+signal, or a filter was added to a source, with `source_filter_add`, and its
+proc_handler answers `ptz_get_api_version` with the same major version as the
+finder's and a minor version at least as new.
+A source made private is not announced by OBS, and so is not found.
+Nothing else of the plugin's is needed.
+It needs the state keys that are "always" there, `source` among them, and the
+procs and signals for what it can do, which its `features` say.
+A proc a device doesn't have is read as something it can't do.
+To be edited from a controller's settings page, a device has a `get_properties`
+in its `obs_source_info`, as any source does for its settings.
 
-Saves the device's current position as preset `preset_id`.
-Any thread.
-
-### `void ptz_preset_recall(int device_id, int preset_id)`
-
-Moves the device to preset `preset_id`.
-Any thread.
-
-### `void ptz_move_continuous(int device_id, float pan, float tilt, float zoom, float focus)`
-
-Moves the device at the given speeds.
-`pan`, `tilt`, `zoom` and `focus` are all optional.
-The device will only move the axis provided.
-Any thread.
-
-## OBS main proc_handler
-
-The plugin's entry points on `obs_get_proc_handler()`.
-
-### `ptr ptz_get_proc_handler()`
-
-Returns, as `return`, the global PTZ proc_handler above.
-It isn't a new reference: the plugin owns it.
-
-### `void ptz_get_api_version(out int major, out int minor)`
-
-The version of the PTZ API this plugin implements, for a caller to check before
-it relies on anything else here.
-Any thread.
-
-### `void ptz_pantilt(int device_id, float pan, float tilt, float zoom, float focus)`
-
-Deprecated: the same as `ptz_move_continuous`, kept for plugins that call it.
-
-## Global PTZ signal_handler
-
-Announces devices coming and going inside the plugin.
-It isn't reachable from another plugin: `ptz_get_signal_handler()` isn't
-exported from the module, and no proc on OBS's proc_handler returns it.
-A plugin finds devices through their filters instead, as in the
-[quick start](#quick-start).
-
-### `void ptz_device_create(int device_id, ptr proc_handler, ptr signal_handler)`
-
-A device has been created.
-`proc_handler` and `signal_handler` are the device's own, which are its
-filter's, and good until `ptz_device_destroy`.
-The signal also carries `filter`, the device's `obs_weak_source_t *` for its
-PTZ Control filter.
-
-### `void ptz_device_destroy(int device_id)`
-
-The device is gone: stop using its handlers.
+A device is listed until its source is destroyed, which its own `destroy`
+signal, the one every OBS source has, says.
+A filter that is added to a source again is the same device.
 
 ## Per-device proc_handler
 
-The device's own proc_handler: its filter's, from
+The device's own proc_handler: its source's, from
 `obs_source_get_proc_handler()`.
 All its procs start with `ptz_`, so they can be added to an existing
 proc_handler with low risk of conflicts.
@@ -214,9 +232,9 @@ proc_handler with low risk of conflicts.
 ### `void ptz_get_api_version(out int major, out int minor)`
 
 The version of the PTZ API this device implements.
-A device may come from another plugin, at another version than the
-`ptz_get_api_version` on OBS's proc_handler reports.
-Callers must checks each device's own before relying on anything else it has.
+Each device may implement a different version of the API.
+Controllers must not assume that all devices implement the same API version.
+A caller must check each device's own before relying on anything else in the API.
 Any thread.
 
 ### `void ptz_stop()`
@@ -318,7 +336,8 @@ Device thread.
 
 ### `ptr ptz_get_parent_source()`
 
-Returns, as `return`, the OBS source whose video the camera shows.
+Returns, as `return`, the OBS source whose video the camera shows: for a device
+that is a filter the source it is on, and for one that is a source, itself.
 It is a new reference, which the caller releases with `obs_source_release()`,
 and it is null while the device has no source, or the source has been removed.
 Any thread.
@@ -329,29 +348,6 @@ Locks or unlocks the device, which refuses to be moved while it is locked, and
 reports it as the `locked` state key.
 Reads `locked` (bool).
 A device is also locked by the plugin whenever it is live.
-Device thread.
-
-### `void ptz_get_config(ptr config)`
-
-Fills in the `config` object the caller owns with the device's settings: see
-[Config keys](#config-keys).
-Device thread.
-
-### `void ptz_set_config(ptr config)`
-
-Applies the settings in the `config` object, and announces them with
-`settings_changed`.
-For a device that is a filter it goes through `obs_source_update()`, which
-merges them into the filter's settings: keys left out keep their value, and the
-Filters dialog shows the same values.
-A device with no filter has nothing to merge into, so give it the whole config,
-as `ptz_get_config` returns it.
-Device thread.
-
-### `ptr ptz_get_properties()`
-
-Returns, as `return`, the `obs_properties_t *` that edit the settings.
-The caller destroys it with `obs_properties_destroy()`.
 Device thread.
 
 ### `void ptz_request_state(ptr state)`
@@ -394,13 +390,13 @@ Device thread.
 Adds a preset, at display row `row` or at the end if that isn't a row in the
 list, and returns its `id` as `return`, or -1 if the device already has
 `max_presets`.
-Announces `preset_inserted`.
+Announces `ptz_preset_inserted`.
 Device thread.
 
 ### `void ptz_preset_remove(int row)`
 
 Removes the preset at display row `row`, which has to be a row in the list.
-Announces `preset_removed`.
+Announces `ptz_preset_removed`.
 Device thread.
 
 ### `void ptz_preset_move(int src_row, int dest_row)`
@@ -408,13 +404,13 @@ Device thread.
 Moves the preset at display row `src_row` to before the one at `dest_row`,
 where `dest_row` is its index before `src_row` is taken out, as
 `QAbstractItemModel::moveRows()` has it.
-Announces `preset_moved`.
+Announces `ptz_preset_moved`.
 Device thread.
 
 ### `void ptz_preset_set_name(int id, string name)`
 
 Names the preset `id`, which is its `id` and not its row.
-Announces `preset_renamed`.
+Announces `ptz_preset_renamed`.
 Device thread.
 
 ### `void ptz_scene_changed()`
@@ -426,12 +422,16 @@ Device thread.
 
 ## Per-device signal_handler
 
-The device's own signal_handler: its filter's, from
+The device's own signal_handler: its source's, from
 `obs_source_get_signal_handler()`.
-A signal fires on the device's own thread, and the `device_id` it carries is
-the device's.
+All its signals start with `ptz_`, so they do not conflict with the signals OBS
+gives every source, such as `destroy` and `update`.
+A signal fires on the device's own thread.
+Each carries `source`, the device's source as an `obs_source_t *`, lent for the
+call, for a listener that connects the same function to more than one device
+and needs to tell them apart.
 
-### `void state_changed(int device_id, ptr changed)`
+### `void ptz_state_changed(ptr source, ptr changed)`
 
 The device's state changed.
 `changed` is an `obs_data_t *` holding only the values that changed, with the
@@ -439,44 +439,37 @@ keys of [State keys](#state-keys).
 A listener may keep a reference to it, but must not change it: every listener
 gets the same one, and the device never touches it again.
 
-### `void settings_changed(int device_id)`
-
-The device's settings were applied, from anywhere: `ptz_set_config`, the
-Filters dialog, or obs-websocket.
-A listener reads the settings again with `ptz_get_config`.
-
-### `void preset_inserted(int device_id, int row)`
+### `void ptz_preset_inserted(ptr source, int row)`
 
 A preset was added at display row `row`.
 
-### `void preset_removed(int device_id, int row)`
+### `void ptz_preset_removed(ptr source, int row)`
 
 The preset that was at display row `row` was removed.
 
-### `void preset_moved(int device_id, int src_row, int dest_row)`
+### `void ptz_preset_moved(ptr source, int src_row, int dest_row)`
 
 A preset moved from display row `src_row` to before `dest_row`, which is its
 index before `src_row` was taken out.
 
-### `void preset_renamed(int device_id, int id)`
+### `void ptz_preset_renamed(ptr source, int id)`
 
 The name of preset `id` changed.
 
-### `void preset_thumbnail_changed(int device_id, int id)`
+### `void ptz_preset_thumbnail_changed(ptr source, int id)`
 
 The thumbnail of preset `id` changed.
 
 ## State keys
 
-Both `ptz_get_state` and `ptz_get_config` fill in an `obs_data_t` that the
-caller owns.
+`ptz_get_state` fills in an `obs_data_t` that the caller owns.
 The keys here are the ones every device has, whatever its protocol.
 A driver adds its own (a VISCA device has `pan_pos` and `vendor_id`, say), so a
 caller ignores keys it doesn't know and checks that one is there, with
 `obs_data_has_user_value()`, before it reads it.
 
 State is transient: it describes the device right now, and is never saved.
-Changes to it are announced by `state_changed`, which carries only the keys
+Changes to it are announced by `ptz_state_changed`, which carries only the keys
 that changed.
 
 | Key | Type | Present | Meaning |
@@ -484,6 +477,7 @@ that changed.
 | `connected` | bool | always | The device has a working link to its camera |
 | `live` | bool | always | The device's source is in the program scene |
 | `preview` | bool | always | The device's source is in the preview scene (studio mode only) |
+| `source` | string | always | The name of the OBS source the device is on: for a filter the source it is on, or the last it was on while it is on none, "" if it never has been; for a source its own name. Follows the source being renamed |
 | `locked` | bool | always | Movement is refused: set with `ptz_set_locked`, and also set whenever the device is `live` |
 | `features` | object | always | What the device can do, with each [feature](#features) it has `true` and none for one it hasn't. It can change while the device runs, as it finds out what its camera has |
 | `pan`, `tilt` | number | when known | Position, -1.0 to 1.0, as the camera last reported it. Absent until it has |
@@ -509,7 +503,7 @@ What a device has depends on its driver and, for most, on the camera behind it:
 a VISCA device gets them from the commands its camera profile has, an ONVIF
 device from the services the camera offers, a USB device from the controls the
 camera reports.
-So a caller reads `features` again after a `state_changed` that carries it, and
+So a caller reads `features` again after a `ptz_state_changed` that carries it, and
 doesn't keep it.
 
 | Feature | The device can |
@@ -531,28 +525,32 @@ caller can detect, and what happens isn't promised: check `features` first.
 
 ## Config keys
 
-Config is persistent: it is what the device saves, in the PTZ Control filter's
-own settings.
-It is read with `ptz_get_config`, changed with `ptz_set_config`, and every
-change is announced by `settings_changed`.
+Config is persistent: it is what the device saves, in its source's own
+settings.
+What a device changes itself, such as its presets, it writes to the source's
+settings as it changes it, so they are the one copy.
+A device can also say what a blank setting would be as the default of
+`<key>:placeholder` in the source's settings, such as `host:placeholder` for the
+host its source receives from. A default is not saved, and a controller can show
+it in the empty field.
+It is read with `obs_source_get_settings()`, changed with
+`obs_source_update()`, and every change is announced by the source's own
+`update` signal.
+A device that changes its settings itself, as when it finds its movement limits,
+writes them and calls `obs_source_update()` to say so.
 
 | Key | Type | Default | Meaning |
 | --- | --- | --- | --- |
-| `name` | string | - | The OBS source the device is on, "" if it has none. Only a device with no filter (`is-self-managed`) takes it from `ptz_set_config`: a filter's is its parent's |
-| `id` | int | - | The device's id, the `device_id` in the procs and signals. Read-only |
 | `type` | string | - | The kind of device, such as `visca-over-ip`, `visca-over-tcp`, `pelco`, `onvif` or `usb-cam`. Read-only |
-| `is-self-managed` | bool | - | The device has no filter, and the plugin owns its settings. Read-only |
 | `pantilt_speed_max`, `zoom_speed_max`, `focus_speed_max` | number | 1.0 | A cap on the speed a move asks for: a `ptz_move` speed above it is clamped to it, whichever way it points. 0.1 to 1.0 |
 | `pan_invert`, `tilt_invert`, `zoom_invert`, `focus_invert` | bool | false | Reverse the direction of the axis |
 | `preset_max` | int | 16 | The most presets the device keeps, 1 to 128. It is also the `max_presets` that `ptz_preset_get_list` returns |
 | `presets` | array | empty | The presets, in display order, each an object with an `id` and `name` and whatever the driver keeps to recall it. Edit it with the `ptz_preset_*` procs rather than by writing it |
 
-`name`, `id` and `is-self-managed` identify the device rather than set it: for
-a filter, `ptz_set_config` drops them.
 A driver's connection settings (`host`, the ports, `serial_port`, `address`,
 ...) are config keys too, and what they are is the driver's to say.
-`ptz_get_properties` lists the ones a user can edit, with their types and
-ranges.
+The source's properties, which `obs_source_properties()` gives, list the ones a
+user can edit, with their types and ranges.
 
 ## Triggers
 
