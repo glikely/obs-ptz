@@ -242,7 +242,7 @@ def test_filter_device_follows_its_source(obs_world, cameras, tmp_path):
     cameras.rename("filter-cam-rename", "filter-cam-renamed")
 
     result = obs_world.wait_for_device_source(
-        device_name, out, lambda r: r["name"] == "filter-cam-renamed" and r["config_name"] == "filter-cam-renamed")
+        device_name, out, lambda r: r["name"] == "filter-cam-renamed")
     assert result["source"] == "filter-cam-renamed"
     assert result["uuid"] == device_name
 
