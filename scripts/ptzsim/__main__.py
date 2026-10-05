@@ -67,7 +67,7 @@ from .backends.visca import ViscaBackend, ViscaCameraLogic, SonyUdpQuirks
 from .backends.visca_report import ViscaReportReplay
 from .debug_http import DebugHttpServer
 from .state import PTZState, run_ticker
-from . import backdrop
+from . import backdrop, scene as scene_module
 from .webview import WebViewServer
 
 
@@ -165,12 +165,30 @@ def parse_args():
                      help="which size of a Poly Haven HDRI to use: 1k, 2k, 4k, 8k... (default 4k)")
     ap.add_argument("--backdrop-cache", default=None, metavar="DIR",
                      help="where backdrops are downloaded to (default ~/.cache/ptzsim/backdrops)")
+    ap.add_argument("--scene", default=None, metavar="FILE|URL|NAME",
+                     help="put the web view's camera in this 3D scene, drawn with three.js, "
+                          "which is downloaded on first use: a glTF file (.glb/.gltf), a URL, or "
+                          "\"sponza\" or \"khronos:<Name>\" for a Khronos sample model "
+                          "(check its licence)")
+    ap.add_argument("--camera-pos", default=None, metavar="X,Y,Z",
+                     help="where the camera stands in the --scene, in its units (default: "
+                          "the middle of it, a third of the way up)")
+    ap.add_argument("--scene-cache", default=None, metavar="DIR",
+                     help="where scenes and three.js are downloaded to (default ~/.cache/ptzsim)")
     ap.add_argument("--debug-http-port", type=int, default=0,
                      help="serve GET /state as JSON on this port for test "
                           "harnesses (0 disables it, the default)")
     args = ap.parse_args()
-    if args.backdrop and not args.web_port:
-        ap.error("--backdrop is for the web view: add --web-port")
+    if (args.backdrop or args.scene) and not args.web_port:
+        ap.error("--backdrop and --scene are for the web view: add --web-port")
+    if args.backdrop and args.scene:
+        ap.error("--backdrop and --scene both set what the camera sees: use one")
+    if args.camera_pos:
+        try:
+            args.camera_pos = [float(v) for v in args.camera_pos.split(",")]
+            assert len(args.camera_pos) == 3
+        except (ValueError, AssertionError):
+            ap.error("--camera-pos is X,Y,Z, three numbers")
     return args
 
 
@@ -248,7 +266,16 @@ def main():
                 picture = backdrop.resolve(args.backdrop, args.backdrop_res, args.backdrop_cache)
             except backdrop.BackdropError as e:
                 sys.exit(f"[backdrop] {e}")
-        web = WebViewServer(state, args.host if args.host.startswith("127.") else "0.0.0.0", args.web_port, picture)
+        scene = None
+        if args.scene:
+            try:
+                directory, entry = scene_module.resolve(args.scene, args.scene_cache)
+                scene = {"dir": directory, "entry": entry, "camera_pos": args.camera_pos,
+                         "vendor": scene_module.ensure_three(args.scene_cache)}
+            except backdrop.BackdropError as e:
+                sys.exit(f"[scene] {e}")
+        web = WebViewServer(state, args.host if args.host.startswith("127.") else "0.0.0.0", args.web_port,
+                            picture, scene)
         web.start()
 
     def shutdown(*_):

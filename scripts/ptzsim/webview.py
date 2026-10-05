@@ -12,6 +12,7 @@ import json
 import os
 import threading
 import time
+import urllib.parse
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 WEB_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "web")
@@ -33,6 +34,7 @@ def state_event(state):
 class WebHandler(BaseHTTPRequestHandler):
     state = None  # injected
     backdrop = None  # path of the room picture, if any, injected
+    scene = None     # {"dir", "entry", "camera_pos", "vendor"} of a 3D scene, if any, injected
 
     def log_message(self, fmt, *args):
         pass
@@ -41,6 +43,15 @@ class WebHandler(BaseHTTPRequestHandler):
         path = self.path.split("?", 1)[0]
         if path in ("/", "/index.html"):
             self._send_file("index.html", "text/html; charset=utf-8")
+        elif path == "/scene.js":
+            self._send_file("scene.js", "text/javascript; charset=utf-8")
+        elif path == "/config":
+            self._send_json({"scene": f"scene/{urllib.parse.quote(self.scene['entry'])}" if self.scene else None,
+                             "cameraPos": self.scene["camera_pos"] if self.scene else None})
+        elif path.startswith("/scene/") and self.scene:
+            self._send_under(self.scene["dir"], path[len("/scene/"):])
+        elif path.startswith("/vendor/") and self.scene:
+            self._send_under(self.scene["vendor"], path[len("/vendor/"):])
         elif path == "/backdrop" and self.backdrop:
             self._send_backdrop()
         elif path == "/events":
@@ -72,6 +83,36 @@ class WebHandler(BaseHTTPRequestHandler):
             return
         self.send_response(204)
         self.end_headers()
+
+    def _send_json(self, body):
+        payload = json.dumps(body).encode("utf-8")
+        self.send_response(200)
+        self.send_header("Content-Type", "application/json")
+        self.send_header("Content-Length", str(len(payload)))
+        self.send_header("Cache-Control", "no-cache")
+        self.end_headers()
+        self.wfile.write(payload)
+
+    def _send_under(self, base, relative):
+        """A file of the scene or of three.js: only from under `base`"""
+        relative = urllib.parse.unquote(relative)
+        path = os.path.realpath(os.path.join(base, relative))
+        if not path.startswith(os.path.realpath(base) + os.sep) or not os.path.isfile(path):
+            self.send_response(404)
+            self.end_headers()
+            return
+        ext = os.path.splitext(path)[1].lower()
+        self.send_response(200)
+        self.send_header("Content-Type", {
+            ".js": "text/javascript", ".gltf": "model/gltf+json", ".glb": "model/gltf-binary",
+            ".jpg": "image/jpeg", ".jpeg": "image/jpeg", ".png": "image/png", ".webp": "image/webp",
+        }.get(ext, "application/octet-stream"))
+        self.send_header("Content-Length", str(os.path.getsize(path)))
+        self.send_header("Cache-Control", "max-age=3600")
+        self.end_headers()
+        with open(path, "rb") as f:
+            while chunk := f.read(1 << 20):
+                self.wfile.write(chunk)
 
     def _send_backdrop(self):
         ext = os.path.splitext(self.backdrop)[1].lower()
@@ -111,15 +152,16 @@ class WebHandler(BaseHTTPRequestHandler):
 
 
 class WebViewServer:
-    def __init__(self, state, host="0.0.0.0", port=8080, backdrop=None):
+    def __init__(self, state, host="0.0.0.0", port=8080, backdrop=None, scene=None):
         self.state = state
         self.backdrop = backdrop
+        self.scene = scene
         self.host = host
         self.port = port
         self._httpd = None
 
     def start(self):
-        handler_cls = type("BoundWebHandler", (WebHandler,), {"state": self.state, "backdrop": self.backdrop})
+        handler_cls = type("BoundWebHandler", (WebHandler,), {"state": self.state, "backdrop": self.backdrop, "scene": self.scene})
         self._httpd = ThreadingHTTPServer((self.host, self.port), handler_cls)
         self._httpd.daemon_threads = True
         self.port = self._httpd.server_address[1]

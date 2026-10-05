@@ -60,6 +60,27 @@ itself; pan 0 is the middle of the picture and tilt 0 its horizon. The
 degree lines are drawn over it, as on the grid; add `?grid=0` to the page's
 URL to leave the room bare.
 
+### 3D scenes
+
+`--scene` puts the camera in a 3D scene instead, drawn with
+[three.js](https://threejs.org/) (MIT), which ptzsim downloads on first use
+to `~/.cache/ptzsim` along with the scene. It takes a glTF file (`.glb` or
+`.gltf`), a URL of one, or the name of a model in Khronos's
+[glTF sample assets](https://github.com/KhronosGroup/glTF-Sample-Assets):
+`sponza`, or `khronos:<Name>`. Nothing is bundled, so check a scene's
+licence before sharing it (Sponza's is the Cryengine Limited License).
+
+```
+python3 scripts/ptzsim --web-port 8080 --scene sponza
+```
+
+Pan, tilt and zoom turn and zoom the camera as in the panorama, and drags
+work the same. The camera stands in the middle of the scene a third of the
+way up unless `--camera-pos X,Y,Z` (in the scene's units) says otherwise:
+point several simulators at one scene from different spots to make a
+multi-camera set. It doesn't have the degree lines or focus blur yet, and
+can't be combined with `--backdrop`. `--scene-cache DIR` moves the cache.
+
 ## Moving like a camera
 
 By default an absolute move, preset recall or home jumps straight to its

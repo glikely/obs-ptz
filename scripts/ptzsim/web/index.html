@@ -5,12 +5,16 @@
   html, body { margin: 0; height: 100%; background: #000; overflow: hidden; }
   canvas { display: block; width: 100vw; height: 100vh; cursor: grab; touch-action: none; }
   canvas.dragging { cursor: grabbing; }
+  #hud, #tally, #standby { z-index: 2; }
   #hud { position: fixed; left: 16px; top: 12px; color: #fff; font: 600 20px/1.35 ui-monospace, Menlo, monospace;
          text-shadow: 0 0 4px #000, 0 0 2px #000; white-space: pre; pointer-events: none; }
   #tally { position: fixed; inset: 0; pointer-events: none; box-sizing: border-box; }
   #standby { position: fixed; inset: 0; background: #000; color: #888; display: none;
              align-items: center; justify-content: center; font: 600 32px ui-monospace, Menlo, monospace; }
 </style>
+<script type="importmap">
+{ "imports": { "three": "./vendor/three.module.min.js", "three/addons/": "./vendor/addons/" } }
+</script>
 <canvas id="c"></canvas>
 <div id="tally"></div>
 <div id="hud"></div>
@@ -242,6 +246,22 @@ async function loadBackdrop() {
 }
 loadBackdrop().catch(e => console.error("backdrop:", e));
 
+// ---- 3D scene: ptzsim --scene hands the page a glTF and three.js to draw it ----
+let sceneMode = false;
+fetch("config").then(r => r.json()).then(async config => {
+  if (!config.scene) return;
+  const { start } = await import("./scene.js");
+  await start({
+    url: config.scene, cameraPos: config.cameraPos,
+    view: () => {
+      const s = current();
+      return { yaw: s.pan * PAN_RANGE * Math.PI / 180, pitch: s.tilt * TILT_RANGE * Math.PI / 180,
+               hfov: FOV_WIDE * Math.pow(FOV_TELE / FOV_WIDE, s.zoom) * Math.PI / 180 };
+    },
+  });
+  sceneMode = true;
+}).catch(e => console.error("scene:", e));
+
 // ---- State: SSE from the simulator, extrapolated between events ------------
 let cam = { pan: 0, tilt: 0, zoom: 0, focus: 0.5, pan_speed: 0, tilt_speed: 0, zoom_speed: 0, focus_speed: 0,
             power: true, tally: {} };
@@ -320,7 +340,7 @@ function frame() {
   gl.uniform1f(u.pitch, s.tilt * TILT_RANGE * rad);
   gl.uniform1f(u.hfov, fov * rad);
   gl.uniform1f(u.blur, Math.abs(s.focus - FOCUS_SHARP) / FOCUS_SHARP * FOCUS_BLUR_LOD);
-  gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+  if (!sceneMode) gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
 
   standby.style.display = cam.power ? "none" : "flex";
   const t = cam.tally || {};
