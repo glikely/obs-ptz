@@ -298,6 +298,7 @@ if(ENABLE_UI_TESTS)
       tests/ui-harness/settings-dialog-test.cpp
       tests/ui-harness/api-version-test.cpp
       tests/ui-harness/device-backup-test.cpp
+      tests/ui-harness/screenshot-test.cpp
   )
 endif()
 

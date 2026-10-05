@@ -79,3 +79,4 @@ void registerSettingsDialogTest(PTZUITestHarness *harness);
 void registerCameraReportTest(PTZUITestHarness *harness);
 void registerApiVersionTest(PTZUITestHarness *harness);
 void registerDeviceBackupTest(PTZUITestHarness *harness);
+void registerScreenshotTest(PTZUITestHarness *harness);
