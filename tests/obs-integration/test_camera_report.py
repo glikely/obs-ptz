@@ -58,13 +58,14 @@ def test_a_report_has_what_the_camera_answered(request, obs_world, tmp_path):
 def test_a_report_says_nothing_about_who_or_where(request, obs_world, tmp_path):
     """Not the camera's ID, which its user gives it, nor where the camera is,
     nor what the user calls it"""
-    sim, state, device_id = camera(request, obs_world, tmp_path, sim_args=SONY, read={"wb_mode"})
+    sim, _, device_id = camera(request, obs_world, tmp_path, sim_args=SONY, read={"wb_mode"})
     made = report(obs_world, tmp_path, device_id)
     text = json.dumps(made)
     assert CAMERA_ID not in text
     assert "127.0.0.1" not in text
     assert str(sim.tcp_port) not in text
-    assert state["name"] not in text
+    name = obs_world.device_settings(device_id, tmp_path / "settings.json")["saved"]["name"]
+    assert name and name not in text
     inquiries = {i["inquiry"]: i for i in made["inquiries"]}
     assert inquiries["81090422ff"] == {"inquiry": "81090422ff", "reply": "905000000000ff", "masked": ["camera_id"]}
     assert "camera_id" not in {c["key"] for c in made["commands"]}

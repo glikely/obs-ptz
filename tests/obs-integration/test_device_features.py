@@ -22,19 +22,15 @@ def features(state):
 
 @pytest.mark.parametrize("backend", FEATURES)
 def test_a_device_says_what_it_can_do(obs_world, backend, tmp_path):
-    state = obs_world.wait_for_device_state(
+    obs_world.wait_for_device_state(
         obs_world.device_ids[backend], tmp_path / "state.json",
-        lambda r: features(r["state"]) == FEATURES[backend], timeout=10)["state"]
-    # what there was before "features"
-    assert state["supports_set_home"] is False
-    assert state["supports_diagnostics"] is ("diagnostics" in FEATURES[backend])
+        lambda r: features(r["state"]) == FEATURES[backend], timeout=10)
 
 
 def test_an_onvif_device_says_what_it_can_do(obs_world, tmp_path):
-    state = obs_world.wait_for_device_state(
+    obs_world.wait_for_device_state(
         obs_world.device_ids["onvif"], tmp_path / "state.json",
-        lambda r: ONVIF_FEATURES <= features(r["state"]), timeout=10)["state"]
-    assert state["supports_set_home"] is True
+        lambda r: ONVIF_FEATURES <= features(r["state"]), timeout=10)
 
 
 def test_the_dock_offers_only_what_pelco_can_do(obs_world, tmp_path):

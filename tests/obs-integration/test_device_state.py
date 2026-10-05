@@ -19,7 +19,7 @@ import pytest
 from test_filter_devices import camera_sim, cameras  # noqa: F401
 
 VISCA_BACKENDS = ["visca-tcp", "visca-udp", "visca-serial"]
-BASE_STATE_KEYS = {"name", "connected", "live", "preview", "locked"}
+BASE_STATE_KEYS = {"connected", "live", "preview", "locked"}
 
 
 @pytest.mark.parametrize("backend", VISCA_BACKENDS)
@@ -133,11 +133,6 @@ def test_pelco_state_has_no_white_balance_or_position(obs_world, backend, tmp_pa
     assert not {"wb_mode", "pan", "tilt", "zoom", "focus"} & set(state)
 
 
-# What describes the device rather than what it reports, which ptz_get_state
-# adds for PTZListModel's row: "type" is a setting too, the rest are neither.
-DESCRIPTION_KEYS = {"name", "type", "description", "supports_set_home", "supports_diagnostics"}
-
-
 def test_settings_properties_hold_no_camera_state(obs_world, cameras, tmp_path):  # noqa: F811
     """A filter's settings properties are what OBS's Filters dialog edits and
     saves, so nothing the camera reports may be among them."""
@@ -149,13 +144,13 @@ def test_settings_properties_hold_no_camera_state(obs_world, cameras, tmp_path):
     state = obs_world.wait_for_device_state(
         device_id, tmp_path / "state.json", lambda r: "wb_mode" in r["state"], timeout=10)["state"]
     settings = obs_world.device_settings(device_id, tmp_path / "settings.json")["property_keys"]
-    assert settings & (set(state) - DESCRIPTION_KEYS) == set()
+    assert settings & (set(state)) == set()
 
 
 @pytest.mark.parametrize("backend,supported", [("visca-tcp", True), ("pelco-d", False)])
 def test_diagnostics_are_advertised(obs_world, backend, supported, tmp_path):
     state = obs_world.device_state(obs_world.device_ids[backend], tmp_path / "state.json")["state"]
-    assert state["supports_diagnostics"] is supported
+    assert ("diagnostics" in state["features"]) is supported
 
 
 def test_discovering_the_movement_limits(obs_world, cameras, tmp_path):  # noqa: F811

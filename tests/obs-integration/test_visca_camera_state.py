@@ -277,5 +277,5 @@ def test_state_view_changes_a_setting(request, obs_world, tmp_path, key):
 
 def test_state_view_has_none_of_them_for_another_protocol(obs_world, tmp_path):
     obs_world.run_ui_test("open_settings_dialog", device_id=obs_world.device_ids["pelco-d"])
-    dialog = obs_world.wait_for_settings_dialog(tmp_path / "dialog.json", lambda r: "name" in r["state_keys"])
+    dialog = obs_world.wait_for_settings_dialog(tmp_path / "dialog.json", lambda r: "connected" in r["state_keys"])
     assert not (set(SETTABLE) | READ_ONLY | READ_ONLY_BLOCKS) & dialog["state_keys"]
