@@ -29,13 +29,13 @@ def replaying(made, tmp_path):
 
 def test_a_replayed_camera_answers_as_the_camera_did(request, obs_world, tmp_path):
     """A report of the replayed camera is the report it was replayed from"""
-    sim, _, device_id = camera(request, obs_world, tmp_path)
-    made = report(obs_world, tmp_path, device_id)
+    sim, _, device_name = camera(request, obs_world, tmp_path)
+    made = report(obs_world, tmp_path, device_name)
 
     (tmp_path / "replay").mkdir()
-    replay, state, device_id = camera(request, obs_world, tmp_path / "replay", sim_args=replaying(made, tmp_path))
+    replay, state, device_name = camera(request, obs_world, tmp_path / "replay", sim_args=replaying(made, tmp_path))
     assert (state["vendor_id"], state["model_id"]) == (0x0109, 0x2020)
-    again = report(obs_world, tmp_path / "replay", device_id)
+    again = report(obs_world, tmp_path / "replay", device_name)
 
     assert again["camera"] == made["camera"]
     assert again["command_set"] == made["command_set"]
@@ -61,18 +61,18 @@ def test_a_replayed_camera_refuses_what_the_camera_did(request, obs_world, tmp_p
             {"key": "ae_mode", "command": "8101043900ff", "result": "syntax error"},
         ],
     }
-    sim, state, device_id = camera(request, obs_world, tmp_path, sim_args=replaying(made, tmp_path),
+    sim, state, device_name = camera(request, obs_world, tmp_path, sim_args=replaying(made, tmp_path),
                                    read={"wb_mode", "zoom_pos"})
     assert (state["vendor_id"], state["model_id"]) == (0x0123, 0x0009)
     # what isn't in the report isn't there: ae_mode isn't read
     assert "ae_mode" not in state
     assert sim.syntax_errors() > 0
 
-    obs_world.run_ui_test("set_device_state", device_id=device_id, wb_mode=1)
-    obs_world.wait_for_device_state(device_id, tmp_path / "set.json", lambda r: r["state"]["wb_mode"] == 1,
+    obs_world.run_ui_test("set_device_state", device=device_name, wb_mode=1)
+    obs_world.wait_for_device_state(device_name, tmp_path / "set.json", lambda r: r["state"]["wb_mode"] == 1,
                                     timeout=10)
     errors = sim.syntax_errors()
-    obs_world.run_ui_test("set_device_state", device_id=device_id, ae_mode=3)
+    obs_world.run_ui_test("set_device_state", device=device_name, ae_mode=3)
     sim.wait_for(lambda s: s["visca_syntax_errors"] > errors)
     assert sim.state()["visca"]["ae_mode"] == 0
 
@@ -85,7 +85,7 @@ def test_the_plugin_asks_a_reported_camera_only_for_what_it_has(request, obs_wor
     set for gets the generic one,
     which finds out what the camera doesn't have by asking."""
     made = json.loads(Path(path).read_text())
-    sim, state, device_id = camera(request, obs_world, tmp_path, read={"model_id"},
+    sim, state, device_name = camera(request, obs_world, tmp_path, read={"model_id"},
                                    sim_args={"flags": ("--visca-report", str(path))})
     if state.get("model_name") is None or made.get("command_set") == "generic":
         pytest.skip("the plugin has no command set for it")

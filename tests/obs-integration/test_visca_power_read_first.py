@@ -92,15 +92,15 @@ def camera(request, obs_world, tmp_path):
         "filterKind": FILTER_KIND,
         "filterSettings": {"type": "visca-over-tcp", "host": "127.0.0.1", "tcp_port": sim.tcp_port},
     })
-    device_id = obs_world.wait_for_device_by_name(
-        SOURCE, tmp_path / "device.json", lambda r: r["found"] and r["bound"])["device_id"]
-    obs_world.wait_for_device_status(device_id, tmp_path / "status.json", lambda s: s["connected"], timeout=10)
-    return sim, device_id
+    device_name = obs_world.wait_for_device_by_name(
+        SOURCE, tmp_path / "device.json", lambda r: r["found"] and r["bound"])["uuid"]
+    obs_world.wait_for_device_status(device_name, tmp_path / "status.json", lambda s: s["connected"], timeout=10)
+    return sim, device_name
 
 
 def test_power_is_asked_for_straight_after_the_version(obs_world, camera, tmp_path):
-    sim, device_id = camera
-    obs_world.wait_for_device_state(device_id, tmp_path / "state.json", lambda r: "power_on" in r["state"], timeout=15)
+    sim, device_name = camera
+    obs_world.wait_for_device_state(device_name, tmp_path / "state.json", lambda r: "power_on" in r["state"], timeout=15)
 
     inquiries = [inquiry[:8] for inquiry in sim.state()["visca_inquiries"]]
     assert POWER_INQUIRY in inquiries, inquiries
@@ -110,7 +110,7 @@ def test_power_is_asked_for_straight_after_the_version(obs_world, camera, tmp_pa
 
 
 def test_a_camera_in_standby_is_known_to_be_off(obs_world, camera, tmp_path):
-    _, device_id = camera
+    _, device_name = camera
     state = obs_world.wait_for_device_state(
-        device_id, tmp_path / "state.json", lambda r: "power_on" in r["state"], timeout=15)["state"]
+        device_name, tmp_path / "state.json", lambda r: "power_on" in r["state"], timeout=15)["state"]
     assert state["power_on"] is False

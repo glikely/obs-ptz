@@ -32,9 +32,6 @@ DOC = REPO_ROOT / "docs" / "ptz-device-api.md"
 
 # The handler sections of the document, by what the plugin calls their scope
 SCOPES = {
-    "Global PTZ proc_handler": "global-proc",
-    "OBS main proc_handler": "obs-proc",
-    "Global PTZ signal_handler": "global-signal",
     "Per-device proc_handler": "device-proc",
     "Per-device signal_handler": "device-signal",
 }
@@ -121,8 +118,8 @@ def test_the_doc_lists_what_the_plugin_registers(obs_world, tmp_path):
 def test_every_state_key_a_device_always_has_is_there(obs_world, tmp_path):
     keys = documented_keys("State keys")
     always = {key for key, (_, present) in keys.items() if present == "always"}
-    for backend, device_id in obs_world.device_ids.items():
-        state = obs_world.device_state(device_id, tmp_path / f"{backend}.json")["state"]
+    for backend, device_name in obs_world.device_names.items():
+        state = obs_world.device_state(device_name, tmp_path / f"{backend}.json")["state"]
         assert always <= set(state), f"{backend} lacks {sorted(always - set(state))}"
         for key in always:
             check_type(state[key], keys[key][0], f"{backend} state {key}")
@@ -132,7 +129,7 @@ def test_the_state_keys_a_device_has_are_documented(obs_world, tmp_path):
     """Pelco's driver adds none of its own, so everything in its state is the
     common keys: the ones that are documented"""
     keys = documented_keys("State keys")
-    state = obs_world.device_state(obs_world.device_ids["pelco-d"], tmp_path / "state.json")["state"]
+    state = obs_world.device_state(obs_world.device_names["pelco-d"], tmp_path / "state.json")["state"]
     # the harness adds the statistics, which the device doesn't have in its state
     state.pop("statistics", None)
     assert set(state) - set(keys) == set()
@@ -144,7 +141,7 @@ def test_documented_state_keys_have_the_documented_types(obs_world, tmp_path):
     """VISCA has them all, once its camera has answered"""
     keys = documented_keys("State keys")
     state = obs_world.wait_for_device_state(
-        obs_world.device_ids["visca-tcp"], tmp_path / "state.json",
+        obs_world.device_names["visca-tcp"], tmp_path / "state.json",
         lambda r: r["state"].get("connected") is True and "pan" in r["state"] and "focus_af_enabled" in r["state"],
         timeout=10)["state"]
     for key, (type_name, _) in keys.items():
@@ -154,8 +151,8 @@ def test_documented_state_keys_have_the_documented_types(obs_world, tmp_path):
 
 def test_every_config_key_is_there_with_its_type(obs_world, tmp_path):
     keys = documented_keys("Config keys")
-    for backend, device_id in obs_world.device_ids.items():
-        config = obs_world.device_settings(device_id, tmp_path / f"{backend}.json")["saved"]
+    for backend, device_name in obs_world.device_names.items():
+        config = obs_world.device_settings(device_name, tmp_path / f"{backend}.json")["saved"]
         assert set(keys) <= set(config), f"{backend} lacks {sorted(set(keys) - set(config))}"
         for key, (type_name, _) in keys.items():
             check_type(config[key], type_name, f"{backend} config {key}")
@@ -163,8 +160,8 @@ def test_every_config_key_is_there_with_its_type(obs_world, tmp_path):
 
 def test_the_features_a_device_reports_are_documented(obs_world, tmp_path):
     documented = {name for row in table_rows("Features") for name in names(row[0])}
-    for backend, device_id in obs_world.device_ids.items():
-        state = obs_world.device_state(device_id, tmp_path / f"{backend}.json")["state"]
+    for backend, device_name in obs_world.device_names.items():
+        state = obs_world.device_state(device_name, tmp_path / f"{backend}.json")["state"]
         reported = set(state["features"])
         assert reported <= documented, f"{backend} reports {sorted(reported - documented)}"
 

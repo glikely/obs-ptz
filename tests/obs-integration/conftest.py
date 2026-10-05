@@ -5,8 +5,10 @@ session.
 Device wiring is entirely config-file driven: ptzsim's cameras are
 started on fixed local ports, and obs-ptz's own config.json (the file
 PTZControls::LoadConfig() reads -- see src/ptz-controls.cpp) is
-pre-written with one device per ptzsim backend, each given an explicit
-"id" so device_id is known ahead of time. OBS itself is driven at
+pre-written with one device per ptzsim backend, in the format of the old
+self-managed backend, which the plugin turns into a filter on a source of the
+device's name (see src/ptz-legacy-migration.cpp). A device is then known by
+that name, in DEVICE_NAMES. OBS itself is driven at
 runtime over obs-websocket (bundled since OBS 28), which every test
 module uses to add a `ptz_action_source` (src/ptz-action-source.c) to a
 scene and make that scene current -- which is what fires the source's
@@ -96,8 +98,9 @@ def pytest_sessionfinish(session, exitstatus):
 # is still starting up, even after the websocket handshake has completed.
 OBS_NOT_READY = 207
 
-# Device ids are fixed so tests can address them without querying OBS for
-# a device list (obs-ptz doesn't expose one over obs-websocket).
+# The ids the old self-managed config.json format gives each device. Nothing
+# else has them: a device is its filter, and the tests refer to it by the name
+# of the source that is on, DEVICE_NAMES below.
 DEVICE_IDS = {
     "visca-tcp": 1,
     "visca-udp": 2,
@@ -129,6 +132,11 @@ DEVICE_IDS = {
     # Has neither setting, and talks to a camera that starts off
     "visca-tcp-no-power": 18,
 }
+
+# The name of the source each device is on: the one in its config, or for a
+# device that has none a placeholder the migration makes, named for its id
+DEVICE_NAMES = {key: f"sim-{key}" for key in DEVICE_IDS}
+DEVICE_NAMES["unnamed"] = f"PTZ Device {DEVICE_IDS['unnamed']}"
 
 
 def write_preset_file(path, presets, preset_max=16, device="unused"):
@@ -434,10 +442,10 @@ def stop_process_group(proc, timeout, sig=signal.SIGTERM):
 
 
 class World:
-    def __init__(self, ws, debug_url, device_ids):
+    def __init__(self, ws, debug_url, device_names):
         self.ws = ws
         self.debug_url = debug_url
-        self.device_ids = device_ids
+        self.device_names = device_names
         # The plugin's config directory, for tests that look at what it keeps there
         self.config_dir = None
         # Somewhere for the small files a test asks the harness to write
@@ -458,13 +466,12 @@ class World:
             time.sleep(interval)
         raise AssertionError(f"state never matched predicate; last seen: {last}")
 
-    def trigger_action(self, device_id, action, preset_id=0, pan_speed=0.0, tilt_speed=0.0):
+    def trigger_action(self, device_name, action, preset_id=0, pan_speed=0.0, tilt_speed=0.0):
         """Create a ptz_action_source in a fresh scene and make that scene
         current, which fires the action via PTZ_ACTION_TRIGGER_PROGRAM_ACTIVE
         (the source's default trigger -- see ptz_action_source_activate())."""
         # The action names the device's filter, by UUID
-        found = self.wait_for_device_source(device_id, self.scratch / "action-device.json",
-                                            lambda r: r["found"] and r["filter_uuid"])
+        found = self.wait_for_device_by_name(device_name, self.scratch / "action-device.json", lambda r: r["found"])
         self._scene_counter += 1
         scene = f"ptzsim-test-{self._scene_counter}"
         source = f"{scene}-action"
@@ -475,7 +482,7 @@ class World:
             "inputKind": "ptz_action_source",
             "inputSettings": {
                 "trigger": 0,  # PTZ_ACTION_TRIGGER_PROGRAM_ACTIVE
-                "device_uuid": found["filter_uuid"],
+                "device_uuid": found["uuid"],
                 "action": action,
                 "preset_id": preset_id,
                 "pan_speed": pan_speed,
@@ -499,32 +506,32 @@ class World:
         self.wait_for(out_file.exists)
         return json.loads(out_file.read_text())
 
-    def device_source(self, device_id, out_file):
-        """Fetches which OBS source device_id is bound to, and the
+    def device_source(self, device_name, out_file):
+        """Fetches which OBS source device_name is bound to, and the
         device's name, via tests/ui-harness/device-source-test.cpp's
         "get_device_source" test. Like device_status(), removes any stale
         out_file first and waits for the rewritten one. Note that asking
         can itself bind the device to a source that has just appeared."""
-        return self._query_device_source(out_file, device_id=device_id)
+        return self._query_device_source(out_file, device=device_name)
 
     def device_by_name(self, name, out_file):
-        """device_source() for a device whose id isn't known ahead of
-        time, such as one an OBS filter created, found by its name.
-        Nothing but {"found": False} is there if there's no such device."""
-        return self._query_device_source(out_file, name=name)
+        """device_source() under the name of its source, for a device a test
+        made, which is the name it asks the device by anyway. Nothing but
+        {"found": False} is there if there's no such device."""
+        return self._query_device_source(out_file, device=name)
 
-    def wait_for_device_source(self, device_id, out_file, predicate, timeout=5, interval=0.2):
+    def wait_for_device_source(self, device_name, out_file, predicate, timeout=5, interval=0.2):
         """Polls device_source() until predicate(result) is true -- name
         changes and the device list's cached live/locked state reach it
         asynchronously, via signals queued onto the GUI thread."""
         deadline = time.time() + timeout
         last = None
         while time.time() < deadline:
-            last = self.device_source(device_id, out_file)
+            last = self.device_source(device_name, out_file)
             if predicate(last):
                 return last
             time.sleep(interval)
-        raise AssertionError(f"device {device_id} source never matched predicate; last seen: {last}")
+        raise AssertionError(f"device {device_name} source never matched predicate; last seen: {last}")
 
     def wait_for_device_by_name(self, name, out_file, predicate, timeout=5, interval=0.2):
         """wait_for_device_source() for a device found by name."""
@@ -578,13 +585,13 @@ class World:
         })
         return response["responseData"]
 
-    def export_and_wait(self, device_id, out_file, expected_presets, timeout=5, interval=0.1):
+    def export_and_wait(self, device_name, out_file, expected_presets, timeout=5, interval=0.1):
         """Triggers the real "Export Presets..." action once (via
-        run_ui_test()) for device_id, writing to out_file, then waits for
+        run_ui_test()) for device_name, writing to out_file, then waits for
         it to show expected_presets -- run_ui_test()'s dispatch is queued
         onto the GUI thread, not synchronous, so the file may not exist
         yet the instant this returns. Returns the parsed file."""
-        self.run_ui_test("export_presets", device_id=device_id, filename=str(out_file))
+        self.run_ui_test("export_presets", device=device_name, filename=str(out_file))
 
         def matches():
             return out_file.exists() and json.loads(out_file.read_text()).get("presets") == expected_presets
@@ -592,8 +599,8 @@ class World:
         self.wait_for(matches, timeout=timeout, interval=interval)
         return json.loads(out_file.read_text())
 
-    def device_settings(self, device_id, out_file):
-        """Fetches, as three sets of key names, what device_id's settings
+    def device_settings(self, device_name, out_file):
+        """Fetches, as three sets of key names, what device_name's settings
         properties edit ("property_keys"), what saving it writes
         ("save_keys"), and what its PTZ filter (if it has one) would
         persist ("filter_keys"), via tests/ui-harness/device-settings-test.cpp's
@@ -602,7 +609,7 @@ class World:
         as "lists": {key: [value, ...]}."""
         if out_file.exists():
             out_file.unlink()
-        self.run_ui_test("get_device_settings", device_id=device_id, filename=str(out_file))
+        self.run_ui_test("get_device_settings", device=device_name, filename=str(out_file))
         self.wait_for(out_file.exists)
         raw = json.loads(out_file.read_text())
         keys = {name: {e["key"] for e in raw.get(name, [])} for name in ("property_keys", "save_keys", "filter_keys")}
@@ -610,60 +617,60 @@ class World:
         keys["lists"] = {e["key"]: [v["value"] for v in e["values"]] for e in raw.get("lists", [])}
         return keys
 
-    def camera_report(self, device_id, out_file):
-        """Fetches device_id's camera report, or None if it has none, via
+    def camera_report(self, device_name, out_file):
+        """Fetches device_name's camera report, or None if it has none, via
         tests/ui-harness/device-state-test.cpp's "get_camera_report" test"""
         if out_file.exists():
             out_file.unlink()
-        self.run_ui_test("get_camera_report", device_id=device_id, filename=str(out_file))
+        self.run_ui_test("get_camera_report", device=device_name, filename=str(out_file))
         self.wait_for(out_file.exists)
         return json.loads(out_file.read_text()).get("report")
 
-    def device_state(self, device_id, out_file):
-        """Fetches device_id's whole transient state ("state"), via
+    def device_state(self, device_name, out_file):
+        """Fetches device_name's whole transient state ("state"), via
         tests/ui-harness/device-state-test.cpp's "get_device_state" test.
         Like device_status(), removes any stale out_file first."""
         if out_file.exists():
             out_file.unlink()
-        self.run_ui_test("get_device_state", device_id=device_id, filename=str(out_file))
+        self.run_ui_test("get_device_state", device=device_name, filename=str(out_file))
         self.wait_for(out_file.exists)
         return json.loads(out_file.read_text())
 
-    def wait_for_device_state(self, device_id, out_file, predicate, timeout=5, interval=0.2):
+    def wait_for_device_state(self, device_name, out_file, predicate, timeout=5, interval=0.2):
         """Polls device_state() until predicate(result) is true."""
         deadline = time.time() + timeout
         last = None
         while time.time() < deadline:
-            last = self.device_state(device_id, out_file)
+            last = self.device_state(device_name, out_file)
             if predicate(last):
                 return last
             time.sleep(interval)
-        raise AssertionError(f"device {device_id} state never matched predicate; last seen: {last}")
+        raise AssertionError(f"device {device_name} state never matched predicate; last seen: {last}")
 
-    def device_signals(self, device_id, out_file):
+    def device_signals(self, device_name, out_file):
         """Fetches how often PTZListModel's deviceSettingsUpdated() and
-        deviceStateUpdated() fired for device_id since watch_device_signals(),
+        deviceStateUpdated() fired for device_name since watch_device_signals(),
         and which state keys the latter reported as changed, via
         tests/ui-harness/device-signals-test.cpp's "get_device_signals"
         test."""
         if out_file.exists():
             out_file.unlink()
-        self.run_ui_test("get_device_signals", device_id=device_id, filename=str(out_file))
+        self.run_ui_test("get_device_signals", device=device_name, filename=str(out_file))
         self.wait_for(out_file.exists)
         raw = json.loads(out_file.read_text())
         raw["state_keys"] = {e["key"] for e in raw.get("state_keys", [])}
         return raw
 
-    def wait_for_device_signals(self, device_id, out_file, predicate, timeout=5, interval=0.2):
+    def wait_for_device_signals(self, device_name, out_file, predicate, timeout=5, interval=0.2):
         """Polls device_signals() until predicate(result) is true."""
         deadline = time.time() + timeout
         last = None
         while time.time() < deadline:
-            last = self.device_signals(device_id, out_file)
+            last = self.device_signals(device_name, out_file)
             if predicate(last):
                 return last
             time.sleep(interval)
-        raise AssertionError(f"device {device_id} signals never matched predicate; last seen: {last}")
+        raise AssertionError(f"device {device_name} signals never matched predicate; last seen: {last}")
 
     def settings_dialog(self, out_file):
         """Fetches what the open PTZ settings dialog's two views hold, via
@@ -689,8 +696,8 @@ class World:
             time.sleep(interval)
         raise AssertionError(f"settings dialog never matched predicate; last seen: {last}")
 
-    def device_status(self, device_id, out_file):
-        """Fetches device_id's live {"connected"} status via
+    def device_status(self, device_name, out_file):
+        """Fetches device_name's live {"connected"} status via
         tests/ui-harness/device-status-test.cpp's "get_device_status"
         test -- the only way to observe PTZDevice::isConnected() from
         outside the plugin, since obs-websocket has no device list or
@@ -699,11 +706,11 @@ class World:
         for the (re)written file before parsing it."""
         if out_file.exists():
             out_file.unlink()
-        self.run_ui_test("get_device_status", device_id=device_id, filename=str(out_file))
+        self.run_ui_test("get_device_status", device=device_name, filename=str(out_file))
         self.wait_for(out_file.exists)
         return json.loads(out_file.read_text())
 
-    def wait_for_device_status(self, device_id, out_file, predicate, timeout=5, interval=0.2):
+    def wait_for_device_status(self, device_name, out_file, predicate, timeout=5, interval=0.2):
         """Polls device_status() until predicate(status) is true,
         re-dispatching get_device_status each time so out_file always
         reflects a fresh read rather than one cached from an earlier
@@ -711,27 +718,27 @@ class World:
         deadline = time.time() + timeout
         last = None
         while time.time() < deadline:
-            last = self.device_status(device_id, out_file)
+            last = self.device_status(device_name, out_file)
             if predicate(last):
                 return last
             time.sleep(interval)
-        raise AssertionError(f"device {device_id} status never matched predicate; last seen: {last}")
+        raise AssertionError(f"device {device_name} status never matched predicate; last seen: {last}")
 
-    def dock_controls(self, device_id, out_file):
+    def dock_controls(self, device_name, out_file):
         """Which of the PTZ Controls dock's controls are enabled with the
         device selected, via tests/ui-harness/dock-controls-test.cpp's
         "get_dock_controls" test"""
         if out_file.exists():
             out_file.unlink()
-        self.run_ui_test("get_dock_controls", device_id=device_id, filename=str(out_file))
+        self.run_ui_test("get_dock_controls", device=device_name, filename=str(out_file))
         self.wait_for(out_file.exists)
         return json.loads(out_file.read_text())
 
-    def wait_for_dock_controls(self, device_id, out_file, predicate, timeout=5, interval=0.2):
+    def wait_for_dock_controls(self, device_name, out_file, predicate, timeout=5, interval=0.2):
         deadline = time.time() + timeout
         last = None
         while time.time() < deadline:
-            last = self.dock_controls(device_id, out_file)
+            last = self.dock_controls(device_name, out_file)
             if predicate(last["enabled"]):
                 return last["enabled"]
             time.sleep(interval)
@@ -988,7 +995,7 @@ def no_power_ptzsim(ptz_ports):
 
 class FlakyPtzsim:
     """A dedicated, VISCA-TCP-only ptzsim instance on its own fixed port
-    (ptz_ports["visca_tcp_flaky"], wired to device_id
+    (ptz_ports["visca_tcp_flaky"], wired to device_name
     DEVICE_IDS["visca-tcp-flaky"] by write_ptz_plugin_config()) that a
     test can freely stop() and start() again -- unlike ptzsim_process
     (session-scoped and shared by every other test in this suite),
@@ -1160,7 +1167,7 @@ def obs_world(tmp_path_factory, ptzsim_process, sony_ptzsim, birddog_ptzsim, pow
         # one was not there to be told
         late_power_ptzsim.start()
 
-        world = World(ws, f"http://127.0.0.1:{ptzsim_process['ports']['debug_http']}/state", DEVICE_IDS)
+        world = World(ws, f"http://127.0.0.1:{ptzsim_process['ports']['debug_http']}/state", DEVICE_NAMES)
         world.config_dir = obs_config_root(home) / "plugin_config" / "obs-ptz"
         yield world
     finally:

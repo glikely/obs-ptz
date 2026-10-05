@@ -99,11 +99,11 @@ def camera(request, world, tmp_path, sim_args=None, read=READ, **settings):
         "filterKind": FILTER_KIND,
         "filterSettings": {"type": "visca-over-tcp", "host": "127.0.0.1", "tcp_port": sim.tcp_port, **settings},
     })
-    device_id = world.wait_for_device_by_name(
-        source, tmp_path / "device.json", lambda r: r["found"] and r["bound"])["device_id"]
+    device_name = world.wait_for_device_by_name(
+        source, tmp_path / "device.json", lambda r: r["found"] and r["bound"])["uuid"]
     state = world.wait_for_device_state(
-        device_id, tmp_path / "state.json", lambda r: read <= set(r["state"]), timeout=15)["state"]
-    return sim, state, device_id
+        device_name, tmp_path / "state.json", lambda r: read <= set(r["state"]), timeout=15)["state"]
+    return sim, state, device_name
 
 
 def test_a_p100_is_only_asked_for_what_it_has(request, obs_world, tmp_path):
@@ -127,8 +127,8 @@ def test_a_sony_is_asked_for_what_its_manual_has(request, obs_world, tmp_path):
     """A camera that says it is a Sony SRG-120DH gets the command set from
     Sony's manual for it, which has no tally lamps, so it isn't asked for
     one, though ptzsim has them"""
-    sim, state, device_id = camera(request, obs_world, tmp_path, sim_args={"model": "0001:0511", "flags": ()})
+    sim, state, device_name = camera(request, obs_world, tmp_path, sim_args={"model": "0001:0511", "flags": ()})
     assert (state["vendor_id"], state["model_id"]) == (0x0001, 0x0511)
     # long enough for the rest of what there is to read to have been
     time.sleep(2)
-    assert "tally_on" not in obs_world.device_state(device_id, tmp_path / "later.json")["state"]
+    assert "tally_on" not in obs_world.device_state(device_name, tmp_path / "later.json")["state"]

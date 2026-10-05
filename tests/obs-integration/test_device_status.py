@@ -23,34 +23,34 @@ ACTION_PAN_TILT = 3
 
 
 def test_connect_detected(obs_world, flaky_ptzsim, tmp_path):
-    device_id = obs_world.device_ids["visca-tcp-flaky"]
-    obs_world.wait_for_device_status(device_id, tmp_path / "status.json",
+    device_name = obs_world.device_names["visca-tcp-flaky"]
+    obs_world.wait_for_device_status(device_name, tmp_path / "status.json",
                                       lambda s: s["connected"] is True, timeout=10)
 
 
 def test_disconnect_detected(obs_world, flaky_ptzsim, tmp_path):
-    device_id = obs_world.device_ids["visca-tcp-flaky"]
+    device_name = obs_world.device_names["visca-tcp-flaky"]
     status_file = tmp_path / "status.json"
-    obs_world.wait_for_device_status(device_id, status_file, lambda s: s["connected"] is True, timeout=10)
+    obs_world.wait_for_device_status(device_name, status_file, lambda s: s["connected"] is True, timeout=10)
 
     flaky_ptzsim.stop()
     # An idle connection doesn't self-detect a drop -- PTZVisca::timeout()
     # is only ever armed by a command that's actually waiting on a reply
     # (see send_packet()), so something has to try to move the camera
     # before a timeout (and therefore setConnected(false)) can fire.
-    obs_world.trigger_action(device_id, ACTION_PAN_TILT, pan_speed=0.3)
+    obs_world.trigger_action(device_name, ACTION_PAN_TILT, pan_speed=0.3)
 
-    obs_world.wait_for_device_status(device_id, status_file, lambda s: s["connected"] is False, timeout=10)
+    obs_world.wait_for_device_status(device_name, status_file, lambda s: s["connected"] is False, timeout=10)
 
 
 def test_reconnect_after_restart(obs_world, flaky_ptzsim, tmp_path):
-    device_id = obs_world.device_ids["visca-tcp-flaky"]
+    device_name = obs_world.device_names["visca-tcp-flaky"]
     status_file = tmp_path / "status.json"
-    obs_world.wait_for_device_status(device_id, status_file, lambda s: s["connected"] is True, timeout=10)
+    obs_world.wait_for_device_status(device_name, status_file, lambda s: s["connected"] is True, timeout=10)
 
     flaky_ptzsim.stop()
-    obs_world.trigger_action(device_id, ACTION_PAN_TILT, pan_speed=0.3)
-    obs_world.wait_for_device_status(device_id, status_file, lambda s: s["connected"] is False, timeout=10)
+    obs_world.trigger_action(device_name, ACTION_PAN_TILT, pan_speed=0.3)
+    obs_world.wait_for_device_status(device_name, status_file, lambda s: s["connected"] is False, timeout=10)
 
     flaky_ptzsim.start()
-    obs_world.wait_for_device_status(device_id, status_file, lambda s: s["connected"] is True, timeout=10)
+    obs_world.wait_for_device_status(device_name, status_file, lambda s: s["connected"] is True, timeout=10)

@@ -144,7 +144,7 @@ class Obs:
         out = WORK / "status.json"
         if out.exists():
             out.unlink()
-        self.ui("get_device_status", device_id=DEVICE_ID, filename=str(out))
+        self.ui("get_device_status", device=DEVICE_ID, filename=str(out))
         for _ in range(50):
             if out.exists():
                 try:
@@ -175,12 +175,12 @@ class Obs:
         self.ws.call("CreateScene", {"sceneName": scene})
         self.ws.call("CreateInput", {"sceneName": scene, "inputName": scene + "-source",
                                      "inputKind": "ptz_action_source",
-                                     "inputSettings": {"trigger": 0, "device_id": DEVICE_ID, "action": action,
+                                     "inputSettings": {"trigger": 0, "device_name": DEVICE_ID, "action": action,
                                                        "preset_id": preset, "pan_speed": pan, "tilt_speed": tilt}})
         self.ws.call("SetCurrentProgramScene", {"sceneName": scene})
 
     def move(self, **position):
-        self.ui("move_device", device_id=DEVICE_ID, mode="abs", **position)
+        self.ui("move_device", device=DEVICE_ID, mode="abs", **position)
 
     def quit(self):
         # Leave nothing behind that would fire an action when OBS next starts

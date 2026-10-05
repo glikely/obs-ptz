@@ -53,11 +53,11 @@ def test_camera_of_a_filter_is_powered_off_when_obs_closes(obs_world, filter_pow
             "power_off_at_shutdown": True,
         },
     })
-    device_id = obs_world.wait_for_device_by_name(
-        "power-filter-cam", tmp_path / "device.json", lambda r: r["found"] and r["bound"])["device_id"]
-    obs_world.wait_for_device_status(device_id, tmp_path / "status.json", lambda s: s["connected"], timeout=10)
+    device_name = obs_world.wait_for_device_by_name(
+        "power-filter-cam", tmp_path / "device.json", lambda r: r["found"] and r["bound"])["uuid"]
+    obs_world.wait_for_device_status(device_name, tmp_path / "status.json", lambda s: s["connected"], timeout=10)
 
-    obs_world.run_ui_test("set_device_state", device_id=device_id, power_on=True)
+    obs_world.run_ui_test("set_device_state", device=device_name, power_on=True)
     obs_world.wait_for(lambda: filter_power_ptzsim.power() is True, timeout=10)
 
 
@@ -66,7 +66,7 @@ def test_a_camera_is_left_alone_unless_it_is_set_to_be_powered(obs_world, no_pow
     assert no_power_ptzsim.power() is False
 
     # Turned on, it is not turned off when OBS closes, which teardown checks
-    device_id = obs_world.device_ids["visca-tcp-no-power"]
-    obs_world.run_ui_test("set_device_state", device_id=device_id, power_on=True)
+    device_name = obs_world.device_names["visca-tcp-no-power"]
+    obs_world.run_ui_test("set_device_state", device=device_name, power_on=True)
     obs_world.wait_for(lambda: no_power_ptzsim.power() is True, timeout=10)
     no_power_ptzsim.left_on = True

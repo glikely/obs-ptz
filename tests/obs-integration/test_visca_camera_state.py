@@ -146,12 +146,12 @@ class Camera:
             "filterKind": FILTER_KIND,
             "filterSettings": {"type": "visca-over-tcp", "host": "127.0.0.1", "tcp_port": sim.tcp_port},
         })
-        self.device_id = world.wait_for_device_by_name(
-            self.source, tmp_path / "device.json", lambda r: r["found"] and r["bound"])["device_id"]
+        self.device_name = world.wait_for_device_by_name(
+            self.source, tmp_path / "device.json", lambda r: r["found"] and r["bound"])["uuid"]
 
     def wait_for_state(self, predicate, timeout=15):
         return self.world.wait_for_device_state(
-            self.device_id, self.tmp_path / "state.json", lambda r: predicate(r["state"]), timeout=timeout)["state"]
+            self.device_name, self.tmp_path / "state.json", lambda r: predicate(r["state"]), timeout=timeout)["state"]
 
     def cleanup(self):
         try:
@@ -205,7 +205,7 @@ def test_a_setting_can_be_asked_for(obs_world, camera, key):
     value = SETTABLE[key]
     # read, so that the device is connected
     camera.wait_for_state(lambda s: key in s)
-    obs_world.run_ui_test("set_device_state", device_id=camera.device_id, **{key: value})
+    obs_world.run_ui_test("set_device_state", device=camera.device_name, **{key: value})
 
     obs_world.wait_for(lambda: camera.sim.settings()[key] == value, timeout=5)
     # and is read back from the camera
@@ -217,7 +217,7 @@ def test_one_af_time_asked_for_keeps_the_other(request, obs_world, tmp_path):
     camera = make_camera(request.addfinalizer, obs_world, tmp_path)
     before = camera.wait_for_state(lambda s: "focus_af_move_time" in s)["focus_af_move_time"]
 
-    obs_world.run_ui_test("set_device_state", device_id=camera.device_id, focus_af_interval_time=21)
+    obs_world.run_ui_test("set_device_state", device=camera.device_name, focus_af_interval_time=21)
     obs_world.wait_for(lambda: camera.sim.settings()["focus_af_interval_time"] == 21, timeout=5)
     assert camera.sim.settings()["focus_af_move_time"] == before
 
@@ -227,7 +227,7 @@ def test_the_menu_is_not_opened(request, obs_world, tmp_path):
     camera = make_camera(request.addfinalizer, obs_world, tmp_path)
     camera.wait_for_state(lambda s: s.get("menu_on") is False)
 
-    obs_world.run_ui_test("set_device_state", device_id=camera.device_id, menu_on=True, info_display=True)
+    obs_world.run_ui_test("set_device_state", device=camera.device_name, menu_on=True, info_display=True)
     obs_world.wait_for(lambda: camera.sim.settings()["info_display"] is True, timeout=5)
     assert camera.sim.settings()["menu_on"] is False
 
@@ -244,7 +244,7 @@ DIALOG_EDITS = {
 
 
 def open_dialog(obs_world, camera, tmp_path):
-    obs_world.run_ui_test("open_settings_dialog", device_id=camera.device_id)
+    obs_world.run_ui_test("open_settings_dialog", device=camera.device_name)
     out = tmp_path / "dialog.json"
     return out, obs_world.wait_for_settings_dialog(
         out, lambda r: set(SETTABLE) | READ_ONLY | READ_ONLY_BLOCKS <= r["state_keys"], timeout=15)
@@ -276,6 +276,6 @@ def test_state_view_changes_a_setting(request, obs_world, tmp_path, key):
 
 
 def test_state_view_has_none_of_them_for_another_protocol(obs_world, tmp_path):
-    obs_world.run_ui_test("open_settings_dialog", device_id=obs_world.device_ids["pelco-d"])
+    obs_world.run_ui_test("open_settings_dialog", device=obs_world.device_names["pelco-d"])
     dialog = obs_world.wait_for_settings_dialog(tmp_path / "dialog.json", lambda r: "connected" in r["state_keys"])
     assert not (set(SETTABLE) | READ_ONLY | READ_ONLY_BLOCKS) & dialog["state_keys"]

@@ -71,8 +71,8 @@ class Camera:
             "filterKind": FILTER_KIND,
             "filterSettings": {"type": "visca-over-tcp", "host": "127.0.0.1", "tcp_port": self.sim.tcp_port},
         })
-        self.device_id = world.wait_for_device_by_name(
-            self.source, tmp_path / "device.json", lambda r: r["found"] and r["bound"])["device_id"]
+        self.device_name = world.wait_for_device_by_name(
+            self.source, tmp_path / "device.json", lambda r: r["found"] and r["bound"])["uuid"]
 
     def remove(self):
         try:
@@ -82,7 +82,7 @@ class Camera:
 
     def wait_for_state(self, predicate, timeout=15):
         return self.world.wait_for_device_state(
-            self.device_id, self.tmp_path / "state.json", lambda r: predicate(r["state"]), timeout=timeout)["state"]
+            self.device_name, self.tmp_path / "state.json", lambda r: predicate(r["state"]), timeout=timeout)["state"]
 
 
 def test_a_user_state_value_is_read_and_set(request, obs_world, tmp_path):
@@ -92,7 +92,7 @@ def test_a_user_state_value_is_read_and_set(request, obs_world, tmp_path):
     assert state["user_zoom"] == state["zoom_pos"]
     assert "low_latency" not in state
 
-    obs_world.run_ui_test("set_device_state", device_id=camera.device_id, user_wb=5)
+    obs_world.run_ui_test("set_device_state", device=camera.device_name, user_wb=5)
     obs_world.wait_for(lambda: camera.sim.state()["visca"]["wb_mode"] == 5, timeout=5)
     camera.wait_for_state(lambda s: s.get("user_wb") == 5, timeout=5)
 
@@ -100,10 +100,10 @@ def test_a_user_state_value_is_read_and_set(request, obs_world, tmp_path):
 def test_a_user_trigger_is_sent(request, obs_world, tmp_path):
     camera = Camera(request, obs_world, tmp_path, "0123:0001")
     camera.wait_for_state(lambda s: "pan" in s)
-    obs_world.run_ui_test("move_device", device_id=camera.device_id, mode="abs", pan=0.5, tilt=0.0)
+    obs_world.run_ui_test("move_device", device=camera.device_name, mode="abs", pan=0.5, tilt=0.0)
     obs_world.wait_for(lambda: camera.sim.state()["pan"] > 0.1, timeout=5)
 
-    obs_world.run_ui_test("trigger_device", device_id=camera.device_id, name="user_home")
+    obs_world.run_ui_test("trigger_device", device=camera.device_name, name="user_home")
     obs_world.wait_for(lambda: abs(camera.sim.state()["pan"]) < 0.005, timeout=5)
 
 
@@ -125,7 +125,7 @@ def test_a_command_set_with_a_misspelt_key_is_left_out(request, obs_world, tmp_p
     """"remove_inquiry" for "remove_inquiries" would do nothing at all"""
     camera = Camera(request, obs_world, tmp_path, "0123:0007")
     camera.wait_for_state(lambda s: "wb_mode" in s)
-    offered = obs_world.device_settings(camera.device_id, tmp_path / "settings.json")["lists"]["visca_profile"]
+    offered = obs_world.device_settings(camera.device_name, tmp_path / "settings.json")["lists"]["visca_profile"]
     assert "test-misspelt" not in offered
 
 
@@ -137,7 +137,7 @@ def test_the_dock_offers_only_what_a_command_set_has(request, obs_world, tmp_pat
     assert "zoom" not in state["features"]
     assert state["features"]["zoom_abs"] is True
     enabled = obs_world.wait_for_dock_controls(
-        camera.device_id, tmp_path / "dock.json", lambda e: e["panTiltButton_up"])
+        camera.device_name, tmp_path / "dock.json", lambda e: e["panTiltButton_up"])
     assert enabled["zoomButton_tele"] is False
     assert enabled["zoomButton_wide"] is False
 
@@ -146,7 +146,7 @@ def test_every_shipped_command_set_is_offered(obs_world, tmp_path):
     """Each file in src/visca-profiles is linked into the plugin and read, so
     one with anything wrong with it, which would be left out, fails here"""
     shipped = {json.loads(path.read_text())["id"] for path in (REPO_ROOT / "src" / "visca-profiles").glob("*.json")}
-    offered = obs_world.device_settings(obs_world.device_ids["visca-tcp"], tmp_path / "settings.json")["lists"]
+    offered = obs_world.device_settings(obs_world.device_names["visca-tcp"], tmp_path / "settings.json")["lists"]
     offered = offered["visca_profile"]
     assert shipped <= set(offered)
     assert {"auto", "generic"} <= set(offered)
@@ -167,5 +167,5 @@ def test_a_command_set_doesnt_change_the_one_it_extends(request, obs_world, tmp_
     of a model no command set is for"""
     camera = Camera(request, obs_world, tmp_path, "0001:0000")
     camera.wait_for_state(lambda s: "ae_mode" in s)
-    obs_world.run_ui_test("set_device_state", device_id=camera.device_id, ae_mode=3)
+    obs_world.run_ui_test("set_device_state", device=camera.device_name, ae_mode=3)
     obs_world.wait_for(lambda: camera.sim.state()["visca"]["ae_mode"] == 3, timeout=5)

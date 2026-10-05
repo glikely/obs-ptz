@@ -97,8 +97,8 @@ class Tally:
             },
         })
         out = tmp_path / "device.json"
-        self.device_id = world.wait_for_device_by_name(SOURCE, out, lambda r: r["found"] and r["bound"])["device_id"]
-        world.wait_for_device_status(self.device_id, tmp_path / "status.json", lambda s: s["connected"], timeout=10)
+        self.device_name = world.wait_for_device_by_name(SOURCE, out, lambda r: r["found"] and r["bound"])["uuid"]
+        world.wait_for_device_status(self.device_name, tmp_path / "status.json", lambda s: s["connected"], timeout=10)
         self.tmp_path = tmp_path
         self.program(self.other)
 
@@ -119,7 +119,7 @@ class Tally:
         self.world.ws.call("SetCurrentPreviewScene", {"sceneName": scene})
 
     def state(self):
-        return self.world.device_state(self.device_id, self.tmp_path / "state.json")["state"]
+        return self.world.device_state(self.device_name, self.tmp_path / "state.json")["state"]
 
     def wait_for_lamps(self, red, green, timeout=5):
         self.world.wait_for(lambda: self.sim.lamps() == {"red": red, "green": green}, timeout=timeout)
@@ -155,7 +155,7 @@ def test_red_lamp_is_lit_while_the_source_is_in_the_program_scene(tally):
     assert tally.sim.lamps() == {"red": False, "green": False}
 
     tally.program(tally.scene)
-    tally.world.wait_for_device_source(tally.device_id, tally.tmp_path / "src.json", lambda r: r["live"], timeout=5)
+    tally.world.wait_for_device_source(tally.device_name, tally.tmp_path / "src.json", lambda r: r["live"], timeout=5)
     tally.wait_for_lamps(red=True, green=False)
 
     tally.program(tally.other)
@@ -198,12 +198,12 @@ def test_state_follows_the_lamps(obs_world, tally):
 
 
 def test_lamps_can_be_requested(obs_world, tally):
-    obs_world.run_ui_test("set_device_state", device_id=tally.device_id, tally_preview=True)
+    obs_world.run_ui_test("set_device_state", device=tally.device_name, tally_preview=True)
     tally.wait_for_lamps(red=False, green=True)
-    obs_world.run_ui_test("set_device_state", device_id=tally.device_id, tally_on=True)
+    obs_world.run_ui_test("set_device_state", device=tally.device_name, tally_on=True)
     tally.wait_for_lamps(red=True, green=True)
 
-    obs_world.run_ui_test("set_device_state", device_id=tally.device_id, tally_preview=False, tally_on=False)
+    obs_world.run_ui_test("set_device_state", device=tally.device_name, tally_preview=False, tally_on=False)
     tally.wait_for_lamps(red=False, green=False)
 
 

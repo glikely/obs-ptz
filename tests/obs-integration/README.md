@@ -27,10 +27,12 @@ anyway. It also says if the run itself left one behind.
 2. **obs-ptz's own device config** -- the JSON file
    `PTZControls::LoadConfig()` reads from `obs_module_config_path
    ("config.json")` (see `src/ptz-controls.cpp`) -- is pre-written with
-   one device per backend, each given an explicit `"id"` so the test
-   knows each device's `device_id` up front (`PTZDevice::PTZDevice()`
-   reads `id` straight from config; there's no auto-assignment to rely
-   on). This is the *only* obs-ptz/OBS file this suite hand-writes --
+   one device per backend, in the format of the old self-managed backend
+   (it has an `"id"` for each, which nothing else does any more). The
+   plugin makes each a filter on a placeholder source of the device's name,
+   and a test refers to the device by that name (`DEVICE_NAMES` in
+   `conftest.py`), or by the UUID of its filter, which the harness gives
+   back for a device found by name. This is the *only* obs-ptz/OBS file this suite hand-writes --
    everything else about OBS's state (scenes, sources) is driven live
    over obs-websocket once OBS is running, specifically to avoid
    depending on OBS's own scene-collection JSON schema, which is
@@ -48,8 +50,8 @@ anyway. It also says if the run itself left one behind.
    fires its configured action the moment it's added to what's already,
    or becomes, the current program scene (`ptz_action_source_activate()`
    with the default `PTZ_ACTION_TRIGGER_PROGRAM_ACTIVE` trigger) --
-   which calls straight into `proc_handler_call(..., "ptz_move_continuous"
-   / "ptz_preset_recall" / "ptz_preset_save", ...)`, the same entry
+   which calls the device's own `ptz_move` / `ptz_preset_recall` /
+   `ptz_preset_save` proc, found by the UUID of its filter, the same entry
    point a joystick move or a hotkey uses.
 5. The test polls `ptzsim`'s `/state` endpoint until it sees the
    expected pan/tilt speed or position, or times out.
@@ -179,8 +181,7 @@ anyway. It also says if the run itself left one behind.
     or changing interface while it is open. Opens the real dialog through
     `tests/ui-harness/settings-dialog-test.cpp`.
 21. `test_api_version.py` covers the PTZ API's version: that
-    `ptz_get_api_version`, on OBS's proc_handler and on each device's,
-    reports the version `src/ptz.h` declares, called the way another plugin
+    `ptz_get_api_version`, on each device's proc_handler, reports the version `src/ptz.h` declares, called the way another plugin
     would through
     `tests/ui-harness/api-version-test.cpp`, and that
     `docs/ptz-device-api.md` states it.

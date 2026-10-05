@@ -48,8 +48,8 @@ def change(before, after):
 
 
 def test_startup_inquiries_are_neither_dropped_nor_repeated(obs_world, sony_ptzsim, tmp_path):
-    device_id = obs_world.device_ids["visca-udp-sony"]
-    obs_world.wait_for_device_status(device_id, tmp_path / "status.json", lambda s: s["connected"] is True, timeout=10)
+    device_name = obs_world.device_names["visca-udp-sony"]
+    obs_world.wait_for_device_status(device_name, tmp_path / "status.json", lambda s: s["connected"] is True, timeout=10)
 
     stats = settled(sony_ptzsim)
     assert stats["requests"] > 0
@@ -59,38 +59,38 @@ def test_startup_inquiries_are_neither_dropped_nor_repeated(obs_world, sony_ptzs
 
 
 def test_stays_connected_after_a_command_completes(obs_world, sony_ptzsim, tmp_path):
-    device_id = obs_world.device_ids["visca-udp-sony"]
+    device_name = obs_world.device_names["visca-udp-sony"]
     status_file = tmp_path / "status.json"
     before = settled(sony_ptzsim)
 
     # Zoom completes as soon as it is ACKed, so nothing is left waiting for
     # the reply timer to guard, and it must not go off and mark the camera
     # disconnected, with nothing then to connect it again.
-    obs_world.run_ui_test("move_device", device_id=device_id, mode="abs", zoom=0.5)
+    obs_world.run_ui_test("move_device", device=device_name, mode="abs", zoom=0.5)
     delta = change(before, settled(sony_ptzsim))
 
     assert delta["zoom_direct_executed"] == 1
     assert delta["retried_requests"] == 0
     time.sleep(1)
-    assert obs_world.device_status(device_id, status_file)["connected"] is True
+    assert obs_world.device_status(device_name, status_file)["connected"] is True
 
 
 def test_a_command_that_finds_the_camera_busy_is_sent_again(obs_world, sony_ptzsim, tmp_path):
-    device_id = obs_world.device_ids["visca-udp-sony"]
+    device_name = obs_world.device_names["visca-udp-sony"]
     status_file = tmp_path / "status.json"
     before = settled(sony_ptzsim)
 
     # Each move keeps a command socket for 150ms, and there are two, so the
     # third finds none free
     for pan in (0.01, 0.02, 0.03):
-        obs_world.run_ui_test("move_device", device_id=device_id, mode="abs", pan=pan, tilt=0)
+        obs_world.run_ui_test("move_device", device=device_name, mode="abs", pan=pan, tilt=0)
     delta = change(before, settled(sony_ptzsim))
 
     assert delta["buffer_full"] >= 1, "the camera was never busy, so this proved nothing"
     # which are errors, counted and rated
-    stats = obs_world.device_state(device_id, status_file.with_name("state.json"))["state"]["statistics"]
+    stats = obs_world.device_state(device_name, status_file.with_name("state.json"))["state"]["statistics"]
     assert stats["visca_error_count"] >= delta["buffer_full"]
     assert "visca_errors_per_second" in stats
     assert delta["pan_tilt_abs_executed"] == 3
     assert delta["dropped_too_soon"] == 0
-    assert obs_world.device_status(device_id, status_file)["connected"] is True
+    assert obs_world.device_status(device_name, status_file)["connected"] is True

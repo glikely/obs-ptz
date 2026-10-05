@@ -41,13 +41,13 @@ from conftest import write_preset_file
 
 
 def test_export_writes_expected_file(obs_world, tmp_path):
-    device_id = obs_world.device_ids["visca-tcp"]
+    device_name = obs_world.device_names["visca-tcp"]
     seed = tmp_path / "seed.json"
     write_preset_file(seed, [{"id": 1, "name": "Wide Shot"}], preset_max=8)
-    obs_world.run_ui_test("import_presets", device_id=device_id, filename=str(seed))
+    obs_world.run_ui_test("import_presets", device=device_name, filename=str(seed))
 
     out_file = tmp_path / "exported.json"
-    data = obs_world.export_and_wait(device_id, out_file, [{"id": 1, "name": "Wide Shot"}])
+    data = obs_world.export_and_wait(device_name, out_file, [{"id": 1, "name": "Wide Shot"}])
 
     assert data["obs-ptz-preset-format"] == 1
     assert data["device"] == "sim-visca-tcp"
@@ -59,35 +59,35 @@ def test_import_replaces_rather_than_merges(obs_world, tmp_path):
     PTZDevice::importPresets() in src/ptz-device.cpp), so a second import
     must fully replace, not merge with, whatever the first one left
     behind."""
-    device_id = obs_world.device_ids["visca-serial"]
+    device_name = obs_world.device_names["visca-serial"]
 
     first = tmp_path / "first.json"
     write_preset_file(first, [{"id": 1, "name": "Before"}])
-    obs_world.run_ui_test("import_presets", device_id=device_id, filename=str(first))
+    obs_world.run_ui_test("import_presets", device=device_name, filename=str(first))
 
     second = tmp_path / "second.json"
     write_preset_file(second, [{"id": 2, "name": "After"}], preset_max=4)
-    obs_world.run_ui_test("import_presets", device_id=device_id, filename=str(second))
+    obs_world.run_ui_test("import_presets", device=device_name, filename=str(second))
 
     reexported = tmp_path / "reexported.json"
-    data = obs_world.export_and_wait(device_id, reexported, [{"id": 2, "name": "After"}])
+    data = obs_world.export_and_wait(device_name, reexported, [{"id": 2, "name": "After"}])
     assert data["preset_max"] == 4
 
 
 def test_import_copies_presets_to_a_different_device(obs_world, tmp_path):
     """The whole point of issue #78: presets should be portable between
     cameras/installs, not tied to the exporting device."""
-    src_id = obs_world.device_ids["visca-tcp"]
-    dst_id = obs_world.device_ids["pelco-p"]
+    src_id = obs_world.device_names["visca-tcp"]
+    dst_id = obs_world.device_names["pelco-p"]
 
     seed = tmp_path / "seed.json"
     write_preset_file(seed, [{"id": 1, "name": "Wide Shot"}], preset_max=16)
-    obs_world.run_ui_test("import_presets", device_id=src_id, filename=str(seed))
+    obs_world.run_ui_test("import_presets", device=src_id, filename=str(seed))
 
     export_file = tmp_path / "src.json"
     src_data = obs_world.export_and_wait(src_id, export_file, [{"id": 1, "name": "Wide Shot"}])
 
-    obs_world.run_ui_test("import_presets", device_id=dst_id, filename=str(export_file))
+    obs_world.run_ui_test("import_presets", device=dst_id, filename=str(export_file))
 
     dst_export = tmp_path / "dst.json"
     dst_data = obs_world.export_and_wait(dst_id, dst_export, [{"id": 1, "name": "Wide Shot"}])
@@ -101,9 +101,9 @@ def test_import_copies_presets_to_a_different_device(obs_world, tmp_path):
 
 def test_export_unknown_device_leaves_no_file(obs_world, tmp_path):
     out_file = tmp_path / "should-not-exist.json"
-    obs_world.run_ui_test("export_presets", device_id=999999, filename=str(out_file))
+    obs_world.run_ui_test("export_presets", device=999999, filename=str(out_file))
 
-    # There's no success/failure signal to wait on here (device_id
+    # There's no success/failure signal to wait on here (device_name
     # 999999 has no deviceList row to select, so runPresetIOTest() in
     # tests/ui-harness/preset-export-import-test.cpp bails out and logs,
     # never reaching the file write) -- just give any queued dispatch a

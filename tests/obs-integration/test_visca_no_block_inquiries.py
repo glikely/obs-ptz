@@ -21,9 +21,9 @@ WB_MODE = 2
 
 @pytest.fixture
 def birddog(obs_world, tmp_path):
-    device_id = obs_world.device_ids["visca-tcp-birddog"]
-    obs_world.wait_for_device_status(device_id, tmp_path / "status.json", lambda s: s["connected"] is True, timeout=10)
-    return device_id
+    device_name = obs_world.device_names["visca-tcp-birddog"]
+    obs_world.wait_for_device_status(device_name, tmp_path / "status.json", lambda s: s["connected"] is True, timeout=10)
+    return device_name
 
 
 def test_reports_the_state_it_can_read_at_startup(obs_world, birddog, tmp_path):
@@ -37,11 +37,11 @@ def test_reports_the_state_it_can_read_at_startup(obs_world, birddog, tmp_path):
 
 
 def test_zoom_follows_a_move(obs_world, birddog, tmp_path):
-    obs_world.run_ui_test("move_device", device_id=birddog, mode="abs", zoom=ZOOM)
+    obs_world.run_ui_test("move_device", device=birddog, mode="abs", zoom=ZOOM)
     obs_world.wait_for_device_state(
         birddog, tmp_path / "state.json", lambda r: abs(r["state"].get("zoom", -1) - ZOOM) < 0.01, timeout=10)
 
 
 def test_white_balance_mode_is_read_back(obs_world, birddog, tmp_path):
-    obs_world.run_ui_test("set_device_state", device_id=birddog, wb_mode=WB_MODE)
+    obs_world.run_ui_test("set_device_state", device=birddog, wb_mode=WB_MODE)
     obs_world.wait_for_device_status(birddog, tmp_path / "status.json", lambda s: s["wb_mode"] == WB_MODE, timeout=10)

@@ -23,19 +23,19 @@ def features(state):
 @pytest.mark.parametrize("backend", FEATURES)
 def test_a_device_says_what_it_can_do(obs_world, backend, tmp_path):
     obs_world.wait_for_device_state(
-        obs_world.device_ids[backend], tmp_path / "state.json",
+        obs_world.device_names[backend], tmp_path / "state.json",
         lambda r: features(r["state"]) == FEATURES[backend], timeout=10)
 
 
 def test_an_onvif_device_says_what_it_can_do(obs_world, tmp_path):
     obs_world.wait_for_device_state(
-        obs_world.device_ids["onvif"], tmp_path / "state.json",
+        obs_world.device_names["onvif"], tmp_path / "state.json",
         lambda r: ONVIF_FEATURES <= features(r["state"]), timeout=10)
 
 
 def test_the_dock_offers_only_what_pelco_can_do(obs_world, tmp_path):
     enabled = obs_world.wait_for_dock_controls(
-        obs_world.device_ids["pelco-d"], tmp_path / "dock.json",
+        obs_world.device_names["pelco-d"], tmp_path / "dock.json",
         lambda e: e["panTiltButton_up"] and e["panTiltTouch"] and e["panTiltButton_home"]
         and e["zoomButton_tele"] and e["presetListView"])
     # no autofocus, so focusing is always by hand, but no one-push focus
@@ -46,5 +46,5 @@ def test_the_dock_offers_only_what_pelco_can_do(obs_world, tmp_path):
 
 def test_the_dock_offers_autofocus_for_visca(obs_world, tmp_path):
     obs_world.wait_for_dock_controls(
-        obs_world.device_ids["visca-tcp"], tmp_path / "dock.json",
+        obs_world.device_names["visca-tcp"], tmp_path / "dock.json",
         lambda e: e["focusButton_auto"] and e["panTiltButton_up"] and e["zoomButton_tele"])

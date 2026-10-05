@@ -161,7 +161,7 @@ def test_detected_onvif_camera_is_added(obs_world, sources, onvif_sim, tmp_path)
     assert (settings["type"], settings["host"], settings["port"]) == ("onvif", host, onvif_sim.port)
     device = obs_world.wait_for_device_by_name("detect-onvif-cam", tmp_path / "device.json",
                                                lambda r: r["found"] and r["bound"])
-    obs_world.wait_for_device_status(device["device_id"], tmp_path / "status.json",
+    obs_world.wait_for_device_status(device["uuid"], tmp_path / "status.json",
                                      lambda s: s["connected"] is True, timeout=15)
 
 

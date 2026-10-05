@@ -23,36 +23,36 @@ BACKENDS = ["visca-tcp", "visca-udp", "visca-serial", "pelco-d", "pelco-p"]
 
 @pytest.mark.parametrize("backend", BACKENDS)
 def test_pan_tilt_and_stop(obs_world, backend):
-    device_id = obs_world.device_ids[backend]
+    device_name = obs_world.device_names[backend]
 
-    obs_world.trigger_action(device_id, ACTION_PAN_TILT, pan_speed=0.5, tilt_speed=-0.3)
+    obs_world.trigger_action(device_name, ACTION_PAN_TILT, pan_speed=0.5, tilt_speed=-0.3)
     obs_world.wait_for_state(
         lambda s: abs(s["pan_speed"] - 0.5) < 0.05 and abs(s["tilt_speed"] + 0.3) < 0.05)
 
-    obs_world.trigger_action(device_id, ACTION_STOP)
+    obs_world.trigger_action(device_name, ACTION_STOP)
     obs_world.wait_for_state(lambda s: s["pan_speed"] == 0.0 and s["tilt_speed"] == 0.0)
 
 
 @pytest.mark.parametrize("backend", BACKENDS)
 def test_preset_save_and_recall(obs_world, backend):
-    device_id = obs_world.device_ids[backend]
+    device_name = obs_world.device_names[backend]
 
     # Move to a known, non-default position and stop there.
-    obs_world.trigger_action(device_id, ACTION_PAN_TILT, pan_speed=0.6, tilt_speed=0.0)
+    obs_world.trigger_action(device_name, ACTION_PAN_TILT, pan_speed=0.6, tilt_speed=0.0)
     time.sleep(0.5)
-    obs_world.trigger_action(device_id, ACTION_STOP)
+    obs_world.trigger_action(device_name, ACTION_STOP)
     saved = obs_world.wait_for_state(lambda s: s["pan_speed"] == 0.0)
     saved_pan = saved["pan"]
     assert abs(saved_pan) > 0.01, "camera didn't actually move before saving the preset"
 
-    obs_world.trigger_action(device_id, ACTION_PRESET_SAVE, preset_id=1)
+    obs_world.trigger_action(device_name, ACTION_PRESET_SAVE, preset_id=1)
     time.sleep(0.2)
 
     # Move away from the saved position.
-    obs_world.trigger_action(device_id, ACTION_PAN_TILT, pan_speed=-0.6, tilt_speed=0.0)
+    obs_world.trigger_action(device_name, ACTION_PAN_TILT, pan_speed=-0.6, tilt_speed=0.0)
     time.sleep(0.5)
-    obs_world.trigger_action(device_id, ACTION_STOP)
+    obs_world.trigger_action(device_name, ACTION_STOP)
     obs_world.wait_for_state(lambda s: s["pan_speed"] == 0.0 and abs(s["pan"] - saved_pan) > 0.05)
 
-    obs_world.trigger_action(device_id, ACTION_PRESET_RECALL, preset_id=1)
+    obs_world.trigger_action(device_name, ACTION_PRESET_RECALL, preset_id=1)
     obs_world.wait_for_state(lambda s: abs(s["pan"] - saved_pan) < 0.02, timeout=5)

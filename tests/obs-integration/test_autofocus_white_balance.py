@@ -33,23 +33,23 @@ VISCA_BACKENDS = ["visca-tcp", "visca-udp", "visca-serial"]
 
 @pytest.mark.parametrize("backend", VISCA_BACKENDS)
 def test_autofocus_toggle(obs_world, backend, tmp_path):
-    device_id = obs_world.device_ids[backend]
+    device_name = obs_world.device_names[backend]
     status_file = tmp_path / "status.json"
 
-    obs_world.run_ui_test("set_device_state", device_id=device_id, focus_af_enabled=False)
+    obs_world.run_ui_test("set_device_state", device=device_name, focus_af_enabled=False)
     obs_world.wait_for_device_status(
-        device_id, status_file, lambda s: s["focus_af_enabled"] is False, timeout=5)
+        device_name, status_file, lambda s: s["focus_af_enabled"] is False, timeout=5)
 
-    obs_world.run_ui_test("set_device_state", device_id=device_id, focus_af_enabled=True)
+    obs_world.run_ui_test("set_device_state", device=device_name, focus_af_enabled=True)
     obs_world.wait_for_device_status(
-        device_id, status_file, lambda s: s["focus_af_enabled"] is True, timeout=5)
+        device_name, status_file, lambda s: s["focus_af_enabled"] is True, timeout=5)
 
 
 @pytest.mark.parametrize("backend", VISCA_BACKENDS)
 @pytest.mark.parametrize("mode", [0, 1, 2, 5])
 def test_white_balance_mode(obs_world, backend, mode, tmp_path):
-    device_id = obs_world.device_ids[backend]
+    device_name = obs_world.device_names[backend]
     status_file = tmp_path / "status.json"
 
-    obs_world.run_ui_test("set_device_state", device_id=device_id, wb_mode=mode)
-    obs_world.wait_for_device_status(device_id, status_file, lambda s: s["wb_mode"] == mode, timeout=5)
+    obs_world.run_ui_test("set_device_state", device=device_name, wb_mode=mode)
+    obs_world.wait_for_device_status(device_name, status_file, lambda s: s["wb_mode"] == mode, timeout=5)

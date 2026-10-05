@@ -30,13 +30,13 @@ def test_preset_list_is_blank_with_no_camera_selected(obs_world, tmp_path):
 
 
 def test_preset_list_shows_the_selected_cameras_presets(obs_world, tmp_path):
-    device_id = obs_world.device_ids["visca-tcp-flaky"]
+    device_name = obs_world.device_names["visca-tcp-flaky"]
     out = tmp_path / "view.json"
     presets = tmp_path / "presets.json"
     write_preset_file(presets, [{"id": 1, "name": "Kitchen"}, {"id": 2, "name": "Garden"}])
-    obs_world.run_ui_test("import_presets", device_id=device_id, filename=str(presets))
+    obs_world.run_ui_test("import_presets", device=device_name, filename=str(presets))
 
-    obs_world.preset_view(out, select=device_id)
+    obs_world.preset_view(out, select=device_name)
     view = obs_world.wait_for_preset_view(out, lambda v: v["rows"])
 
     assert view["selected"] is True
@@ -45,7 +45,7 @@ def test_preset_list_shows_the_selected_cameras_presets(obs_world, tmp_path):
 
 def test_preset_list_is_blank_again_once_the_selection_is_cleared(obs_world, tmp_path):
     out = tmp_path / "view.json"
-    obs_world.preset_view(out, select=obs_world.device_ids["visca-tcp"])
+    obs_world.preset_view(out, select=obs_world.device_names["visca-tcp"])
 
     view = obs_world.preset_view(out, select="none")
 
@@ -57,7 +57,7 @@ def test_preset_list_is_blank_after_the_model_resets(obs_world, tmp_path):
     """Adding a device resets the model, which clears the camera list's
     selection without saying so, and the preset list's root."""
     out = tmp_path / "view.json"
-    obs_world.preset_view(out, select=obs_world.device_ids["visca-tcp"])
+    obs_world.preset_view(out, select=obs_world.device_names["visca-tcp"])
 
     obs_world.preset_view(out, add_device="preset-view-extra")
     try:

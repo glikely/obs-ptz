@@ -51,13 +51,14 @@ def test_each_device_is_a_filter_on_its_source(obs_world):
         assert FILTER_KINDS[device["type"]] in kinds, f"{name} has {kinds}"
 
 
-def test_devices_keep_their_ids(obs_world, tmp_path):
+def test_each_device_is_found_by_its_source(obs_world, tmp_path):
     out = tmp_path / "device.json"
     for device in legacy_devices(obs_world):
         found = obs_world.device_by_name(source_name(device), out)
         assert found["found"], f"no device for {source_name(device)}"
-        assert found["device_id"] == device["id"]
+        assert found["source"] == source_name(device)
         assert found["bound"]
+        assert found["uuid"]
 
 
 def test_migrated_devices_are_gone_from_config_json(obs_world):

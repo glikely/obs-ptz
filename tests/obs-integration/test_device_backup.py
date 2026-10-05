@@ -113,8 +113,8 @@ def add_device(world, out, source, **choice):
     return result
 
 
-def preset_names(world, device_id, out):
-    saved = world.device_settings(device_id, out)["saved"]
+def preset_names(world, device_name, out):
+    saved = world.device_settings(device_name, out)["saved"]
     return [p.get("name") for p in saved.get("presets", [])]
 
 
@@ -158,7 +158,7 @@ def test_add_restores_the_backup_of_a_deleted_source(obs_world, sources, tmp_pat
     assert [f["filterKind"] for f in filters] == [FILTER_KIND]
     device = obs_world.wait_for_device_by_name("backup-cam-restore", tmp_path / "device.json",
                                                lambda r: r["found"] and r["bound"])
-    assert preset_names(obs_world, device["device_id"], tmp_path / "settings.json") == ["Wide", "Close"]
+    assert preset_names(obs_world, device["uuid"], tmp_path / "settings.json") == ["Wide", "Close"]
     settings = filters[0]["filterSettings"]
     assert settings["type"] == "visca-over-tcp"
     assert settings["tcp_port"] == sources.port
@@ -188,7 +188,7 @@ def test_add_creates_a_filter_from_defaults(obs_world, sources, tmp_path):
     assert [f["filterKind"] for f in filters] == [FILTER_KIND]
     device = obs_world.wait_for_device_by_name("backup-cam-new", tmp_path / "device.json",
                                                lambda r: r["found"] and r["bound"])
-    assert preset_names(obs_world, device["device_id"], tmp_path / "settings.json") == []
+    assert preset_names(obs_world, device["uuid"], tmp_path / "settings.json") == []
 
 
 def test_remove_removes_a_filter_device_and_backs_it_up(obs_world, sources, tmp_path):
@@ -208,7 +208,7 @@ def test_remove_removes_a_filter_device_and_backs_it_up(obs_world, sources, tmp_
     assert "backup-cam-remove" in result["chosen"]
     device = obs_world.wait_for_device_by_name("backup-cam-remove", tmp_path / "device.json",
                                                lambda r: r["found"] and r["bound"])
-    assert preset_names(obs_world, device["device_id"], tmp_path / "settings.json") == ["Wide", "Close"]
+    assert preset_names(obs_world, device["uuid"], tmp_path / "settings.json") == ["Wide", "Close"]
 
 
 def test_restoring_a_backup_brings_its_protocol(obs_world, sources, tmp_path):
@@ -234,4 +234,4 @@ def test_restoring_a_backup_brings_its_protocol(obs_world, sources, tmp_path):
     assert filters[0]["filterSettings"]["type"] == "visca-over-tcp"
     device = obs_world.wait_for_device_by_name("backup-cam-other", tmp_path / "device.json",
                                                lambda r: r["found"] and r["bound"])
-    assert preset_names(obs_world, device["device_id"], tmp_path / "settings.json") == ["Wide", "Close"]
+    assert preset_names(obs_world, device["uuid"], tmp_path / "settings.json") == ["Wide", "Close"]

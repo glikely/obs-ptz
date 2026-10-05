@@ -70,8 +70,8 @@ def test_the_probe_reports_what_the_plugin_does(request, obs_world, tmp_path):
     """Of a P100, which has neither block inquiries nor a green tally lamp:
     everything the plugin asked, the probe asked and was answered the same,
     and it drafts the same command set"""
-    sim, _, device_id = camera(request, obs_world, tmp_path)
-    made = report(obs_world, tmp_path, device_id)
+    sim, _, device_name = camera(request, obs_world, tmp_path)
+    made = report(obs_world, tmp_path, device_name)
     probed, done = probe(tmp_path, "127.0.0.1", "--tcp", str(sim.tcp_port))
     assert probed is not None, done.stderr
 

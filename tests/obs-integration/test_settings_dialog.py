@@ -18,20 +18,20 @@ ACTION_STOP = 4
 from test_filter_devices import camera_sim, cameras  # noqa: F401
 
 
-def open_dialog(obs_world, device_id):
-    obs_world.run_ui_test("open_settings_dialog", device_id=device_id)
+def open_dialog(obs_world, device_name):
+    obs_world.run_ui_test("open_settings_dialog", device=device_name)
 
 
 def test_status_view_shows_the_cameras_real_state(obs_world, tmp_path):
-    device_id = obs_world.device_ids["visca-tcp"]
+    device_name = obs_world.device_names["visca-tcp"]
     out = tmp_path / "dialog.json"
     # Two different modes, so both are commands. An idle device that other
     # tests left marked disconnected only finds out it isn't by sending one.
     for mode in (1, 2):
-        obs_world.run_ui_test("set_device_state", device_id=device_id, wb_mode=mode)
-        obs_world.wait_for_device_state(device_id, tmp_path / "state.json", lambda r: r["state"].get("wb_mode") == mode)
+        obs_world.run_ui_test("set_device_state", device=device_name, wb_mode=mode)
+        obs_world.wait_for_device_state(device_name, tmp_path / "state.json", lambda r: r["state"].get("wb_mode") == mode)
 
-    open_dialog(obs_world, device_id)
+    open_dialog(obs_world, device_name)
 
     # the white balance the camera reports, not whatever its list started on
     dialog = obs_world.wait_for_settings_dialog(out, lambda r: r["connected"] and r["wb_mode"] == 2)
@@ -43,28 +43,28 @@ def test_status_view_shows_the_cameras_real_state(obs_world, tmp_path):
 
 
 def test_status_view_shows_where_the_camera_is(obs_world, tmp_path):
-    device_id = obs_world.device_ids["visca-tcp"]
+    device_name = obs_world.device_names["visca-tcp"]
     out = tmp_path / "dialog.json"
-    open_dialog(obs_world, device_id)
+    open_dialog(obs_world, device_name)
     obs_world.wait_for_settings_dialog(out, lambda r: {"pan", "tilt", "zoom", "focus"} <= r["state_keys"])
 
     # from the middle of its range, not wherever earlier tests left it: the
     # device reads where the camera really is, and a short move from far
     # outside the range the plugin shows would not show
-    obs_world.run_ui_test("move_device", device_id=device_id, mode="abs", pan=0.0, tilt=0.0)
+    obs_world.run_ui_test("move_device", device=device_name, mode="abs", pan=0.0, tilt=0.0)
     before = obs_world.wait_for_settings_dialog(out, lambda r: abs(r["pan"]) < 0.01, timeout=10)["pan"]
 
-    obs_world.trigger_action(device_id, ACTION_PAN_TILT, pan_speed=0.6, tilt_speed=0.0)
+    obs_world.trigger_action(device_name, ACTION_PAN_TILT, pan_speed=0.6, tilt_speed=0.0)
     time.sleep(0.5)
-    obs_world.trigger_action(device_id, ACTION_STOP)
+    obs_world.trigger_action(device_name, ACTION_STOP)
 
     # where the camera then reports itself to be
     obs_world.wait_for_settings_dialog(out, lambda r: r["pan"] != before, timeout=10)
 
 
 def test_settings_view_holds_only_settings(obs_world, tmp_path):
-    device_id = obs_world.device_ids["visca-tcp"]
-    open_dialog(obs_world, device_id)
+    device_name = obs_world.device_names["visca-tcp"]
+    open_dialog(obs_world, device_name)
 
     dialog = obs_world.settings_dialog(tmp_path / "dialog.json")
     assert {"type", "preset_max"} <= dialog["settings_keys"]
@@ -75,36 +75,36 @@ def test_settings_view_holds_only_settings(obs_world, tmp_path):
 def test_settings_view_drops_the_last_devices_settings(obs_world, tmp_path):
     """Showing another device's settings starts from nothing: none of the
     last device's keys stay behind, even without their values"""
-    open_dialog(obs_world, obs_world.device_ids["onvif"])
+    open_dialog(obs_world, obs_world.device_names["onvif"])
     obs_world.wait_for_settings_dialog(tmp_path / "dialog.json", lambda d: "wb_mode" in d["settings_keys"])
 
-    open_dialog(obs_world, obs_world.device_ids["visca-tcp"])
+    open_dialog(obs_world, obs_world.device_names["visca-tcp"])
     dialog = obs_world.wait_for_settings_dialog(tmp_path / "dialog.json",
                                                 lambda d: "tcp_port" in d["settings_keys"])
     assert not {"wb_mode", "username", "password"} & dialog["settings_keys"]
 
 
 def test_picking_a_white_balance_in_the_status_view_changes_the_camera(obs_world, tmp_path):
-    device_id = obs_world.device_ids["visca-tcp"]
-    open_dialog(obs_world, device_id)
+    device_name = obs_world.device_names["visca-tcp"]
+    open_dialog(obs_world, device_name)
 
     obs_world.run_ui_test("edit_dialog_state", wb_mode=1)
-    obs_world.wait_for_device_state(device_id, tmp_path / "state.json", lambda r: r["state"]["wb_mode"] == 1)
+    obs_world.wait_for_device_state(device_name, tmp_path / "state.json", lambda r: r["state"]["wb_mode"] == 1)
     obs_world.run_ui_test("edit_dialog_state", wb_mode=2)
-    obs_world.wait_for_device_state(device_id, tmp_path / "state.json", lambda r: r["state"]["wb_mode"] == 2)
+    obs_world.wait_for_device_state(device_name, tmp_path / "state.json", lambda r: r["state"]["wb_mode"] == 2)
 
     # and the dialog follows the camera to what it reports
     obs_world.wait_for_settings_dialog(tmp_path / "dialog.json", lambda r: r["wb_mode"] == 2)
 
 
 def test_state_changes_update_only_the_status_view(obs_world, tmp_path):
-    device_id = obs_world.device_ids["visca-tcp"]
+    device_name = obs_world.device_names["visca-tcp"]
     out = tmp_path / "dialog.json"
-    open_dialog(obs_world, device_id)
+    open_dialog(obs_world, device_name)
 
-    obs_world.run_ui_test("set_device_state", device_id=device_id, wb_mode=1)
+    obs_world.run_ui_test("set_device_state", device=device_name, wb_mode=1)
     obs_world.wait_for_settings_dialog(out, lambda r: r["wb_mode"] == 1)
-    obs_world.run_ui_test("set_device_state", device_id=device_id, wb_mode=2)
+    obs_world.run_ui_test("set_device_state", device=device_name, wb_mode=2)
     dialog = obs_world.wait_for_settings_dialog(out, lambda r: r["wb_mode"] == 2)
 
     assert dialog["state_updates"] > 0
@@ -112,32 +112,32 @@ def test_state_changes_update_only_the_status_view(obs_world, tmp_path):
 
 
 def test_settings_changes_redraw_only_the_settings_view(obs_world, tmp_path):
-    device_id = obs_world.device_ids["visca-tcp"]
+    device_name = obs_world.device_names["visca-tcp"]
     out = tmp_path / "dialog.json"
-    open_dialog(obs_world, device_id)
+    open_dialog(obs_world, device_name)
     time.sleep(0.5)
-    open_dialog(obs_world, device_id)  # settle, and count from zero
+    open_dialog(obs_world, device_name)  # settle, and count from zero
 
-    obs_world.run_ui_test("update_device", device_id=device_id)
+    obs_world.run_ui_test("update_device", device=device_name)
     dialog = obs_world.wait_for_settings_dialog(out, lambda r: r["settings_refreshes"] > 0)
 
     assert dialog["state_updates"] == 0
 
 
 def test_status_view_updates_in_place(obs_world, tmp_path):
-    device_id = obs_world.device_ids["visca-tcp"]
+    device_name = obs_world.device_names["visca-tcp"]
     out = tmp_path / "dialog.json"
-    open_dialog(obs_world, device_id)
+    open_dialog(obs_world, device_name)
     before = obs_world.wait_for_settings_dialog(out, lambda r: r["connected"] and "wb_mode" in r["state_keys"])
     assert before["wb_widget"], "the status view has no white balance list"
 
     # What changes as a camera works: what it reports of itself, and where it is
     for mode in (1, 2, 1):
-        obs_world.run_ui_test("set_device_state", device_id=device_id, wb_mode=mode)
+        obs_world.run_ui_test("set_device_state", device=device_name, wb_mode=mode)
         obs_world.wait_for_settings_dialog(out, lambda r, m=mode: r["wb_mode"] == m)
-    obs_world.trigger_action(device_id, ACTION_PAN_TILT, pan_speed=0.6, tilt_speed=0.0)
+    obs_world.trigger_action(device_name, ACTION_PAN_TILT, pan_speed=0.6, tilt_speed=0.0)
     time.sleep(0.5)
-    obs_world.trigger_action(device_id, ACTION_STOP)
+    obs_world.trigger_action(device_name, ACTION_STOP)
 
     # It changed, and every widget is the one that was there, none replaced
     after = obs_world.wait_for_settings_dialog(out, lambda r: r["state_updates"] >= 3)
@@ -147,15 +147,15 @@ def test_status_view_updates_in_place(obs_world, tmp_path):
 
 def test_status_view_has_diagnostics_only_for_a_camera_with_them(obs_world, tmp_path):
     out = tmp_path / "dialog.json"
-    open_dialog(obs_world, obs_world.device_ids["visca-tcp"])
+    open_dialog(obs_world, obs_world.device_names["visca-tcp"])
     obs_world.wait_for_settings_dialog(out, lambda r: r["diagnostics_visible"])
-    open_dialog(obs_world, obs_world.device_ids["pelco-d"])
+    open_dialog(obs_world, obs_world.device_names["pelco-d"])
     obs_world.wait_for_settings_dialog(out, lambda r: not r["diagnostics_visible"])
 
 
 def test_status_view_shows_how_fast_the_camera_answers_polls(obs_world, tmp_path):
     out = tmp_path / "dialog.json"
-    open_dialog(obs_world, obs_world.device_ids["visca-tcp"])
+    open_dialog(obs_world, obs_world.device_names["visca-tcp"])
     shown = obs_world.wait_for_settings_dialog(
         out, lambda r: r["shown"].get("polls_total", "-") not in ("-", "0"), timeout=15)["shown"]
     assert shown["poll_cycle"].endswith(" ms")
@@ -166,7 +166,7 @@ def test_status_view_shows_how_fast_the_camera_answers_polls(obs_world, tmp_path
 def test_status_view_shows_the_traffic_to_and_from_the_camera(obs_world, tmp_path):
     """In a table of a total and a rate for each of what is counted"""
     out = tmp_path / "dialog.json"
-    open_dialog(obs_world, obs_world.device_ids["visca-tcp"])
+    open_dialog(obs_world, obs_world.device_names["visca-tcp"])
     shown = obs_world.wait_for_settings_dialog(
         out, lambda r: r["shown"].get("recv_bytes_rate", "-").endswith(" B/s")
         and r["shown"]["recv_bytes_rate"] != "0 B/s", timeout=15)["shown"]
@@ -185,11 +185,11 @@ def test_creating_a_camera_report_from_the_status_view(request, obs_world, camer
     cameras.add_source(obs_world.create_scene(), "dialog-report-cam")
     cameras.add_filter("dialog-report-cam")
     out = tmp_path / "device.json"
-    device_id = obs_world.wait_for_device_by_name(
-        "dialog-report-cam", out, lambda r: r["found"] and r["bound"])["device_id"]
-    obs_world.wait_for_device_state(device_id, tmp_path / "state.json",
+    device_name = obs_world.wait_for_device_by_name(
+        "dialog-report-cam", out, lambda r: r["found"] and r["bound"])["uuid"]
+    obs_world.wait_for_device_state(device_name, tmp_path / "state.json",
                                     lambda r: r["state"].get("connected") is True, timeout=10)
-    open_dialog(obs_world, device_id)
+    open_dialog(obs_world, device_name)
     obs_world.wait_for_settings_dialog(tmp_path / "dialog.json", lambda r: r["diagnostics_visible"])
     request.addfinalizer(lambda: obs_world.run_ui_test("camera_report_dialog", action="close"))
     obs_world.run_ui_test("press_dialog_button", button="cameraReport")
@@ -213,8 +213,8 @@ def test_dialog_survives_its_device_going_away(obs_world, cameras, tmp_path):  #
     cameras.add_source(obs_world.create_scene(), "dialog-gone-cam")
     cameras.add_filter("dialog-gone-cam")
     out = tmp_path / "device.json"
-    device_id = obs_world.wait_for_device_by_name("dialog-gone-cam", out, lambda r: r["found"] and r["bound"])["device_id"]
-    open_dialog(obs_world, device_id)
+    device_name = obs_world.wait_for_device_by_name("dialog-gone-cam", out, lambda r: r["found"] and r["bound"])["uuid"]
+    open_dialog(obs_world, device_name)
     obs_world.settings_dialog(tmp_path / "dialog.json")
 
     cameras.remove_filter("dialog-gone-cam")
@@ -230,10 +230,10 @@ def test_dialog_survives_its_device_changing_interface(obs_world, cameras, tmp_p
     cameras.add_source(obs_world.create_scene(), "dialog-iface-cam")
     cameras.add_filter("dialog-iface-cam")
     out = tmp_path / "device.json"
-    device_id = obs_world.wait_for_device_by_name("dialog-iface-cam", out, lambda r: r["found"] and r["bound"])["device_id"]
-    open_dialog(obs_world, device_id)
+    device_name = obs_world.wait_for_device_by_name("dialog-iface-cam", out, lambda r: r["found"] and r["bound"])["uuid"]
+    open_dialog(obs_world, device_name)
 
-    obs_world.run_ui_test("update_device", device_id=device_id, type="visca-over-ip", host="127.0.0.1", udp_port=9)
+    obs_world.run_ui_test("update_device", device=device_name, type="visca-over-ip", host="127.0.0.1", udp_port=9)
     # give the change, and whatever the dialog does about it, time to happen
     time.sleep(1.0)
 

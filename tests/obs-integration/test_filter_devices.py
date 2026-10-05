@@ -170,9 +170,7 @@ def test_adding_a_filter_creates_a_device_for_its_source(obs_world, cameras, tmp
 
     device = obs_world.wait_for_device_by_name("filter-cam-create", out, lambda r: r["found"] and r["bound"])
     assert device["source"] == "filter-cam-create"
-    assert device["device_id"] > 0
-    # Not one of the devices in the plugin's config
-    assert device["device_id"] not in obs_world.device_ids.values()
+    assert device["uuid"]
 
 
 def test_filter_device_says_its_source_with_its_proc(obs_world, cameras, tmp_path):
@@ -190,7 +188,7 @@ def test_filter_device_says_its_source_with_its_proc(obs_world, cameras, tmp_pat
 
     cameras.rename("filter-cam-proc", "filter-cam-proc-renamed")
 
-    renamed = obs_world.wait_for_device_source(device["device_id"], out,
+    renamed = obs_world.wait_for_device_source(device["uuid"], out,
                                                lambda r: r["proc_source"] == "filter-cam-proc-renamed")
     assert renamed["proc_source_uuid"] == device["proc_source_uuid"]
 
@@ -206,7 +204,7 @@ def test_filter_device_is_named_after_its_source_without_a_camera(obs_world, unr
 
     device = obs_world.wait_for_device_by_name("filter-cam-dead", out, lambda r: r["found"] and r["bound"])
     assert device["source"] == "filter-cam-dead"
-    status = obs_world.device_status(device["device_id"], tmp_path / "status.json")
+    status = obs_world.device_status(device["uuid"], tmp_path / "status.json")
     assert status["connected"] is False
 
 
@@ -214,9 +212,9 @@ def test_filter_device_controls_the_camera(obs_world, cameras, camera_sim, tmp_p
     out = tmp_path / "device.json"
     cameras.add_source(obs_world.create_scene(), "filter-cam-use")
     cameras.add_filter("filter-cam-use")
-    device_id = obs_world.wait_for_device_by_name("filter-cam-use", out, lambda r: r["found"])["device_id"]
+    device_name = obs_world.wait_for_device_by_name("filter-cam-use", out, lambda r: r["found"])["uuid"]
 
-    obs_world.wait_for_device_status(device_id, tmp_path / "status.json", lambda s: s["connected"] is True, timeout=10)
+    obs_world.wait_for_device_status(device_name, tmp_path / "status.json", lambda s: s["connected"] is True, timeout=10)
 
     def sim_state(predicate):
         last = None
@@ -229,9 +227,9 @@ def test_filter_device_controls_the_camera(obs_world, cameras, camera_sim, tmp_p
             time.sleep(0.1)
         raise AssertionError(f"camera state never matched; last seen: {last}")
 
-    obs_world.trigger_action(device_id, ACTION_PAN_TILT, pan_speed=0.4, tilt_speed=0.0)
+    obs_world.trigger_action(device_name, ACTION_PAN_TILT, pan_speed=0.4, tilt_speed=0.0)
     sim_state(lambda s: abs(s["pan_speed"] - 0.4) < 0.05)
-    obs_world.trigger_action(device_id, ACTION_STOP)
+    obs_world.trigger_action(device_name, ACTION_STOP)
     sim_state(lambda s: s["pan_speed"] == 0.0 and s["tilt_speed"] == 0.0)
 
 
@@ -239,14 +237,14 @@ def test_filter_device_follows_its_source(obs_world, cameras, tmp_path):
     out = tmp_path / "device.json"
     cameras.add_source(obs_world.create_scene(), "filter-cam-rename")
     cameras.add_filter("filter-cam-rename")
-    device_id = obs_world.wait_for_device_by_name("filter-cam-rename", out, lambda r: r["found"] and r["bound"])["device_id"]
+    device_name = obs_world.wait_for_device_by_name("filter-cam-rename", out, lambda r: r["found"] and r["bound"])["uuid"]
 
     cameras.rename("filter-cam-rename", "filter-cam-renamed")
 
     result = obs_world.wait_for_device_source(
-        device_id, out, lambda r: r["name"] == "filter-cam-renamed" and r["config_name"] == "filter-cam-renamed")
+        device_name, out, lambda r: r["name"] == "filter-cam-renamed" and r["config_name"] == "filter-cam-renamed")
     assert result["source"] == "filter-cam-renamed"
-    assert result["device_id"] == device_id
+    assert result["uuid"] == device_name
 
 
 def test_filter_device_is_live_when_its_source_is(obs_world, cameras, tmp_path):
@@ -260,10 +258,10 @@ def test_filter_device_is_live_when_its_source_is(obs_world, cameras, tmp_path):
     cameras.add_filter("filter-cam-live")
     result = obs_world.wait_for_device_by_name("filter-cam-live", out, lambda r: r["found"] and r["live"], timeout=10)
     assert result["locked"] is True
-    device_id = result["device_id"]
+    device_name = result["uuid"]
 
     make_program(obs_world, obs_world.create_scene())
-    result = obs_world.wait_for_device_source(device_id, out, lambda r: not r["live"], timeout=10)
+    result = obs_world.wait_for_device_source(device_name, out, lambda r: not r["live"], timeout=10)
     assert result["bound"] is True
     assert result["locked"] is False
 
@@ -291,9 +289,9 @@ def test_each_filter_has_its_own_device(obs_world, cameras, tmp_path):
 
     a = obs_world.wait_for_device_by_name("filter-cam-a", out, lambda r: r["found"] and r["bound"])
     b = obs_world.wait_for_device_by_name("filter-cam-b", out, lambda r: r["found"] and r["bound"])
-    assert a["device_id"] != b["device_id"]
+    assert a["uuid"] != b["uuid"]
     assert a["source_uuid"] != b["source_uuid"]
 
     cameras.remove_filter("filter-cam-a")
     obs_world.wait_for_device_by_name("filter-cam-a", out, lambda r: not r["found"], timeout=10)
-    assert obs_world.device_by_name("filter-cam-b", out)["device_id"] == b["device_id"]
+    assert obs_world.device_by_name("filter-cam-b", out)["uuid"] == b["uuid"]

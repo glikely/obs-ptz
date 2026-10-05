@@ -18,10 +18,10 @@ ACTION_STOP = 4
 
 @pytest.fixture
 def onvif_device(obs_world, tmp_path):
-    device_id = obs_world.device_ids["onvif"]
+    device_name = obs_world.device_names["onvif"]
     obs_world.wait_for_device_state(
-        device_id, tmp_path / "state.json", lambda r: r["state"].get("connected") is True, timeout=20)
-    return device_id
+        device_name, tmp_path / "state.json", lambda r: r["state"].get("connected") is True, timeout=20)
+    return device_name
 
 
 def test_state_has_the_axes_onvif_reports(obs_world, onvif_device, tmp_path):
