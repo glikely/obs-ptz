@@ -49,7 +49,7 @@ public:
 	/* Show all of a device's state, as PTZDevice::saveState() gives it. A
 	 * key that isn't in it isn't shown, and the rest is reset. */
 	void setState(OBSData state);
-	/* Fold in only what changed, the diff a device's state_changed signal
+	/* Fold in only what changed, the diff a device's ptz_state_changed signal
 	 * carries, leaving the rest as it was. */
 	void applyChanges(OBSData changed);
 	/* Show a device's statistics, as PTZDevice::saveStatistics() gives

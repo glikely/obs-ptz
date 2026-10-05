@@ -353,7 +353,7 @@ public:
 	virtual void save(OBSData ptz_config) const;
 
 	/* Apply new settings: update(), then announce it with the
-	 * "settings_changed" signal. The one place that fires that signal, so
+	 * "ptz_settings_changed" signal. The one place that fires that signal, so
 	 * the filter's .update and the dialog's ptz_set_config both go here.
 	 * `settings` must be complete, as update() requires. */
 	void applySettings(OBSData settings);

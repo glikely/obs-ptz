@@ -134,7 +134,7 @@ public:
 	 * refresh in the appropriate QAbstractItemModel begin/end calls --
 	 * called from the per-device signal_handler trampolines in
 	 * ptz-list-model.cpp (see deviceCreated()) in response to PTZDevice's
-	 * preset_inserted/preset_removed/preset_moved signals. All the
+	 * ptz_preset_inserted/ptz_preset_removed/ptz_preset_moved signals. All the
 	 * begin/end bracketing lives here: PTZDevice just states what changed
 	 * once, it doesn't call back in two phases. */
 	void presetInserted(const QString &uuid, int row);

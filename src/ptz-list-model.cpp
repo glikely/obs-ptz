@@ -60,7 +60,7 @@ static void filter_destroy_cb(void *data, calldata_t *cd)
 }
 
 /**
- * device stage change callback-- connected to PTZDevice "state_changed" signal
+ * device stage change callback-- connected to PTZDevice "ptz_state_changed" signal
  */
 static void device_state_changed_cb(void *data, calldata_t *cd)
 {
@@ -74,7 +74,7 @@ static void device_state_changed_cb(void *data, calldata_t *cd)
 }
 
 /**
- * device settings change callback-- connected to PTZDevice "settings_changed"
+ * device settings change callback-- connected to PTZDevice "ptz_settings_changed"
  * signal
  */
 static void device_settings_changed_cb(void *data, calldata_t *cd)
@@ -221,7 +221,7 @@ bool PTZListModel::callEntry(const PTZDeviceEntry &entry, const char *method, ca
 /**
  * Re-fetches everything data() needs to display a device row, via a single
  * ptz_get_state() proc_handler call. Called once to seed a new row, and
- * again whenever a state_changed signal says the cache may be stale.
+ * again whenever a ptz_state_changed signal says the cache may be stale.
  */
 void PTZListModel::refreshDeviceState(PTZDeviceEntry *entry)
 {
@@ -492,7 +492,7 @@ bool PTZListModel::setData(const QModelIndex &index, const QVariant &value, int 
 			callEntry(*entry, "ptz_preset_set_name", &cd);
 			calldata_free(&cd);
 			/* cache refresh + dataChanged happen synchronously inside
-			 * that call, via the preset_renamed signal */
+			 * that call, via the ptz_preset_renamed signal */
 			return true;
 		}
 		return false;
@@ -508,7 +508,7 @@ bool PTZListModel::setData(const QModelIndex &index, const QVariant &value, int 
 		callEntry(*entry, "ptz_set_locked", &cd);
 		calldata_free(&cd);
 		/* cache refresh + dataChanged happen synchronously inside that
-		 * call, via the state_changed signal */
+		 * call, via the ptz_state_changed signal */
 		return true;
 	}
 
@@ -710,13 +710,13 @@ void PTZListModel::deviceCreated(OBSWeakSource weakFilter)
 	do_reset();
 
 	signal_handler_connect(sh, "destroy", filter_destroy_cb, this);
-	signal_handler_connect(sh, "state_changed", device_state_changed_cb, this);
-	signal_handler_connect(sh, "settings_changed", device_settings_changed_cb, this);
-	signal_handler_connect(sh, "preset_inserted", preset_inserted_cb, this);
-	signal_handler_connect(sh, "preset_removed", preset_removed_cb, this);
-	signal_handler_connect(sh, "preset_moved", preset_moved_cb, this);
-	signal_handler_connect(sh, "preset_renamed", preset_renamed_cb, this);
-	signal_handler_connect(sh, "preset_thumbnail_changed", preset_renamed_cb, this);
+	signal_handler_connect(sh, "ptz_state_changed", device_state_changed_cb, this);
+	signal_handler_connect(sh, "ptz_settings_changed", device_settings_changed_cb, this);
+	signal_handler_connect(sh, "ptz_preset_inserted", preset_inserted_cb, this);
+	signal_handler_connect(sh, "ptz_preset_removed", preset_removed_cb, this);
+	signal_handler_connect(sh, "ptz_preset_moved", preset_moved_cb, this);
+	signal_handler_connect(sh, "ptz_preset_renamed", preset_renamed_cb, this);
+	signal_handler_connect(sh, "ptz_preset_thumbnail_changed", preset_renamed_cb, this);
 }
 
 void PTZListModel::deviceDestroyed(const QString &uuid)

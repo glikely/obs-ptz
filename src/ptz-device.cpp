@@ -166,15 +166,15 @@ PTZDevice::PTZDevice(OBSData config, obs_source_t *filter) : QObject()
 	if (!sigs) {
 		blog(LOG_ERROR, "could not allocate signal_handler for a PTZ device");
 	} else {
-		addSignal("void state_changed(ptr filter, ptr changed)");
+		addSignal("void ptz_state_changed(ptr filter, ptr changed)");
 
-		addSignal("void settings_changed(ptr filter)");
+		addSignal("void ptz_settings_changed(ptr filter)");
 
-		addSignal("void preset_inserted(ptr filter, int row)");
-		addSignal("void preset_removed(ptr filter, int row)");
-		addSignal("void preset_moved(ptr filter, int src_row, int dest_row)");
-		addSignal("void preset_renamed(ptr filter, int id)");
-		addSignal("void preset_thumbnail_changed(ptr filter, int id)");
+		addSignal("void ptz_preset_inserted(ptr filter, int row)");
+		addSignal("void ptz_preset_removed(ptr filter, int row)");
+		addSignal("void ptz_preset_moved(ptr filter, int src_row, int dest_row)");
+		addSignal("void ptz_preset_renamed(ptr filter, int id)");
+		addSignal("void ptz_preset_thumbnail_changed(ptr filter, int id)");
 	}
 
 	/* The device is given its source by its filter, see setParentSource() */
@@ -850,7 +850,7 @@ void PTZDevice::applySettings(OBSData settings)
 void PTZDevice::announceSettingsChanged()
 {
 	calldata_t cd = {};
-	signalDevice("settings_changed", &cd);
+	signalDevice("ptz_settings_changed", &cd);
 	calldata_free(&cd);
 }
 
@@ -1239,7 +1239,7 @@ void PTZDevice::setPresetName(size_t id, QString name)
 
 	calldata_t cd = {};
 	calldata_set_int(&cd, "id", (long long)id);
-	signalDevice("preset_renamed", &cd);
+	signalDevice("ptz_preset_renamed", &cd);
 	calldata_free(&cd);
 }
 
@@ -1247,7 +1247,7 @@ void PTZDevice::signalPresetThumbnail(size_t id)
 {
 	calldata_t cd = {};
 	calldata_set_int(&cd, "id", (long long)id);
-	signalDevice("preset_thumbnail_changed", &cd);
+	signalDevice("ptz_preset_thumbnail_changed", &cd);
 	calldata_free(&cd);
 }
 
@@ -1319,7 +1319,7 @@ int PTZDevice::newPreset(int row)
 
 	calldata_t cd = {};
 	calldata_set_int(&cd, "row", row);
-	signalDevice("preset_inserted", &cd);
+	signalDevice("ptz_preset_inserted", &cd);
 	calldata_free(&cd);
 
 	return id;
@@ -1333,7 +1333,7 @@ void PTZDevice::removePresetAtDisplayRow(int row)
 
 	calldata_t cd = {};
 	calldata_set_int(&cd, "row", row);
-	signalDevice("preset_removed", &cd);
+	signalDevice("ptz_preset_removed", &cd);
 	calldata_free(&cd);
 }
 
@@ -1351,7 +1351,7 @@ void PTZDevice::movePreset(int srcRow, int destRow)
 	calldata_t cd = {};
 	calldata_set_int(&cd, "src_row", srcRow);
 	calldata_set_int(&cd, "dest_row", destRow);
-	signalDevice("preset_moved", &cd);
+	signalDevice("ptz_preset_moved", &cd);
 	calldata_free(&cd);
 }
 
@@ -1433,7 +1433,7 @@ void PTZDevice::notifyStateChanged()
 {
 	calldata_t cd = {};
 	calldata_set_ptr(&cd, "changed", stateChanged);
-	signalDevice("state_changed", &cd);
+	signalDevice("ptz_state_changed", &cd);
 	calldata_free(&cd);
 	/* Notification done. Start a new object for what changes next, rather
 	 * than clearing this one: a listener may keep a reference to what it
