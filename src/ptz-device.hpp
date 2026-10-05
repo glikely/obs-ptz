@@ -164,8 +164,11 @@ public:
 
 	/* Refresh the device's name from its source -- the device's name is
 	 * always the name of its source (or the last one it had, while that
-	 * source doesn't exist), or the default name if it has never had one */
+	 * source doesn't exist), or the default name if it has never had one.
+	 * It is in the state, as "source", and a change is announced there */
 	void syncName();
+	/* The name of the source the device is on, or the last it was on */
+	QString sourceName() const;
 	/* Returns a new reference to the device's source (release it with
 	 * obs_source_release()), or NULL if it has none. */
 	obs_source_t *parentSource() const;
@@ -343,8 +346,7 @@ public:
 	 *     filter's own settings are, and so is what save() writes), and
 	 *     never modifies it or adds anything to it.
 	 * `save()`: Make sure device configuration is written to an OBSData.
-	 *     Settings only, apart from the identity keys that stripIdentity()
-	 *     removes again before the filter persists the result.
+	 *     Settings only.
 	 */
 	static void defaults(obs_data_t *defaults);
 	virtual void update(OBSData ptz_config);
@@ -356,9 +358,8 @@ public:
 	 * `settings` must be complete, as update() requires. */
 	void applySettings(OBSData settings);
 	void announceSettingsChanged();
-	/* Remove the runtime identity keys save() adds ("name", "id") from a settings object destined for persistence
-	 * in a filter, which already knows its own source, and whose device id
-	 * isn't stable across a driver change. */
+	/* Remove the keys older versions kept in a filter's settings, "name" and
+	 * "id", which the filter does not need: it knows its own source */
 	static void stripIdentity(obs_data_t *settings);
 	/* Keep a copy of save()'s settings in the rolling backup of devices
 	 * that have gone away (see ptz_device_backups_get()). Called when its

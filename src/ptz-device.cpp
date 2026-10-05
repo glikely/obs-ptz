@@ -112,7 +112,7 @@ PTZDevice::PTZDevice(OBSData config, obs_source_t *filter) : QObject()
 	/* proc_handers for calling into the device. Comes from its filter */
 	handler = obs_source_get_proc_handler(filter);
 	if (!handler) {
-		blog(LOG_ERROR, "could not allocate proc_handler for %s", obs_data_get_string(config, "name"));
+		blog(LOG_ERROR, "could not allocate proc_handler for a PTZ device");
 		return;
 	}
 
@@ -164,7 +164,7 @@ PTZDevice::PTZDevice(OBSData config, obs_source_t *filter) : QObject()
 	 * the filter, same as handler above. */
 	sigs = obs_source_get_signal_handler(filter);
 	if (!sigs) {
-		blog(LOG_ERROR, "could not allocate signal_handler for %s", obs_data_get_string(config, "name"));
+		blog(LOG_ERROR, "could not allocate signal_handler for a PTZ device");
 	} else {
 		addSignal("void state_changed(ptr filter, ptr changed)");
 
@@ -394,8 +394,17 @@ void PTZDevice::syncName()
 			return;
 		m_parentSourceName = name;
 	}
-	/* The name is a setting, not state */
-	announceSettingsChanged();
+	obs_data_set_string(stateChanged, "source", QT_TO_UTF8(name));
+	notifyStateChanged();
+}
+
+/* The name of the source the device is on, or the last it was on while it is
+ * on none: "" if it never has been */
+QString PTZDevice::sourceName() const
+{
+	OBSSourceAutoRelease src = parentSource();
+	QMutexLocker locker(&m_parentSourceMutex);
+	return src ? QT_UTF8(obs_source_get_name(src)) : m_parentSourceName;
 }
 
 /**
@@ -541,6 +550,7 @@ void PTZDevice::saveState(OBSData out) const
 	obs_data_set_bool(out, "live", live);
 	obs_data_set_bool(out, "preview", preview);
 	obs_data_set_bool(out, "locked", locked);
+	obs_data_set_string(out, "source", QT_TO_UTF8(sourceName()));
 	saveFeatures(out, features());
 }
 
@@ -846,6 +856,7 @@ void PTZDevice::announceSettingsChanged()
 
 void PTZDevice::stripIdentity(obs_data_t *settings)
 {
+	/* Written by versions that kept them in the settings */
 	obs_data_erase(settings, "name");
 	obs_data_erase(settings, "id");
 	/* Written by versions that still had self-managed devices */
@@ -882,14 +893,6 @@ void PTZDevice::update(OBSData config)
 
 void PTZDevice::save(OBSData config) const
 {
-	/* Devices are identified by their source's name; "" for no source */
-	OBSSourceAutoRelease src = parentSource();
-	QString name;
-	{
-		QMutexLocker locker(&m_parentSourceMutex);
-		name = src ? QT_UTF8(obs_source_get_name(src)) : m_parentSourceName;
-	}
-	obs_data_set_string(config, "name", QT_TO_UTF8(name));
 	obs_data_set_string(config, "type", type.c_str());
 	obs_data_set_double(config, "pantilt_speed_max", pantilt_speed_max);
 	obs_data_set_double(config, "zoom_speed_max", zoom_speed_max);
@@ -989,10 +992,11 @@ void PTZDevice::backup() const
 {
 	OBSDataAutoRelease entry = obs_data_create();
 	save(entry.Get());
-	QString name = QT_UTF8(obs_data_get_string(entry, "name"));
+	QString name = sourceName();
 	/* Without a source there's nothing to recognise it by */
 	if (name.isEmpty())
 		return;
+	obs_data_set_string(entry, "name", QT_TO_UTF8(name));
 	obs_data_erase(entry, "id");
 	obs_data_set_int(entry, "backup_time", (long long)time(nullptr));
 

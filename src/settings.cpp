@@ -528,6 +528,8 @@ void PTZSettings::addDevice()
 			continue;
 		OBSDataAutoRelease item = obs_data_create();
 		ptzDeviceList->save(index, item.Get());
+		/* A backup says the source it was on by "name", so this does too */
+		obs_data_set_string(item, "name", obs_source_get_name(src));
 		live.append(item.Get());
 		used.append(QT_UTF8(obs_source_get_name(src)));
 	}
@@ -823,7 +825,7 @@ void PTZSettings::updateHeader()
 	updateAutofocusIcon(!poweredOff && shown.contains("focus_af_enabled"),
 			    shown.value("focus_af_enabled").toBool());
 
-	ui->deviceName->setText(shown.value("name").toString());
+	ui->deviceName->setText(ui->deviceList->currentIndex().data(Qt::DisplayRole).toString());
 	ui->statusHeader->setText(parts.join("&nbsp;&nbsp;&nbsp;"));
 }
 

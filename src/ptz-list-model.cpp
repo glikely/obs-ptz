@@ -232,14 +232,7 @@ void PTZListModel::refreshDeviceState(PTZDeviceEntry *entry)
 	callEntry(*entry, "ptz_get_state", &cd);
 	calldata_free(&cd);
 
-	/* The name is a setting, not state */
-	OBSDataAutoRelease config = obs_data_create();
-	cd = {};
-	calldata_set_ptr(&cd, "config", config.Get());
-	callEntry(*entry, "ptz_get_config", &cd);
-	calldata_free(&cd);
-
-	entry->name = QT_UTF8(obs_data_get_string(config, "name"));
+	entry->name = QT_UTF8(obs_data_get_string(state, "source"));
 	entry->connected = obs_data_get_bool(state, "connected");
 	entry->live = obs_data_get_bool(state, "live");
 	entry->preview = obs_data_get_bool(state, "preview");

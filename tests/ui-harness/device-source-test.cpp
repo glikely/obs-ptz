@@ -22,8 +22,6 @@ namespace {
  *   uuid         - the UUID of the device's filter
  *   name         - the device's name as the device list shows it
  *                  (PTZListModel's DisplayRole)
- *   config_name  - the "name" the device would save to the config file
- *                  (PTZDevice::save())
  *   bound        - whether the device currently resolves to a source
  *   source       - that source's name, "" if not bound
  *   source_uuid  - that source's UUID, "" if not bound. Unlike the name,
@@ -63,9 +61,6 @@ void runDeviceSourceTest(const QMap<QString, QString> &params)
 	if (index.isValid()) {
 		QString uuid = ptzDeviceList->data(index, PTZListModel::DeviceUuidRole).toString();
 
-		OBSDataAutoRelease config = obs_data_create();
-		ptzDeviceList->save(index, config.Get());
-
 		calldata_t cd = {};
 		ptzDeviceList->callDevice(index, "ptz_get_parent_source", &cd);
 		OBSSourceAutoRelease procSource = static_cast<obs_source_t *>(calldata_ptr(&cd, "return"));
@@ -79,7 +74,6 @@ void runDeviceSourceTest(const QMap<QString, QString> &params)
 		obs_data_set_string(result, "uuid", qUtf8Printable(uuid));
 		obs_data_set_string(result, "name",
 				    qUtf8Printable(ptzDeviceList->data(index, Qt::DisplayRole).toString()));
-		obs_data_set_string(result, "config_name", obs_data_get_string(config, "name"));
 		obs_data_set_bool(result, "bound", source != nullptr);
 		obs_data_set_string(result, "source", source ? obs_source_get_name(source) : "");
 		obs_data_set_string(result, "source_uuid", source ? obs_source_get_uuid(source) : "");
@@ -131,9 +125,8 @@ void runHoldSourceTest(const QMap<QString, QString> &params)
 
 /* get_device_source request params:
  *   device    - the device, by the UUID of its filter or the name of the source it is on
- *   filename  - where to write the {"found", "uuid", "name",
- *               "config_name", "bound", "source", "source_uuid", "live",
- *               "locked"} JSON result. Only "found" is there if there is
+ *   filename  - where to write the {"found", "uuid", "name", "bound",
+ *               "source", "source_uuid", "live", "locked"} JSON result. Only "found" is there if there is
  *               no such device
  *
  * hold_source request params:
