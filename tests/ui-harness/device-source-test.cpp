@@ -19,9 +19,7 @@ namespace {
  *
  *   found        - whether there is such a device; nothing else is there
  *                  if not
- *   device_id    - the device's id
- *   filter_uuid  - the UUID of the device's PTZ Control filter, which an
- *                  action source names its camera by
+ *   uuid         - the UUID of the device's filter
  *   name         - the device's name as the device list shows it
  *                  (PTZListModel's DisplayRole)
  *   config_name  - the "name" the device would save to the config file
@@ -58,22 +56,12 @@ void runDeviceSourceTest(const QMap<QString, QString> &params)
 	}
 
 	QModelIndex index;
-	if (params.contains(QStringLiteral("device_id"))) {
-		bool deviceIdOk = false;
-		uint32_t id = params.value(QStringLiteral("device_id")).toUInt(&deviceIdOk);
-		if (!deviceIdOk) {
-			blog(LOG_INFO, "[ptz-ui-test] get_device_source: invalid device_id");
-			return;
-		}
-		index = ptzDeviceList->indexFromDeviceId(id);
-	} else {
-		index = ptzDeviceList->indexFromName(params.value(QStringLiteral("name")));
-	}
+	index = ptzUITestDeviceIndex(params.value(QStringLiteral("device")));
 
 	OBSDataAutoRelease result = obs_data_create();
 	obs_data_set_bool(result, "found", index.isValid());
 	if (index.isValid()) {
-		uint32_t deviceId = ptzDeviceList->data(index, PTZListModel::DeviceIdRole).toUInt();
+		QString uuid = ptzDeviceList->data(index, PTZListModel::DeviceUuidRole).toString();
 
 		OBSDataAutoRelease config = obs_data_create();
 		ptzDeviceList->save(index, config.Get());
@@ -83,30 +71,12 @@ void runDeviceSourceTest(const QMap<QString, QString> &params)
 		OBSSourceAutoRelease procSource = static_cast<obs_source_t *>(calldata_ptr(&cd, "return"));
 		calldata_free(&cd);
 
-		OBSSourceAutoRelease source = ptz_device_get_parent_source(deviceId);
+		obs_source_t *source = procSource;
 
 		obs_data_set_bool(result, "proc_bound", procSource != nullptr);
 		obs_data_set_string(result, "proc_source", procSource ? obs_source_get_name(procSource) : "");
 		obs_data_set_string(result, "proc_source_uuid", procSource ? obs_source_get_uuid(procSource) : "");
-		obs_data_set_int(result, "device_id", deviceId);
-
-		/* The UUID of the device's PTZ Control filter, which is how an action
-		 * source names its camera */
-		struct Find {
-			QString uuid;
-		} find;
-		if (procSource) {
-			obs_source_enum_filters(
-				procSource,
-				[](obs_source_t *, obs_source_t *filter, void *data) {
-					auto f = static_cast<Find *>(data);
-					if (f->uuid.isEmpty() &&
-					    QString(obs_source_get_id(filter)).startsWith("ca.secretlab.obs-ptz."))
-						f->uuid = QString::fromUtf8(obs_source_get_uuid(filter));
-				},
-				&find);
-		}
-		obs_data_set_string(result, "filter_uuid", qUtf8Printable(find.uuid));
+		obs_data_set_string(result, "uuid", qUtf8Printable(uuid));
 		obs_data_set_string(result, "name",
 				    qUtf8Printable(ptzDeviceList->data(index, Qt::DisplayRole).toString()));
 		obs_data_set_string(result, "config_name", obs_data_get_string(config, "name"));
@@ -160,10 +130,8 @@ void runHoldSourceTest(const QMap<QString, QString> &params)
 } // namespace
 
 /* get_device_source request params:
- *   device_id - the target device's numeric id, or
- *   name      - its name, for a device whose id isn't known ahead of time
- *               (one an OBS filter created)
- *   filename  - where to write the {"found", "device_id", "name",
+ *   device    - the device, by the UUID of its filter or the name of the source it is on
+ *   filename  - where to write the {"found", "uuid", "name",
  *               "config_name", "bound", "source", "source_uuid", "live",
  *               "locked"} JSON result. Only "found" is there if there is
  *               no such device

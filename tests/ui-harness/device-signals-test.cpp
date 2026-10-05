@@ -25,7 +25,7 @@ struct Seen {
 	QSet<QString> stateKeys; /* every key any state change reported as changed */
 };
 
-QMap<uint32_t, Seen> seen;
+QMap<QString, Seen> seen;
 QObject *listener = nullptr;
 
 /* Starts (or restarts) listening to the model's signals, forgetting
@@ -38,26 +38,28 @@ void runWatchDeviceSignalsTest(const QMap<QString, QString> &)
 		return;
 	listener = new QObject(ptzDeviceList);
 	QObject::connect(ptzDeviceList, &PTZListModel::deviceSettingsUpdated, listener,
-			 [](uint32_t id) { seen[id].settings++; });
-	QObject::connect(ptzDeviceList, &PTZListModel::deviceStateUpdated, listener, [](uint32_t id, OBSData changed) {
-		Seen &s = seen[id];
-		s.state++;
-		for (obs_data_item_t *item = obs_data_first(changed); item; obs_data_item_next(&item))
-			s.stateKeys.insert(obs_data_item_get_name(item));
-	});
+			 [](const QString &id) { seen[id].settings++; });
+	QObject::connect(ptzDeviceList, &PTZListModel::deviceStateUpdated, listener,
+			 [](const QString &id, OBSData changed) {
+				 Seen &s = seen[id];
+				 s.state++;
+				 for (obs_data_item_t *item = obs_data_first(changed); item; obs_data_item_next(&item))
+					 s.stateKeys.insert(obs_data_item_get_name(item));
+			 });
 }
 
 void runGetDeviceSignalsTest(const QMap<QString, QString> &params)
 {
-	bool deviceIdOk = false;
-	uint32_t deviceId = params.value(QStringLiteral("device_id")).toUInt(&deviceIdOk);
+	QString deviceName = params.value(QStringLiteral("device"));
+	bool deviceOk = !deviceName.isEmpty();
 	QString filename = params.value(QStringLiteral("filename"));
-	if (!deviceIdOk || filename.isEmpty()) {
-		blog(LOG_INFO, "[ptz-ui-test] get_device_signals: missing/invalid device_id or filename");
+	if (!deviceOk || filename.isEmpty()) {
+		blog(LOG_INFO, "[ptz-ui-test] get_device_signals: missing/invalid device or filename");
 		return;
 	}
 
-	const Seen s = seen.value(deviceId);
+	QModelIndex index = ptzUITestDeviceIndex(deviceName);
+	const Seen s = seen.value(index.data(PTZListModel::DeviceUuidRole).toString());
 	OBSDataArrayAutoRelease keys = obs_data_array_create();
 	for (const QString &key : s.stateKeys) {
 		OBSDataAutoRelease item = obs_data_create();
@@ -77,7 +79,7 @@ void runGetDeviceSignalsTest(const QMap<QString, QString> &params)
 /* watch_device_signals takes no params: it starts counting.
  *
  * get_device_signals request params:
- *   device_id - the target device's numeric id
+ *   device - the device, by the UUID of its filter or the name of the source it is on
  *   filename  - where to write the {"settings_count", "state_count",
  *               "state_keys": [{"key"}...]} JSON result: how many times
  *               each signal was emitted for the device since

@@ -71,7 +71,6 @@ public:
 	static const QList<QPair<Feature, const char *>> &featureNames();
 
 protected:
-	uint32_t id = 0;
 	std::string type;
 	bool connected = false;
 	bool locked = false;
@@ -158,7 +157,6 @@ protected:
 public:
 	~PTZDevice();
 	PTZDevice(OBSData config, obs_source_t *filter);
-	uint32_t getId() const { return id; }
 	/* Fires the create signal PTZListModel discovers new devices through.
 	 * Called by ptz_filter_create() once the full object (base and
 	 * derived) is constructed -- see the comment on the definition. */
@@ -416,6 +414,5 @@ void ptz_filter_save(void *data, obs_data_t *settings);
 
 /* What the PTZ API has registered so far, as (scope, declaration) pairs: the
  * procs and signals of docs/ptz-device-api.md. The scope is one of
- * "global-proc", "obs-proc", "global-signal", "device-proc" and
- * "device-signal". For tests/ui-harness, to hold that document to it. */
+ * "device-proc" and "device-signal". For tests/ui-harness, to hold that document to it. */
 QList<QPair<QString, QString>> ptz_registered_api();

@@ -12,6 +12,7 @@
  */
 #pragma once
 
+#include <QModelIndex>
 #include <QObject>
 #include <QMap>
 #include <QString>
@@ -47,6 +48,11 @@ public:
 private:
 	QMap<QString, TestFn> tests;
 };
+
+/* The device a test names, as the "device" param of its request: the UUID of
+ * its filter, or the name of the source the filter is on. Invalid if there is
+ * none. */
+QModelIndex ptzUITestDeviceIndex(const QString &device);
 
 /* Registers this plugin as an obs-websocket vendor ("obs-ptz", request
  * type "ui_test_run") if PTZ_UI_TEST_HARNESS=1 is set in the

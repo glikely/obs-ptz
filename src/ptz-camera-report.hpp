@@ -19,18 +19,18 @@ class PTZCameraReportDialog : public QDialog {
 	Q_OBJECT
 
 	Ui_PTZCameraReport *ui;
-	uint32_t deviceId;
+	QString deviceUuid;
 	QString report;
 	QString cameraName;
 
-	void stateUpdated(uint32_t device_id, OBSData changed);
+	void stateUpdated(const QString &uuid, OBSData changed);
 	void showReport();
 	void save();
 	void copy();
 	void openIssue();
 
 public:
-	PTZCameraReportDialog(uint32_t device_id, QWidget *parent = nullptr);
+	PTZCameraReportDialog(const QString &uuid, QWidget *parent = nullptr);
 	~PTZCameraReportDialog();
 	/* The issue form, with what it can be filled in with but the report,
 	 * which is too long to go in a link */

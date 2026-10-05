@@ -669,8 +669,9 @@ void PTZControls::SaveConfig()
 	}
 	obs_data_set_array(savedata, "joystick_button_hotkeys", button_actions);
 	if (ui->deviceList->currentIndex().isValid())
-		obs_data_set_int(savedata, "current_selected",
-				 ui->deviceList->currentIndex().data(PTZListModel::DeviceIdRole).toInt());
+		obs_data_set_string(
+			savedata, "selected_device",
+			QT_TO_UTF8(ui->deviceList->currentIndex().data(PTZListModel::DeviceUuidRole).toString()));
 
 	/* Devices are saved with their filters. What is left here is those not
 	 * yet migrated from the old self-managed backend */
@@ -768,7 +769,10 @@ void PTZControls::LoadConfig()
 	/* The devices that config.json has are the old self-managed ones. They
 	 * become filters once a scene collection is loaded, see migrateLegacyDevices() */
 	ptz_legacy_load(QT_TO_UTF8(loadedFrom), loaddata);
+	/* The camera that was selected: by id for the old self-managed devices, by
+	 * the UUID of its filter since */
 	legacy_current_selected = (uint32_t)obs_data_get_int(loaddata, "current_selected");
+	selected_uuid = QT_UTF8(obs_data_get_string(loaddata, "selected_device"));
 }
 
 void PTZControls::migrateLegacyDevices(bool finishingLoading)
@@ -776,10 +780,18 @@ void PTZControls::migrateLegacyDevices(bool finishingLoading)
 	if (ptz_legacy_migrate(finishingLoading))
 		SaveConfig();
 	if (legacy_current_selected) {
-		uint32_t id = ptz_legacy_remap_id(legacy_current_selected);
-		if (id) {
-			ui->deviceList->setCurrentIndex(ptzDeviceList->indexFromDeviceId(id));
+		const char *uuid = ptz_legacy_remap_id(legacy_current_selected);
+		if (uuid) {
+			selected_uuid = QT_UTF8(uuid);
 			legacy_current_selected = 0;
+		}
+	}
+	/* Once its device is there, whichever way it came to be */
+	if (!selected_uuid.isEmpty()) {
+		QModelIndex index = ptzDeviceList->indexFromUuid(selected_uuid);
+		if (index.isValid()) {
+			ui->deviceList->setCurrentIndex(index);
+			selected_uuid.clear();
 		}
 	}
 }
@@ -1244,7 +1256,7 @@ void PTZControls::on_actionPresetImport_triggered(QString filename)
 	}
 
 	/* Save current selected device */
-	uint32_t deviceId = ptzDeviceList->data(index, PTZListModel::DeviceIdRole).toUInt();
+	QString deviceUuid = ptzDeviceList->data(index, PTZListModel::DeviceUuidRole).toString();
 
 	/* Merge just the presets/preset_max subset from the imported file
 	 * into the device's current full config, then update() with that --
@@ -1262,7 +1274,7 @@ void PTZControls::on_actionPresetImport_triggered(QString filename)
 	ptzDeviceList->update(index, fullConfig.Get());
 	ptzDeviceList->do_reset();
 	/* restore selection after reset */
-	ui->deviceList->setCurrentIndex(ptzDeviceList->indexFromDeviceId(deviceId));
+	ui->deviceList->setCurrentIndex(ptzDeviceList->indexFromUuid(deviceUuid));
 	presetUpdateActions();
 }
 
@@ -1652,9 +1664,9 @@ bool PTZPresetListDelegate::editorEvent(QEvent *event, QAbstractItemModel *model
 		auto mouseEvent = static_cast<QMouseEvent *>(event);
 		const CellLayout l = layoutCell(index, option);
 		if (mouseEvent->button() == Qt::LeftButton && l.recall.contains(mouseEvent->pos())) {
-			uint32_t deviceId = index.parent().data(PTZListModel::DeviceIdRole).toUInt();
+			QString deviceUuid = index.parent().data(PTZListModel::DeviceUuidRole).toString();
 			int presetId = index.data(Qt::UserRole).toInt();
-			ptzDeviceList->preset_recall(deviceId, presetId);
+			ptzDeviceList->preset_recall(deviceUuid, presetId);
 			return true;
 		}
 	}

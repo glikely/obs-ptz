@@ -35,17 +35,9 @@
 #include "ptz-pelco.hpp"
 #endif
 
-/* Lookup table of device_id to PTZDevice instances. Guarded by
- * ptz_device_registry_mutex since a filter can be created and destroyed
- * on any thread */
-static QRecursiveMutex ptz_device_registry_mutex;
-static QHash<uint32_t, PTZDevice *> ptz_device_registry;
-
 /* Everything the PTZ API registers goes through PTZDevice::addProc() and
- * addSignal() for a device's own handlers, and ptz_global_proc_add(),
- * ptz_obs_proc_add() and ptz_global_signal_add() for the plugin's, which log
- * it, as the scope it is registered in (one of "global-proc", "obs-proc",
- * "global-signal", "device-proc" and "device-signal") and its declaration.
+ * addSignal() for a device's own handlers, which log it, as the scope it is
+ * registered in ("device-proc" or "device-signal") and its declaration.
  * ptz_registered_api() hands the log back, so that a test can hold
  * docs/ptz-device-api.md to what the plugin really registers rather than to
  * a copy of it. */
@@ -174,15 +166,15 @@ PTZDevice::PTZDevice(OBSData config, obs_source_t *filter) : QObject()
 	if (!sigs) {
 		blog(LOG_ERROR, "could not allocate signal_handler for %s", obs_data_get_string(config, "name"));
 	} else {
-		addSignal("void state_changed(int device_id, ptr changed)");
+		addSignal("void state_changed(ptr filter, ptr changed)");
 
-		addSignal("void settings_changed(int device_id)");
+		addSignal("void settings_changed(ptr filter)");
 
-		addSignal("void preset_inserted(int device_id, int row)");
-		addSignal("void preset_removed(int device_id, int row)");
-		addSignal("void preset_moved(int device_id, int src_row, int dest_row)");
-		addSignal("void preset_renamed(int device_id, int id)");
-		addSignal("void preset_thumbnail_changed(int device_id, int id)");
+		addSignal("void preset_inserted(ptr filter, int row)");
+		addSignal("void preset_removed(ptr filter, int row)");
+		addSignal("void preset_moved(ptr filter, int src_row, int dest_row)");
+		addSignal("void preset_renamed(ptr filter, int id)");
+		addSignal("void preset_thumbnail_changed(ptr filter, int id)");
 	}
 
 	/* The device is given its source by its filter, see setParentSource() */
@@ -194,18 +186,6 @@ PTZDevice::PTZDevice(OBSData config, obs_source_t *filter) : QObject()
 	statistics = obs_data_create();
 	obs_data_release(statistics);
 	stale_state = {"pan_pos", "tilt_pos", "zoom_pos", "focus_pos"};
-
-	/* Assign a unique ID -- this is the one place a device's identity is
-	 * decided, so it happens here rather than in whatever happens to be
-	 * listening on the create signal that announceCreated() fires. Hold
-	 * the lock across the search *and* the insert so two concurrent
-	 * constructions can't settle on the same id. */
-	QMutexLocker locker(&ptz_device_registry_mutex);
-	uint32_t new_id = (uint32_t)obs_data_get_int(config, "id");
-	while (ptz_device_registry.contains(new_id) || new_id == 0)
-		new_id++;
-	id = new_id;
-	ptz_device_registry[id] = this;
 
 	/* Hear of OBS finishing loading and closing directly, not from the UI
 	 * that would otherwise have to pass it on. A device is made and
@@ -249,7 +229,6 @@ void PTZDevice::announceCreated()
 	if (!filter)
 		return; /* being destroyed already */
 	calldata_t cd = {};
-	calldata_set_int(&cd, "device_id", id);
 	calldata_set_ptr(&cd, "filter", filter.Get());
 	signal_handler_signal(ptz_get_signal_handler(), "ptz_device_create", &cd);
 	calldata_free(&cd);
@@ -257,16 +236,6 @@ void PTZDevice::announceCreated()
 
 PTZDevice::~PTZDevice()
 {
-	calldata_t cd = {};
-	calldata_set_int(&cd, "device_id", id);
-	signal_handler_signal(ptz_get_signal_handler(), "ptz_device_destroy", &cd);
-	calldata_free(&cd);
-
-	{
-		QMutexLocker locker(&ptz_device_registry_mutex);
-		ptz_device_registry.remove(id);
-	}
-
 	if (m_frontendCallback)
 		obs_frontend_remove_event_callback(frontendEventCallback, this);
 
@@ -756,8 +725,8 @@ void PTZDevice::get_config(calldata_t *cd) const
  * through obs_source_update(): libobs merges them into the filter's own
  * settings, and the Filters dialog sees the same values. libobs only calls
  * the filter's .update of a video source (which ends up in applySettings())
- * when the source is next ticked, which a source that is not showing never
- * is, so apply them here too: the caller is owed the change once this returns.
+ * on a later tick of the source, not before obs_source_update() returns, so
+ * apply them here too: the caller is owed the change once this returns.
  */
 void PTZDevice::set_config(calldata_t *cd)
 {
@@ -871,8 +840,7 @@ void PTZDevice::applySettings(OBSData settings)
 void PTZDevice::announceSettingsChanged()
 {
 	calldata_t cd = {};
-	calldata_set_int(&cd, "device_id", id);
-	signal_handler_signal(sigs, "settings_changed", &cd);
+	signalDevice("settings_changed", &cd);
 	calldata_free(&cd);
 }
 
@@ -922,7 +890,6 @@ void PTZDevice::save(OBSData config) const
 		name = src ? QT_UTF8(obs_source_get_name(src)) : m_parentSourceName;
 	}
 	obs_data_set_string(config, "name", QT_TO_UTF8(name));
-	obs_data_set_int(config, "id", id);
 	obs_data_set_string(config, "type", type.c_str());
 	obs_data_set_double(config, "pantilt_speed_max", pantilt_speed_max);
 	obs_data_set_double(config, "zoom_speed_max", zoom_speed_max);
@@ -1076,7 +1043,7 @@ const char *ptz_device_filter_kind(const char *type)
 	return nullptr;
 }
 
-obs_source_t *ptz_device_create_filter(obs_source_t *parent, obs_data_t *config, uint32_t preferred_id)
+obs_source_t *ptz_device_create_filter(obs_source_t *parent, obs_data_t *config)
 {
 	const char *kind = ptz_device_filter_kind(obs_data_get_string(config, "type"));
 	if (!parent || !kind)
@@ -1087,9 +1054,6 @@ obs_source_t *ptz_device_create_filter(obs_source_t *parent, obs_data_t *config,
 	obs_data_apply(settings, config);
 	PTZDevice::stripIdentity(settings);
 	obs_data_erase(settings, "backup_time");
-	/* Only to make the device with: ptz_filter_save() strips it again */
-	if (preferred_id)
-		obs_data_set_int(settings, "id", preferred_id);
 
 	QString base = QT_UTF8(obs_source_get_display_name(kind));
 	QString name = base;
@@ -1188,58 +1152,17 @@ void ptz_filter_save(void *data, obs_data_t *settings)
 	PTZDevice::stripIdentity(settings);
 }
 
-/* C interface for non-QT parts of the plugin */
-obs_data_array_t *ptz_devices_get_config()
+void ptz_device_startup(obs_source_t *filter)
 {
-	obs_data_array_t *devices = obs_data_array_create();
-	QMutexLocker locker(&ptz_device_registry_mutex);
-	for (auto ptz : ptz_device_registry) {
-		OBSDataAutoRelease cfg = obs_data_create();
-		ptz->save(cfg.Get());
-		obs_data_array_push_back(devices, cfg);
-	}
-	return devices;
-}
-
-void ptz_device_startup(uint32_t device_id)
-{
-	QMutexLocker locker(&ptz_device_registry_mutex);
-	PTZDevice *ptz = ptz_device_registry.value(device_id, nullptr);
+	/* The data of a PTZ Control filter is its device */
+	auto ptz = filter ? static_cast<PTZDevice *>(obs_obj_get_data(filter)) : nullptr;
 	if (ptz)
 		QMetaObject::invokeMethod(ptz, [ptz]() { ptz->onOBSStartup(); }, Qt::QueuedConnection);
 }
 
-obs_source_t *ptz_device_get_parent_source(uint32_t device_id)
-{
-	QMutexLocker locker(&ptz_device_registry_mutex);
-	PTZDevice *ptz = ptz_device_registry.value(device_id, nullptr);
-	if (!ptz)
-		return NULL;
-	return ptz->parentSource();
-}
-
-static proc_handler_t *ptz_ph = NULL;
+/* Announces a device being made to the device list, inside the plugin: not
+ * part of the API, for which a device's own filter is the way in */
 static signal_handler_t *ptz_sh = NULL;
-
-static void ptz_global_proc_add(const char *decl, proc_handler_proc_t proc, void *data)
-{
-	ptz_proc_add("global-proc", ptz_ph, decl, proc, data);
-}
-
-static void ptz_obs_proc_add(const char *decl, proc_handler_proc_t proc, void *data)
-{
-	ptz_proc_add("obs-proc", obs_get_proc_handler(), decl, proc, data);
-}
-
-static void ptz_global_signal_add(const char *decl)
-{
-	ptz_signal_add("global-signal", ptz_sh, decl);
-}
-
-proc_handler_t *ptz_get_proc_handler()
-{
-	return ptz_ph;
-}
 
 signal_handler_t *ptz_get_signal_handler()
 {
@@ -1248,21 +1171,13 @@ signal_handler_t *ptz_get_signal_handler()
 
 void ptz_load_devices()
 {
-	/* Register the proc handlers for issuing PTZ commands */
-	ptz_ph = proc_handler_create();
-	if (!ptz_ph) {
-		blog(LOG_ERROR, "could not allocate proc_handler for PTZ devices");
-		return;
-	}
-
-	/* Register the signal handler used to announce device creation and destruction */
+	/* Register the signal handler used to announce a device being made */
 	ptz_sh = signal_handler_create();
 	if (!ptz_sh) {
 		blog(LOG_ERROR, "could not allocate signal_handler for PTZ devices");
 		return;
 	}
-	ptz_global_signal_add("void ptz_device_create(int device_id, ptr filter)");
-	ptz_global_signal_add("void ptz_device_destroy(int device_id)");
+	signal_handler_add(ptz_sh, "void ptz_device_create(ptr filter)");
 
 	/* Constructed here rather than as a plain static-storage global so
 	 * its constructor happens at a well-defined point in the module load
@@ -1282,37 +1197,6 @@ void ptz_load_devices()
 #if defined(ENABLE_USB_CAM)
 	ptz_usb_cam_register_filter();
 #endif /* ENABLE_USB_CAM */
-
-	/* Preset Recall/Save Callback */
-	auto ptz_cb = [](void *p, calldata_t *cd) {
-		ptzDeviceList->callDevice(static_cast<const char *>(p), cd);
-	};
-	ptz_global_proc_add("void ptz_preset_save(int device_id, int preset_id)", ptz_cb, (void *)"ptz_preset_save");
-	ptz_global_proc_add("void ptz_preset_recall(int device_id, int preset_id)", ptz_cb,
-			    (void *)"ptz_preset_recall");
-	ptz_global_proc_add("void ptz_move_continuous(int device_id, float pan, float tilt, float zoom, float focus)",
-			    ptz_cb, (void *)"ptz_move");
-
-	/* Register the new proc hander with the main proc handler */
-	proc_handler_t *ph = obs_get_proc_handler();
-	if (!ph)
-		return;
-
-	/* Register a function for retrieving the PTZ call handler */
-	auto ptz_get_proc_handler = [](void *, calldata_t *cd) {
-		calldata_set_ptr(cd, "return", ptz_ph);
-	};
-	ptz_obs_proc_add("ptr ptz_get_proc_handler()", ptz_get_proc_handler, NULL);
-
-	auto ptz_get_api_version = [](void *, calldata_t *cd) {
-		calldata_set_int(cd, "major", PTZ_API_VERSION_MAJOR);
-		calldata_set_int(cd, "minor", PTZ_API_VERSION_MINOR);
-	};
-	ptz_obs_proc_add("void ptz_get_api_version(out int major, out int minor)", ptz_get_api_version, NULL);
-
-	/* Deprecated: ptz_move_continuous, under its old name */
-	ptz_obs_proc_add("void ptz_pantilt(int device_id, float pan, float tilt, float zoom, float focus)", ptz_cb,
-			 (void *)"ptz_move");
 }
 
 void ptz_unload_devices(void)
@@ -1325,8 +1209,6 @@ void ptz_unload_devices(void)
 		QMutexLocker locker(&ptz_backup_mutex);
 		ptz_backups = nullptr;
 	}
-	proc_handler_destroy(ptz_ph);
-	ptz_ph = nullptr;
 	signal_handler_destroy(ptz_sh);
 	ptz_sh = nullptr;
 }
@@ -1352,7 +1234,6 @@ void PTZDevice::setPresetName(size_t id, QString name)
 	sanitizePreset(id);
 
 	calldata_t cd = {};
-	calldata_set_int(&cd, "device_id", this->id);
 	calldata_set_int(&cd, "id", (long long)id);
 	signalDevice("preset_renamed", &cd);
 	calldata_free(&cd);
@@ -1361,7 +1242,6 @@ void PTZDevice::setPresetName(size_t id, QString name)
 void PTZDevice::signalPresetThumbnail(size_t id)
 {
 	calldata_t cd = {};
-	calldata_set_int(&cd, "device_id", this->id);
 	calldata_set_int(&cd, "id", (long long)id);
 	signalDevice("preset_thumbnail_changed", &cd);
 	calldata_free(&cd);
@@ -1434,7 +1314,6 @@ int PTZDevice::newPreset(int row)
 	m_presetsDisplayOrder.insert(row, id);
 
 	calldata_t cd = {};
-	calldata_set_int(&cd, "device_id", this->id);
 	calldata_set_int(&cd, "row", row);
 	signalDevice("preset_inserted", &cd);
 	calldata_free(&cd);
@@ -1449,7 +1328,6 @@ void PTZDevice::removePresetAtDisplayRow(int row)
 	m_presetsDisplayOrder.removeAt(row);
 
 	calldata_t cd = {};
-	calldata_set_int(&cd, "device_id", this->id);
 	calldata_set_int(&cd, "row", row);
 	signalDevice("preset_removed", &cd);
 	calldata_free(&cd);
@@ -1467,7 +1345,6 @@ void PTZDevice::movePreset(int srcRow, int destRow)
 	m_presetsDisplayOrder.move(srcRow, listMoveDest);
 
 	calldata_t cd = {};
-	calldata_set_int(&cd, "device_id", this->id);
 	calldata_set_int(&cd, "src_row", srcRow);
 	calldata_set_int(&cd, "dest_row", destRow);
 	signalDevice("preset_moved", &cd);
@@ -1534,20 +1411,23 @@ void PTZDevice::setLock(bool state)
 }
 
 /**
- * Fires one of sigs' own signals. First grab a strong reference to the filter to guarantee the signal handler is
- * valid. Otherwise the filter could be destroyed in parallel, risking a
+ * Fires one of sigs' own signals, saying which device it is with its filter.
+ * First grab a strong reference to the filter to guarantee the signal handler
+ * is valid. Otherwise the filter could be destroyed in parallel, risking a
  * use-after-free. */
 void PTZDevice::signalDevice(const char *name, calldata_t *cd)
 {
 	OBSSourceAutoRelease filter = obs_weak_source_get_source(m_filter);
-	if (filter)
-		signal_handler_signal(sigs, name, cd);
+	if (!filter)
+		return;
+	/* Lent to the listeners for the call: one that wants it later takes its own reference */
+	calldata_set_ptr(cd, "filter", filter.Get());
+	signal_handler_signal(sigs, name, cd);
 }
 
 void PTZDevice::notifyStateChanged()
 {
 	calldata_t cd = {};
-	calldata_set_int(&cd, "device_id", id);
 	calldata_set_ptr(&cd, "changed", stateChanged);
 	signalDevice("state_changed", &cd);
 	calldata_free(&cd);

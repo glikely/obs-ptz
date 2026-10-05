@@ -17,11 +17,11 @@ namespace {
  * action, by its name */
 void runTriggerDeviceTest(const QMap<QString, QString> &params)
 {
-	bool deviceIdOk = false;
-	uint32_t deviceId = params.value(QStringLiteral("device_id")).toUInt(&deviceIdOk);
-	QModelIndex index = deviceIdOk ? ptzDeviceList->indexFromDeviceId(deviceId) : QModelIndex();
+	QString deviceName = params.value(QStringLiteral("device"));
+	bool deviceOk = !deviceName.isEmpty();
+	QModelIndex index = deviceOk ? ptzUITestDeviceIndex(deviceName) : QModelIndex();
 	if (!index.isValid()) {
-		blog(LOG_INFO, "[ptz-ui-test] trigger_device: missing/invalid device_id");
+		blog(LOG_INFO, "[ptz-ui-test] trigger_device: missing/invalid device");
 		return;
 	}
 
@@ -34,7 +34,7 @@ void runTriggerDeviceTest(const QMap<QString, QString> &params)
 } // namespace
 
 /* trigger_device request params:
- *   device_id - the target device's numeric id
+ *   device - the device, by the UUID of its filter or the name of the source it is on
  *   name      - the one-shot action, such as "camera_report"
  */
 void registerSetDeviceTest(PTZUITestHarness *harness)

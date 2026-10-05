@@ -35,16 +35,16 @@ namespace {
  * before the user starts editing. */
 void runUpdateDeviceTest(const QMap<QString, QString> &params)
 {
-	bool deviceIdOk = false;
-	uint32_t deviceId = params.value(QStringLiteral("device_id")).toUInt(&deviceIdOk);
-	if (!deviceIdOk) {
-		blog(LOG_INFO, "[ptz-ui-test] update_device: missing/invalid device_id");
+	QString deviceName = params.value(QStringLiteral("device"));
+	bool deviceOk = !deviceName.isEmpty();
+	if (!deviceOk) {
+		blog(LOG_INFO, "[ptz-ui-test] update_device: missing/invalid device");
 		return;
 	}
 
-	QModelIndex index = ptzDeviceList->indexFromDeviceId(deviceId);
+	QModelIndex index = ptzUITestDeviceIndex(deviceName);
 	if (!index.isValid()) {
-		blog(LOG_INFO, "[ptz-ui-test] update_device: device_id %u not found", deviceId);
+		blog(LOG_INFO, "[ptz-ui-test] update_device: device %s not found", qUtf8Printable(deviceName));
 		return;
 	}
 
@@ -79,13 +79,13 @@ void runUpdateDeviceTest(const QMap<QString, QString> &params)
 
 	ptzDeviceList->update(index, cfg);
 
-	blog(LOG_INFO, "[ptz-ui-test] update_device device_id=%u", deviceId);
+	blog(LOG_INFO, "[ptz-ui-test] update_device device=%s", qUtf8Printable(deviceName));
 }
 
 } // namespace
 
 /* Request params:
- *   device_id      - the target device's numeric id
+ *   device      - the device, by the UUID of its filter or the name of the source it is on
  *   type           - optional, new device "type" (e.g. "visca",
  *                    "visca-over-ip", "visca-over-tcp", "pelco")
  *   host           - optional, new "host" (VISCA UDP/TCP)

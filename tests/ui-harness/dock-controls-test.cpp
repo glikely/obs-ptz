@@ -41,7 +41,7 @@ void runDockControlsTest(const QMap<QString, QString> &params)
 	OBSDataAutoRelease result = obs_data_create();
 	obs_data_set_bool(result, "found", deviceList);
 	if (deviceList) {
-		auto index = ptzDeviceList->indexFromDeviceId(params.value(QStringLiteral("device_id")).toUInt());
+		auto index = ptzUITestDeviceIndex(params.value(QStringLiteral("device")));
 		deviceList->setCurrentIndex(index);
 		obs_data_set_bool(result, "selected", index.isValid() && deviceList->currentIndex() == index);
 		OBSDataAutoRelease enabled = obs_data_create();
@@ -59,7 +59,7 @@ void runDockControlsTest(const QMap<QString, QString> &params)
 } // namespace
 
 /* Request params:
- *   device_id - the device to select in the camera list
+ *   device - the device, by the UUID of its filter or the name of the source it is on
  *   filename  - where to write the {"found", "selected", "enabled"} JSON
  *               result
  */

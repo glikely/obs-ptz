@@ -72,7 +72,7 @@ private:
 	void updateAutofocusIcon(bool known, bool on);
 	void reloadSettings();
 	void current_device_changed();
-	uint32_t currentDeviceId() const;
+	QString currentDeviceUuid() const;
 	/* The device's statistics aren't told, they are read: every second
 	 * while the dialog is showing, for the state view's diagnostics */
 	QTimer statisticsTimer;
@@ -114,8 +114,8 @@ public slots:
 	void on_revertButton_clicked();
 
 	void currentChanged(const QModelIndex &current, const QModelIndex &previous);
-	void deviceSettingsUpdated(uint32_t device_id);
-	void deviceStateUpdated(uint32_t device_id, OBSData changed);
+	void deviceSettingsUpdated(const QString &uuid);
+	void deviceStateUpdated(const QString &uuid, OBSData changed);
 	obs_properties_t *getProperties(void);
 	void updateProperties(OBSData old_settings, OBSData new_settings);
 	void showDevice(const QModelIndex &index);

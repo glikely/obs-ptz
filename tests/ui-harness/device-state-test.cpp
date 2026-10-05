@@ -22,17 +22,17 @@ namespace {
  * as JSON under "state". */
 void runGetDeviceStateTest(const QMap<QString, QString> &params)
 {
-	bool deviceIdOk = false;
-	uint32_t deviceId = params.value(QStringLiteral("device_id")).toUInt(&deviceIdOk);
+	QString deviceName = params.value(QStringLiteral("device"));
+	bool deviceOk = !deviceName.isEmpty();
 	QString filename = params.value(QStringLiteral("filename"));
-	if (!deviceIdOk || filename.isEmpty()) {
-		blog(LOG_INFO, "[ptz-ui-test] get_device_state: missing/invalid device_id or filename");
+	if (!deviceOk || filename.isEmpty()) {
+		blog(LOG_INFO, "[ptz-ui-test] get_device_state: missing/invalid device or filename");
 		return;
 	}
 
-	QModelIndex index = ptzDeviceList->indexFromDeviceId(deviceId);
+	QModelIndex index = ptzUITestDeviceIndex(deviceName);
 	if (!index.isValid()) {
-		blog(LOG_INFO, "[ptz-ui-test] get_device_state: device_id %u not found", deviceId);
+		blog(LOG_INFO, "[ptz-ui-test] get_device_state: device %s not found", qUtf8Printable(deviceName));
 		return;
 	}
 
@@ -62,16 +62,16 @@ void runGetDeviceStateTest(const QMap<QString, QString> &params)
  * as the settings dialog's state view does. */
 void runSetDeviceStateTest(const QMap<QString, QString> &params)
 {
-	bool deviceIdOk = false;
-	uint32_t deviceId = params.value(QStringLiteral("device_id")).toUInt(&deviceIdOk);
-	if (!deviceIdOk) {
-		blog(LOG_INFO, "[ptz-ui-test] set_device_state: missing/invalid device_id");
+	QString deviceName = params.value(QStringLiteral("device"));
+	bool deviceOk = !deviceName.isEmpty();
+	if (!deviceOk) {
+		blog(LOG_INFO, "[ptz-ui-test] set_device_state: missing/invalid device");
 		return;
 	}
 
-	QModelIndex index = ptzDeviceList->indexFromDeviceId(deviceId);
+	QModelIndex index = ptzUITestDeviceIndex(deviceName);
 	if (!index.isValid()) {
-		blog(LOG_INFO, "[ptz-ui-test] set_device_state: device_id %u not found", deviceId);
+		blog(LOG_INFO, "[ptz-ui-test] set_device_state: device %s not found", qUtf8Printable(deviceName));
 		return;
 	}
 
@@ -79,7 +79,7 @@ void runSetDeviceStateTest(const QMap<QString, QString> &params)
 	 * else a number (0x.. for hex) */
 	OBSDataAutoRelease state = obs_data_create();
 	for (auto param = params.cbegin(); param != params.cend(); ++param) {
-		if (param.key() == QStringLiteral("cmd") || param.key() == QStringLiteral("device_id"))
+		if (param.key() == QStringLiteral("cmd") || param.key() == QStringLiteral("device"))
 			continue;
 		QByteArray key = param.key().toUtf8();
 		QString value = param.value().toLower();
@@ -96,24 +96,24 @@ void runSetDeviceStateTest(const QMap<QString, QString> &params)
 	ptzDeviceList->callDevice(index, "ptz_request_state", &cd);
 	calldata_free(&cd);
 
-	blog(LOG_INFO, "[ptz-ui-test] set_device_state device_id=%u", deviceId);
+	blog(LOG_INFO, "[ptz-ui-test] set_device_state device=%s", qUtf8Printable(deviceName));
 }
 
 /* Reports the device's camera report, from the "ptz_get_camera_report"
  * proc handler, as JSON under "report", if there is one */
 void runGetCameraReportTest(const QMap<QString, QString> &params)
 {
-	bool deviceIdOk = false;
-	uint32_t deviceId = params.value(QStringLiteral("device_id")).toUInt(&deviceIdOk);
+	QString deviceName = params.value(QStringLiteral("device"));
+	bool deviceOk = !deviceName.isEmpty();
 	QString filename = params.value(QStringLiteral("filename"));
-	if (!deviceIdOk || filename.isEmpty()) {
-		blog(LOG_INFO, "[ptz-ui-test] get_camera_report: missing/invalid device_id or filename");
+	if (!deviceOk || filename.isEmpty()) {
+		blog(LOG_INFO, "[ptz-ui-test] get_camera_report: missing/invalid device or filename");
 		return;
 	}
 
-	QModelIndex index = ptzDeviceList->indexFromDeviceId(deviceId);
+	QModelIndex index = ptzUITestDeviceIndex(deviceName);
 	if (!index.isValid()) {
-		blog(LOG_INFO, "[ptz-ui-test] get_camera_report: device_id %u not found", deviceId);
+		blog(LOG_INFO, "[ptz-ui-test] get_camera_report: device %s not found", qUtf8Printable(deviceName));
 		return;
 	}
 
@@ -134,16 +134,16 @@ void runGetCameraReportTest(const QMap<QString, QString> &params)
 } // namespace
 
 /* get_camera_report request params:
- *   device_id - the target device's numeric id
+ *   device - the device, by the UUID of its filter or the name of the source it is on
  *   filename  - where to write the {"report": {...}} JSON result, {} if
  *               there is no report
  *
  * get_device_state request params:
- *   device_id - the target device's numeric id
+ *   device - the device, by the UUID of its filter or the name of the source it is on
  *   filename  - where to write the {"state": {...}} JSON result
  *
  * set_device_state request params:
- *   device_id         - the target device's numeric id
+ *   device         - the device, by the UUID of its filter or the name of the source it is on
  *   power_on          - optional, "True"/"False"
  *   focus_af_enabled  - optional, "True"/"False"
  *   tally_on          - optional, "True"/"False"
@@ -152,7 +152,7 @@ void runGetCameraReportTest(const QMap<QString, QString> &params)
  * A request with none of the optional params asks for nothing.
  *
  * obs_event request params:
- *   device_id - the target device's numeric id
+ *   device - the device, by the UUID of its filter or the name of the source it is on
  *   event     - "startup" or "shutdown"
  */
 void registerDeviceStateTest(PTZUITestHarness *harness)

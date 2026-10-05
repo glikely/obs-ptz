@@ -29,10 +29,10 @@
  * .github/ISSUE_TEMPLATE/camera-report.yml */
 static const char *issue_form = "https://github.com/glikely/obs-ptz/issues/new";
 
-PTZCameraReportDialog::PTZCameraReportDialog(uint32_t device_id, QWidget *parent)
+PTZCameraReportDialog::PTZCameraReportDialog(const QString &uuid, QWidget *parent)
 	: QDialog(parent),
 	  ui(new Ui_PTZCameraReport),
-	  deviceId(device_id)
+	  deviceUuid(uuid)
 {
 	/* So the text in the .ui file, which is the locale's keys, is translated */
 	obs_frontend_push_ui_translation(obs_module_get_string);
@@ -47,7 +47,7 @@ PTZCameraReportDialog::PTZCameraReportDialog(uint32_t device_id, QWidget *parent
 	connect(ptzDeviceList, &PTZListModel::deviceStateUpdated, this, &PTZCameraReportDialog::stateUpdated);
 
 	/* A camera that isn't connected can't be asked anything */
-	QModelIndex index = ptzDeviceList->indexFromDeviceId(deviceId);
+	QModelIndex index = ptzDeviceList->indexFromUuid(deviceUuid);
 	OBSDataAutoRelease state = obs_data_create();
 	if (index.isValid())
 		ptzDeviceList->saveState(index, state.Get());
@@ -69,9 +69,9 @@ PTZCameraReportDialog::~PTZCameraReportDialog()
 
 /* How far the device has got with the report, and the report once it has
  * made it */
-void PTZCameraReportDialog::stateUpdated(uint32_t device_id, OBSData changed)
+void PTZCameraReportDialog::stateUpdated(const QString &uuid, OBSData changed)
 {
-	if (device_id != deviceId || !obs_data_has_user_value(changed, "camera_report"))
+	if (uuid != deviceUuid || !obs_data_has_user_value(changed, "camera_report"))
 		return;
 	OBSDataAutoRelease progressed = obs_data_get_obj(changed, "camera_report");
 	if (obs_data_get_bool(progressed, "running")) {
@@ -94,7 +94,7 @@ void PTZCameraReportDialog::stateUpdated(uint32_t device_id, OBSData changed)
 void PTZCameraReportDialog::showReport()
 {
 	calldata_t cd = {};
-	ptzDeviceList->callDevice(ptzDeviceList->indexFromDeviceId(deviceId), "ptz_get_camera_report", &cd);
+	ptzDeviceList->callDevice(ptzDeviceList->indexFromUuid(deviceUuid), "ptz_get_camera_report", &cd);
 	const char *text = calldata_string(&cd, "report");
 	report = QString::fromUtf8(text ? text : "");
 	calldata_free(&cd);

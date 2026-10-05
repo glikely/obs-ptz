@@ -37,9 +37,6 @@ extern void ptz_load_ui_tests(void);
 static inline void ptz_load_ui_tests(void) {};
 #endif
 
-extern obs_data_array_t *ptz_devices_get_config(void);
-extern obs_source_t *ptz_device_get_parent_source(uint32_t device_id);
-
 /* Settings of devices that were recently destroyed, most recent first: each
  * what the device saved, with the "name" of its source and "backup_time" (in
  * seconds since the epoch). Returns a new reference. */
@@ -48,21 +45,19 @@ extern obs_data_array_t *ptz_device_backups_get(void);
 extern const char *ptz_device_filter_kind(const char *type);
 /* Adds a PTZ Control filter, and so a device, to `parent`, for the "type"
  * in `config` and with its settings. Returns a new reference to the filter,
- * or NULL. The device takes `preferred_id` if it is not 0 and no other device
- * has it, the lowest free id otherwise. */
-extern obs_source_t *ptz_device_create_filter(obs_source_t *parent, obs_data_t *config, uint32_t preferred_id);
+ * or NULL. */
+extern obs_source_t *ptz_device_create_filter(obs_source_t *parent, obs_data_t *config);
 
 /* Does what a device does when OBS has finished loading, for a device made
  * while it was doing that, which is too late to have heard of it */
-extern void ptz_device_startup(uint32_t device_id);
+extern void ptz_device_startup(obs_source_t *filter);
 
 extern bool ptz_scene_is_source_active(obs_source_t *scene, obs_source_t *source);
 
-extern proc_handler_t *ptz_get_proc_handler();
 extern signal_handler_t *ptz_get_signal_handler();
 
-/* The version of the PTZ API that ptz_get_api_version reports, on OBS's
- * proc_handler and on each of this plugin's devices: the procs and
+/* The version of the PTZ API that ptz_get_api_version reports, on each of this
+ * plugin's devices (there is no version of the plugin as a whole): the procs and
  * signals in docs/ptz-device-api.md, and the keys and names they take. Bump
  * the minor version for a change an existing caller can't notice (something
  * added), and the major version, resetting the minor, for one it can

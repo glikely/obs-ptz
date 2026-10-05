@@ -58,7 +58,7 @@ void runPresetViewTest(const QMap<QString, QString> &params)
 				obs_source_create("color_source_v3", qUtf8Printable(addDevice), nullptr, nullptr);
 			if (source) {
 				held.append(OBSSource(source.Get()));
-				OBSSourceAutoRelease filter = ptz_device_create_filter(source, config, 0);
+				OBSSourceAutoRelease filter = ptz_device_create_filter(source, config);
 			}
 		}
 		QString removeDevice = params.value(QStringLiteral("remove_device"));
@@ -69,7 +69,7 @@ void runPresetViewTest(const QMap<QString, QString> &params)
 		if (select == QStringLiteral("none")) {
 			deviceList->selectionModel()->setCurrentIndex(QModelIndex(), QItemSelectionModel::Clear);
 		} else if (!select.isEmpty()) {
-			deviceList->setCurrentIndex(ptzDeviceList->indexFromDeviceId(select.toUInt()));
+			deviceList->setCurrentIndex(ptzDeviceList->indexFromName(select));
 		}
 
 		OBSDataArrayAutoRelease rows = obs_data_array_create();

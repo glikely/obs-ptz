@@ -30,17 +30,17 @@ namespace {
  * behavior from outside the plugin. */
 void runDeviceStatusTest(const QMap<QString, QString> &params)
 {
-	bool deviceIdOk = false;
-	uint32_t deviceId = params.value(QStringLiteral("device_id")).toUInt(&deviceIdOk);
+	QString deviceName = params.value(QStringLiteral("device"));
+	bool deviceOk = !deviceName.isEmpty();
 	QString filename = params.value(QStringLiteral("filename"));
-	if (!deviceIdOk || filename.isEmpty()) {
-		blog(LOG_INFO, "[ptz-ui-test] get_device_status: missing/invalid device_id or filename");
+	if (!deviceOk || filename.isEmpty()) {
+		blog(LOG_INFO, "[ptz-ui-test] get_device_status: missing/invalid device or filename");
 		return;
 	}
 
-	QModelIndex index = ptzDeviceList->indexFromDeviceId(deviceId);
+	QModelIndex index = ptzUITestDeviceIndex(deviceName);
 	if (!index.isValid()) {
-		blog(LOG_INFO, "[ptz-ui-test] get_device_status: device_id %u not found", deviceId);
+		blog(LOG_INFO, "[ptz-ui-test] get_device_status: device %s not found", qUtf8Printable(deviceName));
 		return;
 	}
 
@@ -60,9 +60,7 @@ void runDeviceStatusTest(const QMap<QString, QString> &params)
 } // namespace
 
 /* Request params:
- *   device_id - the target device's numeric id (PTZDevice::id, same
- *               space tests/obs-integration/conftest.py's device_ids
- *               uses)
+ *   device - the device, by the UUID of its filter or the name of the source it is on
  *   filename  - where to write the {"connected", "power_on",
  *               "focus_af_enabled", "wb_mode"} JSON result
  */

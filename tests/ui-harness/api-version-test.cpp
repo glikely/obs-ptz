@@ -14,8 +14,8 @@
 
 namespace {
 
-/* Asks for the version through ptz_get_api_version, the way another plugin
- * would: on OBS's own proc_handler, or on a device's if given one */
+/* Asks a device for the version through its ptz_get_api_version, the way
+ * another plugin would */
 void runGetApiVersionTest(const QMap<QString, QString> &params)
 {
 	QString filename = params.value(QStringLiteral("filename"));
@@ -25,14 +25,8 @@ void runGetApiVersionTest(const QMap<QString, QString> &params)
 	}
 
 	calldata_t cd = {};
-	bool called;
-	if (params.contains(QStringLiteral("device_id"))) {
-		uint32_t deviceId = params.value(QStringLiteral("device_id")).toUInt();
-		called = ptzDeviceList->callDevice(ptzDeviceList->indexFromDeviceId(deviceId), "ptz_get_api_version",
-						   &cd);
-	} else {
-		called = proc_handler_call(obs_get_proc_handler(), "ptz_get_api_version", &cd);
-	}
+	bool called = ptzDeviceList->callDevice(ptzUITestDeviceIndex(params.value(QStringLiteral("device"))),
+						"ptz_get_api_version", &cd);
 	OBSDataAutoRelease result = obs_data_create();
 	obs_data_set_bool(result, "called", called);
 	obs_data_set_int(result, "major", calldata_int(&cd, "major"));
@@ -70,9 +64,10 @@ void runGetRegisteredApiTest(const QMap<QString, QString> &params)
 } // namespace
 
 /* get_api_version request params:
- *   device_id - optional, a device to ask instead of the plugin
+ *   device - the device, by the UUID of its filter or the name of the source it is on
  *   filename  - where to write the {"called", "major", "minor"} JSON result;
- *               "called" is false if there was no ptz_get_api_version to call
+ *               "called" is false if there was no such device, or no
+ *               ptz_get_api_version to call
  */
 void registerApiVersionTest(PTZUITestHarness *harness)
 {

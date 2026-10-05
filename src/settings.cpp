@@ -68,9 +68,9 @@ void PTZSettings::updateProperties(OBSData, OBSData new_settings)
 	ptzDeviceList->update(ui->deviceList->currentIndex(), new_settings);
 }
 
-uint32_t PTZSettings::currentDeviceId() const
+QString PTZSettings::currentDeviceUuid() const
 {
-	return ui->deviceList->currentIndex().data(PTZListModel::DeviceIdRole).toUInt();
+	return ui->deviceList->currentIndex().data(PTZListModel::DeviceUuidRole).toString();
 }
 
 PTZSettings::PTZSettings() : QWidget(nullptr), ui(new Ui_PTZSettings)
@@ -210,7 +210,7 @@ PTZSettings::PTZSettings() : QWidget(nullptr), ui(new Ui_PTZSettings)
 	connect(ui->stateView, &PTZStateView::stateRequested, this,
 		[this](OBSData requested) { ptzDeviceList->setState(ui->deviceList->currentIndex(), requested); });
 	connect(ui->stateView, &PTZStateView::cameraReportRequested, this,
-		[this]() { (new PTZCameraReportDialog(currentDeviceId(), this))->show(); });
+		[this]() { (new PTZCameraReportDialog(currentDeviceUuid(), this))->show(); });
 	connect(ui->stateView, &PTZStateView::actionRequested, this, [this](const QString &action) {
 		calldata_t cd = {};
 		calldata_set_string(&cd, "name", qUtf8Printable(action));
@@ -519,14 +519,15 @@ void PTZSettings::addDevice()
 {
 	/* The devices that control a source; one whose source was deleted can
 	 * linger, under its name, until OBS lets go of its filter */
-	OBSDataArrayAutoRelease devices = ptz_devices_get_config();
 	QList<OBSData> live;
 	QStringList used;
-	for (size_t i = 0; i < obs_data_array_count(devices); i++) {
-		OBSDataAutoRelease item = obs_data_array_item(devices, i);
-		OBSSourceAutoRelease src = ptz_device_get_parent_source((uint32_t)obs_data_get_int(item, "id"));
+	for (int row = 0; row < ptzDeviceList->rowCount(); row++) {
+		QModelIndex index = ptzDeviceList->index(row, 0);
+		OBSSource src = ptzDeviceList->parentSource(index);
 		if (!src)
 			continue;
+		OBSDataAutoRelease item = obs_data_create();
+		ptzDeviceList->save(index, item.Get());
 		live.append(item.Get());
 		used.append(QT_UTF8(obs_source_get_name(src)));
 	}
@@ -689,7 +690,7 @@ void PTZSettings::addDevice()
 	OBSSourceAutoRelease parent = obs_get_source_by_name(QT_TO_UTF8(sourceCombo->currentText()));
 	if (!parent)
 		return;
-	OBSSourceAutoRelease filter = ptz_device_create_filter(parent, choices[choice], 0);
+	OBSSourceAutoRelease filter = ptz_device_create_filter(parent, choices[choice]);
 	if (!filter)
 		return;
 	QModelIndex index = ptzDeviceList->indexFromFilter(filter);
@@ -894,9 +895,9 @@ void PTZSettings::refreshStatistics()
 /* Only the settings view hears about this: state changing all the time
  * (connection, live, what the camera reports) used to have it re-save and
  * refresh the settings under the user's cursor */
-void PTZSettings::deviceSettingsUpdated(uint32_t device_id)
+void PTZSettings::deviceSettingsUpdated(const QString &uuid)
 {
-	if (device_id != currentDeviceId())
+	if (uuid != currentDeviceUuid())
 		return;
 
 	ptzDeviceList->save(ui->deviceList->currentIndex(), settings);
@@ -909,9 +910,9 @@ void PTZSettings::deviceSettingsUpdated(uint32_t device_id)
 /* Fold in only what the device says changed. The state view changes just
  * the widgets that shows, in place, so it can take every change as it comes,
  * however often the camera's position does. */
-void PTZSettings::deviceStateUpdated(uint32_t device_id, OBSData changed)
+void PTZSettings::deviceStateUpdated(const QString &uuid, OBSData changed)
 {
-	if (device_id != currentDeviceId())
+	if (uuid != currentDeviceUuid())
 		return;
 
 	ui->stateView->applyChanges(changed);

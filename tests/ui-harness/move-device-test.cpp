@@ -22,17 +22,17 @@ namespace {
  * PTZVisca::pantilt_abs()/pantilt_rel()/zoom_abs() end to end. */
 void runMoveDeviceTest(const QMap<QString, QString> &params)
 {
-	bool deviceIdOk = false;
-	uint32_t deviceId = params.value(QStringLiteral("device_id")).toUInt(&deviceIdOk);
+	QString deviceName = params.value(QStringLiteral("device"));
+	bool deviceOk = !deviceName.isEmpty();
 	QString mode = params.value(QStringLiteral("mode"));
-	if (!deviceIdOk || (mode != QStringLiteral("abs") && mode != QStringLiteral("rel"))) {
-		blog(LOG_INFO, "[ptz-ui-test] move_device: missing/invalid device_id or mode");
+	if (!deviceOk || (mode != QStringLiteral("abs") && mode != QStringLiteral("rel"))) {
+		blog(LOG_INFO, "[ptz-ui-test] move_device: missing/invalid device or mode");
 		return;
 	}
 
-	QModelIndex index = ptzDeviceList->indexFromDeviceId(deviceId);
+	QModelIndex index = ptzUITestDeviceIndex(deviceName);
 	if (!index.isValid()) {
-		blog(LOG_INFO, "[ptz-ui-test] move_device: device_id %u not found", deviceId);
+		blog(LOG_INFO, "[ptz-ui-test] move_device: device %s not found", qUtf8Printable(deviceName));
 		return;
 	}
 
@@ -52,13 +52,13 @@ void runMoveDeviceTest(const QMap<QString, QString> &params)
 	ptzDeviceList->callDevice(index, method, &cd);
 	calldata_free(&cd);
 
-	blog(LOG_INFO, "[ptz-ui-test] move_device device_id=%u mode=%s", deviceId, qUtf8Printable(mode));
+	blog(LOG_INFO, "[ptz-ui-test] move_device device=%s mode=%s", qUtf8Printable(deviceName), qUtf8Printable(mode));
 }
 
 } // namespace
 
 /* Request params:
- *   device_id     - the target device's numeric id
+ *   device     - the device, by the UUID of its filter or the name of the source it is on
  *   mode          - "abs" (dispatches "ptz_move_abs") or "rel"
  *                   (dispatches "ptz_move_rel")
  *   pan/tilt/zoom - optional; only the axes provided are set

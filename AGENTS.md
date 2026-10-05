@@ -113,8 +113,10 @@ TODO.md, which lists what goes with it).
   source no collection has, or that never had one, gets a hidden colour
   source in the current scene. So does a source of the user's that refuses the
   filter, which OBS does without saying.
-- A device keeps its old id if it is free, and action sources follow it if
-  not. A filter's id is otherwise only whatever is free when it is made.
+- Devices have no ids. A device is its filter, which is named by its UUID
+  (`obs_source_get_uuid()`), kept in the scene collection by OBS. Action sources
+  and the selected camera that named an old device by its id are changed to
+  name its filter by UUID.
 - An entry is kept in `config.json`, with the collections it was made into,
   until every collection that has its source has it, so a source that is in
   more than one collection gets a device in each.
@@ -136,9 +138,9 @@ an addition to the API, as a state key is.
 
 The procs and signals in `docs/ptz-device-api.md` are an API other plugins
 and scripts call, versioned by `PTZ_API_VERSION_MAJOR`/`_MINOR` in
-`src/ptz.h` and reported by the `ptz_get_api_version` proc, both on OBS's
-proc_handler and on each device's own (another plugin can implement the
-per-device API, at another version, so callers check per device). Any change to
+`src/ptz.h` and reported by the `ptz_get_api_version` proc on each device's own proc_handler
+(another plugin can implement the per-device API, at another version, so
+callers check per device). Any change to
 them, or to the calldata fields, state keys or trigger names they take,
 bumps it: the minor version for an addition, the major version (minor back
 to 0) for a removal, rename or change of meaning. Then change
@@ -147,6 +149,11 @@ specification, and `tests/obs-integration/test_api_doc.py` fails when it and the
 plugin disagree. That test compares it with what `ptz_proc_add()` and
 `ptz_signal_add()` in `src/ptz-device.cpp` log, so register every proc and signal
 of the API through them, not with `proc_handler_add()` directly.
+
+A device is named by its filter, and found again by the filter's UUID; the
+plugin has no ids, and no handlers of its own for a caller to reach a device
+through. The `ptz_device_create` signal on `ptz_get_signal_handler()` only tells
+the device list that a device exists, and is not API.
 
 ## Verification practices
 

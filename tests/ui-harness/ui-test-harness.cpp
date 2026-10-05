@@ -5,6 +5,7 @@
  * SPDX-License-Identifier: GPLv2
  */
 #include "ui-test-harness.hpp"
+#include "ptz-list-model.hpp"
 
 #include <obs-module.h>
 #include <QCoreApplication>
@@ -32,6 +33,12 @@ PTZUITestHarness::PTZUITestHarness(QObject *parent) : QObject(parent)
 	registerApiVersionTest(this);
 	registerDeviceBackupTest(this);
 	registerCameraReportTest(this);
+}
+
+QModelIndex ptzUITestDeviceIndex(const QString &device)
+{
+	QModelIndex index = ptzDeviceList->indexFromUuid(device);
+	return index.isValid() ? index : ptzDeviceList->indexFromName(device);
 }
 
 void PTZUITestHarness::registerTest(const QString &name, TestFn fn)

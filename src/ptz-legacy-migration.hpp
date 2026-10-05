@@ -27,13 +27,14 @@ obs_data_array_t *ptz_legacy_devices_save(void);
 /* Makes a PTZ Control filter of each entry that belongs to the current scene
  * collection: on its source if the collection has one, otherwise a hidden
  * placeholder source in the current scene (also for an entry that has no
- * source, or whose source no collection has). References to the old device
- * ids are changed to the new ones. Returns true if anything was changed, which
+ * source, or whose source no collection has). Action sources that named the
+ * old device by its id name its filter by UUID instead. Returns true if anything was changed, which
  * the caller should save. `finishing_loading` is true when OBS has just
  * finished loading: the devices made then are told so, as the ones that were
  * already there were. */
 bool ptz_legacy_migrate(bool finishing_loading);
 
-/* The id of the filter device that took the place of the self-managed device
- * `old_id`, or 0 if there is none (yet) */
-uint32_t ptz_legacy_remap_id(uint32_t old_id);
+/* The UUID of the filter of the device that took the place of the self-managed
+ * device `old_id`, or NULL if there is none (yet). Good until the next call
+ * of ptz_legacy_migrate(). */
+const char *ptz_legacy_remap_id(uint32_t old_id);

@@ -66,12 +66,11 @@ void collectStringLists(obs_properties_t *props, obs_data_array_t *out)
  * filter, after obs_source_save() has given the filter's .save its say:
  * what the scene collection would hold. Adds nothing if the device isn't
  * owned by a filter. */
-void collectFilterKeys(uint32_t deviceId, obs_data_array_t *out)
+void collectFilterKeys(obs_source_t *parent, obs_data_array_t *out)
 {
 	struct Find {
 		obs_source_t *filter = nullptr;
 	} find;
-	OBSSourceAutoRelease parent = ptz_device_get_parent_source(deviceId);
 	if (!parent)
 		return;
 	obs_source_enum_filters(
@@ -102,17 +101,17 @@ void collectFilterKeys(uint32_t deviceId, obs_data_array_t *out)
  * setting that would be lost on the next save. */
 void runGetDeviceSettingsTest(const QMap<QString, QString> &params)
 {
-	bool deviceIdOk = false;
-	uint32_t deviceId = params.value(QStringLiteral("device_id")).toUInt(&deviceIdOk);
+	QString deviceName = params.value(QStringLiteral("device"));
+	bool deviceOk = !deviceName.isEmpty();
 	QString filename = params.value(QStringLiteral("filename"));
-	if (!deviceIdOk || filename.isEmpty()) {
-		blog(LOG_INFO, "[ptz-ui-test] get_device_settings: missing/invalid device_id or filename");
+	if (!deviceOk || filename.isEmpty()) {
+		blog(LOG_INFO, "[ptz-ui-test] get_device_settings: missing/invalid device or filename");
 		return;
 	}
 
-	QModelIndex index = ptzDeviceList->indexFromDeviceId(deviceId);
+	QModelIndex index = ptzUITestDeviceIndex(deviceName);
 	if (!index.isValid()) {
-		blog(LOG_INFO, "[ptz-ui-test] get_device_settings: device_id %u not found", deviceId);
+		blog(LOG_INFO, "[ptz-ui-test] get_device_settings: device %s not found", qUtf8Printable(deviceName));
 		return;
 	}
 
@@ -140,7 +139,8 @@ void runGetDeviceSettingsTest(const QMap<QString, QString> &params)
 	}
 
 	OBSDataArrayAutoRelease filterArray = obs_data_array_create();
-	collectFilterKeys(deviceId, filterArray);
+	OBSSource parent = ptzDeviceList->parentSource(index);
+	collectFilterKeys(parent, filterArray);
 
 	OBSDataAutoRelease result = obs_data_create();
 	obs_data_set_array(result, "property_keys", propertyArray);
@@ -155,7 +155,7 @@ void runGetDeviceSettingsTest(const QMap<QString, QString> &params)
 } // namespace
 
 /* Request params:
- *   device_id - the target device's numeric id
+ *   device - the device, by the UUID of its filter or the name of the source it is on
  *   filename  - where to write the {"property_keys": [{"key"}...],
  *               "save_keys": [{"key"}...], "filter_keys": [{"key"}...],
  *               "saved": {...what save() wrote, with its values},

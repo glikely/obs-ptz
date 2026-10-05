@@ -71,8 +71,10 @@ private:
 	void SaveConfig();
 	void LoadConfig();
 	void migrateLegacyDevices(bool finishingLoading);
-	/* The old self-managed selection, until its device has a new id */
+	/* The old self-managed selection, until its device has a filter */
 	uint32_t legacy_current_selected = 0;
+	/* The UUID of the filter of the device to select, once it is there */
+	QString selected_uuid;
 
 	void setCurrent(unsigned int index);
 	int presetIndexToId(QModelIndex index);

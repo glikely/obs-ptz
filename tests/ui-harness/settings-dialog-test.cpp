@@ -65,11 +65,11 @@ QComboBox *whiteBalanceList(PTZSettings *dialog)
  * settings view redraws and how often the state view is changed */
 void runOpenSettingsDialogTest(const QMap<QString, QString> &params)
 {
-	bool deviceIdOk = false;
-	uint32_t deviceId = params.value(QStringLiteral("device_id")).toUInt(&deviceIdOk);
-	QModelIndex index = deviceIdOk ? ptzDeviceList->indexFromDeviceId(deviceId) : QModelIndex();
+	QString deviceName = params.value(QStringLiteral("device"));
+	bool deviceOk = !deviceName.isEmpty();
+	QModelIndex index = deviceOk ? ptzUITestDeviceIndex(deviceName) : QModelIndex();
 	if (!index.isValid()) {
-		blog(LOG_INFO, "[ptz-ui-test] open_settings_dialog: missing/invalid device_id");
+		blog(LOG_INFO, "[ptz-ui-test] open_settings_dialog: missing/invalid device");
 		return;
 	}
 
@@ -221,7 +221,7 @@ void runPressDialogButtonTest(const QMap<QString, QString> &params)
 } // namespace
 
 /* open_settings_dialog request params:
- *   device_id - the device to show
+ *   device - the device, by the UUID of its filter or the name of the source it is on
  * get_settings_dialog: filename - where to write the {"settings_keys",
  *   "state_keys": [{"key"}...], "wb_mode", "connected", "pan", "tilt", "zoom",
  *   "focus", "settings_refreshes", "state_updates", "apply_enabled", "tabs": [{"name"}...],

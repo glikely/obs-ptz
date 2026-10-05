@@ -19,6 +19,7 @@
 #include <QSaveFile>
 
 #include "ptz-camera-report.hpp"
+#include "ptz-list-model.hpp"
 
 namespace {
 
@@ -38,13 +39,12 @@ void runCameraReportDialogTest(const QMap<QString, QString> &params)
 {
 	const QString action = params.value(QStringLiteral("action"));
 	if (action == QStringLiteral("open")) {
-		bool ok = false;
-		uint32_t deviceId = params.value(QStringLiteral("device_id")).toUInt(&ok);
-		if (!ok) {
-			blog(LOG_INFO, "[ptz-ui-test] camera_report_dialog: missing/invalid device_id");
+		QModelIndex index = ptzUITestDeviceIndex(params.value(QStringLiteral("device")));
+		if (!index.isValid()) {
+			blog(LOG_INFO, "[ptz-ui-test] camera_report_dialog: missing/invalid device");
 			return;
 		}
-		(new PTZCameraReportDialog(deviceId))->show();
+		(new PTZCameraReportDialog(index.data(PTZListModel::DeviceUuidRole).toString()))->show();
 		return;
 	}
 
@@ -91,7 +91,7 @@ void runCameraReportDialogTest(const QMap<QString, QString> &params)
 
 /* camera_report_dialog request params:
  *   action    - "open", "read", "click" or "close"
- *   device_id - for "open", the device to make a report of
+ *   device - the device, by the UUID of its filter or the name of the source it is on
  *   button    - for "click", the button's name: "copy" or "save"
  *   filename  - for "read", where to write what the dialog shows, as JSON:
  *               {"open", "status", "report", "progress", "progress_max",

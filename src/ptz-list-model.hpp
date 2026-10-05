@@ -17,7 +17,7 @@
 /**
  * PTZListModel never holds a PTZDevice* (see AGENTS.md / the decoupling
  * design in ptz-device.cpp): every device it knows about is represented
- * purely by its device_id plus its filter, a weak reference to the source
+ * purely by its filter, a weak reference to the source
  * handed over on the "ptz_device_create" signal, and a local cache of the
  * fields QAbstractItemModel::data() needs to stay synchronous. All control
  * goes out through proc_handler_call(); the cache is kept in sync purely by
@@ -37,7 +37,12 @@ public:
 
 private:
 	struct PTZDeviceEntry {
-		uint32_t id = 0;
+		/* Private to the model, to say whose preset a row is in an index's
+		 * internalId(): 0 is not one */
+		uint32_t serial = 0;
+		/* The UUID of the device's filter, which is how a device is
+		 * known outside the model */
+		QString uuid;
 		/* This device's filter. Its proc_handler and signal_handler are the
 		 * device's, so they are asked for when needed, from a strong
 		 * reference, never kept: they go when the filter does */
@@ -57,22 +62,26 @@ private:
 	};
 
 	QList<PTZDeviceEntry> devices;
-	QHash<uint32_t, int> rowByDeviceId;
+	QHash<uint32_t, int> rowBySerial;
+	QHash<QString, int> rowByUuid;
+	uint32_t nextSerial = 1;
 
 	void rebuildRowIndex();
 	PTZDeviceEntry *entryAt(int row);
 	const PTZDeviceEntry *entryAt(int row) const;
 	PTZDeviceEntry *entryAt(const QModelIndex &index);
 	const PTZDeviceEntry *entryAt(const QModelIndex &index) const;
-	PTZDeviceEntry *entryById(uint32_t device_id);
-	const PTZDeviceEntry *entryById(uint32_t device_id) const;
+	PTZDeviceEntry *entryBySerial(uint32_t serial);
+	const PTZDeviceEntry *entryBySerial(uint32_t serial) const;
+	PTZDeviceEntry *entryByUuid(const QString &uuid);
+	const PTZDeviceEntry *entryByUuid(const QString &uuid) const;
 	void refreshDeviceState(PTZDeviceEntry *entry);
 	void refreshPresetList(PTZDeviceEntry *entry);
 	bool callEntry(const PTZDeviceEntry &entry, const char *method, calldata_t *cd) const;
 
 public:
 	enum PTZListModelRole {
-		DeviceIdRole = Qt::UserRole,
+		DeviceUuidRole = Qt::UserRole, /* QString: the UUID of the device's filter */
 		IsLiveRole,
 		IsPreviewRole,
 		IsConnectedRole,
@@ -105,7 +114,7 @@ public:
 	static bool hasFeature(const QModelIndex &index, const char *feature);
 
 	/* Data Model */
-	QModelIndex indexFromDeviceId(uint32_t device_id) const;
+	QModelIndex indexFromUuid(const QString &uuid) const;
 	QModelIndex indexFromName(const QString &name) const;
 	QModelIndex indexFromFilter(obs_source_t *filter) const;
 	/* The source a device is on, whose video is what the camera shows, as
@@ -113,7 +122,6 @@ public:
 	 * none. */
 	OBSSource parentSource(const QModelIndex &index) const;
 	bool callDevice(const QModelIndex &index, const char *method, calldata_t *cd = nullptr);
-	bool callDevice(const char *method, calldata_t *cd = nullptr);
 	void save(const QModelIndex &index, OBSData settings) const;
 	void update(const QModelIndex &index, OBSData settings);
 	obs_properties_t *getProperties(const QModelIndex &index) const;
@@ -129,18 +137,18 @@ public:
 	 * preset_inserted/preset_removed/preset_moved signals. All the
 	 * begin/end bracketing lives here: PTZDevice just states what changed
 	 * once, it doesn't call back in two phases. */
-	void presetInserted(uint32_t device_id, int row);
-	void presetRemoved(uint32_t device_id, int row);
-	void presetMoved(uint32_t device_id, int srcRow, int destRow);
+	void presetInserted(const QString &uuid, int row);
+	void presetRemoved(const QString &uuid, int row);
+	void presetMoved(const QString &uuid, int srcRow, int destRow);
 
 	/* Called by the signal_handler trampolines in ptz-list-model.cpp;
 	 * not Qt slots, they bring the cache up to date and then, for the
 	 * two below, tell listeners with the signals of the same name. */
-	void deviceCreated(uint32_t device_id, OBSWeakSource weakFilter);
-	void deviceDestroyed(uint32_t device_id);
-	void deviceStateChanged(uint32_t device_id, OBSData changed);
-	void deviceSettingsChanged(uint32_t device_id);
-	void presetsChanged(uint32_t device_id);
+	void deviceCreated(OBSWeakSource weakFilter);
+	void deviceDestroyed(const QString &uuid);
+	void deviceStateChanged(const QString &uuid, OBSData changed);
+	void deviceSettingsChanged(const QString &uuid);
+	void presetsChanged(const QString &uuid);
 
 signals:
 	/* For whoever shows a device's settings or state as more than a row
@@ -149,14 +157,14 @@ signals:
 	 * cache above is current. Connect these directly: OBSData isn't a
 	 * registered metatype, so they can't be queued. */
 	/* The device's settings changed, from anywhere */
-	void deviceSettingsUpdated(uint32_t device_id);
+	void deviceSettingsUpdated(const QString &uuid);
 	/* The device's state changed; `changed` holds the values it reported
 	 * as new, as of when it reported them */
-	void deviceStateUpdated(uint32_t device_id, OBSData changed);
+	void deviceStateUpdated(const QString &uuid, OBSData changed);
 
 public slots:
-	void preset_recall(uint32_t device_id, int preset_id);
-	void preset_save(uint32_t device_id, int preset_id);
+	void preset_recall(const QString &uuid, int preset_id);
+	void preset_save(const QString &uuid, int preset_id);
 };
 
 extern PTZListModel *ptzDeviceList;

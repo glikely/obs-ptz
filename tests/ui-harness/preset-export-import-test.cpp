@@ -33,11 +33,11 @@ namespace {
  * skip that dialog here). */
 void runPresetIOTest(const QMap<QString, QString> &params, const char *methodName)
 {
-	bool deviceIdOk = false;
-	uint32_t deviceId = params.value(QStringLiteral("device_id")).toUInt(&deviceIdOk);
+	QString deviceName = params.value(QStringLiteral("device"));
+	bool deviceOk = !deviceName.isEmpty();
 	QString filename = params.value(QStringLiteral("filename"));
-	if (!deviceIdOk || filename.isEmpty()) {
-		blog(LOG_INFO, "[ptz-ui-test] %s: missing/invalid device_id or filename", methodName);
+	if (!deviceOk || filename.isEmpty()) {
+		blog(LOG_INFO, "[ptz-ui-test] %s: missing/invalid device or filename", methodName);
 		return;
 	}
 
@@ -49,16 +49,16 @@ void runPresetIOTest(const QMap<QString, QString> &params, const char *methodNam
 		return;
 	}
 
-	QModelIndex index = ptzDeviceList->indexFromDeviceId(deviceId);
+	QModelIndex index = ptzUITestDeviceIndex(deviceName);
 	if (!index.isValid()) {
-		blog(LOG_INFO, "[ptz-ui-test] %s: device_id %u not found", methodName, deviceId);
+		blog(LOG_INFO, "[ptz-ui-test] %s: device %s not found", methodName, qUtf8Printable(deviceName));
 		return;
 	}
 	deviceList->setCurrentIndex(index);
 
 	QMetaObject::invokeMethod(ptzctrls, methodName, Q_ARG(QString, filename));
 
-	blog(LOG_INFO, "[ptz-ui-test] %s triggered device_id=%u filename=%s", methodName, deviceId,
+	blog(LOG_INFO, "[ptz-ui-test] %s triggered device=%s filename=%s", methodName, qUtf8Printable(deviceName),
 	     qUtf8Printable(filename));
 }
 
@@ -75,9 +75,7 @@ void runPresetImportTest(const QMap<QString, QString> &params)
 } // namespace
 
 /* Request params:
- *   device_id - the target device's numeric id (PTZDevice::id, same
- *               space tests/obs-integration/conftest.py's device_ids
- *               uses)
+ *   device - the device, by the UUID of its filter or the name of the source it is on
  *   filename  - the path actionPresetExport/actionPresetImport should
  *               export to/import from, bypassing the real QFileDialog
  *               (see runPresetIOTest()'s own comment above)
