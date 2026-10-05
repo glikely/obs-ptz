@@ -33,6 +33,7 @@ def state_event(state):
 
 class WebHandler(BaseHTTPRequestHandler):
     state = None  # injected
+    frames = None    # a FrameStore, when Blender renders the picture, injected
     backdrop = None  # path of the room picture, if any, injected
     heading = 0.0    # degrees the world is turned to the right, injected
     scene = None     # {"dir", "entry", "camera_pos", "vendor"} of a 3D scene, if any, injected
@@ -44,12 +45,22 @@ class WebHandler(BaseHTTPRequestHandler):
         path = self.path.split("?", 1)[0]
         if path in ("/", "/index.html"):
             self._send_file("index.html", "text/html; charset=utf-8")
+        elif path == "/stream.mjpg" and self.frames:
+            self._stream_frames()
+        elif path == "/frame.jpg" and self.frames and self.frames.jpeg:
+            body = self.frames.jpeg
+            self.send_response(200)
+            self.send_header("Content-Type", "image/jpeg")
+            self.send_header("Content-Length", str(len(body)))
+            self.send_header("Cache-Control", "no-store")
+            self.end_headers()
+            self.wfile.write(body)
         elif path == "/scene.js":
             self._send_file("scene.js", "text/javascript; charset=utf-8")
         elif path == "/config":
             self._send_json({"scene": f"scene/{urllib.parse.quote(self.scene['entry'])}" if self.scene else None,
                              "cameraPos": self.scene["camera_pos"] if self.scene else None,
-                             "heading": self.heading,
+                             "heading": self.heading, "frames": self.frames is not None,
                              "exposure": self.scene.get("exposure", 1) if self.scene else 1})
         elif path.startswith("/scene/") and self.scene:
             self._send_under(self.scene["dir"], path[len("/scene/"):])
@@ -66,9 +77,19 @@ class WebHandler(BaseHTTPRequestHandler):
     def do_POST(self):
         """The page holding the camera: POST /move {"pan", "tilt", "zoom", "focus"}
         (any of them, normalized as in PTZState) puts it there now, and
-        POST /home sends it home"""
+        POST /home sends it home. The renderer posts its frames to /frame."""
         path = self.path.split("?", 1)[0]
         length = int(self.headers.get("Content-Length") or 0)
+        if path == "/frame":
+            # Only with the token ptzsim gave the renderer
+            if not self.frames or self.headers.get("X-Token") != self.frames.token:
+                self.send_response(403)
+                self.end_headers()
+                return
+            self.frames.put(self.rfile.read(length))
+            self.send_response(204)
+            self.end_headers()
+            return
         try:
             body = json.loads(self.rfile.read(length) or b"{}")
             if path == "/move":
@@ -86,6 +107,24 @@ class WebHandler(BaseHTTPRequestHandler):
             return
         self.send_response(204)
         self.end_headers()
+
+    def _stream_frames(self):
+        """The renderer's frames as multipart/x-mixed-replace, which <img> plays"""
+        self.send_response(200)
+        self.send_header("Content-Type", "multipart/x-mixed-replace; boundary=frame")
+        self.send_header("Cache-Control", "no-store")
+        self.end_headers()
+        serial = -1
+        try:
+            while True:
+                serial, jpeg = self.frames.wait_after(serial)
+                if not jpeg:
+                    continue
+                self.wfile.write(b"--frame\r\nContent-Type: image/jpeg\r\nContent-Length: "
+                                 + str(len(jpeg)).encode() + b"\r\n\r\n" + jpeg + b"\r\n")
+                self.wfile.flush()
+        except (BrokenPipeError, ConnectionResetError, OSError):
+            pass
 
     def _send_json(self, body):
         payload = json.dumps(body).encode("utf-8")
@@ -160,18 +199,20 @@ class WebHandler(BaseHTTPRequestHandler):
 
 class WebViewServer:
     def __init__(self, state, host="127.0.0.1", port=8080, backdrop=None, scene=None, heading=0.0,
-                 advertise=None):
+                 advertise=None, frames=None):
         self.state = state
         self.heading = heading
         self.backdrop = backdrop
         self.scene = scene
         self.host = host
         self.advertise = advertise or host
+        self.frames = frames
         self.port = port
         self._httpd = None
 
     def start(self):
-        handler_cls = type("BoundWebHandler", (WebHandler,), {"state": self.state, "backdrop": self.backdrop, "scene": self.scene, "heading": self.heading})
+        handler_cls = type("BoundWebHandler", (WebHandler,), {"state": self.state, "backdrop": self.backdrop, "scene": self.scene, "heading": self.heading,
+                                                   "frames": self.frames})
         self._httpd = ThreadingHTTPServer((self.host, self.port), handler_cls)
         self._httpd.daemon_threads = True
         self.port = self._httpd.server_address[1]

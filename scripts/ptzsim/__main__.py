@@ -56,6 +56,7 @@ Single file tree, no third-party Python dependencies.
 import argparse
 import asyncio
 import ipaddress
+import os
 import signal
 import socket
 import sys
@@ -68,7 +69,7 @@ from .backends.visca import ViscaBackend, ViscaCameraLogic, SonyUdpQuirks
 from .backends.visca_report import ViscaReportReplay
 from .debug_http import DebugHttpServer
 from .state import PTZState, run_ticker
-from . import backdrop, rooms, scene as scene_module
+from . import backdrop, blenderview, rooms, scene as scene_module
 from .webview import WebViewServer
 
 
@@ -183,6 +184,18 @@ def parse_args():
     ap.add_argument("--camera-pos", default=None, metavar="X,Y,Z",
                      help="where the camera stands in the --scene, in its units (default: "
                           "the middle of it, a third of the way up)")
+    ap.add_argument("--blender", default=None, metavar="FILE|builtin", nargs="?", const="builtin",
+                     help="have Blender render the web view: a .blend file, or the built-in test "
+                          "room (the default for a bare --blender). Blender follows the camera, "
+                          "with real depth of field, and ptzsim streams its frames to the page")
+    ap.add_argument("--blender-camera", default=None, metavar="NAME",
+                     help="which camera object in the .blend to point (default: the scene's)")
+    ap.add_argument("--blender-engine", choices=("eevee", "workbench"), default="eevee")
+    ap.add_argument("--blender-samples", type=int, default=4, help="EEVEE samples per frame (default 4)")
+    ap.add_argument("--blender-size", default="1280x720", metavar="WxH")
+    ap.add_argument("--blender-fps", type=float, default=15.0, help="the most frames a second (default 15)")
+    ap.add_argument("--blender-exe", default=None, metavar="PATH",
+                     help="the Blender to run (default: $BLENDER, the macOS app, or blender on $PATH)")
     ap.add_argument("--heading", type=float, default=0.0, metavar="DEGREES",
                      help="turn the web view's world this many degrees to the right, so that "
                           "pan 0 looks that way (default 0)")
@@ -236,6 +249,12 @@ def parse_args():
         ap.error("--sony-discovery-name is answered on the network: give --host a LAN address, or 0.0.0.0")
     if (args.backdrop or args.scene) and not args.web_port:
         ap.error("--backdrop and --scene are for the web view: drop --no-web or --web-port 0")
+    if args.blender and (args.backdrop or args.scene or args.room):
+        ap.error("--blender draws the picture itself: don't also give --backdrop, --scene or --room")
+    if args.blender and not args.web_port:
+        ap.error("--blender is for the web view: drop --no-web or --web-port 0")
+    if args.blender and args.blender != "builtin" and not os.path.isfile(args.blender):
+        ap.error(f"--blender: no file {args.blender}")
     if args.backdrop and args.scene:
         ap.error("--backdrop and --scene both set what the camera sees: use one")
     if args.camera_pos:
@@ -319,6 +338,7 @@ def main():
         debug_http.start()
 
     web = None
+    renderer = None
     if args.web_port:
         picture = None
         if args.backdrop:
@@ -335,8 +355,9 @@ def main():
                          "vendor": scene_module.ensure_three(args.scene_cache)}
             except backdrop.BackdropError as e:
                 sys.exit(f"[scene] {e}")
+        frames = blenderview.FrameStore() if args.blender else None
         web = WebViewServer(state, args.host, args.web_port, picture, scene, args.heading,
-                            advertise=args.advertise)
+                            advertise=args.advertise, frames=frames)
         try:
             web.start()
         except OSError as e:
@@ -345,12 +366,24 @@ def main():
             print(f"[web] not serving the camera view: {args.host}:{args.web_port} is taken ({e}); "
                   "give --web-port another, or --no-web")
             web = None
+        if web and args.blender:
+            try:
+                renderer = blenderview.BlenderRenderer(
+                    None if args.blender == "builtin" else os.path.abspath(args.blender),
+                    f"http://{args.advertise}:{web.port}", frames.token, exe=args.blender_exe,
+                    camera=args.blender_camera, heading=args.heading, engine=args.blender_engine,
+                    samples=args.blender_samples, size=args.blender_size, fps=args.blender_fps)
+            except blenderview.BlenderError as e:
+                sys.exit(f"[blender] {e}")
+            renderer.start()
 
     def shutdown(*_):
         print("[sim] shutting down")
         stop_event.set()
         if debug_http:
             debug_http.stop()
+        if renderer:
+            renderer.stop()
         if web:
             web.stop()
         for backend in backends:
@@ -359,6 +392,13 @@ def main():
 
     signal.signal(signal.SIGINT, shutdown)
     signal.signal(signal.SIGTERM, shutdown)
+
+    if renderer:
+        async def watch_renderer():
+            while renderer.poll() is None:
+                await asyncio.sleep(1)
+            print(f"[blender] stopped with code {renderer.poll()}; see {renderer.log_path}")
+        loop.create_task(watch_renderer())
 
     try:
         loop.run_forever()

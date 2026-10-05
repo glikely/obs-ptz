@@ -85,6 +85,34 @@ and focus is real depth of field: focus 0 is sharp at 0.5 m and 1 at 100 m
 (0.5 is 7 m), and what is nearer or farther blurs more the more you zoom
 (`?dof=0` turns the blur off). It can't be combined with `--backdrop`. `--scene-cache DIR` moves the cache.
 
+### Blender as the renderer (experimental)
+
+`--blender` has Blender render the web view, so the camera has real optics:
+pan and tilt turn a Blender camera, zoom sets its field of view, and focus
+sets its focus distance for real depth of field. ptzsim starts Blender in
+the background with `blender/client.py`, which follows the simulated camera
+and posts rendered frames back; ptzsim streams them to the page as MJPEG, so
+the Browser Source, dragging, the HUD, tally and standby all work as before.
+
+```
+python3 scripts/ptzsim --blender                      # a built-in test room: lettered pillars and a ruler
+python3 scripts/ptzsim --blender room.blend --blender-camera Camera
+```
+
+A `.blend` can be any scene with a camera, so its camera objects are the
+camera locations (run one simulator per camera, as with `--room`). Pan is a
+turn about the vertical axis from the camera's own direction, so point it
+along the way you want pan 0 to look. Blender is found as `$BLENDER`,
+`--blender-exe`, the macOS app or `blender` on `$PATH`, and its output is in
+`~/.cache/ptzsim/blender.log`.
+
+On a 2026 Apple-silicon Mac the built-in room gives about 5 frames a second
+in EEVEE at 1280x720 with 4 samples; `--blender-engine workbench` (flat, no
+lighting) is about ten times faster, and `--blender-size`, `--blender-samples`
+and `--blender-fps` trade quality for speed. A real room will be slower. The
+degree lines aren't drawn over Blender's picture, and `--blender` can't be
+combined with `--backdrop`, `--scene` or `--room`.
+
 ### Ready-made rooms
 
 `--room NAME` is a backdrop or 3D scene with cameras standing in it, so you

@@ -251,6 +251,17 @@ loadBackdrop().catch(e => console.error("backdrop:", e));
 let sceneMode = false;
 fetch("config").then(r => r.json()).then(async config => {
   heading = config.heading || 0;
+  if (config.frames) {
+    // Blender renders the picture and ptzsim streams it: show that, over the page's own
+    // canvas, which still takes the mouse for dragging
+    const img = document.createElement("img");
+    img.src = "stream.mjpg";
+    Object.assign(img.style, { position: "fixed", inset: "0", width: "100vw", height: "100vh",
+                               objectFit: "cover", zIndex: "1", pointerEvents: "none" });
+    document.body.appendChild(img);
+    sceneMode = true;
+    return;
+  }
   if (!config.scene) return;
   const { start } = await import("./scene.js");
   let grid = null;
