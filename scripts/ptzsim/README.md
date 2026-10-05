@@ -39,6 +39,24 @@ double-click to send it home. Every protocol sees the new position.
 It needs OBS's browser source (CEF), and it isn't a video stream, so it
 doesn't exercise OBS's Media Source path.
 
+### Real room backdrops
+
+`--backdrop` shows a real room instead of the drawn grid. It takes a file
+(an equirectangular `.hdr`, `.jpg` or `.png`), a URL, or the key of a
+[Poly Haven](https://polyhaven.com/hdris) HDRI (CC0, so free to use and
+share), which ptzsim downloads once to `~/.cache/ptzsim/backdrops` and
+credits in its output:
+
+```
+python3 scripts/ptzsim --web-port 8080 --backdrop chapel_day
+```
+
+Good indoor ones: `chapel_day`, `afrikaans_church_interior`, `ballroom`,
+`cinema_hall`, `cyclorama_hard_light`, `climbing_gym`. `--backdrop-res`
+picks the download's size (`1k` to `8k`, default `4k`, about 26 MB for a
+`.hdr`), and `--backdrop-cache DIR` where it goes. The page tonemaps an HDR
+itself; pan 0 is the middle of the picture and tilt 0 its horizon.
+
 ## Moving like a camera
 
 By default an absolute move, preset recall or home jumps straight to its
