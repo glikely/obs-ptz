@@ -289,7 +289,7 @@ PTZSIM_OBS_BINARY=obs pytest tests/obs-integration -v
 ```
 
 is enough -- no wrapper script needed. Verified end to end this way
-(14/14 passing) against Ubuntu 24.04's packaged OBS 30.0.2, run under a
+(14/14 passing) against Ubuntu 26.04's packaged OBS 32.1.0, run under a
 throwaway `Xvfb` (confirmed a viable fallback for this suite
 specifically, since every test here drives OBS purely over
 obs-websocket and never needs synthetic X11 input) in 22s; `Xvfb`'s

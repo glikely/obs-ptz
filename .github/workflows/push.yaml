@@ -28,7 +28,7 @@ jobs:
   create-release:
     name: Create Release 🛫
     if: github.ref_type == 'tag'
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     needs: build-project
     defaults:
       run:
@@ -75,8 +75,6 @@ jobs:
             'windows-x64;zip|exe'
             'windows-arm64;zip|exe'
             'macos-universal;tar.xz|pkg'
-            'ubuntu-24.04-x86_64;tar.xz|deb|ddeb'
-            'ubuntu-24.04-aarch64;tar.xz|deb|ddeb'
             'ubuntu-26.04-x86_64;tar.xz|deb|ddeb'
             'ubuntu-26.04-aarch64;tar.xz|deb|ddeb'
             'sources;tar.xz'

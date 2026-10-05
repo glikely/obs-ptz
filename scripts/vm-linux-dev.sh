@@ -1,5 +1,5 @@
 #!/bin/bash
-# Build and run obs-ptz on the Parallels "Ubuntu 24.04 ARM64" VM, from
+# Build and run obs-ptz on the Parallels "Ubuntu 26.04 ARM64" VM, from
 # whatever checkout (branch, worktree, even uncommitted changes) this
 # script is run from on the Mac host.
 #
@@ -33,7 +33,7 @@
 
 set -eu
 
-VM="${VM:-Ubuntu 24.04 ARM64}"
+VM="${VM:-Ubuntu 26.04 ARM64}"
 SRC_MAC="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 SHARE_NAME="ptzdev-$(basename "$SRC_MAC")"
 SRC_VM="/media/psf/$SHARE_NAME"
@@ -191,7 +191,7 @@ cmd_test() {
 	# tests (confirmed: a full run completes in well under a minute) --
 	# but it's software-rendered under this VM's 2 vCPUs, a known-flaky
 	# combination for anything heavier (see this script's own header, and
-	# CLAUDE.md's "Building and running on the Ubuntu 24.04 ARM64 VM"
+	# CLAUDE.md's "Building and running on the Ubuntu 26.04 ARM64 VM"
 	# section, for why `run` below hands you the real-session command
 	# instead of also defaulting to Xvfb). Always `clean` afterward: a
 	# killed/timed-out run leaves Xvfb/obs orphans that starve the *next*
