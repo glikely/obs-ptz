@@ -72,6 +72,7 @@ from .backends.visca_report import ViscaReportReplay
 from .debug_http import DebugHttpServer
 from .state import PTZState, run_ticker
 from .video import VideoFeed
+from .webview import WebViewServer
 
 
 def primary_ipv4():
@@ -160,6 +161,9 @@ def parse_args():
     ap.add_argument("--state-file", default="/tmp/ptzsim-state.txt",
                      help="path the video overlay text is written to")
 
+    ap.add_argument("--web-port", type=int, default=0,
+                     help="serve a WebGL camera view on this port, for an OBS Browser "
+                          "Source (0 disables it, the default; try 8080)")
     ap.add_argument("--debug-http-port", type=int, default=0,
                      help="serve GET /state as JSON on this port for test "
                           "harnesses (0 disables it, the default)")
@@ -230,6 +234,11 @@ def main():
         debug_http = DebugHttpServer(state, args.host, args.debug_http_port)
         debug_http.start()
 
+    web = None
+    if args.web_port:
+        web = WebViewServer(state, "0.0.0.0", args.web_port)
+        web.start()
+
     video = None
     if args.with_video:
         video = VideoFeed(state, args.host, args.rtsp_port, args.state_file, args.mediamtx)
@@ -244,6 +253,8 @@ def main():
             video.stop()
         if debug_http:
             debug_http.stop()
+        if web:
+            web.stop()
         for backend in backends:
             backend.stop()
         loop.call_soon_threadsafe(loop.stop)

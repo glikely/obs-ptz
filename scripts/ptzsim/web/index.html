@@ -1,0 +1,185 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>ptzsim camera view</title>
+<style>
+  html, body { margin: 0; height: 100%; background: #000; overflow: hidden; }
+  canvas { display: block; width: 100vw; height: 100vh; }
+  #hud { position: fixed; left: 16px; top: 12px; color: #fff; font: 600 20px/1.35 ui-monospace, Menlo, monospace;
+         text-shadow: 0 0 4px #000, 0 0 2px #000; white-space: pre; pointer-events: none; }
+  #tally { position: fixed; inset: 0; pointer-events: none; box-sizing: border-box; }
+  #standby { position: fixed; inset: 0; background: #000; color: #888; display: none;
+             align-items: center; justify-content: center; font: 600 32px ui-monospace, Menlo, monospace; }
+</style>
+<canvas id="c"></canvas>
+<div id="tally"></div>
+<div id="hud"></div>
+<div id="standby">STANDBY</div>
+<script>
+"use strict";
+// Mapping from the simulator's normalized state to camera angles.
+const PAN_RANGE = 170, TILT_RANGE = 45;      // degrees at |pan|=1, |tilt|=1
+const FOV_WIDE = 70, FOV_TELE = 4;           // horizontal FOV at zoom 0 / 1
+const FOCUS_SHARP = 0.5, FOCUS_BLUR_LOD = 7; // mip levels of blur at the focus extremes
+const SPEED_SCALE = 0.2;                     // matches PTZState.step()
+const TEX_W = 4096, TEX_H = 2048;
+
+const params = new URLSearchParams(location.search);
+const hud = document.getElementById("hud");
+if (params.get("hud") === "0") hud.style.display = "none";
+
+// ---- Panorama: equirectangular, drawn on a 2D canvas -----------------------
+function makePanorama() {
+  const c = document.createElement("canvas");
+  c.width = TEX_W; c.height = TEX_H;
+  const g = c.getContext("2d");
+  const X = deg => (deg + 180) / 360 * TEX_W;        // longitude -> x
+  const Y = deg => (90 - deg) / 180 * TEX_H;         // latitude  -> y
+  const sky = g.createLinearGradient(0, 0, 0, Y(0));
+  sky.addColorStop(0, "#14284b"); sky.addColorStop(1, "#8fb8e8");
+  g.fillStyle = sky; g.fillRect(0, 0, TEX_W, Y(0));
+  const floor = g.createLinearGradient(0, Y(0), 0, TEX_H);
+  floor.addColorStop(0, "#4a5a3a"); floor.addColorStop(1, "#1d2616");
+  g.fillStyle = floor; g.fillRect(0, Y(0), TEX_W, TEX_H - Y(0));
+
+  // Grid every 5 degrees, heavier every 15 and 45.
+  for (let lon = -180; lon <= 180; lon += 5) {
+    g.strokeStyle = lon % 45 === 0 ? "rgba(255,255,255,.9)" : lon % 15 === 0 ? "rgba(255,255,255,.55)" : "rgba(255,255,255,.2)";
+    g.lineWidth = lon % 45 === 0 ? 6 : lon % 15 === 0 ? 3 : 1.5;
+    g.beginPath(); g.moveTo(X(lon), 0); g.lineTo(X(lon), TEX_H); g.stroke();
+  }
+  for (let lat = -85; lat <= 85; lat += 5) {
+    g.strokeStyle = lat === 0 ? "rgba(255,230,120,.95)" : lat % 15 === 0 ? "rgba(255,255,255,.55)" : "rgba(255,255,255,.2)";
+    g.lineWidth = lat === 0 ? 6 : lat % 15 === 0 ? 3 : 1.5;
+    g.beginPath(); g.moveTo(0, Y(lat)); g.lineTo(TEX_W, Y(lat)); g.stroke();
+  }
+  // Degree labels along the horizon and at +-20 degrees.
+  g.fillStyle = "#fff"; g.textAlign = "center"; g.textBaseline = "middle";
+  for (let lon = -180; lon < 180; lon += 15) {
+    for (const lat of [0, 20, -20]) {
+      g.font = "bold 34px sans-serif";
+      const t = `${lon > 0 ? "+" : ""}${lon}°`;
+      const x = X(lon), y = Y(lat) + (lat === 0 ? -24 : 0);
+      g.lineWidth = 6; g.strokeStyle = "rgba(0,0,0,.7)"; g.strokeText(t, x, y); g.fillText(t, x, y);
+    }
+  }
+  // Big landmarks so zoom, focus and direction are obvious.
+  const marks = [
+    [0, 8, "#e53935", "A", 7], [30, 4, "#fb8c00", "B", 4], [-45, 12, "#43a047", "C", 5],
+    [75, 2, "#8e24aa", "D", 6], [-100, 6, "#00acc1", "E", 5], [130, 10, "#fdd835", "F", 6],
+    [-150, 3, "#d81b60", "G", 4], [170, 14, "#3949ab", "H", 5],
+  ];
+  for (const [lon, lat, col, label, size] of marks) {
+    const w = size * TEX_W / 360, h = w;
+    g.fillStyle = col; g.fillRect(X(lon) - w / 2, Y(lat) - h / 2, w, h);
+    g.strokeStyle = "#000"; g.lineWidth = 5; g.strokeRect(X(lon) - w / 2, Y(lat) - h / 2, w, h);
+    g.fillStyle = "#fff"; g.font = `bold ${h * 0.7}px sans-serif`;
+    g.strokeStyle = "#000"; g.lineWidth = h * 0.06;
+    g.strokeText(label, X(lon), Y(lat) + h * 0.04); g.fillText(label, X(lon), Y(lat) + h * 0.04);
+    // A fine-detail checker strip, to judge zoom and focus.
+    const cs = h / 16;
+    for (let i = 0; i < 16; i++) { g.fillStyle = i % 2 ? "#000" : "#fff"; g.fillRect(X(lon) - w / 2 + i * cs, Y(lat) + h / 2 + 4, cs, cs); }
+  }
+  return c;
+}
+
+// ---- WebGL2 ------------------------------------------------------------------
+const canvas = document.getElementById("c");
+const gl = canvas.getContext("webgl2", { antialias: false });
+if (!gl) { document.body.textContent = "WebGL2 not available"; throw new Error("no webgl2"); }
+
+const vs = `#version 300 es
+in vec2 p; out vec2 ndc;
+void main() { ndc = p; gl_Position = vec4(p, 0., 1.); }`;
+const fs = `#version 300 es
+precision highp float;
+in vec2 ndc; out vec4 color;
+uniform sampler2D pano;
+uniform vec2 res;
+uniform float yaw, pitch, hfov, blurLod, texW;
+const float PI = 3.14159265358979;
+void main() {
+  float t = tan(hfov * 0.5);
+  vec3 d = normalize(vec3(ndc.x * t, ndc.y * t * res.y / res.x, 1.0));
+  float cp = cos(pitch), sp = sin(pitch);
+  d = vec3(d.x, d.y * cp + d.z * sp, -d.y * sp + d.z * cp);   // tilt up
+  float cy = cos(yaw), sy = sin(yaw);
+  d = vec3(d.x * cy + d.z * sy, d.y, -d.x * sy + d.z * cy);   // pan right
+  float lon = atan(d.x, d.z), lat = asin(clamp(d.y, -1., 1.));
+  vec2 uv = vec2(lon / (2. * PI) + 0.5, 0.5 - lat / PI);
+  // Footprint of one screen pixel in texels, so there's no mip seam at lon=+-PI.
+  float texelsPerPx = texW * (hfov / res.x) / (2. * PI);
+  float lod = max(0., log2(max(texelsPerPx, 1e-4))) + blurLod;
+  color = vec4(textureLod(pano, uv, lod).rgb, 1.);
+}`;
+function shader(type, src) {
+  const s = gl.createShader(type); gl.shaderSource(s, src); gl.compileShader(s);
+  if (!gl.getShaderParameter(s, gl.COMPILE_STATUS)) throw new Error(gl.getShaderInfoLog(s));
+  return s;
+}
+const prog = gl.createProgram();
+gl.attachShader(prog, shader(gl.VERTEX_SHADER, vs));
+gl.attachShader(prog, shader(gl.FRAGMENT_SHADER, fs));
+gl.linkProgram(prog); gl.useProgram(prog);
+const buf = gl.createBuffer();
+gl.bindBuffer(gl.ARRAY_BUFFER, buf);
+gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1,-1, 1,-1, -1,1, 1,1]), gl.STATIC_DRAW);
+const loc = gl.getAttribLocation(prog, "p");
+gl.enableVertexAttribArray(loc); gl.vertexAttribPointer(loc, 2, gl.FLOAT, false, 0, 0);
+
+const tex = gl.createTexture();
+gl.bindTexture(gl.TEXTURE_2D, tex);
+gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, makePanorama());
+gl.generateMipmap(gl.TEXTURE_2D);
+gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_LINEAR);
+gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.REPEAT);
+gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+const U = n => gl.getUniformLocation(prog, n);
+const u = { res: U("res"), yaw: U("yaw"), pitch: U("pitch"), hfov: U("hfov"), blur: U("blurLod"), texW: U("texW") };
+gl.uniform1i(U("pano"), 0); gl.uniform1f(u.texW, TEX_W);
+
+// ---- State: SSE from the simulator, extrapolated between events ------------
+let cam = { pan: 0, tilt: 0, zoom: 0, focus: 0.5, pan_speed: 0, tilt_speed: 0, zoom_speed: 0, focus_speed: 0,
+            power: true, tally: {} };
+let stamp = performance.now(), connected = false;
+const es = new EventSource("events");
+es.onmessage = e => { cam = JSON.parse(e.data); stamp = performance.now(); connected = true; };
+es.onerror = () => { connected = false; };
+
+const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
+function current() {
+  const dt = Math.min((performance.now() - stamp) / 1000, 0.1) * SPEED_SCALE;
+  return {
+    pan: clamp(cam.pan + cam.pan_speed * dt, -1, 1), tilt: clamp(cam.tilt + cam.tilt_speed * dt, -1, 1),
+    zoom: clamp(cam.zoom + cam.zoom_speed * dt, 0, 1), focus: clamp(cam.focus + cam.focus_speed * dt, 0, 1),
+  };
+}
+
+const tallyEl = document.getElementById("tally"), standby = document.getElementById("standby");
+function frame() {
+  const dpr = Math.min(window.devicePixelRatio || 1, 2);
+  const w = Math.round(innerWidth * dpr), h = Math.round(innerHeight * dpr);
+  if (canvas.width !== w || canvas.height !== h) { canvas.width = w; canvas.height = h; }
+  gl.viewport(0, 0, w, h);
+  const s = current();
+  const fov = FOV_WIDE * Math.pow(FOV_TELE / FOV_WIDE, s.zoom);
+  const rad = Math.PI / 180;
+  gl.uniform2f(u.res, w, h);
+  gl.uniform1f(u.yaw, s.pan * PAN_RANGE * rad);
+  gl.uniform1f(u.pitch, s.tilt * TILT_RANGE * rad);
+  gl.uniform1f(u.hfov, fov * rad);
+  gl.uniform1f(u.blur, Math.abs(s.focus - FOCUS_SHARP) / FOCUS_SHARP * FOCUS_BLUR_LOD);
+  gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+
+  standby.style.display = cam.power ? "none" : "flex";
+  const t = cam.tally || {};
+  tallyEl.style.border = t.red ? "14px solid #f33" : t.green ? "14px solid #3c3" : "none";
+  hud.textContent = connected
+    ? `PTZ Simulator\nPan   ${(s.pan * PAN_RANGE).toFixed(1).padStart(7)}°  (${s.pan.toFixed(2)})\n` +
+      `Tilt  ${(s.tilt * TILT_RANGE).toFixed(1).padStart(7)}°  (${s.tilt.toFixed(2)})\n` +
+      `Zoom  ${fov.toFixed(1).padStart(6)}° FOV (${s.zoom.toFixed(2)})\nFocus ${s.focus.toFixed(2)}`
+    : "PTZ Simulator: connecting...";
+  requestAnimationFrame(frame);
+}
+frame();
+</script>

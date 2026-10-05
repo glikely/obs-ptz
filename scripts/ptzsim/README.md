@@ -52,6 +52,16 @@ time `ptzsim` binds a listening socket (TCP/UDP for VISCA, HTTP for
 ONVIF/the debug endpoint). Allow it -- these are the ports obs-ptz needs
 to reach the simulator.
 
+## WebGL camera view (no ffmpeg needed)
+
+`--web-port 8080` serves a WebGL page at `http://127.0.0.1:8080/` showing a
+labelled panorama (degree grid, lettered landmarks) seen through a virtual
+camera that follows the simulated pan, tilt, zoom and focus, with the tally
+lamp as a coloured border and a standby screen when powered off. Add it in
+OBS as a **Browser Source** (e.g. 1280x720); `?hud=0` hides the text readout.
+It needs OBS's browser source (CEF), and unlike `--with-video` it doesn't
+exercise OBS's Media Source/RTSP path.
+
 ## Running it
 
 From the repository root:
