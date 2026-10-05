@@ -9,6 +9,7 @@
 #include <obs.hpp>
 #include <obs-module.h>
 
+#include "ptz-device.hpp"
 #include "ptz-list-model.hpp"
 
 namespace {
@@ -42,6 +43,30 @@ void runGetApiVersionTest(const QMap<QString, QString> &params)
 		blog(LOG_INFO, "[ptz-ui-test] get_api_version: failed to write %s", qUtf8Printable(filename));
 }
 
+/* Writes the procs and signals the plugin has registered, from the log that
+ * ptz_proc_add() and ptz_signal_add() keep */
+void runGetRegisteredApiTest(const QMap<QString, QString> &params)
+{
+	QString filename = params.value(QStringLiteral("filename"));
+	if (filename.isEmpty()) {
+		blog(LOG_INFO, "[ptz-ui-test] get_registered_api: missing filename");
+		return;
+	}
+
+	OBSDataArrayAutoRelease registered = obs_data_array_create();
+	for (const auto &[scope, signature] : ptz_registered_api()) {
+		OBSDataAutoRelease item = obs_data_create();
+		obs_data_set_string(item, "scope", qUtf8Printable(scope));
+		obs_data_set_string(item, "signature", qUtf8Printable(signature));
+		obs_data_array_push_back(registered, item);
+	}
+	OBSDataAutoRelease result = obs_data_create();
+	obs_data_set_array(result, "registered", registered);
+
+	if (!obs_data_save_json_safe(result, qUtf8Printable(filename), "tmp", "bak"))
+		blog(LOG_INFO, "[ptz-ui-test] get_registered_api: failed to write %s", qUtf8Printable(filename));
+}
+
 } // namespace
 
 /* get_api_version request params:
@@ -52,4 +77,10 @@ void runGetApiVersionTest(const QMap<QString, QString> &params)
 void registerApiVersionTest(PTZUITestHarness *harness)
 {
 	harness->registerTest(QStringLiteral("get_api_version"), &runGetApiVersionTest);
+	harness->registerTest(QStringLiteral("get_registered_api"), &runGetRegisteredApiTest);
 }
+
+/* get_registered_api request params:
+ *   filename  - where to write the {"registered": [{"scope", "signature"}...]}
+ *               JSON result; see ptz_registered_api() for the scopes
+ */

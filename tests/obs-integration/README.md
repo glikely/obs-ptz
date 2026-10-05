@@ -251,6 +251,13 @@ anyway. It also says if the run itself left one behind.
     `"features"` in its state, for VISCA, Pelco and ONVIF, and that the
     PTZ Controls dock enables only the controls for them, read through
     `tests/ui-harness/dock-controls-test.cpp`'s `get_dock_controls` test.
+29. `test_api_doc.py` holds `docs/ptz-device-api.md`, the hand-written
+    specification of the PTZ API, to the plugin: that its procs and signals are
+    exactly the ones the plugin registers (logged by `ptz_proc_add()` and
+    `ptz_signal_add()`, read through
+    `tests/ui-harness/api-version-test.cpp`'s `get_registered_api` test), that
+    the state and config keys it lists are on real devices with the types it
+    gives, and that its features and triggers are the ones in the source.
 
 ## Running locally
 
