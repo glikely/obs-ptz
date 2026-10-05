@@ -1,31 +1,6 @@
-# Exclude everything
-/*
-
-# Except for default project files
-!/.github
-!/build-aux
-!/cmake
-!/data
-!/docs
-!/scripts
-!/src
-!/shared
-!/tests
-!.clang-format
-!.gersemirc
-!.gitignore
-!.mailmap
-!buildspec.json
-!CMakeLists.txt
-!CMakePresets.json
-!LICENSE
-!README.md
-!installer-Windows.iss.in
-!*.md
-!crowdin.yml
-
 # Exclude lock files
 *.lock.json
+*.swp
 
 # Exclude Python bytecode caches
 __pycache__/
@@ -40,3 +15,15 @@ __pycache__/
 
 # Exclude CMake build number cache
 /cmake/.CMakeBuildNumber
+
+# Exclude caches
+.ccache/
+
+# Exclude coding agent worktrees
+.claude/
+
+# Exclude build artifacts
+/CMakeCache.txt
+/.deps
+/build_*
+/release
