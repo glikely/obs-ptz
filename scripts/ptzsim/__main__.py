@@ -57,6 +57,7 @@ import argparse
 import asyncio
 import signal
 import socket
+import sys
 import threading
 
 from .backends.onvif import OnvifBackend
@@ -66,6 +67,7 @@ from .backends.visca import ViscaBackend, ViscaCameraLogic, SonyUdpQuirks
 from .backends.visca_report import ViscaReportReplay
 from .debug_http import DebugHttpServer
 from .state import PTZState, run_ticker
+from . import backdrop
 from .webview import WebViewServer
 
 
@@ -154,10 +156,22 @@ def parse_args():
     ap.add_argument("--web-port", type=int, default=0,
                      help="serve a WebGL camera view on this port, for an OBS Browser "
                           "Source (0 disables it, the default; try 8080)")
+    ap.add_argument("--backdrop", default=None, metavar="FILE|URL|KEY",
+                     help="show this equirectangular panorama as the room in the web view, "
+                          "rather than the drawn grid: a file (.hdr, .jpg, .png), a URL, or "
+                          "the key of a Poly Haven HDRI, such as chapel_day (CC0, "
+                          "https://polyhaven.com/hdris), downloaded once to --backdrop-cache")
+    ap.add_argument("--backdrop-res", default="4k", metavar="RES",
+                     help="which size of a Poly Haven HDRI to use: 1k, 2k, 4k, 8k... (default 4k)")
+    ap.add_argument("--backdrop-cache", default=None, metavar="DIR",
+                     help="where backdrops are downloaded to (default ~/.cache/ptzsim/backdrops)")
     ap.add_argument("--debug-http-port", type=int, default=0,
                      help="serve GET /state as JSON on this port for test "
                           "harnesses (0 disables it, the default)")
-    return ap.parse_args()
+    args = ap.parse_args()
+    if args.backdrop and not args.web_port:
+        ap.error("--backdrop is for the web view: add --web-port")
+    return args
 
 
 def main():
@@ -228,6 +242,12 @@ def main():
 
     web = None
     if args.web_port:
+        picture = None
+        if args.backdrop:
+            try:
+                picture = backdrop.resolve(args.backdrop, args.backdrop_res, args.backdrop_cache)
+            except backdrop.BackdropError as e:
+                sys.exit(f"[backdrop] {e}")
         web = WebViewServer(state, args.host if args.host.startswith("127.") else "0.0.0.0", args.web_port)
         web.start()
 

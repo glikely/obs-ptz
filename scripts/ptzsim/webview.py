@@ -32,6 +32,7 @@ def state_event(state):
 
 class WebHandler(BaseHTTPRequestHandler):
     state = None  # injected
+    backdrop = None  # path of the room picture, if any, injected
 
     def log_message(self, fmt, *args):
         pass
@@ -40,6 +41,8 @@ class WebHandler(BaseHTTPRequestHandler):
         path = self.path.split("?", 1)[0]
         if path in ("/", "/index.html"):
             self._send_file("index.html", "text/html; charset=utf-8")
+        elif path == "/backdrop" and self.backdrop:
+            self._send_backdrop()
         elif path == "/events":
             self._stream_events()
         else:
@@ -70,6 +73,18 @@ class WebHandler(BaseHTTPRequestHandler):
         self.send_response(204)
         self.end_headers()
 
+    def _send_backdrop(self):
+        ext = os.path.splitext(self.backdrop)[1].lower()
+        self.send_response(200)
+        self.send_header("Content-Type", {".jpg": "image/jpeg", ".jpeg": "image/jpeg",
+                                          ".png": "image/png"}.get(ext, "application/octet-stream"))
+        self.send_header("Content-Length", str(os.path.getsize(self.backdrop)))
+        self.send_header("Cache-Control", "max-age=3600")
+        self.end_headers()
+        with open(self.backdrop, "rb") as f:
+            while chunk := f.read(1 << 20):
+                self.wfile.write(chunk)
+
     def _send_file(self, name, content_type):
         with open(os.path.join(WEB_DIR, name), "rb") as f:
             body = f.read()
@@ -96,14 +111,15 @@ class WebHandler(BaseHTTPRequestHandler):
 
 
 class WebViewServer:
-    def __init__(self, state, host="0.0.0.0", port=8080):
+    def __init__(self, state, host="0.0.0.0", port=8080, backdrop=None):
         self.state = state
+        self.backdrop = backdrop
         self.host = host
         self.port = port
         self._httpd = None
 
     def start(self):
-        handler_cls = type("BoundWebHandler", (WebHandler,), {"state": self.state})
+        handler_cls = type("BoundWebHandler", (WebHandler,), {"state": self.state, "backdrop": self.backdrop})
         self._httpd = ThreadingHTTPServer((self.host, self.port), handler_cls)
         self._httpd.daemon_threads = True
         self.port = self._httpd.server_address[1]

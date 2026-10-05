@@ -129,6 +129,12 @@ gl.enableVertexAttribArray(loc); gl.vertexAttribPointer(loc, 2, gl.FLOAT, false,
 
 const tex = gl.createTexture();
 gl.bindTexture(gl.TEXTURE_2D, tex);
+function setPanorama(source, width) {
+  gl.bindTexture(gl.TEXTURE_2D, tex);
+  gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, source);
+  gl.generateMipmap(gl.TEXTURE_2D);
+  gl.uniform1f(u.texW, width);
+}
 gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, makePanorama());
 gl.generateMipmap(gl.TEXTURE_2D);
 gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_LINEAR);
@@ -138,6 +144,78 @@ gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
 const U = n => gl.getUniformLocation(prog, n);
 const u = { res: U("res"), yaw: U("yaw"), pitch: U("pitch"), hfov: U("hfov"), blur: U("blurLod"), texW: U("texW") };
 gl.uniform1i(U("pano"), 0); gl.uniform1f(u.texW, TEX_W);
+
+// ---- Backdrop: the room from ptzsim --backdrop, if it has one ---------------
+// A Radiance .hdr is decoded and tonemapped here (a canvas can't hold HDR);
+// a JPEG or PNG is drawn as it is. Either is shrunk to what the GPU takes.
+function decodeHDR(buf) {
+  const u8 = new Uint8Array(buf);
+  let pos = 0;
+  const line = () => { let s = ""; while (u8[pos] !== 10) s += String.fromCharCode(u8[pos++]); pos++; return s; };
+  if (!line().startsWith("#?")) throw new Error("not a Radiance file");
+  while (line() !== "") {}
+  const size = line().split(" ");
+  if (size[0] !== "-Y" || size[2] !== "+X") throw new Error("unsupported .hdr orientation");
+  const h = +size[1], w = +size[3];
+  const rgbe = new Uint8Array(w * h * 4);
+  for (let y = 0; y < h; y++) {
+    if (u8[pos] === 2 && u8[pos + 1] === 2 && !(u8[pos + 2] & 128) && ((u8[pos + 2] << 8) | u8[pos + 3]) === w) {
+      pos += 4;
+      for (let ch = 0; ch < 4; ch++) {
+        let x = 0;
+        while (x < w) {
+          let n = u8[pos++];
+          if (n > 128) { n -= 128; const v = u8[pos++]; while (n--) rgbe[(y * w + x++) * 4 + ch] = v; }
+          else { while (n--) rgbe[(y * w + x++) * 4 + ch] = u8[pos++]; }
+        }
+      }
+    } else {
+      for (let x = 0; x < w; x++, pos += 4) rgbe.set(u8.subarray(pos, pos + 4), (y * w + x) * 4);
+    }
+  }
+  return { w, h, rgbe };
+}
+function tonemapHDR({ w, h, rgbe }) {
+  const scale = e => Math.pow(2, e - 136);        // (m + .5) / 256 * 2^(e - 128), near enough
+  let sumLog = 0, n = 0;
+  for (let i = 0; i < rgbe.length; i += 4 * 37) {  // a sample is enough for the exposure
+    if (!rgbe[i + 3]) continue;
+    const s = scale(rgbe[i + 3]);
+    sumLog += Math.log(1e-4 + 0.2126 * rgbe[i] * s + 0.7152 * rgbe[i + 1] * s + 0.0722 * rgbe[i + 2] * s);
+    n++;
+  }
+  const exposure = 0.3 / Math.exp(sumLog / Math.max(n, 1));   // average to mid grey
+  const out = new ImageData(w, h);
+  const aces = x => { x *= exposure; return Math.pow(clamp((x * (2.51 * x + 0.03)) / (x * (2.43 * x + 0.59) + 0.14), 0, 1), 1 / 2.2); };
+  for (let i = 0; i < rgbe.length; i += 4) {
+    const s = rgbe[i + 3] ? scale(rgbe[i + 3]) : 0;
+    out.data[i] = 255 * aces(rgbe[i] * s);
+    out.data[i + 1] = 255 * aces(rgbe[i + 1] * s);
+    out.data[i + 2] = 255 * aces(rgbe[i + 2] * s);
+    out.data[i + 3] = 255;
+  }
+  const c = document.createElement("canvas");
+  c.width = w; c.height = h;
+  c.getContext("2d").putImageData(out, 0, 0);
+  return c;
+}
+async function loadBackdrop() {
+  const res = await fetch("backdrop");
+  if (!res.ok) return;                              // none: keep the drawn grid
+  const buf = await res.arrayBuffer();
+  let image;
+  if (new TextDecoder().decode(new Uint8Array(buf, 0, 2)) === "#?") image = tonemapHDR(decodeHDR(buf));
+  else image = await createImageBitmap(new Blob([buf]));
+  const max = gl.getParameter(gl.MAX_TEXTURE_SIZE), k = Math.min(1, max / image.width, max / image.height);
+  if (k < 1) {
+    const c = document.createElement("canvas");
+    c.width = Math.floor(image.width * k); c.height = Math.floor(image.height * k);
+    c.getContext("2d").drawImage(image, 0, 0, c.width, c.height);
+    image = c;
+  }
+  setPanorama(image, image.width);
+}
+loadBackdrop().catch(e => console.error("backdrop:", e));
 
 // ---- State: SSE from the simulator, extrapolated between events ------------
 let cam = { pan: 0, tilt: 0, zoom: 0, focus: 0.5, pan_speed: 0, tilt_speed: 0, zoom_speed: 0, focus_speed: 0,
