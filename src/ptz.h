@@ -12,6 +12,10 @@
 
 #include <obs-module.h>
 
+#if LIBOBS_API_VER < MAKE_SEMANTIC_VERSION(31, 0, 0)
+#error "obs-ptz needs OBS Studio 31 or later: libobs-dev is too old"
+#endif
+
 #define blog(level, msg, ...) blog(level, "[ptz] " msg, ##__VA_ARGS__)
 #define STRINGIFY(x) #x
 #define TOSTRING(x) STRINGIFY(x)

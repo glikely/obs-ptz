@@ -148,12 +148,7 @@ void PTZControls::handleFrontendEvent(enum obs_frontend_event event)
 void PTZControls::refreshTheme()
 {
 	int densityId = -4;
-#if LIBOBS_API_VER >= MAKE_SEMANTIC_VERSION(31, 0, 0)
 	if (config_t *cfg = obs_frontend_get_user_config())
-#else
-	/* Fallback to deprecated API when building against older OBS */
-	if (config_t *cfg = obs_frontend_get_global_config())
-#endif
 		densityId = (int)config_get_int(cfg, "Appearance", "Density");
 
 	int rowHeightFloor, fontHeightOffset;
