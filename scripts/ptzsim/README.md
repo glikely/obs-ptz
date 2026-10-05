@@ -45,7 +45,8 @@ doesn't exercise OBS's Media Source path.
 (an equirectangular `.hdr`, `.jpg` or `.png`), a URL, or the key of a
 [Poly Haven](https://polyhaven.com/hdris) HDRI (CC0, so free to use and
 share), which ptzsim downloads once to `~/.cache/ptzsim/backdrops` and
-credits in its output:
+credits in its output. A downloaded one works offline from then on, and is
+checked against its recorded checksum (delete it to fetch it again):
 
 ```
 python3 scripts/ptzsim --web-port 8080 --backdrop chapel_day
