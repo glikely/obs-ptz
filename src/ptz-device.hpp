@@ -136,6 +136,10 @@ protected:
 	proc_handler_t *handler = nullptr;
 	/* ...and likewise a signal handler so status changes can sent */
 	signal_handler_t *sigs = nullptr;
+	/* Registers a proc or signal of the PTZ API on handler or sigs, and logs
+	 * it for ptz_registered_api() */
+	void addProc(const char *decl, proc_handler_proc_t proc, void *data);
+	void addSignal(const char *decl);
 	void signalDevice(const char *name, calldata_t *cd);
 	void notifyStateChanged();
 	/* Record one position axis, where the camera is, in the state and in
@@ -412,3 +416,9 @@ void ptz_filter_add(void *data, obs_source_t *parent);
 void ptz_filter_remove(void *data, obs_source_t *);
 void ptz_filter_destroy(void *data);
 void ptz_filter_save(void *data, obs_data_t *settings);
+
+/* What the PTZ API has registered so far, as (scope, declaration) pairs: the
+ * procs and signals of docs/ptz-device-api.md. The scope is one of
+ * "global-proc", "obs-proc", "global-signal", "device-proc" and
+ * "device-signal". For tests/ui-harness, to hold that document to it. */
+QList<QPair<QString, QString>> ptz_registered_api();

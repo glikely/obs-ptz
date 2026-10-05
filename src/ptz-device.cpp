@@ -41,6 +41,55 @@
 static QRecursiveMutex ptz_device_registry_mutex;
 static QHash<uint32_t, PTZDevice *> ptz_device_registry;
 
+/* Everything the PTZ API registers goes through PTZDevice::addProc() and
+ * addSignal() for a device's own handlers, and ptz_global_proc_add(),
+ * ptz_obs_proc_add() and ptz_global_signal_add() for the plugin's, which log
+ * it, as the scope it is registered in (one of "global-proc", "obs-proc",
+ * "global-signal", "device-proc" and "device-signal") and its declaration.
+ * ptz_registered_api() hands the log back, so that a test can hold
+ * docs/ptz-device-api.md to what the plugin really registers rather than to
+ * a copy of it. */
+static QMutex ptz_api_log_mutex;
+static QList<QPair<QString, QString>> ptz_api_log;
+
+static void ptz_api_logged(const char *scope, const char *decl)
+{
+	QPair<QString, QString> entry(QString::fromUtf8(scope), QString::fromUtf8(decl));
+	QMutexLocker locker(&ptz_api_log_mutex);
+	/* A device registers its handlers each time one is made */
+	if (!ptz_api_log.contains(entry))
+		ptz_api_log.append(entry);
+}
+
+static void ptz_proc_add(const char *scope, proc_handler_t *handler, const char *decl, proc_handler_proc_t proc,
+			 void *data)
+{
+	ptz_api_logged(scope, decl);
+	proc_handler_add(handler, decl, proc, data);
+}
+
+static void ptz_signal_add(const char *scope, signal_handler_t *handler, const char *decl)
+{
+	ptz_api_logged(scope, decl);
+	signal_handler_add(handler, decl);
+}
+
+void PTZDevice::addProc(const char *decl, proc_handler_proc_t proc, void *data)
+{
+	ptz_proc_add("device-proc", handler, decl, proc, data);
+}
+
+void PTZDevice::addSignal(const char *decl)
+{
+	ptz_signal_add("device-signal", sigs, decl);
+}
+
+QList<QPair<QString, QString>> ptz_registered_api()
+{
+	QMutexLocker locker(&ptz_api_log_mutex);
+	return ptz_api_log;
+}
+
 /**
  * Lambda factory macro for the PTZ proc_handler methods. This macro
  * simplifies the registration of PTZDevice methods as targets for
@@ -81,81 +130,45 @@ PTZDevice::PTZDevice(OBSData config, obs_source_t *filter) : QObject()
 		calldata_set_int(cd, "major", PTZ_API_VERSION_MAJOR);
 		calldata_set_int(cd, "minor", PTZ_API_VERSION_MINOR);
 	};
-	/* The version of the PTZ API this device implements. A device may come
-	 * from another plugin, at another version than the ptz_get_api_version
-	 * on OBS's proc_handler reports, so a caller checks each device's own
-	 * before relying on anything else it has. */
-	proc_handler_add(handler, "void ptz_get_api_version(out int major, out int minor)", get_api_version, nullptr);
+	/* The device's own version: see docs/ptz-device-api.md */
+	addProc("void ptz_get_api_version(out int major, out int minor)", get_api_version, nullptr);
 
-	/* The PTZ Device API. All these functions are prefixed with 'ptz_' so that they can
+	/* The PTZ Device API, which docs/ptz-device-api.md specifies and
+	 * tests/obs-integration/test_api_doc.py holds to what is registered
+	 * here. All these functions are prefixed with 'ptz_' so that they can
 	 * be added to an existing proc_handler with low risk of conflicts */
-	proc_handler_add(handler, "void ptz_stop()", ptz_ph_lambda(stop), this);
-	proc_handler_add(handler, "void ptz_home_recall()", ptz_ph_lambda(pantilt_home), this);
-	proc_handler_add(handler, "void ptz_home_save()", ptz_ph_lambda(pantilt_set_home), this);
-	proc_handler_add(handler, "void ptz_move()", ptz_ph_lambda(move), this);
-	proc_handler_add(handler, "void ptz_move_abs()", ptz_ph_lambda(move_abs), this);
-	proc_handler_add(handler, "void ptz_move_rel()", ptz_ph_lambda(move_rel), this);
-	proc_handler_add(handler, "void ptz_preset_save()", ptz_ph_lambda(preset_save), this);
-	proc_handler_add(handler, "void ptz_preset_recall()", ptz_ph_lambda(preset_recall), this);
-	proc_handler_add(handler, "void ptz_preset_clear()", ptz_ph_lambda(preset_clear), this);
+	addProc("void ptz_stop()", ptz_ph_lambda(stop), this);
+	addProc("void ptz_home_recall()", ptz_ph_lambda(pantilt_home), this);
+	addProc("void ptz_home_save()", ptz_ph_lambda(pantilt_set_home), this);
+	addProc("void ptz_move()", ptz_ph_lambda(move), this);
+	addProc("void ptz_move_abs()", ptz_ph_lambda(move_abs), this);
+	addProc("void ptz_move_rel()", ptz_ph_lambda(move_rel), this);
+	addProc("void ptz_preset_save()", ptz_ph_lambda(preset_save), this);
+	addProc("void ptz_preset_recall()", ptz_ph_lambda(preset_recall), this);
+	addProc("void ptz_preset_clear()", ptz_ph_lambda(preset_clear), this);
 
-	/* The device's whole state and what describes it (what PTZListModel
-	 * shows a device row with, too), and locking it. What describes it
-	 * includes "features", what the device can do: an object with the
-	 * name of each it can true, from "pantilt", "zoom", "focus",
-	 * "pantilt_abs", "pantilt_rel", "zoom_abs", "focus_abs", "home",
-	 * "home_set", "autofocus", "focus_onetouch", "presets", "power",
-	 * "wb_onepush" and "diagnostics". It can change, as a device finds out
-	 * what the camera has. A device without "features" predates them. */
-	proc_handler_add(handler, "ptr ptz_get_state(ptr state)", ptz_ph_lambda(get_state), this);
-	/* What the device has counted of its own working, such as how much it has
-	 * sent to the camera and how fast it answers, as an object of numbers
-	 * under the names the driver gives them. It isn't state: it is read when
-	 * wanted, never announced as changing, and what a rate in it is over is
-	 * the time since it was last read. */
-	proc_handler_add(handler, "ptr ptz_get_statistics(ptr statistics)", ptz_ph_lambda(get_statistics), this);
-	/* The source the device is on, whose video is what its camera shows: the
-	 * one its filter is on or, for a device that isn't a filter, the one
-	 * named like it. A new reference, which the caller releases, as
-	 * "return", or nothing in it while the device has none, or its source
-	 * has been removed. */
-	proc_handler_add(handler, "ptr ptz_get_parent_source()", ptz_ph_lambda(get_parent_source), this);
-	proc_handler_add(handler, "void ptz_set_locked(bool locked)", ptz_ph_lambda(setLock), this);
+	addProc("ptr ptz_get_state(ptr state)", ptz_ph_lambda(get_state), this);
+	addProc("ptr ptz_get_statistics(ptr statistics)", ptz_ph_lambda(get_statistics), this);
+	addProc("ptr ptz_get_parent_source()", ptz_ph_lambda(get_parent_source), this);
+	addProc("void ptz_set_locked(bool locked)", ptz_ph_lambda(setLock), this);
 
-	/* Settings, which are persisted, in the PTZ Control filter's own settings:
-	 * what save() writes, applying new ones (through the filter, if there is
-	 * one), and the properties that edit them */
-	proc_handler_add(handler, "void ptz_get_config(ptr config)", ptz_ph_lambda(get_config), this);
-	proc_handler_add(handler, "void ptz_set_config(ptr config)", ptz_ph_lambda(set_config), this);
-	proc_handler_add(handler, "ptr ptz_get_properties()", ptz_ph_lambda(get_obs_properties), this);
+	addProc("void ptz_get_config(ptr config)", ptz_ph_lambda(get_config), this);
+	addProc("void ptz_set_config(ptr config)", ptz_ph_lambda(set_config), this);
+	addProc("ptr ptz_get_properties()", ptz_ph_lambda(get_obs_properties), this);
 
-	/* Transient state, which is never saved: a request to change some of it.
-	 * ptz_get_state, above, reads all of it. Keys that start with "user_"
-	 * are a user's own, for a camera given commands the plugin doesn't
-	 * have, and never ones the plugin has. */
-	proc_handler_add(handler, "void ptz_request_state(ptr state)", ptz_ph_lambda(request_state), this);
+	addProc("void ptz_request_state(ptr state)", ptz_ph_lambda(request_state), this);
 
-	/* One-shot actions on the camera, which aren't state. Names that start
-	 * with "user_" are a user's own, as state keys are. */
-	proc_handler_add(handler, "void ptz_trigger(string name)", ptz_ph_lambda(trigger), this);
+	addProc("void ptz_trigger(string name)", ptz_ph_lambda(trigger), this);
 
-	/* The last report of what the camera has, which its "camera_report"
-	 * trigger makes, as JSON, or "" if there isn't one: see
-	 * doc/visca-protocol.md. It is for the user to look at and send in
-	 * themselves; nothing in it identifies the camera, the user, or where
-	 * either is. */
-	proc_handler_add(handler, "void ptz_get_camera_report(out string report)", ptz_ph_lambda(get_camera_report),
-			 this);
+	addProc("void ptz_get_camera_report(out string report)", ptz_ph_lambda(get_camera_report), this);
 
-	/* Preset list CRUD */
-	proc_handler_add(handler, "ptr ptz_preset_get_list()", ptz_ph_lambda(preset_get_list), this);
-	proc_handler_add(handler, "int ptz_preset_new(int row)", ptz_ph_lambda(newPreset), this);
-	proc_handler_add(handler, "void ptz_preset_remove(int row)", ptz_ph_lambda(removePresetAtDisplayRow), this);
-	proc_handler_add(handler, "void ptz_preset_move(int src_row, int dest_row)", ptz_ph_lambda(movePreset), this);
-	proc_handler_add(handler, "void ptz_preset_set_name(int id, string name)", ptz_ph_lambda(setPresetName), this);
+	addProc("ptr ptz_preset_get_list()", ptz_ph_lambda(preset_get_list), this);
+	addProc("int ptz_preset_new(int row)", ptz_ph_lambda(newPreset), this);
+	addProc("void ptz_preset_remove(int row)", ptz_ph_lambda(removePresetAtDisplayRow), this);
+	addProc("void ptz_preset_move(int src_row, int dest_row)", ptz_ph_lambda(movePreset), this);
+	addProc("void ptz_preset_set_name(int id, string name)", ptz_ph_lambda(setPresetName), this);
 
-	/* The program or preview scene changed: re-check whether the device is live */
-	proc_handler_add(handler, "void ptz_scene_changed()", ptz_ph_lambda(onSceneChanged), this);
+	addProc("void ptz_scene_changed()", ptz_ph_lambda(onSceneChanged), this);
 
 	/* Signal handler for notifying state & settings changes. Shared with
 	 * the filter for a filter-owned device, same as handler above. */
@@ -163,21 +176,15 @@ PTZDevice::PTZDevice(OBSData config, obs_source_t *filter) : QObject()
 	if (!sigs) {
 		blog(LOG_ERROR, "could not allocate signal_handler for %s", obs_data_get_string(config, "name"));
 	} else {
-		/* The device's state changed. "changed" holds the values that
-		 * changed; a listener may keep a reference to it, but not change it:
-		 * every listener gets the same one, and the device never touches it
-		 * again. */
-		signal_handler_add(sigs, "void state_changed(int device_id, ptr changed)");
+		addSignal("void state_changed(int device_id, ptr changed)");
 
-		/* The device's settings were applied, from anywhere */
-		signal_handler_add(sigs, "void settings_changed(int device_id)");
+		addSignal("void settings_changed(int device_id)");
 
-		/* Preset modification signals */
-		signal_handler_add(sigs, "void preset_inserted(int device_id, int row)");
-		signal_handler_add(sigs, "void preset_removed(int device_id, int row)");
-		signal_handler_add(sigs, "void preset_moved(int device_id, int src_row, int dest_row)");
-		signal_handler_add(sigs, "void preset_renamed(int device_id, int id)");
-		signal_handler_add(sigs, "void preset_thumbnail_changed(int device_id, int id)");
+		addSignal("void preset_inserted(int device_id, int row)");
+		addSignal("void preset_removed(int device_id, int row)");
+		addSignal("void preset_moved(int device_id, int src_row, int dest_row)");
+		addSignal("void preset_renamed(int device_id, int id)");
+		addSignal("void preset_thumbnail_changed(int device_id, int id)");
 	}
 
 	/* A filter-owned device is given its source by its filter, see setParentSource() */
@@ -1307,6 +1314,21 @@ void ptz_devices_set_config(obs_data_array_t *devices)
 static proc_handler_t *ptz_ph = NULL;
 static signal_handler_t *ptz_sh = NULL;
 
+static void ptz_global_proc_add(const char *decl, proc_handler_proc_t proc, void *data)
+{
+	ptz_proc_add("global-proc", ptz_ph, decl, proc, data);
+}
+
+static void ptz_obs_proc_add(const char *decl, proc_handler_proc_t proc, void *data)
+{
+	ptz_proc_add("obs-proc", obs_get_proc_handler(), decl, proc, data);
+}
+
+static void ptz_global_signal_add(const char *decl)
+{
+	ptz_signal_add("global-signal", ptz_sh, decl);
+}
+
 proc_handler_t *ptz_get_proc_handler()
 {
 	return ptz_ph;
@@ -1332,8 +1354,8 @@ void ptz_load_devices()
 		blog(LOG_ERROR, "could not allocate signal_handler for PTZ devices");
 		return;
 	}
-	signal_handler_add(ptz_sh, "void ptz_device_create(int device_id, ptr proc_handler, ptr signal_handler)");
-	signal_handler_add(ptz_sh, "void ptz_device_destroy(int device_id)");
+	ptz_global_signal_add("void ptz_device_create(int device_id, ptr proc_handler, ptr signal_handler)");
+	ptz_global_signal_add("void ptz_device_destroy(int device_id)");
 
 	/* Constructed here rather than as a plain static-storage global so
 	 * its constructor happens at a well-defined point in the module load
@@ -1358,13 +1380,11 @@ void ptz_load_devices()
 	auto ptz_cb = [](void *p, calldata_t *cd) {
 		ptzDeviceList->callDevice(static_cast<const char *>(p), cd);
 	};
-	proc_handler_add(ptz_ph, "void ptz_preset_save(int device_id, int preset_id)", ptz_cb,
-			 (void *)"ptz_preset_save");
-	proc_handler_add(ptz_ph, "void ptz_preset_recall(int device_id, int preset_id)", ptz_cb,
-			 (void *)"ptz_preset_recall");
-	proc_handler_add(ptz_ph,
-			 "void ptz_move_continuous(int device_id, float pan, float tilt, float zoom, float focus)",
-			 ptz_cb, (void *)"ptz_move");
+	ptz_global_proc_add("void ptz_preset_save(int device_id, int preset_id)", ptz_cb, (void *)"ptz_preset_save");
+	ptz_global_proc_add("void ptz_preset_recall(int device_id, int preset_id)", ptz_cb,
+			    (void *)"ptz_preset_recall");
+	ptz_global_proc_add("void ptz_move_continuous(int device_id, float pan, float tilt, float zoom, float focus)",
+			    ptz_cb, (void *)"ptz_move");
 
 	/* Register the new proc hander with the main proc handler */
 	proc_handler_t *ph = obs_get_proc_handler();
@@ -1375,18 +1395,16 @@ void ptz_load_devices()
 	auto ptz_get_proc_handler = [](void *, calldata_t *cd) {
 		calldata_set_ptr(cd, "return", ptz_ph);
 	};
-	proc_handler_add(ph, "ptr ptz_get_proc_handler()", ptz_get_proc_handler, NULL);
+	ptz_obs_proc_add("ptr ptz_get_proc_handler()", ptz_get_proc_handler, NULL);
 
 	auto ptz_get_api_version = [](void *, calldata_t *cd) {
 		calldata_set_int(cd, "major", PTZ_API_VERSION_MAJOR);
 		calldata_set_int(cd, "minor", PTZ_API_VERSION_MINOR);
 	};
-	/* The version of the PTZ API (PTZ_API_VERSION_* in ptz.h), for a caller
-	 * to check before it relies on anything else here */
-	proc_handler_add(ph, "void ptz_get_api_version(out int major, out int minor)", ptz_get_api_version, NULL);
+	ptz_obs_proc_add("void ptz_get_api_version(out int major, out int minor)", ptz_get_api_version, NULL);
 
-	/* Deprecated pantilt callback for compatibility with existing plugins */
-	proc_handler_add(ph, "void ptz_pantilt(int device_id, float pan, float tilt, float zoom, float focus)", ptz_cb,
+	/* Deprecated: ptz_move_continuous, under its old name */
+	ptz_obs_proc_add("void ptz_pantilt(int device_id, float pan, float tilt, float zoom, float focus)", ptz_cb,
 			 (void *)"ptz_move");
 }
 
