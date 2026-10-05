@@ -1,6 +1,6 @@
 # Camera reports
 
-Camera reports sent in on GitHub (doc/visca-protocol.md, "Camera Reports"),
+Camera reports sent in on GitHub (docs/visca-protocol.md, "Camera Reports"),
 one file each, named for the camera: `sony-srg-300h.json`, say.
 ptzsim replays each one as the camera it was made of (`--visca-report`), and
 `tests/obs-integration/test_camera_report_replay.py` checks that the command

@@ -2,7 +2,7 @@
 
 A device's "camera_report" trigger asks the camera what it has, and the
 "ptz_get_camera_report" proc hands back the report, as JSON, for the user
-to look at and send in themselves (see doc/visca-protocol.md). Nothing in
+to look at and send in themselves (see docs/visca-protocol.md). Nothing in
 it may identify the camera, its user, or where either is.
 """
 

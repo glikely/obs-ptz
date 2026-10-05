@@ -1,6 +1,6 @@
 """Answering as the camera a camera report was made of did.
 
-The plugin's camera report (doc/visca-protocol.md, "Camera Reports") has
+The plugin's camera report (docs/visca-protocol.md, "Camera Reports") has
 every inquiry it asked a camera, with the reply or the error, and the
 commands it sent back to it, with what came of them. ptzsim, given one with
 --visca-report, is that camera, as far as the report goes:

@@ -2,7 +2,7 @@
 """ptz-probe: make an obs-ptz camera report without OBS.
 
 Asks a VISCA camera what it has, as the plugin's own "Create Camera
-Report..." does (doc/visca-protocol.md, "Camera Reports"), and writes the
+Report..." does (docs/visca-protocol.md, "Camera Reports"), and writes the
 same report to a file, for its user to look over and send in on GitHub with
 the plugin's camera report issue form. For anyone who can't run the plugin,
 or whose camera it can't talk to at all.

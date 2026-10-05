@@ -33,7 +33,7 @@ enumeration) and `qtudev_p.h` (Linux only), `qserialportinfo_freebsd.cpp`
 (FreeBSD only), `removed_api.cpp` (a source/binary-compatibility shim for
 one bindable-property overload removed in Qt 6.7 - not applicable, this
 fork isn't a versioned drop-in replacement library), upstream's own
-`CMakeLists.txt`/`configure.cmake`/`qt_cmdline.cmake`/`doc/` (this
+`CMakeLists.txt`/`configure.cmake`/`qt_cmdline.cmake`/`docs/` (this
 project writes its own, matching the pattern already used for the other
 vendored dependencies under `shared/`), and examples/tests.
 

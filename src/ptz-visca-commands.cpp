@@ -800,7 +800,7 @@ std::shared_ptr<const ViscaProfile> visca_profile(const QString &id)
 }
 
 /*
- * Command sets read from JSON. See doc/visca-protocol.md for the format.
+ * Command sets read from JSON. See docs/visca-protocol.md for the format.
  */
 
 /* The fields a command set can be made of, by type name, and how many bytes

@@ -11,9 +11,9 @@ It also tracks the current active scenes to automatically select the
 correct camera for control and can be automated by adding PTZ Actions sources
 to trigger camera actions when scenes change.
 
-![PTZ Controls Screenshot](/doc/ptz-controls-screenshot.png?raw=true "OBS Studio PTZ Controls")
+![PTZ Controls Screenshot](/docs/ptz-controls-screenshot.png?raw=true "OBS Studio PTZ Controls")
 
-![PTZ Controls Screenshot](/doc/ptz-settings-screenshot.png?raw=true "OBS Studio PTZ Device Settings")
+![PTZ Controls Screenshot](/docs/ptz-settings-screenshot.png?raw=true "OBS Studio PTZ Device Settings")
 
 Features:
 
@@ -162,7 +162,7 @@ device settings, and run OBS Studio with the --verbose command line option.
 The build infrastructure for this project comes from the
 [OBS Plugin Template](https://github.com/obsproject/obs-plugintemplate)
 repo. To build this plugin, follow the instructions in the plugin template
-[README.md](doc/plugin-template-README.md)
+[README.md](docs/plugin-template-README.md)
 
 ## Linux Quickstart
 

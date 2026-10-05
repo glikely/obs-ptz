@@ -114,7 +114,7 @@ def parse_args():
                           "a command set for, so it uses the generic one, which has everything "
                           "this does; a Sony SRG-120DH is 0001:0511, a BirdDog P100 0109:2020)")
     ap.add_argument("--visca-report", default=None, metavar="FILE",
-                     help="be the camera an obs-ptz camera report (doc/visca-protocol.md) was made "
+                     help="be the camera an obs-ptz camera report (docs/visca-protocol.md) was made "
                           "of, as far as the report goes: answer what it answered as it did, and "
                           "refuse what it refused; its vendor and model ID are the ones the version "
                           "inquiry answers with, whatever --visca-model says")
