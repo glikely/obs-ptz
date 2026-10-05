@@ -43,6 +43,16 @@ and should summarize the change in one readable line of text, independently of
 the longer explanation. Please use verbs in the imperative in the commit
 message, as in "Fix bug that...", "Add file/feature ...", or "Make plugin ..."
 
+Documentation
+-------------
+
+Write documentation in Markdown, with one sentence per line.
+A new sentence always starts on a new line, so that an edit to one sentence
+changes one line of the diff, and doesn't reflow the rest of the paragraph.
+Keep lines shorter than 80 columns where possible.
+A sentence that is too long for one line wraps at a word, and that is fine.
+Tables, headings and code blocks are exempt, as they can't be wrapped.
+
 AI-Assisted Contributions
 --------------------------
 
