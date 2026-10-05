@@ -9,6 +9,7 @@
 #include <obs.hpp>
 #include <obs-module.h>
 #include <obs-frontend-api.h>
+#include <QList>
 #include <QListView>
 #include <QWidget>
 
@@ -47,11 +48,18 @@ void runPresetViewTest(const QMap<QString, QString> &params)
 		/* Adding or removing a device resets the model */
 		QString addDevice = params.value(QStringLiteral("add_device"));
 		if (!addDevice.isEmpty()) {
+			/* A device is a filter on a source: make the source, and
+			 * hold it, since nothing else does */
+			static QList<OBSSource> held;
 			OBSDataAutoRelease config = obs_data_create();
-			obs_data_set_string(config, "name", qUtf8Printable(addDevice));
 			obs_data_set_string(config, "type", "visca-over-ip");
 			obs_data_set_string(config, "host", "127.0.0.1");
-			ptz_device_create(config);
+			OBSSourceAutoRelease source =
+				obs_source_create("color_source_v3", qUtf8Printable(addDevice), nullptr, nullptr);
+			if (source) {
+				held.append(OBSSource(source.Get()));
+				OBSSourceAutoRelease filter = ptz_device_create_filter(source, config, 0);
+			}
 		}
 		QString removeDevice = params.value(QStringLiteral("remove_device"));
 		if (!removeDevice.isEmpty())

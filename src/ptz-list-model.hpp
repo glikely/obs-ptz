@@ -40,7 +40,7 @@ private:
 		uint32_t id = 0;
 		proc_handler_t *ph = nullptr;
 		signal_handler_t *sh = nullptr;
-		/* Reference to this device's filter. Empty on self-managed devices */
+		/* Reference to this device's filter */
 		OBSWeakSource weakFilter;
 		QString name;
 		bool connected = false;
@@ -105,7 +105,6 @@ public:
 	static bool hasFeature(const QModelIndex &index, const char *feature);
 
 	/* Data Model */
-	void make_device(OBSData config);
 	QModelIndex indexFromDeviceId(uint32_t device_id) const;
 	QModelIndex indexFromName(const QString &name) const;
 	QModelIndex indexFromFilter(obs_source_t *filter) const;
@@ -115,14 +114,12 @@ public:
 	OBSSource parentSource(const QModelIndex &index) const;
 	bool callDevice(const QModelIndex &index, const char *method, calldata_t *cd = nullptr);
 	bool callDevice(const char *method, calldata_t *cd = nullptr);
-	void save(OBSDataArray configs) const;
 	void save(const QModelIndex &index, OBSData settings) const;
 	void update(const QModelIndex &index, OBSData settings);
 	obs_properties_t *getProperties(const QModelIndex &index) const;
 	void saveState(const QModelIndex &index, OBSData state) const;
 	void setState(const QModelIndex &index, OBSData state);
 	void removeDevice(const QModelIndex &index);
-	void delete_all();
 
 	/* React to a preset list mutation PTZDevice reports *after* it
 	 * already happened, by wrapping the model's own (still-stale) cache

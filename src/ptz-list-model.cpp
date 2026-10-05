@@ -186,17 +186,13 @@ const PTZListModel::PTZDeviceEntry *PTZListModel::entryById(uint32_t device_id) 
 
 /**
  * Promotes entry.weakFilter to a strong reference for the duration of the
- * call, guaranteeing the proc_handler is valid on filter-owned devices.
- * A self-managed device has no weakFilter and is always safe to call directly.
+ * call, guaranteeing the proc_handler is valid.
  */
 bool PTZListModel::callEntry(const PTZDeviceEntry &entry, const char *method, calldata_t *cd) const
 {
-	if (entry.weakFilter) {
-		OBSSourceAutoRelease filter = obs_weak_source_get_source(entry.weakFilter);
-		if (!filter)
-			return false;
-		return proc_handler_call(entry.ph, method, cd);
-	}
+	OBSSourceAutoRelease filter = obs_weak_source_get_source(entry.weakFilter);
+	if (!filter)
+		return false;
 	return proc_handler_call(entry.ph, method, cd);
 }
 
@@ -582,21 +578,6 @@ QModelIndex PTZListModel::indexFromName(const QString &name) const
 	return QModelIndex();
 }
 
-void PTZListModel::save(OBSDataArray configs) const
-{
-	for (const auto &entry : devices) {
-		OBSDataAutoRelease cfg = obs_data_create();
-		calldata_t cd = {};
-		calldata_set_int(&cd, "device_id", entry.id);
-		calldata_set_ptr(&cd, "config", cfg.Get());
-		callEntry(entry, "ptz_get_config", &cd);
-		calldata_free(&cd);
-		/* Only save devices that are not attached as a filter */
-		if (obs_data_get_bool(cfg, "is-self-managed"))
-			obs_data_array_push_back(configs, cfg);
-	}
-}
-
 void PTZListModel::save(const QModelIndex &index, OBSData settings) const
 {
 	auto entry = entryAt(index);
@@ -670,35 +651,19 @@ obs_properties_t *PTZListModel::getProperties(const QModelIndex &index) const
 	return props ? props : obs_properties_create();
 }
 
-/* A filter-owned device goes with its filter, so remove that from its
- * source; the device is backed up either way as it is destroyed */
+/* A device goes with its filter, so remove that from its source; the
+ * device is backed up as it is destroyed */
 void PTZListModel::removeDevice(const QModelIndex &index)
 {
 	auto entry = entryAt(index);
 	if (!entry)
 		return;
-	if (!entry->weakFilter) {
-		ptz_device_destroy(entry->id);
-		return;
-	}
 	OBSSourceAutoRelease filter = obs_weak_source_get_source(entry->weakFilter);
 	if (!filter)
 		return;
 	obs_source_t *parent = obs_filter_get_parent(filter);
 	if (parent)
 		obs_source_filter_remove(parent, filter);
-}
-
-void PTZListModel::make_device(OBSData config)
-{
-	ptz_device_create(config);
-}
-
-void PTZListModel::delete_all()
-{
-	auto devices_copy = devices;
-	for (const auto &entry : devices_copy)
-		ptz_device_destroy(entry.id);
 }
 
 void PTZListModel::preset_recall(uint32_t device_id, int preset_id)

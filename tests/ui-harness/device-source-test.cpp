@@ -101,28 +101,6 @@ void runDeviceSourceTest(const QMap<QString, QString> &params)
 		blog(LOG_INFO, "[ptz-ui-test] get_device_source: failed to write %s", qUtf8Printable(filename));
 }
 
-/* Writes what the plugin would save as its device list, as
- * {"devices": [<each device's saved config>]}: PTZListModel::save(), which
- * PTZControls::SaveConfig() writes to the plugin's config file. A device
- * that belongs to an OBS filter is saved with the filter instead, so it
- * must not be in here. */
-void runSavedDevicesTest(const QMap<QString, QString> &params)
-{
-	QString filename = params.value(QStringLiteral("filename"));
-	if (filename.isEmpty()) {
-		blog(LOG_INFO, "[ptz-ui-test] get_saved_devices: missing filename");
-		return;
-	}
-
-	OBSDataArrayAutoRelease devices = obs_data_array_create();
-	ptzDeviceList->save(devices.Get());
-
-	OBSDataAutoRelease result = obs_data_create();
-	obs_data_set_array(result, "devices", devices);
-	if (!obs_data_save_json_safe(result, qUtf8Printable(filename), "tmp", "bak"))
-		blog(LOG_INFO, "[ptz-ui-test] get_saved_devices: failed to write %s", qUtf8Printable(filename));
-}
-
 /* Takes (or drops) a strong reference to a source, the way another plugin,
  * a dock or a script holding on to a source would. A source that has been
  * removed from OBS isn't destroyed until every reference to it is gone, so
@@ -170,9 +148,6 @@ void runHoldSourceTest(const QMap<QString, QString> &params)
  *               "locked"} JSON result. Only "found" is there if there is
  *               no such device
  *
- * get_saved_devices request params:
- *   filename  - where to write the {"devices"} JSON result
- *
  * hold_source request params:
  *   name      - the source's name
  *   release   - "1" to drop the reference held for `name` instead of
@@ -184,5 +159,4 @@ void registerDeviceSourceTest(PTZUITestHarness *harness)
 {
 	harness->registerTest(QStringLiteral("get_device_source"), &runDeviceSourceTest);
 	harness->registerTest(QStringLiteral("hold_source"), &runHoldSourceTest);
-	harness->registerTest(QStringLiteral("get_saved_devices"), &runSavedDevicesTest);
 }

@@ -99,7 +99,7 @@ private:
 	static void frontendEventCallback(enum obs_frontend_event event, void *data);
 
 protected:
-	/* The OBS filter instance that owns this device, or empty for self-managed */
+	/* The OBS filter instance that owns this device */
 	OBSWeakSource m_filter;
 	/* The OBS source this device controls. Weak because the device
 	 * doesn't own the source and the user can delete it at any time. */
@@ -131,8 +131,7 @@ protected:
 	void incrementStatistic(const char *name, int amount = 1);
 
 	/* Each PTZDevice has a proc handler so methods can be called
-	 * from other plugins -- the filter's own for a filter-owned device,
-	 * a private one for a self-managed device (see the constructor) */
+	 * from other plugins -- the filter's own */
 	proc_handler_t *handler = nullptr;
 	/* ...and likewise a signal handler so status changes can sent */
 	signal_handler_t *sigs = nullptr;
@@ -158,10 +157,10 @@ protected:
 
 public:
 	~PTZDevice();
-	PTZDevice(OBSData config, obs_source_t *filter = nullptr);
+	PTZDevice(OBSData config, obs_source_t *filter);
 	uint32_t getId() const { return id; }
 	/* Fires the create signal PTZListModel discovers new devices through.
-	 * Called by ptz_device_create() once the full object (base and
+	 * Called by ptz_filter_create() once the full object (base and
 	 * derived) is constructed -- see the comment on the definition. */
 	void announceCreated();
 
@@ -173,11 +172,10 @@ public:
 	 * obs_source_release()), or NULL if it has none. */
 	obs_source_t *parentSource() const;
 	/* Returns a new reference to the "PTZ Control" filter that owns this
-	 * device (release it with obs_source_release()), or NULL if it is
-	 * self-managed or its filter is gone. */
+	 * device (release it with obs_source_release()), or NULL if its
+	 * filter is gone. */
 	obs_source_t *filterSource() const;
 	void setParentSource(obs_source_t *source);
-	void setParentSourceByName(const char *name);
 	/* The hostname or IP address the parent source reports for the device
 	 * it receives from, or "" if it doesn't or there is no parent. Read
 	 * from the settings of a DistroAV NDI source ("web_control_url") or
@@ -185,7 +183,6 @@ public:
 	QString parentSourceHost() const;
 	/* Tells the driver if the parent's host changed since it last looked */
 	void checkParentHost();
-	bool isSelfManaged() const { return !m_filter; }
 	bool isLive() const { return live; }
 	bool isPreview() const { return preview; }
 	/* What the device can do. None, unless a driver says. */
@@ -361,8 +358,7 @@ public:
 	 * `settings` must be complete, as update() requires. */
 	void applySettings(OBSData settings);
 	void announceSettingsChanged();
-	/* Remove the runtime identity keys save() adds ("name", "id",
-	 * "is-self-managed") from a settings object destined for persistence
+	/* Remove the runtime identity keys save() adds ("name", "id") from a settings object destined for persistence
 	 * in a filter, which already knows its own source, and whose device id
 	 * isn't stable across a driver change. */
 	static void stripIdentity(obs_data_t *settings);

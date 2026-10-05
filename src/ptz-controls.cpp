@@ -132,12 +132,11 @@ void PTZControls::handleFrontendEvent(enum obs_frontend_event event)
 	case OBS_FRONTEND_EVENT_EXIT:
 		/* OBS is shutting down. It has already run its own save pass (and
 		 * so has called onFrontendSaveEvent()) as part of its shutdown
-		 * sequence, so just remove the PTZDevice instances here */
+		 * sequence. The filters take their devices with them. */
 		while (!hotkeys.isEmpty())
 			obs_hotkey_unregister(hotkeys.takeFirst());
 		obs_frontend_remove_event_callback(onFrontendEvent, this);
 		obs_frontend_remove_save_callback(onFrontendSaveEvent, this);
-		ptzDeviceList->delete_all();
 		break;
 	case OBS_FRONTEND_EVENT_THEME_CHANGED:
 		/* Defer call with a singleShot to let all layout changes settle */

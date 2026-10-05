@@ -23,9 +23,8 @@ and its driver, `tests/obs-integration/test_absolute_relative_moves.py`
 - likewise a pytest module), and `trigger_device` (see
 `set-device-test.cpp` and its driver, `test_device_state.py`),
 `get_preset_view` (see `preset-view-test.cpp` and its driver,
-`test_preset_view.py`), and `get_device_source`/`hold_source`/
-`get_saved_devices` (see `device-source-test.cpp` and its drivers,
-`test_device_source_binding.py` and `test_filter_devices.py`), and
+`test_preset_view.py`), and `get_device_source`/`hold_source`
+(see `device-source-test.cpp` and its driver, `test_filter_devices.py`), and
 `get_device_settings` (see `device-settings-test.cpp` and its driver,
 `test_device_settings.py`), and `get_device_state`/`set_device_state` (see
 `device-state-test.cpp` and its drivers, `test_device_state.py`,
