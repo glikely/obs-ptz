@@ -5,14 +5,14 @@ Unified PTZ camera simulator for testing obs-ptz.
 One shared pan/tilt/zoom/focus model is exposed through pluggable
 protocol backends -- VISCA (TCP, UDP/"VISCA-over-IP", and an emulated
 serial port), ONVIF, and Pelco-D/P (emulated serial) -- and can
-optionally serve a WebGL view of the camera (--web-port) for an OBS
+serve a WebGL view of the camera (--web-port, on by default) for an OBS
 Browser Source. Moving the camera through any one protocol is reflected
 in all the others and, if enabled, in the view.
 
 Run modes
 ---------
-    python3 scripts/ptzsim                       # everything, no camera view
-    python3 scripts/ptzsim --web-port 8080        # also serve the WebGL camera view
+    python3 scripts/ptzsim                       # everything, the WebGL camera view on port 8080
+    python3 scripts/ptzsim --no-web              # without the camera view
     python3 scripts/ptzsim --no-onvif --no-pelco  # VISCA only (all 3 transports)
     python3 scripts/ptzsim --no-visca-tcp --no-visca-serial   # VISCA/UDP only
     python3 scripts/ptzsim --host 0.0.0.0 --onvif-http-port 8899   # reachable from other machines
@@ -24,7 +24,7 @@ restarts.
 
 End-to-end test with OBS
 ------------------------
-1. Run this script (with --web-port for a picture).
+1. Run this script.
 2. Launch OBS with obs-ptz installed.
 3. Open the PTZ dock -> + -> pick the camera's source, then a protocol
    under "New device", and set it up:
@@ -36,10 +36,10 @@ End-to-end test with OBS
    obs-ptz-sim SIM-PTZ-1 (credentials aren't enforced, admin/admin is
    fine), and with --sony-discovery-name NAME, Sony's VISCA-over-IP
    discovery finds it as NAME SIM-PTZ-1.
-4. With --web-port, a Browser Source of http://127.0.0.1:<port>/ shows
+4. A Browser Source of http://127.0.0.1:8080/ shows
    what the camera sees; it can be dragged in OBS's Interact window.
 5. Drag the pan/tilt joystick. The simulator's stdout logs every PTZ
-   call and, with --web-port, the view follows in real time. Stop, Home, and presets all work over ONVIF and
+   call and the view follows in real time. Stop, Home, and presets all work over ONVIF and
    Pelco; VISCA exercises the same shared position/speed state without
    presets.
 
@@ -70,6 +70,9 @@ from .debug_http import DebugHttpServer
 from .state import PTZState, run_ticker
 from . import backdrop, rooms, scene as scene_module
 from .webview import WebViewServer
+
+
+DEFAULT_WEB_PORT = 8080
 
 
 def primary_ipv4():
@@ -158,9 +161,11 @@ def parse_args():
                      help="make absolute moves, presets and home take time, as a camera's "
                           "motors do: SECONDS to cross the full pan range, the other axes at "
                           "the same rate (0, the default, makes them instant)")
-    ap.add_argument("--web-port", type=int, default=0,
-                     help="serve a WebGL camera view on this port, for an OBS Browser "
-                          "Source (0 disables it, the default; try 8080)")
+    ap.add_argument("--web-port", type=int, default=None,
+                     help="serve a WebGL camera view on this port, for an OBS Browser Source "
+                          f"(default {DEFAULT_WEB_PORT}, and carry on without it if that is taken; "
+                          "0 turns it off)")
+    ap.add_argument("--no-web", action="store_true", help="don't serve the web view")
     ap.add_argument("--backdrop", default=None, metavar="FILE|URL|KEY",
                      help="show this equirectangular panorama as the room in the web view, "
                           "rather than the drawn grid: a file (.hdr, .jpg, .png), a URL, or "
@@ -194,6 +199,12 @@ def parse_args():
                      help="serve GET /state as JSON on this port for test "
                           "harnesses (0 disables it, the default)")
     args = ap.parse_args()
+    # Asked for by number, the web view is an error if it can't start; by default it is not
+    args.web_asked = args.web_port is not None and not args.no_web
+    if args.no_web:
+        args.web_port = 0
+    elif args.web_port is None:
+        args.web_port = DEFAULT_WEB_PORT
     if args.list_rooms:
         print(rooms.describe())
         sys.exit(0)
@@ -202,7 +213,7 @@ def parse_args():
         if args.backdrop or args.scene:
             ap.error("--room sets the backdrop or scene itself: don't also give --backdrop or --scene")
         if not args.web_port:
-            ap.error("--room is for the web view: add --web-port")
+            ap.error("--room is for the web view: drop --no-web or --web-port 0")
         try:
             room = rooms.pick(args.room, args.camera)
         except rooms.RoomError as e:
@@ -223,7 +234,7 @@ def parse_args():
     if args.sony_discovery_name and args.local_only:
         ap.error("--sony-discovery-name is answered on the network: give --host a LAN address, or 0.0.0.0")
     if (args.backdrop or args.scene) and not args.web_port:
-        ap.error("--backdrop and --scene are for the web view: add --web-port")
+        ap.error("--backdrop and --scene are for the web view: drop --no-web or --web-port 0")
     if args.backdrop and args.scene:
         ap.error("--backdrop and --scene both set what the camera sees: use one")
     if args.camera_pos:
@@ -324,7 +335,14 @@ def main():
                 sys.exit(f"[scene] {e}")
         web = WebViewServer(state, args.host, args.web_port, picture, scene, args.heading,
                             advertise=args.advertise)
-        web.start()
+        try:
+            web.start()
+        except OSError as e:
+            if args.web_asked or picture or scene:
+                sys.exit(f"[web] can't listen on {args.host}:{args.web_port}: {e}")
+            print(f"[web] not serving the camera view: {args.host}:{args.web_port} is taken ({e}); "
+                  "give --web-port another, or --no-web")
+            web = None
 
     def shutdown(*_):
         print("[sim] shutting down")

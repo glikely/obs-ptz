@@ -5,7 +5,7 @@ obs-ptz speaks: VISCA (TCP, UDP/"VISCA-over-IP", and an emulated serial
 port), Pelco-D/P (emulated serial), and ONVIF. Moving the camera through
 any one protocol updates the same shared pan/tilt/zoom/focus state, so
 you can point two different obs-ptz device entries at it (say, VISCA-TCP
-and Pelco) and watch them agree. Add `--web-port` and it also serves a
+and Pelco) and watch them agree. It also serves a
 WebGL view of what the camera sees, for OBS to show in a Browser Source.
 
 There is no Windows support: the emulated serial ports use Python's
@@ -27,7 +27,9 @@ to reach the simulator.
 
 ## WebGL camera view
 
-`--web-port 8080` serves a WebGL page at `http://127.0.0.1:8080/` showing a
+ptzsim serves a WebGL page at `http://127.0.0.1:8080/` (`--web-port` changes
+the port, `--no-web` turns it off; if 8080 is taken it carries on without
+the page) showing a
 labelled panorama (degree grid, lettered landmarks) seen through a virtual
 camera that follows the simulated pan, tilt, zoom and focus, with the tally
 lamp as a coloured border and a standby screen when powered off. Add it in
@@ -49,7 +51,7 @@ credits in its output. A downloaded one works offline from then on, and is
 checked against its recorded checksum (delete it to fetch it again):
 
 ```
-python3 scripts/ptzsim --web-port 8080 --backdrop chapel_day
+python3 scripts/ptzsim --backdrop chapel_day
 ```
 
 Good indoor ones: `chapel_day`, `afrikaans_church_interior`, `ballroom`,
@@ -71,7 +73,7 @@ to `~/.cache/ptzsim` along with the scene. It takes a glTF file (`.glb` or
 licence before sharing it (Sponza's is the Cryengine Limited License).
 
 ```
-python3 scripts/ptzsim --web-port 8080 --scene sponza
+python3 scripts/ptzsim --scene sponza
 ```
 
 Pan, tilt and zoom turn and zoom the camera as in the panorama, and drags
@@ -90,7 +92,7 @@ don't have to find a good spot yourself; `--camera NAME` picks one of its
 cameras (the first by default) and `--list-rooms` lists them:
 
 ```
-python3 scripts/ptzsim --web-port 8080 --room sponza --camera east-end
+python3 scripts/ptzsim --room sponza --camera east-end
 ```
 
 | Room | Cameras |
@@ -117,15 +119,15 @@ it moves, and a drive command or stop cancels the move. VISCA ACKs such a
 command at once and sends its completion when the camera gets there, on the
 command socket (1 or 2) it ACKed on; a move that replaces one still under
 way cancels it with a "command canceled" error. For the WebGL view,
-try `--web-port 8080 --move-time 4`.
+try `--move-time 4`.
 
 ## Running it
 
 From the repository root:
 
 ```
-python3 scripts/ptzsim                       # everything, no camera view
-python3 scripts/ptzsim --web-port 8080       # also serve the WebGL camera view
+python3 scripts/ptzsim                       # everything, the camera view on port 8080
+python3 scripts/ptzsim --no-web              # without the WebGL camera view
 python3 scripts/ptzsim --no-onvif --no-pelco # VISCA only (all 3 transports)
 python3 scripts/ptzsim --no-visca-tcp --no-visca-serial   # VISCA/UDP only
 ```
@@ -180,7 +182,7 @@ logs every command it receives, e.g.:
 [+0.30+0.00, -0.10+0.00, 0.00+0.00, 0.50+0.00] --> 8101060118140201
 ```
 
-With `--web-port`, a Browser Source shows the camera's view moving with
+A Browser Source of the web view shows the camera's view moving with
 the commands (see above). `--debug-http-port PORT` serves the
 same state as JSON on `GET /state` -- mainly useful for scripts/tests
 rather than manual use.
@@ -213,7 +215,8 @@ highlights:
   discovery (an `ENQ:network` broadcast to UDP port 52380) as a camera
   called NAME, at `--host`. Off by default, so that several simulators on
   one machine don't all answer.
-- `--web-port PORT`: serve the WebGL camera view (off by default), and
+- `--web-port PORT` (default 8080; `0` or `--no-web` turns it off): the
+  WebGL camera view's port, and
   `--move-time SECONDS`: make moves take time.
 - `--rtsp-port` (default 8554): only the port in the RTSP stream URI ONVIF
   advertises; nothing serves a stream there.
