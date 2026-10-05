@@ -241,21 +241,6 @@ class PTZState:
                 if axis not in heading:
                     setattr(self, axis, clamp(getattr(self, axis) + speed * dt * speed_scale, lo, 1.0))
 
-    def status_lines(self):
-        snap = self.snapshot()
-        moving = snap.pan_tilt_moving or snap.zoom_moving or snap.focus_moving
-        with self._lock:
-            preset_count = len(self.presets)
-        return [
-            "PTZ Simulator",
-            f"Pan  {snap.pan:+.2f}   Tilt {snap.tilt:+.2f}   "
-            f"Zoom {snap.zoom:.2f}   Focus {snap.focus:.2f}",
-            f"Speed p={snap.pan_speed:+.2f} t={snap.tilt_speed:+.2f} "
-            f"z={snap.zoom_speed:+.2f} f={snap.focus_speed:+.2f}  "
-            f"[{'MOVING' if moving else 'idle'}]",
-            f"Presets: {preset_count}",
-        ]
-
 
 def run_ticker(state, stop_event, hz=50):
     """Continuously integrate state.step() until stop_event is set."""

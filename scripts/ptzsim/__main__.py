@@ -5,14 +5,14 @@ Unified PTZ camera simulator for testing obs-ptz.
 One shared pan/tilt/zoom/focus model is exposed through pluggable
 protocol backends -- VISCA (TCP, UDP/"VISCA-over-IP", and an emulated
 serial port), ONVIF, and Pelco-D/P (emulated serial) -- and can
-optionally be paired with a live RTSP video feed so OBS has something to
-attach as a source. Moving the camera through any one protocol is
-reflected in all the others and, if enabled, in the video overlay.
+optionally serve a WebGL view of the camera (--web-port) for an OBS
+Browser Source. Moving the camera through any one protocol is reflected
+in all the others and, if enabled, in the view.
 
 Run modes
 ---------
-    python3 scripts/ptzsim                       # everything, no video
-    python3 scripts/ptzsim --with-video           # also stream a test pattern (needs ffmpeg + mediamtx in PATH)
+    python3 scripts/ptzsim                       # everything, no camera view
+    python3 scripts/ptzsim --web-port 8080        # also serve the WebGL camera view
     python3 scripts/ptzsim --no-onvif --no-pelco  # VISCA only (all 3 transports)
     python3 scripts/ptzsim --no-visca-tcp --no-visca-serial   # VISCA/UDP only
     python3 scripts/ptzsim --host 0.0.0.0 --onvif-http-port 8899 --rtsp-port 8554
@@ -24,7 +24,7 @@ restarts.
 
 End-to-end test with OBS
 ------------------------
-1. Run this script (with --with-video for video).
+1. Run this script (with --web-port for a picture).
 2. Launch OBS with obs-ptz installed.
 3. Open the PTZ dock -> + -> pick the camera's source, then a protocol
    under "New device", and set it up:
@@ -36,26 +36,21 @@ End-to-end test with OBS
    obs-ptz-sim SIM-PTZ-1 (credentials aren't enforced, admin/admin is
    fine), and with --sony-discovery-name NAME, Sony's VISCA-over-IP
    discovery finds it as NAME SIM-PTZ-1.
-4. With --with-video, a Media Source playing the RTSP stream shows the
-   test pattern.
+4. With --web-port, a Browser Source of http://127.0.0.1:<port>/ shows
+   what the camera sees; it can be dragged in OBS's Interact window.
 5. Drag the pan/tilt joystick. The simulator's stdout logs every PTZ
-   call and, with --with-video, the RTSP overlay updates pan/tilt/zoom
-   values in real time. Stop, Home, and presets all work over ONVIF and
+   call and, with --web-port, the view follows in real time. Stop, Home, and presets all work over ONVIF and
    Pelco; VISCA exercises the same shared position/speed state without
    presets.
 
 Notes
 -----
-- ffmpeg can't act as an RTSP server, so --with-video needs MediaMTX
-  (https://github.com/bluenviron/mediamtx). Download a release binary
-  and put it in $PATH, or pass --mediamtx /path/to/it.
 - Auth is intentionally not enforced for ONVIF -- the goal is exercising
   obs-ptz's discovery and command paths, not the WS-Security implementation.
-- The overlay is written to /tmp/ptzsim-state.txt (or --state-file).
-  ffmpeg's drawtext filter reloads it every few frames.
+- --rtsp-port only sets the port in the RTSP stream URI ONVIF advertises;
+  nothing serves a stream there.
 
-Single file tree, no third-party Python dependencies (and ffmpeg/mediamtx
-only if --with-video is passed).
+Single file tree, no third-party Python dependencies.
 """
 
 import argparse
@@ -71,7 +66,6 @@ from .backends.visca import ViscaBackend, ViscaCameraLogic, SonyUdpQuirks
 from .backends.visca_report import ViscaReportReplay
 from .debug_http import DebugHttpServer
 from .state import PTZState, run_ticker
-from .video import VideoFeed
 from .webview import WebViewServer
 
 
@@ -91,7 +85,7 @@ def parse_args():
     ap = argparse.ArgumentParser(
         description="Unified PTZ camera simulator exposing VISCA (TCP/UDP/"
                     "serial), ONVIF and Pelco-D/P protocol backends, with an "
-                    "optional live RTSP video feed for OBS.")
+                    "optional WebGL camera view for OBS.")
     ap.add_argument("--host", default=primary_ipv4(),
                      help="IP advertised for ONVIF discovery/stream URIs (default: auto)")
 
@@ -152,15 +146,7 @@ def parse_args():
                      help="Pelco device address to respond to")
 
     ap.add_argument("--rtsp-port", type=int, default=8554,
-                     help="RTSP port advertised/used for the video feed")
-    ap.add_argument("--with-video", action="store_true",
-                     help="spawn ffmpeg + mediamtx and serve a live RTSP "
-                          "test pattern that overlays PTZ state")
-    ap.add_argument("--mediamtx", default=None,
-                     help="explicit path to the mediamtx binary (default: search $PATH)")
-    ap.add_argument("--state-file", default="/tmp/ptzsim-state.txt",
-                     help="path the video overlay text is written to")
-
+                     help="RTSP port in the stream URI ONVIF advertises (nothing serves one)")
     ap.add_argument("--move-time", type=float, default=0.0, metavar="SECONDS",
                      help="make absolute moves, presets and home take time, as a camera's "
                           "motors do: SECONDS to cross the full pan range, the other axes at "
@@ -245,18 +231,9 @@ def main():
         web = WebViewServer(state, "0.0.0.0", args.web_port)
         web.start()
 
-    video = None
-    if args.with_video:
-        video = VideoFeed(state, args.host, args.rtsp_port, args.state_file, args.mediamtx)
-        video.start()
-
-    print(f"[sim] state file = {args.state_file}")
-
     def shutdown(*_):
         print("[sim] shutting down")
         stop_event.set()
-        if video:
-            video.stop()
         if debug_http:
             debug_http.stop()
         if web:
@@ -267,14 +244,6 @@ def main():
 
     signal.signal(signal.SIGINT, shutdown)
     signal.signal(signal.SIGTERM, shutdown)
-
-    if video:
-        async def watch_video():
-            while True:
-                await asyncio.sleep(0.5)
-                for _proc, code in video.poll():
-                    print(f"[video] subprocess exited with code {code}")
-        loop.create_task(watch_video())
 
     try:
         loop.run_forever()

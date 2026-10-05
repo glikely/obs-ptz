@@ -4,9 +4,8 @@ Serves web/index.html, which renders a panorama through a virtual camera
 whose yaw/pitch/FOV/blur follow the shared PTZState, and GET /events, a
 Server-Sent Events stream of that state at ~50 Hz. Dragging the view
 (in an OBS Browser Source's Interact window, say) moves the camera:
-the page POSTs the position it wants to /move. Unlike the RTSP feed
-this needs no ffmpeg or MediaMTX, but it is not a video stream: it
-doesn't exercise OBS's Media Source decode path.
+the page POSTs the position it wants to /move. It is not a video stream, so
+it doesn't exercise OBS's Media Source decode path.
 """
 
 import json
