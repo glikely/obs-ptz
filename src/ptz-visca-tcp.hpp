@@ -31,7 +31,6 @@ private slots:
 public:
 	ViscaTCPTransport();
 
-	QString description(unsigned int address) const override;
 	void update(OBSData config) override;
 	void save(OBSData config) const override;
 	void send(const QByteArray &msg, unsigned int address) override;

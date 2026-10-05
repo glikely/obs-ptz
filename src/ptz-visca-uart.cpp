@@ -89,11 +89,6 @@ ViscaSerialTransport::~ViscaSerialTransport()
 	attach_interface(nullptr);
 }
 
-QString ViscaSerialTransport::description(unsigned int address) const
-{
-	return QString("VISCA %1 id:%2").arg(iface ? iface->portName() : QString(), QString::number(address));
-}
-
 void ViscaSerialTransport::attach_interface(ViscaUART *new_iface)
 {
 	if (iface)

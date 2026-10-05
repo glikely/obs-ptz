@@ -212,9 +212,16 @@ void PTZListModel::refreshDeviceState(PTZDeviceEntry *entry)
 	calldata_t cd = {};
 	calldata_set_ptr(&cd, "state", state.Get());
 	callEntry(*entry, "ptz_get_state", &cd);
+	calldata_free(&cd);
 
-	entry->name = QT_UTF8(obs_data_get_string(state, "name"));
-	entry->description = QT_UTF8(obs_data_get_string(state, "description"));
+	/* The name is a setting, not state */
+	OBSDataAutoRelease config = obs_data_create();
+	cd = {};
+	calldata_set_ptr(&cd, "config", config.Get());
+	callEntry(*entry, "ptz_get_config", &cd);
+	calldata_free(&cd);
+
+	entry->name = QT_UTF8(obs_data_get_string(config, "name"));
 	entry->connected = obs_data_get_bool(state, "connected");
 	entry->live = obs_data_get_bool(state, "live");
 	entry->preview = obs_data_get_bool(state, "preview");
@@ -229,7 +236,6 @@ void PTZListModel::refreshDeviceState(PTZDeviceEntry *entry)
 				entry->features->append(QT_UTF8(obs_data_item_get_name(item)));
 		}
 	}
-	calldata_free(&cd);
 }
 
 /**
@@ -442,9 +448,6 @@ QVariant PTZListModel::data(const QModelIndex &index, int role) const
 
 	if (role == PTZListModel::DeviceIdRole)
 		return entry->id;
-
-	if (role == PTZListModel::DescriptionRole)
-		return entry->description;
 
 	if (role == PTZListModel::IsLiveRole)
 		return entry->live;

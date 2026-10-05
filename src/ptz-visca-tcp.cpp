@@ -15,12 +15,6 @@ ViscaTCPTransport::ViscaTCPTransport()
 	connect(&visca_socket, &QTcpSocket::stateChanged, this, &ViscaTCPTransport::on_socket_stateChanged);
 }
 
-QString ViscaTCPTransport::description(unsigned int address) const
-{
-	Q_UNUSED(address);
-	return QString(obs_module_text("PTZ.Visca.TCP.HostPortName")).arg(effectiveHost(), QString::number(port));
-}
-
 void ViscaTCPTransport::connectSocket()
 {
 	if (!effectiveHost().isEmpty())

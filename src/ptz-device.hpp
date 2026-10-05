@@ -181,7 +181,6 @@ public:
 	/* Tells the driver if the parent's host changed since it last looked */
 	void checkParentHost();
 	bool isSelfManaged() const { return !m_filter; }
-	virtual QString description() const;
 	bool isLive() const { return live; }
 	bool isPreview() const { return preview; }
 	/* What the device can do. None, unless a driver says. */

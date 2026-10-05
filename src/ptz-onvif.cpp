@@ -772,11 +772,6 @@ PTZOnvif::PTZOnvif(OBSData config, obs_source_t *source) : PTZDevice(config, sou
 	update(config);
 }
 
-QString PTZOnvif::description() const
-{
-	return QString("ONVIF %1@%2:%3").arg(username, effectiveHost(), QString::number(port));
-}
-
 void PTZOnvif::connectCamera()
 {
 	m_capabilitiesRequested = false;

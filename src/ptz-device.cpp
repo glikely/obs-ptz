@@ -412,8 +412,8 @@ void PTZDevice::syncName()
 			return;
 		m_parentSourceName = name;
 	}
-	obs_data_set_string(stateChanged, "name", QT_TO_UTF8(name));
-	notifyStateChanged();
+	/* The name is a setting, not state */
+	announceSettingsChanged();
 }
 
 /* Assign the source by name. This just sets the name and clears the weak reference.
@@ -432,11 +432,6 @@ void PTZDevice::setParentSourceByName(const char *name)
 		m_parentSource = OBSWeakSource();
 	}
 	syncName();
-}
-
-QString PTZDevice::description() const
-{
-	return QString::fromStdString(type);
 }
 
 /**
@@ -578,21 +573,11 @@ void PTZDevice::saveState(OBSData out) const
 	/* What the driver has read back from the camera... */
 	obs_data_apply(out, state);
 	/* ...and what the device itself knows, which wins */
-	{
-		QMutexLocker locker(&m_parentSourceMutex);
-		obs_data_set_string(out, "name", QT_TO_UTF8(m_parentSourceName));
-	}
-	obs_data_set_string(out, "description", QT_TO_UTF8(description()));
-	obs_data_set_string(out, "type", type.c_str());
 	obs_data_set_bool(out, "connected", connected);
 	obs_data_set_bool(out, "live", live);
 	obs_data_set_bool(out, "preview", preview);
 	obs_data_set_bool(out, "locked", locked);
-	const Features has = features();
-	saveFeatures(out, has);
-	/* What there was before "features", which has them too */
-	obs_data_set_bool(out, "supports_set_home", has.testFlag(HomeSet));
-	obs_data_set_bool(out, "supports_diagnostics", has.testFlag(Diagnostics));
+	saveFeatures(out, features());
 }
 
 const QList<QPair<PTZDevice::Feature, const char *>> &PTZDevice::featureNames()

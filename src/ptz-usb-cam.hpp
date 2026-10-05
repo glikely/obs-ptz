@@ -43,7 +43,6 @@ public:
 	PTZUSBCam(OBSData config, obs_source_t *source = nullptr);
 	~PTZUSBCam();
 	void save(obs_data_t *settings) const;
-	QString description() const override;
 
 	void update(OBSData ptz_data) override;
 	void save(OBSData ptz_data) const override;

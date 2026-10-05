@@ -22,8 +22,8 @@ class QLabel;
 class QPushButton;
 class QVBoxLayout;
 
-/* Shows what a device reports of itself (the "ptz_get_state" proc): its name,
- * whether it is connected, live, in the preview and locked, and, for a camera
+/* Shows what a device reports of itself (the "ptz_get_state" proc): whether it is
+ * connected, live, in the preview and locked, and, for a camera
  * that reports them, its power, autofocus and tally
  * lamps' state, its white balance, and the rest of what a VISCA camera reports
  * of its focus, exposure, picture, system and pan/tilt, most of which can be
@@ -101,7 +101,6 @@ private:
 	bool showField(Field *field, const QVariant &value);
 	void showShutterSpeeds();
 
-	QLabel *m_name;
 	QCheckBox *m_connected;
 	QCheckBox *m_live;
 	QCheckBox *m_preview;

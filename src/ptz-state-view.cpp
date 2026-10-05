@@ -127,9 +127,6 @@ PTZStateView::PTZStateView(QWidget *parent) : QWidget(parent)
 	page->setContentsMargins(0, 0, 0, 0);
 
 	auto top = new QFormLayout();
-	m_name = new QLabel();
-	m_name->setTextInteractionFlags(Qt::TextSelectableByMouse);
-	top->addRow(new QLabel(obs_module_text("PTZ.Device.State.Name")), m_name);
 	m_connected = makeIndicator("PTZ.Device.Status.Connected");
 	m_live = makeIndicator("PTZ.Device.State.Live");
 	m_preview = makeIndicator("PTZ.Device.State.Preview");
@@ -644,12 +641,6 @@ void PTZStateView::applyData(obs_data_t *data, bool all)
 	auto has = [data](const char *key) {
 		return obs_data_has_user_value(data, key);
 	};
-	auto setText = [&changed](QLabel *label, const QString &text) {
-		if (label->text() != text) {
-			label->setText(text);
-			changed = true;
-		}
-	};
 	auto setFlag = [&](QCheckBox *box, const char *key) {
 		if (!all && !has(key))
 			return;
@@ -660,8 +651,6 @@ void PTZStateView::applyData(obs_data_t *data, bool all)
 		}
 	};
 
-	if (all || has("name"))
-		setText(m_name, QString::fromUtf8(obs_data_get_string(data, "name")));
 	setFlag(m_connected, "connected");
 	setFlag(m_live, "live");
 	setFlag(m_preview, "preview");
@@ -813,7 +802,6 @@ void PTZStateView::setStatistics(OBSData stats)
 QVariantMap PTZStateView::shownValues() const
 {
 	QVariantMap shown;
-	shown["name"] = m_name->text();
 	shown["connected"] = m_connected->isChecked();
 	shown["live"] = m_live->isChecked();
 	shown["preview"] = m_preview->isChecked();

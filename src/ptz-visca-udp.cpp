@@ -54,13 +54,6 @@ ViscaUDPTransport::~ViscaUDPTransport()
 	attach_interface(nullptr);
 }
 
-QString ViscaUDPTransport::description(unsigned int address) const
-{
-	Q_UNUSED(address);
-	return QString(obs_module_text("PTZ.Visca.UDP.HostPortName"))
-		.arg(ip_address.toString(), QString::number(iface ? iface->port() : 0));
-}
-
 void ViscaUDPTransport::attach_interface(ViscaUDPSocket *new_iface)
 {
 	if (iface)

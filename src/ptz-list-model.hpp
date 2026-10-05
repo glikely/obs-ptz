@@ -43,7 +43,6 @@ private:
 		/* Reference to this device's filter. Empty on self-managed devices */
 		OBSWeakSource weakFilter;
 		QString name;
-		QString description;
 		bool connected = false;
 		bool live = false;
 		bool preview = false;
@@ -74,7 +73,6 @@ private:
 public:
 	enum PTZListModelRole {
 		DeviceIdRole = Qt::UserRole,
-		DescriptionRole,
 		IsLiveRole,
 		IsPreviewRole,
 		IsConnectedRole,

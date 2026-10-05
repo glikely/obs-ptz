@@ -49,10 +49,6 @@ class ViscaTransport : public QObject {
 public:
 	~ViscaTransport() override = default;
 
-	/* "address" is the VISCA bus/camera address; it is owned by PTZVisca
-	 * (shared with its receive-side filtering) rather than duplicated
-	 * here, so transports that need it (serial) take it as a parameter */
-	virtual QString description(unsigned int address) const = 0;
 	virtual void update(OBSData config) = 0;
 	virtual void save(OBSData config) const = 0;
 	virtual void send(const QByteArray &msg, unsigned int address) = 0;
@@ -219,7 +215,6 @@ protected slots:
 
 public:
 	PTZVisca(OBSData config, obs_source_t *source = nullptr);
-	QString description() const override;
 	obs_properties_t *get_obs_properties() override;
 	Features features() const override;
 	QJsonObject cameraReport() const override { return last_report; }
