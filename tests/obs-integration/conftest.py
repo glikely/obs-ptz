@@ -440,6 +440,8 @@ class World:
         self.device_ids = device_ids
         # The plugin's config directory, for tests that look at what it keeps there
         self.config_dir = None
+        # Somewhere for the small files a test asks the harness to write
+        self.scratch = Path(tempfile.mkdtemp(prefix="ptz-world-"))
         self._scene_counter = 0
 
     def state(self):
@@ -460,6 +462,9 @@ class World:
         """Create a ptz_action_source in a fresh scene and make that scene
         current, which fires the action via PTZ_ACTION_TRIGGER_PROGRAM_ACTIVE
         (the source's default trigger -- see ptz_action_source_activate())."""
+        # The action names the device's filter, by UUID
+        found = self.wait_for_device_source(device_id, self.scratch / "action-device.json",
+                                            lambda r: r["found"] and r["filter_uuid"])
         self._scene_counter += 1
         scene = f"ptzsim-test-{self._scene_counter}"
         source = f"{scene}-action"
@@ -470,7 +475,7 @@ class World:
             "inputKind": "ptz_action_source",
             "inputSettings": {
                 "trigger": 0,  # PTZ_ACTION_TRIGGER_PROGRAM_ACTIVE
-                "device_id": device_id,
+                "device_uuid": found["filter_uuid"],
                 "action": action,
                 "preset_id": preset_id,
                 "pan_speed": pan_speed,

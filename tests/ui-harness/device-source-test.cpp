@@ -20,6 +20,8 @@ namespace {
  *   found        - whether there is such a device; nothing else is there
  *                  if not
  *   device_id    - the device's id
+ *   filter_uuid  - the UUID of the device's PTZ Control filter, which an
+ *                  action source names its camera by
  *   name         - the device's name as the device list shows it
  *                  (PTZListModel's DisplayRole)
  *   config_name  - the "name" the device would save to the config file
@@ -87,6 +89,24 @@ void runDeviceSourceTest(const QMap<QString, QString> &params)
 		obs_data_set_string(result, "proc_source", procSource ? obs_source_get_name(procSource) : "");
 		obs_data_set_string(result, "proc_source_uuid", procSource ? obs_source_get_uuid(procSource) : "");
 		obs_data_set_int(result, "device_id", deviceId);
+
+		/* The UUID of the device's PTZ Control filter, which is how an action
+		 * source names its camera */
+		struct Find {
+			QString uuid;
+		} find;
+		if (procSource) {
+			obs_source_enum_filters(
+				procSource,
+				[](obs_source_t *, obs_source_t *filter, void *data) {
+					auto f = static_cast<Find *>(data);
+					if (f->uuid.isEmpty() &&
+					    QString(obs_source_get_id(filter)).startsWith("ca.secretlab.obs-ptz."))
+						f->uuid = QString::fromUtf8(obs_source_get_uuid(filter));
+				},
+				&find);
+		}
+		obs_data_set_string(result, "filter_uuid", qUtf8Printable(find.uuid));
 		obs_data_set_string(result, "name",
 				    qUtf8Printable(ptzDeviceList->data(index, Qt::DisplayRole).toString()));
 		obs_data_set_string(result, "config_name", obs_data_get_string(config, "name"));
