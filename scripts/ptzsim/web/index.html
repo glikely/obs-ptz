@@ -36,9 +36,12 @@ const Y = deg => (90 - deg) / 180 * TEX_H;           // latitude  -> y
 // on a TEX_W x TEX_H canvas: over the drawn world, or over a backdrop
 // (?grid=0 leaves the backdrop bare). Each line has a dark edge so it
 // shows on a bright wall as well as a dark floor.
-function drawGrid(g) {
+function drawGrid(g, faintMinor = false) {
   const line = (x0, y0, x1, y1, width, colour) => {
     g.beginPath(); g.moveTo(x0, y0); g.lineTo(x1, y1);
+    // Over a photo the 5-degree lines are only hints: no edge, and thin
+    const minor = faintMinor && width < 2;
+    if (minor) { g.lineWidth = 1; g.strokeStyle = "rgba(255,255,255,.15)"; g.stroke(); return; }
     g.lineWidth = width + 3; g.strokeStyle = "rgba(0,0,0,.45)"; g.stroke();
     g.lineWidth = width; g.strokeStyle = colour; g.stroke();
   };
@@ -231,7 +234,7 @@ async function loadBackdrop() {
     g.drawImage(image, 0, 0);
     const grid = document.createElement("canvas");
     grid.width = TEX_W; grid.height = TEX_H;
-    drawGrid(grid.getContext("2d"));
+    drawGrid(grid.getContext("2d"), true);
     g.drawImage(grid, 0, 0, c.width, c.height);
     image = c;
   }
