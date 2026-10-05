@@ -251,12 +251,18 @@ let sceneMode = false;
 fetch("config").then(r => r.json()).then(async config => {
   if (!config.scene) return;
   const { start } = await import("./scene.js");
+  let grid = null;
+  if (params.get("grid") !== "0") {
+    grid = document.createElement("canvas");
+    grid.width = TEX_W; grid.height = TEX_H;
+    drawGrid(grid.getContext("2d"), true);
+  }
   await start({
-    url: config.scene, cameraPos: config.cameraPos,
+    url: config.scene, cameraPos: config.cameraPos, grid,
     view: () => {
       const s = current();
       return { yaw: s.pan * PAN_RANGE * Math.PI / 180, pitch: s.tilt * TILT_RANGE * Math.PI / 180,
-               hfov: FOV_WIDE * Math.pow(FOV_TELE / FOV_WIDE, s.zoom) * Math.PI / 180 };
+               hfov: FOV_WIDE * Math.pow(FOV_TELE / FOV_WIDE, s.zoom) * Math.PI / 180, focus: s.focus };
     },
   });
   sceneMode = true;

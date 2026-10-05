@@ -78,8 +78,10 @@ Pan, tilt and zoom turn and zoom the camera as in the panorama, and drags
 work the same. The camera stands in the middle of the scene a third of the
 way up unless `--camera-pos X,Y,Z` (in the scene's units) says otherwise:
 point several simulators at one scene from different spots to make a
-multi-camera set. It doesn't have the degree lines or focus blur yet, and
-can't be combined with `--backdrop`. `--scene-cache DIR` moves the cache.
+multi-camera set. The degree lines are drawn over it (`?grid=0` hides them),
+and focus is real depth of field: focus 0 is sharp at 0.5 m and 1 at 100 m
+(0.5 is 7 m), and what is nearer or farther blurs more the more you zoom
+(`?dof=0` turns the blur off). It can't be combined with `--backdrop`. `--scene-cache DIR` moves the cache.
 
 ## Moving like a camera
 

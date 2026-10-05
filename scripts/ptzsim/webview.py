@@ -61,7 +61,7 @@ class WebHandler(BaseHTTPRequestHandler):
             self.end_headers()
 
     def do_POST(self):
-        """The page holding the camera: POST /move {"pan", "tilt", "zoom"}
+        """The page holding the camera: POST /move {"pan", "tilt", "zoom", "focus"}
         (any of them, normalized as in PTZState) puts it there now, and
         POST /home sends it home"""
         path = self.path.split("?", 1)[0]
@@ -70,7 +70,7 @@ class WebHandler(BaseHTTPRequestHandler):
             body = json.loads(self.rfile.read(length) or b"{}")
             if path == "/move":
                 self.state.jump_to(*(float(body[k]) if k in body else None
-                                     for k in ("pan", "tilt", "zoom")))
+                                     for k in ("pan", "tilt", "zoom", "focus")))
             elif path == "/home":
                 self.state.goto_home()
             else:
