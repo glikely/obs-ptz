@@ -69,7 +69,30 @@ def _download(url, dest, md5=None):
     return dest
 
 
+def _checksum(path):
+    digest = hashlib.md5()
+    with open(path, "rb") as f:
+        while chunk := f.read(1 << 20):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
 def _polyhaven(key, resolution, cache_dir):
+    """A cached HDRI needs no network. Beside each is a .json of what to say
+    about it and its checksum, written when it was downloaded."""
+    path = os.path.join(cache_dir, f"{key}_{resolution}.hdr")
+    sidecar = path + ".json"
+    if os.path.exists(path):
+        try:
+            with open(sidecar) as f:
+                meta = json.load(f)
+        except (OSError, ValueError):
+            meta = {}
+        if meta.get("md5") and _checksum(path) != meta["md5"]:
+            raise BackdropError(f"{path} doesn't match the checksum recorded when it was downloaded: delete it to download it again")
+        print(f"[backdrop] {meta.get('credit') or f'{key}, CC0, https://polyhaven.com/a/{key}'} (cached)")
+        return path
+
     files = _get_json(f"{API}/files/{key}")
     sizes = files.get("hdri") if isinstance(files, dict) else None
     if not sizes:
@@ -79,8 +102,12 @@ def _polyhaven(key, resolution, cache_dir):
     hdr = sizes[resolution]["hdr"]
     info = _get_json(f"{API}/info/{key}")
     authors = ", ".join(info.get("authors", {})) or "unknown"
-    print(f"[backdrop] {info.get('name', key)} by {authors}, CC0, https://polyhaven.com/a/{key}")
-    return _download(hdr["url"], os.path.join(cache_dir, f"{key}_{resolution}.hdr"), hdr.get("md5"))
+    credit = f"{info.get('name', key)} by {authors}, CC0, https://polyhaven.com/a/{key}"
+    print(f"[backdrop] {credit}")
+    _download(hdr["url"], path, hdr.get("md5"))
+    with open(sidecar, "w") as f:
+        json.dump({"credit": credit, "md5": hdr.get("md5")}, f)
+    return path
 
 
 def resolve(spec, resolution="4k", cache_dir=None):
