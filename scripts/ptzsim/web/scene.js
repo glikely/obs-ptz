@@ -7,9 +7,11 @@ import { RoomEnvironment } from "three/addons/environments/RoomEnvironment.js";
 // `view()` is the camera now: its yaw, pitch and horizontal field of view in
 // radians, and its focus (0..1). `grid` is the canvas of degree lines
 // (equirectangular, transparent) to lay over the picture, or null.
-export async function start({ url, cameraPos, view, grid }) {
+export async function start({ url, cameraPos, view, grid, exposure = 1 }) {
   const renderer = new THREE.WebGLRenderer({ antialias: true });
   renderer.toneMapping = THREE.ACESFilmicToneMapping;
+  // How bright the scene is: some come unlit or dark; ?exposure= tries one
+  renderer.toneMappingExposure = Number(new URLSearchParams(location.search).get("exposure")) || exposure;
   renderer.autoClear = false;
   const el = renderer.domElement;
   // Over the page's own canvas, which still takes the mouse for dragging

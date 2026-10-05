@@ -98,6 +98,8 @@ python3 scripts/ptzsim --room sponza --camera east-end
 | Room | Cameras |
 |---|---|
 | `sponza` (3D) | `west-end`, `east-end`, `north-gallery`, `south-gallery` |
+| `hallway` (3D) | `mid`, `near-end`, `far-end` |
+| `dungeon` (3D) | `hall`, `arches` |
 | `chapel` | `pews`, `platform`, `windows` |
 | `church` | `platform`, `aisle` |
 | `gallery` | `hall`, `doorway` |
@@ -107,7 +109,10 @@ ports, to get a multi-camera set in the same room. A panorama is one spot,
 so its cameras are different ways of looking from it. `--heading DEGREES`
 turns any picture or scene so that pan 0 looks that way; a camera's heading
 is what a room sets. Licences are those of the sources: Poly Haven's are CC0,
-Sponza's is the Cryengine Limited License.
+Sponza's is the Cryengine Limited License, the hallway's (by yeeyeeman) is Creative
+Commons Attribution, and the dungeon's (by Warkarma) isn't confirmed: both of those
+come from the three.js examples, pinned to release r170, and are open-air or unlit, so
+`exposure` brightens the dungeon. Check a licence before sharing a room's picture.
 
 ## Moving like a camera
 

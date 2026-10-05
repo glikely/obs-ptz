@@ -260,7 +260,7 @@ fetch("config").then(r => r.json()).then(async config => {
     drawGrid(grid.getContext("2d"), true);
   }
   await start({
-    url: config.scene, cameraPos: config.cameraPos, grid,
+    url: config.scene, cameraPos: config.cameraPos, grid, exposure: config.exposure || 1,
     view: () => {
       const s = current();
       return { yaw: (s.pan * PAN_RANGE + heading) * Math.PI / 180, pitch: s.tilt * TILT_RANGE * Math.PI / 180,

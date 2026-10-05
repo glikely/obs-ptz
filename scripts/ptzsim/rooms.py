@@ -14,6 +14,9 @@ class RoomError(Exception):
     pass
 
 
+# Pinned to a three.js release, so a model moved or changed later doesn't break these
+THREE_MODELS = "https://raw.githubusercontent.com/mrdoob/three.js/r170/examples/models/gltf/"
+
 ROOMS = {
     "sponza": {
         "title": "Sponza atrium (Khronos glTF sample; Cryengine Limited License)",
@@ -25,6 +28,26 @@ ROOMS = {
             "east-end": {"position": (6, 3.2, 0), "heading": -90},
             "north-gallery": {"position": (0, 5.5, -4.4), "heading": 180},
             "south-gallery": {"position": (0, 5.5, 4.1), "heading": 0},
+        },
+    },
+    "hallway": {
+        "title": "Space ship hallway (by yeeyeeman, Creative Commons Attribution on Sketchfab; via three.js examples)",
+        "scene": THREE_MODELS + "space_ship_hallway.glb",
+        # A corridor 8 m wide and 29 m long, along Z, its floor at y=-3
+        "cameras": {
+            "mid": {"position": (20.1, 0.5, -11), "heading": 0},
+            "near-end": {"position": (20.1, 0.5, 2), "heading": 0},
+            "far-end": {"position": (20.1, 0.5, -23), "heading": 180},
+        },
+    },
+    "dungeon": {
+        "title": "Dungeon (Low Poly Game Level Challenge, by Warkarma; its licence isn't confirmed: "
+                 "check it on Sketchfab before sharing; via three.js examples)",
+        "scene": THREE_MODELS + "dungeon_warkarma.glb",
+        "exposure": 3,      # it comes unlit
+        "cameras": {
+            "hall": {"position": (2.6, 3.0, 0.8), "heading": 0},
+            "arches": {"position": (2.6, 3.0, 0.8), "heading": 90},
         },
     },
     "chapel": {
@@ -68,7 +91,8 @@ def pick(name, camera=None):
     chosen = dict(cameras[camera])
     result = {"title": room["title"], "camera": camera, "backdrop": room.get("backdrop"),
               "scene": room.get("scene"), "position": chosen.get("position"),
-              "heading": chosen.get("heading", 0.0), "view": chosen.get("view")}
+              "heading": chosen.get("heading", 0.0), "view": chosen.get("view"),
+              "exposure": room.get("exposure", 1)}
     return result
 
 

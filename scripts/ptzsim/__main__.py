@@ -224,6 +224,7 @@ def parse_args():
         if not args.heading:
             args.heading = room.get("heading", 0.0)
         args.initial_view = room.get("view")
+        args.exposure = room["exposure"]
         print(f"[room] {room['title']}, camera '{room['camera']}'")
     elif args.camera:
         ap.error("--camera is for a --room")
@@ -330,6 +331,7 @@ def main():
             try:
                 directory, entry = scene_module.resolve(args.scene, args.scene_cache)
                 scene = {"dir": directory, "entry": entry, "camera_pos": args.camera_pos,
+                         "exposure": getattr(args, "exposure", 1),
                          "vendor": scene_module.ensure_three(args.scene_cache)}
             except backdrop.BackdropError as e:
                 sys.exit(f"[scene] {e}")

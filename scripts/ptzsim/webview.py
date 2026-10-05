@@ -49,7 +49,8 @@ class WebHandler(BaseHTTPRequestHandler):
         elif path == "/config":
             self._send_json({"scene": f"scene/{urllib.parse.quote(self.scene['entry'])}" if self.scene else None,
                              "cameraPos": self.scene["camera_pos"] if self.scene else None,
-                             "heading": self.heading})
+                             "heading": self.heading,
+                             "exposure": self.scene.get("exposure", 1) if self.scene else 1})
         elif path.startswith("/scene/") and self.scene:
             self._send_under(self.scene["dir"], path[len("/scene/"):])
         elif path.startswith("/vendor/") and self.scene:
