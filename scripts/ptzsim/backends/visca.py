@@ -188,6 +188,7 @@ class ViscaCameraLogic:
     (each already including its trailing 0xff).
     """
 
+    protocol_tracing = False
     # Whether the "7e 7e xx" block inquiries are understood. A BirdDog
     # answers them all with a syntax error and has only the single-value
     # inquiries; __main__ clears this to imitate one.
@@ -231,9 +232,10 @@ class ViscaCameraLogic:
 
     def print_state(self, data1, data2):
         snap = self.state.snapshot()
-        print(f'[{snap.pan:+.2f}{snap.pan_speed:+.2f}, {snap.tilt:+.2f}{snap.tilt_speed:+.2f}, '
-              f'{snap.zoom:.2f}{snap.zoom_speed:+.2f}, {snap.focus:.2f}{snap.focus_speed:+.2f}]',
-              data1, data2)
+        if (self.protocol_tracing):
+            print(f'[{snap.pan:+.2f}{snap.pan_speed:+.2f}, {snap.tilt:+.2f}{snap.tilt_speed:+.2f}, '
+                  f'{snap.zoom:.2f}{snap.zoom_speed:+.2f}, {snap.focus:.2f}{snap.focus_speed:+.2f}]',
+                  data1, data2)
 
     def hello(self):
         """Greeting some transports send when a new link comes up."""
