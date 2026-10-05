@@ -5,54 +5,27 @@ obs-ptz speaks: VISCA (TCP, UDP/"VISCA-over-IP", and an emulated serial
 port), Pelco-D/P (emulated serial), and ONVIF. Moving the camera through
 any one protocol updates the same shared pan/tilt/zoom/focus state, so
 you can point two different obs-ptz device entries at it (say, VISCA-TCP
-and Pelco) and watch them agree. Add `--with-video` and it also serves a
-live RTSP test pattern, overlaid with the current PTZ state, for OBS to
-pull in as a source.
+and Pelco) and watch them agree. Add `--web-port` and it also serves a
+WebGL view of what the camera sees, for OBS to show in a Browser Source.
 
 There is no Windows support: the emulated serial ports use Python's
 `pty` module, which is POSIX-only. Everything else (VISCA TCP/UDP,
-ONVIF, the video feed) has no OS-specific code, but hasn't been
+ONVIF, the camera view) has no OS-specific code, but hasn't been
 exercised on Windows.
 
 ## Prerequisites
 
 - Python 3.8+. No third-party packages are required for VISCA/ONVIF/
   Pelco control -- only the standard library is used.
-- Optional, only for `--with-video`:
-  - `ffmpeg` (generates the test pattern and pushes it out over RTSP).
-  - [MediaMTX](https://github.com/bluenviron/mediamtx/releases/latest)
-    (ffmpeg can't act as an RTSP server by itself; MediaMTX is a single
-    static binary that accepts ffmpeg's push and re-serves it to OBS).
-
-### Linux
-
-```
-sudo apt install ffmpeg          # only needed for --with-video
-```
-
-Download a MediaMTX release tarball for your architecture, extract it,
-and either put the `mediamtx` binary on your `$PATH` or pass
-`--mediamtx /path/to/mediamtx`.
 
 ### macOS
-
-```
-brew install ffmpeg              # only needed for --with-video
-```
-
-MediaMTX isn't in Homebrew; download the `darwin` release tarball from
-the link above, extract it, and either put it on your `$PATH` or pass
-`--mediamtx /path/to/mediamtx`. The first time you run it, Gatekeeper
-will refuse to launch an unsigned binary downloaded from the internet --
-either right-click it in Finder and choose "Open" once to approve it, or
-run `xattr -d com.apple.quarantine /path/to/mediamtx`.
 
 macOS may also prompt to allow incoming network connections the first
 time `ptzsim` binds a listening socket (TCP/UDP for VISCA, HTTP for
 ONVIF/the debug endpoint). Allow it -- these are the ports obs-ptz needs
 to reach the simulator.
 
-## WebGL camera view (no ffmpeg needed)
+## WebGL camera view
 
 `--web-port 8080` serves a WebGL page at `http://127.0.0.1:8080/` showing a
 labelled panorama (degree grid, lettered landmarks) seen through a virtual
@@ -63,8 +36,8 @@ You can also move the camera from the view: right-click the Browser Source
 in OBS and choose **Interact**, then drag to pan and tilt (the view follows
 the pointer, so the camera moves the other way), scroll to zoom, and
 double-click to send it home. Every protocol sees the new position.
-It needs OBS's browser source (CEF), and unlike `--with-video` it doesn't
-exercise OBS's Media Source/RTSP path.
+It needs OBS's browser source (CEF), and it isn't a video stream, so it
+doesn't exercise OBS's Media Source path.
 
 ## Moving like a camera
 
@@ -83,8 +56,8 @@ try `--web-port 8080 --move-time 4`.
 From the repository root:
 
 ```
-python3 scripts/ptzsim                       # everything, no video
-python3 scripts/ptzsim --with-video          # also stream a test pattern
+python3 scripts/ptzsim                       # everything, no camera view
+python3 scripts/ptzsim --web-port 8080       # also serve the WebGL camera view
 python3 scripts/ptzsim --no-onvif --no-pelco # VISCA only (all 3 transports)
 python3 scripts/ptzsim --no-visca-tcp --no-visca-serial   # VISCA/UDP only
 ```
@@ -139,9 +112,8 @@ logs every command it receives, e.g.:
 [+0.30+0.00, -0.10+0.00, 0.00+0.00, 0.50+0.00] --> 8101060118140201
 ```
 
-With `--with-video`, a Media Source playing the RTSP stream shows a test
-pattern with a live-updating overlay of
-the current pan/tilt/zoom/speed. `--debug-http-port PORT` serves the
+With `--web-port`, a Browser Source shows the camera's view moving with
+the commands (see above). `--debug-http-port PORT` serves the
 same state as JSON on `GET /state` -- mainly useful for scripts/tests
 rather than manual use.
 
@@ -168,7 +140,9 @@ highlights:
   discovery (an `ENQ:network` broadcast to UDP port 52380) as a camera
   called NAME, at `--host`. Off by default, so that several simulators on
   one machine don't all answer.
-- `--rtsp-port` (default 8554), `--with-video`, `--mediamtx PATH`,
-  `--state-file PATH` (the video overlay's backing text file).
+- `--web-port PORT`: serve the WebGL camera view (off by default), and
+  `--move-time SECONDS`: make moves take time.
+- `--rtsp-port` (default 8554): only the port in the RTSP stream URI ONVIF
+  advertises; nothing serves a stream there.
 - `--debug-http-port PORT`: serves `GET /state` as JSON; used by the CI
   test framework in `tests/obs-integration/`, off by default.
