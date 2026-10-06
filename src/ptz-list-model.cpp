@@ -683,10 +683,9 @@ obs_properties_t *PTZListModel::getProperties(const QModelIndex &index) const
 	auto entry = entryAt(index);
 	if (!entry)
 		return obs_properties_create();
-	calldata_t cd = {};
-	callEntry(*entry, "ptz_get_properties", &cd);
-	auto props = static_cast<obs_properties_t *>(calldata_ptr(&cd, "return"));
-	calldata_free(&cd);
+	/* The device's source says them, as OBS asks any source */
+	OBSSourceAutoRelease source = obs_weak_source_get_source(entry->weakSource);
+	obs_properties_t *props = source ? obs_source_properties(source) : nullptr;
 	return props ? props : obs_properties_create();
 }
 

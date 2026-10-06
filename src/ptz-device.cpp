@@ -144,7 +144,6 @@ PTZDevice::PTZDevice(OBSData config, obs_source_t *filter) : QObject()
 
 	addProc("void ptz_get_config(ptr config)", ptz_ph_lambda(get_config), this);
 	addProc("void ptz_set_config(ptr config)", ptz_ph_lambda(set_config), this);
-	addProc("ptr ptz_get_properties()", ptz_ph_lambda(get_obs_properties), this);
 
 	addProc("void ptz_request_state(ptr state)", ptz_ph_lambda(request_state), this);
 
@@ -746,13 +745,6 @@ void PTZDevice::get_parent_source(calldata_t *cd) const
 {
 	/* Any thread: parentSource() has its own lock */
 	calldata_set_ptr(cd, "return", parentSource());
-}
-
-void PTZDevice::get_obs_properties(calldata_t *cd)
-{
-	if (wrongThread("ptz_get_properties"))
-		return;
-	calldata_set_ptr(cd, "return", get_obs_properties());
 }
 
 /**

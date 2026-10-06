@@ -309,7 +309,6 @@ protected slots:
 	void setLock(calldata_t *cd);
 	void get_config(calldata_t *cd) const;
 	void set_config(calldata_t *cd);
-	void get_obs_properties(calldata_t *cd);
 	void request_state(calldata_t *cd);
 	void get_camera_report(calldata_t *cd) const;
 	void preset_get_list(calldata_t *cd) const;
