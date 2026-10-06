@@ -67,7 +67,6 @@ void *createDevice(obs_data_t *, obs_source_t *source)
 
 	signal_handler_t *sh = obs_source_get_signal_handler(source);
 	signal_handler_add(sh, "void ptz_state_changed(ptr source, ptr changed)");
-	signal_handler_add(sh, "void ptz_settings_changed(ptr source)");
 	signal_handler_add(sh, "void ptz_preset_inserted(ptr source, int row)");
 	signal_handler_add(sh, "void ptz_preset_removed(ptr source, int row)");
 	signal_handler_add(sh, "void ptz_preset_moved(ptr source, int src_row, int dest_row)");
