@@ -307,8 +307,6 @@ protected slots:
 	void get_statistics(calldata_t *cd);
 	void get_parent_source(calldata_t *cd) const;
 	void setLock(calldata_t *cd);
-	void get_config(calldata_t *cd) const;
-	void set_config(calldata_t *cd);
 	void request_state(calldata_t *cd);
 	void get_camera_report(calldata_t *cd) const;
 	void preset_get_list(calldata_t *cd) const;
@@ -364,7 +362,7 @@ public:
 
 	/* Apply new settings: update(), then announce it with the
 	 * "ptz_settings_changed" signal. The one place that fires that signal, so
-	 * the filter's .update and the dialog's ptz_set_config both go here.
+	 * the filter's .update goes here.
 	 * `settings` must be complete, as update() requires. */
 	void applySettings(OBSData settings);
 	void announceSettingsChanged();

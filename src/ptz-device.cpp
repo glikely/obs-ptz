@@ -142,9 +142,6 @@ PTZDevice::PTZDevice(OBSData config, obs_source_t *filter) : QObject()
 	addProc("ptr ptz_get_parent_source()", ptz_ph_lambda(get_parent_source), this);
 	addProc("void ptz_set_locked(bool locked)", ptz_ph_lambda(setLock), this);
 
-	addProc("void ptz_get_config(ptr config)", ptz_ph_lambda(get_config), this);
-	addProc("void ptz_set_config(ptr config)", ptz_ph_lambda(set_config), this);
-
 	addProc("void ptz_request_state(ptr state)", ptz_ph_lambda(request_state), this);
 
 	addProc("void ptz_trigger(string name)", ptz_ph_lambda(trigger), this);
@@ -696,49 +693,6 @@ void PTZDevice::setLock(calldata_t *cd)
 	if (wrongThread("ptz_set_locked"))
 		return;
 	setLock(calldata_bool(cd, "locked"));
-}
-
-/**
- * Fills the caller-owned obs_data_t passed in via the "config" calldata
- * field, mirroring save(OBSData) const.
- */
-void PTZDevice::get_config(calldata_t *cd) const
-{
-	if (wrongThread("ptz_get_config"))
-		return;
-	auto config = static_cast<obs_data_t *>(calldata_ptr(cd, "config"));
-	if (config)
-		save(config);
-}
-
-/**
- * A filter's settings are the persisted truth, so the new settings go in
- * through obs_source_update(): libobs merges them into the filter's own
- * settings, and the Filters dialog sees the same values. libobs only calls
- * the filter's .update of a video source (which ends up in applySettings())
- * on a later tick of the source, not before obs_source_update() returns, so
- * apply them here too: the caller is owed the change once this returns.
- */
-void PTZDevice::set_config(calldata_t *cd)
-{
-	if (wrongThread("ptz_set_config"))
-		return;
-	auto config = static_cast<obs_data_t *>(calldata_ptr(cd, "config"));
-	if (!config)
-		return;
-	OBSSourceAutoRelease filter = filterSource();
-	if (!filter)
-		return; /* filter is being destroyed */
-	OBSDataAutoRelease settings = obs_data_create();
-	obs_data_apply(settings, config);
-	stripIdentity(settings);
-	obs_source_update(filter, settings);
-
-	/* What .update would be given, see ptz_filter_update() */
-	OBSDataAutoRelease merged = obs_source_get_settings(filter);
-	OBSDataAutoRelease complete = obs_data_get_defaults(merged);
-	obs_data_apply(complete, merged);
-	applySettings(OBSData(complete.Get()));
 }
 
 void PTZDevice::get_parent_source(calldata_t *cd) const
