@@ -18,6 +18,9 @@ its id by the plugin, not by the test's config file. What the tests check:
 - it follows the source's name, and shows as live when the source is in
   the program scene, including when the filter is added after the scene
   went live, which no scene change announces;
+- it shows as in the preview in Studio Mode, and is locked while live;
+  a lock a user sets is dropped by the next scene change, and one a user
+  lifts from a live device stays lifted until then;
 - removing the filter removes the device, leaving the source and any
   other filter's device alone;
 """
@@ -263,6 +266,118 @@ def test_filter_device_is_live_when_its_source_is(obs_world, cameras, tmp_path):
     make_program(obs_world, obs_world.create_scene())
     result = obs_world.wait_for_device_source(device_name, out, lambda r: not r["live"], timeout=10)
     assert result["bound"] is True
+    assert result["locked"] is False
+
+
+def set_studio_mode(world, enabled):
+    world.ws.call("SetStudioModeEnabled", {"studioModeEnabled": enabled})
+    world.wait_for(lambda: world.ws.call("GetStudioModeEnabled")["studioModeEnabled"] == enabled, timeout=5)
+
+
+@pytest.fixture
+def studio_mode(obs_world):
+    """Studio Mode, which OBS starts in whichever way it was last left"""
+    set_studio_mode(obs_world, True)
+    yield
+    set_studio_mode(obs_world, False)
+
+
+def test_filter_device_is_in_preview_when_its_source_is(obs_world, cameras, studio_mode, tmp_path):
+    out = tmp_path / "device.json"
+    cam_scene = obs_world.create_scene()
+    empty_scene = obs_world.create_scene()
+    cameras.add_source(cam_scene, "filter-cam-preview")
+    cameras.add_filter("filter-cam-preview")
+    device = obs_world.wait_for_device_by_name("filter-cam-preview", out, lambda r: r["found"] and r["bound"])["uuid"]
+    make_program(obs_world, empty_scene)
+
+    obs_world.ws.call("SetCurrentPreviewScene", {"sceneName": cam_scene})
+    result = obs_world.wait_for_device_source(device, out, lambda r: r["preview"], timeout=10)
+    assert result["live"] is False
+    assert result["locked"] is False
+
+    obs_world.ws.call("SetCurrentPreviewScene", {"sceneName": empty_scene})
+    obs_world.wait_for_device_source(device, out, lambda r: not r["preview"], timeout=10)
+
+
+def test_filter_device_is_not_in_preview_outside_studio_mode(obs_world, cameras, tmp_path):
+    out = tmp_path / "device.json"
+    set_studio_mode(obs_world, False)
+    scene = obs_world.create_scene()
+    cameras.add_source(scene, "filter-cam-nopreview")
+    cameras.add_filter("filter-cam-nopreview")
+    device = obs_world.wait_for_device_by_name("filter-cam-nopreview", out, lambda r: r["found"] and r["bound"])["uuid"]
+    make_program(obs_world, scene)
+    result = obs_world.wait_for_device_source(device, out, lambda r: r["live"], timeout=10)
+    assert result["preview"] is False
+
+
+def test_user_lock_holds_until_the_scene_changes(obs_world, cameras, tmp_path):
+    out = tmp_path / "device.json"
+    scene = obs_world.create_scene()
+    cameras.add_source(scene, "filter-cam-lock")
+    cameras.add_filter("filter-cam-lock")
+    device = obs_world.wait_for_device_by_name("filter-cam-lock", out, lambda r: r["found"] and r["bound"])["uuid"]
+    make_program(obs_world, obs_world.create_scene())
+    obs_world.wait_for_device_source(device, out, lambda r: not r["live"], timeout=10)
+
+    obs_world.set_device_locked(device, True)
+    result = obs_world.wait_for_device_source(device, out, lambda r: r["locked"], timeout=10)
+    assert result["live"] is False
+
+    obs_world.set_device_locked(device, False)
+    obs_world.wait_for_device_source(device, out, lambda r: not r["locked"], timeout=10)
+
+    # Locked, then a scene change: the lock is dropped, as a lock on a camera
+    # that is no longer the one in use has no point
+    obs_world.set_device_locked(device, True)
+    obs_world.wait_for_device_source(device, out, lambda r: r["locked"], timeout=10)
+    make_program(obs_world, scene)
+    result = obs_world.wait_for_device_source(device, out, lambda r: r["live"], timeout=10)
+    # ...and the device is locked because it is live, which is no lock of the user's
+    assert result["locked"] is True
+
+    make_program(obs_world, obs_world.create_scene())
+    result = obs_world.wait_for_device_source(device, out, lambda r: not r["live"], timeout=10)
+    assert result["locked"] is False
+
+
+def test_user_can_unlock_a_live_device_until_the_scene_changes(obs_world, cameras, tmp_path):
+    out = tmp_path / "device.json"
+    scene = obs_world.create_scene()
+    other = obs_world.create_scene()
+    cameras.add_source(scene, "filter-cam-unlock")
+    make_program(obs_world, scene)
+    cameras.add_filter("filter-cam-unlock")
+    device = obs_world.wait_for_device_by_name("filter-cam-unlock", out, lambda r: r["found"] and r["live"], timeout=10)["uuid"]
+
+    obs_world.set_device_locked(device, False)
+    result = obs_world.wait_for_device_source(device, out, lambda r: not r["locked"], timeout=10)
+    assert result["live"] is True
+
+    # A scene change that leaves the device live locks it again
+    make_program(obs_world, other)
+    obs_world.wait_for_device_source(device, out, lambda r: not r["live"], timeout=10)
+    make_program(obs_world, scene)
+    result = obs_world.wait_for_device_source(device, out, lambda r: r["live"], timeout=10)
+    assert result["locked"] is True
+
+
+def test_user_lock_is_dropped_when_the_preview_changes(obs_world, cameras, studio_mode, tmp_path):
+    out = tmp_path / "device.json"
+    scene = obs_world.create_scene()
+    empty_scene = obs_world.create_scene()
+    cameras.add_source(scene, "filter-cam-prelock")
+    cameras.add_filter("filter-cam-prelock")
+    device = obs_world.wait_for_device_by_name("filter-cam-prelock", out, lambda r: r["found"] and r["bound"])["uuid"]
+    make_program(obs_world, empty_scene)
+    obs_world.ws.call("SetCurrentPreviewScene", {"sceneName": empty_scene})
+
+    obs_world.set_device_locked(device, True)
+    obs_world.wait_for_device_source(device, out, lambda r: r["locked"], timeout=10)
+
+    obs_world.ws.call("SetCurrentPreviewScene", {"sceneName": scene})
+    result = obs_world.wait_for_device_source(device, out, lambda r: r["preview"], timeout=10)
     assert result["locked"] is False
 
 

@@ -27,12 +27,15 @@ namespace {
  *   source_uuid  - that source's UUID, "" if not bound. Unlike the name,
  *                  this tells apart a source that was removed and
  *                  recreated under the same name
- *   live/locked  - whether the device's source is in the program scene
- *                  (PTZListModel's IsLiveRole/IsLockedRole). Only refreshed
- *                  by scene changes, and it is only true if the device's
- *                  source is the very object in the scene, which makes it
- *                  a behavioural check on the binding, not just a name
- *                  comparison
+ *   live/preview/locked
+ *                - whether the device's source is in the program scene, in
+ *                  the preview scene (Studio Mode only), and whether the
+ *                  device is locked (PTZListModel's IsLiveRole/
+ *                  IsPreviewRole/IsLockedRole). Only refreshed by scene
+ *                  changes, and live/preview are only true if the device's
+ *                  source is the very object in the scene, which makes
+ *                  them a behavioural check on the binding, not just a
+ *                  name comparison
  *
  *   proc_bound, proc_source, proc_source_uuid
  *                - the same three, as the device says them itself when asked
@@ -78,6 +81,7 @@ void runDeviceSourceTest(const QMap<QString, QString> &params)
 		obs_data_set_string(result, "source", source ? obs_source_get_name(source) : "");
 		obs_data_set_string(result, "source_uuid", source ? obs_source_get_uuid(source) : "");
 		obs_data_set_bool(result, "live", ptzDeviceList->data(index, PTZListModel::IsLiveRole).toBool());
+		obs_data_set_bool(result, "preview", ptzDeviceList->data(index, PTZListModel::IsPreviewRole).toBool());
 		obs_data_set_bool(result, "locked", ptzDeviceList->data(index, PTZListModel::IsLockedRole).toBool());
 	}
 
@@ -121,13 +125,27 @@ void runHoldSourceTest(const QMap<QString, QString> &params)
 		blog(LOG_INFO, "[ptz-ui-test] hold_source: failed to write %s", qUtf8Printable(filename));
 }
 
+/* Locks or unlocks a device the way a click on its padlock in the device list
+ * does: by setting PTZListModel's IsLockedRole */
+void runSetDeviceLockedTest(const QMap<QString, QString> &params)
+{
+	QModelIndex index = ptzUITestDeviceIndex(params.value(QStringLiteral("device")));
+	bool ok = index.isValid() && ptzDeviceList->setData(index, params.value(QStringLiteral("locked")) == QStringLiteral("1"),
+							    PTZListModel::IsLockedRole);
+	blog(LOG_INFO, "[ptz-ui-test] set_device_locked: %s", ok ? "set" : "unchanged or no such device");
+}
+
 } // namespace
 
 /* get_device_source request params:
  *   device    - the device, by the UUID of its filter or the name of the source it is on
  *   filename  - where to write the {"found", "uuid", "name", "bound",
- *               "source", "source_uuid", "live", "locked"} JSON result. Only "found" is there if there is
- *               no such device
+ *               "source", "source_uuid", "live", "preview", "locked"} JSON result. Only "found" is
+ *               there if there is no such device
+ *
+ * set_device_locked request params:
+ *   device    - as above
+ *   locked    - "1" to lock the device, anything else to unlock it
  *
  * hold_source request params:
  *   name      - the source's name
@@ -140,4 +158,5 @@ void registerDeviceSourceTest(PTZUITestHarness *harness)
 {
 	harness->registerTest(QStringLiteral("get_device_source"), &runDeviceSourceTest);
 	harness->registerTest(QStringLiteral("hold_source"), &runHoldSourceTest);
+	harness->registerTest(QStringLiteral("set_device_locked"), &runSetDeviceLockedTest);
 }

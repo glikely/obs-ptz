@@ -589,6 +589,13 @@ class World:
             time.sleep(interval)
         raise AssertionError(f"device {device_name} source never matched predicate; last seen: {last}")
 
+    def set_device_locked(self, device_name, locked):
+        """Locks or unlocks a device as a click on its padlock in the device
+        list does, via tests/ui-harness/device-source-test.cpp's
+        "set_device_locked" test. Like every ui test it runs queued on the
+        GUI thread, so read the result back with wait_for_device_source()."""
+        self.run_ui_test("set_device_locked", device=device_name, locked="1" if locked else "0")
+
     def wait_for_device_by_name(self, name, out_file, predicate, timeout=5, interval=0.2):
         """wait_for_device_source() for a device found by name."""
         deadline = time.time() + timeout
