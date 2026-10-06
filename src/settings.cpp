@@ -695,7 +695,7 @@ void PTZSettings::addDevice()
 	OBSSourceAutoRelease filter = ptz_device_create_filter(parent, choices[choice]);
 	if (!filter)
 		return;
-	QModelIndex index = ptzDeviceList->indexFromFilter(filter);
+	QModelIndex index = ptzDeviceList->indexFromSource(filter);
 	if (index.isValid())
 		ui->deviceList->setCurrentIndex(index);
 }

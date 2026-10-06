@@ -22,32 +22,57 @@ PTZListModel *ptzDeviceList = nullptr;
  * calldata arguments and uses QMetaObject::invokeMethod() to make the
  * method call on the correct thread.
  */
-/* Which device a per-device signal is from: the UUID of the filter it carries,
+/* Which device a per-device signal is from: the UUID of the source it carries,
  * lent for the duration of the call */
-static QString filterUuid(calldata_t *cd)
+static QString signalUuid(calldata_t *cd)
 {
-	auto filter = static_cast<obs_source_t *>(calldata_ptr(cd, "filter"));
-	return filter ? QString::fromUtf8(obs_source_get_uuid(filter)) : QString();
+	auto source = static_cast<obs_source_t *>(calldata_ptr(cd, "source"));
+	return source ? QString::fromUtf8(obs_source_get_uuid(source)) : QString();
 }
 
-/* OBS says so, through its own global signal, every time a filter is added to a
- * source: the one way to hear of devices from any plugin, since a filter is always
- * private, and so never announces itself as a source being created. A filter is a
- * device of the PTZ API if it implements it, and that is all it takes.
+/* The source a device is on, for one that doesn't say: its filter's parent, or
+ * for a device that is a source, itself. */
+static OBSSource defaultParentSource(const OBSWeakSource &weakSource)
+{
+	OBSSourceAutoRelease source = obs_weak_source_get_source(weakSource);
+	if (!source)
+		return nullptr;
+	if (obs_source_get_type(source) != OBS_SOURCE_TYPE_FILTER)
+		return source.Get();
+	/* Borrowed from the filter; the OBSSource takes a reference of its own */
+	return OBSSource(obs_filter_get_parent(source));
+}
+
+/* A source is a device of the PTZ API if it implements it, and that is all it takes,
+ * whether it is a source or a filter and whichever plugin it is from.
  *
- * It is lent for the duration of the call, and the filter, and its handlers, may be
+ * It is lent for the duration of the call, and the source, and its handlers, may be
  * gone by the time the queued call runs, so make a weak reference first. */
+static void consider_source(PTZListModel *ptzlm, obs_source_t *source)
+{
+	if (!source || !ptz_source_is_device(source))
+		return;
+	OBSWeakSource weakSource = OBSGetWeakRef(source);
+	QMetaObject::invokeMethod(ptzlm, [ptzlm, weakSource] { ptzlm->deviceCreated(weakSource); });
+}
+
+/* OBS says so, through its own global signal, every time a source is created:
+ * a device that is a source. A source made private is not announced, and so is
+ * not found. */
+static void source_create_cb(void *data, calldata_t *cd)
+{
+	consider_source(static_cast<PTZListModel *>(data), static_cast<obs_source_t *>(calldata_ptr(cd, "source")));
+}
+
+/* And every time a filter is added to a source: a device that is a filter. A
+ * filter is always private, and so never announces itself as a source being
+ * created. */
 static void filter_add_cb(void *data, calldata_t *cd)
 {
-	auto ptzlm = static_cast<PTZListModel *>(data);
-	auto filter = static_cast<obs_source_t *>(calldata_ptr(cd, "filter"));
-	if (!filter || !ptz_filter_is_device(filter))
-		return;
-	OBSWeakSource weakFilter = OBSGetWeakRef(filter);
-	QMetaObject::invokeMethod(ptzlm, [ptzlm, weakFilter] { ptzlm->deviceCreated(weakFilter); });
+	consider_source(static_cast<PTZListModel *>(data), static_cast<obs_source_t *>(calldata_ptr(cd, "filter")));
 }
 
-/* The filter, and with it the device, is being destroyed: a source's own
+/* The source, and with it the device, is being destroyed: a source's own
  * "destroy" signal, whose calldata names the source as "source" */
 static void filter_destroy_cb(void *data, calldata_t *cd)
 {
@@ -65,7 +90,7 @@ static void filter_destroy_cb(void *data, calldata_t *cd)
 static void device_state_changed_cb(void *data, calldata_t *cd)
 {
 	auto ptzlm = static_cast<PTZListModel *>(data);
-	QString uuid = filterUuid(cd);
+	QString uuid = signalUuid(cd);
 	/* The device never touches "changed" again once it has signalled it, so
 	 * a reference to it, taken here, still holds what changed when the
 	 * queued call runs */
@@ -80,7 +105,7 @@ static void device_state_changed_cb(void *data, calldata_t *cd)
 static void device_settings_changed_cb(void *data, calldata_t *cd)
 {
 	auto ptzlm = static_cast<PTZListModel *>(data);
-	QString uuid = filterUuid(cd);
+	QString uuid = signalUuid(cd);
 	QMetaObject::invokeMethod(ptzlm, [ptzlm, uuid] { ptzlm->deviceSettingsChanged(uuid); });
 }
 
@@ -93,7 +118,7 @@ static void device_settings_changed_cb(void *data, calldata_t *cd)
 static void preset_inserted_cb(void *data, calldata_t *cd)
 {
 	auto ptzlm = static_cast<PTZListModel *>(data);
-	QString uuid = filterUuid(cd);
+	QString uuid = signalUuid(cd);
 	auto row = (int)calldata_int(cd, "row");
 	QMetaObject::invokeMethod(ptzlm, [ptzlm, uuid, row] { ptzlm->presetInserted(uuid, row); });
 }
@@ -101,7 +126,7 @@ static void preset_inserted_cb(void *data, calldata_t *cd)
 static void preset_removed_cb(void *data, calldata_t *cd)
 {
 	auto ptzlm = static_cast<PTZListModel *>(data);
-	QString uuid = filterUuid(cd);
+	QString uuid = signalUuid(cd);
 	auto row = (int)calldata_int(cd, "row");
 	QMetaObject::invokeMethod(ptzlm, [ptzlm, uuid, row] { ptzlm->presetRemoved(uuid, row); });
 }
@@ -109,7 +134,7 @@ static void preset_removed_cb(void *data, calldata_t *cd)
 static void preset_moved_cb(void *data, calldata_t *cd)
 {
 	auto ptzlm = static_cast<PTZListModel *>(data);
-	QString uuid = filterUuid(cd);
+	QString uuid = signalUuid(cd);
 	auto src_row = (int)calldata_int(cd, "src_row");
 	auto dest_row = (int)calldata_int(cd, "dest_row");
 	QMetaObject::invokeMethod(ptzlm,
@@ -120,19 +145,23 @@ static void preset_moved_cb(void *data, calldata_t *cd)
 static void preset_renamed_cb(void *data, calldata_t *cd)
 {
 	auto ptzlm = static_cast<PTZListModel *>(data);
-	QString uuid = filterUuid(cd);
+	QString uuid = signalUuid(cd);
 	QMetaObject::invokeMethod(ptzlm, [ptzlm, uuid] { ptzlm->presetsChanged(uuid); });
 }
 
 PTZListModel::PTZListModel() : QAbstractItemModel()
 {
-	/* Plugins are loaded before any source is, so there are no filters to look for yet */
-	signal_handler_connect(obs_get_signal_handler(), "source_filter_add", filter_add_cb, this);
+	/* Plugins are loaded before any source is, so there are no devices to look for yet */
+	signal_handler_t *global = obs_get_signal_handler();
+	signal_handler_connect(global, "source_create", source_create_cb, this);
+	signal_handler_connect(global, "source_filter_add", filter_add_cb, this);
 }
 
 PTZListModel::~PTZListModel()
 {
-	signal_handler_disconnect(obs_get_signal_handler(), "source_filter_add", filter_add_cb, this);
+	signal_handler_t *global = obs_get_signal_handler();
+	signal_handler_disconnect(global, "source_create", source_create_cb, this);
+	signal_handler_disconnect(global, "source_filter_add", filter_add_cb, this);
 }
 
 void PTZListModel::create()
@@ -209,15 +238,15 @@ const PTZListModel::PTZDeviceEntry *PTZListModel::entryByUuid(const QString &uui
 }
 
 /**
- * Promotes entry.weakFilter to a strong reference for the duration of the
- * call, guaranteeing the filter's proc_handler is valid.
+ * Promotes entry.weakSource to a strong reference for the duration of the
+ * call, guaranteeing the source's proc_handler is valid.
  */
 bool PTZListModel::callEntry(const PTZDeviceEntry &entry, const char *method, calldata_t *cd) const
 {
-	OBSSourceAutoRelease filter = obs_weak_source_get_source(entry.weakFilter);
-	if (!filter)
+	OBSSourceAutoRelease source = obs_weak_source_get_source(entry.weakSource);
+	if (!source)
 		return false;
-	proc_handler_t *ph = obs_source_get_proc_handler(filter);
+	proc_handler_t *ph = obs_source_get_proc_handler(source);
 	return ph && proc_handler_call(ph, method, cd);
 }
 
@@ -235,7 +264,13 @@ void PTZListModel::refreshDeviceState(PTZDeviceEntry *entry)
 	callEntry(*entry, "ptz_get_state", &cd);
 	calldata_free(&cd);
 
-	entry->name = QT_UTF8(obs_data_get_string(state, "source"));
+	if (obs_data_has_user_value(state, "source")) {
+		entry->name = QT_UTF8(obs_data_get_string(state, "source"));
+	} else {
+		/* A device that doesn't say is called for its source */
+		OBSSource parent = defaultParentSource(entry->weakSource);
+		entry->name = parent ? QT_UTF8(obs_source_get_name(parent)) : QString();
+	}
 	entry->connected = obs_data_get_bool(state, "connected");
 	entry->live = obs_data_get_bool(state, "live");
 	entry->preview = obs_data_get_bool(state, "preview");
@@ -548,12 +583,12 @@ QModelIndex PTZListModel::indexFromUuid(const QString &uuid) const
 	return row >= 0 ? index(row, 0) : QModelIndex();
 }
 
-QModelIndex PTZListModel::indexFromFilter(obs_source_t *filter) const
+QModelIndex PTZListModel::indexFromSource(obs_source_t *source) const
 {
-	if (!filter)
+	if (!source)
 		return QModelIndex();
 	for (int row = 0; row < devices.size(); row++)
-		if (obs_weak_source_references_source(devices.at(row).weakFilter, filter))
+		if (obs_weak_source_references_source(devices.at(row).weakSource, source))
 			return index(row, 0);
 	return QModelIndex();
 }
@@ -567,7 +602,10 @@ OBSSource PTZListModel::parentSource(const QModelIndex &index) const
 	callEntry(*entry, "ptz_get_parent_source", &cd);
 	OBSSourceAutoRelease source = static_cast<obs_source_t *>(calldata_ptr(&cd, "return"));
 	calldata_free(&cd);
-	return source.Get();
+	if (source)
+		return source.Get();
+	/* A device that doesn't say is on its filter's parent, or is a source itself */
+	return defaultParentSource(entry->weakSource).Get();
 }
 
 /**
@@ -652,19 +690,20 @@ obs_properties_t *PTZListModel::getProperties(const QModelIndex &index) const
 	return props ? props : obs_properties_create();
 }
 
-/* A device goes with its filter, so remove that from its source; the
- * device is backed up as it is destroyed */
+/* A device that is a filter goes with its filter, so remove that from its
+ * source; the device is backed up as it is destroyed. One that is a source is
+ * the user's source, which is theirs to remove from OBS, not from here. */
 void PTZListModel::removeDevice(const QModelIndex &index)
 {
 	auto entry = entryAt(index);
 	if (!entry)
 		return;
-	OBSSourceAutoRelease filter = obs_weak_source_get_source(entry->weakFilter);
-	if (!filter)
+	OBSSourceAutoRelease source = obs_weak_source_get_source(entry->weakSource);
+	if (!source || obs_source_get_type(source) != OBS_SOURCE_TYPE_FILTER)
 		return;
-	obs_source_t *parent = obs_filter_get_parent(filter);
+	obs_source_t *parent = obs_filter_get_parent(source);
 	if (parent)
-		obs_source_filter_remove(parent, filter);
+		obs_source_filter_remove(parent, source);
 }
 
 void PTZListModel::preset_recall(const QString &uuid, int preset_id)
@@ -689,23 +728,23 @@ void PTZListModel::preset_save(const QString &uuid, int preset_id)
 	calldata_free(&cd);
 }
 
-void PTZListModel::deviceCreated(OBSWeakSource weakFilter)
+void PTZListModel::deviceCreated(OBSWeakSource weakSource)
 {
-	/* Not there to be asked about if its filter has gone since it was added */
-	OBSSourceAutoRelease filter = obs_weak_source_get_source(weakFilter);
-	if (!filter)
+	/* Not there to be asked about if its source has gone since it was announced */
+	OBSSourceAutoRelease source = obs_weak_source_get_source(weakSource);
+	if (!source)
 		return;
 	/* A filter can be added to a source more than once */
-	QString uuid = QString::fromUtf8(obs_source_get_uuid(filter));
+	QString uuid = QString::fromUtf8(obs_source_get_uuid(source));
 	if (rowByUuid.contains(uuid))
 		return;
-	signal_handler_t *sh = obs_source_get_signal_handler(filter);
+	signal_handler_t *sh = obs_source_get_signal_handler(source);
 
 	PTZDeviceEntry entry;
 	entry.serial = nextSerial++;
-	/* Kept, since once the filter is destroyed there is no asking it */
+	/* Kept, since once the source is destroyed there is no asking it */
 	entry.uuid = uuid;
-	entry.weakFilter = weakFilter;
+	entry.weakSource = weakSource;
 	devices.append(entry);
 	rebuildRowIndex();
 

@@ -29,7 +29,7 @@ enum ptz_action_type {
 
 struct ptz_action_source_data {
 	enum ptz_action_trigger_type trigger;
-	/* The UUID of the PTZ Control filter of the camera */
+	/* The UUID of the camera: a source, or a filter */
 	char *device_uuid;
 	enum ptz_action_type action;
 	uint32_t preset_id;
@@ -60,15 +60,15 @@ static void ptz_action_source_update(void *data, obs_data_t *settings)
 
 static void ptz_action_source_do_action(struct ptz_action_source_data *context)
 {
-	/* The camera is its filter, found by the UUID it was saved with. Its
-	 * proc_handler is good while the reference is held. */
-	obs_source_t *filter =
+	/* The camera is a source, or a filter, found by the UUID it was saved
+	 * with. Its proc_handler is good while the reference is held. */
+	obs_source_t *device =
 		context->device_uuid && *context->device_uuid ? obs_get_source_by_uuid(context->device_uuid) : NULL;
 	proc_handler_t *ph = NULL;
-	if (filter && ptz_filter_is_device(filter))
-		ph = obs_source_get_proc_handler(filter);
+	if (device && ptz_source_is_device(device))
+		ph = obs_source_get_proc_handler(device);
 	if (!ph) {
-		obs_source_release(filter);
+		obs_source_release(device);
 		return;
 	}
 
@@ -97,7 +97,7 @@ static void ptz_action_source_do_action(struct ptz_action_source_data *context)
 		break;
 	}
 	calldata_free(&cd);
-	obs_source_release(filter);
+	obs_source_release(device);
 }
 
 static void ptz_action_source_activate(void *data)
@@ -120,16 +120,20 @@ static bool is_ptz_in_preview(struct ptz_action_source_data *context)
 
 static bool is_ptz_device_active_in_program(const char *uuid)
 {
-	obs_source_t *filter = uuid && *uuid ? obs_get_source_by_uuid(uuid) : NULL;
-	/* The camera's source is the filter's parent, which the filter holds */
-	obs_source_t *cam_source = filter ? obs_filter_get_parent(filter) : NULL;
+	obs_source_t *device = uuid && *uuid ? obs_get_source_by_uuid(uuid) : NULL;
+	/* The camera's source is a filter's parent, which the filter holds, or
+	 * the device itself if it is a source */
+	obs_source_t *cam_source = !device ? NULL
+				   : obs_source_get_type(device) == OBS_SOURCE_TYPE_FILTER
+					   ? obs_filter_get_parent(device)
+					   : device;
 	bool ptz_in_use = false;
 	if (cam_source) {
 		obs_source_t *program = obs_frontend_get_current_scene();
 		ptz_in_use = ptz_scene_is_source_active(program, cam_source);
 		obs_source_release(program);
 	}
-	obs_source_release(filter);
+	obs_source_release(device);
 	return ptz_in_use;
 }
 
@@ -192,7 +196,7 @@ static bool ptz_action_source_device_changed_cb(obs_properties_t *props, obs_pro
 	obs_property_list_clear(prop_preset);
 	UNUSED_PARAMETER(prop_camera);
 
-	/* Ask the camera's filter for its presets, in its settings */
+	/* Ask the camera for its presets, in its settings */
 	const char *uuid = obs_data_get_string(settings, "device_uuid");
 	obs_source_t *filter = uuid && *uuid ? obs_get_source_by_uuid(uuid) : NULL;
 	proc_handler_t *ph = filter ? obs_source_get_proc_handler(filter) : NULL;
@@ -247,18 +251,26 @@ static bool ptz_action_source_test_clicked_cb(obs_properties_t *props, obs_prope
 	return false;
 }
 
+/* A camera is named for its source: a filter for the source it is on */
+static void add_camera(obs_property_t *list, obs_source_t *source, obs_source_t *device)
+{
+	const char *name = obs_source_get_name(source);
+	obs_property_list_add_string(list, name && *name ? name : obs_module_text("PTZ.Device.DefaultName"),
+				     obs_source_get_uuid(device));
+}
+
 /* Each filter of a source that is a PTZ device, whoever provides it, is a camera */
 static void add_camera_filter_cb(obs_source_t *parent, obs_source_t *filter, void *param)
 {
-	if (!ptz_filter_is_device(filter))
-		return;
-	const char *name = obs_source_get_name(parent);
-	obs_property_list_add_string(param, name && *name ? name : obs_module_text("PTZ.Device.DefaultName"),
-				     obs_source_get_uuid(filter));
+	if (ptz_source_is_device(filter))
+		add_camera(param, parent, filter);
 }
 
+/* ...and so is a source that is */
 static bool add_camera_cb(void *param, obs_source_t *source)
 {
+	if (ptz_source_is_device(source))
+		add_camera(param, source, source);
 	obs_source_enum_filters(source, add_camera_filter_cb, param);
 	return true;
 }

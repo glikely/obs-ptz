@@ -166,15 +166,15 @@ PTZDevice::PTZDevice(OBSData config, obs_source_t *filter) : QObject()
 	if (!sigs) {
 		blog(LOG_ERROR, "could not allocate signal_handler for a PTZ device");
 	} else {
-		addSignal("void ptz_state_changed(ptr filter, ptr changed)");
+		addSignal("void ptz_state_changed(ptr source, ptr changed)");
 
-		addSignal("void ptz_settings_changed(ptr filter)");
+		addSignal("void ptz_settings_changed(ptr source)");
 
-		addSignal("void ptz_preset_inserted(ptr filter, int row)");
-		addSignal("void ptz_preset_removed(ptr filter, int row)");
-		addSignal("void ptz_preset_moved(ptr filter, int src_row, int dest_row)");
-		addSignal("void ptz_preset_renamed(ptr filter, int id)");
-		addSignal("void ptz_preset_thumbnail_changed(ptr filter, int id)");
+		addSignal("void ptz_preset_inserted(ptr source, int row)");
+		addSignal("void ptz_preset_removed(ptr source, int row)");
+		addSignal("void ptz_preset_moved(ptr source, int src_row, int dest_row)");
+		addSignal("void ptz_preset_renamed(ptr source, int id)");
+		addSignal("void ptz_preset_thumbnail_changed(ptr source, int id)");
 	}
 
 	/* The device is given its source by its filter, see setParentSource() */
@@ -1135,9 +1135,9 @@ void ptz_filter_save(void *data, obs_data_t *settings)
 	PTZDevice::stripIdentity(settings);
 }
 
-bool ptz_filter_is_device(obs_source_t *filter)
+bool ptz_source_is_device(obs_source_t *source)
 {
-	proc_handler_t *ph = filter ? obs_source_get_proc_handler(filter) : nullptr;
+	proc_handler_t *ph = source ? obs_source_get_proc_handler(source) : nullptr;
 	if (!ph)
 		return false;
 	calldata_t cd = {};
@@ -1398,7 +1398,7 @@ void PTZDevice::signalDevice(const char *name, calldata_t *cd)
 	if (!filter)
 		return;
 	/* Lent to the listeners for the call: one that wants it later takes its own reference */
-	calldata_set_ptr(cd, "filter", filter.Get());
+	calldata_set_ptr(cd, "source", filter.Get());
 	signal_handler_signal(sigs, name, cd);
 }
 

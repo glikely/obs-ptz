@@ -12,12 +12,13 @@
 
 namespace {
 
-/* Two filters that stand in for a plugin other than this one that provides
- * PTZ devices. They use nothing of this plugin's but the version number it
- * documents: what the API says a device is, and no more. One speaks the
- * version the plugin does, which makes it a device; the other a major
- * version later, which does not. */
+/* Filters and a source that stand in for a plugin other than this one that
+ * provides PTZ devices. They use nothing of this plugin's but the version
+ * number it documents: what the API says a device is, and no more. Two speak
+ * the version the plugin does, which makes them devices, one as a filter and
+ * one as a source; another, a filter, a major version later, which does not. */
 const char *const GOOD_ID = "ptz_test_third_party_device";
+const char *const GOOD_SOURCE_ID = "ptz_test_third_party_source_device";
 const char *const OTHER_VERSION_ID = "ptz_test_third_party_device_other_version";
 
 struct ThirdPartyDevice {
@@ -40,12 +41,15 @@ void getState(void *data, calldata_t *cd)
 	auto state = static_cast<obs_data_t *>(calldata_ptr(cd, "state"));
 	if (!state)
 		return;
-	obs_source_t *parent = obs_filter_get_parent(self->source);
+	/* The source a device is on: a filter's parent, a source's own */
+	obs_source_t *on = obs_source_get_type(self->source) == OBS_SOURCE_TYPE_FILTER
+				   ? obs_filter_get_parent(self->source)
+				   : self->source;
 	obs_data_set_bool(state, "connected", true);
 	obs_data_set_bool(state, "live", false);
 	obs_data_set_bool(state, "preview", false);
 	obs_data_set_bool(state, "locked", false);
-	obs_data_set_string(state, "source", parent ? obs_source_get_name(parent) : "");
+	obs_data_set_string(state, "source", on ? obs_source_get_name(on) : "");
 	obs_data_t *features = obs_data_create();
 	obs_data_set_obj(state, "features", features);
 	obs_data_release(features);
@@ -62,13 +66,13 @@ void *createDevice(obs_data_t *, obs_source_t *source)
 	proc_handler_add(ph, "ptr ptz_get_state(ptr state)", getState, self);
 
 	signal_handler_t *sh = obs_source_get_signal_handler(source);
-	signal_handler_add(sh, "void ptz_state_changed(ptr filter, ptr changed)");
-	signal_handler_add(sh, "void ptz_settings_changed(ptr filter)");
-	signal_handler_add(sh, "void ptz_preset_inserted(ptr filter, int row)");
-	signal_handler_add(sh, "void ptz_preset_removed(ptr filter, int row)");
-	signal_handler_add(sh, "void ptz_preset_moved(ptr filter, int src_row, int dest_row)");
-	signal_handler_add(sh, "void ptz_preset_renamed(ptr filter, int id)");
-	signal_handler_add(sh, "void ptz_preset_thumbnail_changed(ptr filter, int id)");
+	signal_handler_add(sh, "void ptz_state_changed(ptr source, ptr changed)");
+	signal_handler_add(sh, "void ptz_settings_changed(ptr source)");
+	signal_handler_add(sh, "void ptz_preset_inserted(ptr source, int row)");
+	signal_handler_add(sh, "void ptz_preset_removed(ptr source, int row)");
+	signal_handler_add(sh, "void ptz_preset_moved(ptr source, int src_row, int dest_row)");
+	signal_handler_add(sh, "void ptz_preset_renamed(ptr source, int id)");
+	signal_handler_add(sh, "void ptz_preset_thumbnail_changed(ptr source, int id)");
 	return self;
 }
 
@@ -77,30 +81,43 @@ void destroyDevice(void *data)
 	delete static_cast<ThirdPartyDevice *>(data);
 }
 
+/* A video source that is not a filter has to say how big it is, or OBS will not
+ * register it */
+uint32_t deviceSize(void *)
+{
+	return 64;
+}
+
 const char *deviceName(void *)
 {
 	return "Test PTZ device (from another plugin)";
 }
 
-void registerFilter(const char *id)
+void registerDevice(const char *id, obs_source_type type)
 {
 	obs_source_info info = {};
 	info.id = id;
-	info.type = OBS_SOURCE_TYPE_FILTER;
+	info.type = type;
 	info.output_flags = OBS_SOURCE_VIDEO;
 	info.get_name = deviceName;
 	info.create = createDevice;
 	info.destroy = destroyDevice;
+	if (type == OBS_SOURCE_TYPE_INPUT) {
+		info.get_width = deviceSize;
+		info.get_height = deviceSize;
+	}
 	obs_register_source(&info);
 }
 
 } // namespace
 
-/* Registers the two filter kinds, "ptz_test_third_party_device" and
- * "ptz_test_third_party_device_other_version", for a test to add to a source
- * with obs-websocket, and see whether the plugin lists a device */
+/* Registers the kinds, "ptz_test_third_party_device" and
+ * "ptz_test_third_party_device_other_version" for a filter, and
+ * "ptz_test_third_party_source_device" for a source, for a test to add with
+ * obs-websocket, and see whether the plugin lists a device */
 void registerThirdPartyDeviceTest(PTZUITestHarness *)
 {
-	registerFilter(GOOD_ID);
-	registerFilter(OTHER_VERSION_ID);
+	registerDevice(GOOD_ID, OBS_SOURCE_TYPE_FILTER);
+	registerDevice(OTHER_VERSION_ID, OBS_SOURCE_TYPE_FILTER);
+	registerDevice(GOOD_SOURCE_ID, OBS_SOURCE_TYPE_INPUT);
 }

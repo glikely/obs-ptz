@@ -77,7 +77,7 @@ void collectFilterKeys(obs_source_t *parent, obs_data_array_t *out)
 		parent,
 		[](obs_source_t *, obs_source_t *filter, void *data) {
 			auto f = static_cast<Find *>(data);
-			if (!f->filter && ptz_filter_is_device(filter))
+			if (!f->filter && ptz_source_is_device(filter))
 				f->filter = filter;
 		},
 		&find);

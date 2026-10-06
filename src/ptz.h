@@ -48,11 +48,11 @@ extern const char *ptz_device_filter_kind(const char *type);
  * or NULL. */
 extern obs_source_t *ptz_device_create_filter(obs_source_t *parent, obs_data_t *config);
 
-/* Whether a filter is a device of the PTZ API, from this plugin or from any
- * other: its proc_handler answers ptz_get_api_version with the same major
- * version as this plugin's and a minor version at least as new (see
- * docs/ptz-device-api.md). Nothing about its id says so. */
-extern bool ptz_filter_is_device(obs_source_t *filter);
+/* Whether a source is a device of the PTZ API, from this plugin or from any
+ * other, a filter or not: its proc_handler answers ptz_get_api_version with
+ * the same major version as this plugin's and a minor version at least as new
+ * (see docs/ptz-device-api.md). Nothing about its id says so. */
+extern bool ptz_source_is_device(obs_source_t *source);
 
 /* Does what a device does when OBS has finished loading, for a device made
  * while it was doing that, which is too late to have heard of it */

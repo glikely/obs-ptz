@@ -17,8 +17,8 @@
 /**
  * PTZListModel never holds a PTZDevice* (see AGENTS.md / the decoupling
  * design in ptz-device.cpp): every device it knows about is represented
- * purely by its filter, a weak reference to the source it found through
- * OBS's "source_filter_add" signal, and a local cache of the
+ * purely by its source, a filter or not, a weak reference to it found through
+ * OBS's "source_create" and "source_filter_add" signals, and a local cache of the
  * fields QAbstractItemModel::data() needs to stay synchronous. All control
  * goes out through proc_handler_call(); the cache is kept in sync purely by
  * signal_handler notifications (see PTZListModel()'s constructor/the *_cb
@@ -40,13 +40,13 @@ private:
 		/* Private to the model, to say whose preset a row is in an index's
 		 * internalId(): 0 is not one */
 		uint32_t serial = 0;
-		/* The UUID of the device's filter, which is how a device is
+		/* The UUID of the device's source, which is how a device is
 		 * known outside the model */
 		QString uuid;
-		/* This device's filter. Its proc_handler and signal_handler are the
-		 * device's, so they are asked for when needed, from a strong
-		 * reference, never kept: they go when the filter does */
-		OBSWeakSource weakFilter;
+		/* This device's source, a filter or not. Its proc_handler and
+		 * signal_handler are the device's, so they are asked for when needed,
+		 * from a strong reference, never kept: they go when the source does */
+		OBSWeakSource weakSource;
 		QString name;
 		bool connected = false;
 		bool live = false;
@@ -81,7 +81,7 @@ private:
 
 public:
 	enum PTZListModelRole {
-		DeviceUuidRole = Qt::UserRole, /* QString: the UUID of the device's filter */
+		DeviceUuidRole = Qt::UserRole, /* QString: the UUID of the device's source */
 		IsLiveRole,
 		IsPreviewRole,
 		IsConnectedRole,
@@ -116,7 +116,7 @@ public:
 	/* Data Model */
 	QModelIndex indexFromUuid(const QString &uuid) const;
 	QModelIndex indexFromName(const QString &name) const;
-	QModelIndex indexFromFilter(obs_source_t *filter) const;
+	QModelIndex indexFromSource(obs_source_t *source) const;
 	/* The source a device is on, whose video is what the camera shows, as
 	 * the device says (see PTZDevice::parentSource()). Null while it has
 	 * none. */
@@ -144,7 +144,7 @@ public:
 	/* Called by the signal_handler trampolines in ptz-list-model.cpp;
 	 * not Qt slots, they bring the cache up to date and then, for the
 	 * two below, tell listeners with the signals of the same name. */
-	void deviceCreated(OBSWeakSource weakFilter);
+	void deviceCreated(OBSWeakSource weakSource);
 	void deviceDestroyed(const QString &uuid);
 	void deviceStateChanged(const QString &uuid, OBSData changed);
 	void deviceSettingsChanged(const QString &uuid);
