@@ -619,36 +619,35 @@ QModelIndex PTZListModel::indexFromName(const QString &name) const
 	return QModelIndex();
 }
 
+/* The device's settings are its source's settings, with what each is by default */
 void PTZListModel::save(const QModelIndex &index, OBSData settings) const
 {
 	auto entry = entryAt(index);
 	if (!entry)
 		return;
-	calldata_t cd = {};
-	calldata_set_ptr(&cd, "config", settings.Get());
-	callEntry(*entry, "ptz_get_config", &cd);
-	calldata_free(&cd);
+	OBSSourceAutoRelease source = obs_weak_source_get_source(entry->weakSource);
+	if (!source)
+		return;
+	OBSDataAutoRelease live = obs_source_get_settings(source);
+	OBSDataAutoRelease complete = obs_data_get_defaults(live);
+	obs_data_apply(complete, live);
+	obs_data_apply(settings, complete);
 }
 
+/* Changes the settings of the device's source. The device applies them when the
+ * source updates, which is not before this returns: the model refreshes when
+ * the device says its settings changed. */
 void PTZListModel::update(const QModelIndex &index, OBSData settings)
 {
 	auto entry = entryAt(index);
 	if (!entry)
 		return;
-	calldata_t cd = {};
-	calldata_set_ptr(&cd, "config", settings.Get());
-	callEntry(*entry, "ptz_set_config", &cd);
-	calldata_free(&cd);
-
-	refreshDeviceState(entry);
-	/* preset_max is a setting, not state -- pull the fresh value here
-	 * rather than expecting ptz_set_config to push a notification for it,
-	 * the same way any other settings change is only visible once
-	 * something asks (see ptz-device.cpp's preset_get_list()). */
-	refreshPresetList(entry);
-	auto idx = indexFromUuid(entry->uuid);
-	if (idx.isValid())
-		emit dataChanged(idx, idx);
+	OBSSourceAutoRelease source = obs_weak_source_get_source(entry->weakSource);
+	if (!source)
+		return;
+	OBSDataAutoRelease changes = obs_data_create();
+	obs_data_apply(changes, settings);
+	obs_source_update(source, changes);
 }
 
 /**

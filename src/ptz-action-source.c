@@ -199,16 +199,8 @@ static bool ptz_action_source_device_changed_cb(obs_properties_t *props, obs_pro
 	/* Ask the camera for its presets, in its settings */
 	const char *uuid = obs_data_get_string(settings, "device_uuid");
 	obs_source_t *filter = uuid && *uuid ? obs_get_source_by_uuid(uuid) : NULL;
-	proc_handler_t *ph = filter ? obs_source_get_proc_handler(filter) : NULL;
-	obs_data_t *config = obs_data_create();
-	obs_data_array_t *preset_array = NULL;
-	if (ph) {
-		calldata_t cd = {0};
-		calldata_set_ptr(&cd, "config", config);
-		proc_handler_call(ph, "ptz_get_config", &cd);
-		calldata_free(&cd);
-		preset_array = obs_data_get_array(config, "presets");
-	}
+	obs_data_t *config = filter ? obs_source_get_settings(filter) : NULL;
+	obs_data_array_t *preset_array = config ? obs_data_get_array(config, "presets") : NULL;
 
 	if (preset_array) {
 		for (size_t i = 0; i < obs_data_array_count(preset_array); i++) {
