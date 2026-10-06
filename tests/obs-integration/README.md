@@ -18,6 +18,17 @@ So the session refuses to start while there is one, and lists them to stop
 (`pkill -f "python.*-m ptzsim"`); `PTZSIM_ALLOW_STRAYS=1` runs with them
 anyway. It also says if the run itself left one behind.
 
+## On Windows
+
+`scripts/vm-windows-dev.sh test <arm64|x64>` builds the plugin, overlays it into
+the OBS under `C:\OBS-Test\<arch>` on the Parallels VM and runs this suite there
+(more arguments go to pytest). That OBS is made portable, so that each run has
+a fresh profile in its own folder (`config`, with the last run's kept as
+`config.prev`). There is no pty to stand in for a serial port on Windows, so
+the tests of the serial and Pelco devices, and `test_change_interface.py`, are
+skipped. `ptzsim` binds its VISCA-over-IP port exclusively there, as Windows
+would otherwise let the plugin share it and a reply would go to the camera.
+
 ## How it works
 
 1. **`ptzsim`** is started as a subprocess on fixed local ports, one
