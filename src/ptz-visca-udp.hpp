@@ -64,6 +64,7 @@ public:
 
 	void update(OBSData config) override;
 	void save(OBSData config) const override;
+	void saveDefaults(OBSData config) const override;
 	void send(const QByteArray &msg, unsigned int address) override;
 	void setSourceHost(const QString &new_host) override;
 	/* Sony cameras were seen to drop about half of the requests that came

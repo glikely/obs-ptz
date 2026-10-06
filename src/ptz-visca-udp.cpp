@@ -196,11 +196,15 @@ void ViscaUDPTransport::update(OBSData config)
 void ViscaUDPTransport::save(OBSData config) const
 {
 	obs_data_set_string(config, "host", qPrintable(host));
-	/* Greyed-out text in a blank Host field: where it will connect instead */
-	obs_data_set_default_string(config, "host:placeholder", QT_TO_UTF8(source_host));
 	obs_data_set_int(config, "udp_port", iface ? iface->port() : 0);
 	obs_data_set_int(config, "port", iface ? iface->port() : 0); /* legacy schema */
 	obs_data_set_bool(config, "quirk_visca_udp_no_seq", quirk_visca_udp_no_seq);
+}
+
+void ViscaUDPTransport::saveDefaults(OBSData config) const
+{
+	/* Greyed-out text in a blank Host field: where it will connect instead */
+	obs_data_set_default_string(config, "host:placeholder", QT_TO_UTF8(source_host));
 }
 
 void ViscaUDPTransport::add_obs_properties(obs_properties_t *props)

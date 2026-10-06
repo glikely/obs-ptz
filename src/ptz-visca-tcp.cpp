@@ -114,10 +114,14 @@ void ViscaTCPTransport::update(OBSData config)
 void ViscaTCPTransport::save(OBSData config) const
 {
 	obs_data_set_string(config, "host", QT_TO_UTF8(host));
-	/* Greyed-out text in a blank Host field: where it will connect instead */
-	obs_data_set_default_string(config, "host:placeholder", QT_TO_UTF8(source_host));
 	obs_data_set_int(config, "tcp_port", port);
 	obs_data_set_int(config, "port", port); /* legacy schema */
+}
+
+void ViscaTCPTransport::saveDefaults(OBSData config) const
+{
+	/* Greyed-out text in a blank Host field: where it will connect instead */
+	obs_data_set_default_string(config, "host:placeholder", QT_TO_UTF8(source_host));
 }
 
 void ViscaTCPTransport::add_obs_properties(obs_properties_t *props)

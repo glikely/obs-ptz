@@ -51,6 +51,8 @@ public:
 
 	virtual void update(OBSData config) = 0;
 	virtual void save(OBSData config) const = 0;
+	/* What it has to say of its own, as defaults: see PTZDevice::saveDefaults() */
+	virtual void saveDefaults(OBSData config) const { Q_UNUSED(config); }
 	virtual void send(const QByteArray &msg, unsigned int address) = 0;
 	/* Least time, in ms, the camera needs between its last reply and the
 	 * next request. Some cameras silently drop a request that comes too
@@ -227,6 +229,7 @@ public:
 	static void defaults(obs_data_t *config);
 	void update(OBSData config) override;
 	void save(OBSData config) const override;
+	void saveDefaults(obs_data_t *settings) const override;
 	void saveLegacy(obs_data_t *settings) const override;
 
 	void cmd_get_camera_info();

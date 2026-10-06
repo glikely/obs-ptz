@@ -357,8 +357,8 @@ void PTZDevice::checkParentHost()
 	m_parentHost = host;
 	ptz_info("parent source host is now '%s'", QT_TO_UTF8(host));
 	onParentHostChanged(host);
-	/* save() reports the host in the settings, as the placeholder of a blank
-	 * Host */
+	/* The host is the placeholder of a blank Host, in the settings */
+	publish();
 	announceSettingsChanged();
 }
 
@@ -818,6 +818,8 @@ void PTZDevice::defaults(obs_data_t *config)
 void PTZDevice::applySettings(OBSData settings)
 {
 	update(settings);
+	/* A new type can be a new kind of transport, with another host to say */
+	publish();
 	announceSettingsChanged();
 }
 
@@ -901,6 +903,7 @@ void PTZDevice::save(OBSData config) const
 	obs_data_set_bool(config, "focus_invert", focus_invert);
 	obs_data_set_int(config, "preset_max", m_maxPresets);
 	persistState(config);
+	saveDefaults(config);
 }
 
 void PTZDevice::persistState(obs_data_t *settings) const
@@ -921,6 +924,16 @@ void PTZDevice::persist() const
 		return;
 	OBSDataAutoRelease settings = obs_source_get_settings(filter);
 	persistState(settings);
+	saveDefaults(settings);
+}
+
+void PTZDevice::publish() const
+{
+	OBSSourceAutoRelease filter = filterSource();
+	if (!filter)
+		return;
+	OBSDataAutoRelease settings = obs_source_get_settings(filter);
+	saveDefaults(settings);
 }
 
 obs_properties_t *PTZDevice::get_obs_properties()

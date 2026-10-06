@@ -354,6 +354,13 @@ public:
 	virtual void save(OBSData ptz_config) const;
 	virtual void persistState(obs_data_t *settings) const;
 	void persist() const;
+	/* `saveDefaults()`: Write defaults that depend on the device, not on its
+	 *     type, for the controller to show with its settings: a "<key>:placeholder"
+	 *     says what a blank field will use instead. Defaults are never saved,
+	 *     and cannot undo a setting. `publish()` writes them to the settings of
+	 *     the device's source, as they change. */
+	virtual void saveDefaults(obs_data_t *settings) const { Q_UNUSED(settings); }
+	void publish() const;
 	/* What older versions read from the settings, derived from the others, for
 	 * the filter's .save to write for them. */
 	virtual void saveLegacy(obs_data_t *settings) const { Q_UNUSED(settings); }

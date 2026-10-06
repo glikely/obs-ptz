@@ -895,13 +895,17 @@ void PTZOnvif::save(OBSData config) const
 {
 	PTZDevice::save(config);
 	obs_data_set_string(config, "host", QT_TO_UTF8(host));
-	/* Greyed-out text in a blank Host field: where it will connect instead */
-	obs_data_set_default_string(config, "host:placeholder", QT_TO_UTF8(m_sourceHost));
 	obs_data_set_int(config, "port", port);
 	obs_data_set_string(config, "username", QT_TO_UTF8(username));
 	obs_data_set_string(config, "password", QT_TO_UTF8(password));
 	obs_data_set_double(config, "speed_boost", m_speed_boost);
 	obs_data_set_string(config, "wb_mode", QT_TO_UTF8(m_wbMode));
+}
+
+void PTZOnvif::saveDefaults(obs_data_t *settings) const
+{
+	/* Greyed-out text in a blank Host field: where it will connect instead */
+	obs_data_set_default_string(settings, "host:placeholder", QT_TO_UTF8(m_sourceHost));
 }
 
 /* The profile the camera is using is the device's to choose, when none was

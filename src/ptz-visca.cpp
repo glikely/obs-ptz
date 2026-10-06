@@ -226,6 +226,12 @@ void PTZVisca::save(OBSData cfg) const
 		transport->save(cfg);
 }
 
+void PTZVisca::saveDefaults(obs_data_t *settings) const
+{
+	if (transport)
+		transport->saveDefaults(settings);
+}
+
 /* The "port" that older versions read, of the transport's own ports */
 void PTZVisca::saveLegacy(obs_data_t *settings) const
 {
