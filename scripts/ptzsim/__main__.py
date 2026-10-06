@@ -275,6 +275,11 @@ def parse_args():
 
 def main():
     args = parse_args()
+    if sys.platform == 'win32':
+        # Timers, and the asyncio clock, tick every 16ms by default: coarser than
+        # the delays the simulated cameras are made of
+        import ctypes
+        ctypes.windll.winmm.timeBeginPeriod(1)
 
     state = PTZState()
     if args.move_time > 0:

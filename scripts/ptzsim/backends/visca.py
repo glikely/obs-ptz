@@ -16,6 +16,9 @@ model.
 """
 
 import asyncio
+import socket
+import sys
+import time
 
 from .base import Backend
 from ..serial_port import DatagramFramer, EmulatedSerialPort
@@ -947,7 +950,7 @@ class ViscaUdpProtocol(asyncio.DatagramProtocol):
     def _sony_reply(self, addr, seq, reply, awaited=None):
         if awaited is not None:
             self._awaiting[awaited] -= 1
-        self._last_reply = asyncio.get_running_loop().time()
+        self._last_reply = time.perf_counter()
         self._send(addr, VISCA_IP_REPLY, seq, reply)
 
     def _sony_request(self, addr, seq, dg):
@@ -955,7 +958,8 @@ class ViscaUdpProtocol(asyncio.DatagramProtocol):
         loop = asyncio.get_running_loop()
         q.stats['requests'] += 1
 
-        if loop.time() - self._last_reply < q.min_gap:
+        # not loop.time(), which on Windows ticks every 16ms, longer than min_gap
+        if time.perf_counter() - self._last_reply < q.min_gap:
             q.stats['dropped_too_soon'] += 1
             return
         if seq <= self._last_seq:
@@ -1009,8 +1013,23 @@ class ViscaUdpServer:
         self.transport = None
 
     async def start(self, loop):
+        kwargs = {'local_addr': (self.host or '0.0.0.0', self.port)}
+        if sys.platform == 'win32':
+            # The plugin binds the camera's own port too, and tries to carry on
+            # when it cannot. Windows lets it, however, and then a reply to it
+            # goes to the camera's socket instead, which is not what a camera on
+            # another computer would do. Not sharing the port gets what the
+            # others do, which is for the plugin's bind to fail. It binds a
+            # socket for all addresses of both families, which only conflicts
+            # with one that is too.
+            sock = socket.socket(socket.AF_INET6, socket.SOCK_DGRAM)
+            sock.setsockopt(socket.IPPROTO_IPV6, socket.IPV6_V6ONLY, 0)
+            sock.setsockopt(socket.SOL_SOCKET, socket.SO_EXCLUSIVEADDRUSE, 1)
+            sock.bind(('::', self.port))
+            kwargs.pop('local_addr')
+            kwargs['sock'] = sock
         self.transport, _protocol = await loop.create_datagram_endpoint(
-            lambda: ViscaUdpProtocol(self.state, self.quirks), local_addr=(self.host or '0.0.0.0', self.port))
+            lambda: ViscaUdpProtocol(self.state, self.quirks), **kwargs)
         print(f'[visca-udp] serving on {self.transport.get_extra_info("sockname")}')
 
     def stop(self):
