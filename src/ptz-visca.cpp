@@ -666,7 +666,7 @@ void PTZVisca::discover_finish()
 	stale_state += "pan_pos";
 	stale_state += "zoom_pos";
 	stale_state += "focus_pos";
-	announceSettingsChanged();
+	settingsChanged();
 }
 
 /* Everything the camera can be asked for is to be read again */

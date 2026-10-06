@@ -164,8 +164,6 @@ PTZDevice::PTZDevice(OBSData config, obs_source_t *filter) : QObject()
 	} else {
 		addSignal("void ptz_state_changed(ptr source, ptr changed)");
 
-		addSignal("void ptz_settings_changed(ptr source)");
-
 		addSignal("void ptz_preset_inserted(ptr source, int row)");
 		addSignal("void ptz_preset_removed(ptr source, int row)");
 		addSignal("void ptz_preset_moved(ptr source, int src_row, int dest_row)");
@@ -356,7 +354,7 @@ void PTZDevice::checkParentHost()
 	onParentHostChanged(host);
 	/* The host is the placeholder of a blank Host, in the settings */
 	publish();
-	announceSettingsChanged();
+	settingsChanged();
 }
 
 void PTZDevice::syncName()
@@ -774,14 +772,16 @@ void PTZDevice::applySettings(OBSData settings)
 	update(settings);
 	/* A new type can be a new kind of transport, with another host to say */
 	publish();
-	announceSettingsChanged();
 }
 
-void PTZDevice::announceSettingsChanged()
+/* A change the device made to its own settings, which OBS says the way it does
+ * any other: its source updated. The device is updated with them again, which
+ * leaves them as they are. */
+void PTZDevice::settingsChanged()
 {
-	calldata_t cd = {};
-	signalDevice("ptz_settings_changed", &cd);
-	calldata_free(&cd);
+	OBSSourceAutoRelease filter = filterSource();
+	if (filter)
+		obs_source_update(filter, nullptr);
 }
 
 void PTZDevice::stripIdentity(obs_data_t *settings)

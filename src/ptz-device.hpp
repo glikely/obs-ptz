@@ -360,12 +360,11 @@ public:
 	virtual void saveDefaults(obs_data_t *settings) const { Q_UNUSED(settings); }
 	void publish() const;
 
-	/* Apply new settings: update(), then announce it with the
-	 * "ptz_settings_changed" signal. The one place that fires that signal, so
-	 * the filter's .update goes here.
+	/* Apply new settings, which the filter's .update does.
 	 * `settings` must be complete, as update() requires. */
 	void applySettings(OBSData settings);
-	void announceSettingsChanged();
+	/* Say that the device changed its own settings: see PTZDevice::settingsChanged() */
+	void settingsChanged();
 	/* Remove the keys older versions kept in a filter's settings, "name" and
 	 * "id", which the filter does not need: it knows its own source */
 	static void stripIdentity(obs_data_t *settings);

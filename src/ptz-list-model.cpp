@@ -99,8 +99,7 @@ static void device_state_changed_cb(void *data, calldata_t *cd)
 }
 
 /**
- * device settings change callback-- connected to PTZDevice "ptz_settings_changed"
- * signal
+ * device settings change callback-- connected to the source's "update" signal
  */
 static void device_settings_changed_cb(void *data, calldata_t *cd)
 {
@@ -755,7 +754,7 @@ void PTZListModel::deviceCreated(OBSWeakSource weakSource)
 
 	signal_handler_connect(sh, "destroy", filter_destroy_cb, this);
 	signal_handler_connect(sh, "ptz_state_changed", device_state_changed_cb, this);
-	signal_handler_connect(sh, "ptz_settings_changed", device_settings_changed_cb, this);
+	signal_handler_connect(sh, "update", device_settings_changed_cb, this);
 	signal_handler_connect(sh, "ptz_preset_inserted", preset_inserted_cb, this);
 	signal_handler_connect(sh, "ptz_preset_removed", preset_removed_cb, this);
 	signal_handler_connect(sh, "ptz_preset_moved", preset_moved_cb, this);
