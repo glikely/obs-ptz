@@ -226,6 +226,16 @@ void PTZVisca::save(OBSData cfg) const
 		transport->save(cfg);
 }
 
+/* The "port" that older versions read, of the transport's own ports */
+void PTZVisca::saveLegacy(obs_data_t *settings) const
+{
+	if (!transport)
+		return;
+	OBSDataAutoRelease snapshot = obs_data_create();
+	transport->save(snapshot.Get());
+	copyValue(snapshot, settings, "port");
+}
+
 /* Add the connection fields for one VISCA transport type ("visca" /
  * "visca-over-ip" / "visca-over-tcp", the same strings the "type" field has
  * always used). Only one transport's fields are ever present in the

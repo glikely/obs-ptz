@@ -828,6 +828,30 @@ void PTZDevice::announceSettingsChanged()
 	calldata_free(&cd);
 }
 
+void PTZDevice::copyValue(obs_data_t *from, obs_data_t *to, const char *key)
+{
+	obs_data_item_t *item = obs_data_item_byname(from, key);
+	if (!item)
+		return;
+	switch (obs_data_item_gettype(item)) {
+	case OBS_DATA_STRING:
+		obs_data_set_string(to, key, obs_data_item_get_string(item));
+		break;
+	case OBS_DATA_NUMBER:
+		if (obs_data_item_numtype(item) == OBS_DATA_NUM_INT)
+			obs_data_set_int(to, key, obs_data_item_get_int(item));
+		else
+			obs_data_set_double(to, key, obs_data_item_get_double(item));
+		break;
+	case OBS_DATA_BOOLEAN:
+		obs_data_set_bool(to, key, obs_data_item_get_bool(item));
+		break;
+	default:
+		break;
+	}
+	obs_data_item_release(&item);
+}
+
 void PTZDevice::stripIdentity(obs_data_t *settings)
 {
 	/* Written by versions that kept them in the settings */
@@ -876,14 +900,27 @@ void PTZDevice::save(OBSData config) const
 	obs_data_set_bool(config, "zoom_invert", zoom_invert);
 	obs_data_set_bool(config, "focus_invert", focus_invert);
 	obs_data_set_int(config, "preset_max", m_maxPresets);
+	persistState(config);
+}
 
+void PTZDevice::persistState(obs_data_t *settings) const
+{
 	OBSDataArrayAutoRelease preset_array = obs_data_array_create();
 	for (auto id : m_presetsDisplayOrder) {
 		OBSDataAutoRelease data = variantMapToOBSData(m_presets[id]);
 		obs_data_set_int(data, "id", id);
 		obs_data_array_push_back(preset_array, data);
 	}
-	obs_data_set_array(config, "presets", preset_array);
+	obs_data_set_array(settings, "presets", preset_array);
+}
+
+void PTZDevice::persist() const
+{
+	OBSSourceAutoRelease filter = filterSource();
+	if (!filter)
+		return;
+	OBSDataAutoRelease settings = obs_source_get_settings(filter);
+	persistState(settings);
 }
 
 obs_properties_t *PTZDevice::get_obs_properties()
@@ -1120,7 +1157,12 @@ void ptz_filter_save(void *data, obs_data_t *settings)
 	auto ptz = static_cast<PTZDevice *>(data);
 	if (!ptz)
 		return;
-	ptz->save(settings);
+	/* The settings are the one copy of what the device saves, which it
+	 * keeps current as it changes it. Writing the rest from the device here
+	 * would put the device's values over a change made to the settings that
+	 * it has yet to be updated with. */
+	ptz->persistState(settings);
+	ptz->saveLegacy(settings);
 	/* The filter already knows its source, and a device id isn't stable
 	 * across a driver change; neither belongs in the scene collection.
 	 * Also clears them from collections saved before this was stripped. */
@@ -1201,6 +1243,7 @@ void PTZDevice::setPresetName(size_t id, QString name)
 	QVariantMap &preset = m_presets[id];
 	preset["name"] = name;
 	sanitizePreset(id);
+	persist();
 
 	calldata_t cd = {};
 	calldata_set_int(&cd, "id", (long long)id);
@@ -1228,6 +1271,7 @@ void PTZDevice::setPresetThumbnail(size_t id, const QImage &image)
 	QVariantMap &preset = m_presets[id];
 	ptz_thumbnail_remove(preset.value("thumbnail").toString());
 	preset["thumbnail"] = name;
+	persist();
 	signalPresetThumbnail(id);
 }
 
@@ -1237,6 +1281,7 @@ void PTZDevice::clearPresetThumbnail(size_t id)
 		return;
 	ptz_thumbnail_remove(presetThumbnail(id));
 	m_presets[id].remove("thumbnail");
+	persist();
 	signalPresetThumbnail(id);
 }
 
@@ -1281,6 +1326,7 @@ int PTZDevice::newPreset(int row)
 	map["id"] = (uint)id;
 	m_presets[id] = map;
 	m_presetsDisplayOrder.insert(row, id);
+	persist();
 
 	calldata_t cd = {};
 	calldata_set_int(&cd, "row", row);
@@ -1295,6 +1341,7 @@ void PTZDevice::removePresetAtDisplayRow(int row)
 	ptz_thumbnail_remove(presetThumbnail(m_presetsDisplayOrder[row]));
 	m_presets.remove(m_presetsDisplayOrder[row]);
 	m_presetsDisplayOrder.removeAt(row);
+	persist();
 
 	calldata_t cd = {};
 	calldata_set_int(&cd, "row", row);
@@ -1312,6 +1359,7 @@ void PTZDevice::movePreset(int srcRow, int destRow)
 	if (srcRow < listMoveDest)
 		listMoveDest--;
 	m_presetsDisplayOrder.move(srcRow, listMoveDest);
+	persist();
 
 	calldata_t cd = {};
 	calldata_set_int(&cd, "src_row", srcRow);
@@ -1339,6 +1387,7 @@ bool PTZDevice::updatePreset(size_t id, const QVariantMap &map)
 	if (!m_presets.contains(id))
 		return false;
 	m_presets[id].insert(map);
+	persist();
 	return true;
 }
 

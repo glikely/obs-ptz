@@ -227,6 +227,7 @@ public:
 	static void defaults(obs_data_t *config);
 	void update(OBSData config) override;
 	void save(OBSData config) const override;
+	void saveLegacy(obs_data_t *settings) const override;
 
 	void cmd_get_camera_info();
 

@@ -342,10 +342,21 @@ public:
 	 *     never modifies it or adds anything to it.
 	 * `save()`: Make sure device configuration is written to an OBSData.
 	 *     Settings only.
+	 * `persistState()`: Write just what the device itself changes, which
+	 *     the settings did not give it and so cannot already have, such as
+	 *     its presets. `persist()` does it to the settings of the device's
+	 *     source, after each change, so that they are the one copy of what
+	 *     the device saves; it must not write any setting that can be set
+	 *     from outside, which the device may not have been updated with yet.
 	 */
 	static void defaults(obs_data_t *defaults);
 	virtual void update(OBSData ptz_config);
 	virtual void save(OBSData ptz_config) const;
+	virtual void persistState(obs_data_t *settings) const;
+	void persist() const;
+	/* What older versions read from the settings, derived from the others, for
+	 * the filter's .save to write for them. */
+	virtual void saveLegacy(obs_data_t *settings) const { Q_UNUSED(settings); }
 
 	/* Apply new settings: update(), then announce it with the
 	 * "ptz_settings_changed" signal. The one place that fires that signal, so
@@ -356,6 +367,8 @@ public:
 	/* Remove the keys older versions kept in a filter's settings, "name" and
 	 * "id", which the filter does not need: it knows its own source */
 	static void stripIdentity(obs_data_t *settings);
+	/* One value, of whatever type, from `from` to `to`, if `from` has it */
+	static void copyValue(obs_data_t *from, obs_data_t *to, const char *key);
 	/* Keep a copy of save()'s settings in the rolling backup of devices
 	 * that have gone away (see ptz_device_backups_get()). Called when its
 	 * source is deleted, its filter is removed, and as it is destroyed. */

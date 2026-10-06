@@ -33,6 +33,7 @@ PTZUSBCam::PTZUSBCam(OBSData config, obs_source_t *source)
 			pos.focusAuto = focusAuto;
 			pos.focus = focus;
 			presets[id] = pos;
+			persist();
 		});
 
 	connect(worker_.get(), &PTZUsbWorker::stateCaptured, this,
@@ -79,9 +80,11 @@ void PTZUSBCam::update(OBSData config)
 	}
 }
 
-void PTZUSBCam::save(OBSData config) const
+/* The camera's own positions for its presets are the device's: it captures
+ * them from the camera when a preset is saved */
+void PTZUSBCam::persistState(obs_data_t *config) const
 {
-	PTZDevice::save(config);
+	PTZDevice::persistState(config);
 	OBSDataArrayAutoRelease presetArray = obs_data_array_create();
 	for (auto it = presets.constBegin(); it != presets.constEnd(); ++it) {
 		const PtzUsbCamPos &preset = it.value();
@@ -215,6 +218,7 @@ void PTZUSBCam::memory_reset(int i)
 	if (!presets.contains(i))
 		return;
 	presets.remove(i);
+	persist();
 }
 
 void PTZUSBCam::memory_set(int i)

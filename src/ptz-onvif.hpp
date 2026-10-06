@@ -123,6 +123,7 @@ public:
 	void update(OBSData ptz_data) override;
 	void onParentHostChanged(const QString &newHost) override;
 	void save(OBSData ptz_data) const override;
+	void persistState(obs_data_t *settings) const override;
 
 	obs_properties_t *get_obs_properties() override;
 

@@ -528,6 +528,7 @@ void PTZOnvif::handleGetProfilesResponse(QDomNode n)
 			}
 		}
 	}
+	persist();
 	getPresets();
 	applyImagingIfPending();
 	featuresChanged();
@@ -900,8 +901,16 @@ void PTZOnvif::save(OBSData config) const
 	obs_data_set_string(config, "username", QT_TO_UTF8(username));
 	obs_data_set_string(config, "password", QT_TO_UTF8(password));
 	obs_data_set_double(config, "speed_boost", m_speed_boost);
-	obs_data_set_string(config, "profile_token", QT_TO_UTF8(m_selectedMedia.token));
 	obs_data_set_string(config, "wb_mode", QT_TO_UTF8(m_wbMode));
+}
+
+/* The profile the camera is using is the device's to choose, when none was
+ * chosen, from what the camera has */
+void PTZOnvif::persistState(obs_data_t *settings) const
+{
+	PTZDevice::persistState(settings);
+	QString token = m_selectedMedia.token.isEmpty() ? m_savedProfileToken : m_selectedMedia.token;
+	obs_data_set_string(settings, "profile_token", QT_TO_UTF8(token));
 }
 
 obs_properties_t *PTZOnvif::get_obs_properties()

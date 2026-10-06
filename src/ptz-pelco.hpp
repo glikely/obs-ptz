@@ -58,6 +58,7 @@ public:
 	static void defaults(obs_data_t *config);
 	void update(OBSData ptz_data) override;
 	void save(OBSData config) const override;
+	void saveLegacy(obs_data_t *settings) const override;
 	obs_properties_t *get_obs_properties() override;
 
 	void do_update() override;
