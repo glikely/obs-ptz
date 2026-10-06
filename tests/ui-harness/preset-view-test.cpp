@@ -100,6 +100,19 @@ void runPresetViewTest(const QMap<QString, QString> &params)
 		blog(LOG_INFO, "[ptz-ui-test] get_preset_view: failed to write %s", qUtf8Printable(filename));
 }
 
+/* Adds a preset to a device, as a user does from the preset list: a change the
+ * device makes itself, which its settings did not give it */
+void runAddPresetTest(const QMap<QString, QString> &params)
+{
+	QModelIndex index = ptzUITestDeviceIndex(params.value(QStringLiteral("device")));
+	if (!index.isValid()) {
+		blog(LOG_INFO, "[ptz-ui-test] add_preset: device not found");
+		return;
+	}
+	ptzDeviceList->insertRows(ptzDeviceList->rowCount(index), 1, index);
+	blog(LOG_INFO, "[ptz-ui-test] add_preset: done");
+}
+
 } // namespace
 
 /* Request params:
@@ -114,4 +127,9 @@ void runPresetViewTest(const QMap<QString, QString> &params)
 void registerPresetViewTest(PTZUITestHarness *harness)
 {
 	harness->registerTest(QStringLiteral("get_preset_view"), &runPresetViewTest);
+	harness->registerTest(QStringLiteral("add_preset"), &runAddPresetTest);
 }
+
+/* add_preset request params:
+ *   device - the device, by the UUID of its filter or the name of the source it is on
+ */

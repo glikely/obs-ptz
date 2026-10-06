@@ -48,7 +48,9 @@ def test_filter_persists_only_settings(obs_world, cameras, tmp_path):  # noqa: F
     keys = obs_world.device_settings(device_name, out)
     assert keys["filter_keys"], "the device has no filter to persist"
     assert keys["filter_keys"] & IDENTITY_KEYS == set()
-    assert {"type", "preset_max"} <= keys["filter_keys"]
+    # Only what was set is saved: a setting at its default is not, and gets it
+    # again when the filter is made
+    assert "type" in keys["filter_keys"]
 
 
 def test_dialog_settings_reach_the_filter(obs_world, cameras, tmp_path):  # noqa: F811
