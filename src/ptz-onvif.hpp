@@ -81,9 +81,11 @@ private:
 	 * kick a full reconnect attempt on the next timer tick. */
 	int m_consecutiveFailures = 0;
 
-	/* Slot that's waiting for its SetPresetResponse to come back with the
-	 * new camera-assigned token. -1 means no SetPreset is in flight. */
-	int m_pendingSetPresetSlot = -1;
+	/* While a preset is being made, the camera's answer with its token ends
+	 * the loop that waits for it */
+	QEventLoop *m_createLoop = nullptr;
+	QString m_createdToken;
+	void presetRequest(const QString &operation, const QString &token, const QString &name = QString());
 	/* Local-to-camera time offset (seconds). Computed from
 	 * GetSystemDateAndTime on connect. Used so WS-Security timestamps
 	 * still validate against cameras whose clocks have drifted. */
@@ -136,9 +138,13 @@ public:
 	Features features() const override;
 	void zoom_abs(double pos) override;
 	void set_autofocus(bool enabled) override;
-	void memory_reset(int i) override;
-	void memory_set(int i) override;
-	void memory_recall(int i) override;
+	CameraPresets cameraPresets() const override;
+	QString cameraPresetCreate(const QString &name) override;
+	void cameraPresetSave(const QString &key) override;
+	void cameraPresetRecall(const QString &key) override;
+	void cameraPresetDelete(const QString &key) override;
+	void cameraPresetRename(const QString &key, const QString &name) override;
+	void cameraPresetRefresh() override;
 };
 
 void ptz_onvif_register_filter();

@@ -387,16 +387,16 @@ PTZControls::PTZControls(QWidget *parent) : QFrame(parent), ui(new Ui::PTZContro
 
 	auto preset_recall_cb = [](void *ptz_data, obs_hotkey_id hotkey, obs_hotkey_t *, bool pressed) {
 		PTZControls *ptzctrl = static_cast<PTZControls *>(ptz_data);
-		auto id = ptzctrl->preset_hotkey_map[hotkey];
+		auto row = ptzctrl->preset_hotkey_map[hotkey];
 		if (pressed)
-			ptzctrl->presetRecall(id);
+			ptzctrl->presetRecall(ptzctrl->presetIdAtRow(row));
 	};
 
 	auto preset_set_cb = [](void *ptz_data, obs_hotkey_id hotkey, obs_hotkey_t *, bool pressed) {
 		PTZControls *ptzctrl = static_cast<PTZControls *>(ptz_data);
-		auto id = ptzctrl->preset_hotkey_map[hotkey];
+		auto row = ptzctrl->preset_hotkey_map[hotkey];
 		if (pressed)
-			ptzctrl->presetSet(id);
+			ptzctrl->presetSet(ptzctrl->presetIdAtRow(row));
 	};
 
 	for (int i = 0; i < 16; i++) {
@@ -847,13 +847,13 @@ bool PTZControls::callCurrentDevice(const char *method, calldata_t *cd) const
 	return ptzDeviceList->callDevice(ui->deviceList->currentIndex(), method, cd);
 }
 
-bool PTZControls::callCurrentDevice(const char *method, const char *arg, long long val) const
+bool PTZControls::callCurrentDevice(const char *method, const char *arg, const QString &val) const
 {
-	calldata cd;
-	uint8_t stack[128];
-	calldata_init_fixed(&cd, stack, sizeof(stack));
-	calldata_set_int(&cd, arg, val);
-	return callCurrentDevice(method, &cd);
+	calldata_t cd = {};
+	calldata_set_string(&cd, arg, QT_TO_UTF8(val));
+	bool called = callCurrentDevice(method, &cd);
+	calldata_free(&cd);
+	return called;
 }
 
 void PTZControls::updateMoveControls()
@@ -914,26 +914,27 @@ void PTZControls::settingsChanged(const QModelIndex &topLeft, const QModelIndex 
 		updateMoveControls();
 }
 
-void PTZControls::presetSet(long long preset_id)
+void PTZControls::presetSet(const QString &preset_id)
 {
-	callCurrentDevice("ptz_preset_save", "preset_id", preset_id);
+	if (!preset_id.isEmpty())
+		callCurrentDevice("ptz_preset_save", "id", preset_id);
 }
 
-void PTZControls::presetRecall(long long preset_id)
+void PTZControls::presetRecall(const QString &preset_id)
 {
-	callCurrentDevice("ptz_preset_recall", "preset_id", preset_id);
+	if (!preset_id.isEmpty())
+		callCurrentDevice("ptz_preset_recall", "id", preset_id);
 }
 
-void PTZControls::presetReset(long long preset_id)
+QString PTZControls::presetIndexToId(QModelIndex index) const
 {
-	callCurrentDevice("ptz_preset_clear", "preset_id", preset_id);
+	return index.isValid() ? index.data(Qt::UserRole).toString() : QString();
 }
 
-int PTZControls::presetIndexToId(QModelIndex index)
+QString PTZControls::presetIdAtRow(int row) const
 {
-	if (index.isValid())
-		return index.data(Qt::UserRole).toInt();
-	return -1;
+	auto device = ui->deviceList->currentIndex();
+	return device.isValid() ? presetIndexToId(ptzDeviceList->index(row, 0, device)) : QString();
 }
 
 void PTZControls::presetUpdateActions()
@@ -1000,7 +1001,6 @@ void PTZControls::showContextMenu(const QPoint &pos)
 		if (ui->presetListView->isEnabled() && ui->presetListView->indexAt(viewPos).isValid()) {
 			menu.addAction(ui->actionPresetRename);
 			menu.addAction(ui->actionPresetSave);
-			menu.addAction(ui->actionPresetClear);
 			menu.addAction(ui->actionPresetRemove);
 			menu.addSeparator();
 		}
@@ -1122,15 +1122,6 @@ void PTZControls::on_actionPresetSave_triggered()
 	if (!index.isValid())
 		return;
 	presetSet(presetIndexToId(index));
-}
-
-void PTZControls::on_actionPresetClear_triggered()
-{
-	auto index = ui->presetListView->currentIndex();
-	if (!index.isValid())
-		return;
-	presetReset(presetIndexToId(index));
-	ptzDeviceList->setData(index, "");
 }
 
 /* The preset list is either a column of rows, or a wrapping grid of cells */
@@ -1665,7 +1656,7 @@ bool PTZPresetListDelegate::editorEvent(QEvent *event, QAbstractItemModel *model
 		const CellLayout l = layoutCell(index, option);
 		if (mouseEvent->button() == Qt::LeftButton && l.recall.contains(mouseEvent->pos())) {
 			QString deviceUuid = index.parent().data(PTZListModel::DeviceUuidRole).toString();
-			int presetId = index.data(Qt::UserRole).toInt();
+			QString presetId = index.data(Qt::UserRole).toString();
 			ptzDeviceList->preset_recall(deviceUuid, presetId);
 			return true;
 		}

@@ -77,13 +77,14 @@ private:
 	QString selected_uuid;
 
 	void setCurrent(unsigned int index);
-	int presetIndexToId(QModelIndex index);
-	void presetSet(long long id);
-	void presetRecall(long long id);
-	void presetReset(long long id);
+	QString presetIndexToId(QModelIndex index) const;
+	/* The id of the current camera's preset at `row` of its list, "" if it has none */
+	QString presetIdAtRow(int row) const;
+	void presetSet(const QString &id);
+	void presetRecall(const QString &id);
 
 	bool callCurrentDevice(const char *method, calldata_t *cd = nullptr) const;
-	bool callCurrentDevice(const char *method, const char *arg, long long val) const;
+	bool callCurrentDevice(const char *method, const char *arg, const QString &val) const;
 
 	QList<obs_hotkey_id> hotkeys;
 	QMap<obs_hotkey_id, int> preset_hotkey_map;
@@ -105,7 +106,6 @@ private slots:
 	void on_actionPresetMoveUp_triggered();
 	void on_actionPresetMoveDown_triggered();
 	void on_actionPresetSave_triggered();
-	void on_actionPresetClear_triggered();
 	void on_actionPresetRename_triggered();
 	void on_actionPresetExport_triggered(QString filename = "");
 	void on_actionPresetImport_triggered(QString filename = "");

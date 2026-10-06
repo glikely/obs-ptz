@@ -29,9 +29,9 @@ class PTZListModel : public QAbstractItemModel {
 
 public:
 	struct PresetEntry {
-		int id = 0;
+		/* The device's own id for it, see docs/ptz-device-api.md */
+		QString id;
 		QString name;
-		QString token;
 		QString thumbnail; /* path of the image file, or empty */
 	};
 
@@ -63,6 +63,8 @@ private:
 		/* The names in its state's "features", or nothing if it has none:
 		 * a device from before there were, which can do anything */
 		std::optional<QStringList> features;
+		/* How many presets the camera keeps, or 0 if it does not keep a
+		 * fixed number */
 		int maxPresets = 16;
 		QList<PresetEntry> presets;
 	};
@@ -87,6 +89,8 @@ private:
 	 * Returns whether anything changed. */
 	bool refreshSceneState(PTZDeviceEntry *entry);
 	void refreshPresetList(PTZDeviceEntry *entry);
+	/* What the device says its presets are, which does not change the cache */
+	QList<PresetEntry> fetchPresets(const PTZDeviceEntry &entry, int *slotCount = nullptr) const;
 	bool callEntry(const PTZDeviceEntry &entry, const char *method, calldata_t *cd) const;
 
 public:
@@ -147,12 +151,15 @@ public:
 	 * refresh in the appropriate QAbstractItemModel begin/end calls --
 	 * called from the per-device signal_handler trampolines in
 	 * ptz-list-model.cpp (see deviceCreated()) in response to PTZDevice's
-	 * ptz_preset_inserted/ptz_preset_removed/ptz_preset_moved signals. All the
+	 * ptz_preset_added/ptz_preset_removed/ptz_preset_moved signals. All the
 	 * begin/end bracketing lives here: PTZDevice just states what changed
 	 * once, it doesn't call back in two phases. */
 	void presetInserted(const QString &uuid, int row);
 	void presetRemoved(const QString &uuid, int row);
 	void presetMoved(const QString &uuid, int srcRow, int destRow);
+	/* The device changed its list by more than a row, as when its camera said
+	 * what presets it has */
+	void presetsReset(const QString &uuid);
 
 	/* Called by the signal_handler trampolines in ptz-list-model.cpp;
 	 * not Qt slots, they bring the cache up to date and then, for the
@@ -176,8 +183,8 @@ signals:
 	void deviceStateUpdated(const QString &uuid, OBSData changed);
 
 public slots:
-	void preset_recall(const QString &uuid, int preset_id);
-	void preset_save(const QString &uuid, int preset_id);
+	void preset_recall(const QString &uuid, const QString &preset_id);
+	void preset_save(const QString &uuid, const QString &preset_id);
 };
 
 extern PTZListModel *ptzDeviceList;

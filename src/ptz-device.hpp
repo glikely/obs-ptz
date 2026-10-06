@@ -32,6 +32,18 @@
 #define ptz_debug_trace(format, ...)
 #endif
 
+/* What the driver's camera does with presets, see PTZDevice::cameraPresets() */
+struct PTZCameraPresets {
+	/* The camera has presets to use */
+	bool available = false;
+	/* It keeps the preset's name, and is told when it changes */
+	bool namesOnCamera = false;
+	/* It can say what presets it has: see PTZDevice::setCameraPresets() */
+	bool enumerable = false;
+	/* How many it keeps, or 0 if it doesn't keep a fixed number */
+	int slotCount = 0;
+};
+
 class PTZDevice : public QObject {
 	Q_OBJECT
 
@@ -118,14 +130,34 @@ protected:
 	 * Not called from the constructor, so a driver reads parentSourceHost()
 	 * itself in update(). Must be safe to call with an unchanged host. */
 	virtual void onParentHostChanged(const QString &host) { Q_UNUSED(host); }
-	/* Collection of all presets, keyed by unique integer id.
-	 * On cameras that use preset numbers, the id is mapped 1:1 with the
-	 * preset number.  */
+	/* The camera's presets are the camera's. What the device itself keeps
+	 * is a list of Preset, in display order, over both stores */
+	struct Preset {
+		/* "camera:<the driver's key>" or "local:<key>", see presetId() */
+		QString id;
+		/* What to show: the user's name for it, or if there is none the camera's */
+		QString name;
+		/* What the camera calls it, "" if it doesn't */
+		QString cameraName;
+		/* File name (in ptz_thumbnail_dir()) of its thumbnail, or "" */
+		QString thumbnail;
+		bool onCamera() const { return id.startsWith(QStringLiteral("camera:")); }
+	};
 	size_t m_maxPresets = 16;
-	QMap<size_t, QVariantMap> m_presets;
-	QList<size_t> m_presetsDisplayOrder;
-	void sanitizePreset(size_t id);
-	void signalPresetThumbnail(size_t id);
+	/* What a new controller preset restores: the "preset_restore" setting */
+	QStringList m_presetRestore;
+	QList<Preset> m_presets;
+	/* What the camera said it has, for a driver that can enumerate, by key and
+	 * name. Kept as it is across update()s, which read the saved presets again */
+	QList<QPair<QString, QString>> m_cameraPresets;
+	bool m_cameraPresetsKnown = false;
+	/* Make the list again, from what is saved (a "presets" array) and what the
+	 * camera said */
+	void loadPresets(obs_data_array_t *saved);
+	int presetIndex(const QString &id) const;
+	void signalPreset(const char *name, const QString &id, int index = -1);
+	void signalPresetChanged(const QString &id, obs_data_t *changed);
+	void signalPresetThumbnail(const QString &id);
 	void setConnected(bool connected);
 	OBSData state;        /* Transient state of the camera. Isn't saved */
 	OBSData stateChanged; /* changed state to be sent via the notify signal */
@@ -219,25 +251,54 @@ public:
 	virtual void onOBSStartup() {}
 	virtual void onOBSShutdown() {}
 
+	/* Presets, see docs/ptz-device-api.md. An id is "<store>:<key>": the store
+	 * is "camera" or "local" (the controller's), and the key is the driver's own
+	 * for a camera preset, such as a slot or a token. */
+	static QString presetId(const QString &store, const QString &key) { return store + QLatin1Char(':') + key; }
+	static QString presetKey(const QString &id) { return id.section(QLatin1Char(':'), 1); }
+	using CameraPresets = PTZCameraPresets;
+	virtual CameraPresets cameraPresets() const;
+	/* The camera store's operations, for a driver whose camera has presets. By
+	 * default a camera has numbered slots, which memory_set(), memory_recall()
+	 * and memory_reset() use, and its keys are the slot numbers. A driver of a
+	 * camera that is not like that overrides these. */
+	/* Saves the camera's position in a new preset, and returns its key, or "" if
+	 * it can't. May run the event loop for as long as the camera takes to say
+	 * what the key is. */
+	virtual QString cameraPresetCreate(const QString &name);
+	virtual void cameraPresetSave(const QString &key);
+	virtual void cameraPresetRecall(const QString &key);
+	virtual void cameraPresetDelete(const QString &key);
+	/* For a camera that keeps names (CameraPresets::namesOnCamera) */
+	virtual void cameraPresetRename(const QString &key, const QString &name)
+	{
+		Q_UNUSED(key);
+		Q_UNUSED(name);
+	}
+	/* Ask the camera what presets it has, for a driver that can: it answers
+	 * with setCameraPresets() */
+	virtual void cameraPresetRefresh() {}
+	/* What an enumerable camera has, as (key, name) pairs: the presets that the
+	 * list has of the camera's are these, and a name the camera changed is
+	 * changed. Announces ptz_preset_list_reset if that changed the list. */
+	void setCameraPresets(const QList<QPair<QString, QString>> &presets);
+
 	size_t maxPresets() const { return m_maxPresets; }
-	int presetCount() const { return m_presetsDisplayOrder.size(); }
-	int newPreset(int row = -1);
-	void removePresetAtDisplayRow(int row);
-	void movePreset(int srcRow, int destRow);
-	int presetAtDisplayRow(int row) const;
-	QString presetName(size_t id) const { return m_presets[id]["name"].toString(); }
-	QString presetToken(size_t id) const { return m_presets[id]["token"].toString(); }
-	void setPresetName(size_t id, QString name);
-	/* File name (in ptz_thumbnail_dir()) of the preset's thumbnail, or "" */
-	QString presetThumbnail(size_t id) const { return m_presets.value(id).value("thumbnail").toString(); }
-	void setPresetThumbnail(size_t id, const QImage &image);
-	void clearPresetThumbnail(size_t id);
+	int presetCount() const { return m_presets.size(); }
+	/* Make a preset in `store` from the current position, and return its id, or
+	 * "" if it can't be made */
+	QString createPreset(const QString &name, const QString &store);
+	void savePreset(const QString &id);
+	void recallPreset(const QString &id);
+	void deletePreset(const QString &id);
+	/* Change what `changes` has of "name", "thumbnail" */
+	void updatePreset(const QString &id, obs_data_t *changes);
+	void movePreset(const QString &id, int index);
+	void setPresetThumbnail(const QString &id, const QImage &image);
+	void clearPresetThumbnail(const QString &id);
 	/* Grabs a frame of the device's source as the preset's thumbnail */
-	void capturePresetThumbnail(size_t id);
-	void refreshThumbnailAfterRecall(size_t id);
-	QVariant presetProperty(size_t id, QString key) const;
-	bool updatePreset(size_t id, const QVariantMap &map);
-	int findPreset(QString key, QVariant value) const;
+	void capturePresetThumbnail(const QString &id);
+	void refreshThumbnailAfterRecall(const QString &id);
 
 	/**
 	 * do_update() method is to be implemented by each driver as the way
@@ -314,7 +375,6 @@ protected slots:
 	void trigger(calldata_t *cd);
 	void preset_save(calldata_t *cd);
 	void preset_recall(calldata_t *cd);
-	void preset_clear(calldata_t *cd);
 
 	/* calldata_t overloads of the query/config/preset-CRUD API below,
 	 * registered on the proc_handler so PTZListModel never has to call
@@ -326,10 +386,11 @@ protected slots:
 	void request_state(calldata_t *cd);
 	void get_camera_report(calldata_t *cd) const;
 	void preset_get_list(calldata_t *cd) const;
-	void newPreset(calldata_t *cd);
-	void removePresetAtDisplayRow(calldata_t *cd);
-	void movePreset(calldata_t *cd);
-	void setPresetName(calldata_t *cd);
+	void preset_create(calldata_t *cd);
+	void preset_delete(calldata_t *cd);
+	void preset_update(calldata_t *cd);
+	void preset_move(calldata_t *cd);
+	void preset_refresh(calldata_t *cd);
 
 public:
 	bool isConnected() const { return connected; }

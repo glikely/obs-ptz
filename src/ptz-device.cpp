@@ -133,9 +133,8 @@ PTZDevice::PTZDevice(OBSData config, obs_source_t *filter) : QObject()
 	addProc("void ptz_move()", ptz_ph_lambda(move), this);
 	addProc("void ptz_move_abs()", ptz_ph_lambda(move_abs), this);
 	addProc("void ptz_move_rel()", ptz_ph_lambda(move_rel), this);
-	addProc("void ptz_preset_save()", ptz_ph_lambda(preset_save), this);
-	addProc("void ptz_preset_recall()", ptz_ph_lambda(preset_recall), this);
-	addProc("void ptz_preset_clear()", ptz_ph_lambda(preset_clear), this);
+	addProc("void ptz_preset_save(string id)", ptz_ph_lambda(preset_save), this);
+	addProc("void ptz_preset_recall(string id)", ptz_ph_lambda(preset_recall), this);
 
 	addProc("ptr ptz_get_state(ptr state)", ptz_ph_lambda(get_state), this);
 	addProc("ptr ptz_get_statistics(ptr statistics)", ptz_ph_lambda(get_statistics), this);
@@ -148,10 +147,11 @@ PTZDevice::PTZDevice(OBSData config, obs_source_t *filter) : QObject()
 	addProc("void ptz_get_camera_report(out string report)", ptz_ph_lambda(get_camera_report), this);
 
 	addProc("ptr ptz_preset_get_list()", ptz_ph_lambda(preset_get_list), this);
-	addProc("int ptz_preset_new(int row)", ptz_ph_lambda(newPreset), this);
-	addProc("void ptz_preset_remove(int row)", ptz_ph_lambda(removePresetAtDisplayRow), this);
-	addProc("void ptz_preset_move(int src_row, int dest_row)", ptz_ph_lambda(movePreset), this);
-	addProc("void ptz_preset_set_name(int id, string name)", ptz_ph_lambda(setPresetName), this);
+	addProc("string ptz_preset_create(string name, string store)", ptz_ph_lambda(preset_create), this);
+	addProc("void ptz_preset_delete(string id)", ptz_ph_lambda(preset_delete), this);
+	addProc("void ptz_preset_update(string id, ptr changes)", ptz_ph_lambda(preset_update), this);
+	addProc("void ptz_preset_move(string id, int index)", ptz_ph_lambda(preset_move), this);
+	addProc("void ptz_preset_refresh()", ptz_ph_lambda(preset_refresh), this);
 
 	/* Signal handler for notifying state & settings changes. Shared with
 	 * the filter, same as handler above. */
@@ -161,11 +161,11 @@ PTZDevice::PTZDevice(OBSData config, obs_source_t *filter) : QObject()
 	} else {
 		addSignal("void ptz_state_changed(ptr source, ptr changed)");
 
-		addSignal("void ptz_preset_inserted(ptr source, int row)");
-		addSignal("void ptz_preset_removed(ptr source, int row)");
-		addSignal("void ptz_preset_moved(ptr source, int src_row, int dest_row)");
-		addSignal("void ptz_preset_renamed(ptr source, int id)");
-		addSignal("void ptz_preset_thumbnail_changed(ptr source, int id)");
+		addSignal("void ptz_preset_added(ptr source, string id, int index)");
+		addSignal("void ptz_preset_removed(ptr source, string id, int index)");
+		addSignal("void ptz_preset_moved(ptr source, string id, int from, int to)");
+		addSignal("void ptz_preset_changed(ptr source, string id, ptr changed)");
+		addSignal("void ptz_preset_list_reset(ptr source)");
 	}
 
 	/* The device is given its source by its filter, see setParentSource() */
@@ -597,29 +597,20 @@ void PTZDevice::request_state(calldata_t *cd)
 
 void PTZDevice::preset_save(calldata_t *cd)
 {
-	long long id;
-	if (calldata_get_int(cd, "preset_id", &id)) {
-		QMetaObject::invokeMethod(this, "memory_set", Q_ARG(int, id));
+	const char *id = nullptr;
+	if (calldata_get_string(cd, "id", &id) && id) {
 		/* The proc_handler can be called from any thread, m_presets can't */
-		QMetaObject::invokeMethod(this, [this, id] { capturePresetThumbnail((size_t)id); });
+		QString preset = QString::fromUtf8(id);
+		QMetaObject::invokeMethod(this, [this, preset] { savePreset(preset); });
 	}
 }
 
 void PTZDevice::preset_recall(calldata_t *cd)
 {
-	long long id;
-	if (calldata_get_int(cd, "preset_id", &id)) {
-		QMetaObject::invokeMethod(this, "memory_recall", Q_ARG(int, id));
-		QMetaObject::invokeMethod(this, [this, id] { refreshThumbnailAfterRecall((size_t)id); });
-	}
-}
-
-void PTZDevice::preset_clear(calldata_t *cd)
-{
-	long long id;
-	if (calldata_get_int(cd, "preset_id", &id)) {
-		QMetaObject::invokeMethod(this, "memory_reset", Q_ARG(int, id));
-		clearPresetThumbnail((size_t)id);
+	const char *id = nullptr;
+	if (calldata_get_string(cd, "id", &id) && id) {
+		QString preset = QString::fromUtf8(id);
+		QMetaObject::invokeMethod(this, [this, preset] { recallPreset(preset); });
 	}
 }
 
@@ -686,64 +677,99 @@ void PTZDevice::get_parent_source(calldata_t *cd) const
 }
 
 /**
- * Returns a caller-owned obs_data_array_t of {id, name, token} entries in
- * display order, the preset-list equivalent of get_state() -- plus
- * "max_presets" on the same calldata, since that's the configured *limit* on
- * this list (the "preset_max" setting, see save()/update()), not
- * transient device state, so it belongs with the presets functions rather
- * than in get_state()'s snapshot.
+ * Returns, as "return", a caller-owned obs_data_t that describes the presets:
+ * them in display order, and what stores and capabilities the device has. See
+ * docs/ptz-device-api.md.
  */
 void PTZDevice::preset_get_list(calldata_t *cd) const
 {
 	if (wrongThread("ptz_preset_get_list"))
 		return;
+	obs_data_t *info = obs_data_create();
 	obs_data_array_t *list = obs_data_array_create();
-	for (auto id : m_presetsDisplayOrder) {
+	for (const Preset &preset : m_presets) {
 		obs_data_t *item = obs_data_create();
-		obs_data_set_int(item, "id", id);
-		obs_data_set_string(item, "name", QT_TO_UTF8(presetName(id)));
-		obs_data_set_string(item, "token", QT_TO_UTF8(presetToken(id)));
-		obs_data_set_string(item, "thumbnail", QT_TO_UTF8(ptz_thumbnail_path(presetThumbnail(id))));
+		obs_data_set_string(item, "id", QT_TO_UTF8(preset.id));
+		obs_data_set_string(item, "store", preset.onCamera() ? "camera" : "local");
+		obs_data_set_string(item, "name", QT_TO_UTF8(preset.name));
+		obs_data_set_string(item, "camera_name", QT_TO_UTF8(preset.cameraName));
+		obs_data_set_string(item, "thumbnail", QT_TO_UTF8(ptz_thumbnail_path(preset.thumbnail)));
 		obs_data_array_push_back(list, item);
 		obs_data_release(item);
 	}
-	calldata_set_ptr(cd, "return", list);
-	calldata_set_int(cd, "max_presets", (long long)m_maxPresets);
+	obs_data_set_array(info, "presets", list);
+	obs_data_array_release(list);
+
+	CameraPresets camera = cameraPresets();
+	obs_data_t *stores = obs_data_create();
+	if (camera.available)
+		obs_data_set_bool(stores, "camera", true);
+	obs_data_set_obj(info, "stores", stores);
+	obs_data_release(stores);
+	obs_data_t *values = obs_data_create();
+	obs_data_set_obj(info, "value_keys", values);
+	obs_data_release(values);
+	obs_data_set_bool(info, "names_on_camera", camera.namesOnCamera);
+	obs_data_set_bool(info, "enumerable", camera.enumerable);
+	obs_data_set_int(info, "camera_slots", camera.slotCount);
+	calldata_set_ptr(cd, "return", info);
 }
 
-void PTZDevice::newPreset(calldata_t *cd)
+void PTZDevice::preset_create(calldata_t *cd)
 {
-	if (wrongThread("ptz_preset_new"))
+	if (wrongThread("ptz_preset_create"))
 		return;
-	long long row = -1;
-	calldata_get_int(cd, "row", &row);
-	calldata_set_int(cd, "return", newPreset((int)row));
+	const char *name = "";
+	const char *store = "";
+	calldata_get_string(cd, "name", &name);
+	calldata_get_string(cd, "store", &store);
+	QString id = createPreset(QString::fromUtf8(name ? name : ""), QString::fromUtf8(store ? store : ""));
+	calldata_set_string(cd, "return", QT_TO_UTF8(id));
 }
 
-void PTZDevice::removePresetAtDisplayRow(calldata_t *cd)
+void PTZDevice::preset_delete(calldata_t *cd)
 {
-	if (wrongThread("ptz_preset_remove"))
+	if (wrongThread("ptz_preset_delete"))
 		return;
-	removePresetAtDisplayRow((int)calldata_int(cd, "row"));
+	const char *id = nullptr;
+	if (calldata_get_string(cd, "id", &id) && id)
+		deletePreset(QString::fromUtf8(id));
 }
 
-void PTZDevice::movePreset(calldata_t *cd)
+void PTZDevice::preset_update(calldata_t *cd)
+{
+	if (wrongThread("ptz_preset_update"))
+		return;
+	const char *id = nullptr;
+	auto changes = static_cast<obs_data_t *>(calldata_ptr(cd, "changes"));
+	if (calldata_get_string(cd, "id", &id) && id && changes)
+		updatePreset(QString::fromUtf8(id), changes);
+}
+
+void PTZDevice::preset_move(calldata_t *cd)
 {
 	if (wrongThread("ptz_preset_move"))
 		return;
-	movePreset((int)calldata_int(cd, "src_row"), (int)calldata_int(cd, "dest_row"));
+	const char *id = nullptr;
+	if (calldata_get_string(cd, "id", &id) && id)
+		movePreset(QString::fromUtf8(id), (int)calldata_int(cd, "index"));
 }
 
-void PTZDevice::setPresetName(calldata_t *cd)
+void PTZDevice::preset_refresh(calldata_t *)
 {
-	if (wrongThread("ptz_preset_set_name"))
+	if (wrongThread("ptz_preset_refresh"))
 		return;
-	setPresetName((size_t)calldata_int(cd, "id"), QT_UTF8(calldata_string(cd, "name")));
+	cameraPresetRefresh();
 }
 
 void PTZDevice::defaults(obs_data_t *config)
 {
 	obs_data_set_default_int(config, "preset_max", 16);
+	/* What a new controller preset restores: a position, to start with */
+	OBSDataAutoRelease restore = obs_data_create();
+	for (const char *key : {"pan", "tilt", "zoom", "focus"})
+		obs_data_set_bool(restore, key, true);
+	obs_data_set_default_obj(config, "preset_restore", restore);
 	obs_data_set_default_double(config, "pantilt_speed_max", 1.0);
 	obs_data_set_default_double(config, "zoom_speed_max", 1.0);
 	obs_data_set_default_double(config, "focus_speed_max", 1.0);
@@ -785,19 +811,13 @@ void PTZDevice::update(OBSData config)
 	/* Clamp to the same range enforced by the properties slider; a corrupt
 	 * or hand-edited config must not yield an absurd preset count. */
 	m_maxPresets = std::clamp<size_t>(obs_data_get_int(config, "preset_max"), 1, 128);
-	/* Update the list of preset names */
+	m_presetRestore.clear();
+	OBSDataAutoRelease restore = obs_data_get_obj(config, "preset_restore");
+	for (obs_data_item_t *item = obs_data_first(restore); item; obs_data_item_next(&item))
+		if (obs_data_item_get_bool(item))
+			m_presetRestore << QT_UTF8(obs_data_item_get_name(item));
 	OBSDataArrayAutoRelease preset_array = obs_data_get_array(config, "presets");
-	m_presets.clear();
-	m_presetsDisplayOrder.clear();
-	for (size_t i = 0; i < obs_data_array_count(preset_array); i++) {
-		OBSDataAutoRelease item = obs_data_array_item(preset_array, i);
-		auto id = obs_data_get_int(item, "id");
-		if (m_presetsDisplayOrder.contains(id))
-			continue;
-		QVariantMap preset = OBSDataToVariantMap(item.Get());
-		m_presets[id] = preset;
-		sanitizePreset(id);
-	}
+	loadPresets(preset_array);
 
 	bool was_tally_auto = tally_auto;
 	tally_auto = obs_data_get_bool(config, "tally_auto");
@@ -828,16 +848,39 @@ void PTZDevice::save(OBSData config) const
 	obs_data_set_bool(config, "focus_invert", focus_invert);
 	obs_data_set_bool(config, "tally_auto", tally_auto);
 	obs_data_set_int(config, "preset_max", m_maxPresets);
+	OBSDataAutoRelease restore = obs_data_create();
+	for (const QString &key : m_presetRestore)
+		obs_data_set_bool(restore, QT_TO_UTF8(key), true);
+	obs_data_set_obj(config, "preset_restore", restore);
 	persistState(config);
 	saveDefaults(config);
 }
 
+/* How many keys an obs_data_t has */
+static size_t dataCount(obs_data_t *data)
+{
+	size_t count = 0;
+	for (obs_data_item_t *item = obs_data_first(data); item; obs_data_item_next(&item))
+		count++;
+	return count;
+}
+
 void PTZDevice::persistState(obs_data_t *settings) const
 {
+	/* What the user added to a camera's preset, and what is needed to know a
+	 * camera that can't be asked has it: not what the camera itself has */
+	CameraPresets camera = cameraPresets();
 	OBSDataArrayAutoRelease preset_array = obs_data_array_create();
-	for (auto id : m_presetsDisplayOrder) {
-		OBSDataAutoRelease data = variantMapToOBSData(m_presets[id]);
-		obs_data_set_int(data, "id", id);
+	for (const Preset &preset : m_presets) {
+		OBSDataAutoRelease data = obs_data_create();
+		obs_data_set_string(data, "id", QT_TO_UTF8(preset.id));
+		if (!camera.namesOnCamera && !preset.name.isEmpty())
+			obs_data_set_string(data, "name", QT_TO_UTF8(preset.name));
+		if (!preset.thumbnail.isEmpty())
+			obs_data_set_string(data, "thumbnail", QT_TO_UTF8(preset.thumbnail));
+		/* Nothing but an id: the camera is the one to say it has it */
+		if (camera.enumerable && dataCount(data) == 1)
+			continue;
 		obs_data_array_push_back(preset_array, data);
 	}
 	obs_data_set_array(settings, "presets", preset_array);
@@ -1164,70 +1207,202 @@ void ptz_unload_devices(void)
 	}
 }
 
-void PTZDevice::sanitizePreset(size_t id)
+PTZDevice::CameraPresets PTZDevice::cameraPresets() const
 {
-	if (!m_presets.contains(id))
-		return;
-	if (!m_presetsDisplayOrder.contains(id))
-		m_presetsDisplayOrder.append(id);
-	QVariantMap &preset = m_presets[id];
-	QString name = preset["name"].toString();
-	if (name == "" || name == QString(obs_module_text("PTZ.PresetNum")).arg(id))
-		preset.remove("name");
+	CameraPresets camera;
+	if (features() & Presets) {
+		camera.available = true;
+		camera.slotCount = (int)m_maxPresets;
+	}
+	return camera;
 }
 
-void PTZDevice::setPresetName(size_t id, QString name)
+/* A camera with numbered slots: the first that the list has no preset in */
+QString PTZDevice::cameraPresetCreate(const QString &name)
 {
-	if (!m_presets.contains(id))
+	Q_UNUSED(name);
+	for (int slot = 0; slot < (int)m_maxPresets; slot++) {
+		if (presetIndex(presetId(QStringLiteral("camera"), QString::number(slot))) >= 0)
+			continue;
+		memory_set(slot);
+		return QString::number(slot);
+	}
+	return QString();
+}
+
+void PTZDevice::cameraPresetSave(const QString &key)
+{
+	memory_set(key.toInt());
+}
+
+void PTZDevice::cameraPresetRecall(const QString &key)
+{
+	memory_recall(key.toInt());
+}
+
+void PTZDevice::cameraPresetDelete(const QString &key)
+{
+	memory_reset(key.toInt());
+}
+
+int PTZDevice::presetIndex(const QString &id) const
+{
+	for (int i = 0; i < m_presets.size(); i++)
+		if (m_presets.at(i).id == id)
+			return i;
+	return -1;
+}
+
+/* The list from what was saved, then what the camera said it has: the camera's
+ * presets that were not saved are added, and with a camera that can say, the
+ * saved ones it doesn't have are not kept */
+void PTZDevice::loadPresets(obs_data_array_t *saved)
+{
+	CameraPresets camera = cameraPresets();
+	QList<Preset> loaded;
+	for (size_t i = 0; saved && i < obs_data_array_count(saved); i++) {
+		OBSDataAutoRelease item = obs_data_array_item(saved, i);
+		if (!obs_data_has_user_value(item, "id"))
+			continue;
+		Preset preset;
+		preset.id = QT_UTF8(obs_data_get_string(item, "id"));
+		if (preset.id.isEmpty()) {
+			/* Older versions kept an int id, which is the camera's slot, or
+			 * a token of the camera's own, where it had one */
+			QString token = QT_UTF8(obs_data_get_string(item, "token"));
+			preset.id = presetId(QStringLiteral("camera"),
+					     token.isEmpty() ? QString::number(obs_data_get_int(item, "id")) : token);
+		}
+		bool seen = false;
+		for (const Preset &other : loaded)
+			seen = seen || other.id == preset.id;
+		if (seen)
+			continue;
+		preset.name = QT_UTF8(obs_data_get_string(item, "name"));
+		preset.thumbnail = QT_UTF8(obs_data_get_string(item, "thumbnail"));
+		loaded.append(preset);
+	}
+
+	if (m_cameraPresetsKnown) {
+		QSet<QString> have;
+		for (const auto &[key, name] : m_cameraPresets) {
+			QString id = presetId(QStringLiteral("camera"), key);
+			have.insert(id);
+			bool found = false;
+			for (Preset &preset : loaded) {
+				if (preset.id != id)
+					continue;
+				found = true;
+				preset.cameraName = name;
+				if (camera.namesOnCamera)
+					preset.name = name;
+			}
+			if (!found) {
+				Preset preset;
+				preset.id = id;
+				preset.name = preset.cameraName = name;
+				loaded.append(preset);
+			}
+		}
+		for (int i = loaded.size() - 1; i >= 0; i--)
+			if (loaded.at(i).onCamera() && !have.contains(loaded.at(i).id))
+				loaded.removeAt(i);
+	}
+	m_presets = loaded;
+}
+
+void PTZDevice::setCameraPresets(const QList<QPair<QString, QString>> &presets)
+{
+	QList<Preset> before = m_presets;
+	m_cameraPresets = presets;
+	m_cameraPresetsKnown = true;
+
+	/* The saved ones are what is here already */
+	OBSDataArrayAutoRelease saved = obs_data_array_create();
+	CameraPresets camera = cameraPresets();
+	for (const Preset &preset : m_presets) {
+		OBSDataAutoRelease data = obs_data_create();
+		obs_data_set_string(data, "id", QT_TO_UTF8(preset.id));
+		if (!camera.namesOnCamera)
+			obs_data_set_string(data, "name", QT_TO_UTF8(preset.name));
+		obs_data_set_string(data, "thumbnail", QT_TO_UTF8(preset.thumbnail));
+		obs_data_array_push_back(saved, data);
+	}
+	loadPresets(saved);
+
+	bool changed = before.size() != m_presets.size();
+	for (int i = 0; !changed && i < before.size(); i++)
+		changed = before.at(i).id != m_presets.at(i).id || before.at(i).name != m_presets.at(i).name ||
+			  before.at(i).cameraName != m_presets.at(i).cameraName;
+	if (!changed)
 		return;
-	QVariantMap &preset = m_presets[id];
-	preset["name"] = name;
-	sanitizePreset(id);
+	for (const Preset &old : before)
+		if (presetIndex(old.id) < 0)
+			ptz_thumbnail_remove(old.thumbnail);
 	persist();
-
 	calldata_t cd = {};
-	calldata_set_int(&cd, "id", (long long)id);
-	signalDevice("ptz_preset_renamed", &cd);
+	signalDevice("ptz_preset_list_reset", &cd);
 	calldata_free(&cd);
 }
 
-void PTZDevice::signalPresetThumbnail(size_t id)
+void PTZDevice::signalPreset(const char *name, const QString &id, int index)
 {
 	calldata_t cd = {};
-	calldata_set_int(&cd, "id", (long long)id);
-	signalDevice("ptz_preset_thumbnail_changed", &cd);
+	calldata_set_string(&cd, "id", QT_TO_UTF8(id));
+	calldata_set_int(&cd, "index", index);
+	signalDevice(name, &cd);
 	calldata_free(&cd);
+}
+
+void PTZDevice::signalPresetChanged(const QString &id, obs_data_t *changed)
+{
+	calldata_t cd = {};
+	calldata_set_string(&cd, "id", QT_TO_UTF8(id));
+	calldata_set_ptr(&cd, "changed", changed);
+	signalDevice("ptz_preset_changed", &cd);
+	calldata_free(&cd);
+}
+
+void PTZDevice::signalPresetThumbnail(const QString &id)
+{
+	int index = presetIndex(id);
+	if (index < 0)
+		return;
+	OBSDataAutoRelease changed = obs_data_create();
+	obs_data_set_string(changed, "thumbnail", QT_TO_UTF8(ptz_thumbnail_path(m_presets.at(index).thumbnail)));
+	signalPresetChanged(id, changed);
 }
 
 /* Replace the preset's thumbnail image, removing the old file. Each image
  * gets a fresh file name so nothing caching the old one can go stale. */
-void PTZDevice::setPresetThumbnail(size_t id, const QImage &image)
+void PTZDevice::setPresetThumbnail(const QString &id, const QImage &image)
 {
-	if (!m_presets.contains(id))
+	int index = presetIndex(id);
+	if (index < 0)
 		return;
 	QString name = ptz_thumbnail_write(image);
 	if (name.isEmpty())
 		return;
-	QVariantMap &preset = m_presets[id];
-	ptz_thumbnail_remove(preset.value("thumbnail").toString());
-	preset["thumbnail"] = name;
+	ptz_thumbnail_remove(m_presets[index].thumbnail);
+	m_presets[index].thumbnail = name;
 	persist();
 	signalPresetThumbnail(id);
 }
 
-void PTZDevice::clearPresetThumbnail(size_t id)
+void PTZDevice::clearPresetThumbnail(const QString &id)
 {
-	if (!m_presets.contains(id) || presetThumbnail(id).isEmpty())
+	int index = presetIndex(id);
+	if (index < 0 || m_presets.at(index).thumbnail.isEmpty())
 		return;
-	ptz_thumbnail_remove(presetThumbnail(id));
-	m_presets[id].remove("thumbnail");
+	ptz_thumbnail_remove(m_presets.at(index).thumbnail);
+	m_presets[index].thumbnail.clear();
 	persist();
 	signalPresetThumbnail(id);
 }
 
-void PTZDevice::capturePresetThumbnail(size_t id)
+void PTZDevice::capturePresetThumbnail(const QString &id)
 {
-	if (!m_presets.contains(id))
+	if (presetIndex(id) < 0)
 		return;
 	OBSSourceAutoRelease src = parentSource();
 	if (!src)
@@ -1238,7 +1413,7 @@ void PTZDevice::capturePresetThumbnail(size_t id)
 /* Once the camera has had time to reach a recalled preset, replace that
  * preset's thumbnail with what it sees now. A newer recall cancels this one,
  * since the camera will have moved on before the capture. */
-void PTZDevice::refreshThumbnailAfterRecall(size_t id)
+void PTZDevice::refreshThumbnailAfterRecall(const QString &id)
 {
 	uint generation = ++m_recallGeneration;
 	PTZControls *controls = PTZControls::getInstance();
@@ -1251,96 +1426,136 @@ void PTZDevice::refreshThumbnailAfterRecall(size_t id)
 	});
 }
 
-/* Insert a new preset and return the ID */
-int PTZDevice::newPreset(int row)
+QString PTZDevice::createPreset(const QString &name, const QString &store)
 {
-	if ((row < 0) || (row > m_presetsDisplayOrder.size()))
-		row = m_presetsDisplayOrder.size();
-	int id = 0;
-	while (m_presets.contains(id))
-		id++;
-	if (id >= (int)m_maxPresets)
-		return -1;
-
-	QVariantMap map;
-	map["id"] = (uint)id;
-	m_presets[id] = map;
-	m_presetsDisplayOrder.insert(row, id);
-	persist();
-
-	calldata_t cd = {};
-	calldata_set_int(&cd, "row", row);
-	signalDevice("ptz_preset_inserted", &cd);
-	calldata_free(&cd);
-
+	if (store != QStringLiteral("camera"))
+		return QString();
+	CameraPresets camera = cameraPresets();
+	if (!camera.available)
+		return QString();
+	QString key = cameraPresetCreate(name);
+	if (key.isEmpty())
+		return QString();
+	QString id = presetId(QStringLiteral("camera"), key);
+	int index = presetIndex(id);
+	if (index < 0) {
+		Preset preset;
+		preset.id = id;
+		preset.name = name;
+		if (camera.namesOnCamera)
+			preset.cameraName = name;
+		m_presets.append(preset);
+		index = m_presets.size() - 1;
+		persist();
+		signalPreset("ptz_preset_added", id, index);
+	}
+	/* What it has said it has includes this: or the next update() drops it */
+	if (camera.enumerable) {
+		bool listed = false;
+		for (const auto &entry : m_cameraPresets)
+			listed = listed || entry.first == key;
+		if (!listed)
+			m_cameraPresets.append({key, name});
+	}
+	capturePresetThumbnail(id);
 	return id;
 }
 
-void PTZDevice::removePresetAtDisplayRow(int row)
+void PTZDevice::savePreset(const QString &id)
 {
-	ptz_thumbnail_remove(presetThumbnail(m_presetsDisplayOrder[row]));
-	m_presets.remove(m_presetsDisplayOrder[row]);
-	m_presetsDisplayOrder.removeAt(row);
-	persist();
-
-	calldata_t cd = {};
-	calldata_set_int(&cd, "row", row);
-	signalDevice("ptz_preset_removed", &cd);
-	calldata_free(&cd);
+	if (!id.startsWith(QStringLiteral("camera:")))
+		return;
+	cameraPresetSave(presetKey(id));
+	/* A slot that the list didn't have, on a camera that can't say what it has */
+	CameraPresets camera = cameraPresets();
+	if (presetIndex(id) < 0 && camera.available && !camera.enumerable) {
+		Preset preset;
+		preset.id = id;
+		m_presets.append(preset);
+		persist();
+		signalPreset("ptz_preset_added", id, m_presets.size() - 1);
+	}
+	capturePresetThumbnail(id);
 }
 
-/* srcRow/destRow follow QAbstractItemModel::moveRows()'s own convention
- * for destRow (the target index *before* the source row is plucked out)
- * QList::move() wants the index *after* removal, so that adjustment is
- * made here. */
-void PTZDevice::movePreset(int srcRow, int destRow)
+void PTZDevice::recallPreset(const QString &id)
 {
-	int listMoveDest = destRow;
-	if (srcRow < listMoveDest)
-		listMoveDest--;
-	m_presetsDisplayOrder.move(srcRow, listMoveDest);
+	if (!id.startsWith(QStringLiteral("camera:")))
+		return;
+	cameraPresetRecall(presetKey(id));
+	refreshThumbnailAfterRecall(id);
+}
+
+void PTZDevice::deletePreset(const QString &id)
+{
+	if (id.startsWith(QStringLiteral("camera:"))) {
+		cameraPresetDelete(presetKey(id));
+		for (int i = m_cameraPresets.size() - 1; i >= 0; i--)
+			if (m_cameraPresets.at(i).first == presetKey(id))
+				m_cameraPresets.removeAt(i);
+	}
+	int index = presetIndex(id);
+	if (index < 0)
+		return;
+	ptz_thumbnail_remove(m_presets.at(index).thumbnail);
+	m_presets.removeAt(index);
+	persist();
+	signalPreset("ptz_preset_removed", id, index);
+}
+
+void PTZDevice::updatePreset(const QString &id, obs_data_t *changes)
+{
+	int index = presetIndex(id);
+	if (index < 0)
+		return;
+	OBSDataAutoRelease changed = obs_data_create();
+	if (obs_data_has_user_value(changes, "name")) {
+		QString name = QT_UTF8(obs_data_get_string(changes, "name"));
+		/* On a camera that keeps names it is the camera's to say */
+		if (m_presets.at(index).onCamera() && cameraPresets().namesOnCamera) {
+			cameraPresetRename(presetKey(id), name);
+			m_presets[index].cameraName = name;
+			for (auto &entry : m_cameraPresets)
+				if (entry.first == presetKey(id))
+					entry.second = name;
+		}
+		m_presets[index].name = name;
+		obs_data_set_string(changed, "name", QT_TO_UTF8(name));
+	}
+	if (obs_data_has_user_value(changes, "thumbnail")) {
+		QString path = QT_UTF8(obs_data_get_string(changes, "thumbnail"));
+		if (path.isEmpty()) {
+			clearPresetThumbnail(id);
+		} else {
+			QImage image(path);
+			if (!image.isNull())
+				setPresetThumbnail(id, image);
+		}
+	}
+	persist();
+	if (dataCount(changed))
+		signalPresetChanged(id, changed);
+}
+
+/* `index` is where it goes in the list as it is once the preset is taken out of
+ * its old place */
+void PTZDevice::movePreset(const QString &id, int index)
+{
+	int from = presetIndex(id);
+	if (from < 0)
+		return;
+	int to = std::clamp(index, 0, (int)m_presets.size() - 1);
+	if (to == from)
+		return;
+	m_presets.move(from, to);
 	persist();
 
 	calldata_t cd = {};
-	calldata_set_int(&cd, "src_row", srcRow);
-	calldata_set_int(&cd, "dest_row", destRow);
+	calldata_set_string(&cd, "id", QT_TO_UTF8(id));
+	calldata_set_int(&cd, "from", from);
+	calldata_set_int(&cd, "to", to);
 	signalDevice("ptz_preset_moved", &cd);
 	calldata_free(&cd);
-}
-
-int PTZDevice::presetAtDisplayRow(int row) const
-{
-	if (row < 0 || row >= presetCount())
-		return -1;
-	return (int)m_presetsDisplayOrder[row];
-}
-
-QVariant PTZDevice::presetProperty(size_t id, QString key) const
-{
-	/* Safe to dereference unconditionally here. Both levels will return
-	 * default empty values without segfaulting */
-	return m_presets[id][key];
-}
-
-bool PTZDevice::updatePreset(size_t id, const QVariantMap &map)
-{
-	if (!m_presets.contains(id))
-		return false;
-	m_presets[id].insert(map);
-	persist();
-	return true;
-}
-
-int PTZDevice::findPreset(QString key, QVariant value) const
-{
-	/* Search for the matching key/value pair in all presets.
-	 * This is an O(N) operation */
-	auto end = m_presets.cend();
-	for (auto i = m_presets.cbegin(); i != end; i++) {
-		if (i.value()[key] == value)
-			return (int)i.key();
-	}
-	return -1;
 }
 
 void PTZDevice::incrementStatistic(const char *name, int amount)

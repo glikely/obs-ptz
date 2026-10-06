@@ -223,78 +223,84 @@ void PTZOnvif::pantilt_set_home()
 	sendRequest(m_PTZAddress, msg);
 }
 
-void PTZOnvif::memory_set(int i)
+PTZDevice::CameraPresets PTZOnvif::cameraPresets() const
 {
-	QString token = presetProperty(i, "token").toString();
-	QString name = presetProperty(i, "name").toString();
-	/* Remember which slot the response should be filed under, so we can
-	 * link the camera-assigned PresetToken back to the right local slot. */
-	m_pendingSetPresetSlot = i;
+	CameraPresets camera;
+	camera.available = true;
+	/* It names its presets, and says what it has */
+	camera.namesOnCamera = true;
+	camera.enumerable = true;
+	return camera;
+}
+
+/* A request to the camera about preset `token`, in the PTZ service */
+void PTZOnvif::presetRequest(const QString &operation, const QString &token, const QString &name)
+{
 	QString msg;
 	QXmlStreamWriter s(&msg);
 	writeStartOnvifDocument(s);
 	s.writeStartElement(nsSoapEnvelope, "Envelope");
-	writeHeader(s, nsOnvifPtz + "/" + "SetPreset");
+	writeHeader(s, nsOnvifPtz + "/" + operation);
 	s.writeStartElement(nsSoapEnvelope, "Body");
-	s.writeStartElement(nsOnvifPtz, "SetPreset");
+	s.writeStartElement(nsOnvifPtz, operation);
 	s.writeTextElement(nsOnvifPtz, "ProfileToken", m_selectedMedia.token);
-	if (name != "")
+	if (!name.isEmpty())
 		s.writeTextElement(nsOnvifPtz, "PresetName", name);
-	if (token != "")
+	if (!token.isEmpty())
 		s.writeTextElement(nsOnvifPtz, "PresetToken", token);
-	s.writeEndElement(); // movetype
+	s.writeEndElement(); // operation
 	s.writeEndElement(); // Body
 	s.writeEndElement(); // Envelope
 	s.writeEndDocument();
 	sendRequest(m_PTZAddress, msg);
 }
 
-void PTZOnvif::memory_reset(int i)
+/* The camera makes the token, in its answer: so wait for it, for as long as it
+ * takes, and not for long */
+QString PTZOnvif::cameraPresetCreate(const QString &name)
 {
-	QString token = presetProperty(i, "token").toString();
-	if (token == "")
-		return;
-	QString msg;
-	QXmlStreamWriter s(&msg);
-	writeStartOnvifDocument(s);
-	s.writeStartElement(nsSoapEnvelope, "Envelope");
-	writeHeader(s, nsOnvifPtz + "/" + "RemovePreset");
-	s.writeStartElement(nsSoapEnvelope, "Body");
-	s.writeStartElement(nsOnvifPtz, "RemovePreset");
-	s.writeTextElement(nsOnvifPtz, "ProfileToken", m_selectedMedia.token);
-	s.writeTextElement(nsOnvifPtz, "PresetToken", token);
-	s.writeEndElement(); // movetype
-	s.writeEndElement(); // Body
-	s.writeEndElement(); // Envelope
-	s.writeEndDocument();
-	sendRequest(m_PTZAddress, msg);
-	/* The preset is gone from the camera; clear the stale token locally so
-	 * a future memory_set on this slot creates a new one instead of trying
-	 * to update a token the camera doesn't know about. */
-	QVariantMap clear;
-	clear["token"] = QString();
-	updatePreset(i, clear);
+	QEventLoop loop;
+	QTimer timeout;
+	timeout.setSingleShot(true);
+	connect(&timeout, &QTimer::timeout, &loop, &QEventLoop::quit);
+	m_createLoop = &loop;
+	m_createdToken.clear();
+	presetRequest("SetPreset", QString(), name);
+	timeout.start(5000);
+	loop.exec();
+	m_createLoop = nullptr;
+	return m_createdToken;
 }
 
-void PTZOnvif::memory_recall(int i)
+void PTZOnvif::cameraPresetSave(const QString &key)
 {
-	QString token = presetProperty(i, "token").toString();
-	if (token == "")
-		return;
-	QString msg;
-	QXmlStreamWriter s(&msg);
-	writeStartOnvifDocument(s);
-	s.writeStartElement(nsSoapEnvelope, "Envelope");
-	writeHeader(s, nsOnvifPtz + "/" + "GotoPreset");
-	s.writeStartElement(nsSoapEnvelope, "Body");
-	s.writeStartElement(nsOnvifPtz, "GotoPreset");
-	s.writeTextElement(nsOnvifPtz, "ProfileToken", m_selectedMedia.token);
-	s.writeTextElement(nsOnvifPtz, "PresetToken", token);
-	s.writeEndElement(); // movetype
-	s.writeEndElement(); // Body
-	s.writeEndElement(); // Envelope
-	s.writeEndDocument();
-	sendRequest(m_PTZAddress, msg);
+	/* SetPreset on a token the camera has replaces where it goes. The name is
+	 * the camera's, so it is given again, as it may otherwise be cleared. */
+	QString name;
+	for (const auto &entry : m_cameraPresets)
+		if (entry.first == key)
+			name = entry.second;
+	presetRequest("SetPreset", key, name);
+}
+
+void PTZOnvif::cameraPresetRename(const QString &key, const QString &name)
+{
+	presetRequest("SetPreset", key, name);
+}
+
+void PTZOnvif::cameraPresetDelete(const QString &key)
+{
+	presetRequest("RemovePreset", key);
+}
+
+void PTZOnvif::cameraPresetRecall(const QString &key)
+{
+	presetRequest("GotoPreset", key);
+}
+
+void PTZOnvif::cameraPresetRefresh()
+{
+	getPresets();
 }
 
 void PTZOnvif::getPresets()
@@ -434,7 +440,7 @@ void PTZOnvif::handleGetSystemDateAndTimeResponse(QDomNode node)
 
 void PTZOnvif::handleSetPresetResponse(QDomDocument &doc)
 {
-	if (m_pendingSetPresetSlot < 0)
+	if (!m_createLoop)
 		return;
 	auto nl = doc.elementsByTagNameNS(nsOnvifPtz, "SetPresetResponse");
 	if (nl.isEmpty())
@@ -442,13 +448,8 @@ void PTZOnvif::handleSetPresetResponse(QDomDocument &doc)
 	auto tokenNodes = nl.at(0).toElement().elementsByTagNameNS(nsOnvifPtz, "PresetToken");
 	if (tokenNodes.isEmpty())
 		return;
-	QString newToken = tokenNodes.at(0).toElement().text().trimmed();
-	if (newToken.isEmpty())
-		return;
-	QVariantMap map;
-	map["token"] = newToken;
-	updatePreset(m_pendingSetPresetSlot, map);
-	m_pendingSetPresetSlot = -1;
+	m_createdToken = tokenNodes.at(0).toElement().text().trimmed();
+	m_createLoop->quit();
 }
 
 /* Rewrite the host portion of a camera-reported service XAddr to whatever
@@ -536,27 +537,19 @@ void PTZOnvif::handleGetProfilesResponse(QDomNode n)
 
 void PTZOnvif::handleGetPresetsResponse(QDomDocument &doc)
 {
+	if (doc.elementsByTagNameNS(nsOnvifPtz, "GetPresetsResponse").isEmpty())
+		return;
+	QList<QPair<QString, QString>> presets;
 	QDomNodeList nodes = doc.elementsByTagNameNS(nsOnvifPtz, "Preset");
 	for (int i = 0; i < nodes.length(); i++) {
 		auto node = nodes.at(i).toElement();
 		QString token = node.attribute("token");
-		auto child = node.firstChildElement("Name", nsOnvifSchema);
-		QString name = child.text();
 		if (token == "")
 			continue;
-
-		QVariantMap map;
-		auto psid = findPreset("token", token);
-		if (psid < 0) {
-			psid = newPreset();
-			map["token"] = token;
-		}
-		if (psid < 0)
-			continue;
-		if (name != "")
-			map["name"] = name;
-		updatePreset(psid, map);
+		auto child = node.firstChildElement("Name", nsOnvifSchema);
+		presets.append({token, child.text()});
 	}
+	setCameraPresets(presets);
 }
 
 const QString nsOnvifImaging("http://www.onvif.org/ver20/imaging/wsdl"); //timg
@@ -777,7 +770,6 @@ void PTZOnvif::connectCamera()
 {
 	m_capabilitiesRequested = false;
 	m_timeOffsetSecs = 0;
-	m_pendingSetPresetSlot = -1;
 	m_consecutiveFailures = 0;
 	getSystemDateAndTime();
 }

@@ -7,6 +7,7 @@
  * This file implements an OBS source plugin that triggers PTZ device actions,
  * like recalling a preset or initiating a camera move.
  */
+#include <stdio.h>
 #include <obs-module.h>
 #include <obs-frontend-api.h>
 #include <callback/signal.h>
@@ -32,7 +33,8 @@ struct ptz_action_source_data {
 	/* The UUID of the camera: a source, or a filter */
 	char *device_uuid;
 	enum ptz_action_type action;
-	uint32_t preset_id;
+	/* The id of the preset, which the device made: "camera:3", say */
+	char *preset_id;
 	double pan_speed;
 	double tilt_speed;
 	obs_source_t *src;
@@ -45,6 +47,23 @@ static const char *ptz_action_source_get_name(void *unused)
 	return "PTZ Action";
 }
 
+/* The preset a source names. Version 0.1 of the API kept an int, which is the
+ * number of the camera's slot, so that is what it is. */
+static char *ptz_action_source_get_preset_id(obs_data_t *settings)
+{
+	obs_data_item_t *item = obs_data_item_byname(settings, "preset_id");
+	char *id = NULL;
+	if (item && obs_data_item_gettype(item) == OBS_DATA_NUMBER) {
+		char text[32];
+		snprintf(text, sizeof(text), "camera:%lld", obs_data_item_get_int(item));
+		id = bstrdup(text);
+	} else if (item) {
+		id = bstrdup(obs_data_item_get_string(item));
+	}
+	obs_data_item_release(&item);
+	return id ? id : bstrdup("");
+}
+
 static void ptz_action_source_update(void *data, obs_data_t *settings)
 {
 	struct ptz_action_source_data *context = data;
@@ -53,7 +72,8 @@ static void ptz_action_source_update(void *data, obs_data_t *settings)
 	bfree(context->device_uuid);
 	context->device_uuid = bstrdup(obs_data_get_string(settings, "device_uuid"));
 	context->action = (unsigned int)obs_data_get_int(settings, "action");
-	context->preset_id = (uint32_t)obs_data_get_int(settings, "preset_id");
+	bfree(context->preset_id);
+	context->preset_id = ptz_action_source_get_preset_id(settings);
 	context->pan_speed = obs_data_get_double(settings, "pan_speed");
 	context->tilt_speed = obs_data_get_double(settings, "tilt_speed");
 }
@@ -75,11 +95,11 @@ static void ptz_action_source_do_action(struct ptz_action_source_data *context)
 	calldata_t cd = {0};
 	switch (context->action) {
 	case PTZ_ACTION_PRESET_RECALL:
-		calldata_set_int(&cd, "preset_id", context->preset_id);
+		calldata_set_string(&cd, "id", context->preset_id);
 		proc_handler_call(ph, "ptz_preset_recall", &cd);
 		break;
 	case PTZ_ACTION_PRESET_SAVE:
-		calldata_set_int(&cd, "preset_id", context->preset_id);
+		calldata_set_string(&cd, "id", context->preset_id);
 		proc_handler_call(ph, "ptz_preset_save", &cd);
 		break;
 	case PTZ_ACTION_PAN_TILT:
@@ -186,6 +206,7 @@ static void ptz_action_source_destroy(void *data)
 	struct ptz_action_source_data *context = data;
 	obs_frontend_remove_event_callback(ptz_action_source_fe_callback, data);
 	bfree(context->device_uuid);
+	bfree(context->preset_id);
 	bfree(context);
 }
 
@@ -196,24 +217,32 @@ static bool ptz_action_source_device_changed_cb(obs_properties_t *props, obs_pro
 	obs_property_list_clear(prop_preset);
 	UNUSED_PARAMETER(prop_camera);
 
-	/* Ask the camera for its presets, in its settings */
+	/* Ask the camera what its presets are */
 	const char *uuid = obs_data_get_string(settings, "device_uuid");
-	obs_source_t *filter = uuid && *uuid ? obs_get_source_by_uuid(uuid) : NULL;
-	obs_data_t *config = filter ? obs_source_get_settings(filter) : NULL;
-	obs_data_array_t *preset_array = config ? obs_data_get_array(config, "presets") : NULL;
+	obs_source_t *device = uuid && *uuid ? obs_get_source_by_uuid(uuid) : NULL;
+	proc_handler_t *ph = device && ptz_source_is_device(device) ? obs_source_get_proc_handler(device) : NULL;
+	obs_data_t *info = NULL;
+	if (ph) {
+		calldata_t cd = {0};
+		proc_handler_call(ph, "ptz_preset_get_list", &cd);
+		void *list = NULL;
+		if (calldata_get_ptr(&cd, "return", &list))
+			info = list;
+		calldata_free(&cd);
+	}
 
-	if (preset_array) {
-		for (size_t i = 0; i < obs_data_array_count(preset_array); i++) {
-			obs_data_t *preset = obs_data_array_item(preset_array, i);
-			obs_property_list_add_int(prop_preset, obs_data_get_string(preset, "name"),
-						  obs_data_get_int(preset, "id"));
-			obs_data_release(preset);
-		}
+	obs_data_array_t *preset_array = info ? obs_data_get_array(info, "presets") : NULL;
+	for (size_t i = 0; preset_array && i < obs_data_array_count(preset_array); i++) {
+		obs_data_t *preset = obs_data_array_item(preset_array, i);
+		const char *name = obs_data_get_string(preset, "name");
+		const char *id = obs_data_get_string(preset, "id");
+		obs_property_list_add_string(prop_preset, *name ? name : id, id);
+		obs_data_release(preset);
 	}
 
 	obs_data_array_release(preset_array);
-	obs_data_release(config);
-	obs_source_release(filter);
+	obs_data_release(info);
+	obs_source_release(device);
 	return true;
 }
 
@@ -292,7 +321,7 @@ static obs_properties_t *ptz_action_source_get_properties(void *data)
 	obs_property_list_add_int(prop, "Pan/Tilt", PTZ_ACTION_PAN_TILT);
 	obs_property_list_add_int(prop, "Stop", PTZ_ACTION_STOP);
 
-	obs_properties_add_list(props, "preset_id", "Preset", OBS_COMBO_TYPE_LIST, OBS_COMBO_FORMAT_INT);
+	obs_properties_add_list(props, "preset_id", "Preset", OBS_COMBO_TYPE_LIST, OBS_COMBO_FORMAT_STRING);
 	obs_properties_add_float_slider(props, "pan_speed", "Pan Speed", -1.0, 1.0, 0.01);
 	obs_properties_add_float_slider(props, "tilt_speed", "Tilt Speed", -1.0, 1.0, 0.01);
 	obs_properties_add_button2(props, "run_action", "Test Action", ptz_action_source_test_clicked_cb, data);

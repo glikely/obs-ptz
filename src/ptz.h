@@ -68,7 +68,7 @@ extern bool ptz_scene_is_source_active(obs_source_t *scene, obs_source_t *source
  * (something removed, renamed or changing meaning). Then update the doc,
  * which states it. */
 #define PTZ_API_VERSION_MAJOR 0
-#define PTZ_API_VERSION_MINOR 1
+#define PTZ_API_VERSION_MINOR 2
 
 #ifdef __cplusplus
 }
