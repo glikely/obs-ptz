@@ -68,16 +68,10 @@ def test_dialog_settings_reach_the_filter(obs_world, cameras, tmp_path):  # noqa
 
 
 def test_filter_updated_with_one_setting_keeps_the_rest_at_their_defaults(obs_world, cameras, tmp_path):  # noqa: F811
-    scene = obs_world.create_scene()
-    cameras.add_source(scene, "partial-cam")
+    cameras.add_source(obs_world.create_scene(), "partial-cam")
     cameras.add_filter("partial-cam")
     out = tmp_path / "settings.json"
     device_name = obs_world.wait_for_device_by_name("partial-cam", out, lambda r: r["found"] and r["bound"])["uuid"]
-
-    # libobs gives a video source its new settings on a later tick, and this
-    # test has only been seen to get them when the source is in the program scene
-    # (why is not known)
-    obs_world.ws.call("SetCurrentProgramScene", {"sceneName": scene})
 
     # As OBS's Filters dialog or a script does: just the one setting, not the whole set
     obs_world.ws.call("SetSourceFilterSettings", {

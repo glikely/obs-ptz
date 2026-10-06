@@ -10,6 +10,7 @@
 #include <obs-module.h>
 #include <QStringList>
 
+#include "ptz-device.hpp"
 #include "ptz-list-model.hpp"
 #include "ptz.h"
 
@@ -63,9 +64,13 @@ void collectStringLists(obs_properties_t *props, obs_data_array_t *out)
 }
 
 /* The keys of the settings that would be persisted for a device's PTZ
- * filter, after obs_source_save() has given the filter's .save its say:
- * what the scene collection would hold. Adds nothing if the device isn't
- * owned by a filter. */
+ * filter, after the filter's .save has had its say: what the scene collection
+ * would hold. Adds nothing if the device isn't one of this plugin's filters.
+ *
+ * It is run on a copy of the settings. obs_source_save() runs it on the
+ * filter's own settings, and what it writes there is the device's values,
+ * over a change made to the settings that the device has yet to be updated
+ * with: a test that looks while it waits for one would undo it. */
 void collectFilterKeys(obs_source_t *parent, obs_data_array_t *out)
 {
 	struct Find {
@@ -81,10 +86,12 @@ void collectFilterKeys(obs_source_t *parent, obs_data_array_t *out)
 				f->filter = filter;
 		},
 		&find);
-	if (!find.filter)
+	if (!find.filter || !QString(obs_source_get_id(find.filter)).startsWith("ca.secretlab.obs-ptz."))
 		return;
-	obs_source_save(find.filter);
-	OBSDataAutoRelease settings = obs_source_get_settings(find.filter);
+	OBSDataAutoRelease current = obs_source_get_settings(find.filter);
+	OBSDataAutoRelease settings = obs_data_create();
+	obs_data_apply(settings, current);
+	ptz_filter_save(obs_obj_get_data(find.filter), settings);
 	for (obs_data_item_t *item = obs_data_first(settings); item; obs_data_item_next(&item)) {
 		OBSDataAutoRelease entry = obs_data_create();
 		obs_data_set_string(entry, "key", obs_data_item_get_name(item));
