@@ -197,7 +197,6 @@ void ViscaUDPTransport::save(OBSData config) const
 {
 	obs_data_set_string(config, "host", qPrintable(host));
 	obs_data_set_int(config, "udp_port", iface ? iface->port() : 0);
-	obs_data_set_int(config, "port", iface ? iface->port() : 0); /* legacy schema */
 	obs_data_set_bool(config, "quirk_visca_udp_no_seq", quirk_visca_udp_no_seq);
 }
 

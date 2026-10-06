@@ -830,30 +830,6 @@ void PTZDevice::announceSettingsChanged()
 	calldata_free(&cd);
 }
 
-void PTZDevice::copyValue(obs_data_t *from, obs_data_t *to, const char *key)
-{
-	obs_data_item_t *item = obs_data_item_byname(from, key);
-	if (!item)
-		return;
-	switch (obs_data_item_gettype(item)) {
-	case OBS_DATA_STRING:
-		obs_data_set_string(to, key, obs_data_item_get_string(item));
-		break;
-	case OBS_DATA_NUMBER:
-		if (obs_data_item_numtype(item) == OBS_DATA_NUM_INT)
-			obs_data_set_int(to, key, obs_data_item_get_int(item));
-		else
-			obs_data_set_double(to, key, obs_data_item_get_double(item));
-		break;
-	case OBS_DATA_BOOLEAN:
-		obs_data_set_bool(to, key, obs_data_item_get_bool(item));
-		break;
-	default:
-		break;
-	}
-	obs_data_item_release(&item);
-}
-
 void PTZDevice::stripIdentity(obs_data_t *settings)
 {
 	/* Written by versions that kept them in the settings */
@@ -1175,7 +1151,6 @@ void ptz_filter_save(void *data, obs_data_t *settings)
 	 * would put the device's values over a change made to the settings that
 	 * it has yet to be updated with. */
 	ptz->persistState(settings);
-	ptz->saveLegacy(settings);
 	/* The filter already knows its source, and a device id isn't stable
 	 * across a driver change; neither belongs in the scene collection.
 	 * Also clears them from collections saved before this was stripped. */

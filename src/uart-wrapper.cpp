@@ -82,7 +82,6 @@ void PTZUARTWrapper::setConfig(OBSData config)
 void PTZUARTWrapper::save(OBSData config) const
 {
 	obs_data_set_string(config, "serial_port", qPrintable(portName()));
-	obs_data_set_string(config, "port", qPrintable(portName())); /* legacy schema */
 	obs_data_set_int(config, "baud_rate", baudRate());
 }
 

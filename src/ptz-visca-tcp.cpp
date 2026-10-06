@@ -115,7 +115,6 @@ void ViscaTCPTransport::save(OBSData config) const
 {
 	obs_data_set_string(config, "host", QT_TO_UTF8(host));
 	obs_data_set_int(config, "tcp_port", port);
-	obs_data_set_int(config, "port", port); /* legacy schema */
 }
 
 void ViscaTCPTransport::saveDefaults(OBSData config) const

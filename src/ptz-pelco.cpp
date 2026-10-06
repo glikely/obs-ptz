@@ -174,14 +174,6 @@ void PTZPelco::save(OBSData config) const
 	obs_data_set_bool(config, "use_pelco_d", use_pelco_d);
 }
 
-/* The "port" that older versions read, of the serial port */
-void PTZPelco::saveLegacy(obs_data_t *settings) const
-{
-	OBSDataAutoRelease snapshot = obs_data_create();
-	iface->save(snapshot.Get());
-	copyValue(snapshot, settings, "port");
-}
-
 obs_properties_t *PTZPelco::get_obs_properties()
 {
 	obs_properties_t *ptz_props = PTZDevice::get_obs_properties();

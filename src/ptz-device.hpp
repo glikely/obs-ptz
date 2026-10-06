@@ -361,9 +361,6 @@ public:
 	 *     the device's source, as they change. */
 	virtual void saveDefaults(obs_data_t *settings) const { Q_UNUSED(settings); }
 	void publish() const;
-	/* What older versions read from the settings, derived from the others, for
-	 * the filter's .save to write for them. */
-	virtual void saveLegacy(obs_data_t *settings) const { Q_UNUSED(settings); }
 
 	/* Apply new settings: update(), then announce it with the
 	 * "ptz_settings_changed" signal. The one place that fires that signal, so
@@ -374,8 +371,6 @@ public:
 	/* Remove the keys older versions kept in a filter's settings, "name" and
 	 * "id", which the filter does not need: it knows its own source */
 	static void stripIdentity(obs_data_t *settings);
-	/* One value, of whatever type, from `from` to `to`, if `from` has it */
-	static void copyValue(obs_data_t *from, obs_data_t *to, const char *key);
 	/* Keep a copy of save()'s settings in the rolling backup of devices
 	 * that have gone away (see ptz_device_backups_get()). Called when its
 	 * source is deleted, its filter is removed, and as it is destroyed. */
