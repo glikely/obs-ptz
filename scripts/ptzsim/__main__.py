@@ -190,8 +190,10 @@ def parse_args():
                           "with real depth of field, and ptzsim streams its frames to the page")
     ap.add_argument("--blender-camera", default=None, metavar="NAME",
                      help="which camera object in the .blend to point (default: the scene's)")
-    ap.add_argument("--blender-engine", choices=("eevee", "workbench"), default="eevee")
-    ap.add_argument("--blender-samples", type=int, default=4, help="EEVEE samples per frame (default 4)")
+    ap.add_argument("--blender-engine", choices=("eevee", "workbench"), default="workbench",
+                     help="Workbench (default) is fast and draws textures with studio lighting; "
+                          "EEVEE has real lighting and shadows, and is several times slower")
+    ap.add_argument("--blender-samples", type=int, default=4, help="EEVEE samples per frame (default 4); Workbench ignores it")
     ap.add_argument("--blender-size", default="1280x720", metavar="WxH")
     ap.add_argument("--blender-fps", type=float, default=15.0, help="the most frames a second (default 15)")
     ap.add_argument("--blender-exposure", type=float, default=0.0, metavar="EV",

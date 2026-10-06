@@ -52,7 +52,7 @@ class FrameStore:
 
 
 class BlenderRenderer:
-    def __init__(self, scene, url, token, exe=None, camera=None, heading=0.0, engine="eevee",
+    def __init__(self, scene, url, token, exe=None, camera=None, heading=0.0, engine="workbench",
                  samples=4, size="1280x720", fps=15.0, fstop=2.8, exposure=0.0, raytracing=False,
                  log_path=None):
         self.scene = scene          # a .blend, or None for the built-in room

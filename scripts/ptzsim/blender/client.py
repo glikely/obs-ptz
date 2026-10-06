@@ -38,7 +38,7 @@ def parse_args():
     ap.add_argument("--builtin", action="store_true", help="build the test room instead of using the scene")
     ap.add_argument("--camera", default=None, help="the camera object to point (default: the scene's)")
     ap.add_argument("--heading", type=float, default=0.0, help="degrees to turn pan 0 to the right")
-    ap.add_argument("--engine", choices=("eevee", "workbench"), default="eevee")
+    ap.add_argument("--engine", choices=("eevee", "workbench"), default="workbench")
     ap.add_argument("--samples", type=int, default=4, help="EEVEE samples per frame")
     ap.add_argument("--size", default="1280x720")
     ap.add_argument("--fps", type=float, default=15.0, help="the most frames a second to render")

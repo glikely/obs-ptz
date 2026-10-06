@@ -106,23 +106,26 @@ along the way you want pan 0 to look. Blender is found as `$BLENDER`,
 `--blender-exe`, the macOS app or `blender` on `$PATH`, and its output is in
 `~/.cache/ptzsim/blender.log`.
 
-On a 2026 Apple-silicon Mac the built-in room gives about 5 frames a second
-in EEVEE at 1280x720 with 4 samples; `--blender-engine workbench` (flat, no
-lighting) is about ten times faster, and `--blender-size`, `--blender-samples`
-and `--blender-fps` trade quality for speed. A real room is slower: Blender's CC0 [Classroom demo](https://download.blender.org/demo/test/classroom.zip)
-(300 meshes, 10 lights, made for Cycles) takes about 20 seconds to
-compile its shaders on the first frame, then gives 2 to 3 frames a second
-at 1280x720. EEVEE has no bounced light, so such a scene comes out dark:
-`--blender-exposure` (stops) brightens it and `--blender-raytracing` turns
-on EEVEE's ray tracing for bounced light, at little extra cost here.
-For example, `--blender classroom/classroom.blend --blender-camera renderCam
---blender-exposure 2.5 --blender-raytracing`.
+It renders with Blender's Workbench engine, which draws a scene's textures
+with studio lighting and keeps up with a live camera: Blender's CC0
+[Classroom demo](https://download.blender.org/demo/test/classroom.zip)
+(300 meshes, made for Cycles) comes out bright and clear at about 6 frames a
+second at 1280x720 on an Apple-silicon Mac, with depth of field, after about
+10 seconds to load:
 
-Workbench is the practical choice for a live picture: it draws a scene's textures
-with studio lighting, so the Classroom comes out bright and clear at about 6
-frames a second, with depth of field and no bounced-light tuning:
-`--blender classroom/classroom.blend --blender-camera renderCam --blender-engine workbench`. The
-degree lines aren't drawn over Blender's picture, and `--blender` can't be
+```
+python3 scripts/ptzsim --blender classroom/classroom.blend --blender-camera renderCam
+```
+
+`--blender-engine eevee` gives real lighting and shadows, for 2 to 3 frames
+a second on that scene. EEVEE has no bounced light, so a scene made for
+Cycles comes out dark: `--blender-exposure` (stops) brightens it, and
+`--blender-raytracing` turns on its ray tracing for bounced light, at little
+extra cost, with `--blender-samples` setting its quality:
+`--blender-engine eevee --blender-exposure 2.5 --blender-raytracing`.
+`--blender-size` and `--blender-fps` trade quality for speed in either.
+
+The degree lines aren't drawn over Blender's picture, and `--blender` can't be
 combined with `--backdrop`, `--scene` or `--room`.
 
 ### Ready-made rooms
