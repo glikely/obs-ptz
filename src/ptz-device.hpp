@@ -141,11 +141,12 @@ protected:
 		QString cameraName;
 		/* File name (in ptz_thumbnail_dir()) of its thumbnail, or "" */
 		QString thumbnail;
+		/* A local preset's values: a recall applies the pan, tilt, zoom and
+		 * focus it has */
+		OBSData values;
 		bool onCamera() const { return id.startsWith(QStringLiteral("camera:")); }
 	};
 	size_t m_maxPresets = 16;
-	/* What a new controller preset restores: the "preset_restore" setting */
-	QStringList m_presetRestore;
 	QList<Preset> m_presets;
 	/* What the camera said it has, for a driver that can enumerate, by key and
 	 * name. Kept as it is across update()s, which read the saved presets again */
@@ -155,6 +156,10 @@ protected:
 	 * camera said */
 	void loadPresets(obs_data_array_t *saved);
 	int presetIndex(const QString &id) const;
+	/* The current position and focus as a local preset keeps them: only
+	 * what the device has reported */
+	OBSData captureValues() const;
+	void applyValues(const Preset &preset);
 	void signalPreset(const char *name, const QString &id, int index = -1);
 	void signalPresetChanged(const QString &id, obs_data_t *changed);
 	void signalPresetThumbnail(const QString &id);
@@ -252,7 +257,7 @@ public:
 	virtual void onOBSShutdown() {}
 
 	/* Presets, see docs/ptz-device-api.md. An id is "<store>:<key>": the store
-	 * is "camera" or "local" (the controller's), and the key is the driver's own
+	 * is "camera" or "local" (the device's own), and the key is the driver's own
 	 * for a camera preset, such as a slot or a token. */
 	static QString presetId(const QString &store, const QString &key) { return store + QLatin1Char(':') + key; }
 	static QString presetKey(const QString &id) { return id.section(QLatin1Char(':'), 1); }
@@ -283,6 +288,10 @@ public:
 	 * changed. Announces ptz_preset_list_reset if that changed the list. */
 	void setCameraPresets(const QList<QPair<QString, QString>> &presets);
 
+	/* The local store: any device that can go to a position has it.
+	 * What a preset there holds, by the names of the API's value keys */
+	bool localPresets() const;
+	QStringList valueKeys() const;
 	size_t maxPresets() const { return m_maxPresets; }
 	int presetCount() const { return m_presets.size(); }
 	/* Make a preset in `store` from the current position, and return its id, or

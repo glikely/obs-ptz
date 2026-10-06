@@ -16,6 +16,7 @@
 #include <QThread>
 #include <QTimer>
 #include <QUrl>
+#include <QUuid>
 #include "ptz-device.hpp"
 #include "ptz-controls.hpp"
 #include "ptz-list-model.hpp"
@@ -694,6 +695,11 @@ void PTZDevice::preset_get_list(calldata_t *cd) const
 		obs_data_set_string(item, "name", QT_TO_UTF8(preset.name));
 		obs_data_set_string(item, "camera_name", QT_TO_UTF8(preset.cameraName));
 		obs_data_set_string(item, "thumbnail", QT_TO_UTF8(ptz_thumbnail_path(preset.thumbnail)));
+		if (!preset.onCamera()) {
+			OBSDataAutoRelease values = obs_data_create();
+			obs_data_apply(values, preset.values);
+			obs_data_set_obj(item, "values", values);
+		}
 		obs_data_array_push_back(list, item);
 		obs_data_release(item);
 	}
@@ -704,9 +710,13 @@ void PTZDevice::preset_get_list(calldata_t *cd) const
 	obs_data_t *stores = obs_data_create();
 	if (camera.available)
 		obs_data_set_bool(stores, "camera", true);
+	if (localPresets())
+		obs_data_set_bool(stores, "local", true);
 	obs_data_set_obj(info, "stores", stores);
 	obs_data_release(stores);
 	obs_data_t *values = obs_data_create();
+	for (const QString &key : valueKeys())
+		obs_data_set_bool(values, QT_TO_UTF8(key), true);
 	obs_data_set_obj(info, "value_keys", values);
 	obs_data_release(values);
 	obs_data_set_bool(info, "names_on_camera", camera.namesOnCamera);
@@ -765,11 +775,6 @@ void PTZDevice::preset_refresh(calldata_t *)
 void PTZDevice::defaults(obs_data_t *config)
 {
 	obs_data_set_default_int(config, "preset_max", 16);
-	/* What a new controller preset restores: a position, to start with */
-	OBSDataAutoRelease restore = obs_data_create();
-	for (const char *key : {"pan", "tilt", "zoom", "focus"})
-		obs_data_set_bool(restore, key, true);
-	obs_data_set_default_obj(config, "preset_restore", restore);
 	obs_data_set_default_double(config, "pantilt_speed_max", 1.0);
 	obs_data_set_default_double(config, "zoom_speed_max", 1.0);
 	obs_data_set_default_double(config, "focus_speed_max", 1.0);
@@ -811,11 +816,6 @@ void PTZDevice::update(OBSData config)
 	/* Clamp to the same range enforced by the properties slider; a corrupt
 	 * or hand-edited config must not yield an absurd preset count. */
 	m_maxPresets = std::clamp<size_t>(obs_data_get_int(config, "preset_max"), 1, 128);
-	m_presetRestore.clear();
-	OBSDataAutoRelease restore = obs_data_get_obj(config, "preset_restore");
-	for (obs_data_item_t *item = obs_data_first(restore); item; obs_data_item_next(&item))
-		if (obs_data_item_get_bool(item))
-			m_presetRestore << QT_UTF8(obs_data_item_get_name(item));
 	OBSDataArrayAutoRelease preset_array = obs_data_get_array(config, "presets");
 	loadPresets(preset_array);
 
@@ -848,10 +848,6 @@ void PTZDevice::save(OBSData config) const
 	obs_data_set_bool(config, "focus_invert", focus_invert);
 	obs_data_set_bool(config, "tally_auto", tally_auto);
 	obs_data_set_int(config, "preset_max", m_maxPresets);
-	OBSDataAutoRelease restore = obs_data_create();
-	for (const QString &key : m_presetRestore)
-		obs_data_set_bool(restore, QT_TO_UTF8(key), true);
-	obs_data_set_obj(config, "preset_restore", restore);
 	persistState(config);
 	saveDefaults(config);
 }
@@ -874,10 +870,15 @@ void PTZDevice::persistState(obs_data_t *settings) const
 	for (const Preset &preset : m_presets) {
 		OBSDataAutoRelease data = obs_data_create();
 		obs_data_set_string(data, "id", QT_TO_UTF8(preset.id));
-		if (!camera.namesOnCamera && !preset.name.isEmpty())
+		if ((!preset.onCamera() || !camera.namesOnCamera) && !preset.name.isEmpty())
 			obs_data_set_string(data, "name", QT_TO_UTF8(preset.name));
 		if (!preset.thumbnail.isEmpty())
 			obs_data_set_string(data, "thumbnail", QT_TO_UTF8(preset.thumbnail));
+		if (!preset.onCamera()) {
+			OBSDataAutoRelease values = obs_data_create();
+			obs_data_apply(values, preset.values);
+			obs_data_set_obj(data, "values", values);
+		}
 		/* Nothing but an id: the camera is the one to say it has it */
 		if (camera.enumerable && dataCount(data) == 1)
 			continue;
@@ -1280,6 +1281,13 @@ void PTZDevice::loadPresets(obs_data_array_t *saved)
 			continue;
 		preset.name = QT_UTF8(obs_data_get_string(item, "name"));
 		preset.thumbnail = QT_UTF8(obs_data_get_string(item, "thumbnail"));
+		if (!preset.onCamera()) {
+			OBSDataAutoRelease values = obs_data_get_obj(item, "values");
+			preset.values = obs_data_create();
+			obs_data_release(preset.values);
+			if (values)
+				obs_data_apply(preset.values, values);
+		}
 		loaded.append(preset);
 	}
 
@@ -1318,16 +1326,9 @@ void PTZDevice::setCameraPresets(const QList<QPair<QString, QString>> &presets)
 	m_cameraPresetsKnown = true;
 
 	/* The saved ones are what is here already */
-	OBSDataArrayAutoRelease saved = obs_data_array_create();
-	CameraPresets camera = cameraPresets();
-	for (const Preset &preset : m_presets) {
-		OBSDataAutoRelease data = obs_data_create();
-		obs_data_set_string(data, "id", QT_TO_UTF8(preset.id));
-		if (!camera.namesOnCamera)
-			obs_data_set_string(data, "name", QT_TO_UTF8(preset.name));
-		obs_data_set_string(data, "thumbnail", QT_TO_UTF8(preset.thumbnail));
-		obs_data_array_push_back(saved, data);
-	}
+	OBSDataAutoRelease persisted = obs_data_create();
+	persistState(persisted);
+	OBSDataArrayAutoRelease saved = obs_data_get_array(persisted, "presets");
 	loadPresets(saved);
 
 	bool changed = before.size() != m_presets.size();
@@ -1426,8 +1427,94 @@ void PTZDevice::refreshThumbnailAfterRecall(const QString &id)
 	});
 }
 
+bool PTZDevice::localPresets() const
+{
+	return features() & (PanTiltAbs | ZoomAbs | FocusAbs);
+}
+
+QStringList PTZDevice::valueKeys() const
+{
+	QStringList keys;
+	Features f = features();
+	if (f & PanTiltAbs)
+		keys << QStringLiteral("pan") << QStringLiteral("tilt");
+	if (f & ZoomAbs)
+		keys << QStringLiteral("zoom");
+	/* Autofocus on or off, if not a position */
+	if (f & (FocusAbs | AutoFocus))
+		keys << QStringLiteral("focus");
+	return keys;
+}
+
+/* Only what the device has reported: it can't be asked, only read from what it
+ * last said */
+OBSData PTZDevice::captureValues() const
+{
+	OBSDataAutoRelease values = obs_data_create();
+	QStringList keys = valueKeys();
+	for (const char *axis : {"pan", "tilt", "zoom"})
+		if (keys.contains(QString::fromUtf8(axis)) && obs_data_has_user_value(state, axis))
+			obs_data_set_double(values, axis, obs_data_get_double(state, axis));
+	if (keys.contains(QStringLiteral("focus"))) {
+		OBSDataAutoRelease focus = obs_data_create();
+		Features f = features();
+		if ((f & FocusAbs) && obs_data_has_user_value(state, "focus"))
+			obs_data_set_double(focus, "position", obs_data_get_double(state, "focus"));
+		if ((f & AutoFocus) && obs_data_has_user_value(state, "focus_af_enabled"))
+			obs_data_set_bool(focus, "af_enabled", obs_data_get_bool(state, "focus_af_enabled"));
+		bool any = obs_data_first(focus) != nullptr;
+		if (any)
+			obs_data_set_obj(values, "focus", focus);
+	}
+	return values.Get();
+}
+
+/* Go where the preset says, for the pan, tilt, zoom and focus it has: the pan
+ * and tilt of a camera go together, so one that it has alone is with the other
+ * as it is now */
+void PTZDevice::applyValues(const Preset &preset)
+{
+	auto restores = [&](const char *key) {
+		return obs_data_has_user_value(preset.values, key);
+	};
+	Features f = features();
+	bool pan = restores("pan"), tilt = restores("tilt");
+	if ((pan || tilt) && (f & PanTiltAbs)) {
+		bool known = (pan || obs_data_has_user_value(state, "pan")) &&
+			     (tilt || obs_data_has_user_value(state, "tilt"));
+		if (known)
+			pantilt_abs(obs_data_get_double(pan ? preset.values : state, "pan"),
+				    obs_data_get_double(tilt ? preset.values : state, "tilt"));
+		else
+			ptz_info("not restoring %s alone: where the camera is not known", pan ? "pan" : "tilt");
+	}
+	if (restores("zoom") && (f & ZoomAbs))
+		zoom_abs(obs_data_get_double(preset.values, "zoom"));
+	if (restores("focus") && (f & (FocusAbs | AutoFocus))) {
+		OBSDataAutoRelease focus = obs_data_get_obj(preset.values, "focus");
+		bool autofocus = obs_data_has_user_value(focus, "af_enabled") && obs_data_get_bool(focus, "af_enabled");
+		if ((f & AutoFocus) && obs_data_has_user_value(focus, "af_enabled"))
+			set_autofocus(autofocus);
+		if (!autofocus && (f & FocusAbs) && obs_data_has_user_value(focus, "position"))
+			focus_abs(obs_data_get_double(focus, "position"));
+	}
+}
+
 QString PTZDevice::createPreset(const QString &name, const QString &store)
 {
+	if (store == QStringLiteral("local")) {
+		if (!localPresets())
+			return QString();
+		Preset preset;
+		preset.id = presetId(QStringLiteral("local"), QUuid::createUuid().toString(QUuid::Id128).left(8));
+		preset.name = name;
+		preset.values = captureValues();
+		m_presets.append(preset);
+		persist();
+		signalPreset("ptz_preset_added", preset.id, m_presets.size() - 1);
+		capturePresetThumbnail(preset.id);
+		return preset.id;
+	}
 	if (store != QStringLiteral("camera"))
 		return QString();
 	CameraPresets camera = cameraPresets();
@@ -1463,6 +1550,20 @@ QString PTZDevice::createPreset(const QString &name, const QString &store)
 
 void PTZDevice::savePreset(const QString &id)
 {
+	if (id.startsWith(QStringLiteral("local:"))) {
+		int index = presetIndex(id);
+		if (index < 0)
+			return;
+		m_presets[index].values = captureValues();
+		persist();
+		OBSDataAutoRelease changed = obs_data_create();
+		OBSDataAutoRelease values = obs_data_create();
+		obs_data_apply(values, m_presets.at(index).values);
+		obs_data_set_obj(changed, "values", values);
+		signalPresetChanged(id, changed);
+		capturePresetThumbnail(id);
+		return;
+	}
 	if (!id.startsWith(QStringLiteral("camera:")))
 		return;
 	cameraPresetSave(presetKey(id));
@@ -1480,6 +1581,14 @@ void PTZDevice::savePreset(const QString &id)
 
 void PTZDevice::recallPreset(const QString &id)
 {
+	if (id.startsWith(QStringLiteral("local:"))) {
+		int index = presetIndex(id);
+		if (index < 0)
+			return;
+		applyValues(m_presets.at(index));
+		refreshThumbnailAfterRecall(id);
+		return;
+	}
 	if (!id.startsWith(QStringLiteral("camera:")))
 		return;
 	cameraPresetRecall(presetKey(id));
@@ -1521,6 +1630,15 @@ void PTZDevice::updatePreset(const QString &id, obs_data_t *changes)
 		}
 		m_presets[index].name = name;
 		obs_data_set_string(changed, "name", QT_TO_UTF8(name));
+	}
+	if (!m_presets.at(index).onCamera()) {
+		OBSDataAutoRelease values = obs_data_get_obj(changes, "values");
+		if (values) {
+			m_presets[index].values = obs_data_create();
+			obs_data_release(m_presets[index].values);
+			obs_data_apply(m_presets[index].values, values);
+			obs_data_set_obj(changed, "values", values);
+		}
 	}
 	if (obs_data_has_user_value(changes, "thumbnail")) {
 		QString path = QT_UTF8(obs_data_get_string(changes, "thumbnail"));
