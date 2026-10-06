@@ -130,8 +130,9 @@ void runHoldSourceTest(const QMap<QString, QString> &params)
 void runSetDeviceLockedTest(const QMap<QString, QString> &params)
 {
 	QModelIndex index = ptzUITestDeviceIndex(params.value(QStringLiteral("device")));
-	bool ok = index.isValid() && ptzDeviceList->setData(index, params.value(QStringLiteral("locked")) == QStringLiteral("1"),
-							    PTZListModel::IsLockedRole);
+	bool ok = index.isValid() &&
+		  ptzDeviceList->setData(index, params.value(QStringLiteral("locked")) == QStringLiteral("1"),
+					 PTZListModel::IsLockedRole);
 	blog(LOG_INFO, "[ptz-ui-test] set_device_locked: %s", ok ? "set" : "unchanged or no such device");
 }
 

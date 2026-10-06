@@ -19,7 +19,9 @@ import pytest
 from test_filter_devices import camera_sim, cameras  # noqa: F401
 
 VISCA_BACKENDS = ["visca-tcp", "visca-udp", "visca-serial"]
-BASE_STATE_KEYS = {"connected", "live", "preview", "locked"}
+BASE_STATE_KEYS = {"connected"}
+# What the device list says of every device, from its source, not the device
+LIST_STATE_KEYS = {"live", "preview", "locked"}
 
 
 @pytest.mark.parametrize("backend", VISCA_BACKENDS)
@@ -31,6 +33,7 @@ def test_state_reports_the_device(obs_world, backend, tmp_path):
 
     state = result["state"]
     assert BASE_STATE_KEYS <= set(state)
+    assert not LIST_STATE_KEYS & set(state)
     assert {"power_on", "focus_af_enabled", "statistics"} <= set(state)
 
 
@@ -130,6 +133,7 @@ def test_position_is_reported_in_the_units_of_the_movement_api(obs_world, backen
 def test_pelco_state_has_no_white_balance_or_position(obs_world, backend, tmp_path):
     state = obs_world.device_state(obs_world.device_names[backend], tmp_path / "state.json")["state"]
     assert BASE_STATE_KEYS <= set(state)
+    assert not LIST_STATE_KEYS & set(state)
     assert not {"wb_mode", "pan", "tilt", "zoom", "focus"} & set(state)
 
 

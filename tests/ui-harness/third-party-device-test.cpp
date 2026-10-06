@@ -46,9 +46,6 @@ void getState(void *data, calldata_t *cd)
 				   ? obs_filter_get_parent(self->source)
 				   : self->source;
 	obs_data_set_bool(state, "connected", true);
-	obs_data_set_bool(state, "live", false);
-	obs_data_set_bool(state, "preview", false);
-	obs_data_set_bool(state, "locked", false);
 	obs_data_set_string(state, "source", on ? obs_source_get_name(on) : "");
 	obs_data_t *features = obs_data_create();
 	obs_data_set_obj(state, "features", features);
