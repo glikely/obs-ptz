@@ -860,6 +860,7 @@ void PTZOnvif::defaults(obs_data_t *config)
 	obs_data_set_default_string(config, "username", "admin");
 	obs_data_set_default_string(config, "password", "");
 	obs_data_set_default_double(config, "speed_boost", 1.0);
+	obs_data_set_default_string(config, "wb_mode", "");
 }
 
 void PTZOnvif::update(OBSData config)

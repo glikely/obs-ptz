@@ -157,6 +157,8 @@ void PTZVisca::defaults(obs_data_t *cfg)
 	obs_data_set_default_int(cfg, "visca_zoom_range", VISCA_DEFAULT_ZOOM_RANGE);
 	obs_data_set_default_int(cfg, "visca_focus_far", VISCA_DEFAULT_FOCUS_FAR);
 	obs_data_set_default_int(cfg, "visca_focus_near", VISCA_DEFAULT_FOCUS_NEAR);
+	obs_data_set_default_int(cfg, "baud_rate", 9600);
+	obs_data_set_default_bool(cfg, "quirk_visca_udp_no_seq", false);
 	obs_data_set_default_bool(cfg, "protocol_trace", false);
 	obs_data_set_default_bool(cfg, "tally_auto", true);
 	obs_data_set_default_bool(cfg, "power_on_at_startup", false);
@@ -224,6 +226,17 @@ void PTZVisca::save(OBSData cfg) const
 	obs_data_set_string(cfg, "visca_profile", QT_TO_UTF8(profile_setting));
 	if (transport)
 		transport->save(cfg);
+}
+
+/* The movement limits the device discovers are its own, not the user's */
+void PTZVisca::persistState(obs_data_t *settings) const
+{
+	PTZDevice::persistState(settings);
+	obs_data_set_int(settings, "visca_pan_range", visca_pan_range);
+	obs_data_set_int(settings, "visca_tilt_range", visca_tilt_range);
+	obs_data_set_int(settings, "visca_zoom_range", visca_zoom_range);
+	obs_data_set_int(settings, "visca_focus_far", visca_focus_far);
+	obs_data_set_int(settings, "visca_focus_near", visca_focus_near);
 }
 
 void PTZVisca::saveDefaults(obs_data_t *settings) const
@@ -642,6 +655,7 @@ void PTZVisca::discover_finish()
 	}
 	ptz_info("movement limits: pan %d tilt %d zoom %d focus %d to %d", visca_pan_range, visca_tilt_range,
 		 visca_zoom_range, visca_focus_far, visca_focus_near);
+	persist();
 
 	/* Back where it was, in the new ranges */
 	auto start = [this](const char *key) {
