@@ -34,11 +34,9 @@ and query the device.
 `signal_handler` endpoints are used to notify the controller of state
 changes in the camera.
 
-See [AGENTS.md](../AGENTS.md) for the design it is part of.
-
 ## API version
 
-This is version **0.1** of the PTZ API.
+This is version **0.2** of the PTZ API.
 The API is in a pre-release state, published as an RFC.
 It is subject to change at any time.
 Please provide feedback on the [API discussion
@@ -168,7 +166,7 @@ it releases the reference, which is what keeps the proc_handler good:
 obs_source_t *source = obs_get_source_by_uuid(uuid);
 if (source) {
 	calldata_t cd = {0};
-	calldata_set_int(&cd, "preset_id", 3);
+	calldata_set_string(&cd, "id", "camera:3");
 	proc_handler_call(obs_source_get_proc_handler(source), "ptz_preset_recall", &cd);
 	calldata_free(&cd);
 	obs_source_release(source);
@@ -199,9 +197,7 @@ if (source) {
 
 ## Providing a device
 
-Any plugin can provide devices, and the plugin's own camera list and dock find
-them the same way another caller would, with nothing private between them.
-
+Any plugin can provide devices.
 A device is a source, either a regular source (`OBS_SOURCE_TYPE_INPUT`) or a
 filter (`OBS_SOURCE_TYPE_FILTER`), whose proc_handler has the
 [procs below](#per-device-proc_handler) and whose signal_handler has the
@@ -211,27 +207,21 @@ signal, or a filter was added to a source, with `source_filter_add`, and its
 proc_handler answers `ptz_get_api_version` with the same major version as the
 finder's and a minor version at least as new.
 A source made private is not announced by OBS, and so is not found.
-Nothing else of the plugin's is needed.
 It needs the state keys that are "always" there, `source` among them, and the
 procs and signals for what it can do, which its `features` say.
 A proc a device doesn't have is read as something it can't do.
-To be edited from a controller's settings page, a device has a `get_properties`
-in its `obs_source_info`, as any source does for its settings.
-
-A device is listed until its source is destroyed, which its own `destroy`
-signal, the one every OBS source has, says.
-A filter that is added to a source again is the same device.
+Device configuration is managed the same way as any other source, via
+`save`, `update`, and `get_properties` in its `obs_source_info`.
 
 ## Per-device proc_handler
 
-The device's own proc_handler: its source's, from
-`obs_source_get_proc_handler()`.
-All its procs start with `ptz_`, so they can be added to an existing
+The following proc_handler calls are defined for PTZ Devices.
+All the procs start with `ptz_`, so they can be added to an existing
 proc_handler with low risk of conflicts.
 
 ### `void ptz_get_api_version(out int major, out int minor)`
 
-The version of the PTZ API this device implements.
+Returns the version of the PTZ API this device implements.
 Each device may implement a different version of the API.
 Controllers must not assume that all devices implement the same API version.
 A caller must check each device's own before relying on anything else in the API.
@@ -294,31 +284,6 @@ Reads:
   whole travel.
   If either is given the other is taken as 0.
 
-### `void ptz_preset_save()`
-
-Saves the current position as a preset, and a thumbnail of the device's source.
-Needs the `presets` feature.
-Any thread.
-Reads:
-
-- `preset_id` (int): the preset to save.
-  The calldata has no declared fields, so a caller that doesn't give it saves
-  nothing.
-
-### `void ptz_preset_recall()`
-
-Moves to a preset.
-Needs the `presets` feature.
-Any thread.
-Reads `preset_id` (int), as `ptz_preset_save` does.
-
-### `void ptz_preset_clear()`
-
-Clears a preset's saved position on the camera, and its thumbnail.
-Needs the `presets` feature.
-Any thread.
-Reads `preset_id` (int), as `ptz_preset_save` does.
-
 ### `ptr ptz_get_state(ptr state)`
 
 Fills in the `state` object the caller owns with the device's whole transient
@@ -368,41 +333,86 @@ Device thread.
 
 ### `ptr ptz_preset_get_list()`
 
-Returns, as `return`, an `obs_data_array_t *` of the presets in display order,
-which the caller releases with `obs_data_array_release()`.
-Each is an object with `id` (int), `name` (string), `token` (string, the
-camera's own name for it, "" if it hasn't one) and `thumbnail` (string, the
-path of its thumbnail image, or "").
-The calldata also has `max_presets` (int), the most the device keeps: the
-`preset_max` setting.
+Returns, as `return`, an `obs_data_t *` that the caller releases with
+`obs_data_release()`, describing the presets:
+
+- `presets` (object): the presets, each an object with the fields in
+  [Presets](#presets), under its `id`. It is in no order.
+- `order` (array): the display order, each an object with an `id`. It has every
+  preset in `presets` once, and nothing else.
+- `stores` (object): the stores the device can make a preset in, `camera` and
+  `local`, each `true`. A set of names is an object of bools, as it is in
+  `features`, since an `obs_data_t` has no array of strings.
+- `names_on_camera` (bool): the camera keeps the preset's name, and a rename is
+  sent to it.
+- `camera_slots` (int): how many presets the camera keeps, or 0 if it doesn't
+  keep a fixed number: the `preset_max` setting.
+- `enumerable` (bool): the camera can say what presets it has.
+  If not, its presets are the ones this device has saved.
+- `value_keys` (object): what a local preset captures and a recall applies,
+  each `true`.
+
 Device thread.
 
-### `int ptz_preset_new(int row)`
+### `void ptz_preset_save(string id)`
 
-Adds a preset, at display row `row` or at the end if that isn't a row in the
-list, and returns its `id` as `return`, or -1 if the device already has
-`max_presets`.
-Announces `ptz_preset_inserted`.
+Saves the current position into the preset `id`, replacing what it held.
+A preset of the camera store is written to the camera, and a thumbnail of the
+device's source is taken.
+A preset of the local store captures every value the device reports, see
+[Presets](#presets).
+Needs the `presets` feature.
+Any thread.
+
+### `void ptz_preset_recall(string id)`
+
+Goes to the preset `id`.
+A preset of the camera store is the camera's to recall.
+One of the local store's goes to the pan, tilt, zoom and focus it has.
+Needs the `presets` feature.
+Any thread.
+
+### `string ptz_preset_create(string name, string store)`
+
+Makes a preset in `store` from the current position, and returns its `id` as
+`return`, or "" if it can't: the store is not one the device has, or the camera
+has no free slot.
+The `name` is the user's, and "" for none.
+Announces `ptz_preset_added`.
 Device thread.
 
-### `void ptz_preset_remove(int row)`
+### `void ptz_preset_delete(string id)`
 
-Removes the preset at display row `row`, which has to be a row in the list.
+Removes the preset `id`: clears its slot on the camera, or drops its record,
+and its thumbnail.
 Announces `ptz_preset_removed`.
 Device thread.
 
-### `void ptz_preset_move(int src_row, int dest_row)`
+### `void ptz_preset_update(string id, ptr changes)`
 
-Moves the preset at display row `src_row` to before the one at `dest_row`,
-where `dest_row` is its index before `src_row` is taken out, as
-`QAbstractItemModel::moveRows()` has it.
-Announces `ptz_preset_moved`.
+Changes the preset `id` by the keys that are in the `changes` object the caller
+owns, and leaves the others as they are:
+
+- `name` (string): the user's name for it. On a camera that keeps names it is
+  sent to the camera.
+- `thumbnail` (string): the path of its thumbnail image, or "" for none.
+- `values` (object): the values a recall applies, which replace those it has.
+  A local preset only.
+
+Announces `ptz_preset_changed`.
 Device thread.
 
-### `void ptz_preset_set_name(int id, string name)`
+### `void ptz_preset_move(string id, int index)`
 
-Names the preset `id`, which is its `id` and not its row.
-Announces `ptz_preset_renamed`.
+Moves the preset `id` to display `index` in `order`, counting from 0 in the list
+as it is once it has been taken out of its old place.
+Announces `ptz_preset_order_changed`.
+Device thread.
+
+### `void ptz_preset_refresh()`
+
+Asks the camera for its presets again.
+Announces `ptz_preset_list_reset` once it has them.
 Device thread.
 
 ## Per-device signal_handler
@@ -424,26 +434,30 @@ keys of [State keys](#state-keys).
 A listener may keep a reference to it, but must not change it: every listener
 gets the same one, and the device never touches it again.
 
-### `void ptz_preset_inserted(ptr source, int row)`
+### `void ptz_preset_added(ptr source, string id)`
 
-A preset was added at display row `row`.
+A preset was added, last in `order`.
 
-### `void ptz_preset_removed(ptr source, int row)`
+### `void ptz_preset_removed(ptr source, string id)`
 
-The preset that was at display row `row` was removed.
+The preset `id` was removed.
 
-### `void ptz_preset_moved(ptr source, int src_row, int dest_row)`
+### `void ptz_preset_order_changed(ptr source)`
 
-A preset moved from display row `src_row` to before `dest_row`, which is its
-index before `src_row` was taken out.
+The display order changed, other than by a preset being added or removed.
+A listener reads `order` again with `ptz_preset_get_list`.
 
-### `void ptz_preset_renamed(ptr source, int id)`
+### `void ptz_preset_changed(ptr source, string id, ptr changed)`
 
-The name of preset `id` changed.
+The preset `id` changed.
+`changed` holds just the keys that did, as `ptz_preset_update` takes them, and
+`camera_name`.
 
-### `void ptz_preset_thumbnail_changed(ptr source, int id)`
+### `void ptz_preset_list_reset(ptr source)`
 
-The thumbnail of preset `id` changed.
+The list changed more than the signals above say, as when the camera's presets
+were read again.
+A listener reads it again with `ptz_preset_get_list`.
 
 ## State keys
 
@@ -473,6 +487,64 @@ and clamps what a camera reports outside them.
 Keys that start with `user_` are a user's own, for a camera given commands the
 plugin doesn't have, and are never ones the plugin has.
 
+## Presets
+
+A preset is where the camera goes, and a few things it does when it gets there.
+It is in one of two stores, the camera's or the local, and a device can
+have both: the camera's presets are in the camera, and the local's are
+in the device's settings, where it takes the camera to the position they hold
+with an absolute move.
+So any device that can move to a position can have local presets, with no
+help from its camera.
+
+An `id` is a string that belongs to the device, and that a caller keeps and gives
+back as it is.
+It has the store in it, `camera:3` or `local:ab12cd34`, so ids from the two
+never meet: the part after the colon is the driver's own key for a camera preset
+(VISCA's slot, ONVIF's token), and one the device made for a local preset.
+It is the same from one run to the next.
+A preset stays in the store it was made in, so putting one in the other is
+making another, with another `id`.
+
+A preset in the list is an object with:
+
+| Key | Type | Meaning |
+| --- | --- | --- |
+| `id` | string | See above |
+| `store` | string | `camera` or `local` |
+| `name` | string | What to show: the name the user gave it, or if there is none the camera's own |
+| `camera_name` | string | What the camera calls it, "" if it doesn't |
+| `thumbnail` | string | The path of its thumbnail image, or "" |
+| `values` | object | A local preset's saved values, below |
+
+The display order is the controller's, over both stores, and is `order` in
+`ptz_preset_get_list`, which is kept apart from the presets so that they can be
+in whatever order suits the camera.
+A camera can't change it, and a preset it adds goes last.
+It is kept in the device's settings.
+What the camera keeps of a preset, whether it has one and where it goes, is
+read from the camera and not saved.
+What the user adds to it, a name the camera can't keep and a thumbnail, is kept
+by the device, by `id`.
+
+A local preset saves every value the device can, whenever it is saved: the
+`value_keys` of `ptz_preset_get_list`, which are these, and of which a camera
+has the ones it does.
+A recall applies all of them:
+
+| Key | Holds | A recall |
+| --- | --- | --- |
+| `pan`, `tilt` | a position, -1.0 to 1.0 | goes to it, with `ptz_move_abs` |
+| `zoom` | a position, 0.0 to 1.0 | goes to it, with `ptz_move_abs` |
+| `focus` | `af_enabled`, a bool, with the `autofocus` feature, and `position`, 0.0 to 1.0, with `focus_abs` | turns autofocus on or off first, and goes to the position if it is off |
+
+Nothing else is saved or restored: not the white balance, or any other state of
+the camera.
+A preset that has `pan` without `tilt`, or `tilt` without `pan`, as one made by
+`ptz_preset_update` can, takes the other from where the camera is: from the
+latest state, and if it hasn't one yet the recall logs that and does nothing for
+them.
+
 ## Features
 
 `features` is how a caller finds out what to offer, rather than trying things
@@ -495,7 +567,7 @@ doesn't keep it.
 | `home_set` | Save its current position as home: `ptz_home_save` |
 | `autofocus` | Turn autofocus on and off, with the `focus_af_enabled` state key |
 | `focus_onetouch` | Focus once, with the `focus_onetouch` trigger |
-| `presets` | Save, recall and clear presets: the `ptz_preset_*` procs |
+| `presets` | Save, recall and delete presets: the `ptz_preset_*` procs |
 | `power` | Be powered on and off, which `power_on` in the state reports |
 | `wb_onepush` | Set white balance once, with the `wb_onepush` trigger |
 | `diagnostics` | Make a camera report, with the `camera_report` trigger |
@@ -526,8 +598,9 @@ writes them and calls `obs_source_update()` to say so.
 | `pantilt_speed_max`, `zoom_speed_max`, `focus_speed_max` | number | 1.0 | A cap on the speed a move asks for: a `ptz_move` speed above it is clamped to it, whichever way it points. 0.1 to 1.0 |
 | `pan_invert`, `tilt_invert`, `zoom_invert`, `focus_invert` | bool | false | Reverse the direction of the axis |
 | `tally_auto` | bool | true | Light the camera's tally lamps by itself, for a device with the `tally_light` feature: red while its source is in the program scene, green while it is in the preview scene (studio mode only) and not in the program scene. Turn it off for a camera whose tally something else drives. A device without the feature has the key and ignores it |
-| `preset_max` | int | 16 | The most presets the device keeps, 1 to 128. It is also the `max_presets` that `ptz_preset_get_list` returns |
-| `presets` | array | empty | The presets, in display order, each an object with an `id` and `name` and whatever the driver keeps to recall it. Edit it with the `ptz_preset_*` procs rather than by writing it |
+| `preset_max` | int | 16 | The most presets in the camera store, 1 to 128. It is also the `camera_slots` that `ptz_preset_get_list` returns |
+| `presets` | array | empty | The presets the device keeps: each local preset in full, and for a camera's what the user added to it, an `id` with a `name` and `thumbnail`. Edit it with the `ptz_preset_*` procs rather than by writing it |
+| `preset_order` | array | empty | The display order, as an `id` object for each preset. One that is left out goes last, and one that is not there is ignored |
 
 A driver's connection settings (`host`, the ports, `serial_port`, `address`,
 ...) are config keys too, and what they are is the driver's to say.
