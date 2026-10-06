@@ -9,7 +9,7 @@
 # established rig is two persistent, dedicated OBS installs,
 # C:\OBS-Test\arm64 and C:\OBS-Test\x64.
 # scripts\windows-build-and-test.bat install obs-ptz into and runs
-# scripts\test_preset_row_sizing.py.
+# tests\obs-integration with pytest.
 # This script is a thin Mac-side wrapper around that
 #
 # One-time setup this depends on (not automated here -- see
@@ -25,7 +25,7 @@
 #
 # Usage (run from anywhere; it locates the repo root from its own path):
 #   scripts/vm-windows-dev.sh setup            # check the VM is reachable and one-time setup is done
-#   scripts/vm-windows-dev.sh test <arm64|x64> # build, overlay into C:\OBS-Test\<arch>, run test_preset_row_sizing.py
+#   scripts/vm-windows-dev.sh test <arm64|x64> # build, overlay into C:\OBS-Test\<arch>, run tests\obs-integration (more args go to pytest)
 #   scripts/vm-windows-dev.sh run <arm64|x64>  # launch that arch's C:\OBS-Test obs64.exe for interactive poking
 #   scripts/vm-windows-dev.sh clean            # kill a stray obs64.exe left over from a previous run
 #
@@ -138,13 +138,14 @@ cmd_setup() {
 
 cmd_test() {
 	require_arch "${1:-}" test
+	# What follows the architecture goes to pytest
 	src_win="$(win_src)"
 	run_vm_bat test <<EOF
 @echo off
 rem cmd's cd /d can't target a UNC path (\\psf\hacking\...); pushd maps
 rem one to a temporary drive letter and cds into that instead.
 pushd "$src_win"
-call scripts\windows-build-and-test.bat $1
+call scripts\windows-build-and-test.bat $*
 exit /b %ERRORLEVEL%
 EOF
 }
