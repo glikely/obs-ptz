@@ -606,7 +606,8 @@ class World:
         persist ("filter_keys"), via tests/ui-harness/device-settings-test.cpp's
         "get_device_settings" test. Also returns what saving it wrote, with
         its values, as "saved", and what each string list property offers,
-        as "lists": {key: [value, ...]}."""
+        as "lists": {key: [value, ...]}, and the string defaults of its filter's live
+        settings, which are not saved, as "filter_defaults"."""
         if out_file.exists():
             out_file.unlink()
         self.run_ui_test("get_device_settings", device=device_name, filename=str(out_file))
@@ -614,6 +615,7 @@ class World:
         raw = json.loads(out_file.read_text())
         keys = {name: {e["key"] for e in raw.get(name, [])} for name in ("property_keys", "save_keys", "filter_keys")}
         keys["saved"] = raw.get("saved", {})
+        keys["filter_defaults"] = raw.get("filter_defaults", {})
         keys["lists"] = {e["key"]: [v["value"] for v in e["values"]] for e in raw.get("lists", [])}
         return keys
 

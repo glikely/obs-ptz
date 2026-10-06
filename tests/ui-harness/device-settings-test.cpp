@@ -71,7 +71,7 @@ void collectStringLists(obs_properties_t *props, obs_data_array_t *out)
  * filter's own settings, and what it writes there is the device's values,
  * over a change made to the settings that the device has yet to be updated
  * with: a test that looks while it waits for one would undo it. */
-void collectFilterKeys(obs_source_t *parent, obs_data_array_t *out)
+void collectFilterKeys(obs_source_t *parent, obs_data_array_t *out, obs_data_t *defaultsOut)
 {
 	struct Find {
 		obs_source_t *filter = nullptr;
@@ -89,6 +89,12 @@ void collectFilterKeys(obs_source_t *parent, obs_data_array_t *out)
 	if (!find.filter || !QString(obs_source_get_id(find.filter)).startsWith("ca.secretlab.obs-ptz."))
 		return;
 	OBSDataAutoRelease current = obs_source_get_settings(find.filter);
+	/* The string defaults of the live settings, which are not saved: what the device
+	 * says for a controller, such as the placeholder of a field */
+	OBSDataAutoRelease defaults = obs_data_get_defaults(current);
+	for (obs_data_item_t *item = obs_data_first(defaults); item; obs_data_item_next(&item))
+		if (obs_data_item_gettype(item) == OBS_DATA_STRING)
+			obs_data_set_string(defaultsOut, obs_data_item_get_name(item), obs_data_item_get_string(item));
 	OBSDataAutoRelease settings = obs_data_create();
 	obs_data_apply(settings, current);
 	ptz_filter_save(obs_obj_get_data(find.filter), settings);
@@ -146,13 +152,15 @@ void runGetDeviceSettingsTest(const QMap<QString, QString> &params)
 	}
 
 	OBSDataArrayAutoRelease filterArray = obs_data_array_create();
+	OBSDataAutoRelease filterDefaults = obs_data_create();
 	OBSSource parent = ptzDeviceList->parentSource(index);
-	collectFilterKeys(parent, filterArray);
+	collectFilterKeys(parent, filterArray, filterDefaults);
 
 	OBSDataAutoRelease result = obs_data_create();
 	obs_data_set_array(result, "property_keys", propertyArray);
 	obs_data_set_array(result, "save_keys", saveArray);
 	obs_data_set_array(result, "filter_keys", filterArray);
+	obs_data_set_obj(result, "filter_defaults", filterDefaults);
 	obs_data_set_array(result, "lists", listArray);
 	obs_data_set_obj(result, "saved", saved);
 	if (!obs_data_save_json_safe(result, qUtf8Printable(filename), "tmp", "bak"))
@@ -166,6 +174,8 @@ void runGetDeviceSettingsTest(const QMap<QString, QString> &params)
  *   filename  - where to write the {"property_keys": [{"key"}...],
  *               "save_keys": [{"key"}...], "filter_keys": [{"key"}...],
  *               "saved": {...what save() wrote, with its values},
+ *               "filter_defaults": {...the string defaults of the filter's
+ *               live settings, which are not saved},
  *               "lists": [{"key", "values": [{"value"}...]}...], what
  *               each string list property offers} JSON
  *               result. filter_keys is empty unless a PTZ filter owns the

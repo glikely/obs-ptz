@@ -93,6 +93,38 @@ const char *deviceName(void *)
 	return "Test PTZ device (from another plugin)";
 }
 
+/* Something that has a host of its own, for the plugin to take a camera's
+ * from, as it does from a DistroAV NDI source: its "web_control_url" setting */
+const char *hostSourceName(void *)
+{
+	return "Test source with a host (not NDI)";
+}
+
+void *createHostSource(obs_data_t *, obs_source_t *source)
+{
+	return source;
+}
+
+void destroyHostSource(void *) {}
+
+/* Without an .update OBS does not tell anyone the source's settings changed */
+void updateHostSource(void *, obs_data_t *) {}
+
+void registerHostSource()
+{
+	obs_source_info info = {};
+	info.id = "ndi_source";
+	info.type = OBS_SOURCE_TYPE_INPUT;
+	info.output_flags = OBS_SOURCE_VIDEO;
+	info.get_name = hostSourceName;
+	info.create = createHostSource;
+	info.destroy = destroyHostSource;
+	info.update = updateHostSource;
+	info.get_width = deviceSize;
+	info.get_height = deviceSize;
+	obs_register_source(&info);
+}
+
 void registerDevice(const char *id, obs_source_type type)
 {
 	obs_source_info info = {};
@@ -120,4 +152,6 @@ void registerThirdPartyDeviceTest(PTZUITestHarness *)
 	registerDevice(GOOD_ID, OBS_SOURCE_TYPE_FILTER);
 	registerDevice(OTHER_VERSION_ID, OBS_SOURCE_TYPE_FILTER);
 	registerDevice(GOOD_SOURCE_ID, OBS_SOURCE_TYPE_INPUT);
+	/* ...and "ndi_source", to say a host, as the kind of that id does */
+	registerHostSource();
 }
