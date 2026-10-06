@@ -648,6 +648,41 @@ class World:
         })
         return response["responseData"]
 
+    def call_proc(self, device, proc, args=None, returns=None):
+        """Calls proc on device's proc_handler the way another plugin would
+        (tests/ui-harness/preset-api-test.cpp's "call_proc"), with the calldata
+        fields in args: a str, bool, int or float as that, a dict or list as the
+        obs_data_t a ptr field takes. returns is what it gives back as "return":
+        "string", "int", "bool" or "data" (a dict). Returns
+        {"called", "return", "args"}; "args" has the dicts passed in, as the
+        proc left them."""
+        args = args or {}
+        out = self.scratch / "call-proc.json"
+        if out.exists():
+            out.unlink()
+        params = {"device": device, "proc": proc, "args": json.dumps(args),
+                  "floats": ",".join(k for k, v in args.items() if isinstance(v, float)),
+                  "filename": str(out)}
+        if returns:
+            params["returns"] = returns
+        self.run_ui_test("call_proc", **params)
+        self.wait_for(lambda: out.exists() and out.read_text())
+        return json.loads(out.read_text())
+
+    def record_preset_signals(self, device):
+        """Starts recording device's ptz_preset_* signals, from nothing"""
+        self.run_ui_test("record_preset_signals", device=device)
+
+    def preset_signals(self):
+        """What the signals recorded since record_preset_signals() have said, as
+        [{"signal", "id", "index", "from", "to", "changed"}...] in order"""
+        out = self.scratch / "preset-signals.json"
+        if out.exists():
+            out.unlink()
+        self.run_ui_test("get_preset_signals", filename=str(out))
+        self.wait_for(lambda: out.exists() and out.read_text())
+        return json.loads(out.read_text())["events"]
+
     def export_and_wait(self, device_name, out_file, expected_presets, timeout=5, interval=0.1):
         """Triggers the real "Export Presets..." action once (via
         run_ui_test()) for device_name, writing to out_file, then waits for
