@@ -8,7 +8,7 @@ from just reading the code.
 ## Build system
 
 - `buildspec.json` at repo root declares versions/hashes for `obs-studio`, `prebuilt`
-  (obs-deps), `qt6`, `qtserialport`, and `sdl`. Per-platform `cmake/{macos,windows}/buildspec.cmake`
+  (obs-deps), `qt6`, and `sdl`. Per-platform `cmake/{macos,windows}/buildspec.cmake`
   map those entries to actual filenames/URLs and drive `_check_dependencies()` in
   `cmake/common/buildspec_common.cmake`.
 - macOS and Windows **vendor-build** SDL and Qt's SerialPort submodule from source
