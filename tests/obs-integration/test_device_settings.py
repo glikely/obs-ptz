@@ -29,6 +29,15 @@ def test_settings_properties_are_all_saved(obs_world, backend, tmp_path):
     assert keys["property_keys"] - keys["save_keys"] == set()
 
 
+@pytest.mark.parametrize("backend,has_tally", [("visca-tcp", True), ("pelco-d", False)])
+def test_tally_auto_is_offered_for_a_camera_with_tally_lamps(obs_world, backend, has_tally, tmp_path):
+    """The setting is saved, and has its default, for every device, but there
+    is only something to set for one with the tally_light feature"""
+    keys = obs_world.device_settings(obs_world.device_names[backend], tmp_path / "settings.json")
+    assert "tally_auto" in keys["save_keys"]
+    assert ("tally_auto" in keys["property_keys"]) is has_tally
+
+
 def test_filter_settings_properties_are_all_saved(obs_world, cameras, tmp_path):  # noqa: F811
     cameras.add_source(obs_world.create_scene(), "settings-cam")
     cameras.add_filter("settings-cam")

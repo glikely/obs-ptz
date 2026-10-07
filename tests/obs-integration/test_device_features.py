@@ -8,7 +8,7 @@ import pytest
 # What each device's camera can do, as ptzsim imitates it
 FEATURES = {
     "visca-tcp": {"pantilt", "pantilt_abs", "pantilt_rel", "home", "zoom", "zoom_abs", "focus", "focus_onetouch",
-                  "autofocus", "presets", "power", "wb_onepush", "diagnostics"},
+                  "autofocus", "presets", "power", "wb_onepush", "diagnostics", "tally_light"},
     "pelco-d": {"pantilt", "zoom", "focus", "home", "presets"},
 }
 # ...and at least this, for ONVIF, which has focus too if ptzsim has an

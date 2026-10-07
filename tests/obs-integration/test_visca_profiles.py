@@ -131,4 +131,7 @@ def test_a_sony_is_asked_for_what_its_manual_has(request, obs_world, tmp_path):
     assert (state["vendor_id"], state["model_id"]) == (0x0001, 0x0511)
     # long enough for the rest of what there is to read to have been
     time.sleep(2)
-    assert "tally_on" not in obs_world.device_state(device_name, tmp_path / "later.json")["state"]
+    later = obs_world.device_state(device_name, tmp_path / "later.json")["state"]
+    assert "tally_on" not in later
+    # ...and says it has none to light
+    assert "tally_light" not in later["features"]

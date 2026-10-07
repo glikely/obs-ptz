@@ -235,6 +235,40 @@ def test_no_lamps_are_lit_with_tally_auto_off(request, obs_world, tmp_path):
     assert tally.sim.lamps() == {"red": False, "green": False}
 
 
+def set_tally_auto(tally, enabled):
+    tally.world.ws.call("SetSourceFilterSettings", {
+        "sourceName": SOURCE,
+        "filterName": "PTZ",
+        "filterSettings": {"tally_auto": enabled},
+    })
+
+
+def test_tally_auto_is_acted_on_when_it_changes(request, obs_world, tmp_path):
+    tally = make_tally(request, obs_world, tmp_path, tally_auto=False)
+
+    tally.program(tally.scene)
+    time.sleep(1.5)
+    assert tally.sim.lamps() == {"red": False, "green": False}
+
+    # Turned on, it lights the lamp for what the source is in, without
+    # waiting for the scene to change
+    set_tally_auto(tally, True)
+    tally.wait_for_lamps(red=True, green=False)
+
+    # Turned off, it leaves the lamps be, even when the scene moves on...
+    set_tally_auto(tally, False)
+    # OBS applies the update in its own time, which a scene change right
+    # behind it would not wait for
+    time.sleep(1)
+    tally.program(tally.other)
+    time.sleep(1.5)
+    assert tally.sim.lamps() == {"red": True, "green": False}
+
+    # ...until it is turned on again, and puts them right
+    set_tally_auto(tally, True)
+    tally.wait_for_lamps(red=False, green=False)
+
+
 def test_state_follows_the_lamps_of_a_camera_that_never_completes_a_command(request, obs_world, tmp_path):
     tally = make_tally(request, obs_world, tmp_path, completions=False)
     tally.studio(True)
