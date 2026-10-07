@@ -10,6 +10,7 @@
 #include <obs-module.h>
 #include <QApplication>
 #include <QCheckBox>
+#include <QLabel>
 #include <QComboBox>
 #include <QSpinBox>
 #include <QPushButton>
@@ -149,6 +150,9 @@ void runGetSettingsDialogTest(const QMap<QString, QString> &params)
 	obs_data_set_bool(result, "connected", shown.value("connected").toBool());
 	for (const char *axis : {"pan", "tilt", "zoom", "focus"})
 		obs_data_set_double(result, axis, shown.value(axis).toDouble());
+	/* The status line above the views, with its markup */
+	auto header = dialog->findChild<QLabel *>(QStringLiteral("statusHeader"));
+	obs_data_set_string(result, "header", header ? qUtf8Printable(header->text()) : "");
 	obs_data_set_int(result, "settings_refreshes", settingsRefreshes);
 	obs_data_set_int(result, "state_updates", state->updateCount() - stateUpdatesAtOpen);
 	obs_data_set_bool(result, "apply_enabled", apply && apply->isEnabled());
@@ -218,6 +222,13 @@ void runPressDialogButtonTest(const QMap<QString, QString> &params)
 	button->click();
 }
 
+/* Turns "Block Live Camera Moves" on or off, as its checkbox does */
+void runSetLiveMoveLockTest(const QMap<QString, QString> &params)
+{
+	PTZControls::getInstance()->setLiveMoveLockEnabled(params.value(QStringLiteral("enabled")) ==
+							   QStringLiteral("1"));
+}
+
 } // namespace
 
 /* open_settings_dialog request params:
@@ -225,11 +236,13 @@ void runPressDialogButtonTest(const QMap<QString, QString> &params)
  * get_settings_dialog: filename - where to write the {"settings_keys",
  *   "state_keys": [{"key"}...], "wb_mode", "connected", "pan", "tilt", "zoom",
  *   "focus", "settings_refreshes", "state_updates", "apply_enabled", "tabs": [{"name"}...],
- *   "state_widgets", "wb_widget", "diagnostics_visible", "shown": {every
+ *   "state_widgets", "wb_widget", "diagnostics_visible", "header" (the status line, with
+ *   its markup), "shown": {every
  *   shown state key: the value shown}} JSON result
  * edit_dialog_state: each param a state key ("wb_mode", say) and the value to
  *   give its field: "True"/"False", or a number
  * press_dialog_button: button - the object name of a state view button
+ * set_live_move_lock: enabled - "1" to block moves of live cameras, otherwise not
  */
 void registerSettingsDialogTest(PTZUITestHarness *harness)
 {
@@ -237,4 +250,5 @@ void registerSettingsDialogTest(PTZUITestHarness *harness)
 	harness->registerTest(QStringLiteral("get_settings_dialog"), &runGetSettingsDialogTest);
 	harness->registerTest(QStringLiteral("edit_dialog_state"), &runEditDialogStateTest);
 	harness->registerTest(QStringLiteral("press_dialog_button"), &runPressDialogButtonTest);
+	harness->registerTest(QStringLiteral("set_live_move_lock"), &runSetLiveMoveLockTest);
 }

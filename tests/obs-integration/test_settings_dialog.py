@@ -11,11 +11,13 @@ conftest.py).
 import json
 import time
 
+import pytest
+
 ACTION_PAN_TILT = 3
 ACTION_STOP = 4
 
 # The filter fixtures live in test_filter_devices.py
-from test_filter_devices import camera_sim, cameras  # noqa: F401
+from test_filter_devices import camera_sim, cameras, make_program, studio_mode  # noqa: F401
 
 
 def open_dialog(obs_world, device_name):
@@ -243,3 +245,34 @@ def test_dialog_survives_its_device_changing_interface(obs_world, cameras, tmp_p
     assert {"wb_mode", "connected"} <= dialog["state_keys"]
     assert_obs_alive(obs_world)
     assert obs_world.device_by_name("dialog-iface-cam", out)["found"]
+
+
+@pytest.fixture
+def live_move_lock(obs_world):
+    """"Block Live Camera Moves", which is on unless a test turns it off"""
+    yield
+    obs_world.run_ui_test("set_live_move_lock", enabled=1)
+
+
+def test_header_says_locked_only_while_live_moves_are_blocked(obs_world, cameras, studio_mode, live_move_lock,  # noqa: F811
+                                                              tmp_path):
+    scene = obs_world.create_scene()
+    cameras.add_source(scene, "header-cam")
+    cameras.add_filter("header-cam")
+    device = obs_world.wait_for_device_by_name("header-cam", tmp_path / "device.json",
+                                               lambda r: r["found"] and r["bound"])["uuid"]
+    make_program(obs_world, scene)
+    obs_world.wait_for_device_source(device, tmp_path / "device.json", lambda r: r["live"] and r["locked"], timeout=10)
+    out = tmp_path / "dialog.json"
+    open_dialog(obs_world, device)
+
+    header = obs_world.wait_for_settings_dialog(out, lambda r: "Live" in r["header"], timeout=10)["header"]
+    assert "Locked" in header
+
+    # The device is as locked as ever, but nothing is blocking it
+    obs_world.run_ui_test("set_live_move_lock", enabled=0)
+    header = obs_world.wait_for_settings_dialog(out, lambda r: "Locked" not in r["header"], timeout=10)["header"]
+    assert "Live" in header
+
+    obs_world.run_ui_test("set_live_move_lock", enabled=1)
+    obs_world.wait_for_settings_dialog(out, lambda r: "Locked" in r["header"], timeout=10)
