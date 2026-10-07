@@ -231,16 +231,21 @@ static bool ptz_action_source_device_changed_cb(obs_properties_t *props, obs_pro
 		calldata_free(&cd);
 	}
 
-	obs_data_array_t *preset_array = info ? obs_data_get_array(info, "presets") : NULL;
-	for (size_t i = 0; preset_array && i < obs_data_array_count(preset_array); i++) {
-		obs_data_t *preset = obs_data_array_item(preset_array, i);
-		const char *name = obs_data_get_string(preset, "name");
-		const char *id = obs_data_get_string(preset, "id");
+	/* In the order they are to be shown in */
+	obs_data_t *presets = info ? obs_data_get_obj(info, "presets") : NULL;
+	obs_data_array_t *order = info ? obs_data_get_array(info, "order") : NULL;
+	for (size_t i = 0; order && i < obs_data_array_count(order); i++) {
+		obs_data_t *entry = obs_data_array_item(order, i);
+		const char *id = obs_data_get_string(entry, "id");
+		obs_data_t *preset = obs_data_get_obj(presets, id);
+		const char *name = preset ? obs_data_get_string(preset, "name") : "";
 		obs_property_list_add_string(prop_preset, *name ? name : id, id);
 		obs_data_release(preset);
+		obs_data_release(entry);
 	}
 
-	obs_data_array_release(preset_array);
+	obs_data_array_release(order);
+	obs_data_release(presets);
 	obs_data_release(info);
 	obs_source_release(device);
 	return true;

@@ -115,47 +115,12 @@ static void device_settings_changed_cb(void *data, calldata_t *cd)
  * route them to PTZListModel, which does the begin.../end...Rows()
  * bracketing itself against its own (still-stale) cache.
  */
-static void preset_added_cb(void *data, calldata_t *cd)
+/* Any change to the list of presets, or to one of them: the model finds out which */
+static void preset_sync_cb(void *data, calldata_t *cd)
 {
 	auto ptzlm = static_cast<PTZListModel *>(data);
 	QString uuid = signalUuid(cd);
-	auto row = (int)calldata_int(cd, "index");
-	QMetaObject::invokeMethod(ptzlm, [ptzlm, uuid, row] { ptzlm->presetInserted(uuid, row); });
-}
-
-static void preset_removed_cb(void *data, calldata_t *cd)
-{
-	auto ptzlm = static_cast<PTZListModel *>(data);
-	QString uuid = signalUuid(cd);
-	auto row = (int)calldata_int(cd, "index");
-	QMetaObject::invokeMethod(ptzlm, [ptzlm, uuid, row] { ptzlm->presetRemoved(uuid, row); });
-}
-
-/* The signal says where it went in the list as it is once it is taken out, and
- * the model, as QAbstractItemModel::moveRows() does, where it goes before */
-static void preset_moved_cb(void *data, calldata_t *cd)
-{
-	auto ptzlm = static_cast<PTZListModel *>(data);
-	QString uuid = signalUuid(cd);
-	auto from = (int)calldata_int(cd, "from");
-	auto to = (int)calldata_int(cd, "to");
-	int dest_row = to > from ? to + 1 : to;
-	QMetaObject::invokeMethod(ptzlm, [ptzlm, uuid, from, dest_row] { ptzlm->presetMoved(uuid, from, dest_row); });
-}
-
-/* A renamed preset and a new thumbnail both just mean "refetch the list" */
-static void preset_changed_cb(void *data, calldata_t *cd)
-{
-	auto ptzlm = static_cast<PTZListModel *>(data);
-	QString uuid = signalUuid(cd);
-	QMetaObject::invokeMethod(ptzlm, [ptzlm, uuid] { ptzlm->presetsChanged(uuid); });
-}
-
-static void preset_list_reset_cb(void *data, calldata_t *cd)
-{
-	auto ptzlm = static_cast<PTZListModel *>(data);
-	QString uuid = signalUuid(cd);
-	QMetaObject::invokeMethod(ptzlm, [ptzlm, uuid] { ptzlm->presetsReset(uuid); });
+	QMetaObject::invokeMethod(ptzlm, [ptzlm, uuid] { ptzlm->presetsSync(uuid); });
 }
 
 PTZListModel::PTZListModel() : QAbstractItemModel()
@@ -331,9 +296,13 @@ QList<PTZListModel::PresetEntry> PTZListModel::fetchPresets(const PTZDeviceEntry
 	callEntry(entry, "ptz_preset_get_list", &cd);
 	auto info = static_cast<obs_data_t *>(calldata_ptr(&cd, "return"));
 	if (info) {
-		OBSDataArrayAutoRelease list = obs_data_get_array(info, "presets");
-		for (size_t i = 0; i < obs_data_array_count(list); i++) {
-			OBSDataAutoRelease item = obs_data_array_item(list, i);
+		OBSDataAutoRelease list = obs_data_get_obj(info, "presets");
+		OBSDataArrayAutoRelease order = obs_data_get_array(info, "order");
+		for (size_t i = 0; i < obs_data_array_count(order); i++) {
+			OBSDataAutoRelease entry = obs_data_array_item(order, i);
+			OBSDataAutoRelease item = obs_data_get_obj(list, obs_data_get_string(entry, "id"));
+			if (!item)
+				continue;
 			PresetEntry preset;
 			preset.id = QT_UTF8(obs_data_get_string(item, "id"));
 			preset.name = QT_UTF8(obs_data_get_string(item, "name"));
@@ -486,7 +455,7 @@ bool PTZListModel::moveRows(const QModelIndex &srcParent, int srcRow, int count,
 	/* Same validity rule beginMoveRows() enforces (moving to a position
 	 * within, or immediately after, the moved range is a no-op) -- check
 	 * it here so the backend is never asked to perform a move
-	 * presetMoved() would then have to reject via beginMoveRows(). */
+	 * presetsSync() would then have to reject via beginMoveRows(). */
 	if (destChild == srcRow || destChild == srcRow + 1)
 		return false;
 
@@ -830,11 +799,9 @@ void PTZListModel::deviceCreated(OBSWeakSource weakSource)
 	signal_handler_connect(sh, "destroy", filter_destroy_cb, this);
 	signal_handler_connect(sh, "ptz_state_changed", device_state_changed_cb, this);
 	signal_handler_connect(sh, "update", device_settings_changed_cb, this);
-	signal_handler_connect(sh, "ptz_preset_added", preset_added_cb, this);
-	signal_handler_connect(sh, "ptz_preset_removed", preset_removed_cb, this);
-	signal_handler_connect(sh, "ptz_preset_moved", preset_moved_cb, this);
-	signal_handler_connect(sh, "ptz_preset_changed", preset_changed_cb, this);
-	signal_handler_connect(sh, "ptz_preset_list_reset", preset_list_reset_cb, this);
+	for (const char *name : {"ptz_preset_added", "ptz_preset_removed", "ptz_preset_order_changed",
+				 "ptz_preset_changed", "ptz_preset_list_reset"})
+		signal_handler_connect(sh, name, preset_sync_cb, this);
 }
 
 void PTZListModel::deviceDestroyed(const QString &uuid)
@@ -875,81 +842,66 @@ void PTZListModel::deviceSettingsChanged(const QString &uuid)
 	emit deviceSettingsUpdated(uuid);
 }
 
-void PTZListModel::presetsChanged(const QString &uuid)
-{
-	auto entry = entryByUuid(uuid);
-	if (!entry)
-		return;
-	refreshPresetList(entry);
-	if (entry->presets.isEmpty())
-		return;
-	auto parent = indexFromUuid(uuid);
-	if (!parent.isValid())
-		return;
-	auto tl = index(0, 0, parent);
-	auto br = index(entry->presets.size() - 1, 0, parent);
-	if (tl.isValid() && br.isValid())
-		emit dataChanged(tl, br);
-}
-
 /**
- * PTZDevice has already inserted the new preset into its own list by the
- * time this fires; PTZListModel's cache (entry->presets) hasn't been
- * touched yet, so it's still reflecting the pre-insert row count -- exactly
- * what beginInsertRows() needs to see. Opening the begin/end bracket here,
- * around the cache refresh, is what QAbstractItemModel actually requires;
- * PTZDevice firing two calls instead of one wouldn't let it see anything
- * different.
+ * The device's list of presets changed in some way: a preset was added or
+ * removed or changed, or the order, or all of it. The signals don't say where,
+ * so this finds out, and tells the model's views in the terms they want: rows
+ * removed, rows inserted, rows moved, and rows changed. The cache is made current
+ * between the begin and end of each, as QAbstractItemModel requires.
  */
-void PTZListModel::presetInserted(const QString &uuid, int row)
-{
-	auto entry = entryByUuid(uuid);
-	if (!entry)
-		return;
-	beginInsertRows(indexFromUuid(uuid), row, row);
-	refreshPresetList(entry);
-	endInsertRows();
-}
-
-void PTZListModel::presetRemoved(const QString &uuid, int row)
-{
-	auto entry = entryByUuid(uuid);
-	if (!entry)
-		return;
-	beginRemoveRows(indexFromUuid(uuid), row, row);
-	refreshPresetList(entry);
-	endRemoveRows();
-}
-
-void PTZListModel::presetMoved(const QString &uuid, int srcRow, int destRow)
+void PTZListModel::presetsSync(const QString &uuid)
 {
 	auto entry = entryByUuid(uuid);
 	if (!entry)
 		return;
 	auto parent = indexFromUuid(uuid);
-	if (!beginMoveRows(parent, srcRow, srcRow, parent, destRow))
-		return;
-	refreshPresetList(entry);
-	endMoveRows();
-}
+	int slotCount = entry->maxPresets;
+	QList<PresetEntry> now = fetchPresets(*entry, &slotCount);
+	entry->maxPresets = slotCount;
 
-void PTZListModel::presetsReset(const QString &uuid)
-{
-	auto entry = entryByUuid(uuid);
-	if (!entry)
-		return;
-	auto parent = indexFromUuid(uuid);
-	if (!entry->presets.isEmpty()) {
-		beginRemoveRows(parent, 0, entry->presets.size() - 1);
-		entry->presets.clear();
+	QStringList wanted;
+	for (const PresetEntry &preset : now)
+		wanted << preset.id;
+
+	/* What is gone, from the end */
+	for (int row = entry->presets.size() - 1; row >= 0; row--) {
+		if (wanted.contains(entry->presets.at(row).id))
+			continue;
+		beginRemoveRows(parent, row, row);
+		entry->presets.removeAt(row);
 		endRemoveRows();
 	}
-	int slotCount = entry->maxPresets;
-	QList<PresetEntry> presets = fetchPresets(*entry, &slotCount);
-	entry->maxPresets = slotCount;
-	if (presets.isEmpty())
-		return;
-	beginInsertRows(parent, 0, presets.size() - 1);
-	entry->presets = presets;
-	endInsertRows();
+	/* What is new, where it goes */
+	for (int row = 0; row < now.size(); row++) {
+		bool known = false;
+		for (const PresetEntry &have : entry->presets)
+			known = known || have.id == now.at(row).id;
+		if (known)
+			continue;
+		beginInsertRows(parent, row, row);
+		entry->presets.insert(row, now.at(row));
+		endInsertRows();
+	}
+	/* What is where it was not, moved up to where it goes */
+	for (int row = 0; row < now.size(); row++) {
+		if (entry->presets.at(row).id == now.at(row).id)
+			continue;
+		int from = row + 1;
+		while (from < entry->presets.size() && entry->presets.at(from).id != now.at(row).id)
+			from++;
+		if (from >= entry->presets.size())
+			break;
+		if (!beginMoveRows(parent, from, from, parent, row))
+			break;
+		entry->presets.move(from, row);
+		endMoveRows();
+	}
+	/* And what changed in them */
+	entry->presets = now;
+	if (!entry->presets.isEmpty() && parent.isValid()) {
+		auto tl = index(0, 0, parent);
+		auto br = index(entry->presets.size() - 1, 0, parent);
+		if (tl.isValid() && br.isValid())
+			emit dataChanged(tl, br);
+	}
 }

@@ -146,20 +146,14 @@ public:
 	void setState(const QModelIndex &index, OBSData state);
 	void removeDevice(const QModelIndex &index);
 
-	/* React to a preset list mutation PTZDevice reports *after* it
-	 * already happened, by wrapping the model's own (still-stale) cache
-	 * refresh in the appropriate QAbstractItemModel begin/end calls --
-	 * called from the per-device signal_handler trampolines in
-	 * ptz-list-model.cpp (see deviceCreated()) in response to PTZDevice's
-	 * ptz_preset_added/ptz_preset_removed/ptz_preset_moved signals. All the
-	 * begin/end bracketing lives here: PTZDevice just states what changed
-	 * once, it doesn't call back in two phases. */
-	void presetInserted(const QString &uuid, int row);
-	void presetRemoved(const QString &uuid, int row);
-	void presetMoved(const QString &uuid, int srcRow, int destRow);
-	/* The device changed its list by more than a row, as when its camera said
-	 * what presets it has */
-	void presetsReset(const QString &uuid);
+	/* React to a change PTZDevice reports to its presets *after* it
+	 * already happened, by working out what changed in the model's own
+	 * (still-stale) cache and wrapping its refresh in the appropriate
+	 * QAbstractItemModel begin/end calls -- called from the per-device
+	 * signal_handler trampoline in ptz-list-model.cpp (see deviceCreated()) in
+	 * response to any of PTZDevice's ptz_preset_* signals. All the begin/end
+	 * bracketing lives here: PTZDevice just states that something changed. */
+	void presetsSync(const QString &uuid);
 
 	/* Called by the signal_handler trampolines in ptz-list-model.cpp;
 	 * not Qt slots, they bring the cache up to date and then, for the
@@ -168,7 +162,6 @@ public:
 	void deviceDestroyed(const QString &uuid);
 	void deviceStateChanged(const QString &uuid, OBSData changed);
 	void deviceSettingsChanged(const QString &uuid);
-	void presetsChanged(const QString &uuid);
 
 signals:
 	/* For whoever shows a device's settings or state as more than a row

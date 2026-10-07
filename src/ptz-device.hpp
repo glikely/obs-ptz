@@ -148,19 +148,24 @@ protected:
 	};
 	size_t m_maxPresets = 16;
 	QList<Preset> m_presets;
+	/* The display order, as ids: apart from m_presets, which has no order of its
+	 * own. It can name a preset the camera has yet to say it has. */
+	QStringList m_order;
+	void reconcileOrder();
+	void signalOrderChanged();
 	/* What the camera said it has, for a driver that can enumerate, by key and
 	 * name. Kept as it is across update()s, which read the saved presets again */
 	QList<QPair<QString, QString>> m_cameraPresets;
 	bool m_cameraPresetsKnown = false;
 	/* Make the list again, from what is saved (a "presets" array) and what the
 	 * camera said */
-	void loadPresets(obs_data_array_t *saved);
+	void loadPresets(obs_data_array_t *saved, obs_data_array_t *order);
 	int presetIndex(const QString &id) const;
 	/* The current position and focus as a local preset keeps them: only
 	 * what the device has reported */
 	OBSData captureValues() const;
 	void applyValues(const Preset &preset);
-	void signalPreset(const char *name, const QString &id, int index = -1);
+	void signalPreset(const char *name, const QString &id);
 	void signalPresetChanged(const QString &id, obs_data_t *changed);
 	void signalPresetThumbnail(const QString &id);
 	void setConnected(bool connected);
