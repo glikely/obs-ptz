@@ -388,6 +388,8 @@ QString PTZDevice::sourceName() const
 
 void PTZDevice::onSceneChanged()
 {
+	if (!tally_auto || !features().testFlag(TallyLight))
+		return;
 	bool live = false, preview = false;
 	OBSSourceAutoRelease source = parentSource();
 	if (source) {
@@ -536,6 +538,7 @@ const QList<QPair<PTZDevice::Feature, const char *>> &PTZDevice::featureNames()
 		{Power, "power"},
 		{WhiteBalanceOnePush, "wb_onepush"},
 		{Diagnostics, "diagnostics"},
+		{TallyLight, "tally_light"},
 	};
 	return names;
 }
@@ -558,6 +561,8 @@ void PTZDevice::featuresChanged()
 	reportedFeatures = now;
 	saveFeatures(stateChanged, now);
 	notifyStateChanged();
+	/* A camera found to have lamps is lit for what its source is in */
+	onSceneChanged();
 }
 
 void PTZDevice::requestState(OBSData requested)
@@ -746,6 +751,7 @@ void PTZDevice::defaults(obs_data_t *config)
 	obs_data_set_default_bool(config, "tilt_invert", false);
 	obs_data_set_default_bool(config, "zoom_invert", false);
 	obs_data_set_default_bool(config, "focus_invert", false);
+	obs_data_set_default_bool(config, "tally_auto", true);
 }
 
 void PTZDevice::applySettings(OBSData settings)
@@ -793,6 +799,14 @@ void PTZDevice::update(OBSData config)
 		sanitizePreset(id);
 	}
 
+	bool was_tally_auto = tally_auto;
+	tally_auto = obs_data_get_bool(config, "tally_auto");
+	/* Turned on, it lights the lamps for what the source is in now, which
+	 * is for the device's own thread, with the device's driver finished
+	 * with its own update */
+	if (tally_auto && !was_tally_auto)
+		QMetaObject::invokeMethod(this, [this]() { onSceneChanged(); }, Qt::QueuedConnection);
+
 	pantilt_speed_max = obs_data_get_double(config, "pantilt_speed_max");
 	zoom_speed_max = obs_data_get_double(config, "zoom_speed_max");
 	focus_speed_max = obs_data_get_double(config, "focus_speed_max");
@@ -812,6 +826,7 @@ void PTZDevice::save(OBSData config) const
 	obs_data_set_bool(config, "tilt_invert", tilt_invert);
 	obs_data_set_bool(config, "zoom_invert", zoom_invert);
 	obs_data_set_bool(config, "focus_invert", focus_invert);
+	obs_data_set_bool(config, "tally_auto", tally_auto);
 	obs_data_set_int(config, "preset_max", m_maxPresets);
 	persistState(config);
 	saveDefaults(config);
@@ -870,6 +885,8 @@ obs_properties_t *PTZDevice::get_obs_properties()
 	obs_properties_add_float_slider(speed, "focus_speed_max", obs_module_text("PTZ.Device.FocusMaxSpeed"), 0.1, 1.0,
 					1.0 / 1024);
 	obs_properties_add_bool(speed, "focus_invert", obs_module_text("PTZ.Device.FocusInvertAxis"));
+	if (features().testFlag(TallyLight))
+		obs_properties_add_bool(speed, "tally_auto", obs_module_text("PTZ.Device.TallyAuto"));
 
 	return rtn_props;
 }

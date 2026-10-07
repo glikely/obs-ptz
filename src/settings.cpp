@@ -923,6 +923,9 @@ void PTZSettings::deviceStateUpdated(const QString &uuid, OBSData changed)
 		return;
 
 	ui->stateView->applyChanges(changed);
+	/* What a device can do decides which settings it offers */
+	if (obs_data_has_user_value(changed, "features"))
+		QMetaObject::invokeMethod(propertiesView, "RefreshProperties", Qt::QueuedConnection);
 }
 
 void PTZSettings::showDevice(const QModelIndex &index)

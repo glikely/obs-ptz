@@ -181,7 +181,6 @@ protected:
 	unsigned int visca_tilt_speed_max = 0x14;
 	unsigned int visca_zoom_speed_max = 7;
 	unsigned int visca_focus_speed_max = 7;
-	bool tally_auto = true;
 	bool power_on_at_startup = false;
 	bool power_off_at_shutdown = false;
 	/* Whether the camera has answered since the link came up, and a

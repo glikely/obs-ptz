@@ -65,6 +65,9 @@ public:
 		 * ptz_get_camera_report proc hands back, for working out
 		 * what a camera supports */
 		Diagnostics = 1 << 14,
+		/* The camera has tally lamps, which setTally() lights while the
+		 * "tally_auto" setting is on */
+		TallyLight = 1 << 15,
 	};
 	Q_DECLARE_FLAGS(Features, Feature)
 	/* Each feature, and its name in the state's "features" */
@@ -72,6 +75,8 @@ public:
 
 protected:
 	std::string type;
+	/* Whether to light the camera's tally lamps by itself */
+	bool tally_auto = true;
 	bool m_tallyProgram = false;
 	bool m_tallyPreview = false;
 	bool connected = false;
@@ -191,7 +196,8 @@ public:
 	 * Mode only) and not in the program scene */
 	enum class Tally { Program, Preview };
 	/* A lamp is to be lit or put out. Nothing here; a driver whose camera
-	 * has lamps does it. Told only when a lamp's state changes. */
+	 * has lamps (the TallyLight feature) does it. Told only when a lamp's
+	 * state changes. */
 	virtual void setTally(Tally lamp, bool on)
 	{
 		Q_UNUSED(lamp);
@@ -199,7 +205,10 @@ public:
 	}
 	/* The frontend's program or preview scene, or Studio Mode, changed, or
 	 * the device came to be on a source: work out the lamps again, and
-	 * tell setTally() of any that changed */
+	 * tell setTally() of any that changed. Only for a device with the
+	 * TallyLight feature, and while "tally_auto" is on: whoever has it off
+	 * has something else drive the lamps, which are then left as they are,
+	 * and put right when it is on again. */
 	void onSceneChanged();
 	/* OBS has finished loading, or is closing and has not yet cleared its
 	 * scenes (which destroys the filters that own devices). No-ops here; a

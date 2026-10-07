@@ -160,7 +160,6 @@ void PTZVisca::defaults(obs_data_t *cfg)
 	obs_data_set_default_int(cfg, "baud_rate", 9600);
 	obs_data_set_default_bool(cfg, "quirk_visca_udp_no_seq", false);
 	obs_data_set_default_bool(cfg, "protocol_trace", false);
-	obs_data_set_default_bool(cfg, "tally_auto", true);
 	obs_data_set_default_bool(cfg, "power_on_at_startup", false);
 	obs_data_set_default_bool(cfg, "power_off_at_shutdown", false);
 	obs_data_set_default_string(cfg, "visca_profile", "auto");
@@ -188,7 +187,6 @@ void PTZVisca::update(OBSData cfg)
 	if (visca_focus_near == visca_focus_far)
 		visca_focus_near = visca_focus_far + 1;
 	protocol_trace = obs_data_get_bool(cfg, "protocol_trace");
-	tally_auto = obs_data_get_bool(cfg, "tally_auto");
 	power_on_at_startup = obs_data_get_bool(cfg, "power_on_at_startup");
 	power_off_at_shutdown = obs_data_get_bool(cfg, "power_off_at_shutdown");
 	profile_setting = obs_data_get_string(cfg, "visca_profile");
@@ -220,7 +218,6 @@ void PTZVisca::save(OBSData cfg) const
 	obs_data_set_int(cfg, "visca_focus_far", visca_focus_far);
 	obs_data_set_int(cfg, "visca_focus_near", visca_focus_near);
 	obs_data_set_bool(cfg, "protocol_trace", protocol_trace);
-	obs_data_set_bool(cfg, "tally_auto", tally_auto);
 	obs_data_set_bool(cfg, "power_on_at_startup", power_on_at_startup);
 	obs_data_set_bool(cfg, "power_off_at_shutdown", power_off_at_shutdown);
 	obs_data_set_string(cfg, "visca_profile", QT_TO_UTF8(profile_setting));
@@ -318,7 +315,6 @@ obs_properties_t *PTZVisca::get_obs_properties()
 
 	visca_add_interface_fields(iface_props, type);
 
-	obs_properties_add_bool(ptz_props, "tally_auto", obs_module_text("PTZ.Visca.TallyAuto"));
 	obs_properties_add_bool(ptz_props, "power_on_at_startup", obs_module_text("PTZ.Visca.PowerOnAtStartup"));
 	obs_properties_add_bool(ptz_props, "power_off_at_shutdown", obs_module_text("PTZ.Visca.PowerOffAtShutdown"));
 
@@ -715,6 +711,8 @@ PTZDevice::Features PTZVisca::features() const
 		features |= AutoFocus;
 	if (settable("power_on"))
 		features |= Power;
+	if (settable("tally_on") || settable("tally_preview"))
+		features |= TallyLight;
 	if (profile->triggers.contains("wb_onepush"))
 		features |= WhiteBalanceOnePush;
 	return features;
@@ -961,15 +959,10 @@ void PTZVisca::set_control(const QString &key, int value)
 		set_control(*control, value);
 }
 
-/* Lights the red tally lamp while the source is in the program scene, and
- * the green one while it is in the preview scene and not in the program
- * scene, unless "tally_auto" is off for whoever already drives them another
- * way. A manual request (requestState() above) still goes through, but the
- * next time the source changes scene, this overrides it again. */
+/* A manual request (requestState() above) for a lamp still goes through, but
+ * the next time the source changes scene, this overrides it again. */
 void PTZVisca::setTally(Tally lamp, bool on)
 {
-	if (!tally_auto)
-		return;
 	set_control(lamp == Tally::Program ? "tally_on" : "tally_preview", on);
 }
 
