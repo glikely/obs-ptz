@@ -102,9 +102,6 @@ private:
 	void showShutterSpeeds();
 
 	QCheckBox *m_connected;
-	QCheckBox *m_live;
-	QCheckBox *m_preview;
-	QCheckBox *m_locked;
 
 	/* Unlike the indicators above, these are commandable (PTZDevice::
 	 * requestState()): the user can click them, and the row hides while

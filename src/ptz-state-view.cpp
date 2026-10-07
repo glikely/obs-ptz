@@ -128,13 +128,7 @@ PTZStateView::PTZStateView(QWidget *parent) : QWidget(parent)
 
 	auto top = new QFormLayout();
 	m_connected = makeIndicator("PTZ.Device.Status.Connected");
-	m_live = makeIndicator("PTZ.Device.State.Live");
-	m_preview = makeIndicator("PTZ.Device.State.Preview");
-	m_locked = makeIndicator("PTZ.Dock.Lock.Name");
 	top->addRow(m_connected);
-	top->addRow(m_live);
-	top->addRow(m_preview);
-	top->addRow(m_locked);
 
 	m_power = new QCheckBox(obs_module_text("PTZ.Device.State.Power"));
 	m_focusAuto = new QCheckBox(obs_module_text("PTZ.Device.State.Autofocus"));
@@ -652,9 +646,6 @@ void PTZStateView::applyData(obs_data_t *data, bool all)
 	};
 
 	setFlag(m_connected, "connected");
-	setFlag(m_live, "live");
-	setFlag(m_preview, "preview");
-	setFlag(m_locked, "locked");
 
 	/* Commandable, unlike the indicators above: shown only while the
 	 * device reports the key at all, like an axis row */
@@ -803,9 +794,6 @@ QVariantMap PTZStateView::shownValues() const
 {
 	QVariantMap shown;
 	shown["connected"] = m_connected->isChecked();
-	shown["live"] = m_live->isChecked();
-	shown["preview"] = m_preview->isChecked();
-	shown["locked"] = m_locked->isChecked();
 	if (!m_power->isHidden())
 		shown["power_on"] = m_power->isChecked();
 	if (!m_focusAuto->isHidden())

@@ -133,12 +133,8 @@ PTZSettings::PTZSettings() : QWidget(nullptr), ui(new Ui_PTZSettings)
 			if (!QItemSelectionRange(topLeft, bottomRight).contains(current))
 				return;
 			ui->sourcePreview->setSource(ptzDeviceList->parentSource(current));
-			/* live, preview and locked are the device list's to say */
-			OBSDataAutoRelease flags = obs_data_create();
-			obs_data_set_bool(flags, "live", current.data(PTZListModel::IsLiveRole).toBool());
-			obs_data_set_bool(flags, "preview", current.data(PTZListModel::IsPreviewRole).toBool());
-			obs_data_set_bool(flags, "locked", current.data(PTZListModel::IsLockedRole).toBool());
-			ui->stateView->applyChanges(flags.Get());
+			/* The header says whether it is live, in the preview or locked */
+			updateHeader();
 		});
 
 	ui->autoselectCheckBox->setChecked(PTZControls::getInstance()->autoselectEnabled());
@@ -801,11 +797,13 @@ void PTZSettings::updateHeader()
 		parts << badge("\u25cf", "#3cb44b", obs_module_text("PTZ.Device.Status.Connected"));
 	else
 		parts << badge("\u25cb", "#e74c3c", obs_module_text("PTZ.Device.Status.Disconnected"));
-	if (shown.value("live").toBool())
+	/* Where the device's source is, and whether it is locked, are the device list's to say */
+	const QModelIndex current = ui->deviceList->currentIndex();
+	if (current.data(PTZListModel::IsLiveRole).toBool())
 		parts << badge("\u25cf", "#e74c3c", obs_module_text("PTZ.Settings.Header.Live"));
-	if (shown.value("preview").toBool())
+	if (current.data(PTZListModel::IsPreviewRole).toBool())
 		parts << badge("\u25cf", "#3cb44b", obs_module_text("PTZ.Settings.Header.Preview"));
-	if (shown.value("locked").toBool())
+	if (current.data(PTZListModel::IsLockedRole).toBool())
 		parts << badge("\u25cf", "#e0a030", obs_module_text("PTZ.Settings.Header.Locked"));
 
 	/* A camera that is switched off isn't anywhere in particular, so its
