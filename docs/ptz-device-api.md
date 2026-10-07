@@ -1,4 +1,4 @@
-# PTZ device API
+# PTZ Device API
 
 This is the API used to interact with PTZ Devices.
 It covers how to find and manage PTZ devices, to move them, to recall
@@ -342,14 +342,6 @@ It is a new reference, which the caller releases with `obs_source_release()`,
 and it is null while the device has no source, or the source has been removed.
 Any thread.
 
-### `void ptz_set_locked(bool locked)`
-
-Locks or unlocks the device, which refuses to be moved while it is locked, and
-reports it as the `locked` state key.
-Reads `locked` (bool).
-A device is also locked by the plugin whenever it is live.
-Device thread.
-
 ### `void ptz_request_state(ptr state)`
 
 Asks the device to change some of its state, which is never saved: the keys in
@@ -413,13 +405,6 @@ Names the preset `id`, which is its `id` and not its row.
 Announces `ptz_preset_renamed`.
 Device thread.
 
-### `void ptz_scene_changed()`
-
-Tells the device that the program or preview scene changed, so it checks again
-whether it is live or in the preview, and so locked.
-A caller that changes scenes without the OBS frontend knowing calls it.
-Device thread.
-
 ## Per-device signal_handler
 
 The device's own signal_handler: its source's, from
@@ -475,18 +460,13 @@ that changed.
 | Key | Type | Present | Meaning |
 | --- | --- | --- | --- |
 | `connected` | bool | always | The device has a working link to its camera |
-| `live` | bool | always | The device's source is in the program scene |
-| `preview` | bool | always | The device's source is in the preview scene (studio mode only) |
 | `source` | string | always | The name of the OBS source the device is on: for a filter the source it is on, or the last it was on while it is on none, "" if it never has been; for a source its own name. Follows the source being renamed |
-| `locked` | bool | always | Movement is refused: set with `ptz_set_locked`, and also set whenever the device is `live` |
 | `features` | object | always | What the device can do, with each [feature](#features) it has `true` and none for one it hasn't. It can change while the device runs, as it finds out what its camera has |
 | `pan`, `tilt` | number | when known | Position, -1.0 to 1.0, as the camera last reported it. Absent until it has |
 | `zoom`, `focus` | number | when known | Position, 0.0 to 1.0, as above |
 | `focus_af_enabled` | bool | when known | Autofocus is on. Can be changed with `ptz_request_state` |
 | `camera_report` | object | when known | Progress of a `camera_report` trigger while one is running |
 
-`live`, `preview` and `locked` follow the program and preview scenes, and
-`ptz_scene_changed` makes the device check them again.
 A position isn't in the camera's own units: a driver scales it to these ranges,
 and clamps what a camera reports outside them.
 
