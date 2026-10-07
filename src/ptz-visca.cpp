@@ -966,16 +966,11 @@ void PTZVisca::set_control(const QString &key, int value)
  * scene, unless "tally_auto" is off for whoever already drives them another
  * way. A manual request (requestState() above) still goes through, but the
  * next time the source changes scene, this overrides it again. */
-void PTZVisca::onSceneChanged()
+void PTZVisca::setTally(Tally lamp, bool on)
 {
-	bool was_red = live, was_green = preview && !live;
-	PTZDevice::onSceneChanged();
 	if (!tally_auto)
 		return;
-	if (live != was_red)
-		set_control("tally_on", live);
-	if ((preview && !live) != was_green)
-		set_control("tally_preview", preview && !live);
+	set_control(lamp == Tally::Program ? "tally_on" : "tally_preview", on);
 }
 
 /* Powers the camera on once OBS itself has finished loading, for anyone

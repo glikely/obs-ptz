@@ -72,10 +72,9 @@ public:
 
 protected:
 	std::string type;
+	bool m_tallyProgram = false;
+	bool m_tallyPreview = false;
 	bool connected = false;
-	bool locked = false;
-	bool live = false;
-	bool preview = false;
 	double pan_speed = 0;
 	double tilt_speed = 0;
 	double pantilt_speed_max = 1.0;
@@ -180,8 +179,6 @@ public:
 	QString parentSourceHost() const;
 	/* Tells the driver if the parent's host changed since it last looked */
 	void checkParentHost();
-	bool isLive() const { return live; }
-	bool isPreview() const { return preview; }
 	/* What the device can do. None, unless a driver says. */
 	virtual Features features() const { return {}; }
 	/* What the device found out about its camera with its "camera_report"
@@ -189,10 +186,21 @@ public:
 	 * given what they need: empty until there is a report. Only what
 	 * describes the camera, never what identifies it or where it is. */
 	virtual QJsonObject cameraReport() const { return {}; }
-	/* Updates live/preview/locked from the frontend's current scenes.
-	 * Virtual so a driver that can act on going live or off it (a tally
-	 * light, say) can do so around the base implementation. */
-	virtual void onSceneChanged();
+	/* The tally lamps a camera can have: red while the device's source is in
+	 * the program scene, green while it is in the preview scene (Studio
+	 * Mode only) and not in the program scene */
+	enum class Tally { Program, Preview };
+	/* A lamp is to be lit or put out. Nothing here; a driver whose camera
+	 * has lamps does it. Told only when a lamp's state changes. */
+	virtual void setTally(Tally lamp, bool on)
+	{
+		Q_UNUSED(lamp);
+		Q_UNUSED(on);
+	}
+	/* The frontend's program or preview scene, or Studio Mode, changed, or
+	 * the device came to be on a source: work out the lamps again, and
+	 * tell setTally() of any that changed */
+	void onSceneChanged();
 	/* OBS has finished loading, or is closing and has not yet cleared its
 	 * scenes (which destroys the filters that own devices). No-ops here; a
 	 * driver that can act on the app itself starting or stopping (turning
@@ -306,7 +314,6 @@ protected slots:
 	void get_state(calldata_t *cd) const;
 	void get_statistics(calldata_t *cd);
 	void get_parent_source(calldata_t *cd) const;
-	void setLock(calldata_t *cd);
 	void request_state(calldata_t *cd);
 	void get_camera_report(calldata_t *cd) const;
 	void preset_get_list(calldata_t *cd) const;
@@ -314,18 +321,9 @@ protected slots:
 	void removePresetAtDisplayRow(calldata_t *cd);
 	void movePreset(calldata_t *cd);
 	void setPresetName(calldata_t *cd);
-	void onSceneChanged(calldata_t *cd)
-	{
-		Q_UNUSED(cd);
-		if (wrongThread("ptz_scene_changed"))
-			return;
-		onSceneChanged();
-	}
 
 public:
-	bool isLocked() const { return locked; };
 	bool isConnected() const { return connected; }
-	void setLock(bool state);
 	bool pantiltChanged() const { return pantilt_changed; }
 	bool zoomChanged() const { return zoom_changed; }
 	bool focusChanged() const { return focus_changed; }

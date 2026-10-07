@@ -140,7 +140,6 @@ PTZDevice::PTZDevice(OBSData config, obs_source_t *filter) : QObject()
 	addProc("ptr ptz_get_state(ptr state)", ptz_ph_lambda(get_state), this);
 	addProc("ptr ptz_get_statistics(ptr statistics)", ptz_ph_lambda(get_statistics), this);
 	addProc("ptr ptz_get_parent_source()", ptz_ph_lambda(get_parent_source), this);
-	addProc("void ptz_set_locked(bool locked)", ptz_ph_lambda(setLock), this);
 
 	addProc("void ptz_request_state(ptr state)", ptz_ph_lambda(request_state), this);
 
@@ -153,8 +152,6 @@ PTZDevice::PTZDevice(OBSData config, obs_source_t *filter) : QObject()
 	addProc("void ptz_preset_remove(int row)", ptz_ph_lambda(removePresetAtDisplayRow), this);
 	addProc("void ptz_preset_move(int src_row, int dest_row)", ptz_ph_lambda(movePreset), this);
 	addProc("void ptz_preset_set_name(int id, string name)", ptz_ph_lambda(setPresetName), this);
-
-	addProc("void ptz_scene_changed()", ptz_ph_lambda(onSceneChanged), this);
 
 	/* Signal handler for notifying state & settings changes. Shared with
 	 * the filter, same as handler above. */
@@ -198,6 +195,12 @@ void PTZDevice::onFrontendEvent(enum obs_frontend_event event)
 	switch (event) {
 	case OBS_FRONTEND_EVENT_FINISHED_LOADING:
 		onOBSStartup();
+		break;
+	case OBS_FRONTEND_EVENT_SCENE_CHANGED:
+	case OBS_FRONTEND_EVENT_PREVIEW_SCENE_CHANGED:
+	case OBS_FRONTEND_EVENT_STUDIO_MODE_ENABLED:
+	case OBS_FRONTEND_EVENT_STUDIO_MODE_DISABLED:
+		onSceneChanged();
 		break;
 	case OBS_FRONTEND_EVENT_SCRIPTING_SHUTDOWN:
 		/* OBS is closing, and has not yet cleared its scenes, which
@@ -383,38 +386,26 @@ QString PTZDevice::sourceName() const
 	return src ? QT_UTF8(obs_source_get_name(src)) : m_parentSourceName;
 }
 
-/**
- * Update state of the device when the frontend scene changes
- */
 void PTZDevice::onSceneChanged()
 {
-	bool was_locked = locked, was_live = live, was_preview = preview;
-
-	locked = false;
-	live = false;
-	preview = false;
-	// Check if the device's source is in the active program scene
-	// If it is then disable the pan/tilt/zoom controls
+	bool live = false, preview = false;
 	OBSSourceAutoRelease source = parentSource();
 	if (source) {
-		auto program = obs_frontend_get_current_scene();
-		locked = live = ptz_scene_is_source_active(program, source);
-		obs_source_release(program);
-
+		OBSSourceAutoRelease program = obs_frontend_get_current_scene();
+		live = ptz_scene_is_source_active(program, source);
 		if (obs_frontend_preview_program_mode_active()) {
-			auto previewScene = obs_frontend_get_current_preview_scene();
+			OBSSourceAutoRelease previewScene = obs_frontend_get_current_preview_scene();
 			preview = ptz_scene_is_source_active(previewScene, source);
-			obs_source_release(previewScene);
 		}
 	}
-
-	/* Notify the listeners if there was a state change */
-	if (locked != was_locked || live != was_live || preview != was_preview) {
-		obs_data_set_bool(stateChanged, "locked", locked);
-		obs_data_set_bool(stateChanged, "live", live);
-		obs_data_set_bool(stateChanged, "preview", preview);
-		notifyStateChanged();
-	}
+	bool green = preview && !live;
+	bool programChanged = live != m_tallyProgram, previewChanged = green != m_tallyPreview;
+	m_tallyProgram = live;
+	m_tallyPreview = green;
+	if (programChanged)
+		setTally(Tally::Program, live);
+	if (previewChanged)
+		setTally(Tally::Preview, green);
 }
 
 void PTZDevice::stop()
@@ -523,9 +514,6 @@ void PTZDevice::saveState(OBSData out) const
 	obs_data_apply(out, state);
 	/* ...and what the device itself knows, which wins */
 	obs_data_set_bool(out, "connected", connected);
-	obs_data_set_bool(out, "live", live);
-	obs_data_set_bool(out, "preview", preview);
-	obs_data_set_bool(out, "locked", locked);
 	obs_data_set_string(out, "source", QT_TO_UTF8(sourceName()));
 	saveFeatures(out, features());
 }
@@ -684,13 +672,6 @@ void PTZDevice::get_camera_report(calldata_t *cd) const
 	report.insert("os", os);
 	report.insert("type", QString::fromStdString(type));
 	calldata_set_string(cd, "report", QJsonDocument(report).toJson(QJsonDocument::Indented).constData());
-}
-
-void PTZDevice::setLock(calldata_t *cd)
-{
-	if (wrongThread("ptz_set_locked"))
-		return;
-	setLock(calldata_bool(cd, "locked"));
 }
 
 void PTZDevice::get_parent_source(calldata_t *cd) const
@@ -1358,15 +1339,6 @@ void PTZDevice::setConnected(bool _connected)
 		return;
 	connected = _connected;
 	obs_data_set_bool(stateChanged, "connected", connected);
-	notifyStateChanged();
-}
-
-void PTZDevice::setLock(bool state)
-{
-	if (locked == state)
-		return;
-	locked = state;
-	obs_data_set_bool(stateChanged, "locked", locked);
 	notifyStateChanged();
 }
 

@@ -222,7 +222,7 @@ public:
 	QJsonObject cameraReport() const override { return last_report; }
 	void requestState(OBSData requested) override;
 	void saveStatistics(OBSData out) override;
-	void onSceneChanged() override;
+	void setTally(Tally lamp, bool on) override;
 	void onOBSStartup() override;
 	void onOBSShutdown() override;
 
