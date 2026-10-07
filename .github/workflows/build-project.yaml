@@ -71,6 +71,81 @@ jobs:
             echo "pluginName=${plugin_name}" >> $GITHUB_OUTPUT
           fi
 
+  ci-image:
+    name: Prepare Linux CI Image 🐳
+    strategy:
+      matrix:
+        include:
+          - target: x86_64
+            runner: ubuntu-26.04
+          - target: aarch64
+            runner: ubuntu-26.04-arm
+    runs-on: ${{ matrix.runner }}
+    permissions:
+      contents: read
+      packages: write
+    defaults:
+      run:
+        shell: bash
+    # One output per architecture: matrix legs can't share an output name. An
+    # empty one means no image is available and the Linux build installs its
+    # dependencies itself, as it did before this image existed.
+    outputs:
+      image_x86_64: ${{ steps.image.outputs.image_x86_64 || steps.published.outputs.image_x86_64 }}
+      image_aarch64: ${{ steps.image.outputs.image_aarch64 || steps.published.outputs.image_aarch64 }}
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Look For Image 🔎
+        id: image
+        env:
+          # The tag changes whenever anything that decides the image's contents does.
+          CONTENT_HASH: ${{ hashFiles('.github/docker/Dockerfile.ubuntu', '.github/scripts/.Aptfile', '.github/scripts/build-ubuntu', '.github/scripts/utils.zsh/check_ubuntu', '.github/scripts/utils.zsh/setup_ubuntu', 'buildspec.json') }}
+          # Fork pull requests get a read-only token and can't publish.
+          CAN_PUSH: ${{ github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository }}
+        run: |
+          : Look For Image 🔎
+          if [[ "${RUNNER_DEBUG}" ]]; then set -x; fi
+
+          image="ghcr.io/${GITHUB_REPOSITORY_OWNER,,}/obs-ptz-ci:${CONTENT_HASH:0:16}-${{ matrix.target }}"
+          echo "ref=${image}" >> $GITHUB_OUTPUT
+          echo "canPush=${CAN_PUSH}" >> $GITHUB_OUTPUT
+
+          if [[ "${CAN_PUSH}" == 'true' ]]; then
+            echo "${{ github.token }}" | docker login ghcr.io -u "${{ github.actor }}" --password-stdin
+          fi
+
+          if docker manifest inspect "${image}" > /dev/null 2>&1; then
+            echo "Found ${image}"
+            echo "image_${{ matrix.target }}=${image}" >> $GITHUB_OUTPUT
+            echo "build=false" >> $GITHUB_OUTPUT
+          elif [[ "${CAN_PUSH}" == 'true' ]]; then
+            echo "build=true" >> $GITHUB_OUTPUT
+          else
+            echo "::warning::No prebuilt CI image ${image} and this run can't publish one; installing dependencies on the runner instead."
+            echo "build=false" >> $GITHUB_OUTPUT
+          fi
+
+      - uses: docker/setup-buildx-action@v3
+        if: steps.image.outputs.build == 'true'
+
+      - name: Build And Publish Image 🐳
+        if: steps.image.outputs.build == 'true'
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: .github/docker/Dockerfile.ubuntu
+          push: true
+          tags: ${{ steps.image.outputs.ref }}
+          labels: org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
+          cache-from: type=gha,scope=ci-image-${{ matrix.target }}
+          cache-to: type=gha,mode=max,scope=ci-image-${{ matrix.target }}
+
+      - name: Publish Image Reference
+        id: published
+        if: steps.image.outputs.build == 'true'
+        run: echo "image_${{ matrix.target }}=${{ steps.image.outputs.ref }}" >> $GITHUB_OUTPUT
+
   macos-build:
     name: Build for macOS 🍏
     runs-on: macos-26
@@ -187,7 +262,14 @@ jobs:
             os: ubuntu-26.04
             runner: ubuntu-26.04-arm
     runs-on: ${{ matrix.runner }}
-    needs: check-event
+    needs: [check-event, ci-image]
+    # The prebuilt image has the dependencies installed; empty (no container)
+    # when none was available.
+    container:
+      image: ${{ needs.ci-image.outputs[format('image_{0}', matrix.target)] }}
+      credentials:
+        username: ${{ github.actor }}
+        password: ${{ github.token }}
     defaults:
       run:
         shell: bash

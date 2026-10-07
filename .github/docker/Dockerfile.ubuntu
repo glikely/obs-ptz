@@ -1,0 +1,32 @@
+# Prebuilt Linux CI image: the toolchain and every apt dependency the build
+# needs, so CI jobs skip installing them. Built per-architecture on native
+# runners by the ci-image job in .github/workflows/build-project.yaml and
+# tagged with a hash of the files that decide its contents.
+#
+# The dependency list is not repeated here: the image runs the real
+# check_ubuntu/setup_ubuntu steps from .github/scripts, so it can't drift from
+# what the build scripts expect.
+#
+# Build context is the repository root.
+FROM ubuntu:26.04
+
+ENV DEBIAN_FRONTEND=noninteractive CI=1
+
+# Bootstrap tools the scripts and the actions runner itself need; the build
+# scripts install everything else.
+RUN apt-get update -qq \
+ && apt-get install -y --no-install-recommends \
+      ca-certificates curl dpkg-dev file git jq sudo xz-utils zsh \
+ && rm -rf /var/lib/apt/lists/*
+
+COPY .github/scripts /ci/.github/scripts
+COPY buildspec.json /ci/buildspec.json
+
+# Run just the dependency steps of build-ubuntu (it has no dependencies-only mode).
+RUN zsh -c 'SCRIPT_HOME=/ci/.github/scripts; project_root=/ci; target=ubuntu-$(uname -m); \
+      _loglevel=1; typeset -g -a skips=(); fpath=($SCRIPT_HOME/utils.zsh $fpath); \
+      autoload -Uz log_group log_debug log_error log_info log_status log_warning mkcd check_ubuntu setup_ubuntu; \
+      check_ubuntu && setup_ubuntu' \
+ && g++ --version && dpkg -s libobs-dev qt6-base-dev > /dev/null \
+ && rm -rf /var/lib/apt/lists/* /ci \
+ && touch /etc/obs-ptz-ci-image

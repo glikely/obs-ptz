@@ -51,9 +51,13 @@ runs:
       run: |
         : Install Dependencies 🛍️
         echo ::group::Install Dependencies
-        eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"
-        echo "/home/linuxbrew/.linuxbrew/bin:/home/linuxbrew/.linuxbrew/sbin" >> $GITHUB_PATH
-        brew install --quiet zsh
+        if command -v zsh > /dev/null; then
+          echo 'zsh already installed (prebuilt CI image)'
+        else
+          eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"
+          echo "/home/linuxbrew/.linuxbrew/bin:/home/linuxbrew/.linuxbrew/sbin" >> $GITHUB_PATH
+          brew install --quiet zsh
+        fi
         echo ::endgroup::
 
     - name: Run Ubuntu Build
@@ -70,6 +74,9 @@ runs:
           --config ${{ inputs.config }}
         )
         if (( ${+RUNNER_DEBUG} )) build_args+=(--debug)
+
+        # The prebuilt CI image already has every apt dependency installed
+        if [[ -f /etc/obs-ptz-ci-image ]] build_args+=(--skip-deps)
 
         .github/scripts/build-ubuntu ${build_args}
 
