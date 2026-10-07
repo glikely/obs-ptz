@@ -146,6 +146,7 @@ PTZSettings::PTZSettings() : QWidget(nullptr), ui(new Ui_PTZSettings)
 	ui->livemoveCheckBox->setChecked(PTZControls::getInstance()->liveMoveLockEnabled());
 	connect(PTZControls::getInstance(), &PTZControls::liveMoveLockEnabledChanged, ui->livemoveCheckBox,
 		&QCheckBox::setChecked);
+	connect(PTZControls::getInstance(), &PTZControls::liveMoveLockEnabledChanged, this, &PTZSettings::updateHeader);
 	connect(ui->livemoveCheckBox, &QCheckBox::clicked, PTZControls::getInstance(),
 		&PTZControls::setLiveMoveLockEnabled);
 
@@ -803,7 +804,8 @@ void PTZSettings::updateHeader()
 		parts << badge("\u25cf", "#e74c3c", obs_module_text("PTZ.Settings.Header.Live"));
 	if (current.data(PTZListModel::IsPreviewRole).toBool())
 		parts << badge("\u25cf", "#3cb44b", obs_module_text("PTZ.Settings.Header.Preview"));
-	if (current.data(PTZListModel::IsLockedRole).toBool())
+	/* Locked only means something while the lock is in force, as everywhere else */
+	if (PTZControls::getInstance()->liveMoveLockActive() && current.data(PTZListModel::IsLockedRole).toBool())
 		parts << badge("\u25cf", "#e0a030", obs_module_text("PTZ.Settings.Header.Locked"));
 
 	/* A camera that is switched off isn't anywhere in particular, so its
