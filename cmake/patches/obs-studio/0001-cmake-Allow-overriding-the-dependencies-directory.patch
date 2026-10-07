@@ -1,0 +1,62 @@
+From 773b123a4ed3e7836c685c50e5b0220f45ee8ee1 Mon Sep 17 00:00:00 2001
+From: Grant Likely <grant.likely@secretlab.ca>
+Date: Thu, 8 Oct 2026 02:17:21 +0200
+Subject: [PATCH] cmake: Allow overriding the dependencies directory
+
+The macOS and Windows build specs always keep the downloaded obs-deps and
+Qt packages in <source>/.deps. A project that builds libobs from this source
+tree (a plugin building against a release tarball, for example) already has
+those packages in its own dependencies directory, and configuring the tree
+downloads and extracts a second copy of them. For Qt that is over 1 GB on
+Windows.
+
+Add an OBS_DEPENDENCIES_DIR option. When set, it replaces <source>/.deps as
+the dependencies directory. Without it nothing changes.
+
+The Windows ARM64 cross-compile check also built its Qt path from
+<source>/.deps by hand instead of using dependencies_dir; use the variable so
+it follows the override.
+
+Assisted-by: Claude:claude-sonnet-5
+---
+ cmake/macos/buildspec.cmake   | 3 +++
+ cmake/windows/buildspec.cmake | 5 ++++-
+ 2 files changed, 7 insertions(+), 1 deletion(-)
+
+diff --git a/cmake/macos/buildspec.cmake b/cmake/macos/buildspec.cmake
+index f54608e..d5a7059 100644
+--- a/cmake/macos/buildspec.cmake
++++ b/cmake/macos/buildspec.cmake
+@@ -10,6 +10,9 @@ function(_check_dependencies_macos)
+   set(platform macos-${arch})
+ 
+   set(dependencies_dir "${CMAKE_CURRENT_SOURCE_DIR}/.deps")
++  if(OBS_DEPENDENCIES_DIR)
++    set(dependencies_dir "${OBS_DEPENDENCIES_DIR}")
++  endif()
+   set(prebuilt_filename "macos-deps-VERSION-ARCH-REVISION.tar.xz")
+   set(prebuilt_destination "obs-deps-VERSION-ARCH")
+   set(qt6_filename "macos-deps-qt6-VERSION-ARCH-REVISION.tar.xz")
+diff --git a/cmake/windows/buildspec.cmake b/cmake/windows/buildspec.cmake
+index f2a5849..51fed4a 100644
+--- a/cmake/windows/buildspec.cmake
++++ b/cmake/windows/buildspec.cmake
+@@ -83,6 +83,9 @@ endfunction()
+ # _check_dependencies_windows: Set up Windows slice for _check_dependencies
+ function(_check_dependencies_windows)
+   set(dependencies_dir "${CMAKE_CURRENT_SOURCE_DIR}/.deps")
++  if(OBS_DEPENDENCIES_DIR)
++    set(dependencies_dir "${OBS_DEPENDENCIES_DIR}")
++  endif()
+   set(prebuilt_filename "windows-deps-VERSION-ARCH-REVISION.zip")
+   set(prebuilt_destination "obs-deps-VERSION-ARCH")
+   set(qt6_filename "windows-deps-qt6-VERSION-ARCH-REVISION.zip")
+@@ -102,7 +105,7 @@ function(_check_dependencies_windows)
+   _check_dependencies(${dependencies_list})
+ 
+   if(NOT CMAKE_VS_PLATFORM_NAME STREQUAL Win32)
+-    _handle_qt_cross_compile(${CMAKE_HOST_SYSTEM_PROCESSOR} DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/.deps/${qt6_destination}")
++    _handle_qt_cross_compile(${CMAKE_HOST_SYSTEM_PROCESSOR} DIRECTORY "${dependencies_dir}/${qt6_destination}")
+   endif()
+ endfunction()
+ 
