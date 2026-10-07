@@ -94,6 +94,60 @@ function(_setup_sdl)
   message(STATUS "Install ${label} (${_cmake_config} - ${arch}) - done")
 endfunction()
 
+# _patch_obs_studio: Apply the local patches to the extracted obs-studio source
+#
+# obs-studio keeps its dependencies in <obs-studio>/.deps, so configuring it
+# downloads and extracts a second copy of obs-deps and Qt (over 1 GB of Qt on
+# Windows) next to ours. The patch in cmake/patches/obs-studio adds an
+# OBS_DEPENDENCIES_DIR option so it can use our directory instead. It is a
+# no-op once obs-studio has the option, and a failure to apply only costs the
+# duplicate download.
+function(_patch_obs_studio)
+  set(obs_dir "${dependencies_dir}/${_obs_destination}")
+  if(OS_MACOS)
+    set(platform_dir macos)
+  else()
+    set(platform_dir windows)
+  endif()
+  set(patch_file "${CMAKE_CURRENT_SOURCE_DIR}/cmake/patches/obs-studio/0001-cmake-Allow-overriding-the-dependencies-directory.patch")
+
+  file(READ "${obs_dir}/cmake/${platform_dir}/buildspec.cmake" obs_buildspec)
+  if(obs_buildspec MATCHES "OBS_DEPENDENCIES_DIR")
+    return()
+  endif()
+
+  find_program(GIT_EXECUTABLE git)
+  if(NOT GIT_EXECUTABLE)
+    message(WARNING "git not found, cannot patch obs-studio to share ${dependencies_dir}")
+    return()
+  endif()
+
+  # The extracted source sits inside this project's git checkout; keep git from
+  # discovering that repository so the patch applies to the obs-studio tree.
+  set(git_apply ${CMAKE_COMMAND} -E env GIT_CEILING_DIRECTORIES=${dependencies_dir} ${GIT_EXECUTABLE} apply)
+
+  execute_process(
+    COMMAND ${git_apply} --reverse --check "${patch_file}"
+    WORKING_DIRECTORY "${obs_dir}"
+    RESULT_VARIABLE already_applied
+    OUTPUT_QUIET
+    ERROR_QUIET
+  )
+  if(already_applied EQUAL 0)
+    return()
+  endif()
+
+  execute_process(
+    COMMAND ${git_apply} "${patch_file}"
+    WORKING_DIRECTORY "${obs_dir}"
+    RESULT_VARIABLE apply_result
+    ERROR_VARIABLE apply_error
+  )
+  if(NOT apply_result EQUAL 0)
+    message(WARNING "Could not patch obs-studio to share ${dependencies_dir}: ${apply_error}")
+  endif()
+endfunction()
+
 # _setup_obs_studio: Create obs-studio build project, then build libobs and obs-frontend-api
 function(_setup_obs_studio)
   if(NOT libobs_DIR)
@@ -114,13 +168,16 @@ function(_setup_obs_studio)
     set(_cmake_extra "-DCMAKE_OSX_DEPLOYMENT_TARGET=${CMAKE_OSX_DEPLOYMENT_TARGET}")
   endif()
 
+  _patch_obs_studio()
+
   message(STATUS "Configure ${label} (${arch})")
   execute_process(
     COMMAND
       "${CMAKE_COMMAND}" -S "${dependencies_dir}/${_obs_destination}" -B
       "${dependencies_dir}/${_obs_destination}/build_${arch}" -G ${_cmake_generator} "${_cmake_arch}"
       -DOBS_CMAKE_VERSION:STRING=3.0.0 -DENABLE_PLUGINS:BOOL=OFF -DENABLE_FRONTEND:BOOL=OFF
-      -DOBS_VERSION_OVERRIDE:STRING=${_obs_version} "-DCMAKE_PREFIX_PATH='${CMAKE_PREFIX_PATH}'" ${_is_fresh}
+      -DOBS_VERSION_OVERRIDE:STRING=${_obs_version} "-DOBS_DEPENDENCIES_DIR=${dependencies_dir}"
+      "-DCMAKE_PREFIX_PATH=${CMAKE_PREFIX_PATH}" ${_is_fresh}
       ${_cmake_extra}
     RESULT_VARIABLE _process_result
     COMMAND_ERROR_IS_FATAL ANY

@@ -1,0 +1,2 @@
+# Patch files must keep their line endings or they stop applying on Windows checkouts.
+*.patch -text
