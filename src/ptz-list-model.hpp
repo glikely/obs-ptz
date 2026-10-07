@@ -49,10 +49,16 @@ private:
 		OBSWeakSource weakSource;
 		QString name;
 		bool connected = false;
+		/* Whether the device's source is in the program scene, and in the
+		 * preview scene (Studio Mode only). Worked out here from the
+		 * source, not told by the device */
 		bool live = false;
 		bool preview = false;
 		/* Only when the camera says it is, not when it doesn't say */
 		bool poweredOff = false;
+		/* Movement from the UI is refused. A property of the UI, not the
+		 * device: it follows live at each scene change, and in between a
+		 * user can lock or unlock it */
 		bool locked = false;
 		/* The names in its state's "features", or nothing if it has none:
 		 * a device from before there were, which can do anything */
@@ -76,6 +82,10 @@ private:
 	PTZDeviceEntry *entryByUuid(const QString &uuid);
 	const PTZDeviceEntry *entryByUuid(const QString &uuid) const;
 	void refreshDeviceState(PTZDeviceEntry *entry);
+	OBSSource parentSourceOf(const PTZDeviceEntry &entry) const;
+	/* Works out live and preview from the program and preview scenes.
+	 * Returns whether anything changed. */
+	bool refreshSceneState(PTZDeviceEntry *entry);
 	void refreshPresetList(PTZDeviceEntry *entry);
 	bool callEntry(const PTZDeviceEntry &entry, const char *method, calldata_t *cd) const;
 
@@ -108,6 +118,9 @@ public:
 	bool setData(const QModelIndex &index, const QVariant &value, int role = Qt::EditRole) override;
 	void do_reset();
 	Qt::ItemFlags flags(const QModelIndex &index) const override;
+	/* The program or preview scene, or Studio Mode, changed: every device
+	 * is in the program scene, the preview scene, both or neither anew, and
+	 * locked if it is live, whatever a user had locked or unlocked */
 	void onSceneChanged();
 
 	/* Whether the device can do `feature` (see PTZDevice::featureNames()) */

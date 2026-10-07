@@ -130,8 +130,15 @@ PTZSettings::PTZSettings() : QWidget(nullptr), ui(new Ui_PTZSettings)
 	connect(ptzDeviceList, &PTZListModel::dataChanged, this,
 		[this](const QModelIndex &topLeft, const QModelIndex &bottomRight) {
 			QModelIndex current = ui->deviceList->currentIndex();
-			if (QItemSelectionRange(topLeft, bottomRight).contains(current))
-				ui->sourcePreview->setSource(ptzDeviceList->parentSource(current));
+			if (!QItemSelectionRange(topLeft, bottomRight).contains(current))
+				return;
+			ui->sourcePreview->setSource(ptzDeviceList->parentSource(current));
+			/* live, preview and locked are the device list's to say */
+			OBSDataAutoRelease flags = obs_data_create();
+			obs_data_set_bool(flags, "live", current.data(PTZListModel::IsLiveRole).toBool());
+			obs_data_set_bool(flags, "preview", current.data(PTZListModel::IsPreviewRole).toBool());
+			obs_data_set_bool(flags, "locked", current.data(PTZListModel::IsLockedRole).toBool());
+			ui->stateView->applyChanges(flags.Get());
 		});
 
 	ui->autoselectCheckBox->setChecked(PTZControls::getInstance()->autoselectEnabled());

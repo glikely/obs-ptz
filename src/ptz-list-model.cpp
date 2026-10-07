@@ -9,6 +9,7 @@
 #include <qt-wrappers.hpp>
 #include <QPixmap>
 #include <QPixmapCache>
+#include <obs-frontend-api.h>
 #include "ptz-list-model.hpp"
 #include "ptz.h"
 #include "protocol-helpers.hpp"
@@ -271,9 +272,13 @@ void PTZListModel::refreshDeviceState(PTZDeviceEntry *entry)
 		entry->name = parent ? QT_UTF8(obs_source_get_name(parent)) : QString();
 	}
 	entry->connected = obs_data_get_bool(state, "connected");
-	entry->live = obs_data_get_bool(state, "live");
-	entry->preview = obs_data_get_bool(state, "preview");
-	entry->locked = obs_data_get_bool(state, "locked");
+	/* A device can come to be on another source, or on its first, without
+	 * the scene changing. Being locked follows being live, so a device that
+	 * has just gone live is locked. */
+	bool wasLive = entry->live;
+	refreshSceneState(entry);
+	if (entry->live != wasLive)
+		entry->locked = entry->live;
 	entry->poweredOff = obs_data_has_user_value(state, "power_on") && !obs_data_get_bool(state, "power_on");
 	entry->features.reset();
 	if (obs_data_has_user_value(state, "features")) {
@@ -284,6 +289,23 @@ void PTZListModel::refreshDeviceState(PTZDeviceEntry *entry)
 				entry->features->append(QT_UTF8(obs_data_item_get_name(item)));
 		}
 	}
+}
+
+bool PTZListModel::refreshSceneState(PTZDeviceEntry *entry)
+{
+	bool wasLive = entry->live, wasPreview = entry->preview;
+	entry->live = false;
+	entry->preview = false;
+	OBSSource source = parentSourceOf(*entry);
+	if (source) {
+		OBSSourceAutoRelease program = obs_frontend_get_current_scene();
+		entry->live = ptz_scene_is_source_active(program, source);
+		if (obs_frontend_preview_program_mode_active()) {
+			OBSSourceAutoRelease previewScene = obs_frontend_get_current_preview_scene();
+			entry->preview = ptz_scene_is_source_active(previewScene, source);
+		}
+	}
+	return entry->live != wasLive || entry->preview != wasPreview;
 }
 
 /**
@@ -540,12 +562,8 @@ bool PTZListModel::setData(const QModelIndex &index, const QVariant &value, int 
 		return false;
 
 	if (role == PTZListModel::IsLockedRole && entry->locked != value.toBool()) {
-		calldata_t cd = {};
-		calldata_set_bool(&cd, "locked", value.toBool());
-		callEntry(*entry, "ptz_set_locked", &cd);
-		calldata_free(&cd);
-		/* cache refresh + dataChanged happen synchronously inside that
-		 * call, via the ptz_state_changed signal */
+		entry->locked = value.toBool();
+		emit dataChanged(index, index, {role});
 		return true;
 	}
 
@@ -560,10 +578,14 @@ void PTZListModel::do_reset()
 
 void PTZListModel::onSceneChanged()
 {
-	calldata_t cd = {};
-	for (const auto &entry : devices)
-		callEntry(entry, "ptz_scene_changed", &cd);
-	calldata_free(&cd);
+	for (int row = 0; row < devices.size(); row++) {
+		auto &entry = devices[row];
+		bool wasLocked = entry.locked;
+		bool changed = refreshSceneState(&entry);
+		entry.locked = entry.live;
+		if (changed || entry.locked != wasLocked)
+			emit dataChanged(index(row, 0), index(row, 0));
+	}
 }
 
 /**
@@ -595,16 +617,19 @@ QModelIndex PTZListModel::indexFromSource(obs_source_t *source) const
 OBSSource PTZListModel::parentSource(const QModelIndex &index) const
 {
 	auto entry = entryAt(index);
-	if (!entry)
-		return nullptr;
+	return entry ? parentSourceOf(*entry) : nullptr;
+}
+
+OBSSource PTZListModel::parentSourceOf(const PTZDeviceEntry &entry) const
+{
 	calldata_t cd = {};
-	callEntry(*entry, "ptz_get_parent_source", &cd);
+	callEntry(entry, "ptz_get_parent_source", &cd);
 	OBSSourceAutoRelease source = static_cast<obs_source_t *>(calldata_ptr(&cd, "return"));
 	calldata_free(&cd);
 	if (source)
 		return source.Get();
 	/* A device that doesn't say is on its filter's parent, or is a source itself */
-	return defaultParentSource(entry->weakSource).Get();
+	return defaultParentSource(entry.weakSource).Get();
 }
 
 /**
@@ -663,6 +688,10 @@ void PTZListModel::saveState(const QModelIndex &index, OBSData state) const
 	calldata_set_ptr(&cd, "state", state.Get());
 	callEntry(*entry, "ptz_get_state", &cd);
 	calldata_free(&cd);
+	/* What the device list knows of the device, which the device does not */
+	obs_data_set_bool(state, "live", entry->live);
+	obs_data_set_bool(state, "preview", entry->preview);
+	obs_data_set_bool(state, "locked", entry->locked);
 }
 
 void PTZListModel::setState(const QModelIndex &index, OBSData state)
