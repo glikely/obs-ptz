@@ -940,7 +940,10 @@ obs_properties_t *PTZDevice::get_obs_properties()
 	auto speed = obs_properties_create();
 	obs_properties_add_group(rtn_props, "general", obs_module_text("PTZ.Device.CameraSettings"), OBS_GROUP_NORMAL,
 				 speed);
-	obs_properties_add_int_slider(speed, "preset_max", obs_module_text("PTZ.Device.MaxPresets"), 1, 0x80, 1);
+	/* How many presets the camera keeps, which the local store has no limit on */
+	if (cameraPresets().available)
+		obs_properties_add_int_slider(speed, "preset_max", obs_module_text("PTZ.Device.MaxPresets"), 1, 0x80,
+					      1);
 	obs_properties_add_float_slider(speed, "pantilt_speed_max", obs_module_text("PTZ.Device.PanTiltMaxSpeed"), 0.1,
 					1.0, 1.0 / 1024);
 	obs_properties_add_bool(speed, "pan_invert", obs_module_text("PTZ.Device.PanInvertAxis"));
