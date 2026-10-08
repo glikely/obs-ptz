@@ -31,6 +31,8 @@ public:
 	struct PresetEntry {
 		/* The device's own id for it, see docs/ptz-device-api.md */
 		QString id;
+		/* The store it is in: "camera" or "local" */
+		QString store;
 		QString name;
 		QString thumbnail; /* path of the image file, or empty */
 	};
@@ -101,8 +103,9 @@ public:
 		IsConnectedRole,
 		IsPoweredOffRole,
 		IsLockedRole,
-		ThumbnailRole, /* QPixmap of a preset row, null if it has none */
-		FeaturesRole,  /* QStringList, or invalid if the device doesn't say */
+		ThumbnailRole,   /* QPixmap of a preset row, null if it has none */
+		FeaturesRole,    /* QStringList, or invalid if the device doesn't say */
+		PresetStoreRole, /* QString of a preset row: "camera" or "local" */
 	};
 
 	PTZListModel();
@@ -126,6 +129,14 @@ public:
 	 * is in the program scene, the preview scene, both or neither anew, and
 	 * locked if it is live, whatever a user had locked or unlocked */
 	void onSceneChanged();
+
+	/* Makes a preset in `store` ("camera" or "local") of the device with
+	 * this uuid from where the camera is now, last in the list. Returns its
+	 * id, or "" if the device can't: it has no such store, or no free slot */
+	QString addPreset(const QString &uuid, const QString &store, const QString &name = QString());
+
+	/* The stores the device can make a preset in, "camera" and "local" */
+	QStringList presetStores(const QModelIndex &device) const;
 
 	/* Whether the device can do `feature` (see PTZDevice::featureNames()) */
 	static bool hasFeature(const QModelIndex &index, const char *feature);

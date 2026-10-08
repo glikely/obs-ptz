@@ -305,6 +305,7 @@ QList<PTZListModel::PresetEntry> PTZListModel::fetchPresets(const PTZDeviceEntry
 				continue;
 			PresetEntry preset;
 			preset.id = QT_UTF8(obs_data_get_string(item, "id"));
+			preset.store = QT_UTF8(obs_data_get_string(item, "store"));
 			preset.name = QT_UTF8(obs_data_get_string(item, "name"));
 			preset.thumbnail = QT_UTF8(obs_data_get_string(item, "thumbnail"));
 			presets.append(preset);
@@ -389,8 +390,12 @@ bool PTZListModel::insertRows(int row, int count, const QModelIndex &parent)
 	auto entry = entryAt(parent);
 	if (!entry)
 		return false;
+	/* The slot limit is the camera's, the local store has none */
+	int onCamera = 0;
+	for (const auto &preset : entry->presets)
+		onCamera += preset.store == QStringLiteral("camera");
 	if (row < 0 || count <= 0 || row > entry->presets.size() ||
-	    (entry->maxPresets > 0 && entry->presets.size() + count > entry->maxPresets))
+	    (entry->maxPresets > 0 && onCamera + count > entry->maxPresets))
 		return false;
 
 	for (int i = 0; i < count; i++) {
@@ -415,6 +420,42 @@ bool PTZListModel::insertRows(int row, int count, const QModelIndex &parent)
 		}
 	}
 	return true;
+}
+
+QString PTZListModel::addPreset(const QString &uuid, const QString &store, const QString &name)
+{
+	auto entry = entryByUuid(uuid);
+	if (!entry)
+		return QString();
+	calldata_t cd = {};
+	calldata_set_string(&cd, "name", QT_TO_UTF8(name));
+	calldata_set_string(&cd, "store", QT_TO_UTF8(store));
+	callEntry(*entry, "ptz_preset_create", &cd);
+	const char *id = nullptr;
+	calldata_get_string(&cd, "return", &id);
+	QString created = QString::fromUtf8(id ? id : "");
+	calldata_free(&cd);
+	return created;
+}
+
+QStringList PTZListModel::presetStores(const QModelIndex &device) const
+{
+	QStringList stores;
+	auto entry = entryAt(device);
+	if (!entry)
+		return stores;
+	calldata_t cd = {};
+	callEntry(*entry, "ptz_preset_get_list", &cd);
+	auto info = static_cast<obs_data_t *>(calldata_ptr(&cd, "return"));
+	if (info) {
+		OBSDataAutoRelease available = obs_data_get_obj(info, "stores");
+		for (const char *store : {"camera", "local"})
+			if (obs_data_get_bool(available, store))
+				stores << QString::fromUtf8(store);
+		obs_data_release(info);
+	}
+	calldata_free(&cd);
+	return stores;
 }
 
 bool PTZListModel::removeRows(int row, int count, const QModelIndex &parent)
@@ -472,6 +513,8 @@ bool PTZListModel::moveRows(const QModelIndex &srcParent, int srcRow, int count,
 static int presetNumber(const PTZListModel::PresetEntry &preset, int row)
 {
 	bool isNumber = false;
+	if (preset.store != QStringLiteral("camera"))
+		return row + 1;
 	int number = preset.id.section(QLatin1Char(':'), 1).toInt(&isNumber);
 	return isNumber ? number : row + 1;
 }
@@ -499,6 +542,8 @@ QVariant PTZListModel::data(const QModelIndex &index, int role) const
 			return preset.name;
 		if (role == Qt::UserRole)
 			return preset.id;
+		if (role == PTZListModel::PresetStoreRole)
+			return preset.store;
 		if (role == PTZListModel::ThumbnailRole) {
 			if (preset.thumbnail.isEmpty())
 				return QPixmap();
