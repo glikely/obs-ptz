@@ -10,6 +10,7 @@
 #include <obs-module.h>
 #include <obs-frontend-api.h>
 #include <QWidget>
+#include <QAction>
 
 #include "circularlistview.hpp"
 #include "ptz-list-model.hpp"
@@ -35,6 +36,9 @@ void runReorderPresetsTest(const QMap<QString, QString> &params)
 	bool moved = false;
 
 	if (deviceList && presetList) {
+		if (params.contains(QStringLiteral("grid")))
+			if (auto *grid = mainWindow->findChild<QAction *>(QStringLiteral("actionPresetGridView")))
+				grid->setChecked(params.value(QStringLiteral("grid")) == QStringLiteral("1"));
 		QString select = params.value(QStringLiteral("select"));
 		if (!select.isEmpty())
 			deviceList->setCurrentIndex(ptzUITestDeviceIndex(select));
@@ -89,6 +93,7 @@ void runReorderPresetsTest(const QMap<QString, QString> &params)
 /* Request params:
  *   select   - optional: a device to select in the camera list, by name. The
  *              preset list shows its presets
+ *   grid     - optional: "1" for the grid view of the presets, "0" for the list
  *   from, to - optional: move the preset in row `from` to `to`
  *   via      - "model" (the default) moves it with the model's moveRow(),
  *              with `to` the row to go before. "drop" does what dropping it on
