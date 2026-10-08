@@ -38,6 +38,18 @@ def primary_ipv4():
         s.close()
 
 
+def require_network():
+    """Skips the test where there is no network interface to be found over, as
+    on a computer with no connection: it is the network that finds the camera, and
+    a ptzsim that is only on loopback answers nothing"""
+    try:
+        address = primary_ipv4()
+    except OSError:
+        address = None
+    if not address or address.startswith("127."):
+        pytest.skip("no network interface to detect a camera over: discovery needs one that is not loopback")
+
+
 class Sim:
     """A ptzsim of its own, started with `args`"""
 
@@ -48,7 +60,8 @@ class Sim:
         self.proc = None
 
     def start(self):
-        cmd = [sys.executable, "-m", "ptzsim", "--no-visca-serial", "--no-pelco"] + self.args
+        # Discovery is answered over the network, so it needs the address ptzsim says it is at
+        cmd = [sys.executable, "-m", "ptzsim", "--no-visca-serial", "--no-pelco", "--host", primary_ipv4()] + self.args
         with output_log(self.name) as out:
             self.proc = subprocess.Popen(cmd, cwd=REPO_ROOT / "scripts", stdout=out, stderr=subprocess.STDOUT)
         # A fixture that fails in setup isn't torn down: don't leave it running
@@ -71,6 +84,7 @@ class Sim:
 
 @pytest.fixture
 def onvif_sim(obs_world):
+    require_network()
     port = free_port()
     sim = Sim("ptzsim-onvif-discovery", ["--no-visca", "--onvif-http-port", str(port)], port)
     sim.port = port
@@ -81,6 +95,7 @@ def onvif_sim(obs_world):
 
 @pytest.fixture
 def sony_sim(obs_world):
+    require_network()
     # Not on the port Sony's discovery says cameras use, 52381: a VISCA-over-IP
     # device binds its own end to its camera's port, so OBS can have it
     # already, on this same host, and the device made for this camera can't
