@@ -96,3 +96,19 @@ def test_filter_updated_with_one_setting_keeps_the_rest_at_their_defaults(obs_wo
     saved = obs_world.device_settings(device_name, out)["saved"]
     assert saved["preset_max"] == 16
     assert saved["pantilt_speed_max"] == 1.0
+
+
+@pytest.mark.parametrize("model,has_camera_store", [("0123:0001", True), ("0123:0008", False)])
+def test_max_presets_is_offered_for_a_camera_that_keeps_presets(request, obs_world, tmp_path, model,
+                                                                has_camera_store):
+    """preset_max is how many presets the camera keeps, which a device
+    with only the local store has no use for: it is saved and has its
+    default, but only offered for one with the camera store. The settings
+    dialog shows the properties offered. (Model 0123:0008 is
+    test_visca_user_profiles.py's, whose command set has no memory_recall.)"""
+    from test_visca_user_profiles import Camera
+    camera = Camera(request, obs_world, tmp_path, model)
+    camera.wait_for_state(lambda s: "pan" in s)
+    keys = obs_world.device_settings(camera.device_name, tmp_path / "settings.json")
+    assert "preset_max" in keys["save_keys"]
+    assert ("preset_max" in keys["property_keys"]) is has_camera_store
