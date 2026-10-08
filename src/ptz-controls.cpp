@@ -1367,6 +1367,8 @@ void PTZControls::on_actionPresetGridView_toggled(bool checked)
 		view->setSpacing(0);
 		view->setHorizontalScrollBarPolicy(Qt::ScrollBarAsNeeded);
 	}
+	/* Both setMovement() and setViewMode() turn the view's dragging off with the movement */
+	view->enableRowDragging();
 	presetZoomSpacer->setVisible(checked);
 	presetZoomAction->setVisible(checked);
 	view->doItemsLayout();
