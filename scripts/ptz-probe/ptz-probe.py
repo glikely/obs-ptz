@@ -37,7 +37,7 @@ from pathlib import Path
 # --- tables: written by gen_tables.py, don't edit ---
 TABLES = json.loads(r'''
 {
- "version": "0.19.0",
+ "version": "0.20.0-pre2",
  "controls": [
   {
    "key": "power_on",
