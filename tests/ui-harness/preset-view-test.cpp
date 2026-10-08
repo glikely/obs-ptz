@@ -9,8 +9,14 @@
 #include <obs.hpp>
 #include <obs-module.h>
 #include <obs-frontend-api.h>
+#include <QAction>
+#include <QApplication>
+#include <QKeyEvent>
+#include <QLineEdit>
 #include <QList>
 #include <QListView>
+#include <QMenu>
+#include <QToolButton>
 #include <QWidget>
 
 #include "ptz-list-model.hpp"
@@ -28,7 +34,11 @@ namespace {
  *                    any of these: a QListView rooted at an invalid index
  *                    shows the top level of its model, and for the device
  *                    model that is the list of cameras
- *   selected       - whether a device is selected in the camera list */
+ *   selected       - whether a device is selected in the camera list
+ *   add_menu       - the entries of the menu on the Add button, [{"text",
+ *                    "checked"}]: none unless the device has both stores
+ *   add_stores     - the stores the device can make a preset in, ["camera",
+ *                    "local"] (only those it has) */
 void runPresetViewTest(const QMap<QString, QString> &params)
 {
 	QString filename = params.value(QStringLiteral("filename"));
@@ -69,7 +79,36 @@ void runPresetViewTest(const QMap<QString, QString> &params)
 		if (select == QStringLiteral("none")) {
 			deviceList->selectionModel()->setCurrentIndex(QModelIndex(), QItemSelectionModel::Clear);
 		} else if (!select.isEmpty()) {
-			deviceList->setCurrentIndex(ptzDeviceList->indexFromName(select));
+			deviceList->setCurrentIndex(ptzUITestDeviceIndex(select));
+		}
+
+		/* The Add button, by the action it is the button of */
+		QToolButton *addButton = nullptr;
+		for (auto *button : mainWindow->findChildren<QToolButton *>()) {
+			if (button->defaultAction() &&
+			    button->defaultAction()->objectName() == QStringLiteral("actionPresetAdd"))
+				addButton = button;
+		}
+		QString add = params.value(QStringLiteral("add"));
+		if (!add.isEmpty()) {
+			/* "button" is a click on it, "camera" and "local" are the menu's
+			 * entries, and "toggle_default" the menu's setting of what Add does. The
+			 * name it opens to edit is left as it is. */
+			QAction *action = nullptr;
+			if (add == QStringLiteral("camera"))
+				action = mainWindow->findChild<QAction *>(QStringLiteral("actionPresetAddCamera"));
+			else if (add == QStringLiteral("local"))
+				action = mainWindow->findChild<QAction *>(QStringLiteral("actionPresetAddLocal"));
+			else if (add == QStringLiteral("toggle_default"))
+				action = mainWindow->findChild<QAction *>(QStringLiteral("actionPresetDefaultCamera"));
+			if (action)
+				action->trigger();
+			else if (addButton && add == QStringLiteral("button"))
+				addButton->click();
+			if (auto *editor = presetList->findChild<QLineEdit *>()) {
+				QKeyEvent escape(QEvent::KeyPress, Qt::Key_Escape, Qt::NoModifier);
+				QApplication::sendEvent(editor, &escape);
+			}
 		}
 
 		OBSDataArrayAutoRelease rows = obs_data_array_create();
@@ -77,12 +116,35 @@ void runPresetViewTest(const QMap<QString, QString> &params)
 		auto root = presetList->rootIndex();
 		for (int row = 0; model && row < model->rowCount(root); row++) {
 			OBSDataAutoRelease item = obs_data_create();
-			obs_data_set_string(
-				item, "text",
-				qUtf8Printable(model->index(row, 0, root).data(Qt::DisplayRole).toString()));
+			auto index = model->index(row, 0, root);
+			obs_data_set_string(item, "text", qUtf8Printable(index.data(Qt::DisplayRole).toString()));
+			obs_data_set_string(item, "id", qUtf8Printable(index.data(Qt::UserRole).toString()));
+			obs_data_set_string(item, "store",
+					    qUtf8Printable(index.data(PTZListModel::PresetStoreRole).toString()));
+			obs_data_set_string(item, "tooltip", qUtf8Printable(index.data(Qt::ToolTipRole).toString()));
 			obs_data_array_push_back(rows, item);
 		}
 		obs_data_set_array(result, "rows", rows);
+
+		OBSDataArrayAutoRelease menu = obs_data_array_create();
+		if (addButton && addButton->menu()) {
+			for (auto *action : addButton->menu()->actions()) {
+				if (action->isSeparator())
+					continue;
+				OBSDataAutoRelease item = obs_data_create();
+				obs_data_set_string(item, "text", qUtf8Printable(action->text()));
+				obs_data_set_bool(item, "checked", action->isChecked());
+				obs_data_array_push_back(menu, item);
+			}
+		}
+		obs_data_set_array(result, "add_menu", menu);
+		OBSDataArrayAutoRelease stores = obs_data_array_create();
+		for (const QString &store : ptzDeviceList->presetStores(deviceList->currentIndex())) {
+			OBSDataAutoRelease item = obs_data_create();
+			obs_data_set_string(item, "text", qUtf8Printable(store));
+			obs_data_array_push_back(stores, item);
+		}
+		obs_data_set_array(result, "add_stores", stores);
 
 		OBSDataArrayAutoRelease names = obs_data_array_create();
 		for (int row = 0; row < ptzDeviceList->rowCount(); row++) {
@@ -109,8 +171,15 @@ void runAddPresetTest(const QMap<QString, QString> &params)
 		blog(LOG_INFO, "[ptz-ui-test] add_preset: device not found");
 		return;
 	}
-	ptzDeviceList->insertRows(ptzDeviceList->rowCount(index), 1, index);
-	blog(LOG_INFO, "[ptz-ui-test] add_preset: done");
+	QString store = params.value(QStringLiteral("store"), QStringLiteral("camera"));
+	QString id = ptzDeviceList->addPreset(index.data(PTZListModel::DeviceUuidRole).toString(), store);
+	blog(LOG_INFO, "[ptz-ui-test] add_preset: done %s", qUtf8Printable(id));
+}
+
+/* Has OBS save, which has the dock write its config.json */
+void runSaveDockTest(const QMap<QString, QString> &)
+{
+	obs_frontend_save();
 }
 
 } // namespace
@@ -121,15 +190,23 @@ void runAddPresetTest(const QMap<QString, QString> &params)
  *   remove_device - optional: remove the device with this name first
  *   select        - optional: a device id to select in the camera list
  *                   (after the above), or "none" to clear the selection
- *   filename      - where to write the {"found", "rows", "device_names",
- *               "selected"} JSON result
+ *   add           - optional: after the above, press the Add button
+ *                   ("button"), or choose "camera", "local" or "toggle_default" in its menu
+ *   filename      - where to write the {"found", "rows" ([{"text", "id",
+ *               "store", "tooltip"}]), "device_names", "selected",
+ *               "add_menu", "add_stores"} JSON result
  */
 void registerPresetViewTest(PTZUITestHarness *harness)
 {
 	harness->registerTest(QStringLiteral("get_preset_view"), &runPresetViewTest);
 	harness->registerTest(QStringLiteral("add_preset"), &runAddPresetTest);
+	harness->registerTest(QStringLiteral("save_dock"), &runSaveDockTest);
 }
 
 /* add_preset request params:
  *   device - the device, by the UUID of its filter or the name of the source it is on
+ *   store  - optional: "camera" (the default) or "local"
  */
+
+/* save_dock request params: none. It has OBS save, so the dock writes its
+ * config.json */

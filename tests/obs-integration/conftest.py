@@ -851,17 +851,21 @@ class World:
             time.sleep(interval)
         raise AssertionError(f"dock controls never matched predicate; last seen: {last}")
 
-    def preset_view(self, out_file, select=None, add_device=None, remove_device=None):
+    def preset_view(self, out_file, select=None, add_device=None, remove_device=None, add=None):
         """What the PTZ Controls dock's preset list is showing, via
         tests/ui-harness/preset-view-test.cpp's "get_preset_view" test.
         First, in this order, it can select a device in the camera list
         (`select`: a device id, or "none" to clear the selection), add a
         device with a given name (which resets the model), or remove a
-        device by name."""
+        device by name. Then `add` presses the Add button ("button"), or
+        chooses "camera" or "local" in its menu, or "toggle_default": the entry
+        in it that has Add use the camera's store, or OBS's. The rows have each preset's
+        "text", "id", "store" and "tooltip"; "add_menu" has the entries of the
+        Add button's menu, and "add_stores" the stores of the device."""
         if out_file.exists():
             out_file.unlink()
         params = {k: v for k, v in (("select", select), ("add_device", add_device),
-                                    ("remove_device", remove_device)) if v is not None}
+                                    ("remove_device", remove_device), ("add", add)) if v is not None}
         self.run_ui_test("get_preset_view", filename=str(out_file), **params)
         self.wait_for(out_file.exists)
         return json.loads(out_file.read_text())
