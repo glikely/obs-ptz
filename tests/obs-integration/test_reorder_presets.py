@@ -5,8 +5,7 @@ presets-test.cpp's "reorder_presets" test: with the model's moveRow(), which is
 what the move up and down buttons do, and by doing to the list view what a drop
 does (CircularListView::dropCurrentRowAt()), which is what dragging a preset
 does once the mouse is let go. A drag itself can't be made without a real
-pointer, so that the list lets a preset be dragged, and the camera list does
-not, is checked as well.
+pointer, so that the list lets a preset be dragged is checked instead.
 """
 
 import pytest
@@ -102,10 +101,9 @@ def test_the_new_order_is_the_devices(obs_world, presets):
     assert names[-4:] == ["Garden", "Hall", "Porch", "Kitchen"]
 
 
-def test_the_presets_can_be_dragged_and_the_cameras_cannot(obs_world, presets):
+def test_the_presets_can_be_dragged(obs_world, presets):
     device, out = presets
     result = obs_world.reorder_presets(out, select=device)
 
     assert result["presets_drag"] is True
     assert result["preset_flags_drag"] is True
-    assert result["devices_drag"] is False

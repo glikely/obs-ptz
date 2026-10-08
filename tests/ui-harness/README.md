@@ -37,7 +37,9 @@ and its driver, `test_device_signals.py`), and `open_settings_dialog`/
 `test_api_version.py`), and `get_device_backups`/`add_device`/
 `remove_device` (see `device-backup-test.cpp` and its drivers,
 `test_device_backup.py` and `test_device_discovery.py`), and `reorder_presets`
-(see `reorder-presets-test.cpp` and its driver, `test_reorder_presets.py`)
+(see `reorder-presets-test.cpp` and its driver, `test_reorder_presets.py`) and
+`reorder_cameras` (see `reorder-cameras-test.cpp` and its driver,
+`test_reorder_cameras.py`)
 - see
 "Adding a new test" below for how to add another.
 

@@ -36,6 +36,7 @@ PTZUITestHarness::PTZUITestHarness(QObject *parent) : QObject(parent)
 	registerDeviceBackupTest(this);
 	registerCameraReportTest(this);
 	registerReorderPresetsTest(this);
+	registerReorderCamerasTest(this);
 	registerThirdPartyDeviceTest(this);
 }
 

@@ -922,6 +922,21 @@ class World:
         result["presets"] = [r["text"] for r in result.get("presets", [])]
         return result
 
+    def reorder_cameras(self, out_file, **params):
+        """Moves a camera of the dock's or the settings dialog's list, or only
+        reports their order, via tests/ui-harness/reorder-cameras-test.cpp's
+        "reorder_cameras" test. See there for the params: in, set_order, from,
+        to, via and reload. Returns its result, with the lists of cameras as lists
+        of names, and "uuids" as the devices' uuids in order."""
+        if out_file.exists():
+            out_file.unlink()
+        self.run_ui_test("reorder_cameras", filename=str(out_file), **params)
+        self.wait_for(out_file.exists, timeout=30)
+        result = json.loads(out_file.read_text())
+        for key in ("devices", "settings_devices", "uuids"):
+            result[key] = [r["text"] if isinstance(r, dict) else r for r in result.get(key, [])]
+        return result
+
     def fire_hotkey(self, name):
         """Presses a hotkey of the dock, by name ("PTZ.Recall2"), the way a bound key does"""
         self.run_ui_test("fire_hotkey", name=name)

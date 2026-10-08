@@ -294,6 +294,7 @@ if(ENABLE_UI_TESTS)
       tests/ui-harness/update-device-test.cpp
       tests/ui-harness/preset-view-test.cpp
       tests/ui-harness/reorder-presets-test.cpp
+      tests/ui-harness/reorder-cameras-test.cpp
       tests/ui-harness/dock-controls-test.cpp
       tests/ui-harness/scene-item-select-test.cpp
       tests/ui-harness/device-source-test.cpp
