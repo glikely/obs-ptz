@@ -142,6 +142,17 @@ def test_the_dock_offers_only_what_a_command_set_has(request, obs_world, tmp_pat
     assert enabled["zoomButton_wide"] is False
 
 
+def test_a_camera_without_presets_still_has_the_local_ones(request, obs_world, tmp_path):
+    """The command set has no memory_recall, so the camera keeps no presets,
+    but it goes to a position: the device has the presets feature for the
+    local store, and the dock offers them"""
+    camera = Camera(request, obs_world, tmp_path, "0123:0008")
+    state = camera.wait_for_state(lambda s: s.get("features", {}).get("pantilt_abs") is True)
+    assert state["features"]["presets"] is True
+    obs_world.wait_for_dock_controls(
+        camera.device_name, tmp_path / "dock.json", lambda e: e["presetListView"])
+
+
 def test_every_shipped_command_set_is_offered(obs_world, tmp_path):
     """Each file in src/visca-profiles is linked into the plugin and read, so
     one with anything wrong with it, which would be left out, fails here"""

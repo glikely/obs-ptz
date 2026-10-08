@@ -379,6 +379,13 @@ VISCA_PROFILES = {
         "models": ["0123:0005"],
         "controls": [{"key": "ae_mode", "set": None}],
     },
+    # One that takes the camera's presets away, and leaves the absolute moves
+    # that the local ones are made of
+    "local-only.json": {
+        "id": "test-local-only",
+        "models": ["0123:0008"],
+        "remove": ["memory_recall"],
+    },
     # One with a misspelt key, which would otherwise do nothing: left out
     "misspelt.json": {
         "id": "test-misspelt",
