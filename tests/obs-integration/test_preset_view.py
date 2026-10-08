@@ -33,14 +33,21 @@ def test_preset_list_shows_the_selected_cameras_presets(obs_world, tmp_path):
     device_name = obs_world.device_names["visca-tcp-flaky"]
     out = tmp_path / "view.json"
     presets = tmp_path / "presets.json"
-    write_preset_file(presets, [{"id": 1, "name": "Kitchen"}, {"id": 2, "name": "Garden"}])
-    obs_world.run_ui_test("import_presets", device=device_name, filename=str(presets))
+    for _ in range(2):
+        obs_world.run_ui_test("add_preset", device=device_name)
+    try:
+        view = obs_world.preset_view(out, select=device_name)
+        view = obs_world.wait_for_preset_view(out, lambda v: len(v["rows"]) == 2)
+        # the camera keeps no names, so the file names them
+        slots = [int(r["id"].partition(":")[2]) for r in view["rows"]]
+        write_preset_file(presets, [{"id": slots[0], "name": "Kitchen"}, {"id": slots[1], "name": "Garden"}])
+        obs_world.run_ui_test("import_presets", device=device_name, filename=str(presets))
 
-    obs_world.preset_view(out, select=device_name)
-    view = obs_world.wait_for_preset_view(out, lambda v: v["rows"])
-
-    assert view["selected"] is True
-    assert [r["text"] for r in view["rows"]] == ["Kitchen", "Garden"]
+        view = obs_world.wait_for_preset_view(out, lambda v: [r["text"] for r in v["rows"]] == ["Kitchen", "Garden"])
+        assert view["selected"] is True
+    finally:
+        for row in obs_world.preset_view(out)["rows"]:
+            obs_world.call_proc(device_name, "ptz_preset_delete", {"id": row["id"]})
 
 
 def test_preset_list_is_blank_again_once_the_selection_is_cleared(obs_world, tmp_path):

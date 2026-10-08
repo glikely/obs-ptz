@@ -158,14 +158,25 @@ DEVICE_NAMES["unnamed"] = f"PTZ Device {DEVICE_IDS['unnamed']}"
 
 
 def write_preset_file(path, presets, preset_max=16, device="unused"):
-    """Writes a preset export file in the shape PTZDevice::exportPresets()
-    produces (see on_actionPresetExport_triggered() in
-    src/ptz-controls.cpp), for test_preset_import_export.py to feed to
-    the real "Import Presets..." action via World.run_ui_test()."""
+    """Writes a format 1 preset export file, which an older version wrote
+    (ids were the camera's slot, an int), for test_preset_import_export.py to
+    feed to the real "Import Presets..." action via World.run_ui_test(): the
+    dock still reads them. See on_actionPresetExport_triggered() in
+    src/ptz-controls.cpp for what it writes now."""
     path.write_text(json.dumps({
         "obs-ptz-preset-format": 1,
         "device": device,
         "preset_max": preset_max,
+        "presets": presets,
+    }))
+
+
+def write_preset_file_v2(path, presets, device="unused"):
+    """Writes a format 2 preset export file: `presets` in display order, each
+    {"id", "store", "name"} and for a local one "values"."""
+    path.write_text(json.dumps({
+        "obs-ptz-preset-format": 2,
+        "device": device,
         "presets": presets,
     }))
 
