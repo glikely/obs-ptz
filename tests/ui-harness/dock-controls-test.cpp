@@ -10,6 +10,7 @@
 #include <obs.hpp>
 #include <obs-module.h>
 #include <obs-frontend-api.h>
+#include <cstring>
 #include <QListView>
 #include <QWidget>
 
@@ -56,6 +57,49 @@ void runDockControlsTest(const QMap<QString, QString> &params)
 		blog(LOG_INFO, "[ptz-ui-test] get_dock_controls: failed to write %s", qUtf8Printable(filename));
 }
 
+struct HotkeyFind {
+	const char *name;
+	obs_hotkey_id id = OBS_INVALID_HOTKEY_ID;
+	QString description;
+};
+
+bool findHotkey(void *data, obs_hotkey_id id, obs_hotkey_t *key)
+{
+	auto *find = static_cast<HotkeyFind *>(data);
+	if (strcmp(obs_hotkey_get_name(key), find->name) != 0)
+		return true;
+	find->id = id;
+	find->description = QString::fromUtf8(obs_hotkey_get_description(key));
+	return false;
+}
+
+/* Presses a hotkey of the dock, as a key bound to it does */
+void runFireHotkeyTest(const QMap<QString, QString> &params)
+{
+	QByteArray name = params.value(QStringLiteral("name")).toUtf8();
+	HotkeyFind find{name.constData()};
+	obs_enum_hotkeys(findHotkey, &find);
+	if (find.id == OBS_INVALID_HOTKEY_ID) {
+		blog(LOG_INFO, "[ptz-ui-test] fire_hotkey: no hotkey %s", name.constData());
+		return;
+	}
+	obs_hotkey_trigger_routed_callback(find.id, true);
+	obs_hotkey_trigger_routed_callback(find.id, false);
+	blog(LOG_INFO, "[ptz-ui-test] fire_hotkey: %s", name.constData());
+}
+
+/* Writes {"found", "description"} of a hotkey, to `filename` */
+void runGetHotkeyTest(const QMap<QString, QString> &params)
+{
+	QByteArray name = params.value(QStringLiteral("name")).toUtf8();
+	HotkeyFind find{name.constData()};
+	obs_enum_hotkeys(findHotkey, &find);
+	OBSDataAutoRelease result = obs_data_create();
+	obs_data_set_bool(result, "found", find.id != OBS_INVALID_HOTKEY_ID);
+	obs_data_set_string(result, "description", qUtf8Printable(find.description));
+	obs_data_save_json_safe(result, qUtf8Printable(params.value(QStringLiteral("filename"))), "tmp", "bak");
+}
+
 } // namespace
 
 /* Request params:
@@ -66,4 +110,12 @@ void runDockControlsTest(const QMap<QString, QString> &params)
 void registerDockControlsTest(PTZUITestHarness *harness)
 {
 	harness->registerTest(QStringLiteral("get_dock_controls"), &runDockControlsTest);
+	harness->registerTest(QStringLiteral("fire_hotkey"), &runFireHotkeyTest);
+	harness->registerTest(QStringLiteral("get_hotkey"), &runGetHotkeyTest);
 }
+
+/* fire_hotkey request params:
+ *   name - the hotkey's name, such as "PTZ.Recall2"
+ * get_hotkey: name as above, and filename - where to write the {"found",
+ *   "description"} JSON result
+ */

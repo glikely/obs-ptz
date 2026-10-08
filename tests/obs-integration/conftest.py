@@ -224,6 +224,9 @@ def write_websocket_config(home: Path, ws_port, ws_password):
     """
     config_dir = obs_config_root(home)
     config_dir.mkdir(parents=True, exist_ok=True)
+    # The plugin's strings are en-GB's: the language OBS is in must not be
+    # one with a file of its own that takes over
+    (config_dir / "user.ini").write_text("[General]\nLanguage=en-GB\n")
     (config_dir / "global.ini").write_text(
         "[OBSWebSocket]\n"
         "FirstLoad=false\n"
@@ -870,6 +873,19 @@ class World:
         self.wait_for(out_file.exists)
         return json.loads(out_file.read_text())
 
+    def fire_hotkey(self, name):
+        """Presses a hotkey of the dock, by name ("PTZ.Recall2"), the way a bound key does"""
+        self.run_ui_test("fire_hotkey", name=name)
+
+    def hotkey_description(self, name):
+        """What the Hotkeys settings call a hotkey of the dock, or None if there is none"""
+        out = self.scratch / "hotkey.json"
+        out.unlink(missing_ok=True)
+        self.run_ui_test("get_hotkey", name=name, filename=str(out))
+        self.wait_for(out.exists)
+        result = json.loads(out.read_text())
+        return result["description"] if result["found"] else None
+
     def wait_for_preset_view(self, out_file, predicate, timeout=5, interval=0.2):
         """Polls preset_view() until predicate(view) is true -- the view
         catches up with a model reset on a queued call."""
@@ -1188,7 +1204,7 @@ def isolate_macos_obs(home: Path, env):
     plugins.mkdir(parents=True, exist_ok=True)
     (plugins / "obs-ptz.plugin").symlink_to(Path(bundle).resolve())
 
-    (obs_config_root(home) / "user.ini").write_text("[General]\nFirstRun=true\n")
+    (obs_config_root(home) / "user.ini").write_text("[General]\nFirstRun=true\nLanguage=en-GB\n")
     with open(obs_config_root(home) / "global.ini", "a") as f:
         f.write("\n[General]\nMacOSPermissionsDialogLastShown=1000\n")
 

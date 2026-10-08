@@ -151,3 +151,42 @@ def test_a_device_with_only_local_presets_has_the_docks_presets(request, obs_wor
     obs_world.wait_for(lambda: camera.sim.state()["pan"] > 0.1, timeout=10)
     obs_world.call_proc(camera.device_name, "ptz_preset_recall", {"id": preset})
     obs_world.wait_for(lambda: camera.sim.state()["pan"] < -0.1, timeout=10)
+
+
+def local_preset_values(world, camera, preset):
+    return world.call_proc(camera.device_name, "ptz_preset_get_list", returns="data")["return"]["presets"][preset]["values"]
+
+
+def go_to(world, camera, pan):
+    world.run_ui_test("move_device", device=camera.device_name, mode="abs", pan=pan, tilt=0.0)
+    camera.wait_for_state(lambda s: abs(s.get("pan", 9) - pan) < 0.05)
+
+
+def test_a_preset_hotkey_acts_on_that_row(request, obs_world, tmp_path):
+    """Hotkey N is the N-th preset in the list, whichever store it is in"""
+    camera = Camera(request, obs_world, tmp_path, LOCAL_ONLY)
+    camera.wait_for_state(lambda s: s.get("features", {}).get("presets") is True and "pan" in s)
+    out = tmp_path / "view.json"
+    select(obs_world, camera, tmp_path)
+
+    go_to(obs_world, camera, 0.5)
+    obs_world.preset_view(out, add="button")
+    go_to(obs_world, camera, -0.5)
+    obs_world.preset_view(out, add="button")
+    first, second = [r["id"] for r in wait_for_rows(obs_world, tmp_path, 2)]
+
+    go_to(obs_world, camera, 0.0)
+    obs_world.fire_hotkey("PTZ.Recall2")
+    obs_world.wait_for(lambda: camera.sim.state()["pan"] < -0.1, timeout=10)
+    obs_world.fire_hotkey("PTZ.Recall1")
+    obs_world.wait_for(lambda: camera.sim.state()["pan"] > 0.1, timeout=10)
+
+    go_to(obs_world, camera, 0.8)
+    obs_world.fire_hotkey("PTZ.Save2")
+    obs_world.wait_for(lambda: abs(local_preset_values(obs_world, camera, second)["pan"] - 0.8) < 0.05)
+    assert abs(local_preset_values(obs_world, camera, first)["pan"] - 0.5) < 0.05
+
+
+def test_the_preset_hotkeys_say_preset(obs_world):
+    assert obs_world.hotkey_description("PTZ.Recall3") == "Preset Recall #3"
+    assert obs_world.hotkey_description("PTZ.Save3") == "Preset Save #3"
