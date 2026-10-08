@@ -107,3 +107,15 @@ def test_the_presets_can_be_dragged(obs_world, presets):
 
     assert result["presets_drag"] is True
     assert result["preset_flags_drag"] is True
+
+
+def test_the_presets_can_be_dragged_in_the_list_and_the_grid_and_back(obs_world, presets):
+    """Switching the view mode of a QListView turns its dragging off (setMovement()), which the
+    dock has to turn on again"""
+    device, out = presets
+    try:
+        for grid in ("0", "1", "0", "1"):
+            result = obs_world.reorder_presets(out, select=device, grid=grid)
+            assert result["presets_drag"] is True, f"grid={grid}"
+    finally:
+        obs_world.reorder_presets(out, grid="0")
