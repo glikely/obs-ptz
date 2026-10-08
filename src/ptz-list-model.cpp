@@ -283,13 +283,13 @@ bool PTZListModel::refreshSceneState(PTZDeviceEntry *entry)
 }
 
 /**
- * Re-fetches a device's preset list, plus the "preset_max" setting that caps
- * it, via a single ptz_preset_get_list() proc_handler call. Must be called
+ * Re-fetches a device's preset list via a single ptz_preset_get_list()
+ * proc_handler call. Must be called
  * *before* the matching endInsertRows()/endRemoveRows()/endMoveRows() --
  * QAbstractItemModel requires the data to already reflect the new row layout
  * by the time the end*() call returns.
  */
-QList<PTZListModel::PresetEntry> PTZListModel::fetchPresets(const PTZDeviceEntry &entry, int *slotCount) const
+QList<PTZListModel::PresetEntry> PTZListModel::fetchPresets(const PTZDeviceEntry &entry) const
 {
 	QList<PresetEntry> presets;
 	calldata_t cd = {};
@@ -310,8 +310,6 @@ QList<PTZListModel::PresetEntry> PTZListModel::fetchPresets(const PTZDeviceEntry
 			preset.thumbnail = QT_UTF8(obs_data_get_string(item, "thumbnail"));
 			presets.append(preset);
 		}
-		if (slotCount)
-			*slotCount = (int)obs_data_get_int(info, "camera_slots");
 		obs_data_release(info);
 	}
 	calldata_free(&cd);
@@ -320,9 +318,7 @@ QList<PTZListModel::PresetEntry> PTZListModel::fetchPresets(const PTZDeviceEntry
 
 void PTZListModel::refreshPresetList(PTZDeviceEntry *entry)
 {
-	int slotCount = entry->maxPresets;
-	entry->presets = fetchPresets(*entry, &slotCount);
-	entry->maxPresets = slotCount;
+	entry->presets = fetchPresets(*entry);
 }
 
 bool PTZListModel::hasFeature(const QModelIndex &index, const char *feature)
@@ -390,12 +386,7 @@ bool PTZListModel::insertRows(int row, int count, const QModelIndex &parent)
 	auto entry = entryAt(parent);
 	if (!entry)
 		return false;
-	/* The slot limit is the camera's, the local store has none */
-	int onCamera = 0;
-	for (const auto &preset : entry->presets)
-		onCamera += preset.store == QStringLiteral("camera");
-	if (row < 0 || count <= 0 || row > entry->presets.size() ||
-	    (entry->maxPresets > 0 && onCamera + count > entry->maxPresets))
+	if (row < 0 || count <= 0 || row > entry->presets.size())
 		return false;
 
 	for (int i = 0; i < count; i++) {
@@ -409,8 +400,11 @@ bool PTZListModel::insertRows(int row, int count, const QModelIndex &parent)
 		calldata_get_string(&cd, "return", &id);
 		QString created = QString::fromUtf8(id ? id : "");
 		calldata_free(&cd);
-		if (created.isEmpty())
+		/* The camera refused another: it has no room */
+		if (created.isEmpty()) {
+			blog(LOG_WARNING, "[obs-ptz] the camera made no new preset");
 			return i > 0;
+		}
 		if (row + i < entry->presets.size() - 1) {
 			calldata_t move = {};
 			calldata_set_string(&move, "id", QT_TO_UTF8(created));
@@ -903,9 +897,7 @@ void PTZListModel::presetsSync(const QString &uuid)
 	if (!entry)
 		return;
 	auto parent = indexFromUuid(uuid);
-	int slotCount = entry->maxPresets;
-	QList<PresetEntry> now = fetchPresets(*entry, &slotCount);
-	entry->maxPresets = slotCount;
+	QList<PresetEntry> now = fetchPresets(*entry);
 
 	QStringList wanted;
 	for (const PresetEntry &preset : now)

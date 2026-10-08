@@ -65,9 +65,6 @@ private:
 		/* The names in its state's "features", or nothing if it has none:
 		 * a device from before there were, which can do anything */
 		std::optional<QStringList> features;
-		/* How many presets the camera keeps, or 0 if it does not keep a
-		 * fixed number */
-		int maxPresets = 16;
 		QList<PresetEntry> presets;
 	};
 
@@ -92,7 +89,7 @@ private:
 	bool refreshSceneState(PTZDeviceEntry *entry);
 	void refreshPresetList(PTZDeviceEntry *entry);
 	/* What the device says its presets are, which does not change the cache */
-	QList<PresetEntry> fetchPresets(const PTZDeviceEntry &entry, int *slotCount = nullptr) const;
+	QList<PresetEntry> fetchPresets(const PTZDeviceEntry &entry) const;
 	bool callEntry(const PTZDeviceEntry &entry, const char *method, calldata_t *cd) const;
 
 public:
