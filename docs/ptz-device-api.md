@@ -345,8 +345,6 @@ Returns, as `return`, an `obs_data_t *` that the caller releases with
   `features`, since an `obs_data_t` has no array of strings.
 - `names_on_camera` (bool): the camera keeps the preset's name, and a rename is
   sent to it.
-- `camera_slots` (int): how many presets the camera keeps, or 0 if it doesn't
-  keep a fixed number: the `preset_max` setting.
 - `enumerable` (bool): the camera can say what presets it has.
   If not, its presets are the ones this device has saved.
 - `value_keys` (object): what a local preset captures and a recall applies,
@@ -374,11 +372,17 @@ Any thread.
 
 ### `string ptz_preset_create(string name, string store)`
 
-Makes a preset in `store` from the current position, and returns its `id` as
-`return`, or "" if it can't: the store is not one the device has, or the camera
-has no free slot.
+Asks for a preset to be made in `store` from the current position, and returns the
+request as `return`, or "" if the device refuses at once: the store is not one the
+device has, or it knows it has no room for another.
+It does not wait for the camera, which may take a while to say it made the
+preset: how the request went is the `ptz_preset_create_done` signal's to say,
+which comes after this has returned, whatever the store.
+Until then there is no `id`; the preset is announced by `ptz_preset_added`
+as it is made.
+A camera may also be full without saying so, which a caller finds out from
+the signal: the list has no count of how many a camera keeps.
 The `name` is the user's, and "" for none.
-Announces `ptz_preset_added`.
 Device thread.
 
 ### `void ptz_preset_delete(string id)`
@@ -437,6 +441,15 @@ gets the same one, and the device never touches it again.
 ### `void ptz_preset_added(ptr source, string id)`
 
 A preset was added, last in `order`.
+
+### `void ptz_preset_create_done(ptr source, string request, string id)`
+
+The request to make a preset, which `ptz_preset_create` returned `request` for, is
+over.
+`id` is the id of the preset that was made, which `ptz_preset_added` has already
+announced, or "" if the camera made none.
+Every request that `ptz_preset_create` returned gets one of these.
+A call that it refused at once, with "", is not a request and gets none.
 
 ### `void ptz_preset_removed(ptr source, string id)`
 
@@ -598,7 +611,6 @@ writes them and calls `obs_source_update()` to say so.
 | `pantilt_speed_max`, `zoom_speed_max`, `focus_speed_max` | number | 1.0 | A cap on the speed a move asks for: a `ptz_move` speed above it is clamped to it, whichever way it points. 0.1 to 1.0 |
 | `pan_invert`, `tilt_invert`, `zoom_invert`, `focus_invert` | bool | false | Reverse the direction of the axis |
 | `tally_auto` | bool | true | Light the camera's tally lamps by itself, for a device with the `tally_light` feature: red while its source is in the program scene, green while it is in the preview scene (studio mode only) and not in the program scene. Turn it off for a camera whose tally something else drives. A device without the feature has the key and ignores it |
-| `preset_max` | int | 16 | The most presets in the camera store, 1 to 128. It is also the `camera_slots` that `ptz_preset_get_list` returns |
 | `presets` | array | empty | The presets the device keeps: each local preset in full, and for a camera's what the user added to it, an `id` with a `name` and `thumbnail`. Edit it with the `ptz_preset_*` procs rather than by writing it |
 | `preset_order` | array | empty | The display order, as an `id` object for each preset. One that is left out goes last, and one that is not there is ignored |
 

@@ -13,6 +13,7 @@
 #include <obs.h>
 #include <obs.hpp>
 #include "ptz-usb-cam.hpp"
+#include "ptz-thumbnail.hpp"
 
 PTZUSBCam::PTZUSBCam(OBSData config, obs_source_t *source)
 	: PTZDevice(config, source),
@@ -24,18 +25,6 @@ PTZUSBCam::PTZUSBCam(OBSData config, obs_source_t *source)
 	 * delivered here on the device's thread. */
 	connect(worker_.get(), &PTZUsbWorker::connectedChanged, this,
 		[this](bool connected) { setConnected(connected); });
-	connect(worker_.get(), &PTZUsbWorker::positionCaptured, this,
-		[this](int id, double pan, double tilt, double zoom, bool focusAuto, double focus) {
-			PtzUsbCamPos pos;
-			pos.pan = pan;
-			pos.tilt = tilt;
-			pos.zoom = zoom;
-			pos.focusAuto = focusAuto;
-			pos.focus = focus;
-			presets[id] = pos;
-			persist();
-		});
-
 	connect(worker_.get(), &PTZUsbWorker::stateCaptured, this,
 		[this](PtzUsbCamPos pos, bool hasPan, bool hasTilt, bool hasZoom, bool hasFocus) {
 			report_state(pos, hasPan, hasTilt, hasZoom, hasFocus);
@@ -63,44 +52,63 @@ PTZUSBCam::~PTZUSBCam()
 void PTZUSBCam::update(OBSData config)
 {
 	PTZDevice::update(config);
-	OBSDataArrayAutoRelease presetArray = obs_data_get_array(config, "presets_memory");
-	size_t count = obs_data_array_count(presetArray);
-	for (size_t i = 0; i < count; ++i) {
-		OBSDataAutoRelease preset = obs_data_array_item(presetArray, i);
-		int p_id = static_cast<int>(obs_data_get_int(preset, "preset_id"));
-		PtzUsbCamPos p = PtzUsbCamPos();
-		p.pan = obs_data_get_double(preset, "pan");
-		p.tilt = obs_data_get_double(preset, "tilt");
-		p.zoom = obs_data_get_double(preset, "zoom");
-		p.focusAuto = obs_data_get_bool(preset, "focusauto");
-		p.focus = obs_data_get_double(preset, "focus");
-		// p.whitebalAuto = obs_data_get_bool(preset, "whitebalauto");
-		// p.temperature = obs_data_get_double(preset, "temperature");
-		presets[p_id] = p;
+	migrateCameraPresets(config);
+}
+
+/* Versions that kept the presets as the camera's had a "camera:<slot>" preset
+ * in the list for each position in "presets_memory". Now they are local presets
+ * with the same values, keeping their name, thumbnail and place in the order. A
+ * slot with no position has nothing to go to, and is dropped. */
+void PTZUSBCam::migrateCameraPresets(obs_data_t *config)
+{
+	OBSDataArrayAutoRelease legacy = obs_data_get_array(config, "presets_memory");
+	bool changed = false;
+	for (int i = m_presets.size() - 1; i >= 0; i--) {
+		Preset &preset = m_presets[i];
+		if (!preset.onCamera())
+			continue;
+		changed = true;
+		QString key = presetKey(preset.id);
+		OBSDataAutoRelease position;
+		for (size_t n = 0; legacy && n < obs_data_array_count(legacy); n++) {
+			OBSDataAutoRelease item = obs_data_array_item(legacy, n);
+			if (QString::number(obs_data_get_int(item, "preset_id")) == key) {
+				position = item.Get();
+				obs_data_addref(position);
+				break;
+			}
+		}
+		QString old = preset.id;
+		if (!position) {
+			m_order.removeAll(old);
+			ptz_thumbnail_remove(preset.thumbnail);
+			m_presets.removeAt(i);
+			continue;
+		}
+		preset.id = presetId(QStringLiteral("local"), key);
+		m_order.replaceInStrings(old, preset.id);
+		preset.cameraName.clear();
+		preset.values = obs_data_create();
+		obs_data_release(preset.values);
+		obs_data_set_double(preset.values, "pan", obs_data_get_double(position, "pan"));
+		obs_data_set_double(preset.values, "tilt", obs_data_get_double(position, "tilt"));
+		obs_data_set_double(preset.values, "zoom", obs_data_get_double(position, "zoom"));
+		OBSDataAutoRelease focus = obs_data_create();
+		obs_data_set_double(focus, "position", obs_data_get_double(position, "focus"));
+		obs_data_set_bool(focus, "af_enabled", obs_data_get_bool(position, "focusauto"));
+		obs_data_set_obj(preset.values, "focus", focus);
+	}
+	if (changed) {
+		reconcileOrder();
+		persist();
 	}
 }
 
-/* The camera's own positions for its presets are the device's: it captures
- * them from the camera when a preset is saved */
+/* The camera's positions are the device's local presets now */
 void PTZUSBCam::persistState(obs_data_t *config) const
 {
 	PTZDevice::persistState(config);
-	OBSDataArrayAutoRelease presetArray = obs_data_array_create();
-	for (auto it = presets.constBegin(); it != presets.constEnd(); ++it) {
-		const PtzUsbCamPos &preset = it.value();
-		OBSDataAutoRelease presetData = obs_data_create();
-		obs_data_set_double(presetData, "preset_id", it.key());
-		obs_data_set_double(presetData, "pan", preset.pan);
-		obs_data_set_double(presetData, "tilt", preset.tilt);
-		obs_data_set_double(presetData, "zoom", preset.zoom);
-		obs_data_set_bool(presetData, "focusauto", preset.focusAuto);
-		obs_data_set_double(presetData, "focus", preset.focus);
-		// obs_data_set_bool(presetData, "whitebalauto",
-		// 		  preset.whitebalAuto);
-		// obs_data_set_double(presetData, "temperature", preset.temperature);
-		obs_data_array_push_back(presetArray, presetData);
-	}
-	obs_data_set_array(config, "presets_memory", presetArray);
+	obs_data_erase(config, "presets_memory");
 }
 
 obs_properties_t *PTZUSBCam::get_obs_properties()
@@ -175,12 +183,12 @@ void PTZUSBCam::pantilt_rel(double pan, double tilt)
 	worker_->pantiltRel(pan, tilt);
 }
 
-/* What the camera has a control for. The presets are the plugin's own, of
- * positions it reads back from the camera. Nothing more until it has said:
- * a webcam often has no pan or tilt. */
+/* What the camera has a control for. Its presets are the device's local ones,
+ * of the positions it was last sent to. Nothing until it has said: a webcam
+ * often has no pan or tilt. */
 PTZDevice::Features PTZUSBCam::features() const
 {
-	Features features = Presets;
+	Features features;
 	if (has_pantilt)
 		features |= PanTilt | PanTiltAbs | PanTiltRel | Home;
 	if (has_zoom)
@@ -211,29 +219,6 @@ void PTZUSBCam::set_autofocus(bool enabled)
 {
 	refreshDeviceId();
 	worker_->setAutoFocus(enabled);
-}
-
-void PTZUSBCam::memory_reset(int i)
-{
-	if (!presets.contains(i))
-		return;
-	presets.remove(i);
-	persist();
-}
-
-void PTZUSBCam::memory_set(int i)
-{
-	/* Answered by the positionCaptured signal, once the worker has got to it */
-	refreshDeviceId();
-	worker_->capturePosition(i);
-}
-
-void PTZUSBCam::memory_recall(int i)
-{
-	if (!presets.contains(i))
-		return;
-	refreshDeviceId();
-	worker_->recall(presets[i]);
 }
 
 void ptz_usb_cam_register_filter()

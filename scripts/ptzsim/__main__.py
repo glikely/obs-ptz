@@ -68,7 +68,7 @@ from .backends.pelco import PelcoBackend
 from .backends.visca import ViscaBackend, ViscaCameraLogic, SonyUdpQuirks
 from .backends.visca_report import ViscaReportReplay
 from .debug_http import DebugHttpServer
-from .state import PTZState, run_ticker
+from .state import Position, Preset, PTZState, run_ticker
 from . import backdrop, blenderview, rooms, scene as scene_module
 from .webview import WebViewServer
 
@@ -203,6 +203,10 @@ def parse_args():
                      help="turn on EEVEE's ray tracing for reflections and bounced light (slower)")
     ap.add_argument("--blender-exe", default=None, metavar="PATH",
                      help="the Blender to run (default: $BLENDER, the macOS app, or blender on $PATH)")
+    ap.add_argument("--preset", action="append", default=[], metavar="SLOT=NAME@PAN,TILT,ZOOM[,FOCUS]",
+                     help="start with this preset saved in the camera: in VISCA's and Pelco's "
+                          "slot SLOT (from 0), under ONVIF's token SLOT; can be given more than once "
+                          "(pan and tilt are -1 to 1, zoom and focus 0 to 1, focus 0.5 if left out)")
     ap.add_argument("--heading", type=float, default=0.0, metavar="DEGREES",
                      help="turn the web view's world this many degrees to the right, so that "
                           "pan 0 looks that way (default 0)")
@@ -286,6 +290,16 @@ def main():
         state.move_rate = 2.0 / args.move_time
     if args.start_in_standby:
         state.power = False
+    for spec in args.preset:
+        try:
+            slot, rest = spec.split("=", 1)
+            name, position = rest.rsplit("@", 1)
+            values = [float(v) for v in position.split(",")]
+            if not 3 <= len(values) <= 4:
+                raise ValueError
+        except ValueError:
+            ap.error(f"--preset {spec!r} is not SLOT=NAME@PAN,TILT,ZOOM[,FOCUS]")
+        state.presets[slot] = Preset(name, Position(*values))
     if args.initial_view:
         # Where the camera starts, and goes back to for Home
         state.set_position(**args.initial_view)

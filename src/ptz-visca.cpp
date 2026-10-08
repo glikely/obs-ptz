@@ -141,6 +141,7 @@ void PTZVisca::saveStatistics(OBSData out)
 void PTZVisca::defaults(obs_data_t *cfg)
 {
 	PTZDevice::defaults(cfg);
+	obs_data_set_default_int(cfg, "preset_max", 16);
 
 	/* The transport is selected by device "type" (visca / visca-over-ip /
 	 * visca-over-tcp), same as before the VISCA drivers were unified into

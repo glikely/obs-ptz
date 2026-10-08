@@ -123,6 +123,22 @@ static void preset_sync_cb(void *data, calldata_t *cd)
 	QMetaObject::invokeMethod(ptzlm, [ptzlm, uuid] { ptzlm->presetsSync(uuid); });
 }
 
+/* A request to make a preset has been answered: the id of the preset, or "" if none was made */
+static void preset_create_done_cb(void *data, calldata_t *cd)
+{
+	auto ptzlm = static_cast<PTZListModel *>(data);
+	QString uuid = signalUuid(cd);
+	const char *request = "";
+	const char *id = "";
+	calldata_get_string(cd, "request", &request);
+	calldata_get_string(cd, "id", &id);
+	QString requested = QString::fromUtf8(request ? request : "");
+	QString made = QString::fromUtf8(id ? id : "");
+	QMetaObject::invokeMethod(ptzlm, [ptzlm, uuid, requested, made] {
+		emit ptzlm->presetCreateDone(uuid, requested, made);
+	});
+}
+
 PTZListModel::PTZListModel() : QAbstractItemModel()
 {
 	/* Plugins are loaded before any source is, so there are no devices to look for yet */
@@ -283,13 +299,13 @@ bool PTZListModel::refreshSceneState(PTZDeviceEntry *entry)
 }
 
 /**
- * Re-fetches a device's preset list, plus the "preset_max" setting that caps
- * it, via a single ptz_preset_get_list() proc_handler call. Must be called
+ * Re-fetches a device's preset list via a single ptz_preset_get_list()
+ * proc_handler call. Must be called
  * *before* the matching endInsertRows()/endRemoveRows()/endMoveRows() --
  * QAbstractItemModel requires the data to already reflect the new row layout
  * by the time the end*() call returns.
  */
-QList<PTZListModel::PresetEntry> PTZListModel::fetchPresets(const PTZDeviceEntry &entry, int *slotCount) const
+QList<PTZListModel::PresetEntry> PTZListModel::fetchPresets(const PTZDeviceEntry &entry) const
 {
 	QList<PresetEntry> presets;
 	calldata_t cd = {};
@@ -310,8 +326,6 @@ QList<PTZListModel::PresetEntry> PTZListModel::fetchPresets(const PTZDeviceEntry
 			preset.thumbnail = QT_UTF8(obs_data_get_string(item, "thumbnail"));
 			presets.append(preset);
 		}
-		if (slotCount)
-			*slotCount = (int)obs_data_get_int(info, "camera_slots");
 		obs_data_release(info);
 	}
 	calldata_free(&cd);
@@ -320,9 +334,7 @@ QList<PTZListModel::PresetEntry> PTZListModel::fetchPresets(const PTZDeviceEntry
 
 void PTZListModel::refreshPresetList(PTZDeviceEntry *entry)
 {
-	int slotCount = entry->maxPresets;
-	entry->presets = fetchPresets(*entry, &slotCount);
-	entry->maxPresets = slotCount;
+	entry->presets = fetchPresets(*entry);
 }
 
 bool PTZListModel::hasFeature(const QModelIndex &index, const char *feature)
@@ -383,43 +395,6 @@ Qt::ItemFlags PTZListModel::flags(const QModelIndex &index) const
 	if (!index.isValid())
 		return Qt::ItemIsEnabled;
 	return QAbstractItemModel::flags(index) | Qt::ItemIsEditable;
-}
-
-bool PTZListModel::insertRows(int row, int count, const QModelIndex &parent)
-{
-	auto entry = entryAt(parent);
-	if (!entry)
-		return false;
-	/* The slot limit is the camera's, the local store has none */
-	int onCamera = 0;
-	for (const auto &preset : entry->presets)
-		onCamera += preset.store == QStringLiteral("camera");
-	if (row < 0 || count <= 0 || row > entry->presets.size() ||
-	    (entry->maxPresets > 0 && onCamera + count > entry->maxPresets))
-		return false;
-
-	for (int i = 0; i < count; i++) {
-		/* Made from where the camera is now, and at the end: the row it goes
-		 * to is moved to */
-		calldata_t cd = {};
-		calldata_set_string(&cd, "name", "");
-		calldata_set_string(&cd, "store", "camera");
-		callEntry(*entry, "ptz_preset_create", &cd);
-		const char *id = nullptr;
-		calldata_get_string(&cd, "return", &id);
-		QString created = QString::fromUtf8(id ? id : "");
-		calldata_free(&cd);
-		if (created.isEmpty())
-			return i > 0;
-		if (row + i < entry->presets.size() - 1) {
-			calldata_t move = {};
-			calldata_set_string(&move, "id", QT_TO_UTF8(created));
-			calldata_set_int(&move, "index", row + i);
-			callEntry(*entry, "ptz_preset_move", &move);
-			calldata_free(&move);
-		}
-	}
-	return true;
 }
 
 QString PTZListModel::addPreset(const QString &uuid, const QString &store, const QString &name)
@@ -850,6 +825,7 @@ void PTZListModel::deviceCreated(OBSWeakSource weakSource)
 	for (const char *name : {"ptz_preset_added", "ptz_preset_removed", "ptz_preset_order_changed",
 				 "ptz_preset_changed", "ptz_preset_list_reset"})
 		signal_handler_connect(sh, name, preset_sync_cb, this);
+	signal_handler_connect(sh, "ptz_preset_create_done", preset_create_done_cb, this);
 }
 
 void PTZListModel::deviceDestroyed(const QString &uuid)
@@ -903,9 +879,7 @@ void PTZListModel::presetsSync(const QString &uuid)
 	if (!entry)
 		return;
 	auto parent = indexFromUuid(uuid);
-	int slotCount = entry->maxPresets;
-	QList<PresetEntry> now = fetchPresets(*entry, &slotCount);
-	entry->maxPresets = slotCount;
+	QList<PresetEntry> now = fetchPresets(*entry);
 
 	QStringList wanted;
 	for (const PresetEntry &preset : now)

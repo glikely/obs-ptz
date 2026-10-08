@@ -146,6 +146,7 @@ PTZPelco::~PTZPelco()
 void PTZPelco::defaults(obs_data_t *config)
 {
 	PTZDevice::defaults(config);
+	obs_data_set_default_int(config, "preset_max", 16);
 	obs_data_set_default_bool(config, "use_pelco_d", false);
 	obs_data_set_default_int(config, "baud_rate", 9600);
 }
@@ -241,7 +242,7 @@ void PTZPelco::pantilt_home()
 
 void PTZPelco::memory_reset(int i)
 {
-	if (i < 0x01 || i > 0xFF)
+	if (i < 0x00 || i > 0xFE)
 		return;
 
 	send(0x00, 0x05, 0x00, i + 1);
@@ -250,7 +251,7 @@ void PTZPelco::memory_reset(int i)
 
 void PTZPelco::memory_set(int i)
 {
-	if (i < 0x01 || i > 0xFF)
+	if (i < 0x00 || i > 0xFE)
 		return;
 
 	send(0x00, 0x03, 0x00, i + 1);
@@ -259,7 +260,7 @@ void PTZPelco::memory_set(int i)
 
 void PTZPelco::memory_recall(int i)
 {
-	if (i < 0x00 || i > 0xFF)
+	if (i < 0x00 || i > 0xFE)
 		return;
 
 	send(0x00, 0x07, 0x00, i + 1);
