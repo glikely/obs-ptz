@@ -1795,6 +1795,7 @@ void PTZPresetListDelegate::refreshTheme()
 	bool isDark = obs_frontend_is_theme_dark();
 	recallIcon = QIcon(isDark ? "theme:Dark/refresh.svg" : ":res/images/refresh.svg");
 	localIcon = QIcon(":/icons/icons/preset_local.svg");
+	cameraIcon = QIcon(":/icons/icons/preset_camera.svg");
 
 	emit sizeHintChanged(QModelIndex());
 }
@@ -1968,11 +1969,13 @@ void PTZPresetListDelegate::paint(QPainter *painter, const QStyleOptionViewItem 
 	}
 	painter->restore();
 
-	/* A preset kept in OBS has a small screen in the corner of its
-	 * thumbnail, over a backdrop so it shows on any picture. The camera's,
-	 * which is what a camera is expected to have, is left plain. It is
-	 * inside the thumbnail, so it changes no cell's size. */
-	if (index.data(PTZListModel::PresetStoreRole).toString() == QStringLiteral("local")) {
+	/* A preset has a small badge in the corner of its thumbnail, over a backdrop so
+	 * it shows on any picture: a screen if it is kept in OBS, a camera if it is
+	 * kept in the camera. It is inside the thumbnail, so it changes no cell's size. */
+	const QIcon &storeIcon = index.data(PTZListModel::PresetStoreRole).toString() == QStringLiteral("local")
+					 ? localIcon
+					 : cameraIcon;
+	{
 		int box = qMin(iconSize() * 3 / 4 + 4, qMin(l.thumbnail.width(), l.thumbnail.height()) - 2);
 		if (box >= 8) {
 			QRect badge(l.thumbnail.left() + 1, l.thumbnail.top() + 1, box, box);
@@ -1982,7 +1985,7 @@ void PTZPresetListDelegate::paint(QPainter *painter, const QStyleOptionViewItem 
 			painter->setBrush(QColor(0, 0, 0, 128));
 			painter->drawRoundedRect(badge, 3, 3);
 			painter->restore();
-			localIcon.paint(painter, badge.adjusted(2, 2, -2, -2), Qt::AlignCenter, iconMode);
+			storeIcon.paint(painter, badge.adjusted(2, 2, -2, -2), Qt::AlignCenter, iconMode);
 		}
 	}
 
