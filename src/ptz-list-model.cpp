@@ -396,16 +396,10 @@ Qt::ItemFlags PTZListModel::flags(const QModelIndex &index) const
 {
 	if (!index.isValid())
 		return Qt::ItemIsEnabled | Qt::ItemIsDropEnabled;
-	auto flags = QAbstractItemModel::flags(index) | Qt::ItemIsEditable;
-	/* A preset is dragged to where it goes in its camera's list, and dropped on a
-	 * preset or on the camera: the preset list is rooted at the camera, which has to
-	 * take a drop for one in the space after the last preset to be accepted. The
-	 * camera list does not accept drops, so a camera is not moved by this. */
-	if (index.parent().isValid())
-		return flags | Qt::ItemIsDragEnabled | Qt::ItemIsDropEnabled;
-	/* A camera is dragged to where it goes in the camera list, which takes the drop on
-	 * the camera it is dropped on, or in the space after the last */
-	return flags | Qt::ItemIsDragEnabled | Qt::ItemIsDropEnabled;
+	/* A preset or a camera is dragged to where it goes in its list, and dropped on a
+	 * row, or on the parent of the rows: the preset list is rooted at the camera, which
+	 * has to take a drop for one in the space after the last preset to be accepted */
+	return QAbstractItemModel::flags(index) | Qt::ItemIsEditable | Qt::ItemIsDragEnabled | Qt::ItemIsDropEnabled;
 }
 
 /* The view reorders the rows itself, with moveRow(), see
