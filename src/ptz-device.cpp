@@ -551,6 +551,9 @@ void PTZDevice::saveFeatures(obs_data_t *data, Features features) const
 		if (features.testFlag(feature))
 			obs_data_set_bool(names, name, true);
 	}
+	/* "presets" is either store: the local one needs only a position to go to */
+	if (features & (PanTiltAbs | ZoomAbs | FocusAbs))
+		obs_data_set_bool(names, "presets", true);
 	obs_data_set_obj(data, "features", names);
 }
 
