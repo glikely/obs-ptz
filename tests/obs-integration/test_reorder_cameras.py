@@ -187,3 +187,18 @@ def test_cameras_the_order_does_not_name_go_last_in_the_order_they_were(obs_worl
     result = obs_world.reorder_cameras(tmp_path / "o.json", set_order=cameras[3] + "," + cameras[1])
 
     assert result["devices"] == [cameras[3], cameras[1], cameras[0], cameras[2]] + cameras[4:]
+
+
+def test_the_order_survives_restarting_obs(obs_world, tmp_path, cameras):
+    """The whole of it: move a camera, quit OBS the way a user does, start it again on the
+    same profile, and the cameras are where they were left"""
+    out = tmp_path / "o.json"
+    moved = obs_world.reorder_cameras(out, **{"from": 0, "to": len(cameras)})
+    expected = cameras[1:] + [cameras[0]]
+    assert moved["devices"] == expected
+
+    obs_world.restart_obs()
+
+    again = obs_world.reorder_cameras(out)
+    assert again["devices"] == expected
+    assert again["uuids"] == moved["uuids"]

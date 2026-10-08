@@ -525,6 +525,8 @@ class World:
         self.device_names = device_names
         # The plugin's config directory, for tests that look at what it keeps there
         self.config_dir = None
+        # Set by obs_world: quits OBS and starts it again on the same profile
+        self.restart_obs = None
         # Somewhere for the small files a test asks the harness to write
         self.scratch = Path(tempfile.mkdtemp(prefix="ptz-world-"))
         self._scene_counter = 0
@@ -1314,25 +1316,28 @@ def obs_world(tmp_path_factory, ptzsim_process, sony_ptzsim, birddog_ptzsim, pow
     if platform.system() == "Linux" and not env.get("DISPLAY") and shutil.which("Xvfb"):
         xvfb, env["DISPLAY"] = start_xvfb()
 
-    # Its own process group, so that whatever OBS starts goes when it does.
-    with output_log("obs") as out:
-        proc = subprocess.Popen([obs_binary, "--disable-updater"], cwd=obs_cwd, env=env, stdout=out,
-                                stderr=subprocess.STDOUT, **({} if IS_WINDOWS else {"start_new_session": True}))
+    running = {"proc": None, "ws": None}
 
-    ws = None
-    try:
+    def start_obs():
+        """Starts OBS on this home and connects to it once it has loaded"""
+        # Its own process group, so that whatever OBS starts goes when it does.
+        with output_log("obs") as out:
+            running["proc"] = subprocess.Popen([obs_binary, "--disable-updater"], cwd=obs_cwd, env=env, stdout=out,
+                                               stderr=subprocess.STDOUT,
+                                               **({} if IS_WINDOWS else {"start_new_session": True}))
         wait_for_port("127.0.0.1", ws_port, timeout=90)
         deadline = time.time() + 30
         last_error = None
         while time.time() < deadline:
             try:
-                ws = Client(f"ws://127.0.0.1:{ws_port}", password=ws_password)
+                running["ws"] = Client(f"ws://127.0.0.1:{ws_port}", password=ws_password)
                 break
             except (OSError, ObsWebSocketError) as e:
                 last_error = e
                 time.sleep(1)
-        if ws is None:
+        if running["ws"] is None:
             raise RuntimeError(f"could not complete obs-websocket handshake: {last_error}")
+        ws = running["ws"]
 
         # The obs-websocket server thread starts (and completes the
         # handshake above) before OBS's frontend has finished loading its
@@ -1362,21 +1367,37 @@ def obs_world(tmp_path_factory, ptzsim_process, sony_ptzsim, birddog_ptzsim, pow
         # trigger_action's scene switch always completes immediately.
         ws.call("SetCurrentSceneTransition", {"transitionName": "Cut"})
 
+    def stop_obs():
+        """Quits OBS the way a user does, and says whether it got to exit by itself"""
+        if running["ws"] is not None:
+            running["ws"].close()
+            running["ws"] = None
+        # SIGINT, not SIGTERM: OBS closes its main window -- a normal quit --
+        # on SIGINT since 23.2, but only on SIGTERM since 32.1. Before that
+        # a SIGTERM just kills it, and nothing gets turned off.
+        return stop_process_group(running["proc"], timeout=10, sig=signal.SIGINT)
+
+    def restart_obs():
+        """Quits OBS and starts it again on the same profile, as a user restarting it would,
+        and gives the world the new connection"""
+        assert stop_obs(), "OBS did not quit by itself"
+        start_obs()
+        world.ws = running["ws"]
+
+    try:
+        start_obs()
+
         # OBS has finished loading (obs-websocket is not ready before), and
         # that was the time devices were told to power their cameras on: this
         # one was not there to be told
         late_power_ptzsim.start()
 
-        world = World(ws, f"http://127.0.0.1:{ptzsim_process['ports']['debug_http']}/state", DEVICE_NAMES)
+        world = World(running["ws"], f"http://127.0.0.1:{ptzsim_process['ports']['debug_http']}/state", DEVICE_NAMES)
         world.config_dir = obs_config_root(home) / "plugin_config" / "obs-ptz"
+        world.restart_obs = restart_obs
         yield world
     finally:
-        if ws is not None:
-            ws.close()
-        # SIGINT, not SIGTERM: OBS closes its main window -- a normal quit --
-        # on SIGINT since 23.2, but only on SIGTERM since 32.1. Before that
-        # a SIGTERM just kills it, and nothing gets turned off.
-        exited_cleanly = stop_process_group(proc, timeout=10, sig=signal.SIGINT)
+        exited_cleanly = stop_obs() if running["proc"] is not None else False
         if xvfb is not None:
             stop_process_group(xvfb, timeout=5)
     # A device set to turn its camera off when OBS closes has done so by now.
