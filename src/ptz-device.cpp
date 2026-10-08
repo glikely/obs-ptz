@@ -735,7 +735,6 @@ void PTZDevice::preset_get_list(calldata_t *cd) const
 	obs_data_release(values);
 	obs_data_set_bool(info, "names_on_camera", camera.namesOnCamera);
 	obs_data_set_bool(info, "enumerable", camera.enumerable);
-	obs_data_set_int(info, "camera_slots", camera.slotCount);
 	calldata_set_ptr(cd, "return", info);
 }
 
@@ -1236,10 +1235,8 @@ void ptz_unload_devices(void)
 PTZDevice::CameraPresets PTZDevice::cameraPresets() const
 {
 	CameraPresets camera;
-	if (features() & Presets) {
+	if (features() & Presets)
 		camera.available = true;
-		camera.slotCount = (int)m_maxPresets;
-	}
 	return camera;
 }
 

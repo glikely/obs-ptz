@@ -40,8 +40,6 @@ struct PTZCameraPresets {
 	bool namesOnCamera = false;
 	/* It can say what presets it has: see PTZDevice::setCameraPresets() */
 	bool enumerable = false;
-	/* How many it keeps, or 0 if it doesn't keep a fixed number */
-	int slotCount = 0;
 };
 
 class PTZDevice : public QObject {
@@ -297,7 +295,6 @@ public:
 	 * What a preset there holds, by the names of the API's value keys */
 	bool localPresets() const;
 	QStringList valueKeys() const;
-	size_t maxPresets() const { return m_maxPresets; }
 	int presetCount() const { return m_presets.size(); }
 	/* Make a preset in `store` from the current position, and return its id, or
 	 * "" if it can't be made */
