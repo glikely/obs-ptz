@@ -15,6 +15,7 @@
 #include <QToolTip>
 #include <QWindow>
 #include <QResizeEvent>
+#include <memory>
 #include <QDockWidget>
 #include <QStylePainter>
 #include <QLabel>
@@ -1188,15 +1189,39 @@ void PTZControls::presetAddTo(const QString &store)
 	auto parent = ui->deviceList->currentIndex();
 	if (!parent.isValid())
 		return;
-	QString id = ptzDeviceList->addPreset(parent.data(PTZListModel::DeviceUuidRole).toString(), store);
-	for (int row = 0; !id.isEmpty() && row < ptzDeviceList->rowCount(parent); row++) {
-		QModelIndex index = ptzDeviceList->index(row, 0, parent);
-		if (presetIndexToId(index) != id)
-			continue;
-		ui->presetListView->setCurrentIndex(index);
-		ui->presetListView->edit(index);
-		break;
+	QString uuid = parent.data(PTZListModel::DeviceUuidRole).toString();
+	QString request = ptzDeviceList->addPreset(uuid, store);
+	if (request.isEmpty()) {
+		/* The camera has no room, or no such store */
+		blog(LOG_WARNING, "[obs-ptz] the device would not make a new preset");
+		return;
 	}
+	/* The preset is there to be named once the device says it has made it, which
+	 * is not before this returns: the camera may take a while to answer */
+	auto connection = std::make_shared<QMetaObject::Connection>();
+	*connection =
+		connect(ptzDeviceList, &PTZListModel::presetCreateDone, this,
+			[this, request, uuid, connection](const QString &, const QString &answered, const QString &id) {
+				if (answered != request)
+					return;
+				QObject::disconnect(*connection);
+				if (id.isEmpty()) {
+					blog(LOG_WARNING, "[obs-ptz] the device made no new preset");
+					return;
+				}
+				auto current = ui->deviceList->currentIndex();
+				if (!current.isValid() || current.data(PTZListModel::DeviceUuidRole).toString() != uuid)
+					return;
+				for (int row = 0; row < ptzDeviceList->rowCount(current); row++) {
+					QModelIndex index = ptzDeviceList->index(row, 0, current);
+					if (presetIndexToId(index) != id)
+						continue;
+					ui->presetListView->setCurrentIndex(index);
+					ui->presetListView->edit(index);
+					break;
+				}
+				presetUpdateActions();
+			});
 	presetUpdateActions();
 }
 
@@ -1426,8 +1451,16 @@ void PTZControls::on_actionPresetImport_triggered(QString filename)
 		ids.removeAll(id);
 	}
 
-	/* Where each preset of the file went, in the file's order */
-	QStringList placed;
+	/* Where each preset of the file goes, in the file's order. A local preset is not
+	 * there until the device says it has made it, so it has no id until then, and
+	 * the values it was saved with and the order are for when they all are */
+	struct Placed {
+		QString id;
+		OBSData values;
+	};
+	auto placed = std::make_shared<QList<Placed>>();
+	auto waiting = std::make_shared<QHash<QString, int>>();
+	QString uuid = index.data(PTZListModel::DeviceUuidRole).toString();
 	OBSDataArrayAutoRelease presets = obs_data_get_array(data, "presets");
 	for (size_t i = 0; presets && i < obs_data_array_count(presets); i++) {
 		OBSDataAutoRelease item = obs_data_array_item(presets, i);
@@ -1442,24 +1475,12 @@ void PTZControls::on_actionPresetImport_triggered(QString filename)
 		if (id.startsWith(QStringLiteral("local:"))) {
 			if (!obs_data_get_bool(stores, "local"))
 				continue;
-			calldata_t cd = {};
-			calldata_set_string(&cd, "name", QT_TO_UTF8(name));
-			calldata_set_string(&cd, "store", "local");
-			ptzDeviceList->callDevice(index, "ptz_preset_create", &cd);
-			const char *created = nullptr;
-			calldata_get_string(&cd, "return", &created);
-			QString madeId = QT_UTF8(created ? created : "");
-			calldata_free(&cd);
-			if (madeId.isEmpty())
+			QString request = ptzDeviceList->addPreset(uuid, QStringLiteral("local"), name);
+			if (request.isEmpty())
 				continue;
 			OBSDataAutoRelease values = obs_data_get_obj(item, "values");
-			if (values) {
-				OBSDataAutoRelease changes = obs_data_create();
-				obs_data_set_obj(changes, "values", values);
-				call("ptz_preset_update", madeId,
-				     [&](calldata_t *cd) { calldata_set_ptr(cd, "changes", changes.Get()); });
-			}
-			placed << madeId;
+			placed->append({QString(), OBSData(values)});
+			waiting->insert(request, placed->size() - 1);
 		} else if (ids.contains(id)) {
 			/* Only the presets the camera has: the file cannot make them. A name
 			 * is the camera's to keep, if it keeps them */
@@ -1469,14 +1490,53 @@ void PTZControls::on_actionPresetImport_triggered(QString filename)
 				call("ptz_preset_update", id,
 				     [&](calldata_t *cd) { calldata_set_ptr(cd, "changes", changes.Get()); });
 			}
-			placed << id;
+			placed->append({id, OBSData()});
 		}
 	}
-	/* ...and in the order of the file */
-	for (int position = 0; position < placed.size(); position++)
-		call("ptz_preset_move", placed.at(position),
-		     [position](calldata_t *cd) { calldata_set_int(cd, "index", position); });
 
+	/* The values of the local presets, and the order of the file, once the device has made
+	 * them all */
+	auto finish = [this, uuid, placed]() {
+		auto device = ptzDeviceList->indexFromUuid(uuid);
+		auto callWith = [&device](const char *proc, const QString &id, std::function<void(calldata_t *)> set) {
+			calldata_t cd = {};
+			calldata_set_string(&cd, "id", QT_TO_UTF8(id));
+			set(&cd);
+			ptzDeviceList->callDevice(device, proc, &cd);
+			calldata_free(&cd);
+		};
+		int position = 0;
+		for (const Placed &preset : *placed) {
+			if (preset.id.isEmpty())
+				continue;
+			if (preset.values) {
+				OBSDataAutoRelease changes = obs_data_create();
+				obs_data_set_obj(changes, "values", preset.values);
+				callWith("ptz_preset_update", preset.id,
+					 [&](calldata_t *cd) { calldata_set_ptr(cd, "changes", changes.Get()); });
+			}
+			callWith("ptz_preset_move", preset.id,
+				 [position](calldata_t *cd) { calldata_set_int(cd, "index", position); });
+			position++;
+		}
+		presetUpdateActions();
+	};
+	if (waiting->isEmpty()) {
+		finish();
+		return;
+	}
+	auto connection = std::make_shared<QMetaObject::Connection>();
+	*connection = connect(ptzDeviceList, &PTZListModel::presetCreateDone, this,
+			      [waiting, placed, finish, connection](const QString &, const QString &request,
+								    const QString &id) {
+				      if (!waiting->contains(request))
+					      return;
+				      (*placed)[waiting->take(request)].id = id;
+				      if (!waiting->isEmpty())
+					      return;
+				      QObject::disconnect(*connection);
+				      finish();
+			      });
 	presetUpdateActions();
 }
 PTZDeviceListDelegate::PTZDeviceListDelegate(QObject *parent) : QStyledItemDelegate(parent)

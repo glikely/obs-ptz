@@ -167,6 +167,7 @@ PTZDevice::PTZDevice(OBSData config, obs_source_t *filter) : QObject()
 		addSignal("void ptz_preset_order_changed(ptr source)");
 		addSignal("void ptz_preset_changed(ptr source, string id, ptr changed)");
 		addSignal("void ptz_preset_list_reset(ptr source)");
+		addSignal("void ptz_preset_create_done(ptr source, string request, string id)");
 	}
 
 	/* The device is given its source by its filter, see setParentSource() */
@@ -746,8 +747,8 @@ void PTZDevice::preset_create(calldata_t *cd)
 	const char *store = "";
 	calldata_get_string(cd, "name", &name);
 	calldata_get_string(cd, "store", &store);
-	QString id = createPreset(QString::fromUtf8(name ? name : ""), QString::fromUtf8(store ? store : ""));
-	calldata_set_string(cd, "return", QT_TO_UTF8(id));
+	QString request = createPreset(QString::fromUtf8(name ? name : ""), QString::fromUtf8(store ? store : ""));
+	calldata_set_string(cd, "return", QT_TO_UTF8(request));
 }
 
 void PTZDevice::preset_delete(calldata_t *cd)
@@ -1242,19 +1243,26 @@ PTZDevice::CameraPresets PTZDevice::cameraPresets() const
 }
 
 /* A camera with numbered slots: the first that the list has no preset in, or
- * none if the "preset_max" slots are all in use */
-QString PTZDevice::cameraPresetCreate(const QString &name)
+ * none if the "preset_max" slots are all in use, counting those that requests in flight have
+ * taken. It is a command with no answer, so it is done at once */
+bool PTZDevice::cameraPresetCreate(const QString &request, const QString &name)
 {
 	Q_UNUSED(name);
 	if (!slotPresets())
-		return QString();
+		return false;
+	QStringList taken = m_creatingSlot.values();
 	for (int slot = 0; slot < (int)m_maxPresets; slot++) {
-		if (presetIndex(presetId(QStringLiteral("camera"), QString::number(slot))) >= 0)
+		if (presetIndex(presetId(QStringLiteral("camera"), QString::number(slot))) >= 0 ||
+		    taken.contains(QString::number(slot)))
 			continue;
+		m_creatingSlot.insert(request, QString::number(slot));
 		memory_set(slot);
-		return QString::number(slot);
+		QMetaObject::invokeMethod(
+			this, [this, request, slot] { cameraPresetCreated(request, QString::number(slot)); },
+			Qt::QueuedConnection);
+		return true;
 	}
-	return QString();
+	return false;
 }
 
 void PTZDevice::cameraPresetSave(const QString &key)
@@ -1557,11 +1565,31 @@ void PTZDevice::applyValues(const Preset &preset)
 	}
 }
 
+/* Not the same for two devices, since the listeners of several may be told apart by it alone */
+QString PTZDevice::newCreateRequest()
+{
+	return QStringLiteral("create-") + QUuid::createUuid().toString(QUuid::Id128).left(8);
+}
+
+/* The result of a request to make a preset is a signal, which comes after the proc
+ * that asked has returned, so that its caller has the request to know it by */
+void PTZDevice::finishCreate(const QString &request, const QString &id)
+{
+	m_creating.remove(request);
+	m_creatingSlot.remove(request);
+	calldata_t cd = {};
+	calldata_set_string(&cd, "request", QT_TO_UTF8(request));
+	calldata_set_string(&cd, "id", QT_TO_UTF8(id));
+	signalDevice("ptz_preset_create_done", &cd);
+	calldata_free(&cd);
+}
+
 QString PTZDevice::createPreset(const QString &name, const QString &store)
 {
 	if (store == QStringLiteral("local")) {
 		if (!localPresets())
 			return QString();
+		QString request = newCreateRequest();
 		Preset preset;
 		preset.id = presetId(QStringLiteral("local"), QUuid::createUuid().toString(QUuid::Id128).left(8));
 		preset.name = name;
@@ -1571,16 +1599,35 @@ QString PTZDevice::createPreset(const QString &name, const QString &store)
 		persist();
 		signalPreset("ptz_preset_added", preset.id);
 		capturePresetThumbnail(preset.id);
-		return preset.id;
+		m_creating.insert(request, name);
+		QMetaObject::invokeMethod(
+			this, [this, request, id = preset.id] { finishCreate(request, id); }, Qt::QueuedConnection);
+		return request;
 	}
 	if (store != QStringLiteral("camera"))
 		return QString();
+	if (!cameraPresets().available)
+		return QString();
+	QString request = newCreateRequest();
+	m_creating.insert(request, name);
+	if (!cameraPresetCreate(request, name)) {
+		m_creating.remove(request);
+		return QString();
+	}
+	return request;
+}
+
+/* What a driver says when the camera has made the preset, or has not */
+void PTZDevice::cameraPresetCreated(const QString &request, const QString &key)
+{
+	if (!m_creating.contains(request))
+		return;
+	if (key.isEmpty()) {
+		finishCreate(request, QString());
+		return;
+	}
+	QString name = m_creating.value(request);
 	CameraPresets camera = cameraPresets();
-	if (!camera.available)
-		return QString();
-	QString key = cameraPresetCreate(name);
-	if (key.isEmpty())
-		return QString();
 	QString id = presetId(QStringLiteral("camera"), key);
 	int index = presetIndex(id);
 	if (index < 0) {
@@ -1604,7 +1651,7 @@ QString PTZDevice::createPreset(const QString &name, const QString &store)
 			m_cameraPresets.append({key, name});
 	}
 	capturePresetThumbnail(id);
-	return id;
+	finishCreate(request, id);
 }
 
 void PTZDevice::savePreset(const QString &id)

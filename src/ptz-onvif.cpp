@@ -255,21 +255,34 @@ void PTZOnvif::presetRequest(const QString &operation, const QString &token, con
 	sendRequest(m_PTZAddress, msg);
 }
 
-/* The camera makes the token, in its answer: so wait for it, for as long as it
- * takes, and not for long */
-QString PTZOnvif::cameraPresetCreate(const QString &name)
+/* The camera makes the token, in its answer, which is what completes the request: or a
+ * fault, or the end of a wait that is not for long. Nothing waits for it here. */
+bool PTZOnvif::cameraPresetCreate(const QString &request, const QString &name)
 {
-	QEventLoop loop;
-	QTimer timeout;
-	timeout.setSingleShot(true);
-	connect(&timeout, &QTimer::timeout, &loop, &QEventLoop::quit);
-	m_createLoop = &loop;
-	m_createdToken.clear();
-	presetRequest("SetPreset", QString(), name);
-	timeout.start(5000);
-	loop.exec();
-	m_createLoop = nullptr;
-	return m_createdToken;
+	m_creates.append({request, name});
+	startNextCreate();
+	return true;
+}
+
+void PTZOnvif::startNextCreate()
+{
+	if (m_createInFlight || m_creates.isEmpty())
+		return;
+	m_createInFlight = true;
+	presetRequest("SetPreset", QString(), m_creates.first().name);
+	m_createTimer.start(5000);
+}
+
+/* `token` is the camera's, or "" if it made no preset */
+void PTZOnvif::completeCreate(const QString &token)
+{
+	if (!m_createInFlight || m_creates.isEmpty())
+		return;
+	m_createTimer.stop();
+	m_createInFlight = false;
+	CreateRequest done = m_creates.takeFirst();
+	cameraPresetCreated(done.request, token);
+	startNextCreate();
 }
 
 void PTZOnvif::cameraPresetSave(const QString &key)
@@ -440,7 +453,7 @@ void PTZOnvif::handleGetSystemDateAndTimeResponse(QDomNode node)
 
 void PTZOnvif::handleSetPresetResponse(QDomDocument &doc)
 {
-	if (!m_createLoop)
+	if (!m_createInFlight)
 		return;
 	auto nl = doc.elementsByTagNameNS(nsOnvifPtz, "SetPresetResponse");
 	if (nl.isEmpty())
@@ -448,8 +461,7 @@ void PTZOnvif::handleSetPresetResponse(QDomDocument &doc)
 	auto tokenNodes = nl.at(0).toElement().elementsByTagNameNS(nsOnvifPtz, "PresetToken");
 	if (tokenNodes.isEmpty())
 		return;
-	m_createdToken = tokenNodes.at(0).toElement().text().trimmed();
-	m_createLoop->quit();
+	completeCreate(tokenNodes.at(0).toElement().text().trimmed());
 }
 
 /* Rewrite the host portion of a camera-reported service XAddr to whatever
@@ -727,6 +739,10 @@ void PTZOnvif::requestFinished(QNetworkReply *reply)
 	m_isBusy = false;
 	if (reply->error() > 0) {
 		ptz_info("request error; message: %s, code: %i", QT_TO_UTF8(reply->errorString()), statusCodeV);
+		/* A camera that refuses a new preset, as when it has no room, says so
+		 * with a SOAP fault: there is no token to wait for */
+		if (m_createInFlight && reply->readAll().contains("Fault"))
+			completeCreate(QString());
 		++m_consecutiveFailures;
 		if (m_consecutiveFailures >= 3 && isConnected())
 			setConnected(false);
@@ -748,6 +764,9 @@ PTZOnvif::PTZOnvif(OBSData config, obs_source_t *source) : PTZDevice(config, sou
 	// for digest authenticaton request
 	connect(&m_networkManager, &QNetworkAccessManager::authenticationRequired, this, &PTZOnvif::authRequired);
 	connect(&m_networkManager, &QNetworkAccessManager::finished, this, &PTZOnvif::requestFinished);
+	/* A camera that never answers SetPreset has made no preset */
+	m_createTimer.setSingleShot(true);
+	connect(&m_createTimer, &QTimer::timeout, this, [this]() { completeCreate(QString()); });
 	m_statusTimer.setInterval(5000);
 	connect(&m_statusTimer, &QTimer::timeout, this, [this]() {
 		/* When connected, keep position fresh; when disconnected and

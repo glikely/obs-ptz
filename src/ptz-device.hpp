@@ -146,6 +146,13 @@ protected:
 	};
 	size_t m_maxPresets = 16;
 	QList<Preset> m_presets;
+	/* The presets being made: the name each was asked for under, by request */
+	QHash<QString, QString> m_creating;
+	/* The slot each request in flight has taken, by request, which no other may have until
+	 * the preset is in the list */
+	QHash<QString, QString> m_creatingSlot;
+	QString newCreateRequest();
+	void finishCreate(const QString &request, const QString &id);
 	/* The display order, as ids: apart from m_presets, which has no order of its
 	 * own. It can name a preset the camera has yet to say it has. */
 	QStringList m_order;
@@ -274,10 +281,15 @@ public:
 	 * default a camera has numbered slots, which memory_set(), memory_recall()
 	 * and memory_reset() use, and its keys are the slot numbers. A driver of a
 	 * camera that is not like that overrides these. */
-	/* Saves the camera's position in a new preset, and returns its key, or "" if
-	 * it can't. May run the event loop for as long as the camera takes to say
-	 * what the key is. */
-	virtual QString cameraPresetCreate(const QString &name);
+	/* Starts saving the camera's position in a new preset, for the request `request`:
+	 * false if it is refused at once, as when there is no room, and otherwise true,
+	 * and the driver says how it went with cameraPresetCreated() once it knows,
+	 * which may be at once, and may be as long as the camera takes to say what the
+	 * key is. It does not wait for the camera. */
+	virtual bool cameraPresetCreate(const QString &request, const QString &name);
+	/* The camera's answer to cameraPresetCreate(): the key of the new preset, or "" if
+	 * the camera made none. Always called after cameraPresetCreate() has returned */
+	void cameraPresetCreated(const QString &request, const QString &key);
 	virtual void cameraPresetSave(const QString &key);
 	virtual void cameraPresetRecall(const QString &key);
 	virtual void cameraPresetDelete(const QString &key);
@@ -300,8 +312,9 @@ public:
 	bool localPresets() const;
 	QStringList valueKeys() const;
 	int presetCount() const { return m_presets.size(); }
-	/* Make a preset in `store` from the current position, and return its id, or
-	 * "" if it can't be made */
+	/* Start making a preset in `store` from the current position, and return the
+	 * request that ptz_preset_create_done says the result of, or "" if it is refused
+	 * at once. The result comes later, whatever the store. */
 	QString createPreset(const QString &name, const QString &store);
 	void savePreset(const QString &id);
 	void recallPreset(const QString &id);

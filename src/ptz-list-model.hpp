@@ -114,7 +114,6 @@ public:
 	QModelIndex parent(const QModelIndex &child) const override;
 	int rowCount(const QModelIndex &parent = QModelIndex()) const override;
 	int columnCount(const QModelIndex &) const override { return 1; };
-	bool insertRows(int row, int count, const QModelIndex &parent = QModelIndex()) override;
 	bool removeRows(int row, int count, const QModelIndex &parent = QModelIndex()) override;
 	bool moveRows(const QModelIndex &srcParent, int srcRow, int count, const QModelIndex &destParent,
 		      int destChild) override;
@@ -127,9 +126,11 @@ public:
 	 * locked if it is live, whatever a user had locked or unlocked */
 	void onSceneChanged();
 
-	/* Makes a preset in `store` ("camera" or "local") of the device with
-	 * this uuid from where the camera is now, last in the list. Returns its
-	 * id, or "" if the device can't: it has no such store, or no free slot */
+	/* Starts making a preset in `store` ("camera" or "local") of the device with
+	 * this uuid from where the camera is now, last in the list. Returns the request,
+	 * or "" if the device refuses at once: it has no such store, or no free slot.
+	 * presetCreateDone() says how the request went, with the id of the preset made,
+	 * once the device knows, which is after this has returned. */
 	QString addPreset(const QString &uuid, const QString &store, const QString &name = QString());
 
 	/* The stores the device can make a preset in, "camera" and "local" */
@@ -182,6 +183,9 @@ signals:
 	/* The device's state changed; `changed` holds the values it reported
 	 * as new, as of when it reported them */
 	void deviceStateUpdated(const QString &uuid, OBSData changed);
+	/* A request to make a preset, from addPreset(), has been answered: `id` is the id of the
+	 * preset that was made, or "" if the device made none */
+	void presetCreateDone(const QString &uuid, const QString &request, const QString &id);
 
 public slots:
 	void preset_recall(const QString &uuid, const QString &preset_id);

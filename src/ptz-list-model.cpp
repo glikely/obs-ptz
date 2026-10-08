@@ -123,6 +123,22 @@ static void preset_sync_cb(void *data, calldata_t *cd)
 	QMetaObject::invokeMethod(ptzlm, [ptzlm, uuid] { ptzlm->presetsSync(uuid); });
 }
 
+/* A request to make a preset has been answered: the id of the preset, or "" if none was made */
+static void preset_create_done_cb(void *data, calldata_t *cd)
+{
+	auto ptzlm = static_cast<PTZListModel *>(data);
+	QString uuid = signalUuid(cd);
+	const char *request = "";
+	const char *id = "";
+	calldata_get_string(cd, "request", &request);
+	calldata_get_string(cd, "id", &id);
+	QString requested = QString::fromUtf8(request ? request : "");
+	QString made = QString::fromUtf8(id ? id : "");
+	QMetaObject::invokeMethod(ptzlm, [ptzlm, uuid, requested, made] {
+		emit ptzlm->presetCreateDone(uuid, requested, made);
+	});
+}
+
 PTZListModel::PTZListModel() : QAbstractItemModel()
 {
 	/* Plugins are loaded before any source is, so there are no devices to look for yet */
@@ -379,41 +395,6 @@ Qt::ItemFlags PTZListModel::flags(const QModelIndex &index) const
 	if (!index.isValid())
 		return Qt::ItemIsEnabled;
 	return QAbstractItemModel::flags(index) | Qt::ItemIsEditable;
-}
-
-bool PTZListModel::insertRows(int row, int count, const QModelIndex &parent)
-{
-	auto entry = entryAt(parent);
-	if (!entry)
-		return false;
-	if (row < 0 || count <= 0 || row > entry->presets.size())
-		return false;
-
-	for (int i = 0; i < count; i++) {
-		/* Made from where the camera is now, and at the end: the row it goes
-		 * to is moved to */
-		calldata_t cd = {};
-		calldata_set_string(&cd, "name", "");
-		calldata_set_string(&cd, "store", "camera");
-		callEntry(*entry, "ptz_preset_create", &cd);
-		const char *id = nullptr;
-		calldata_get_string(&cd, "return", &id);
-		QString created = QString::fromUtf8(id ? id : "");
-		calldata_free(&cd);
-		/* The camera refused another: it has no room */
-		if (created.isEmpty()) {
-			blog(LOG_WARNING, "[obs-ptz] the camera made no new preset");
-			return i > 0;
-		}
-		if (row + i < entry->presets.size() - 1) {
-			calldata_t move = {};
-			calldata_set_string(&move, "id", QT_TO_UTF8(created));
-			calldata_set_int(&move, "index", row + i);
-			callEntry(*entry, "ptz_preset_move", &move);
-			calldata_free(&move);
-		}
-	}
-	return true;
 }
 
 QString PTZListModel::addPreset(const QString &uuid, const QString &store, const QString &name)
@@ -844,6 +825,7 @@ void PTZListModel::deviceCreated(OBSWeakSource weakSource)
 	for (const char *name : {"ptz_preset_added", "ptz_preset_removed", "ptz_preset_order_changed",
 				 "ptz_preset_changed", "ptz_preset_list_reset"})
 		signal_handler_connect(sh, name, preset_sync_cb, this);
+	signal_handler_connect(sh, "ptz_preset_create_done", preset_create_done_cb, this);
 }
 
 void PTZListModel::deviceDestroyed(const QString &uuid)

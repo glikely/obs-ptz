@@ -81,10 +81,18 @@ private:
 	 * kick a full reconnect attempt on the next timer tick. */
 	int m_consecutiveFailures = 0;
 
-	/* While a preset is being made, the camera's answer with its token ends
-	 * the loop that waits for it */
-	QEventLoop *m_createLoop = nullptr;
-	QString m_createdToken;
+	/* The presets asked for and not made yet, in order, which the camera makes one at a
+	 * time: its answer to SetPreset has the token of the preset it made, and nothing
+	 * to say which request it was for. The first is the one in flight. */
+	struct CreateRequest {
+		QString request;
+		QString name;
+	};
+	QList<CreateRequest> m_creates;
+	bool m_createInFlight = false;
+	QTimer m_createTimer;
+	void startNextCreate();
+	void completeCreate(const QString &token);
 	void presetRequest(const QString &operation, const QString &token, const QString &name = QString());
 	/* Local-to-camera time offset (seconds). Computed from
 	 * GetSystemDateAndTime on connect. Used so WS-Security timestamps
@@ -139,7 +147,7 @@ public:
 	void zoom_abs(double pos) override;
 	void set_autofocus(bool enabled) override;
 	CameraPresets cameraPresets() const override;
-	QString cameraPresetCreate(const QString &name) override;
+	bool cameraPresetCreate(const QString &request, const QString &name) override;
 	void cameraPresetSave(const QString &key) override;
 	void cameraPresetRecall(const QString &key) override;
 	void cameraPresetDelete(const QString &key) override;
