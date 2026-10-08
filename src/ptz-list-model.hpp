@@ -11,6 +11,7 @@
 #include <QAbstractItemModel>
 #include <QHash>
 #include <QList>
+#include <QMimeData>
 #include <optional>
 #include "ptz.h"
 
@@ -121,6 +122,9 @@ public:
 	bool setData(const QModelIndex &index, const QVariant &value, int role = Qt::EditRole) override;
 	void do_reset();
 	Qt::ItemFlags flags(const QModelIndex &index) const override;
+	QStringList mimeTypes() const override;
+	QMimeData *mimeData(const QModelIndexList &indexes) const override;
+	Qt::DropActions supportedDropActions() const override;
 	/* The program or preview scene, or Studio Mode, changed: every device
 	 * is in the program scene, the preview scene, both or neither anew, and
 	 * locked if it is live, whatever a user had locked or unlocked */

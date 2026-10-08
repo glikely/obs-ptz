@@ -394,7 +394,36 @@ Qt::ItemFlags PTZListModel::flags(const QModelIndex &index) const
 {
 	if (!index.isValid())
 		return Qt::ItemIsEnabled;
-	return QAbstractItemModel::flags(index) | Qt::ItemIsEditable;
+	auto flags = QAbstractItemModel::flags(index) | Qt::ItemIsEditable;
+	/* A preset is dragged to where it goes in its camera's list, and dropped on a
+	 * preset or on the camera: the preset list is rooted at the camera, which has to
+	 * take a drop for one in the space after the last preset to be accepted. The
+	 * camera list does not accept drops, so a camera is not moved by this. */
+	if (index.parent().isValid())
+		return flags | Qt::ItemIsDragEnabled | Qt::ItemIsDropEnabled;
+	return flags | Qt::ItemIsDropEnabled;
+}
+
+/* The view reorders the rows itself, with moveRow(), see
+ * CircularListView::dropEvent(): the mime data only has to exist for a drag to
+ * start, and to be accepted by a view of this model */
+QStringList PTZListModel::mimeTypes() const
+{
+	return {QStringLiteral("application/x-obs-ptz-preset")};
+}
+
+QMimeData *PTZListModel::mimeData(const QModelIndexList &indexes) const
+{
+	if (indexes.isEmpty())
+		return nullptr;
+	auto *data = new QMimeData;
+	data->setData(mimeTypes().first(), QByteArray::number(indexes.first().row()));
+	return data;
+}
+
+Qt::DropActions PTZListModel::supportedDropActions() const
+{
+	return Qt::MoveAction;
 }
 
 QString PTZListModel::addPreset(const QString &uuid, const QString &store, const QString &name)

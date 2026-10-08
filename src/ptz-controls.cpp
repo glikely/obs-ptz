@@ -298,6 +298,7 @@ PTZControls::PTZControls(QWidget *parent) : QFrame(parent), ui(new Ui::PTZContro
 
 	presetDelegate = new PTZPresetListDelegate(ui->presetListView);
 	ui->presetListView->setItemDelegate(presetDelegate);
+	ui->presetListView->enableRowDragging();
 
 	/* Add is a button with a menu when a device has both stores, and plain
 	 * when it has one: the menu is only set then (presetUpdateActions()) */
