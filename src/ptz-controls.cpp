@@ -195,8 +195,9 @@ void PTZControls::handleFrontendEvent(enum obs_frontend_event event)
 /* Watch the scene whose sources the user edits: the preview scene in studio mode, else the program scene */
 void PTZControls::watchCurrentScene()
 {
-	OBSSourceAutoRelease scene = obs_frontend_preview_program_mode_active() ? obs_frontend_get_current_preview_scene()
-										: obs_frontend_get_current_scene();
+	OBSSourceAutoRelease scene = obs_frontend_preview_program_mode_active()
+					     ? obs_frontend_get_current_preview_scene()
+					     : obs_frontend_get_current_scene();
 	watchSceneSelection(scene.Get());
 }
 
