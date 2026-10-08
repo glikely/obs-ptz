@@ -292,6 +292,8 @@ private:
 	static int layoutWidth(const QAbstractScrollArea *view);
 
 	QIcon recallIcon;
+	/* On the thumbnail of a preset that is kept in OBS */
+	QIcon localIcon;
 	bool m_gridMode = false;
 	int m_gridZoom = 100;
 	/* The preset whose name is being edited, if any */

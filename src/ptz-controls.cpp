@@ -1576,6 +1576,7 @@ void PTZPresetListDelegate::refreshTheme()
 {
 	bool isDark = obs_frontend_is_theme_dark();
 	recallIcon = QIcon(isDark ? "theme:Dark/refresh.svg" : ":res/images/refresh.svg");
+	localIcon = QIcon(":/icons/icons/preset_local.svg");
 
 	emit sizeHintChanged(QModelIndex());
 }
@@ -1748,6 +1749,24 @@ void PTZPresetListDelegate::paint(QPainter *painter, const QStyleOptionViewItem 
 		painter->drawPixmap(target, thumbnail);
 	}
 	painter->restore();
+
+	/* A preset kept in OBS has a small screen in the corner of its
+	 * thumbnail, over a backdrop so it shows on any picture. The camera's,
+	 * which is what a camera is expected to have, is left plain. It is
+	 * inside the thumbnail, so it changes no cell's size. */
+	if (index.data(PTZListModel::PresetStoreRole).toString() == QStringLiteral("local")) {
+		int box = qMin(iconSize() * 3 / 4 + 4, qMin(l.thumbnail.width(), l.thumbnail.height()) - 2);
+		if (box >= 8) {
+			QRect badge(l.thumbnail.left() + 1, l.thumbnail.top() + 1, box, box);
+			painter->save();
+			painter->setRenderHint(QPainter::Antialiasing);
+			painter->setPen(Qt::NoPen);
+			painter->setBrush(QColor(0, 0, 0, 128));
+			painter->drawRoundedRect(badge, 3, 3);
+			painter->restore();
+			localIcon.paint(painter, badge.adjusted(2, 2, -2, -2), Qt::AlignCenter, iconMode);
+		}
+	}
 
 	if (m_gridMode) {
 		/* A backdrop keeps the recall icon visible over any picture */

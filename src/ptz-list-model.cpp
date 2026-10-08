@@ -536,8 +536,11 @@ QVariant PTZListModel::data(const QModelIndex &index, int role) const
 				return preset.name;
 			return QString(obs_module_text("PTZ.PresetNum")).arg(presetNumber(preset, index.row()));
 		}
-		if (role == Qt::ToolTipRole)
+		if (role == Qt::ToolTipRole) {
+			if (preset.store == QStringLiteral("local"))
+				return QString(obs_module_text("PTZ.Preset.Tooltip.Local"));
 			return QString(obs_module_text("PTZ.Preset.Tooltip")).arg(presetNumber(preset, index.row()));
+		}
 		if (role == Qt::EditRole)
 			return preset.name;
 		if (role == Qt::UserRole)

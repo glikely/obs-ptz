@@ -32,6 +32,7 @@
     <file>icons/ptz_move_dark.svg</file>
     <file>icons/power_light.svg</file>
     <file>icons/power_dark.svg</file>
+    <file>icons/preset_local.svg</file>
     <file>icons/preset_menu_light.svg</file>
     <file>icons/preset_menu_dark.svg</file>
   </qresource>
