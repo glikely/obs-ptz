@@ -122,14 +122,40 @@ void PTZControls::onFrontendEvent(enum obs_frontend_event event, void *ptr)
 	controls->handleFrontendEvent(event);
 }
 
+void PTZControls::saveCameraOrder(obs_data_t *save_data)
+{
+	OBSDataArrayAutoRelease order = obs_data_array_create();
+	for (const QString &uuid : ptzDeviceList->deviceOrder()) {
+		OBSDataAutoRelease item = obs_data_create();
+		obs_data_set_string(item, "uuid", QT_TO_UTF8(uuid));
+		obs_data_array_push_back(order, item);
+	}
+	obs_data_set_array(save_data, "ptz_camera_order", order);
+}
+
+/* Loaded with every collection, one with no order included, so that the last one's does not stay */
+void PTZControls::loadCameraOrder(obs_data_t *save_data)
+{
+	QStringList uuids;
+	OBSDataArrayAutoRelease order = obs_data_get_array(save_data, "ptz_camera_order");
+	for (size_t i = 0; order && i < obs_data_array_count(order); i++) {
+		OBSDataAutoRelease item = obs_data_array_item(order, i);
+		uuids << QT_UTF8(obs_data_get_string(item, "uuid"));
+	}
+	ptzDeviceList->setDeviceOrder(uuids);
+}
+
 void PTZControls::onFrontendSaveEvent(obs_data_t *save_data, bool saving, void *ptr)
 {
-	/* This plugin's configuration lives in its own file rather than the
-	 * scene collection's save_data, so only the "saving" direction is of
-	 * interest here; loading still happens once at startup in LoadConfig() */
-	Q_UNUSED(save_data);
-	if (saving)
+	/* This plugin's configuration lives in its own file, loaded once at startup in
+	 * LoadConfig(), but the order of the cameras is the scene collection's: a
+	 * camera is a filter in it, and another collection has other cameras */
+	if (saving) {
 		reinterpret_cast<PTZControls *>(ptr)->SaveConfig();
+		saveCameraOrder(save_data);
+	} else {
+		loadCameraOrder(save_data);
+	}
 }
 
 void PTZControls::handleFrontendEvent(enum obs_frontend_event event)
@@ -299,6 +325,7 @@ PTZControls::PTZControls(QWidget *parent) : QFrame(parent), ui(new Ui::PTZContro
 	presetDelegate = new PTZPresetListDelegate(ui->presetListView);
 	ui->presetListView->setItemDelegate(presetDelegate);
 	ui->presetListView->enableRowDragging();
+	ui->deviceList->enableRowDragging();
 
 	/* Add is a button with a menu when a device has both stores, and plain
 	 * when it has one: the menu is only set then (presetUpdateActions()) */

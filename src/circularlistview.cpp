@@ -1,4 +1,6 @@
 #include <QListView>
+#include <QDragEnterEvent>
+#include <QDragMoveEvent>
 #include <QDropEvent>
 #include "circularlistview.hpp"
 
@@ -43,6 +45,25 @@ void CircularListView::enableRowDragging()
 	setDropIndicatorShown(true);
 	setDragDropMode(QAbstractItemView::InternalMove);
 	setDefaultDropAction(Qt::MoveAction);
+}
+
+/* A row is only dropped on the list it was dragged from: a preset is not a camera */
+void CircularListView::dragEnterEvent(QDragEnterEvent *event)
+{
+	if (event->source() != this) {
+		event->ignore();
+		return;
+	}
+	QListView::dragEnterEvent(event);
+}
+
+void CircularListView::dragMoveEvent(QDragMoveEvent *event)
+{
+	if (event->source() != this) {
+		event->ignore();
+		return;
+	}
+	QListView::dragMoveEvent(event);
 }
 
 /* Reorder with the model's moveRow() ourselves: QListView's own handling moves

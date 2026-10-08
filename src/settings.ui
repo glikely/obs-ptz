@@ -188,7 +188,7 @@
             </widget>
            </item>
            <item>
-            <widget class="QListView" name="deviceList">
+            <widget class="CircularListView" name="deviceList">
              <property name="contextMenuPolicy">
               <enum>Qt::ContextMenuPolicy::CustomContextMenu</enum>
              </property>
@@ -549,6 +549,11 @@
    <class>DoubleSlider</class>
    <extends>QSlider</extends>
    <header>double-slider.hpp</header>
+  </customwidget>
+  <customwidget>
+   <class>CircularListView</class>
+   <extends>QListView</extends>
+   <header>circularlistview.hpp</header>
   </customwidget>
   <customwidget>
    <class>PTZStateView</class>

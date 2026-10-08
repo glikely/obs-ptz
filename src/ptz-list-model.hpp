@@ -74,6 +74,14 @@ private:
 	QHash<QString, int> rowByUuid;
 	uint32_t nextSerial = 1;
 
+	/* The cameras' order, as the uuids of their devices: what the user left them in, kept for
+	 * the scene collection that has them. A camera is put where it has in this when it
+	 * turns up, and one it does not have goes last. */
+	QStringList savedOrder;
+	/* Where a camera that turns up goes, by savedOrder */
+	int rowForNewDevice(const QString &uuid) const;
+	bool moveDevices(int srcRow, int count, int destChild);
+
 	void rebuildRowIndex();
 	PTZDeviceEntry *entryAt(int row);
 	const PTZDeviceEntry *entryAt(int row) const;
@@ -129,6 +137,15 @@ public:
 	 * is in the program scene, the preview scene, both or neither anew, and
 	 * locked if it is live, whatever a user had locked or unlocked */
 	void onSceneChanged();
+
+	/* The uuids of the devices in the order of the camera list, which is the order to save for
+	 * the scene collection. Devices turn up in the order OBS loads them, and a move by the
+	 * user is what makes the order a user's. */
+	QStringList deviceOrder() const;
+	/* Puts the cameras in this order, and has those that are not there yet go where it says when
+	 * they are: a scene collection that is loaded has its own. Cameras it does not name go last,
+	 * in the order they were in. */
+	void setDeviceOrder(const QStringList &uuids);
 
 	/* Starts making a preset in `store` ("camera" or "local") of the device with
 	 * this uuid from where the camera is now, last in the list. Returns the request,

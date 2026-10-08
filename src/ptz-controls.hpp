@@ -189,6 +189,10 @@ public:
 	bool speedRampEnabled() { return speed_ramp_enabled; };
 	bool refreshThumbnailOnRecall() const { return refresh_thumbnail_on_recall; };
 	static PTZControls *getInstance() { return instance; };
+	/* The order of the cameras is the scene collection's: written into the data OBS saves
+	 * a collection with, and read from it when the collection is loaded */
+	static void saveCameraOrder(obs_data_t *save_data);
+	static void loadCameraOrder(obs_data_t *save_data);
 	int rowHeight() const { return m_rowHeight; }
 	int iconSize() const { return m_iconSize; }
 

@@ -168,6 +168,7 @@ PTZSettings::PTZSettings() : QWidget(nullptr), ui(new Ui_PTZSettings)
 
 	ui->deviceList->setModel(ptzDeviceList);
 	ui->deviceList->setItemDelegate(new PTZDeviceListDelegate(ui->deviceList));
+	ui->deviceList->enableRowDragging();
 
 	QItemSelectionModel *selectionModel = ui->deviceList->selectionModel();
 	connect(selectionModel, &QItemSelectionModel::currentChanged, this, &PTZSettings::currentChanged);

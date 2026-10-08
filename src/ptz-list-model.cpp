@@ -6,6 +6,8 @@
  */
 
 #include <obs.hpp>
+#include <algorithm>
+#include <climits>
 #include <qt-wrappers.hpp>
 #include <QPixmap>
 #include <QPixmapCache>
@@ -393,7 +395,7 @@ int PTZListModel::rowCount(const QModelIndex &parent) const
 Qt::ItemFlags PTZListModel::flags(const QModelIndex &index) const
 {
 	if (!index.isValid())
-		return Qt::ItemIsEnabled;
+		return Qt::ItemIsEnabled | Qt::ItemIsDropEnabled;
 	auto flags = QAbstractItemModel::flags(index) | Qt::ItemIsEditable;
 	/* A preset is dragged to where it goes in its camera's list, and dropped on a
 	 * preset or on the camera: the preset list is rooted at the camera, which has to
@@ -401,7 +403,9 @@ Qt::ItemFlags PTZListModel::flags(const QModelIndex &index) const
 	 * camera list does not accept drops, so a camera is not moved by this. */
 	if (index.parent().isValid())
 		return flags | Qt::ItemIsDragEnabled | Qt::ItemIsDropEnabled;
-	return flags | Qt::ItemIsDropEnabled;
+	/* A camera is dragged to where it goes in the camera list, which takes the drop on
+	 * the camera it is dropped on, or in the space after the last */
+	return flags | Qt::ItemIsDragEnabled | Qt::ItemIsDropEnabled;
 }
 
 /* The view reorders the rows itself, with moveRow(), see
@@ -409,7 +413,7 @@ Qt::ItemFlags PTZListModel::flags(const QModelIndex &index) const
  * start, and to be accepted by a view of this model */
 QStringList PTZListModel::mimeTypes() const
 {
-	return {QStringLiteral("application/x-obs-ptz-preset")};
+	return {QStringLiteral("application/x-obs-ptz-row")};
 }
 
 QMimeData *PTZListModel::mimeData(const QModelIndexList &indexes) const
@@ -488,6 +492,8 @@ bool PTZListModel::moveRows(const QModelIndex &srcParent, int srcRow, int count,
 {
 	if (!checkIndex(srcParent) || srcParent != destParent)
 		return false;
+	if (!srcParent.isValid())
+		return moveDevices(srcRow, count, destChild);
 	auto entry = entryAt(srcParent);
 	if (!entry)
 		return false;
@@ -511,6 +517,69 @@ bool PTZListModel::moveRows(const QModelIndex &srcParent, int srcRow, int count,
 	callEntry(*entry, "ptz_preset_move", &cd);
 	calldata_free(&cd);
 	return true;
+}
+
+/* Reorder the cameras: only the model's own order changes, which both lists of cameras
+ * follow, and which is saved with the scene collection */
+bool PTZListModel::moveDevices(int srcRow, int count, int destChild)
+{
+	if (count != 1 || srcRow < 0 || srcRow >= devices.size())
+		return false;
+	if (destChild < 0 || destChild > devices.size() || destChild == srcRow || destChild == srcRow + 1)
+		return false;
+	if (!beginMoveRows(QModelIndex(), srcRow, srcRow, QModelIndex(), destChild))
+		return false;
+	devices.move(srcRow, destChild > srcRow ? destChild - 1 : destChild);
+	rebuildRowIndex();
+	endMoveRows();
+	savedOrder = deviceOrder();
+	/* So that the order is in the scene collection without waiting for OBS to save it, as it
+	 * does now and then and as it closes: the scene collection is the only place it is kept */
+	obs_frontend_save();
+	return true;
+}
+
+QStringList PTZListModel::deviceOrder() const
+{
+	QStringList order;
+	for (const auto &entry : devices)
+		order << entry.uuid;
+	return order;
+}
+
+void PTZListModel::setDeviceOrder(const QStringList &uuids)
+{
+	savedOrder = uuids;
+	QList<PTZDeviceEntry> sorted = devices;
+	std::stable_sort(sorted.begin(), sorted.end(), [&](const PTZDeviceEntry &a, const PTZDeviceEntry &b) {
+		int ia = savedOrder.indexOf(a.uuid), ib = savedOrder.indexOf(b.uuid);
+		/* One that is not named goes after those that are, where it was */
+		return (ia < 0 ? INT_MAX : ia) < (ib < 0 ? INT_MAX : ib);
+	});
+	bool same = true;
+	for (int i = 0; i < sorted.size(); i++)
+		same = same && sorted.at(i).uuid == devices.at(i).uuid;
+	if (same)
+		return;
+	beginResetModel();
+	devices = sorted;
+	rebuildRowIndex();
+	endResetModel();
+}
+
+/* Before the first camera that the order has after this one, or last if it has none, or does
+ * not have this one at all */
+int PTZListModel::rowForNewDevice(const QString &uuid) const
+{
+	int wanted = savedOrder.indexOf(uuid);
+	if (wanted < 0)
+		return devices.size();
+	for (int row = 0; row < devices.size(); row++) {
+		int other = savedOrder.indexOf(devices.at(row).uuid);
+		if (other < 0 || other > wanted)
+			return row;
+	}
+	return devices.size();
 }
 
 /* What to call a preset that has no name: its slot, if it is in one, or where it is in the list */
@@ -838,13 +907,14 @@ void PTZListModel::deviceCreated(OBSWeakSource weakSource)
 	/* Kept, since once the source is destroyed there is no asking it */
 	entry.uuid = uuid;
 	entry.weakSource = weakSource;
-	devices.append(entry);
+	int row = rowForNewDevice(uuid);
+	devices.insert(row, entry);
 	rebuildRowIndex();
 
 	/* Seed the cache; everything past this point is kept in sync purely
 	 * by signal_handler notifications, never a direct method call. */
-	refreshDeviceState(&devices.last());
-	refreshPresetList(&devices.last());
+	refreshDeviceState(&devices[row]);
+	refreshPresetList(&devices[row]);
 
 	do_reset();
 
