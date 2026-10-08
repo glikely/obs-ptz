@@ -690,19 +690,44 @@ class World:
         self.wait_for(lambda: out.exists() and out.read_text())
         return json.loads(out.read_text())
 
-    def record_preset_signals(self, device):
-        """Starts recording device's ptz_preset_* signals, from nothing"""
-        self.run_ui_test("record_preset_signals", device=device)
+    def record_preset_signals(self, device, keep=False):
+        """Starts recording device's ptz_preset_* signals, from nothing, or with keep
+        only makes sure it is being recorded, and keeps what has been"""
+        params = {"keep": "1"} if keep else {}
+        self.run_ui_test("record_preset_signals", device=device, **params)
 
-    def preset_signals(self):
+    def preset_signals(self, with_create_done=False):
         """What the signals recorded since record_preset_signals() have said, as
-        [{"signal", "id", "index", "from", "to", "changed"}...] in order"""
+        [{"signal", "id", "request", "index", "from", "to", "changed"}...] in order.
+        ptz_preset_create_done is only in it with_create_done: create_preset() waits for it,
+        and what a test asks of the others is not its to see"""
         out = self.scratch / "preset-signals.json"
         if out.exists():
             out.unlink()
         self.run_ui_test("get_preset_signals", filename=str(out))
         self.wait_for(lambda: out.exists() and out.read_text())
-        return json.loads(out.read_text())["events"]
+        events = json.loads(out.read_text())["events"]
+        return events if with_create_done else [e for e in events if e["signal"] != "ptz_preset_create_done"]
+
+    def create_preset(self, device, name="", store="camera", timeout=10):
+        """Asks device for a preset with ptz_preset_create, which does not wait for the
+        camera, and waits for ptz_preset_create_done to say it has: returns the id of the preset
+        made, or "" if the device would not take the request, or made none"""
+        self.record_preset_signals(device, keep=True)
+        result = self.call_proc(device, "ptz_preset_create", {"name": name, "store": store}, returns="string")
+        assert result["called"], "the device has no ptz_preset_create"
+        request = result["return"]
+        if not request:
+            return ""
+        found = []
+
+        def done():
+            found[:] = [e for e in self.preset_signals(with_create_done=True)
+                        if e["signal"] == "ptz_preset_create_done" and e["request"] == request]
+            return bool(found)
+
+        self.wait_for(done, timeout=timeout)
+        return found[0]["id"]
 
     def export_and_wait(self, device_name, out_file, expected_presets, timeout=5, interval=0.1):
         """Triggers the real "Export Presets..." action once (via

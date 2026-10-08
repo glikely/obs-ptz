@@ -58,9 +58,9 @@ def listed(world, camera):
 
 
 def create(world, camera, name, store):
-    result = world.call_proc(camera.device_name, "ptz_preset_create", {"name": name, "store": store}, returns="string")
-    assert result["return"], f"no {store} preset was made"
-    return result["return"]
+    preset_id = world.create_preset(camera.device_name, name, store)
+    assert preset_id, f"no {store} preset was made"
+    return preset_id
 
 
 def update(world, camera, preset_id, **changes):

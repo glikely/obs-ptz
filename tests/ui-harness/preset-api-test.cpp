@@ -127,8 +127,8 @@ void runCallProcTest(const QMap<QString, QString> &params)
  * objects of the signal's name and its fields */
 QList<QJsonObject> recorded;
 
-const char *const PRESET_SIGNALS[] = {"ptz_preset_added", "ptz_preset_removed", "ptz_preset_order_changed",
-				      "ptz_preset_changed", "ptz_preset_list_reset"};
+const char *const PRESET_SIGNALS[] = {"ptz_preset_added",   "ptz_preset_removed",    "ptz_preset_order_changed",
+				      "ptz_preset_changed", "ptz_preset_list_reset", "ptz_preset_create_done"};
 
 void recordSignal(void *data, calldata_t *cd)
 {
@@ -137,6 +137,8 @@ void recordSignal(void *data, calldata_t *cd)
 	const char *text = nullptr;
 	if (calldata_get_string(cd, "id", &text) && text)
 		event["id"] = QString::fromUtf8(text);
+	if (calldata_get_string(cd, "request", &text) && text)
+		event["request"] = QString::fromUtf8(text);
 	for (const char *key : {"index", "from", "to"}) {
 		long long value;
 		if (calldata_get_int(cd, key, &value))
@@ -148,10 +150,12 @@ void recordSignal(void *data, calldata_t *cd)
 	recorded.append(event);
 }
 
-/* Starts recording a device's preset signals, from nothing */
+/* Starts recording a device's preset signals, from nothing unless it is asked to keep what
+ * it has */
 void runRecordPresetSignalsTest(const QMap<QString, QString> &params)
 {
-	recorded.clear();
+	if (params.value(QStringLiteral("keep")) != QStringLiteral("1"))
+		recorded.clear();
 	OBSSourceAutoRelease source = deviceSource(params.value(QStringLiteral("device")));
 	if (!source)
 		return;
@@ -190,10 +194,12 @@ void runGetPresetSignalsTest(const QMap<QString, QString> &params)
  * record_preset_signals request params:
  *   device   - the device, which it starts recording the ptz_preset_* signals of, from
  *              nothing
+ *   keep     - "1" to keep what has been recorded, and only make sure this device is
+ *              being recorded
  *
  * get_preset_signals request params:
  *   filename - where to write {"events": [{"signal", "id", "index", "from", "to",
- *              "changed"}...]}, the fields each signal has, in the order they came
+ *              "request", "changed"}...]}, the fields each signal has, in the order they came
  */
 void registerPresetApiTest(PTZUITestHarness *harness)
 {

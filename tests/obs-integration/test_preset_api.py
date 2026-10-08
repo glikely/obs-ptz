@@ -111,12 +111,11 @@ class Presets:
         self.ids = []
 
     def create(self, name="", store="camera"):
-        result = self.world.call_proc(self.device, "ptz_preset_create", {"name": name, "store": store},
-                                      returns="string")
-        assert result["called"], "the device has no ptz_preset_create"
-        if result["return"]:
-            self.ids.append(result["return"])
-        return result["return"]
+        """The id of the preset made, once the device says it is, or "" if it made none"""
+        preset_id = self.world.create_preset(self.device, name, store)
+        if preset_id:
+            self.ids.append(preset_id)
+        return preset_id
 
     def call(self, proc, **args):
         result = self.world.call_proc(self.device, proc, args)
@@ -195,6 +194,76 @@ def test_a_visca_camera_with_all_its_slots_used_makes_no_more(obs_world, made):
     assert presets.create("One too many", store="camera") == ""
     # a local preset has no such limit
     assert presets.create("Local", store="local") != ""
+
+
+@pytest.mark.parametrize("backend,store", [("visca-tcp", "camera"), ("onvif", "camera"), ("visca-udp", "local")])
+def test_a_preset_is_asked_for_and_made_when_the_device_says_so(obs_world, made, backend, store):
+    """ptz_preset_create does not wait for the camera: it returns the request, which is
+    not a preset's id, and the preset is there when ptz_preset_create_done says so, after
+    ptz_preset_added has announced it"""
+    device = obs_world.device_names[backend]
+    presets = made(backend)
+    obs_world.record_preset_signals(device)
+
+    result = obs_world.call_proc(device, "ptz_preset_create", {"name": "Asked for", "store": store},
+                                 returns="string")
+    request = result["return"]
+    assert request and ":" not in request, "the request is not a preset id"
+
+    def done_events():
+        return [e for e in obs_world.preset_signals(with_create_done=True)
+                if e["signal"] == "ptz_preset_create_done" and e["request"] == request]
+
+    obs_world.wait_for(lambda: done_events())
+    preset_id = done_events()[0]["id"]
+    presets.ids.append(preset_id)
+    assert preset_id.startswith(f"{store}:")
+    signals = [e["signal"] for e in obs_world.preset_signals(with_create_done=True)]
+    assert signals.index("ptz_preset_added") < signals.index("ptz_preset_create_done")
+    assert presets_by_id(obs_world, device)[preset_id]["name"] == "Asked for"
+
+
+def test_requests_made_together_are_made_in_different_slots(obs_world, made):
+    """The slot a request has is not in the list until it is made, but no other request
+    has it in the meantime"""
+    device = obs_world.device_names["visca-tcp"]
+    presets = made("visca-tcp")
+    obs_world.record_preset_signals(device)
+    requests = []
+    for n in range(3):
+        result = obs_world.call_proc(device, "ptz_preset_create", {"name": f"Together {n}", "store": "camera"},
+                                     returns="string")
+        assert result["return"]
+        requests.append(result["return"])
+
+    def ids():
+        done = {e["request"]: e["id"] for e in obs_world.preset_signals(with_create_done=True)
+                if e["signal"] == "ptz_preset_create_done"}
+        return [done.get(r) for r in requests]
+
+    obs_world.wait_for(lambda: all(ids()))
+    made_ids = ids()
+    presets.ids.extend(made_ids)
+    assert len(set(made_ids)) == 3
+
+
+def test_a_request_the_device_refuses_at_once_gets_no_request_and_no_signal(obs_world, made):
+    device = obs_world.device_names["visca-tcp"]
+    presets = made("visca-tcp")
+    for n in range(16):
+        assert presets.create(f"Slot {n}", store="camera")
+    obs_world.record_preset_signals(device)
+
+    result = obs_world.call_proc(device, "ptz_preset_create", {"name": "No room", "store": "camera"},
+                                 returns="string")
+    unknown = obs_world.call_proc(device, "ptz_preset_create", {"name": "Nowhere", "store": "cloud"},
+                                  returns="string")
+
+    assert result["return"] == "" and unknown["return"] == ""
+    time.sleep(1)
+    # (the thumbnails of the presets made above may still be arriving, which is not it)
+    events = obs_world.preset_signals(with_create_done=True)
+    assert [e for e in events if e["signal"] in ("ptz_preset_added", "ptz_preset_create_done")] == []
 
 
 def test_an_onvif_camera_preset_has_its_token_in_its_id(obs_world, made):
