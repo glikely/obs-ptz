@@ -266,6 +266,10 @@ public:
 	static QString presetKey(const QString &id) { return id.section(QLatin1Char(':'), 1); }
 	using CameraPresets = PTZCameraPresets;
 	virtual CameraPresets cameraPresets() const;
+	/* The camera has numbered slots and can't say how many, so the "preset_max"
+	 * setting is how many to use: a driver that says so has the setting, and
+	 * the default cameraPresetCreate() */
+	virtual bool slotPresets() const { return false; }
 	/* The camera store's operations, for a driver whose camera has presets. By
 	 * default a camera has numbered slots, which memory_set(), memory_recall()
 	 * and memory_reset() use, and its keys are the slot numbers. A driver of a

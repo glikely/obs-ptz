@@ -146,6 +146,7 @@ PTZPelco::~PTZPelco()
 void PTZPelco::defaults(obs_data_t *config)
 {
 	PTZDevice::defaults(config);
+	obs_data_set_default_int(config, "preset_max", 16);
 	obs_data_set_default_bool(config, "use_pelco_d", false);
 	obs_data_set_default_int(config, "baud_rate", 9600);
 }

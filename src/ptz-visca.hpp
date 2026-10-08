@@ -218,6 +218,7 @@ public:
 	PTZVisca(OBSData config, obs_source_t *source = nullptr);
 	obs_properties_t *get_obs_properties() override;
 	Features features() const override;
+	bool slotPresets() const override { return true; }
 	QJsonObject cameraReport() const override { return last_report; }
 	void requestState(OBSData requested) override;
 	void saveStatistics(OBSData out) override;

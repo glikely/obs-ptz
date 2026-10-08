@@ -787,7 +787,6 @@ void PTZDevice::preset_refresh(calldata_t *)
 
 void PTZDevice::defaults(obs_data_t *config)
 {
-	obs_data_set_default_int(config, "preset_max", 16);
 	obs_data_set_default_double(config, "pantilt_speed_max", 1.0);
 	obs_data_set_default_double(config, "zoom_speed_max", 1.0);
 	obs_data_set_default_double(config, "focus_speed_max", 1.0);
@@ -827,7 +826,8 @@ void PTZDevice::stripIdentity(obs_data_t *settings)
 void PTZDevice::update(OBSData config)
 {
 	/* Clamp to the same range enforced by the properties slider; a corrupt
-	 * or hand-edited config must not yield an absurd preset count. */
+	 * or hand-edited config must not yield an absurd preset count. Only a
+	 * driver with slotPresets() uses it, and the others do not save it. */
 	m_maxPresets = std::clamp<size_t>(obs_data_get_int(config, "preset_max"), 1, 128);
 	OBSDataArrayAutoRelease preset_array = obs_data_get_array(config, "presets");
 	OBSDataArrayAutoRelease order_array = obs_data_get_array(config, "preset_order");
@@ -861,7 +861,8 @@ void PTZDevice::save(OBSData config) const
 	obs_data_set_bool(config, "zoom_invert", zoom_invert);
 	obs_data_set_bool(config, "focus_invert", focus_invert);
 	obs_data_set_bool(config, "tally_auto", tally_auto);
-	obs_data_set_int(config, "preset_max", m_maxPresets);
+	if (slotPresets())
+		obs_data_set_int(config, "preset_max", m_maxPresets);
 	persistState(config);
 	saveDefaults(config);
 }
@@ -939,8 +940,8 @@ obs_properties_t *PTZDevice::get_obs_properties()
 	auto speed = obs_properties_create();
 	obs_properties_add_group(rtn_props, "general", obs_module_text("PTZ.Device.CameraSettings"), OBS_GROUP_NORMAL,
 				 speed);
-	/* How many presets the camera keeps, which the local store has no limit on */
-	if (cameraPresets().available)
+	/* How many slots to use of a camera that can't say how many it has */
+	if (slotPresets() && cameraPresets().available)
 		obs_properties_add_int_slider(speed, "preset_max", obs_module_text("PTZ.Device.MaxPresets"), 1, 0x80,
 					      1);
 	obs_properties_add_float_slider(speed, "pantilt_speed_max", obs_module_text("PTZ.Device.PanTiltMaxSpeed"), 0.1,
@@ -1240,10 +1241,13 @@ PTZDevice::CameraPresets PTZDevice::cameraPresets() const
 	return camera;
 }
 
-/* A camera with numbered slots: the first that the list has no preset in */
+/* A camera with numbered slots: the first that the list has no preset in, or
+ * none if the "preset_max" slots are all in use */
 QString PTZDevice::cameraPresetCreate(const QString &name)
 {
 	Q_UNUSED(name);
+	if (!slotPresets())
+		return QString();
 	for (int slot = 0; slot < (int)m_maxPresets; slot++) {
 		if (presetIndex(presetId(QStringLiteral("camera"), QString::number(slot))) >= 0)
 			continue;
