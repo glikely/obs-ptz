@@ -22,6 +22,7 @@
 #include <QCheckBox>
 #include <QScrollBar>
 #include <QLineEdit>
+#include <functional>
 #include <QSlider>
 #include <QToolButton>
 #include <QMenu>
@@ -1319,6 +1320,16 @@ void PTZControls::setPresetGridZoom(int percent)
 	ui->presetListView->doItemsLayout();
 }
 
+/* ptz_preset_get_list of a device, which the caller releases */
+static obs_data_t *presetList(const QModelIndex &index)
+{
+	calldata_t cd = {};
+	ptzDeviceList->callDevice(index, "ptz_preset_get_list", &cd);
+	auto list = static_cast<obs_data_t *>(calldata_ptr(&cd, "return"));
+	calldata_free(&cd);
+	return list;
+}
+
 void PTZControls::on_actionPresetExport_triggered(QString filename)
 {
 	auto fileExtension = QString("%1 (*.json)").arg(obs_module_text("PTZ.Preset.FileFilter"));
@@ -1334,21 +1345,31 @@ void PTZControls::on_actionPresetExport_triggered(QString filename)
 	if (filename.isEmpty())
 		return;
 
-	/* save() serializes the device's whole config; presets/preset_max are
-	 * just the subset of that we actually want in the exported file. */
-	OBSDataAutoRelease fullConfig = obs_data_create();
-	ptzDeviceList->save(index, fullConfig.Get());
-
+	/* The file has the presets in display order: a local one in full, and of a
+	 * camera's only the name, since what the camera keeps of it is the camera's.
+	 * No thumbnails, which are files on this machine. */
 	OBSDataAutoRelease data = obs_data_create();
-	obs_data_set_int(data, "obs-ptz-preset-format", 1);
+	obs_data_set_int(data, "obs-ptz-preset-format", 2);
 	obs_data_set_string(data, "device", QT_TO_UTF8(deviceName));
-	obs_data_set_int(data, "preset_max", obs_data_get_int(fullConfig, "preset_max"));
-	OBSDataArrayAutoRelease presets = obs_data_get_array(fullConfig, "presets");
-	/* Thumbnails are files on this machine, so they don't go in the export.
-	 * save() gave us a private copy of the presets, safe to edit. */
-	for (size_t i = 0; presets && i < obs_data_array_count(presets); i++) {
-		OBSDataAutoRelease item = obs_data_array_item(presets, i);
-		obs_data_unset_user_value(item, "thumbnail");
+	OBSDataArrayAutoRelease presets = obs_data_array_create();
+	OBSDataAutoRelease list = presetList(index);
+	OBSDataAutoRelease byId = obs_data_get_obj(list, "presets");
+	OBSDataArrayAutoRelease order = obs_data_get_array(list, "order");
+	for (size_t i = 0; order && i < obs_data_array_count(order); i++) {
+		OBSDataAutoRelease entry = obs_data_array_item(order, i);
+		OBSDataAutoRelease preset = obs_data_get_obj(byId, obs_data_get_string(entry, "id"));
+		if (!preset)
+			continue;
+		OBSDataAutoRelease item = obs_data_create();
+		obs_data_set_string(item, "id", obs_data_get_string(preset, "id"));
+		obs_data_set_string(item, "store", obs_data_get_string(preset, "store"));
+		obs_data_set_string(item, "name", obs_data_get_string(preset, "name"));
+		if (QT_UTF8(obs_data_get_string(preset, "store")) == QStringLiteral("local")) {
+			OBSDataAutoRelease values = obs_data_get_obj(preset, "values");
+			if (values)
+				obs_data_set_obj(item, "values", values);
+		}
+		obs_data_array_push_back(presets, item);
 	}
 	obs_data_set_array(data, "presets", presets);
 
@@ -1371,35 +1392,93 @@ void PTZControls::on_actionPresetImport_triggered(QString filename)
 		return;
 
 	OBSDataAutoRelease data = obs_data_create_from_json_file(QT_TO_UTF8(filename));
-	if (!data || obs_data_get_int(data, "obs-ptz-preset-format") != 1) {
+	long long format = data ? obs_data_get_int(data, "obs-ptz-preset-format") : 0;
+	if (format != 1 && format != 2) {
 		QMessageBox::warning(this, obs_module_text("PTZ.Action.Preset.Import"),
 				     obs_module_text("PTZ.Preset.Import.Failed"));
 		return;
 	}
 
-	/* Save current selected device */
-	QString deviceUuid = ptzDeviceList->data(index, PTZListModel::DeviceUuidRole).toString();
+	auto call = [index](const char *proc, const QString &id, std::function<void(calldata_t *)> set = {}) {
+		calldata_t cd = {};
+		calldata_set_string(&cd, "id", QT_TO_UTF8(id));
+		if (set)
+			set(&cd);
+		ptzDeviceList->callDevice(index, proc, &cd);
+		calldata_free(&cd);
+	};
 
-	/* Merge just the presets/preset_max subset from the imported file
-	 * into the device's current full config, then update() with that --
-	 * update() takes a complete settings object, and would otherwise
-	 * read every other setting (pan/tilt speed, invert flags, ...) as
-	 * unset, since this file only ever has the two preset-related
-	 * keys. */
-	OBSDataAutoRelease fullConfig = obs_data_create();
-	ptzDeviceList->save(index, fullConfig.Get());
-	if (obs_data_has_user_value(data, "preset_max"))
-		obs_data_set_int(fullConfig, "preset_max", obs_data_get_int(data, "preset_max"));
+	/* The local presets of the device go, and those of the file are made in
+	 * their place */
+	OBSDataAutoRelease list = presetList(index);
+	OBSDataAutoRelease have = obs_data_get_obj(list, "presets");
+	OBSDataAutoRelease stores = obs_data_get_obj(list, "stores");
+	bool namesOnCamera = obs_data_get_bool(list, "names_on_camera");
+	QStringList localIds, ids;
+	for (obs_data_item_t *item = obs_data_first(have); item; obs_data_item_next(&item)) {
+		QString id = QT_UTF8(obs_data_item_get_name(item));
+		ids << id;
+		if (id.startsWith(QStringLiteral("local:")))
+			localIds << id;
+	}
+	for (const QString &id : localIds) {
+		call("ptz_preset_delete", id);
+		ids.removeAll(id);
+	}
+
+	/* Where each preset of the file went, in the file's order */
+	QStringList placed;
 	OBSDataArrayAutoRelease presets = obs_data_get_array(data, "presets");
-	obs_data_set_array(fullConfig, "presets", presets);
+	for (size_t i = 0; presets && i < obs_data_array_count(presets); i++) {
+		OBSDataAutoRelease item = obs_data_array_item(presets, i);
+		QString id = QT_UTF8(obs_data_get_string(item, "id"));
+		if (id.isEmpty()) {
+			/* A format 1 file has the camera's slot, an int */
+			QString token = QT_UTF8(obs_data_get_string(item, "token"));
+			id = QStringLiteral("camera:") +
+			     (token.isEmpty() ? QString::number(obs_data_get_int(item, "id")) : token);
+		}
+		QString name = QT_UTF8(obs_data_get_string(item, "name"));
+		if (id.startsWith(QStringLiteral("local:"))) {
+			if (!obs_data_get_bool(stores, "local"))
+				continue;
+			calldata_t cd = {};
+			calldata_set_string(&cd, "name", QT_TO_UTF8(name));
+			calldata_set_string(&cd, "store", "local");
+			ptzDeviceList->callDevice(index, "ptz_preset_create", &cd);
+			const char *created = nullptr;
+			calldata_get_string(&cd, "return", &created);
+			QString madeId = QT_UTF8(created ? created : "");
+			calldata_free(&cd);
+			if (madeId.isEmpty())
+				continue;
+			OBSDataAutoRelease values = obs_data_get_obj(item, "values");
+			if (values) {
+				OBSDataAutoRelease changes = obs_data_create();
+				obs_data_set_obj(changes, "values", values);
+				call("ptz_preset_update", madeId,
+				     [&](calldata_t *cd) { calldata_set_ptr(cd, "changes", changes.Get()); });
+			}
+			placed << madeId;
+		} else if (ids.contains(id)) {
+			/* Only the presets the camera has: the file cannot make them. A name
+			 * is the camera's to keep, if it keeps them */
+			if (!namesOnCamera && !name.isEmpty()) {
+				OBSDataAutoRelease changes = obs_data_create();
+				obs_data_set_string(changes, "name", QT_TO_UTF8(name));
+				call("ptz_preset_update", id,
+				     [&](calldata_t *cd) { calldata_set_ptr(cd, "changes", changes.Get()); });
+			}
+			placed << id;
+		}
+	}
+	/* ...and in the order of the file */
+	for (int position = 0; position < placed.size(); position++)
+		call("ptz_preset_move", placed.at(position),
+		     [position](calldata_t *cd) { calldata_set_int(cd, "index", position); });
 
-	ptzDeviceList->update(index, fullConfig.Get());
-	ptzDeviceList->do_reset();
-	/* restore selection after reset */
-	ui->deviceList->setCurrentIndex(ptzDeviceList->indexFromUuid(deviceUuid));
 	presetUpdateActions();
 }
-
 PTZDeviceListDelegate::PTZDeviceListDelegate(QObject *parent) : QStyledItemDelegate(parent)
 {
 	refreshTheme();
