@@ -98,6 +98,11 @@ private:
 	bool callCurrentDevice(const char *method, calldata_t *cd = nullptr) const;
 	bool callCurrentDevice(const char *method, const char *arg, const QString &val) const;
 
+	OBSSignal itemSelectSignal;
+	void watchCurrentScene();
+	void watchSceneSelection(OBSSource scene);
+	static void onSceneItemSelect(void *ptr, calldata_t *cd);
+
 	QList<obs_hotkey_id> hotkeys;
 	QMap<obs_hotkey_id, int> preset_hotkey_map;
 

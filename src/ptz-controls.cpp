@@ -63,19 +63,56 @@ void ptz_load_controls(void)
 
 PTZControls *PTZControls::instance = NULL;
 
-void PTZControls::autoselectDevice(OBSSource scene)
+/* The device of a source: its own, or else that of the first of its active children with one */
+static QModelIndex deviceIndexForSource(obs_source_t *source)
 {
 	auto active_src_cb = [](obs_source_t *, obs_source_t *child, void *data) {
 		auto index = static_cast<QModelIndex *>(data);
 		if (!index->isValid())
 			*index = ptzDeviceList->indexFromName(obs_source_get_name(child));
 	};
-	QModelIndex index = ptzDeviceList->indexFromName(obs_source_get_name(scene));
+	QModelIndex index = ptzDeviceList->indexFromName(obs_source_get_name(source));
 	if (!index.isValid())
-		obs_source_enum_active_sources(scene, active_src_cb, &index);
+		obs_source_enum_active_sources(source, active_src_cb, &index);
+	return index;
+}
 
+void PTZControls::autoselectDevice(OBSSource scene)
+{
+	QModelIndex index = deviceIndexForSource(scene);
 	if (index.isValid())
 		ui->deviceList->setCurrentIndex(index);
+}
+
+/* Follow the selection of sources in the scene, so that when a scene has
+ * several cameras, clicking one in the Sources dock selects it here */
+void PTZControls::watchSceneSelection(OBSSource scene)
+{
+	itemSelectSignal.Disconnect();
+	if (!scene)
+		return;
+	signal_handler_t *handler = obs_source_get_signal_handler(scene);
+	itemSelectSignal.Connect(handler, "item_select", onSceneItemSelect, this);
+}
+
+void PTZControls::onSceneItemSelect(void *ptr, calldata_t *cd)
+{
+	auto *item = static_cast<obs_sceneitem_t *>(calldata_ptr(cd, "item"));
+	if (!item)
+		return;
+	/* The signal can come from any thread; pass on only a weak reference */
+	OBSWeakSource weak = OBSGetWeakRef(obs_sceneitem_get_source(item));
+	auto *controls = static_cast<PTZControls *>(ptr);
+	QMetaObject::invokeMethod(
+		controls,
+		[controls, weak]() {
+			if (!controls->autoselectEnabled())
+				return;
+			OBSSource source = OBSGetStrongRef(weak);
+			if (source)
+				controls->autoselectDevice(source);
+		},
+		Qt::QueuedConnection);
 }
 
 void PTZControls::onFrontendEvent(enum obs_frontend_event event, void *ptr)
@@ -105,6 +142,7 @@ void PTZControls::handleFrontendEvent(enum obs_frontend_event event)
 			OBSSourceAutoRelease source = obs_frontend_get_current_scene();
 			autoselectDevice(source.Get());
 		}
+		watchCurrentScene();
 		ptzDeviceList->onSceneChanged();
 		updateMoveControls();
 		break;
@@ -113,6 +151,7 @@ void PTZControls::handleFrontendEvent(enum obs_frontend_event event)
 			OBSSourceAutoRelease source = obs_frontend_get_current_scene();
 			autoselectDevice(source.Get());
 		}
+		watchCurrentScene();
 		ptzDeviceList->onSceneChanged();
 		updateMoveControls();
 		break;
@@ -122,10 +161,12 @@ void PTZControls::handleFrontendEvent(enum obs_frontend_event event)
 			OBSSourceAutoRelease source = obs_frontend_get_current_preview_scene();
 			autoselectDevice(source.Get());
 		}
+		watchCurrentScene();
 		ptzDeviceList->onSceneChanged();
 		updateMoveControls();
 		break;
 	case OBS_FRONTEND_EVENT_FINISHED_LOADING:
+		watchCurrentScene();
 		migrateLegacyDevices(true);
 		ptz_thumbnail_sweep();
 		break;
@@ -133,6 +174,7 @@ void PTZControls::handleFrontendEvent(enum obs_frontend_event event)
 		migrateLegacyDevices(false);
 		break;
 	case OBS_FRONTEND_EVENT_EXIT:
+		itemSelectSignal.Disconnect();
 		/* OBS is shutting down. It has already run its own save pass (and
 		 * so has called onFrontendSaveEvent()) as part of its shutdown
 		 * sequence. The filters take their devices with them. */
@@ -148,6 +190,14 @@ void PTZControls::handleFrontendEvent(enum obs_frontend_event event)
 	default:
 		break;
 	}
+}
+
+/* Watch the scene whose sources the user edits: the preview scene in studio mode, else the program scene */
+void PTZControls::watchCurrentScene()
+{
+	OBSSourceAutoRelease scene = obs_frontend_preview_program_mode_active() ? obs_frontend_get_current_preview_scene()
+										: obs_frontend_get_current_scene();
+	watchSceneSelection(scene.Get());
 }
 
 /* The theme has changed; recalculate the icon and list row heights to
