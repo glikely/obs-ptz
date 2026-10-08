@@ -23,6 +23,8 @@
 #include <QScrollBar>
 #include <QLineEdit>
 #include <QSlider>
+#include <QToolButton>
+#include <QMenu>
 #include <QFileDialog>
 #include <QMessageBox>
 
@@ -243,6 +245,26 @@ PTZControls::PTZControls(QWidget *parent) : QFrame(parent), ui(new Ui::PTZContro
 
 	presetDelegate = new PTZPresetListDelegate(ui->presetListView);
 	ui->presetListView->setItemDelegate(presetDelegate);
+
+	/* Add is a button with a menu when a device has both stores, and plain
+	 * when it has one: the menu is only set then (presetUpdateActions()) */
+	actionPresetAddCamera = new QAction(obs_module_text("PTZ.Action.Preset.AddCamera"), this);
+	actionPresetAddCamera->setObjectName(QStringLiteral("actionPresetAddCamera"));
+	actionPresetAddLocal = new QAction(obs_module_text("PTZ.Action.Preset.AddLocal"), this);
+	actionPresetAddLocal->setObjectName(QStringLiteral("actionPresetAddLocal"));
+	presetAddMenu = new QMenu(this);
+	presetAddMenu->setObjectName(QStringLiteral("presetAddMenu"));
+	presetAddMenu->addAction(actionPresetAddCamera);
+	presetAddMenu->addAction(actionPresetAddLocal);
+	/* What a click on Add itself does is a setting, which is also in the context menu */
+	actionPresetDefaultCamera = new QAction(obs_module_text("PTZ.Settings.PresetDefaultCamera"), this);
+	actionPresetDefaultCamera->setObjectName(QStringLiteral("actionPresetDefaultCamera"));
+	actionPresetDefaultCamera->setCheckable(true);
+	actionPresetDefaultCamera->setChecked(true);
+	presetAddMenu->addSeparator();
+	presetAddMenu->addAction(actionPresetDefaultCamera);
+	connect(actionPresetAddCamera, &QAction::triggered, this, [this]() { presetAddTo(QStringLiteral("camera")); });
+	connect(actionPresetAddLocal, &QAction::triggered, this, [this]() { presetAddTo(QStringLiteral("local")); });
 
 	/* A slider on the preset toolbar sizes the grid's thumbnails; it is
 	 * shown along with the grid */
@@ -641,6 +663,7 @@ void PTZControls::SaveConfig()
 	obs_data_set_bool(savedata, "refresh_thumbnail_on_recall", refresh_thumbnail_on_recall);
 	obs_data_set_int(savedata, "preset_grid_zoom", presetDelegate->gridZoom());
 	obs_data_set_bool(savedata, "preset_grid_view", ui->actionPresetGridView->isChecked());
+	obs_data_set_bool(savedata, "preset_default_camera", actionPresetDefaultCamera->isChecked());
 	obs_data_set_bool(savedata, "joystick_enable", m_joystick_enable);
 	obs_data_set_int(savedata, "joystick_id", m_joystick_id);
 	obs_data_set_double(savedata, "joystick_speed", m_joystick_speed);
@@ -720,6 +743,7 @@ void PTZControls::LoadConfig()
 	obs_data_set_default_bool(loaddata, "refresh_thumbnail_on_recall", true);
 	obs_data_set_default_int(loaddata, "preset_grid_zoom", 100);
 	obs_data_set_default_bool(loaddata, "preset_grid_view", false);
+	obs_data_set_default_bool(loaddata, "preset_default_camera", true);
 	obs_data_set_default_bool(loaddata, "joystick_enable", false);
 	obs_data_set_default_int(loaddata, "joystick_id", -1);
 	obs_data_set_default_double(loaddata, "joystick_speed", 1.0);
@@ -732,6 +756,7 @@ void PTZControls::LoadConfig()
 	refresh_thumbnail_on_recall = obs_data_get_bool(loaddata, "refresh_thumbnail_on_recall");
 	presetZoomSlider->setValue((int)obs_data_get_int(loaddata, "preset_grid_zoom"));
 	ui->actionPresetGridView->setChecked(obs_data_get_bool(loaddata, "preset_grid_view"));
+	actionPresetDefaultCamera->setChecked(obs_data_get_bool(loaddata, "preset_default_camera"));
 	m_joystick_enable = obs_data_get_bool(loaddata, "joystick_enable");
 	m_joystick_id = (int)obs_data_get_int(loaddata, "joystick_id");
 	m_joystick_speed = obs_data_get_double(loaddata, "joystick_speed");
@@ -937,6 +962,56 @@ QString PTZControls::presetIdAtRow(int row) const
 	return device.isValid() ? presetIndexToId(ptzDeviceList->index(row, 0, device)) : QString();
 }
 
+/* The menu's arrow is part of the Add button. The theme's toolbar rule sizes a
+ * button for one icon and boxes it, which leaves the arrow's area outside
+ * the box, square and unhighlighted. So this one has the width of a
+ * button for one icon, which has the same space as theirs either side of
+ * its icon, and the arrow's area as well, inside the box: the arrow in the
+ * middle of it, with a line, 1px, between it and the icon. The line is in
+ * the colour of the border and is there while the button is highlighted, as
+ * the border is: both are the palette's, so they match. The area is the
+ * button's right padding, which the arrow's half of it fills. */
+void PTZControls::updatePresetAddButton()
+{
+	/* %1 is the contents' width, %2 the arrow's area, %3 the arrow's image */
+	const QString css = QStringLiteral(
+		"QToolButton { min-width: %1px; max-width: %1px; padding-left: 0px; padding-right: %2px; }"
+		"QToolButton[highlighted=\"true\"] { border-color: palette(light); }"
+		"QToolButton::menu-button { border: none; border-left: 1px solid transparent; margin: 3px 0px; width: %2px; }"
+		"QToolButton[highlighted=\"true\"]::menu-button { border-left-color: palette(light); }"
+		"QToolButton::menu-arrow { image: url(%3); width: 8px; height: 8px; }");
+	QWidget *sibling = ui->presetToolbar->widgetForAction(ui->actionPresetMoveUp);
+	if (!presetAddButton)
+		return;
+	QString style;
+	if (presetAddSplit) {
+		/* The width a plain button was given, once it has one */
+		if (!sibling || !sibling->isVisible() || sibling->width() <= 0)
+			return;
+		const int area = 17;
+		const int wanted = sibling->width() + area;
+		/* A stylesheet's width is the contents' only, with the border, padding and
+		 * margin outside it, so it is found by trying: what it was, moved by how far
+		 * the button then is from the width it should have. It is settled when the
+		 * two agree. */
+		if (presetAddContent <= 0)
+			presetAddContent = wanted - area - 4;
+		else if (presetAddButton->width() != wanted && presetAddButton->styleSheet() != QString())
+			presetAddContent += wanted - presetAddButton->width();
+		QString arrow = obs_frontend_is_theme_dark() ? QStringLiteral(":/icons/icons/preset_menu_dark.svg")
+							     : QStringLiteral(":/icons/icons/preset_menu_light.svg");
+		style = css.arg(presetAddContent).arg(area).arg(arrow);
+	} else {
+		presetAddContent = 0;
+	}
+	if (presetAddButton->styleSheet() != style) {
+		presetAddButton->setStyleSheet(style);
+		/* ...and the button is measured again once it has been laid out */
+		if (presetAddSplit)
+			QTimer::singleShot(0, this, &PTZControls::updatePresetAddButton);
+	}
+}
+
 void PTZControls::presetUpdateActions()
 {
 	auto presetIndex = ui->presetListView->currentIndex();
@@ -945,6 +1020,29 @@ void PTZControls::presetUpdateActions()
 	bool presets = PTZListModel::hasFeature(deviceIndex, "presets");
 	bool isValid = presetIndex.isValid() && presets;
 	ui->actionPresetAdd->setEnabled(presets);
+	/* The menu is only for a device with both stores, and the button's
+	 * click makes a preset in the one chosen last */
+	QStringList stores = presets ? ptzDeviceList->presetStores(deviceIndex) : QStringList();
+	bool both = stores.contains(QStringLiteral("camera")) && stores.contains(QStringLiteral("local"));
+	if (auto *button = qobject_cast<QToolButton *>(ui->presetToolbar->widgetForAction(ui->actionPresetAdd))) {
+		if (both != (button->menu() != nullptr))
+			button->setMenu(both ? presetAddMenu : nullptr);
+		if (!presetAddButton) {
+			presetAddButton = button;
+			button->installEventFilter(this);
+		}
+		button->setPopupMode(both ? QToolButton::MenuButtonPopup : QToolButton::DelayedPopup);
+		/* Its stylesheet needs the size the toolbar gives the buttons beside it,
+		 * which is not known until it has laid them out */
+		presetAddSplit = both;
+		if (QWidget *sibling = ui->presetToolbar->widgetForAction(ui->actionPresetMoveUp))
+			sibling->installEventFilter(this);
+		QTimer::singleShot(0, this, &PTZControls::updatePresetAddButton);
+	}
+	/* Only a device with both stores has a choice of where Add goes */
+	actionPresetDefaultCamera->setEnabled(both);
+	actionPresetAddCamera->setEnabled(presets && stores.contains(QStringLiteral("camera")));
+	actionPresetAddLocal->setEnabled(presets && stores.contains(QStringLiteral("local")));
 	ui->actionPresetRemove->setEnabled(isValid);
 	ui->actionPresetMoveUp->setEnabled(isValid && count > 1 && presetIndex.row() > 0);
 	ui->actionPresetMoveDown->setEnabled(isValid && count > 1 && presetIndex.row() < count - 1);
@@ -1004,7 +1102,12 @@ void PTZControls::showContextMenu(const QPoint &pos)
 			menu.addAction(ui->actionPresetRemove);
 			menu.addSeparator();
 		}
-		menu.addAction(ui->actionPresetAdd);
+		if (actionPresetAddCamera->isEnabled() && actionPresetAddLocal->isEnabled()) {
+			menu.addAction(actionPresetAddCamera);
+			menu.addAction(actionPresetAddLocal);
+		} else {
+			menu.addAction(ui->actionPresetAdd);
+		}
 		menu.addAction(ui->actionPresetExport);
 		menu.addAction(ui->actionPresetImport);
 		menu.addSeparator();
@@ -1033,6 +1136,7 @@ void PTZControls::showContextMenu(const QPoint &pos)
 	refreshAction->setCheckable(true);
 	refreshAction->setChecked(refresh_thumbnail_on_recall);
 	connect(refreshAction, &QAction::toggled, this, &PTZControls::setRefreshThumbnailOnRecall);
+	menu.addAction(actionPresetDefaultCamera);
 	menu.addAction(ui->actionPresetGridView);
 	menu.addSeparator();
 
@@ -1068,13 +1172,29 @@ void PTZControls::on_actionProperties_triggered()
 
 void PTZControls::on_actionPresetAdd_triggered()
 {
+	/* The one store a device has, or the default if it has both */
+	bool camera = actionPresetAddCamera->isEnabled();
+	bool local = actionPresetAddLocal->isEnabled();
+	if (camera && local)
+		presetAddTo(actionPresetDefaultCamera->isChecked() ? QStringLiteral("camera")
+								   : QStringLiteral("local"));
+	else
+		presetAddTo(local ? QStringLiteral("local") : QStringLiteral("camera"));
+}
+
+void PTZControls::presetAddTo(const QString &store)
+{
 	auto parent = ui->deviceList->currentIndex();
-	auto row = ptzDeviceList->rowCount(parent);
-	ptzDeviceList->insertRows(row, 1, parent);
-	QModelIndex index = ptzDeviceList->index(row, 0, parent);
-	if (index.isValid()) {
+	if (!parent.isValid())
+		return;
+	QString id = ptzDeviceList->addPreset(parent.data(PTZListModel::DeviceUuidRole).toString(), store);
+	for (int row = 0; !id.isEmpty() && row < ptzDeviceList->rowCount(parent); row++) {
+		QModelIndex index = ptzDeviceList->index(row, 0, parent);
+		if (presetIndexToId(index) != id)
+			continue;
 		ui->presetListView->setCurrentIndex(index);
 		ui->presetListView->edit(index);
+		break;
 	}
 	presetUpdateActions();
 }
@@ -1160,6 +1280,17 @@ void PTZControls::holdCameraColumnWidth()
 
 bool PTZControls::eventFilter(QObject *watched, QEvent *event)
 {
+	if (watched == ui->presetToolbar->widgetForAction(ui->actionPresetMoveUp) &&
+	    (event->type() == QEvent::Resize || event->type() == QEvent::Show))
+		QTimer::singleShot(0, this, &PTZControls::updatePresetAddButton);
+	/* Whether the Add button is highlighted, for its stylesheet, which can't
+	 * say that of the arrow's half of it */
+	if (watched == presetAddButton && (event->type() == QEvent::Enter || event->type() == QEvent::Leave)) {
+		bool highlighted = event->type() == QEvent::Enter;
+		presetAddButton->setProperty("highlighted", highlighted);
+		presetAddButton->style()->unpolish(presetAddButton);
+		presetAddButton->style()->polish(presetAddButton);
+	}
 	/* The minimum has to come off while the splitter handle is dragged, or
 	 * the column could only be made wider */
 	if (watched == ui->splitter->handle(1)) {

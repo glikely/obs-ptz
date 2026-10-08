@@ -33,6 +33,7 @@ enum ptz_joy_action {
 typedef enum ptz_joy_action ptz_joy_action_t;
 extern const char *ptz_joy_action_axis_names[PTZ_JOY_ACTION_LAST_VALUE];
 
+class QToolButton;
 class PTZPresetListDelegate;
 class PTZDeviceListDelegate;
 
@@ -64,6 +65,17 @@ private:
 	bool autoselect_enabled = false;
 	bool speed_ramp_enabled = false;
 	bool refresh_thumbnail_on_recall = true;
+	/* Where Add makes a preset when the device has both stores: this action,
+	 * checked, is the camera's, and unchecked OBS's. It is saved with the
+	 * dock's settings. */
+	QAction *actionPresetDefaultCamera = nullptr;
+	QAction *actionPresetAddCamera = nullptr;
+	QAction *actionPresetAddLocal = nullptr;
+	QMenu *presetAddMenu = nullptr;
+	QToolButton *presetAddButton = nullptr;
+	bool presetAddSplit = false;
+	int presetAddContent = 0;
+	void updatePresetAddButton();
 
 	void setPresetGridZoom(int percent);
 	void holdCameraColumnWidth();
@@ -98,6 +110,8 @@ private slots:
 
 	void updatePresetList();
 	void presetUpdateActions();
+	/* Makes a preset in the store of the selected device and starts renaming it */
+	void presetAddTo(const QString &store);
 	void on_presetListView_activated(QModelIndex index);
 	void showContextMenu(const QPoint &pos);
 	void on_actionProperties_triggered();
