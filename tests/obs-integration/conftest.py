@@ -909,6 +909,19 @@ class World:
         self.wait_for(out_file.exists)
         return json.loads(out_file.read_text())
 
+    def reorder_presets(self, out_file, **params):
+        """Moves a preset of the dock's preset list, or only reports their
+        order, via tests/ui-harness/reorder-presets-test.cpp's "reorder_presets"
+        test. See there for the params: select, from, to and via. Returns its
+        result, with "presets" as a list of names."""
+        if out_file.exists():
+            out_file.unlink()
+        self.run_ui_test("reorder_presets", filename=str(out_file), **params)
+        self.wait_for(out_file.exists)
+        result = json.loads(out_file.read_text())
+        result["presets"] = [r["text"] for r in result.get("presets", [])]
+        return result
+
     def fire_hotkey(self, name):
         """Presses a hotkey of the dock, by name ("PTZ.Recall2"), the way a bound key does"""
         self.run_ui_test("fire_hotkey", name=name)

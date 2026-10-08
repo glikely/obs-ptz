@@ -76,6 +76,7 @@ void registerMoveDeviceTest(PTZUITestHarness *harness);
 void registerSetDeviceTest(PTZUITestHarness *harness);
 void registerUpdateDeviceTest(PTZUITestHarness *harness);
 void registerPresetViewTest(PTZUITestHarness *harness);
+void registerReorderPresetsTest(PTZUITestHarness *harness);
 void registerDockControlsTest(PTZUITestHarness *harness);
 void registerSceneItemSelectTest(PTZUITestHarness *harness);
 void registerDeviceSourceTest(PTZUITestHarness *harness);
