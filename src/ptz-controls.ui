@@ -230,14 +230,6 @@
     <string>PTZ.Action.Preset.Save.Tooltip</string>
    </property>
   </action>
-  <action name="actionPresetClear">
-   <property name="text">
-    <string>PTZ.Action.Preset.Clear</string>
-   </property>
-   <property name="toolTip">
-    <string>PTZ.Action.Preset.Clear.Tooltip</string>
-   </property>
-  </action>
   <action name="actionPresetExport">
    <property name="text">
     <string>PTZ.Action.Preset.Export</string>
