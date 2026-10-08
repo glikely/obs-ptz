@@ -156,7 +156,7 @@ def test_visca_says_what_its_camera_keeps(obs_world):
     # VISCA has slots, and no names for them, and no way to ask which are used
     assert info["names_on_camera"] is False
     assert info["enumerable"] is False
-    assert info["camera_slots"] == 16
+    assert "camera_slots" not in info
     assert {"pan", "tilt", "zoom"} <= set(info["value_keys"])
 
 
@@ -166,7 +166,7 @@ def test_onvif_says_what_its_camera_keeps(obs_world):
     # ONVIF names its presets itself, and says what it has
     assert info["names_on_camera"] is True
     assert info["enumerable"] is True
-    assert info["camera_slots"] == 0
+    assert "camera_slots" not in info
 
 
 # ------------------------------------------------------ the camera's store
@@ -185,6 +185,16 @@ def test_a_visca_camera_preset_has_its_slot_in_its_id(obs_world, made):
     # VISCA can't keep a name, so the device does
     assert preset["name"] == "Wide shot"
     assert preset["camera_name"] == ""
+
+
+def test_a_visca_camera_with_all_its_slots_used_makes_no_more(obs_world, made):
+    presets = made("visca-tcp")
+    # preset_max is 16 unless set
+    made_ids = [presets.create(f"Slot {n}", store="camera") for n in range(16)]
+    assert all(made_ids) and len(set(made_ids)) == 16
+    assert presets.create("One too many", store="camera") == ""
+    # a local preset has no such limit
+    assert presets.create("Local", store="local") != ""
 
 
 def test_an_onvif_camera_preset_has_its_token_in_its_id(obs_world, made):
