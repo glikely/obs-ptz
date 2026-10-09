@@ -29,6 +29,7 @@
 #include "ptz-onvif-discovery.hpp"
 #include "ptz-sony-discovery.hpp"
 #include "ptz-usb-cam.hpp"
+#include "ptz-soft-cam.hpp"
 #include "ptz.h"
 #include "protocol-helpers.hpp"
 
@@ -1067,6 +1068,8 @@ const char *ptz_device_filter_kind(const char *type)
 	if (t == "usb-cam")
 		return "ca.secretlab.obs-ptz.usb-cam";
 #endif
+	if (t == "soft-ptz")
+		return "ca.secretlab.obs-ptz.soft-ptz";
 	return nullptr;
 }
 
@@ -1210,6 +1213,7 @@ void ptz_load_devices()
 
 	/* Each backend driver registers its own "<Driver> PTZ Control" OBS filter */
 	ptz_visca_register_filter();
+	ptz_soft_cam_register_filter();
 	ptz_sony_register_discovery();
 #if defined(ENABLE_SERIALPORT)
 	ptz_pelco_register_filter();

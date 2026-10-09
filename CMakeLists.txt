@@ -129,6 +129,7 @@ target_sources(
     src/ptz-visca-tcp.cpp
     src/protocol-helpers.cpp
     src/ptz-action-source.c
+    src/ptz-soft-cam.cpp
     src/circularlistview.cpp
     src/touch-control.cpp
     src/ptz.h
@@ -150,6 +151,8 @@ target_sources(
     src/ptz-visca-commands.hpp
     src/ptz-visca-udp.hpp
     src/ptz-visca-tcp.hpp
+    src/ptz-soft-cam.hpp
+    src/ptz-soft-viewport.hpp
     src/protocol-helpers.hpp
     src/circularlistview.hpp
     src/touch-control.hpp

@@ -607,7 +607,7 @@ writes them and calls `obs_source_update()` to say so.
 
 | Key | Type | Default | Meaning |
 | --- | --- | --- | --- |
-| `type` | string | - | The kind of device, such as `visca-over-ip`, `visca-over-tcp`, `pelco`, `onvif` or `usb-cam`. Read-only |
+| `type` | string | - | The kind of device, such as `visca-over-ip`, `visca-over-tcp`, `pelco`, `onvif`, `usb-cam` or `soft-ptz`. Read-only |
 | `pantilt_speed_max`, `zoom_speed_max`, `focus_speed_max` | number | 1.0 | A cap on the speed a move asks for: a `ptz_move` speed above it is clamped to it, whichever way it points. 0.1 to 1.0 |
 | `pan_invert`, `tilt_invert`, `zoom_invert`, `focus_invert` | bool | false | Reverse the direction of the axis |
 | `tally_auto` | bool | true | Light the camera's tally lamps by itself, for a device with the `tally_light` feature: red while its source is in the program scene, green while it is in the preview scene (studio mode only) and not in the program scene. Turn it off for a camera whose tally something else drives. A device without the feature has the key and ignores it |

@@ -474,6 +474,7 @@ static QList<QPair<QString, OBSData>> ptz_protocols()
 #if defined(ENABLE_USB_CAM)
 	add("PTZ.UVC.Name", "usb-cam");
 #endif
+	add("PTZ.SoftPtz.Name", "soft-ptz");
 	return protocols;
 }
 
