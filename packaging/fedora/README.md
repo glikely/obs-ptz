@@ -3,6 +3,19 @@
 `obs-ptz.spec` builds the plugin against Fedora's `obs-studio-devel`. It has
 not been built or run through `fedora-review` yet; do that before submitting.
 
+## Test in Docker
+
+```
+packaging/fedora/docker-test.sh [fedora-version]   # default: rawhide
+```
+
+This builds an image from `Dockerfile` (build dependencies are installed from
+the spec with `dnf builddep`), then builds the RPM from the committed `HEAD` of
+your checkout and runs `rpmlint`. The RPMs end up in `packaging/fedora/rpms-out/`.
+Commit your spec changes first; uncommitted changes aren't included. Set
+`BASE_IMAGE=docker.io/library/fedora` if `registry.fedoraproject.org` is not
+reachable.
+
 ## Test locally
 
 ```
