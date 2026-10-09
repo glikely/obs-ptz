@@ -15,16 +15,36 @@ set(CMAKE_FIND_PACKAGE_TARGETS_GLOBAL TRUE)
 set(CPACK_PACKAGE_NAME "${CMAKE_PROJECT_NAME}")
 set(CPACK_PACKAGE_VERSION "${CMAKE_PROJECT_VERSION}")
 
-# Use the Debian Policy-compliant name_version_arch.deb naming (DEB-DEFAULT),
-# with the distro codename folded into the version as a "~" suffix (the
-# convention Ubuntu PPAs use)
-# Falls back to the bare version if /etc/os-release isn't there
+# Use the Debian Policy-compliant name_version_arch.deb naming (DEB-DEFAULT).
+# The Debian version is derived from the full version string (which may carry
+# a pre-release suffix, e.g. "v0.20.0-pre2" or "0.20.0-pre2-6-gdf53732a"), with
+# "~" introducing the pre-release so it sorts before the final release, and any
+# commits-since-tag folded into a "+N.gHASH" suffix (a plain "-" would be
+# parsed as the Debian revision separator). The distro codename is appended
+# as a further "~" suffix (the convention Ubuntu PPAs use), when known
 set(CPACK_DEBIAN_FILE_NAME "DEB-DEFAULT")
+string(REGEX REPLACE "^v" "" _deb_version "${_version}")
+if(
+  _deb_version
+    MATCHES
+    "^([0-9]+\\.[0-9]+\\.[0-9]+)(-([A-Za-z][A-Za-z0-9.]*))?(-([0-9]+)-(g[0-9a-f]+)(-dirty)?)?$"
+)
+  set(_deb_version "${CMAKE_MATCH_1}")
+  if(CMAKE_MATCH_3)
+    string(APPEND _deb_version "~${CMAKE_MATCH_3}")
+  endif()
+  if(CMAKE_MATCH_5)
+    string(APPEND _deb_version "+${CMAKE_MATCH_5}.${CMAKE_MATCH_6}")
+  endif()
+else()
+  string(REPLACE "-" "~" _deb_version "${_deb_version}")
+endif()
+set(CPACK_DEBIAN_PACKAGE_VERSION "${_deb_version}")
 if(EXISTS "/etc/os-release")
   file(STRINGS "/etc/os-release" _os_release_codename REGEX "^VERSION_CODENAME=")
   if(_os_release_codename)
     string(REGEX REPLACE "^VERSION_CODENAME=\"?([^\"]*)\"?$" "\\1" _os_codename "${_os_release_codename}")
-    set(CPACK_DEBIAN_PACKAGE_VERSION "${CPACK_PACKAGE_VERSION}~${_os_codename}")
+    string(APPEND CPACK_DEBIAN_PACKAGE_VERSION "~${_os_codename}")
   endif()
 endif()
 
@@ -55,7 +75,10 @@ set(
 )
 
 set(CPACK_VERBATIM_VARIABLES YES)
-set(CPACK_SOURCE_PACKAGE_FILE_NAME "${CPACK_PACKAGE_NAME}-${CPACK_PACKAGE_VERSION}-source")
+# Name the source tarball after the full version (including any pre-release
+# suffix), without the leading "v" of a git tag
+string(REGEX REPLACE "^v" "" _source_version "${_version}")
+set(CPACK_SOURCE_PACKAGE_FILE_NAME "${CPACK_PACKAGE_NAME}-${_source_version}-source")
 set(CPACK_ARCHIVE_THREADS 0)
 
 include(CPack)
