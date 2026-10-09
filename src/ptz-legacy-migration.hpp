@@ -38,3 +38,6 @@ bool ptz_legacy_migrate(bool finishing_loading);
  * device `old_id`, or NULL if there is none (yet). Good until the next call
  * of ptz_legacy_migrate(). */
 const char *ptz_legacy_remap_id(uint32_t old_id);
+
+/* Lets go of what ptz_legacy_load() took, before OBS counts what is left allocated */
+void ptz_legacy_unload(void);

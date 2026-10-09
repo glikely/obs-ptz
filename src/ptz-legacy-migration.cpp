@@ -66,6 +66,12 @@ obs_data_array_t *ptz_legacy_devices_save()
 	return copy;
 }
 
+void ptz_legacy_unload()
+{
+	legacy_devices = nullptr;
+	legacy_id_map.clear();
+}
+
 const char *ptz_legacy_remap_id(uint32_t old_id)
 {
 	auto it = legacy_id_map.constFind(old_id);
