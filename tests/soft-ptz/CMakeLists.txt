@@ -6,7 +6,13 @@
 # subdirectory (same as tests/usb-backend). No-op elsewhere.
 set(CMAKE_SKIP_RPATH FALSE)
 
-add_executable(soft-ptz-tests main.cpp test_viewport.cpp "${CMAKE_CURRENT_LIST_DIR}/../../src/ptz-soft-viewport.hpp")
+add_executable(
+  soft-ptz-tests
+  main.cpp
+  test_viewport.cpp
+  test_motion.cpp
+  "${CMAKE_CURRENT_LIST_DIR}/../../src/ptz-soft-viewport.hpp"
+)
 
 target_include_directories(soft-ptz-tests PRIVATE "${CMAKE_CURRENT_LIST_DIR}/../../src")
 target_link_libraries(soft-ptz-tests PRIVATE catch2_amalgamated)
