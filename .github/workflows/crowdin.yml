@@ -42,6 +42,11 @@ jobs:
           # Visit https://crowdin.com/settings#api-key to create this token
           CROWDIN_PERSONAL_TOKEN: ${{ secrets.CROWDIN_PERSONAL_TOKEN }}
 
+      # The Crowdin action runs in a container as root and leaves root-owned
+      # files in .git, which breaks the later git commit by the runner user.
+      - name: Restore workspace ownership
+        run: sudo chown -R "$(id -u):$(id -g)" .
+
       - name: Update translator credits from Crowdin
         run: python3 .github/scripts/update-translators.py
         env:
