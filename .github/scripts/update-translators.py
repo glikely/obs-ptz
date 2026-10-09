@@ -109,8 +109,8 @@ def escape(name):
     return name.replace("\\", "\\\\").replace('"', '\\"')
 
 
-def collect_credits(members, lang_id_to_locale, locale_to_name, allowed_locales, exclude_username, min_words):
-    """locale -> [(translated_words, display_string), ...], most-contributed first."""
+def collect_credits(members, lang_id_to_locale, allowed_locales, exclude_username, min_words):
+    """locale -> [(translated_words, full_name), ...], most-contributed first."""
     by_locale = collections.defaultdict(list)
     for member in members:
         translated = member.get("translated") or 0
@@ -125,8 +125,7 @@ def collect_credits(members, lang_id_to_locale, locale_to_name, allowed_locales,
             locale = lang_id_to_locale.get(lang["id"])
             if locale is None or locale not in allowed_locales:
                 continue
-            language_name = locale_to_name.get(locale, lang.get("name", lang["id"]))
-            by_locale[locale].append((translated, f"{full_name} ({language_name})"))
+            by_locale[locale].append((translated, full_name))
 
     for locale, entries in by_locale.items():
         entries.sort(key=lambda e: (-e[0], e[1]))
@@ -134,14 +133,16 @@ def collect_credits(members, lang_id_to_locale, locale_to_name, allowed_locales,
     return by_locale
 
 
-def flatten(by_locale):
-    """Display strings in the same order they're written to the .hpp: grouped by locale
-    (alphabetically), most-contributed first within each locale."""
-    return [display for locale in sorted(by_locale) for _, display in by_locale[locale]]
+def sections(by_locale, locale_to_name):
+    """[(language name, [translator names])] sorted by locale code, most-contributed first within each."""
+    return [(locale_to_name.get(locale, locale), [name for _, name in by_locale[locale]]) for locale in sorted(by_locale)]
 
 
-def render(by_locale):
-    lines = [f'\t"{escape(display)}",\n' for display in flatten(by_locale)]
+def render(secs):
+    lines = []
+    for language, names in secs:
+        lines.append(f'\t"<b>{escape(language)}</b>",\n')
+        lines.extend(f'\t"{escape(name)}",\n' for name in names)
     return HEADER_TEMPLATE.format(entries="".join(lines))
 
 
@@ -152,10 +153,12 @@ def write_if_changed(path, content):
     return changed
 
 
-def update_authors(path, by_locale):
+def update_authors(path, secs):
     """Rewrite only the Translators: block, so the rest of the hand-formatted file keeps its shape."""
     text = open(path, encoding="utf-8").read()
-    block = "".join(f" {display}\n" for display in flatten(by_locale))
+    block = "".join(
+        f" {language}:\n" + "".join(f"  {name}\n" for name in names) for language, names in secs
+    )
     updated, count = AUTHORS_SECTION_RE.subn(lambda _: block, text, count=1)
     if count != 1:
         sys.exit(f"expected exactly one Translators: block in {path}, found {count}")
@@ -184,17 +187,18 @@ def main():
     members = download_report(token, project_id, report_id)
 
     by_locale = collect_credits(
-        members, lang_id_to_locale, locale_to_name, allowed_locales, exclude_username, args.min_words
+        members, lang_id_to_locale, allowed_locales, exclude_username, args.min_words
     )
     if not by_locale:
         sys.exit("Crowdin returned no credited translators for any shipped locale; refusing to empty the file")
 
-    total = sum(len(v) for v in by_locale.values())
+    secs = sections(by_locale, locale_to_name)
+    total = sum(len(names) for _, names in secs)
 
-    hpp_changed = write_if_changed(args.out, render(by_locale))
+    hpp_changed = write_if_changed(args.out, render(secs))
     print(f"{'Updated' if hpp_changed else 'Unchanged'} {args.out}: {total} credits across {len(by_locale)} locales")
 
-    authors_changed = update_authors(args.authors_file, by_locale)
+    authors_changed = update_authors(args.authors_file, secs)
     print(f"{'Updated' if authors_changed else 'Unchanged'} {args.authors_file}: {total} credits")
 
 
