@@ -8,6 +8,7 @@
 
 #include <mutex>
 #include <QTimer>
+#include <obs.h>
 #include "ptz-device.hpp"
 #include "ptz-soft-viewport.hpp"
 
@@ -29,6 +30,10 @@ private:
 	void reportPosition();
 	/* Where it was when it was last written to the settings */
 	SoftPosition m_persisted;
+	/* What the picture is drawn to, before it is drawn to the scene, so that
+	 * the zoomed picture cannot be drawn outside the source's own size. Only
+	 * the graphics thread, and the destructor, touch it. */
+	gs_texrender_t *m_texrender = nullptr;
 
 public:
 	PTZSoftCam(OBSData config, obs_source_t *filter);
@@ -51,6 +56,8 @@ public:
 	/* For the filter's callbacks, on the graphics thread */
 	void tickViewport(double seconds);
 	SoftRect visibleRect() const;
+	/* The texture the picture is drawn to, made when it is first wanted */
+	gs_texrender_t *texrender();
 };
 
 void ptz_soft_cam_register_filter();

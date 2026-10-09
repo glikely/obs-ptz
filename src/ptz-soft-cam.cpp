@@ -7,6 +7,8 @@
 
 #include <algorithm>
 #include <obs-module.h>
+#include <graphics/graphics.h>
+#include <graphics/vec4.h>
 #include "ptz-soft-cam.hpp"
 
 /* What a setting is limited to, in properties and in update() both */
@@ -41,6 +43,11 @@ PTZSoftCam::PTZSoftCam(OBSData config, obs_source_t *filter) : PTZDevice(config,
 PTZSoftCam::~PTZSoftCam()
 {
 	m_reportTimer.stop();
+	if (m_texrender) {
+		obs_enter_graphics();
+		gs_texrender_destroy(m_texrender);
+		obs_leave_graphics();
+	}
 }
 
 void PTZSoftCam::defaults(obs_data_t *settings)
@@ -164,6 +171,13 @@ SoftRect PTZSoftCam::visibleRect() const
 	return m_viewport.visibleRect();
 }
 
+gs_texrender_t *PTZSoftCam::texrender()
+{
+	if (!m_texrender)
+		m_texrender = gs_texrender_create(GS_RGBA, GS_ZS_NONE);
+	return m_texrender;
+}
+
 void PTZSoftCam::reportPosition()
 {
 	SoftPosition pos;
@@ -185,6 +199,85 @@ void PTZSoftCam::reportPosition()
 	changed |= setPosition("zoom", pos.zoom);
 	if (changed)
 		notifyStateChanged();
+}
+
+/* The size of what the filter is on: its own is the same, whatever part of it
+ * is shown. 0 if the filter has nothing to render, such as before its source
+ * has a size. */
+static void softCamTargetSize(PTZSoftCam *cam, uint32_t *cx, uint32_t *cy)
+{
+	*cx = *cy = 0;
+	OBSSourceAutoRelease filter = cam->filterSource();
+	if (!filter)
+		return;
+	obs_source_t *target = obs_filter_get_target(filter);
+	if (!target)
+		return;
+	*cx = obs_source_get_base_width(target);
+	*cy = obs_source_get_base_height(target);
+}
+
+/* Draws what the viewport shows of the target, scaled up to the target's own
+ * size. The target is rendered to a texture by OBS (process_filter_begin) and
+ * drawn as a sprite of its size (process_filter_end), through a matrix that
+ * puts the viewport's corners on the output's. The last matrix call is the
+ * first applied to a vertex, so this moves the viewport's origin to 0 and then
+ * scales it up: p' = (p - origin) / size.
+ *
+ * That is drawn to a texture of the target's size first, and that is what is
+ * drawn to the scene: a source that is not drawn to a texture of its own, as
+ * when it has no crop or scale filter, is drawn straight onto the scene, and
+ * what is scaled up would be drawn over everything around it. */
+static void softCamRender(void *data, gs_effect_t *)
+{
+	auto cam = static_cast<PTZSoftCam *>(data);
+	OBSSourceAutoRelease filter = cam->filterSource();
+	if (!filter)
+		return;
+	uint32_t cx, cy;
+	softCamTargetSize(cam, &cx, &cy);
+	if (cx == 0 || cy == 0) {
+		obs_source_skip_video_filter(filter);
+		return;
+	}
+	SoftRect r = cam->visibleRect();
+	/* Showing all of it: nothing to scale, nor to render separately */
+	if (r.w >= 1.0 && r.h >= 1.0) {
+		obs_source_skip_video_filter(filter);
+		return;
+	}
+
+	gs_texrender_t *texrender = cam->texrender();
+	gs_texrender_reset(texrender);
+	if (!gs_texrender_begin(texrender, cx, cy)) {
+		obs_source_skip_video_filter(filter);
+		return;
+	}
+	vec4 clear;
+	vec4_zero(&clear);
+	gs_clear(GS_CLEAR_COLOR, &clear, 0.0f, 0);
+	gs_ortho(0.0f, (float)cx, 0.0f, (float)cy, -100.0f, 100.0f);
+	/* What is drawn replaces what is there, and so keeps its own alpha */
+	gs_blend_state_push();
+	gs_blend_function(GS_BLEND_ONE, GS_BLEND_ZERO);
+	if (obs_source_process_filter_begin(filter, GS_RGBA, OBS_NO_DIRECT_RENDERING)) {
+		gs_matrix_push();
+		gs_matrix_scale3f(1.0f / (float)r.w, 1.0f / (float)r.h, 1.0f);
+		gs_matrix_translate3f((float)(-r.x * cx), (float)(-r.y * cy), 0.0f);
+		obs_source_process_filter_end(filter, obs_get_base_effect(OBS_EFFECT_DEFAULT), cx, cy);
+		gs_matrix_pop();
+	}
+	gs_blend_state_pop();
+	gs_texrender_end(texrender);
+
+	gs_texture_t *texture = gs_texrender_get_texture(texrender);
+	if (!texture)
+		return;
+	gs_effect_t *effect = obs_get_base_effect(OBS_EFFECT_DEFAULT);
+	gs_eparam_t *image = gs_effect_get_param_by_name(effect, "image");
+	gs_effect_set_texture(image, texture);
+	while (gs_effect_loop(effect, "Draw"))
+		gs_draw_sprite(texture, 0, cx, cy);
 }
 
 void ptz_soft_cam_register_filter()
@@ -209,5 +302,19 @@ void ptz_soft_cam_register_filter()
 	info.filter_remove = ptz_filter_remove;
 	info.icon_type = OBS_ICON_TYPE_CAMERA;
 	info.filter_add = ptz_filter_add;
+	info.video_tick = [](void *data, float seconds) {
+		static_cast<PTZSoftCam *>(data)->tickViewport(seconds);
+	};
+	info.video_render = softCamRender;
+	info.get_width = [](void *data) -> uint32_t {
+		uint32_t cx, cy;
+		softCamTargetSize(static_cast<PTZSoftCam *>(data), &cx, &cy);
+		return cx;
+	};
+	info.get_height = [](void *data) -> uint32_t {
+		uint32_t cx, cy;
+		softCamTargetSize(static_cast<PTZSoftCam *>(data), &cx, &cy);
+		return cy;
+	};
 	obs_register_source(&info);
 }
