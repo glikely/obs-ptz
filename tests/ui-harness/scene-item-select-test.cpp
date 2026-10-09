@@ -26,6 +26,9 @@ void runSelectSceneItem(const QMap<QString, QString> &params)
 	if (params.contains(QStringLiteral("autoselect")))
 		controls->setAutoselectEnabled(params.value(QStringLiteral("autoselect")) == QStringLiteral("true"));
 
+	if (!params.contains(QStringLiteral("scene")))
+		return;
+
 	OBSSourceAutoRelease sceneSource =
 		obs_get_source_by_name(qUtf8Printable(params.value(QStringLiteral("scene"))));
 	obs_scene_t *scene = obs_scene_from_source(sceneSource);
@@ -65,7 +68,7 @@ void runGetDockSelection(const QMap<QString, QString> &params)
 
 /* Request params:
  *   select_scene_item:
- *     scene, source - the item to select
+ *     scene, source - the item to select; none, if only to set autoselect
  *     autoselect    - "true" or "false", to set the dock's autoselect first
  *   get_dock_selection:
  *     device   - the device, by the UUID of its filter or the name of its source

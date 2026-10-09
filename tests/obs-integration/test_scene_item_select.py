@@ -19,12 +19,18 @@ def selected(world, device, out):
 
 
 def two_cameras_in_a_scene(world, cameras, tmp_path):  # noqa: F811
+    """Two cameras in the program scene, with autoselect on. The scene change
+    is announced to the dock after the request returns, and selects the first
+    camera, so wait for that before the test selects anything: it would
+    otherwise undo the test's own selection."""
     scene = world.create_scene()
     for name in ("select-cam-a", "select-cam-b"):
         cameras.add_source(scene, name)
         cameras.add_filter(name)
         world.wait_for_device_by_name(name, tmp_path / f"{name}.json", lambda r: r["found"] and r["bound"])
+    world.run_ui_test("select_scene_item", autoselect="true")
     world.ws.call("SetCurrentProgramScene", {"sceneName": scene})
+    world.wait_for(lambda: selected(world, "select-cam-a", tmp_path / "scene-changed.json"))
     return scene
 
 
@@ -32,7 +38,7 @@ def test_selecting_a_source_selects_its_camera(obs_world, cameras, tmp_path):  #
     scene = two_cameras_in_a_scene(obs_world, cameras, tmp_path)
     out = tmp_path / "selection.json"
 
-    obs_world.run_ui_test("select_scene_item", scene=scene, source="select-cam-b", autoselect="true")
+    obs_world.run_ui_test("select_scene_item", scene=scene, source="select-cam-b")
     obs_world.wait_for(lambda: selected(obs_world, "select-cam-b", out))
 
     obs_world.run_ui_test("select_scene_item", scene=scene, source="select-cam-a")
@@ -42,7 +48,7 @@ def test_selecting_a_source_selects_its_camera(obs_world, cameras, tmp_path):  #
 def test_it_follows_the_autoselect_setting(obs_world, cameras, tmp_path):  # noqa: F811
     scene = two_cameras_in_a_scene(obs_world, cameras, tmp_path)
     out = tmp_path / "selection.json"
-    obs_world.run_ui_test("select_scene_item", scene=scene, source="select-cam-a", autoselect="true")
+    obs_world.run_ui_test("select_scene_item", scene=scene, source="select-cam-a")
     obs_world.wait_for(lambda: selected(obs_world, "select-cam-a", out))
 
     obs_world.run_ui_test("select_scene_item", scene=scene, source="select-cam-b", autoselect="false")
