@@ -24,11 +24,7 @@ set(CPACK_PACKAGE_VERSION "${CMAKE_PROJECT_VERSION}")
 # as a further "~" suffix (the convention Ubuntu PPAs use), when known
 set(CPACK_DEBIAN_FILE_NAME "DEB-DEFAULT")
 string(REGEX REPLACE "^v" "" _deb_version "${_version}")
-if(
-  _deb_version
-    MATCHES
-    "^([0-9]+\\.[0-9]+\\.[0-9]+)(-([A-Za-z][A-Za-z0-9.]*))?(-([0-9]+)-(g[0-9a-f]+)(-dirty)?)?$"
-)
+if(_deb_version MATCHES "^([0-9]+\\.[0-9]+\\.[0-9]+)(-([A-Za-z][A-Za-z0-9.]*))?(-([0-9]+)-(g[0-9a-f]+)(-dirty)?)?$")
   set(_deb_version "${CMAKE_MATCH_1}")
   if(CMAKE_MATCH_3)
     string(APPEND _deb_version "~${CMAKE_MATCH_3}")

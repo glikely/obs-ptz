@@ -267,6 +267,18 @@ if(ENABLE_USB_TESTS)
   endif()
 endif()
 
+option(
+  ENABLE_SOFT_PTZ_TESTS
+  "Build the unit tests for the soft PTZ viewport model (needs no OBS, Qt, camera or serial port)"
+  OFF
+)
+if(ENABLE_SOFT_PTZ_TESTS)
+  if(NOT TARGET catch2_amalgamated)
+    add_subdirectory(shared/catch2)
+  endif()
+  add_subdirectory(tests/soft-ptz)
+endif()
+
 option(ENABLE_PROTOCOL_TRACE "Enable very verbose protocol tracing" OFF)
 if(ENABLE_PROTOCOL_TRACE)
   add_compile_definitions(ENABLE_PROTOCOL_TRACE)
