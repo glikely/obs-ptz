@@ -3,6 +3,15 @@ name: Crowdin Action
 on:
   push:
     branches: [ main ]
+  workflow_dispatch:
+    inputs:
+      upload_translations:
+        description: >-
+          One-off: import the translations already in data/locale/ into
+          Crowdin (as unapproved) and skip the download/PR. Run this from
+          main, once, so Crowdin stops overwriting them with empty files.
+        type: boolean
+        default: false
 
 jobs:
   synchronize-with-crowdin:
@@ -16,8 +25,8 @@ jobs:
         uses: crowdin/github-action@v2
         with:
           upload_sources: true
-          upload_translations: false
-          download_translations: true
+          upload_translations: ${{ github.event_name == 'workflow_dispatch' && inputs.upload_translations }}
+          download_translations: ${{ !(github.event_name == 'workflow_dispatch' && inputs.upload_translations) }}
           localization_branch_name: l10n_crowdin_translations
           create_pull_request: true
           pull_request_title: 'Translation Updates'
