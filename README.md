@@ -32,6 +32,7 @@ Features:
   - Pelco-D
   - ONVIF (experimental)
   - USB Cameras (UVC)
+- Pan, tilt and zoom within any source with the Soft PTZ Control filter, with no camera needed
 
 ## Websites
 - [OBS project resource page](https://obsproject.com/forum/resources/ptz-controls.1284/)

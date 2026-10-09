@@ -48,6 +48,5 @@ User Interface
 Wishlist
 --------
 
-- Virtual PTZ for any source - use PTZ to translate & scale a source.
 - Spacemouse support
 - VISCA controller input support
