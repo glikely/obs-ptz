@@ -235,15 +235,15 @@ jobs:
         uses: actions/upload-artifact@v7
         with:
           name: ${{ steps.setup.outputs.pluginName }}-${{ steps.setup.outputs.pluginVersion }}-${{ matrix.os }}-sources-${{ needs.check-event.outputs.commitHash }}
-          path: ${{ github.workspace }}/release/${{ steps.setup.outputs.pluginName }}-${{ steps.setup.outputs.pluginVersion }}-source.*
+          path: ${{ github.workspace }}/release/${{ steps.setup.outputs.pluginName }}-*-source.*
 
       - name: Upload Artifacts 📡
         uses: actions/upload-artifact@v7
         with:
           name: ${{ steps.setup.outputs.pluginName }}-${{ steps.setup.outputs.pluginVersion }}-${{ matrix.os }}-${{ matrix.target }}-${{ needs.check-event.outputs.commitHash }}
           path: |
-            ${{ github.workspace }}/release/${{ steps.setup.outputs.pluginName }}*${{ steps.setup.outputs.pluginVersion }}*.deb
-            ${{ github.workspace }}/release/${{ steps.setup.outputs.pluginName }}*${{ steps.setup.outputs.pluginVersion }}*.ddeb
+            ${{ github.workspace }}/release/${{ steps.setup.outputs.pluginName }}_*.deb
+            ${{ github.workspace }}/release/${{ steps.setup.outputs.pluginName }}*.ddeb
             ${{ github.workspace }}/release/${{ steps.setup.outputs.pluginName }}-${{ steps.setup.outputs.pluginVersion }}-${{ matrix.target }}*.tar.xz
 
       - uses: actions/cache/save@v5
