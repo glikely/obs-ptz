@@ -429,7 +429,9 @@ def output_log(name):
     -- and the tests time out waiting for it. Close it after starting the
     child, which has its own copy."""
     fd, path = tempfile.mkstemp(prefix=f"{name}-", suffix=".log")
-    return os.fdopen(fd, "w")
+    out = os.fdopen(fd, "w")
+    out.path = Path(path)  # the file's own name is its descriptor
+    return out
 
 
 def wait_for_port(host, port, timeout):
@@ -1316,12 +1318,14 @@ def obs_world(tmp_path_factory, ptzsim_process, sony_ptzsim, birddog_ptzsim, pow
     if platform.system() == "Linux" and not env.get("DISPLAY") and shutil.which("Xvfb"):
         xvfb, env["DISPLAY"] = start_xvfb()
 
-    running = {"proc": None, "ws": None}
+    # "log" is the file OBS's output goes to, which stays after it has quit
+    running = {"proc": None, "ws": None, "log": None}
 
     def start_obs():
         """Starts OBS on this home and connects to it once it has loaded"""
         # Its own process group, so that whatever OBS starts goes when it does.
         with output_log("obs") as out:
+            running["log"] = out.path
             running["proc"] = subprocess.Popen([obs_binary, "--disable-updater"], cwd=obs_cwd, env=env, stdout=out,
                                                stderr=subprocess.STDOUT,
                                                **({} if IS_WINDOWS else {"start_new_session": True}))
@@ -1379,10 +1383,13 @@ def obs_world(tmp_path_factory, ptzsim_process, sony_ptzsim, birddog_ptzsim, pow
 
     def restart_obs():
         """Quits OBS and starts it again on the same profile, as a user restarting it would,
-        and gives the world the new connection"""
+        and gives the world the new connection. Returns the file the output of the OBS
+        that quit is in"""
+        quit_log = running["log"]
         assert stop_obs(), "OBS did not quit by itself"
         start_obs()
         world.ws = running["ws"]
+        return quit_log
 
     try:
         start_obs()

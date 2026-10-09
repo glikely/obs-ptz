@@ -12,6 +12,7 @@ that config.json no longer has what was migrated.
 """
 
 import json
+import re
 
 import pytest
 
@@ -64,3 +65,17 @@ def test_each_device_is_found_by_its_source(obs_world, tmp_path):
 def test_migrated_devices_are_gone_from_config_json(obs_world):
     config = json.loads((obs_world.config_dir / "config.json").read_text())
     assert not config.get("devices")
+
+
+def test_nothing_is_left_allocated_when_obs_quits(obs_world, power_ptzsim):
+    """OBS counts what is still allocated as it exits, after the plugin has
+    been unloaded: whatever the plugin holds onto past that, such as the
+    entries the migration kept in a static, is a leak it reports. This OBS
+    has migrated devices, which is when the migration holds some."""
+    log = obs_world.restart_obs()
+    # The OBS that has just started is not left to quit before it has settled, which
+    # the suite's own check that a camera is turned off as OBS exits would take for a fault
+    obs_world.wait_for(lambda: power_ptzsim.power() is True, timeout=30)
+    reported = re.findall(r"Number of memory leaks: (\d+)", log.read_text(errors="replace"))
+    assert reported, f"OBS did not say how much it leaked: see {log}"
+    assert reported == ["0"], f"OBS leaked on exit: see {log}"
