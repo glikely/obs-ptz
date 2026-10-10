@@ -13,6 +13,7 @@
 #include <QPixmapCache>
 #include <obs-frontend-api.h>
 #include "ptz-list-model.hpp"
+#include "ptz-backup-store.hpp"
 #include "ptz.h"
 #include "protocol-helpers.hpp"
 
@@ -147,6 +148,7 @@ PTZListModel::PTZListModel() : QAbstractItemModel()
 	signal_handler_t *global = obs_get_signal_handler();
 	signal_handler_connect(global, "source_create", source_create_cb, this);
 	signal_handler_connect(global, "source_filter_add", filter_add_cb, this);
+	ptz_backup_store_start();
 }
 
 PTZListModel::~PTZListModel()
@@ -154,6 +156,7 @@ PTZListModel::~PTZListModel()
 	signal_handler_t *global = obs_get_signal_handler();
 	signal_handler_disconnect(global, "source_create", source_create_cb, this);
 	signal_handler_disconnect(global, "source_filter_add", filter_add_cb, this);
+	ptz_backup_store_stop();
 }
 
 void PTZListModel::create()

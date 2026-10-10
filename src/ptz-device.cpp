@@ -7,7 +7,6 @@
 
 #include <obs.hpp>
 #include <algorithm>
-#include <ctime>
 #include <functional>
 #include <QCoreApplication>
 #include <QHash>
@@ -272,13 +271,6 @@ static void ptz_source_renamed_cb(void *data, calldata_t *)
 	QMetaObject::invokeMethod(ptz, [ptz]() { ptz->syncName(); }, Qt::QueuedConnection);
 }
 
-/* The source is being deleted, and will take a filter that owns the device
- * with it once the last reference to it goes, which can be much later */
-static void ptz_source_removed_cb(void *data, calldata_t *)
-{
-	static_cast<PTZDevice *>(data)->backup();
-}
-
 /* The source's settings changed, which may include the address it receives
  * from. Same threading as the rename signal. */
 static void ptz_source_updated_cb(void *data, calldata_t *)
@@ -298,12 +290,10 @@ void PTZDevice::watchParentSource(const OBSWeakSource &weak, bool watch) const
 	auto self = const_cast<PTZDevice *>(this);
 	if (watch) {
 		signal_handler_connect(sh, "rename", ptz_source_renamed_cb, self);
-		signal_handler_connect(sh, "remove", ptz_source_removed_cb, self);
 		signal_handler_connect(sh, "update", ptz_source_updated_cb, self);
 		QMetaObject::invokeMethod(self, [self]() { self->checkParentHost(); }, Qt::QueuedConnection);
 	} else {
 		signal_handler_disconnect(sh, "rename", ptz_source_renamed_cb, self);
-		signal_handler_disconnect(sh, "remove", ptz_source_removed_cb, self);
 		signal_handler_disconnect(sh, "update", ptz_source_updated_cb, self);
 	}
 }
@@ -963,94 +953,6 @@ obs_properties_t *PTZDevice::get_obs_properties()
 	return rtn_props;
 }
 
-/**
- * Rolling backup of the settings of devices that have gone away, so that
- * one lost by deleting its source (which takes its filter, and with it the
- * presets, along) can be added again. Each entry is what save() wrote, plus
- * "backup_time"; most recent first, one per source name and type. Kept in
- * its own file, loaded on first use, and guarded by ptz_backup_mutex since a
- * filter can be destroyed on any thread.
- */
-#define PTZ_BACKUP_FILE "device-backups.json"
-#define PTZ_BACKUP_MAX 32
-static QMutex ptz_backup_mutex;
-static OBSDataArray ptz_backups;
-
-/* Caller must hold ptz_backup_mutex */
-static obs_data_array_t *ptz_backups_locked()
-{
-	if (ptz_backups)
-		return ptz_backups;
-	OBSDataAutoRelease data;
-	char *file = obs_module_config_path(PTZ_BACKUP_FILE);
-	if (file) {
-		data = obs_data_create_from_json_file_safe(file, "bak");
-		bfree(file);
-	}
-	OBSDataArrayAutoRelease array = data ? obs_data_get_array(data, "devices") : nullptr;
-	if (!array)
-		array = obs_data_array_create();
-	ptz_backups = array.Get();
-	return ptz_backups;
-}
-
-static void ptz_backups_write_locked()
-{
-	char *file = obs_module_config_path(PTZ_BACKUP_FILE);
-	if (!file)
-		return;
-	OBSDataAutoRelease data = obs_data_create();
-	obs_data_set_array(data, "devices", ptz_backups);
-	if (!obs_data_save_json_pretty_safe(data, file, "tmp", "bak")) {
-		char *path = obs_module_config_path("");
-		if (path) {
-			os_mkdirs(path);
-			bfree(path);
-		}
-		obs_data_save_json_pretty_safe(data, file, "tmp", "bak");
-	}
-	bfree(file);
-}
-
-void PTZDevice::backup() const
-{
-	OBSDataAutoRelease entry = obs_data_create();
-	save(entry.Get());
-	QString name = sourceName();
-	/* Without a source there's nothing to recognise it by */
-	if (name.isEmpty())
-		return;
-	obs_data_set_string(entry, "name", QT_TO_UTF8(name));
-	obs_data_erase(entry, "id");
-	obs_data_set_int(entry, "backup_time", (long long)time(nullptr));
-
-	QMutexLocker locker(&ptz_backup_mutex);
-	obs_data_array_t *backups = ptz_backups_locked();
-	for (size_t i = obs_data_array_count(backups); i-- > 0;) {
-		OBSDataAutoRelease item = obs_data_array_item(backups, i);
-		if (name == QT_UTF8(obs_data_get_string(item, "name")) && type == obs_data_get_string(item, "type"))
-			obs_data_array_erase(backups, i);
-	}
-	obs_data_array_insert(backups, 0, entry);
-	while (obs_data_array_count(backups) > PTZ_BACKUP_MAX)
-		obs_data_array_erase(backups, obs_data_array_count(backups) - 1);
-	ptz_backups_write_locked();
-}
-
-obs_data_array_t *ptz_device_backups_get()
-{
-	QMutexLocker locker(&ptz_backup_mutex);
-	obs_data_array_t *backups = ptz_backups_locked();
-	obs_data_array_t *copy = obs_data_array_create();
-	for (size_t i = 0; i < obs_data_array_count(backups); i++) {
-		OBSDataAutoRelease item = obs_data_array_item(backups, i);
-		OBSDataAutoRelease entry = obs_data_create();
-		obs_data_apply(entry, item);
-		obs_data_array_push_back(copy, entry);
-	}
-	return copy;
-}
-
 void ptz_filter_defaults_mark(obs_data_t *defaults)
 {
 	obs_data_set_default_int(defaults, PTZ_DEFAULTS_MAJOR_KEY, PTZ_API_VERSION_MAJOR);
@@ -1141,19 +1043,15 @@ void ptz_filter_add(void *data, obs_source_t *parent)
 void ptz_filter_remove(void *data, obs_source_t *)
 {
 	auto ptz = static_cast<PTZDevice *>(data);
-	if (ptz) {
-		ptz->backup();
+	if (ptz)
 		ptz->setParentSource(nullptr);
-	}
 }
 
 void ptz_filter_destroy(void *data)
 {
 	auto ptz = static_cast<PTZDevice *>(data);
-	if (ptz) {
-		ptz->backup();
+	if (ptz)
 		ptz->deleteLater();
-	}
 }
 
 void ptz_filter_save(void *data, obs_data_t *settings)
@@ -1226,11 +1124,6 @@ void ptz_unload_devices(void)
 	PTZListModel::destroy();
 	ptz_discovery_unregister_all();
 	ptz_legacy_unload();
-
-	{
-		QMutexLocker locker(&ptz_backup_mutex);
-		ptz_backups = nullptr;
-	}
 }
 
 PTZDevice::CameraPresets PTZDevice::cameraPresets() const

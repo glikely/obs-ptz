@@ -49,6 +49,7 @@
 #include "ptz-list-model.hpp"
 #include "ptz-discovery.hpp"
 #include "ptz-driver-kinds.hpp"
+#include "ptz-backup-store.hpp"
 #include "ptz-controls.hpp"
 #include "settings.hpp"
 #include "ptz-camera-report.hpp"

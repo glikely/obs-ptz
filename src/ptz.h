@@ -37,10 +37,6 @@ extern void ptz_load_ui_tests(void);
 static inline void ptz_load_ui_tests(void) {};
 #endif
 
-/* Settings of devices that were recently destroyed, most recent first: each
- * what the device saved, with the "name" of its source and "backup_time" (in
- * seconds since the epoch). Returns a new reference. */
-extern obs_data_array_t *ptz_device_backups_get(void);
 /* The "PTZ Control" filter kind that a device "type" of the old self-managed
  * backend, or of a backup that has no "kind", belongs to, or NULL if none.
  * Goes with the legacy migration (see ptz-legacy-migration.cpp). */

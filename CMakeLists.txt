@@ -133,6 +133,7 @@ target_sources(
     src/ptz-list-model.cpp
     src/ptz-discovery.cpp
     src/ptz-driver-kinds.cpp
+    src/ptz-backup-store.cpp
     src/ptz-sony-discovery.cpp
     src/settings.cpp
     src/ptz-camera-report.cpp
@@ -156,6 +157,7 @@ target_sources(
     src/ptz-list-model.hpp
     src/ptz-discovery.hpp
     src/ptz-driver-kinds.hpp
+    src/ptz-backup-store.hpp
     src/ptz-sony-discovery.hpp
     src/settings.hpp
     src/ptz-camera-report.hpp
