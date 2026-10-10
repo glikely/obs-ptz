@@ -3,7 +3,7 @@
 This is the API used to interact with PTZ Devices.
 It covers how to find and manage PTZ devices, to move them, to recall
 their presets, and to be notified of state changes.
-It is the API that PTZ Controls uses internally to communicate between the front
+It is the API that PTZ Controls uses to communicate between the front
 end UI and the back end protocol drivers.
 
 Any plugin can also implement this API, either to control PTZ
@@ -36,7 +36,7 @@ changes in the camera.
 
 ## API version
 
-This is version **0.2** of the PTZ API.
+This is version **0.3** of the PTZ API.
 The API is in a pre-release state, published as an RFC.
 It is subject to change at any time.
 Please provide feedback on the [API discussion
@@ -213,6 +213,27 @@ A proc a device doesn't have is read as something it can't do.
 Device configuration is managed the same way as any other source, via
 `save`, `update`, and `get_properties` in its `obs_source_info`.
 
+## Driver kinds
+
+For controllers that create new ptz devices, the controller needs to
+know which filters will create new devices.
+A plugin that provides devices as filters advertises itself by putting the ptz
+api version into the data returned by its `obs_source_info->get_defaults()` callback.
+The following two default values must be set for a filter that implementes the PTZ api.
+The values must be the same as the values returned by `ptz_get_api_version`.
+
+| Key                     | Type | Value                       |
+|-------------------------|------|-----------------------------|
+| `ptz_api_version_major` | int  | The major version           |
+| `ptz_api_version_minor` | int  | The minor version           |
+
+They are defaults, not settings: they are never saved in a scene collection.
+A controller finds the kinds by walking `obs_enum_filter_types()` and keeping
+those whose `obs_get_source_defaults()` has the marker.
+
+A device is made from a kind by creating a filter of that kind on a source
+with `obs_source_create()` and `obs_source_filter_add()`.
+
 ## Per-device proc_handler
 
 The following proc_handler calls are defined for PTZ Devices.
@@ -367,7 +388,24 @@ Any thread.
 Goes to the preset `id`.
 A preset of the camera store is the camera's to recall.
 One of the local store's goes to the pan, tilt, zoom and focus it has.
+Announces `ptz_preset_recalled` when the camera has arrived, unless a newer
+recall or a move comes first.
 Needs the `presets` feature.
+Any thread.
+
+### `void ptz_preset_capture_thumbnail(string id, bool if_arrived)`
+
+Takes a thumbnail of the device's source for the preset `id`, replacing the one
+it had, and announces it with `ptz_preset_changed`.
+Saving a preset takes one already; this is for a caller that wants one once a
+recall has arrived, after `ptz_preset_recalled`.
+With `if_arrived` true it does so only if `id` is the preset the last
+`ptz_preset_recalled` announced and the camera has not been sent anywhere since,
+by a recall or by the moves that signal names; so a caller that waits a moment
+after the signal, for the video to catch up, gets no thumbnail of the camera on
+its way somewhere else.
+False or absent takes one regardless.
+Does nothing for a preset the device has not.
 Any thread.
 
 ### `string ptz_preset_create(string name, string store)`
@@ -465,6 +503,19 @@ A listener reads `order` again with `ptz_preset_get_list`.
 The preset `id` changed.
 `changed` holds just the keys that did, as `ptz_preset_update` takes them, and
 `camera_name`.
+
+### `void ptz_preset_recalled(ptr source, string id)`
+
+The camera has arrived at the preset `id`, which `ptz_preset_recall` sent it to,
+as best the device can tell.
+With the `move_completion` feature the camera said so (a VISCA camera by
+completing the move, an ONVIF camera by its status saying it is no longer
+moving), or, if the device never hears that (a completion lost, or a recall that
+moved nothing), 15 seconds after the recall; without it, the device guesses, a
+fixed 3 seconds after the recall.
+Only the last recall is announced: a newer recall, or a `ptz_stop`,
+`ptz_move_abs`, `ptz_move_rel`, `ptz_home_recall`, or a `ptz_move` with a speed
+that is not 0, before it arrives, means it never does.
 
 ### `void ptz_preset_list_reset(ptr source)`
 
@@ -585,6 +636,7 @@ doesn't keep it.
 | `wb_onepush` | Set white balance once, with the `wb_onepush` trigger |
 | `diagnostics` | Make a camera report, with the `camera_report` trigger |
 | `tally_light` | Light its camera's tally lamps, which the `tally_auto` setting has it do while its source is in the program or preview scene |
+| `move_completion` | Say when its camera has arrived at a recalled preset because the camera said so, with `ptz_preset_recalled`, and after a longer backstop time if it never hears; without it, that signal comes after a fixed time. A VISCA device has it once its camera has completed a move (one that only ACKs, as a BirdDog does, never has it); an ONVIF device once its camera's status has said whether it is moving (`MoveStatus` `IDLE` or `MOVING`; many cameras don't say, and their devices never have it); a Soft PTZ device always |
 
 Asking for something a device doesn't have the feature for isn't an error a
 caller can detect, and what happens isn't promised: check `features` first.
@@ -632,3 +684,78 @@ A name that starts with `user_` is a user's own.
 | `wb_onepush` | with the `wb_onepush` feature | Set the white balance once, from what the camera sees |
 | `camera_report` | VISCA | Ask the camera what it has, and make the report that `ptz_get_camera_report` returns, with its progress in the `camera_report` state key |
 | `discover_limits` | VISCA | Find the camera's pan, tilt, zoom and focus ranges by moving it to their ends |
+
+## Discovery kinds
+
+A plugin whose devices can be found, on the network or elsewhere, says how
+with a second source kind next to its filter kind: an input kind whose id is
+the filter kind's with `.discovery` after it
+(`ca.secretlab.obs-ptz.visca.discovery`, say), with
+`OBS_SOURCE_CAP_DISABLED` in its `output_flags`, so OBS never offers it as a
+source to add, and the same marker in its defaults as a
+[driver kind](#driver-kinds).
+A controller finds them by walking `obs_enum_input_types()` and keeping those
+whose id ends in `.discovery` and whose defaults have the marker, with the
+major version of its own and a minor version at least as new; the id only
+tells them from other input kinds.
+
+To look for devices, a controller makes an instance of each with
+`obs_source_create_private()`, connects to the
+[signals](#per-discovery-signal_handler) on its own `signal_handler`, and
+calls `ptz_discovery_start` on its own `proc_handler`.
+Each instance says `ptz_discovery_finished` once a search is over, so a
+controller that counts one per instance it made knows when they all have,
+without knowing how many drivers there are.
+Releasing the instance ends its search and frees what the driver made for
+it: nothing is said once OBS has destroyed it.
+A controller disconnects first, and may call `ptz_discovery_stop` first, to
+stop it at once rather than when OBS gets round to destroying it.
+
+## Per-discovery proc_handler
+
+The procs on a discovery instance's own `proc_handler`, from
+`obs_source_get_proc_handler()`.
+Any thread: the instance does the work on the main thread.
+
+### `void ptz_get_api_version(out int major, out int minor)`
+
+The version of the PTZ API the instance implements, as a device's
+`ptz_get_api_version` says it: one version covers both.
+
+### `void ptz_discovery_start()`
+
+Looks for devices for a while (a few seconds), saying `ptz_device_found` for
+each one it finds, then `ptz_discovery_finished`.
+While a search is running, it does nothing; after one, it looks again, and
+says again each device it finds.
+
+### `void ptz_discovery_stop()`
+
+Gives up the search, and says `ptz_discovery_finished` if one was running.
+
+## Per-discovery signal_handler
+
+The signals on a discovery instance's own `signal_handler`, from
+`obs_source_get_signal_handler()`.
+A signal fires on the main thread, where the instance's driver does its
+work, whichever thread the instance was made on.
+A listener may call the instance's procs from inside a signal: a
+`ptz_discovery_stop` from `ptz_device_found`, say, or a `ptz_discovery_start`
+from `ptz_discovery_finished` to look again.
+Each carries `source`, the instance's source, lent for the call.
+
+### `void ptz_device_found(ptr source, string kind, string id, string name, string address, ptr settings)`
+
+A device was found, once per search.
+`kind` is the [filter kind](#driver-kinds) to make a device for it with.
+`id` tells it from every other device found, and from itself found again or
+found by another way of looking.
+`name` and `address` are for a user to recognise it by.
+`settings` is an `obs_data_t *`, lent for the call, holding `type` and only
+what it takes to reach the device (`host`, and `port` or `udp_port`, say):
+made a filter of `kind` with these settings, the kind's defaults fill in the
+rest.
+
+### `void ptz_discovery_finished(ptr source)`
+
+The search is over: it ran its course, or `ptz_discovery_stop` was called.
