@@ -1,3 +1,5 @@
+# Vendored import of https://github.com/alex-spataru/QJoysticks
+# Imported on April 24, 2025 from commit ccc0f53
 cmake_minimum_required(VERSION 3.28...3.30)
 
 find_package(Qt6 REQUIRED Core)
