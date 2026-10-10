@@ -5,6 +5,7 @@
  * SPDX-License-Identifier: GPL-2.0-or-later
  */
 
+#include <cstring>
 #include <obs-module.h>
 #include <obs-frontend-api.h>
 #include <obs.hpp>
@@ -29,6 +30,33 @@ static const char *const COLLECTION_BACKUP_SUFFIX = ".pre-ptz-filter-migration";
 /* Which collections an entry has been made into filters in. Old versions ignore
  * the key, so downgrading still finds the entry */
 static const char *const MIGRATED_KEY = "migrated_collections";
+
+/* The filter kind of each device type the old backend wrote, or NULL if
+ * there is none or the kind is not registered (a driver this build lacks) */
+const char *ptz_legacy_kind_for_type(const char *type)
+{
+	static const struct {
+		const char *type;
+		const char *kind;
+	} kinds[] = {
+		{"visca", "ca.secretlab.obs-ptz.visca"},
+		{"visca-over-ip", "ca.secretlab.obs-ptz.visca"},
+		{"visca-over-tcp", "ca.secretlab.obs-ptz.visca"},
+		{"pelco", "ca.secretlab.obs-ptz.pelco"},
+		{"pelco-p", "ca.secretlab.obs-ptz.pelco"},
+		{"onvif", "ca.secretlab.obs-ptz.onvif"},
+		{"usb-cam", "ca.secretlab.obs-ptz.usb-cam"},
+		/* Written by this plugin, not by the old backend, for a backup
+		 * or a detected device that has no "kind" */
+		{"soft-ptz", "ca.secretlab.obs-ptz.soft-ptz"},
+	};
+	for (const auto &entry : kinds)
+		if (type && strcmp(type, entry.type) == 0) {
+			OBSDataAutoRelease defaults = obs_get_source_defaults(entry.kind);
+			return defaults ? entry.kind : nullptr;
+		}
+	return nullptr;
+}
 
 static void backup_file(const QString &path, const char *suffix)
 {
@@ -210,7 +238,7 @@ bool ptz_legacy_migrate(bool finishing_loading)
 		OBSDataAutoRelease item = obs_data_array_item(legacy_devices, i);
 		QString name = QT_UTF8(obs_data_get_string(item, "name"));
 		uint32_t old_id = (uint32_t)obs_data_get_int(item, "id");
-		const char *kind = ptz_device_filter_kind(obs_data_get_string(item, "type"));
+		const char *kind = ptz_legacy_kind_for_type(obs_data_get_string(item, "type"));
 
 		OBSDataArrayAutoRelease done_array = obs_data_get_array(item, MIGRATED_KEY);
 		QStringList done;

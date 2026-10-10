@@ -20,6 +20,7 @@
 #include <QUrl>
 #include <QDesktopServices>
 #include <QStringList>
+#include <QSet>
 #include <QTimer>
 #include <QApplication>
 #include <QGroupBox>
@@ -47,6 +48,7 @@
 #include "ptz.h"
 #include "ptz-list-model.hpp"
 #include "ptz-discovery.hpp"
+#include "ptz-driver-kinds.hpp"
 #include "ptz-controls.hpp"
 #include "settings.hpp"
 #include "ptz-camera-report.hpp"
@@ -460,39 +462,35 @@ void PTZSettings::on_addPTZ_clicked()
 }
 
 /* The protocols a new device can use, as the name to show and the settings
- * to start from */
+ * to start from: the defaults of each driver's filter kind, and its "kind" */
 static QList<QPair<QString, OBSData>> ptz_protocols()
 {
 	QList<QPair<QString, OBSData>> protocols;
-	auto add = [&](const char *name, const char *type) {
-		OBSDataAutoRelease cfg = obs_data_create();
-		obs_data_set_string(cfg, "type", type);
-		if (strcmp(type, "pelco") == 0)
-			obs_data_set_bool(cfg, "use_pelco_d", true);
-		protocols.append({obs_module_text(name), cfg.Get()});
-	};
-	add("PTZ.Visca.Name", "visca-over-ip");
-#if defined(ENABLE_SERIALPORT)
-	add("PTZ.Pelco.Name", "pelco");
-#endif
-#if defined(ENABLE_ONVIF) // ONVIF disabled until code is reworked
-	add("PTZ.ONVIF.Name", "onvif");
-#endif
-#if defined(ENABLE_USB_CAM)
-	add("PTZ.UVC.Name", "usb-cam");
-#endif
-	add("PTZ.SoftPtz.Name", "soft-ptz");
+	for (const auto &driver : ptz_driver_kinds()) {
+		OBSDataAutoRelease cfg = obs_data_get_defaults(driver.defaults);
+		obs_data_set_string(cfg, "kind", QT_TO_UTF8(driver.kind));
+		protocols.append({driver.name, cfg.Get()});
+	}
 	return protocols;
 }
 
-/* The name of the protocol a device type belongs to */
-static QString ptz_protocol_name(const char *type)
+/* The filter kind a saved device was of, if its settings say */
+static QString ptz_settings_kind(obs_data_t *settings)
 {
-	const char *kind = ptz_device_filter_kind(type);
-	for (const auto &protocol : ptz_protocols())
-		if (kind && strcmp(kind, ptz_device_filter_kind(obs_data_get_string(protocol.second, "type"))) == 0)
-			return protocol.first;
-	return QT_UTF8(type);
+	const char *kind = obs_data_get_string(settings, "kind");
+	if (!*kind)
+		kind = ptz_legacy_kind_for_type(obs_data_get_string(settings, "type"));
+	return kind ? QT_UTF8(kind) : QString();
+}
+
+/* The name of the protocol a saved device's settings belong to */
+static QString ptz_protocol_name(obs_data_t *settings)
+{
+	QString kind = ptz_settings_kind(settings);
+	for (const auto &driver : ptz_driver_kinds())
+		if (driver.kind == kind)
+			return driver.name;
+	return QT_UTF8(obs_data_get_string(settings, "type"));
 }
 
 /* Whether every setting in `settings` has the same value in `config`: for a
@@ -567,6 +565,9 @@ void PTZSettings::addDevice()
 	 * backups this build can make a device from, other than of one that
 	 * exists */
 	auto protocols = ptz_protocols();
+	QSet<QString> driverKinds;
+	for (const auto &protocol : protocols)
+		driverKinds.insert(QT_UTF8(obs_data_get_string(protocol.second, "kind")));
 	QList<OBSData> choices;
 	for (const auto &protocol : protocols)
 		choices.append(protocol.second);
@@ -575,7 +576,8 @@ void PTZSettings::addDevice()
 	for (size_t i = 0; i < obs_data_array_count(allBackups); i++) {
 		OBSDataAutoRelease item = obs_data_array_item(allBackups, i);
 		const char *type = obs_data_get_string(item, "type");
-		if (!ptz_device_filter_kind(type))
+		QString kind = ptz_settings_kind(item);
+		if (kind.isEmpty() || !driverKinds.contains(kind))
 			continue;
 		bool exists = false;
 		for (const auto &dev : live) {
@@ -633,7 +635,7 @@ void PTZSettings::addDevice()
 		QString name = QT_UTF8(obs_data_get_string(backup, "name"));
 		deviceCombo->addItem(QString(obs_module_text("PTZ.AddDevice.Restore"))
 					     .arg(name)
-					     .arg(ptz_protocol_name(obs_data_get_string(backup, "type")))
+					     .arg(ptz_protocol_name(backup))
 					     .arg(obs_data_array_count(presets))
 					     .arg(QLocale().toString(when, QLocale::ShortFormat)),
 				     (int)choices.size());

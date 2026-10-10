@@ -41,11 +41,18 @@ static inline void ptz_load_ui_tests(void) {};
  * what the device saved, with the "name" of its source and "backup_time" (in
  * seconds since the epoch). Returns a new reference. */
 extern obs_data_array_t *ptz_device_backups_get(void);
-/* The "PTZ Control" filter kind for a device "type", or NULL if none */
-extern const char *ptz_device_filter_kind(const char *type);
-/* Adds a PTZ Control filter, and so a device, to `parent`, for the "type"
- * in `config` and with its settings. Returns a new reference to the filter,
- * or NULL. */
+/* The "PTZ Control" filter kind that a device "type" of the old self-managed
+ * backend, or of a backup that has no "kind", belongs to, or NULL if none.
+ * Goes with the legacy migration (see ptz-legacy-migration.cpp). */
+extern const char *ptz_legacy_kind_for_type(const char *type);
+/* Marks `defaults`, in a filter kind's get_defaults, as those of a PTZ driver
+ * (see "Driver kinds" in docs/ptz-device-api.md), by the version of the PTZ
+ * API it implements. Call it first. */
+extern void ptz_filter_defaults_mark(obs_data_t *defaults);
+/* Adds a PTZ Control filter, and so a device, to `parent`, with the settings
+ * in `config`, of the filter kind in its "kind" or, without one, of its
+ * "type" (see ptz_legacy_kind_for_type()). Returns a new reference to the
+ * filter, or NULL. */
 extern obs_source_t *ptz_device_create_filter(obs_source_t *parent, obs_data_t *config);
 
 /* Whether a source is a device of the PTZ API, from this plugin or from any
@@ -68,7 +75,12 @@ extern bool ptz_scene_is_source_active(obs_source_t *scene, obs_source_t *source
  * (something removed, renamed or changing meaning). Then update the doc,
  * which states it. */
 #define PTZ_API_VERSION_MAJOR 0
-#define PTZ_API_VERSION_MINOR 2
+#define PTZ_API_VERSION_MINOR 3
+
+/* The keys of the filter kind defaults that mark a PTZ driver, see
+ * ptz_filter_defaults_mark() */
+#define PTZ_DEFAULTS_MAJOR_KEY "ptz_api_version_major"
+#define PTZ_DEFAULTS_MINOR_KEY "ptz_api_version_minor"
 
 #ifdef __cplusplus
 }

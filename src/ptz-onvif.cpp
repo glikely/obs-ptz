@@ -11,6 +11,7 @@
 
 #include <qt-wrappers.hpp>
 #include "ptz-onvif.hpp"
+#include "ptz.h"
 #include <QtXml/QDomDocument>
 #include <QXmlStreamWriter>
 #include <QRegularExpression>
@@ -979,6 +980,8 @@ void ptz_onvif_register_filter()
 	};
 	info.destroy = ptz_filter_destroy;
 	info.get_defaults = [](obs_data_t *settings) {
+		ptz_filter_defaults_mark(settings);
+		obs_data_set_default_string(settings, "type", "onvif");
 		PTZOnvif::defaults(settings);
 	};
 	info.get_properties = ptz_filter_get_properties;

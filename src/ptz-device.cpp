@@ -1051,31 +1051,17 @@ obs_data_array_t *ptz_device_backups_get()
 	return copy;
 }
 
-const char *ptz_device_filter_kind(const char *type)
+void ptz_filter_defaults_mark(obs_data_t *defaults)
 {
-	std::string t = type ? type : "";
-	if (t == "visca" || t == "visca-over-ip" || t == "visca-over-tcp")
-		return "ca.secretlab.obs-ptz.visca";
-#if defined(ENABLE_SERIALPORT)
-	if (t == "pelco" || t == "pelco-p")
-		return "ca.secretlab.obs-ptz.pelco";
-#endif
-#if defined(ENABLE_ONVIF)
-	if (t == "onvif")
-		return "ca.secretlab.obs-ptz.onvif";
-#endif
-#if defined(ENABLE_USB_CAM)
-	if (t == "usb-cam")
-		return "ca.secretlab.obs-ptz.usb-cam";
-#endif
-	if (t == "soft-ptz")
-		return "ca.secretlab.obs-ptz.soft-ptz";
-	return nullptr;
+	obs_data_set_default_int(defaults, PTZ_DEFAULTS_MAJOR_KEY, PTZ_API_VERSION_MAJOR);
+	obs_data_set_default_int(defaults, PTZ_DEFAULTS_MINOR_KEY, PTZ_API_VERSION_MINOR);
 }
 
 obs_source_t *ptz_device_create_filter(obs_source_t *parent, obs_data_t *config)
 {
-	const char *kind = ptz_device_filter_kind(obs_data_get_string(config, "type"));
+	const char *kind = obs_data_get_string(config, "kind");
+	if (!*kind)
+		kind = ptz_legacy_kind_for_type(obs_data_get_string(config, "type"));
 	if (!parent || !kind)
 		return nullptr;
 
@@ -1084,6 +1070,9 @@ obs_source_t *ptz_device_create_filter(obs_source_t *parent, obs_data_t *config)
 	obs_data_apply(settings, config);
 	PTZDevice::stripIdentity(settings);
 	obs_data_erase(settings, "backup_time");
+	obs_data_erase(settings, "kind");
+	obs_data_erase(settings, PTZ_DEFAULTS_MAJOR_KEY);
+	obs_data_erase(settings, PTZ_DEFAULTS_MINOR_KEY);
 
 	QString base = QT_UTF8(obs_source_get_display_name(kind));
 	QString name = base;
@@ -1181,6 +1170,9 @@ void ptz_filter_save(void *data, obs_data_t *settings)
 	 * across a driver change; neither belongs in the scene collection.
 	 * Also clears them from collections saved before this was stripped. */
 	PTZDevice::stripIdentity(settings);
+	/* Defaults, from ptz_filter_defaults_mark() and the kind, not settings */
+	obs_data_erase(settings, PTZ_DEFAULTS_MAJOR_KEY);
+	obs_data_erase(settings, PTZ_DEFAULTS_MINOR_KEY);
 }
 
 bool ptz_source_is_device(obs_source_t *source)
@@ -1213,7 +1205,6 @@ void ptz_load_devices()
 
 	/* Each backend driver registers its own "<Driver> PTZ Control" OBS filter */
 	ptz_visca_register_filter();
-	ptz_soft_cam_register_filter();
 	ptz_sony_register_discovery();
 #if defined(ENABLE_SERIALPORT)
 	ptz_pelco_register_filter();
@@ -1225,6 +1216,8 @@ void ptz_load_devices()
 #if defined(ENABLE_USB_CAM)
 	ptz_usb_cam_register_filter();
 #endif /* ENABLE_USB_CAM */
+	/* The Add Device dialog lists the kinds in the order they register */
+	ptz_soft_cam_register_filter();
 }
 
 void ptz_unload_devices(void)

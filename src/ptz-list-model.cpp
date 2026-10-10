@@ -785,6 +785,9 @@ void PTZListModel::save(const QModelIndex &index, OBSData settings) const
 	OBSDataAutoRelease live = obs_source_get_settings(source);
 	OBSDataAutoRelease complete = obs_data_get_defaults(live);
 	obs_data_apply(complete, live);
+	/* The marks of a driver's kind are no setting of the device */
+	obs_data_erase(complete, PTZ_DEFAULTS_MAJOR_KEY);
+	obs_data_erase(complete, PTZ_DEFAULTS_MINOR_KEY);
 	obs_data_apply(settings, complete);
 }
 

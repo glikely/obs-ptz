@@ -1517,6 +1517,7 @@ void ptz_visca_register_filter()
 	};
 	info.destroy = ptz_filter_destroy;
 	info.get_defaults = [](obs_data_t *settings) {
+		ptz_filter_defaults_mark(settings);
 		obs_data_set_default_string(settings, "type", "visca-over-ip");
 		PTZVisca::defaults(settings);
 	};

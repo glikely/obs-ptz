@@ -10,6 +10,7 @@
 #include <graphics/graphics.h>
 #include <graphics/vec4.h>
 #include "ptz-soft-cam.hpp"
+#include "ptz.h"
 
 /* What a setting is limited to, in properties and in update() both */
 static constexpr double MaxZoomMin = 1.1, MaxZoomMax = 10.0;
@@ -294,6 +295,8 @@ void ptz_soft_cam_register_filter()
 	};
 	info.destroy = ptz_filter_destroy;
 	info.get_defaults = [](obs_data_t *settings) {
+		ptz_filter_defaults_mark(settings);
+		obs_data_set_default_string(settings, "type", "soft-ptz");
 		PTZSoftCam::defaults(settings);
 	};
 	info.get_properties = ptz_filter_get_properties;

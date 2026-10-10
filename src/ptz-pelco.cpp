@@ -7,6 +7,7 @@
  */
 
 #include "ptz-pelco.hpp"
+#include "ptz.h"
 
 const QByteArray HOME = QByteArray::fromHex("0007002B");
 
@@ -281,6 +282,8 @@ void ptz_pelco_register_filter()
 	};
 	info.destroy = ptz_filter_destroy;
 	info.get_defaults = [](obs_data_t *settings) {
+		ptz_filter_defaults_mark(settings);
+		obs_data_set_default_string(settings, "type", "pelco");
 		PTZPelco::defaults(settings);
 	};
 	info.get_properties = ptz_filter_get_properties;

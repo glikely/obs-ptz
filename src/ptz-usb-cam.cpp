@@ -7,6 +7,7 @@
 
 #include <qt-wrappers.hpp>
 #include "ptz-device.hpp"
+#include "ptz.h"
 #include <cstddef>
 #include <obs-data.h>
 #include <obs-properties.h>
@@ -235,6 +236,8 @@ void ptz_usb_cam_register_filter()
 	};
 	info.destroy = ptz_filter_destroy;
 	info.get_defaults = [](obs_data_t *settings) {
+		ptz_filter_defaults_mark(settings);
+		obs_data_set_default_string(settings, "type", "usb-cam");
 		PTZUSBCam::defaults(settings);
 	};
 	info.get_properties = ptz_filter_get_properties;
