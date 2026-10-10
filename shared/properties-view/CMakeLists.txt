@@ -1,3 +1,5 @@
+# Vendored copy of obs-studio's OBSPropertiesView.
+# Imported from obs-studio 32.2.1 on Aug 14, 2026
 cmake_minimum_required(VERSION 3.28...3.30)
 
 find_package(Qt6 REQUIRED Core Widgets)
