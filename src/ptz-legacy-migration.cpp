@@ -215,7 +215,7 @@ static void remap_action_sources(const QHash<uint32_t, QByteArray> &map)
 	obs_enum_sources(cb, const_cast<QHash<uint32_t, QByteArray> *>(&map));
 }
 
-bool ptz_legacy_migrate(bool finishing_loading)
+bool ptz_legacy_migrate()
 {
 	if (!legacy_devices || !obs_data_array_count(legacy_devices))
 		return false;
@@ -305,8 +305,6 @@ bool ptz_legacy_migrate(bool finishing_loading)
 			continue;
 		}
 
-		if (finishing_loading)
-			ptz_device_startup(filter);
 		QByteArray uuid = obs_source_get_uuid(filter);
 		pass_map.insert(old_id, uuid);
 		legacy_id_map.insert(old_id, uuid);

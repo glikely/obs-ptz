@@ -8,6 +8,7 @@
 #include <obs.hpp>
 #include <algorithm>
 #include <functional>
+#include <vector>
 #include <QCoreApplication>
 #include <QHash>
 #include <QJsonDocument>
@@ -107,6 +108,19 @@ QList<QPair<QString, QString>> ptz_registered_api()
 		ptz->_method(cd); \
 	}
 
+/* This module's devices, for its one frontend callback below (main thread only) */
+static PTZLifecycle &module_lifecycle()
+{
+	static PTZLifecycle lifecycle;
+	return lifecycle;
+}
+
+static std::vector<PTZDevice *> &module_devices()
+{
+	static std::vector<PTZDevice *> devices;
+	return devices;
+}
+
 PTZDevice::PTZDevice(OBSData config, obs_source_t *filter) : QObject()
 {
 	m_filter = OBSGetWeakRef(filter);
@@ -181,45 +195,37 @@ PTZDevice::PTZDevice(OBSData config, obs_source_t *filter) : QObject()
 	obs_data_release(statistics);
 	stale_state = {"pan_pos", "tilt_pos", "zoom_pos", "focus_pos"};
 
-	/* Hear of OBS finishing loading and closing directly, not from the UI
-	 * that would otherwise have to pass it on. A device is made and
-	 * destroyed on the main thread, where OBS sends these. */
-	obs_frontend_add_event_callback(frontendEventCallback, this);
-	m_frontendCallback = true;
+	/* Hear of OBS finishing loading and closing from this module's one
+	 * frontend callback (ptz_load_devices()), not the UI. A device is made
+	 * on the main thread, where OBS sends them; if loading has finished
+	 * already this starts it. */
+	module_devices().push_back(this);
+	module_lifecycle().add(this);
 }
 
-void PTZDevice::frontendEventCallback(enum obs_frontend_event event, void *data)
+void PTZDevice::onStartup()
 {
-	static_cast<PTZDevice *>(data)->onFrontendEvent(event);
+	/* Queued: a device being constructed has not finished being a subclass,
+	 * and the driver's hook runs on the device's own thread. Dropped if the
+	 * device is gone first. */
+	QMetaObject::invokeMethod(this, [this]() { onOBSStartup(); }, Qt::QueuedConnection);
 }
 
-void PTZDevice::onFrontendEvent(enum obs_frontend_event event)
+void PTZDevice::onShutdown()
 {
-	switch (event) {
-	case OBS_FRONTEND_EVENT_FINISHED_LOADING:
-		onOBSStartup();
-		break;
-	case OBS_FRONTEND_EVENT_SCENE_CHANGED:
-	case OBS_FRONTEND_EVENT_PREVIEW_SCENE_CHANGED:
-	case OBS_FRONTEND_EVENT_STUDIO_MODE_ENABLED:
-	case OBS_FRONTEND_EVENT_STUDIO_MODE_DISABLED:
-		onSceneChanged();
-		break;
-	case OBS_FRONTEND_EVENT_SCRIPTING_SHUTDOWN:
-		/* OBS is closing, and has not yet cleared its scenes, which
-		 * destroys the filters that own devices: EXIT comes after that.
-		 * This is the last time every device is still there. */
-		onOBSShutdown();
-		break;
-	default:
-		break;
-	}
+	/* OBS is closing, and has not yet cleared its scenes, which destroys the
+	 * filters that own devices: EXIT comes after that. This is the last time
+	 * every device is still there, and what runs must not wait for the
+	 * event loop. OBS sends it on the main thread, which is the device's:
+	 * blocking on another thread here deadlocks at exit (commit caba7fc). */
+	onOBSShutdown();
 }
 
 PTZDevice::~PTZDevice()
 {
-	if (m_frontendCallback)
-		obs_frontend_remove_event_callback(frontendEventCallback, this);
+	module_lifecycle().remove(this);
+	auto &devices = module_devices();
+	devices.erase(std::remove(devices.begin(), devices.end(), this), devices.end());
 
 	/* Stop watching the source */
 	watchParentSource(m_parentSource, false);
@@ -1086,16 +1092,34 @@ bool ptz_source_is_device(obs_source_t *source)
 	return usable;
 }
 
-void ptz_device_startup(obs_source_t *filter)
+/* One frontend callback for the module's devices, and the lifecycle and
+ * device list it drives (main thread only, see PTZLifecycle) */
+void ptz_module_frontend_event(enum obs_frontend_event event, void *)
 {
-	/* The data of a PTZ Control filter is its device */
-	auto ptz = filter ? static_cast<PTZDevice *>(obs_obj_get_data(filter)) : nullptr;
-	if (ptz)
-		QMetaObject::invokeMethod(ptz, [ptz]() { ptz->onOBSStartup(); }, Qt::QueuedConnection);
+	switch (event) {
+	case OBS_FRONTEND_EVENT_FINISHED_LOADING:
+		module_lifecycle().loadingFinished();
+		break;
+	case OBS_FRONTEND_EVENT_SCENE_CHANGED:
+	case OBS_FRONTEND_EVENT_PREVIEW_SCENE_CHANGED:
+	case OBS_FRONTEND_EVENT_STUDIO_MODE_ENABLED:
+	case OBS_FRONTEND_EVENT_STUDIO_MODE_DISABLED:
+		/* A copy: nothing here destroys one, but be safe */
+		for (PTZDevice *d : std::vector<PTZDevice *>(module_devices()))
+			d->onSceneChanged();
+		break;
+	case OBS_FRONTEND_EVENT_SCRIPTING_SHUTDOWN:
+		module_lifecycle().exiting();
+		break;
+	default:
+		break;
+	}
 }
 
 void ptz_load_devices()
 {
+	obs_frontend_add_event_callback(ptz_module_frontend_event, nullptr);
+
 	/* Constructed here rather than as a plain static-storage global so
 	 * its constructor happens at a well-defined point in the module load
 	 * instead of at plugin-library-load time -- see PTZListModel::create() */
@@ -1121,6 +1145,7 @@ void ptz_load_devices()
 void ptz_unload_devices(void)
 {
 	/* Reverse of construction order */
+	obs_frontend_remove_event_callback(ptz_module_frontend_event, nullptr);
 	PTZListModel::destroy();
 	ptz_discovery_unregister_all();
 	ptz_legacy_unload();

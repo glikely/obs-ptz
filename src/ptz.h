@@ -57,10 +57,6 @@ extern obs_source_t *ptz_device_create_filter(obs_source_t *parent, obs_data_t *
  * (see docs/ptz-device-api.md). Nothing about its id says so. */
 extern bool ptz_source_is_device(obs_source_t *source);
 
-/* Does what a device does when OBS has finished loading, for a device made
- * while it was doing that, which is too late to have heard of it */
-extern void ptz_device_startup(obs_source_t *filter);
-
 extern bool ptz_scene_is_source_active(obs_source_t *scene, obs_source_t *source);
 
 /* The version of the PTZ API that ptz_get_api_version reports, on each of this

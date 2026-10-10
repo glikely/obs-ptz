@@ -19,6 +19,7 @@
 #include <qt-wrappers.hpp>
 #include <util/platform.h>
 #include "ptz.h"
+#include "ptz-lifecycle.hpp"
 
 #define ptz_log(level, format, ...) \
 	blog(level, "[%s/%.12s] " format, this->type.c_str(), QT_TO_UTF8(this->m_parentSourceName), ##__VA_ARGS__)
@@ -42,7 +43,7 @@ struct PTZCameraPresets {
 	bool enumerable = false;
 };
 
-class PTZDevice : public QObject {
+class PTZDevice : public QObject, public PTZLifecycle::Listener {
 	Q_OBJECT
 
 public:
@@ -107,9 +108,11 @@ protected:
 
 private:
 	uint m_recallGeneration = 0;
-	bool m_frontendCallback = false;
-	void onFrontendEvent(enum obs_frontend_event event);
-	static void frontendEventCallback(enum obs_frontend_event event, void *data);
+	/* PTZLifecycle::Listener: the module's one frontend callback calls
+	 * these, which run onOBSStartup()/onOBSShutdown() on the device's thread */
+	void onStartup() override;
+	void onShutdown() override;
+	friend void ptz_module_frontend_event(enum obs_frontend_event event, void *);
 
 protected:
 	/* The OBS filter instance that owns this device */

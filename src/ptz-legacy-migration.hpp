@@ -29,10 +29,8 @@ obs_data_array_t *ptz_legacy_devices_save(void);
  * placeholder source in the current scene (also for an entry that has no
  * source, or whose source no collection has). Action sources that named the
  * old device by its id name its filter by UUID instead. Returns true if anything was changed, which
- * the caller should save. `finishing_loading` is true when OBS has just
- * finished loading: the devices made then are told so, as the ones that were
- * already there were. */
-bool ptz_legacy_migrate(bool finishing_loading);
+ * the caller should save. */
+bool ptz_legacy_migrate(void);
 
 /* The UUID of the filter of the device that took the place of the self-managed
  * device `old_id`, or NULL if there is none (yet). Good until the next call

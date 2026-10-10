@@ -194,11 +194,11 @@ void PTZControls::handleFrontendEvent(enum obs_frontend_event event)
 		break;
 	case OBS_FRONTEND_EVENT_FINISHED_LOADING:
 		watchCurrentScene();
-		migrateLegacyDevices(true);
+		migrateLegacyDevices();
 		ptz_thumbnail_sweep();
 		break;
 	case OBS_FRONTEND_EVENT_SCENE_COLLECTION_CHANGED:
-		migrateLegacyDevices(false);
+		migrateLegacyDevices();
 		break;
 	case OBS_FRONTEND_EVENT_EXIT:
 		itemSelectSignal.Disconnect();
@@ -881,9 +881,9 @@ void PTZControls::LoadConfig()
 	selected_uuid = QT_UTF8(obs_data_get_string(loaddata, "selected_device"));
 }
 
-void PTZControls::migrateLegacyDevices(bool finishingLoading)
+void PTZControls::migrateLegacyDevices()
 {
-	if (ptz_legacy_migrate(finishingLoading))
+	if (ptz_legacy_migrate())
 		SaveConfig();
 	if (legacy_current_selected) {
 		const char *uuid = ptz_legacy_remap_id(legacy_current_selected);
