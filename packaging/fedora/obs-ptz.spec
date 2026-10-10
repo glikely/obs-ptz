@@ -33,9 +33,17 @@ BuildRequires:  cmake(SDL2)
 # The plugin loads into the obs binary and uses its Qt/libobs ABI
 Requires:       obs-studio%{?_isa}
 
-# Copied from obs-studio and QJoysticks and built into the plugin
-Provides:       bundled(qjoysticks)
-Provides:       bundled(obs-studio-qt-widgets)
+# Code copied into the tree and built into the plugin:
+#   shared/qjoysticks    QJoysticks, which has no releases; imported from
+#                        commit ccc0f53 on 2025-04-24 (snapshot version)
+#   shared/properties-view, shared/qt/*
+#                        OBSPropertiesView and Qt widgets from obs-studio 32.2.1
+#   shared/qjoysticks/SDL/Database.txt
+#                        SDL_GameControllerDB data file (no upstream release)
+# SDL2 itself is linked dynamically and needs no entry.
+Provides:       bundled(qjoysticks) = 0^20250424gitccc0f53
+Provides:       bundled(obs-studio) = 32.2.1
+Provides:       bundled(SDL_GameControllerDB)
 
 %description
 Pan, tilt and zoom control for PTZ cameras from within OBS Studio. Supports
