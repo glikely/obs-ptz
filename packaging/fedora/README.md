@@ -61,10 +61,10 @@ and the joystick and USB camera paths load.
 - **Bundled code.** `Provides: bundled(...)` lists what is copied into the
   plugin. Confirm the entries and licenses against the review guidelines, or
   patch the build to use system copies where Fedora ships them.
-- **License tag.** Source files carry `SPDX-License-Identifier: GPLv2`, which
-  isn't a valid SPDX id, and `LICENSE` is the plain GPLv2 text. Ask upstream to
-  switch to `GPL-2.0-only` or `GPL-2.0-or-later` so the `License:` field is
-  defensible.
+- **License tag.** Upstream relicensed to GPL-2.0-or-later and fixed the
+  invalid `GPLv2` SPDX ids (commit `8fe88490`, newer than v0.19.0), so the tag
+  is `GPL-2.0-or-later AND MIT AND Zlib`. A tarball of v0.19.0 itself is still
+  GPL-2.0-only; the tag must be `GPL-2.0-only AND ...` for that release.
 - **Known `rpmlint` output.** Tested clean on rawhide (F46) and F43 apart from
   `no-%check-section` (the plugin only loads inside OBS, so there are no
   runnable tests) and `incorrect-fsf-address`, which comes from the stock GPLv2

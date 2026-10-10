@@ -3,12 +3,13 @@ Version:        0.19.0
 Release:        %autorelease
 Summary:        PTZ camera control plugin for OBS Studio
 
-# Plugin sources are GPL-2.0-only. Bundled helper code, built into the plugin:
+# Plugin sources are GPL-2.0-or-later (relicensed from GPL-2.0-only upstream in
+# 8fe88490, after v0.19.0). Bundled helper code, built into the plugin:
 #   shared/qjoysticks (QJoysticks)           MIT
 #   shared/qjoysticks/SDL/Database.txt       Zlib (SDL_GameControllerDB)
 #   shared/properties-view, shared/qt/*      GPL-2.0-or-later (from obs-studio)
 # shared/catch2 and shared/qtserialport are not built on Linux and not shipped.
-License:        GPL-2.0-only AND GPL-2.0-or-later AND MIT AND Zlib
+License:        GPL-2.0-or-later AND MIT AND Zlib
 URL:            https://github.com/glikely/obs-ptz
 Source0:        %{url}/archive/refs/tags/v%{version}/%{name}-%{version}.tar.gz
 
