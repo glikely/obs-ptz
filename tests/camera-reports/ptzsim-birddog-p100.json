@@ -434,7 +434,7 @@
         }
     ],
     "os": "Linux",
-    "plugin_version": "0.20.0-pre2",
+    "plugin_version": "0.20.0-pre3",
     "protocol": "visca",
     "report": "obs-ptz camera report",
     "type": "visca-over-tcp"
