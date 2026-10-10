@@ -79,6 +79,10 @@ public:
 		/* The camera has tally lamps, which setTally() lights while the
 		 * "tally_auto" setting is on */
 		TallyLight = 1 << 15,
+		/* The driver knows when the camera has arrived at a recalled
+		 * preset, and says so with moveFinished(); without it the
+		 * device guesses, kRecallSettleMs after the recall */
+		MoveCompletion = 1 << 16,
 	};
 	Q_DECLARE_FLAGS(Features, Feature)
 	/* Each feature, and its name in the state's "features" */
@@ -106,8 +110,18 @@ protected:
 	bool focus_invert = false;
 	bool focus_changed = false;
 
+	/* How long a recall is taken to take, for a driver without MoveCompletion */
+	static constexpr int kRecallSettleMs = 3000;
+
 private:
+	/* The recall waiting to be reported with ptz_preset_recalled, if any.
+	 * A newer recall or a move bumps the generation, which drops it. */
 	uint m_recallGeneration = 0;
+	QString m_recallPending;
+	/* The preset the last recall arrived at, until the camera is sent elsewhere */
+	QString m_arrivedId;
+	void finishRecall();
+	void cancelRecall();
 	/* PTZLifecycle::Listener: the module's one frontend callback calls
 	 * these, which run onOBSStartup()/onOBSShutdown() on the device's thread */
 	void onStartup() override;
@@ -177,6 +191,10 @@ protected:
 	void signalPresetChanged(const QString &id, obs_data_t *changed);
 	void signalPresetThumbnail(const QString &id);
 	void setConnected(bool connected);
+	/* A driver with MoveCompletion calls this when the camera has stopped
+	 * where the last recall sent it: says so for that recall, if it is
+	 * still the last thing the device was told to do */
+	void moveFinished();
 	OBSData state;        /* Transient state of the camera. Isn't saved */
 	OBSData stateChanged; /* changed state to be sent via the notify signal */
 	OBSData statistics;
@@ -329,7 +347,6 @@ public:
 	void clearPresetThumbnail(const QString &id);
 	/* Grabs a frame of the device's source as the preset's thumbnail */
 	void capturePresetThumbnail(const QString &id);
-	void refreshThumbnailAfterRecall(const QString &id);
 
 	/**
 	 * do_update() method is to be implemented by each driver as the way
@@ -396,8 +413,9 @@ protected slots:
 	virtual void memory_recall(int i) { Q_UNUSED(i); }
 	virtual void memory_reset(int i) { Q_UNUSED(i); }
 
-	void stop(calldata_t *) { QMetaObject::invokeMethod(this, "stop"); }
-	void pantilt_home(calldata_t *) { QMetaObject::invokeMethod(this, "pantilt_home"); }
+	/* The movement procs, each of which cancels a recall's report */
+	void stop(calldata_t *);
+	void pantilt_home(calldata_t *);
 	void pantilt_set_home(calldata_t *) { QMetaObject::invokeMethod(this, "pantilt_set_home"); }
 	void move(calldata_t *cd);
 	void move_abs(calldata_t *cd);
@@ -406,6 +424,7 @@ protected slots:
 	void trigger(calldata_t *cd);
 	void preset_save(calldata_t *cd);
 	void preset_recall(calldata_t *cd);
+	void preset_capture_thumbnail(calldata_t *cd);
 
 	/* calldata_t overloads of the query/config/preset-CRUD API below,
 	 * registered on the proc_handler so PTZListModel never has to call

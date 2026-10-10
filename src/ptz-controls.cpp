@@ -64,6 +64,11 @@ void ptz_load_controls(void)
 
 PTZControls *PTZControls::instance = NULL;
 
+/* After a device says its camera has arrived at a preset, how long to wait before
+ * capturing the preset's thumbnail: the camera has stopped, but a network video
+ * source can be behind it */
+static constexpr int kThumbnailSettleMs = 750;
+
 /* The device of a source: its own, or else that of the first of its active children with one */
 static QModelIndex deviceIndexForSource(obs_source_t *source)
 {
@@ -316,6 +321,7 @@ PTZControls::PTZControls(QWidget *parent) : QFrame(parent), ui(new Ui::PTZContro
 	deviceDelegate = new PTZDeviceListDelegate(ui->deviceList);
 	ui->deviceList->setItemDelegate(deviceDelegate);
 	connect(ptzDeviceList, &PTZListModel::dataChanged, this, &PTZControls::settingsChanged);
+	connect(ptzDeviceList, &PTZListModel::presetRecalled, this, &PTZControls::presetRecalled);
 
 	copyActionsDynamicProperties();
 
@@ -925,6 +931,17 @@ void PTZControls::setSpeedRampEnabled(bool enabled)
 		return;
 	speed_ramp_enabled = enabled;
 	emit speedRampEnabledChanged(enabled);
+}
+
+/* Refresh a recalled preset's thumbnail, if the preference says to, with what the
+ * camera sees once there. The device skips it if the camera has been sent
+ * elsewhere meanwhile, by a move or another recall. */
+void PTZControls::presetRecalled(const QString &uuid, const QString &id)
+{
+	if (!refresh_thumbnail_on_recall)
+		return;
+	QTimer::singleShot(kThumbnailSettleMs, this,
+			   [uuid, id] { ptzDeviceList->preset_capture_thumbnail(uuid, id, true); });
 }
 
 void PTZControls::setRefreshThumbnailOnRecall(bool enabled)

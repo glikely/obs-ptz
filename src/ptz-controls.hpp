@@ -112,6 +112,7 @@ private slots:
 	void updateMoveControls();
 	void currentChanged(QModelIndex current, QModelIndex previous);
 	void settingsChanged(const QModelIndex &topleft, const QModelIndex &bottomRight);
+	void presetRecalled(const QString &uuid, const QString &id);
 
 	void updatePresetList();
 	void presetUpdateActions();

@@ -18,7 +18,6 @@
 #include <QUrl>
 #include <QUuid>
 #include "ptz-device.hpp"
-#include "ptz-controls.hpp"
 #include "ptz-list-model.hpp"
 #include "ptz-legacy-migration.hpp"
 #include "ptz-discovery.hpp"
@@ -151,6 +150,8 @@ PTZDevice::PTZDevice(OBSData config, obs_source_t *filter) : QObject()
 	addProc("void ptz_move_rel()", ptz_ph_lambda(move_rel), this);
 	addProc("void ptz_preset_save(string id)", ptz_ph_lambda(preset_save), this);
 	addProc("void ptz_preset_recall(string id)", ptz_ph_lambda(preset_recall), this);
+	addProc("void ptz_preset_capture_thumbnail(string id, bool if_arrived)",
+		ptz_ph_lambda(preset_capture_thumbnail), this);
 
 	addProc("ptr ptz_get_state(ptr state)", ptz_ph_lambda(get_state), this);
 	addProc("ptr ptz_get_statistics(ptr statistics)", ptz_ph_lambda(get_statistics), this);
@@ -183,6 +184,7 @@ PTZDevice::PTZDevice(OBSData config, obs_source_t *filter) : QObject()
 		addSignal("void ptz_preset_changed(ptr source, string id, ptr changed)");
 		addSignal("void ptz_preset_list_reset(ptr source)");
 		addSignal("void ptz_preset_create_done(ptr source, string request, string id)");
+		addSignal("void ptz_preset_recalled(ptr source, string id)");
 	}
 
 	/* The device is given its source by its filter, see setParentSource() */
@@ -449,23 +451,44 @@ void PTZDevice::focus(double speed)
 	do_update();
 }
 
+/* Each movement proc drops a pending recall's report, queued ahead of the move
+ * so the two run in order on the device's thread */
+void PTZDevice::stop(calldata_t *)
+{
+	QMetaObject::invokeMethod(this, [this] { cancelRecall(); });
+	QMetaObject::invokeMethod(this, "stop");
+}
+
+void PTZDevice::pantilt_home(calldata_t *)
+{
+	QMetaObject::invokeMethod(this, [this] { cancelRecall(); });
+	QMetaObject::invokeMethod(this, "pantilt_home");
+}
+
 void PTZDevice::move(calldata_t *cd)
 {
 	double p = 0, t = 0, z = 0, f = 0;
+	bool pantilt = calldata_get_float(cd, "pan", &p) + calldata_get_float(cd, "tilt", &t);
+	bool zoom = calldata_get_float(cd, "zoom", &z);
+	bool focus = calldata_get_float(cd, "focus", &f);
 
-	if (calldata_get_float(cd, "pan", &p) + calldata_get_float(cd, "tilt", &t))
+	/* Only a speed: a joystick says 0 over and over while it is idle, which
+	 * moves nothing. Stopping a real move cancelled with its start. */
+	if (p != 0 || t != 0 || z != 0 || f != 0)
+		QMetaObject::invokeMethod(this, [this] { cancelRecall(); });
+
+	if (pantilt)
 		QMetaObject::invokeMethod(this, "pantilt", Q_ARG(double, p), Q_ARG(double, t));
-
-	if (calldata_get_float(cd, "zoom", &z))
+	if (zoom)
 		QMetaObject::invokeMethod(this, "zoom", Q_ARG(double, z));
-
-	if (calldata_get_float(cd, "focus", &f))
+	if (focus)
 		QMetaObject::invokeMethod(this, "focus", Q_ARG(double, f));
 }
 
 void PTZDevice::move_abs(calldata_t *cd)
 {
 	double p = 0, t = 0, z = 0, f = 0;
+	QMetaObject::invokeMethod(this, [this] { cancelRecall(); });
 
 	if (calldata_get_float(cd, "pan", &p) + calldata_get_float(cd, "tilt", &t))
 		QMetaObject::invokeMethod(this, "pantilt_abs", Q_ARG(double, p), Q_ARG(double, t));
@@ -480,6 +503,7 @@ void PTZDevice::move_abs(calldata_t *cd)
 void PTZDevice::move_rel(calldata_t *cd)
 {
 	double p = 0, t = 0;
+	QMetaObject::invokeMethod(this, [this] { cancelRecall(); });
 
 	if (calldata_get_float(cd, "pan", &p) + calldata_get_float(cd, "tilt", &t))
 		QMetaObject::invokeMethod(this, "pantilt_rel", Q_ARG(double, p), Q_ARG(double, t));
@@ -539,6 +563,7 @@ const QList<QPair<PTZDevice::Feature, const char *>> &PTZDevice::featureNames()
 		{WhiteBalanceOnePush, "wb_onepush"},
 		{Diagnostics, "diagnostics"},
 		{TallyLight, "tally_light"},
+		{MoveCompletion, "move_completion"},
 	};
 	return names;
 }
@@ -614,6 +639,22 @@ void PTZDevice::preset_recall(calldata_t *cd)
 	if (calldata_get_string(cd, "id", &id) && id) {
 		QString preset = QString::fromUtf8(id);
 		QMetaObject::invokeMethod(this, [this, preset] { recallPreset(preset); });
+	}
+}
+
+/* With "if_arrived", only while the preset is still where the last recall
+ * arrived: not once the camera has been sent elsewhere */
+void PTZDevice::preset_capture_thumbnail(calldata_t *cd)
+{
+	const char *id = nullptr;
+	if (calldata_get_string(cd, "id", &id) && id) {
+		QString preset = QString::fromUtf8(id);
+		bool ifArrived = false;
+		calldata_get_bool(cd, "if_arrived", &ifArrived);
+		QMetaObject::invokeMethod(this, [this, preset, ifArrived] {
+			if (!ifArrived || preset == m_arrivedId)
+				capturePresetThumbnail(preset);
+		});
 	}
 }
 
@@ -1393,20 +1434,25 @@ void PTZDevice::capturePresetThumbnail(const QString &id)
 	ptz_capture_source_thumbnail(src, this, [this, id](QImage image) { setPresetThumbnail(id, image); });
 }
 
-/* Once the camera has had time to reach a recalled preset, replace that
- * preset's thumbnail with what it sees now. A newer recall cancels this one,
- * since the camera will have moved on before the capture. */
-void PTZDevice::refreshThumbnailAfterRecall(const QString &id)
+void PTZDevice::cancelRecall()
 {
-	uint generation = ++m_recallGeneration;
-	PTZControls *controls = PTZControls::getInstance();
-	if (!controls || !controls->refreshThumbnailOnRecall())
-		return;
-	static constexpr int recallSettleMs = 3000;
-	QTimer::singleShot(recallSettleMs, this, [this, id, generation] {
-		if (generation == m_recallGeneration)
-			capturePresetThumbnail(id);
-	});
+	++m_recallGeneration;
+	m_recallPending.clear();
+	m_arrivedId.clear();
+}
+
+void PTZDevice::finishRecall()
+{
+	QString id = m_recallPending;
+	m_recallPending.clear();
+	m_arrivedId = id;
+	signalPreset("ptz_preset_recalled", id);
+}
+
+void PTZDevice::moveFinished()
+{
+	if (!m_recallPending.isEmpty())
+		finishRecall();
 }
 
 bool PTZDevice::localPresets() const
@@ -1605,18 +1651,25 @@ void PTZDevice::savePreset(const QString &id)
 
 void PTZDevice::recallPreset(const QString &id)
 {
-	if (id.startsWith(QStringLiteral("local:"))) {
-		int index = presetIndex(id);
-		if (index < 0)
-			return;
-		applyValues(m_presets.at(index));
-		refreshThumbnailAfterRecall(id);
+	bool local = id.startsWith(QStringLiteral("local:"));
+	if (local ? presetIndex(id) < 0 : !id.startsWith(QStringLiteral("camera:")))
 		return;
-	}
-	if (!id.startsWith(QStringLiteral("camera:")))
+	/* Pending until the driver says the camera is there, or, if it can't
+	 * tell, until it has had time to get there. Recorded first, in case a
+	 * driver knows at once. */
+	cancelRecall();
+	m_recallPending = id;
+	if (local)
+		applyValues(m_presets.at(presetIndex(id)));
+	else
+		cameraPresetRecall(presetKey(id));
+	if (features().testFlag(MoveCompletion))
 		return;
-	cameraPresetRecall(presetKey(id));
-	refreshThumbnailAfterRecall(id);
+	uint generation = m_recallGeneration;
+	QTimer::singleShot(kRecallSettleMs, this, [this, generation] {
+		if (generation == m_recallGeneration && !m_recallPending.isEmpty())
+			finishRecall();
+	});
 }
 
 void PTZDevice::deletePreset(const QString &id)

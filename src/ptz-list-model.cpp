@@ -142,6 +142,17 @@ static void preset_create_done_cb(void *data, calldata_t *cd)
 	});
 }
 
+/* The camera has arrived at a recalled preset, as best the device can tell */
+static void preset_recalled_cb(void *data, calldata_t *cd)
+{
+	auto ptzlm = static_cast<PTZListModel *>(data);
+	QString uuid = signalUuid(cd);
+	const char *id = "";
+	calldata_get_string(cd, "id", &id);
+	QString preset = QString::fromUtf8(id ? id : "");
+	QMetaObject::invokeMethod(ptzlm, [ptzlm, uuid, preset] { emit ptzlm->presetRecalled(uuid, preset); });
+}
+
 PTZListModel::PTZListModel() : QAbstractItemModel()
 {
 	/* Plugins are loaded before any source is, so there are no devices to look for yet */
@@ -890,6 +901,18 @@ void PTZListModel::preset_save(const QString &uuid, const QString &preset_id)
 	calldata_free(&cd);
 }
 
+void PTZListModel::preset_capture_thumbnail(const QString &uuid, const QString &preset_id, bool ifArrived)
+{
+	auto entry = entryByUuid(uuid);
+	if (!entry)
+		return;
+	calldata_t cd = {};
+	calldata_set_string(&cd, "id", QT_TO_UTF8(preset_id));
+	calldata_set_bool(&cd, "if_arrived", ifArrived);
+	callEntry(*entry, "ptz_preset_capture_thumbnail", &cd);
+	calldata_free(&cd);
+}
+
 void PTZListModel::deviceCreated(OBSWeakSource weakSource)
 {
 	/* Not there to be asked about if its source has gone since it was announced */
@@ -925,6 +948,7 @@ void PTZListModel::deviceCreated(OBSWeakSource weakSource)
 				 "ptz_preset_changed", "ptz_preset_list_reset"})
 		signal_handler_connect(sh, name, preset_sync_cb, this);
 	signal_handler_connect(sh, "ptz_preset_create_done", preset_create_done_cb, this);
+	signal_handler_connect(sh, "ptz_preset_recalled", preset_recalled_cb, this);
 }
 
 void PTZListModel::deviceDestroyed(const QString &uuid)

@@ -207,10 +207,15 @@ signals:
 	/* A request to make a preset, from addPreset(), has been answered: `id` is the id of the
 	 * preset that was made, or "" if the device made none */
 	void presetCreateDone(const QString &uuid, const QString &request, const QString &id);
+	/* The device says its camera has arrived at the preset it recalled */
+	void presetRecalled(const QString &uuid, const QString &id);
 
 public slots:
 	void preset_recall(const QString &uuid, const QString &preset_id);
 	void preset_save(const QString &uuid, const QString &preset_id);
+	/* Have the device grab a frame of its source as the preset's thumbnail; with
+	 * ifArrived, only if the camera is still at the preset its last recall reached */
+	void preset_capture_thumbnail(const QString &uuid, const QString &preset_id, bool ifArrived = false);
 };
 
 extern PTZListModel *ptzDeviceList;
