@@ -27,6 +27,20 @@ target_link_libraries(${CMAKE_PROJECT_NAME} PRIVATE OBS::properties-view)
 add_subdirectory("${CMAKE_SOURCE_DIR}/shared/qt/display" "${CMAKE_BINARY_DIR}/shared/qt/display")
 target_link_libraries(${CMAKE_PROJECT_NAME} PRIVATE OBS::qt-display)
 
+# libobs's util/sse-intrin.h always includes SIMDe with SIMDE_ENABLE_NATIVE_ALIASES,
+# even on x86. That turns the _mm_*() names into macros, so any real x86
+# intrinsics header included *after* <obs.h> (Qt's qsimd.h pulls in
+# <immintrin.h>) fails to compile with "redeclared as different kind of
+# entity". They are fine when included first. Qt's moc output is compiled as
+# one translation unit (mocs_compilation.cpp), so a header that includes
+# <obs.h> can be followed by another moc file that includes Qt's headers, and
+# no per-file include order inside this project can prevent that. Include the
+# real header ahead of everything instead. Other architectures use SIMDe's
+# own implementations only, and Windows and macOS builds are unaffected.
+if(CMAKE_SYSTEM_NAME STREQUAL "Linux" AND CMAKE_SYSTEM_PROCESSOR MATCHES "^(x86_64|AMD64|i[3-6]86)$")
+  target_compile_options(${CMAKE_PROJECT_NAME} PRIVATE "$<$<COMPILE_LANGUAGE:CXX>:SHELL:-include immintrin.h>")
+endif()
+
 if(ENABLE_QT)
   # AGL was removed from Xcode 15+, but the prebuilt libraries ask for it
   if(APPLE)
