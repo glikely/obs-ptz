@@ -12,6 +12,11 @@ packaging/fedora/docker-test.sh [fedora-version]   # default: rawhide
 This builds an image from `Dockerfile` (build dependencies are installed from
 the spec with `dnf builddep`), then builds the RPM from the committed `HEAD` of
 your checkout and runs `rpmlint`. The RPMs end up in `packaging/fedora/rpms-out/`.
+After a build, `packaging/fedora/install-test.sh [fedora-version]` installs
+the RPMs from `rpms-out/` into a clean Fedora container together with
+`obs-studio` and checks that `obs-ptz.so` lands in the same directory as OBS's
+own plugins (`%{_libdir}/obs-plugins`), resolves all its symbols, and that the
+data directory (`/usr/share/obs/obs-plugins/obs-ptz`) is installed.
 Commit your spec changes first; uncommitted changes aren't included. Set
 `BASE_IMAGE=docker.io/library/fedora` if `registry.fedoraproject.org` is not
 reachable.
@@ -60,6 +65,13 @@ and the joystick and USB camera paths load.
   isn't a valid SPDX id, and `LICENSE` is the plain GPLv2 text. Ask upstream to
   switch to `GPL-2.0-only` or `GPL-2.0-or-later` so the `License:` field is
   defensible.
+- **Known `rpmlint` output.** Tested clean on rawhide (F46) and F43 apart from
+  `no-%check-section` (the plugin only loads inside OBS, so there are no
+  runnable tests) and `incorrect-fsf-address`, which comes from the stock GPLv2
+  text in `LICENSE`; report it upstream, don't patch it in the package.
+- **Build type.** The spec passes `-DCMAKE_BUILD_TYPE=None`: the project
+  otherwise defaults to `RelWithDebInfo`, and sdl2-compat's imported
+  `SDL2::SDL2` only has a "noconfig" location, so configure fails.
 - **Release tag.** `Source0` assumes tags named `vX.Y.Z`. If upstream tags
   differ, adjust it.
 - **Version string.** The build runs `git describe`, but a release tarball has

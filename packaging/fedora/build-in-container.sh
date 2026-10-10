@@ -2,14 +2,12 @@
 # Runs inside the container: build the RPM from the checkout mounted at /src.
 set -euo pipefail
 
-spec=/src/packaging/fedora/obs-ptz.spec
-version=$(rpmspec -q --qf '%{version}\n' "$spec" | head -1)
+spec=/spec/obs-ptz.spec
 top=$HOME/rpmbuild
 
-# Source0 is a GitHub tag tarball; make the same thing from the checkout
-git config --global --add safe.directory /src
-git -C /src archive --prefix="obs-ptz-$version/" HEAD \
-    -o "$top/SOURCES/obs-ptz-$version.tar.gz"
+# Source0 is a GitHub tag tarball; docker-test.sh makes the same thing from
+# the checkout and mounts it at /sources
+cp /sources/*.tar.gz "$top/SOURCES/"
 cp "$spec" "$top/SPECS/"
 
 rpmlint "$top/SPECS/obs-ptz.spec" || true

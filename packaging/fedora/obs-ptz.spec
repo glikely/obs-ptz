@@ -40,13 +40,17 @@ Provides:       bundled(obs-studio-qt-widgets)
 Pan, tilt and zoom control for PTZ cameras from within OBS Studio. Supports
 VISCA over IP (UDP and TCP) and serial, Pelco, ONVIF, Sony discovery and USB
 (UVC) cameras. Includes a controls dock, camera presets, a PTZ source and
-filter, and optional joystick/gamepad control.
+filter, and optional joystick and game controller control.
 
 %prep
 %autosetup -p1
 
+# The project defaults an empty build type to RelWithDebInfo, but sdl2-compat's
+# imported SDL2::SDL2 only has a "noconfig" location, so ask for None (the
+# Fedora convention: all flags come from the rpm macros)
 %build
 %cmake \
+    -DCMAKE_BUILD_TYPE=None \
     -DENABLE_FRONTEND_API=ON \
     -DENABLE_QT=ON \
     -DENABLE_SERIALPORT=ON \
