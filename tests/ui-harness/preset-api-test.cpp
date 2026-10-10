@@ -128,7 +128,8 @@ void runCallProcTest(const QMap<QString, QString> &params)
 QList<QJsonObject> recorded;
 
 const char *const PRESET_SIGNALS[] = {"ptz_preset_added",   "ptz_preset_removed",    "ptz_preset_order_changed",
-				      "ptz_preset_changed", "ptz_preset_list_reset", "ptz_preset_create_done"};
+				      "ptz_preset_changed", "ptz_preset_list_reset", "ptz_preset_create_done",
+				      "ptz_preset_recalled"};
 
 void recordSignal(void *data, calldata_t *cd)
 {

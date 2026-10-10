@@ -15,6 +15,9 @@ ptzsim, the camera, has: a camera preset is in it, a local one is not.
   the camera's own presets alone, saves every value, and a recall applies only
   the pan, tilt, zoom and focus it has;
 - update, move and refresh change the list and say so with signals of ids;
+- a recall says when the camera has arrived, once, and only for the last one
+  asked for; a device that can't tell (ONVIF here) says so after a fixed settle
+  time, and the controller then refreshes the preset's thumbnail;
 - what the camera keeps is not saved in the source's settings, and what is
   kept is, and the legacy `presets` of an older version is read as annotations.
 """
@@ -486,6 +489,200 @@ def test_refresh_reads_the_cameras_presets_again(obs_world, made, ptzsim_process
 
     obs_world.wait_for(lambda: f"camera:{token}" in presets_by_id(obs_world, device))
     assert "ptz_preset_list_reset" in [e["signal"] for e in obs_world.preset_signals()]
+
+
+# ------------------------------------------------------- arrival
+
+# PTZDevice::kRecallSettleMs: when a device without the move_completion feature
+# says a recall has arrived
+RECALL_SETTLE = 3.0
+# PTZControls' kThumbnailSettleMs: how long after that the controller captures
+THUMBNAIL_SETTLE = 0.75
+
+
+def recalled(world):
+    return [e["id"] for e in world.preset_signals() if e["signal"] == "ptz_preset_recalled"]
+
+
+def two_local_presets(world, presets, device):
+    go_to(world, device, 0.3, 0.2, 0.4)
+    a = presets.create("A", store="local")
+    go_to(world, device, -0.3, -0.2, 0.1)
+    b = presets.create("B", store="local")
+    return a, b
+
+
+def test_onvif_has_no_move_completion(obs_world):
+    """So the tests below have the timer fallback"""
+    device = obs_world.device_names["onvif"]
+    state = obs_world.call_proc(device, "ptz_get_state", {"state": {}})["args"]["state"]
+    assert "move_completion" not in state["features"]
+
+
+def test_recall_emits_preset_recalled(obs_world, made):
+    device = obs_world.device_names["onvif"]
+    presets = made("onvif")
+    a, _ = two_local_presets(obs_world, presets, device)
+    obs_world.record_preset_signals(device)
+
+    presets.call("ptz_preset_recall", id=a)
+    # not before the settle time
+    time.sleep(RECALL_SETTLE - 0.5)
+    assert recalled(obs_world) == []
+    obs_world.wait_for(lambda: recalled(obs_world), timeout=3)
+    # and once
+    time.sleep(1)
+    assert recalled(obs_world) == [a]
+
+
+def test_superseded_recall_emits_once(obs_world, made):
+    """Review Focus 2: recall A, then B before A has settled: only B is reported"""
+    device = obs_world.device_names["onvif"]
+    presets = made("onvif")
+    a, b = two_local_presets(obs_world, presets, device)
+    obs_world.record_preset_signals(device)
+
+    presets.call("ptz_preset_recall", id=a)
+    time.sleep(1)
+    presets.call("ptz_preset_recall", id=b)
+    obs_world.wait_for(lambda: recalled(obs_world), timeout=RECALL_SETTLE + 2)
+    # past when A's would have been, had it not been superseded
+    time.sleep(1.5)
+    assert recalled(obs_world) == [b]
+
+
+@pytest.mark.parametrize("proc,args", [
+    ("ptz_stop", {}),
+    ("ptz_move", {"pan": 0.5, "tilt": 0.0}),
+    ("ptz_move_abs", {"pan": 0.1}),
+    ("ptz_move_rel", {"pan": 0.05}),
+    ("ptz_home_recall", {}),
+])
+def test_a_move_after_a_recall_cancels_its_report(obs_world, made, proc, args):
+    """Review Focus 2: the camera has gone somewhere else, so it never arrives"""
+    device = obs_world.device_names["onvif"]
+    presets = made("onvif")
+    a, _ = two_local_presets(obs_world, presets, device)
+    obs_world.record_preset_signals(device)
+
+    presets.call("ptz_preset_recall", id=a)
+    time.sleep(0.5)
+    assert obs_world.call_proc(device, proc, args)["called"]
+    if proc == "ptz_move":
+        # stopped with a zero speed, which cancels nothing itself
+        time.sleep(0.2)
+        presets.call("ptz_move", pan=0.0, tilt=0.0)
+    time.sleep(RECALL_SETTLE + THUMBNAIL_SETTLE + 1)
+    assert recalled(obs_world) == []
+    # nor is its thumbnail refreshed
+    assert [e for e in obs_world.preset_signals()
+            if e["signal"] == "ptz_preset_changed" and "thumbnail" in e["changed"]] == []
+
+
+def test_a_zero_speed_move_while_idle_does_not_cancel(obs_world, made):
+    """What a joystick at rest sends, over and over: it moves nothing"""
+    device = obs_world.device_names["onvif"]
+    presets = made("onvif")
+    a, _ = two_local_presets(obs_world, presets, device)
+    obs_world.record_preset_signals(device)
+
+    presets.call("ptz_preset_recall", id=a)
+    time.sleep(0.5)
+    for _ in range(3):
+        presets.call("ptz_move", pan=0.0, tilt=0.0, zoom=0.0)
+    obs_world.wait_for(lambda: recalled(obs_world), timeout=RECALL_SETTLE + 2)
+    assert recalled(obs_world) == [a]
+
+
+def thumbnail_changes(world):
+    return [e["id"] for e in world.preset_signals()
+            if e["signal"] == "ptz_preset_changed" and "thumbnail" in e["changed"]]
+
+
+@pytest.mark.parametrize("proc,args", [("ptz_stop", {}), ("ptz_move_abs", {"pan": 0.1})])
+def test_a_move_while_the_controller_waits_skips_the_capture(obs_world, made, proc, args):
+    """Review Focus 2: the recall arrived, but the camera is sent elsewhere in the
+    controller's short wait before it captures: no thumbnail of it on its way"""
+    device = obs_world.device_names["onvif"]
+    presets = made("onvif")
+    a, _ = two_local_presets(obs_world, presets, device)
+    obs_world.record_preset_signals(device)
+
+    presets.call("ptz_preset_recall", id=a)
+    # after the arrival, inside the controller's wait
+    time.sleep(RECALL_SETTLE + 0.3)
+    presets.call(proc, **args)
+    assert recalled(obs_world) == [a], "the move came before the arrival"
+    time.sleep(THUMBNAIL_SETTLE + 1)
+    assert thumbnail_changes(obs_world) == []
+
+
+def test_a_recall_while_the_controller_waits_skips_the_older_capture(obs_world, made):
+    """Review Focus 2: recall B in the wait after A arrives: only B's thumbnail"""
+    device = obs_world.device_names["onvif"]
+    presets = made("onvif")
+    a, b = two_local_presets(obs_world, presets, device)
+    obs_world.record_preset_signals(device)
+
+    presets.call("ptz_preset_recall", id=a)
+    time.sleep(RECALL_SETTLE + 0.3)
+    presets.call("ptz_preset_recall", id=b)
+    assert recalled(obs_world) == [a], "B came before A arrived"
+    obs_world.wait_for(lambda: thumbnail_changes(obs_world), timeout=RECALL_SETTLE + THUMBNAIL_SETTLE + 3)
+    time.sleep(0.5)
+    assert recalled(obs_world) == [a, b]
+    assert thumbnail_changes(obs_world) == [b]
+
+
+def thumbnail_of(world, device, preset_id):
+    return presets_by_id(world, device)[preset_id].get("thumbnail", "")
+
+
+def test_capture_thumbnail_proc_updates_thumbnail(obs_world, made):
+    device = obs_world.device_names["onvif"]
+    presets = made("onvif")
+    preset_id = presets.create("Pictured", store="local")
+    # saving captures one at once
+    obs_world.wait_for(lambda: thumbnail_of(obs_world, device, preset_id))
+    before = thumbnail_of(obs_world, device, preset_id)
+    obs_world.record_preset_signals(device)
+
+    # only once a recall has arrived there, if asked for that
+    presets.call("ptz_preset_capture_thumbnail", id=preset_id, if_arrived=True)
+    time.sleep(1)
+    assert thumbnail_changes(obs_world) == []
+
+    presets.call("ptz_preset_capture_thumbnail", id=preset_id, if_arrived=False)
+    obs_world.wait_for(lambda: thumbnail_of(obs_world, device, preset_id) != before)
+    assert thumbnail_changes(obs_world) == [preset_id]
+    # and, without if_arrived, regardless
+    now = thumbnail_of(obs_world, device, preset_id)
+    presets.call("ptz_preset_capture_thumbnail", id=preset_id)
+    obs_world.wait_for(lambda: thumbnail_of(obs_world, device, preset_id) != now)
+    assert thumbnail_changes(obs_world) == [preset_id, preset_id]
+
+    # and capturing one for a preset the device has not does nothing
+    presets.call("ptz_preset_capture_thumbnail", id="local:nothing-of-the-sort")
+    time.sleep(1)
+    assert thumbnail_changes(obs_world) == [preset_id, preset_id]
+
+
+def test_the_controller_refreshes_the_thumbnail_after_a_recall(obs_world, made):
+    """With its "refresh thumbnail on recall" preference on, as it is unless changed"""
+    device = obs_world.device_names["onvif"]
+    presets = made("onvif")
+    a, _ = two_local_presets(obs_world, presets, device)
+    obs_world.wait_for(lambda: thumbnail_of(obs_world, device, a))
+    before = thumbnail_of(obs_world, device, a)
+    obs_world.record_preset_signals(device)
+
+    presets.call("ptz_preset_recall", id=a)
+
+    obs_world.wait_for(lambda: thumbnail_of(obs_world, device, a) != before,
+                       timeout=RECALL_SETTLE + THUMBNAIL_SETTLE + 3)
+    signals = [e["signal"] for e in obs_world.preset_signals()
+               if e["signal"] == "ptz_preset_recalled" or "thumbnail" in e.get("changed", {})]
+    assert signals == ["ptz_preset_recalled", "ptz_preset_changed"]
 
 
 # ------------------------------------------------------- what is saved
