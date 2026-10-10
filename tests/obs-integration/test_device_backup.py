@@ -2,8 +2,9 @@
 removing devices from the settings dialog.
 
 Deleting a source takes its "PTZ Control" filter along, and with it the
-device's presets. So every device's settings are kept in a backup as it is
-destroyed (src/ptz-device.cpp, PTZDevice::backup()), and the settings
+device's presets. So the controller keeps every device's settings in a backup
+as OBS removes or destroys its filter, or removes its source
+(src/ptz-backup-store.cpp), and the settings
 dialog's Add, which adds a filter to a source rather than a device of the
 plugin's own, offers the backup of a device that was on a source of the same
 name. Its Remove removes a filter's device by removing the filter.
@@ -14,6 +15,7 @@ pointed at a port nothing listens on: none of this needs a camera.
 """
 
 import json
+import time
 
 import pytest
 from obsws import ObsWebSocketError
@@ -21,6 +23,7 @@ from obsws import ObsWebSocketError
 from conftest import free_port
 
 FILTER_KIND = "ca.secretlab.obs-ptz.visca"
+SOFT_KIND = "ca.secretlab.obs-ptz.soft-ptz"
 
 PRESETS = [{"id": 0, "name": "Wide"}, {"id": 1, "name": "Close"}]
 
@@ -47,6 +50,14 @@ class Sources:
     def remove(self, name):
         self.world.ws.call("RemoveInput", {"inputName": name})
         self.names.discard(name)
+
+    def add_soft_filter(self, source):
+        self.world.ws.call("CreateSourceFilter", {
+            "sourceName": source,
+            "filterName": "Soft PTZ",
+            "filterKind": SOFT_KIND,
+            "filterSettings": {},
+        })
 
     def add_filter(self, source, presets=PRESETS):
         self.world.ws.call("CreateSourceFilter", {
@@ -235,3 +246,116 @@ def test_restoring_a_backup_brings_its_protocol(obs_world, sources, tmp_path):
     device = obs_world.wait_for_device_by_name("backup-cam-other", tmp_path / "device.json",
                                                lambda r: r["found"] and r["bound"])
     assert preset_names(obs_world, device["uuid"], tmp_path / "settings.json") == ["Wide", "Close"]
+
+
+def backups_named(world, out, prefix):
+    return [b for b in backups(world, out) if b["name"].startswith(prefix)]
+
+
+def test_backup_records_kind(obs_world, sources, tmp_path):
+    sources.add("backup-cam-kind")
+    sources.add_filter("backup-cam-kind")
+    obs_world.wait_for_device_by_name("backup-cam-kind", tmp_path / "device.json", lambda r: r["found"])
+
+    sources.remove("backup-cam-kind")
+
+    backup = wait_for_backup(obs_world, tmp_path / "backups.json", "backup-cam-kind")
+    assert backup["kind"] == FILTER_KIND
+    # The kind's own marker is a default, not something that was saved
+    assert not any(key.startswith("ptz_api_version") for key in backup)
+
+
+def test_parent_with_two_filters_backs_up_both(obs_world, sources, tmp_path):
+    """Deleting a source takes every PTZ filter on it: one backup each (the
+    two differ in type, so neither replaces the other)"""
+    sources.add("backup-cam-two")
+    sources.add_filter("backup-cam-two")
+    sources.add_soft_filter("backup-cam-two")
+
+    sources.remove("backup-cam-two")
+
+    out = tmp_path / "backups.json"
+
+    def both():
+        return {b["kind"] for b in backups_named(obs_world, out, "backup-cam-two")} == {FILTER_KIND, SOFT_KIND}
+
+    obs_world.wait_for(both)
+    entries = backups_named(obs_world, out, "backup-cam-two")
+    assert len(entries) == 2
+    assert {b["type"] for b in entries} == {"visca-over-tcp", "soft-ptz"}
+
+
+def test_filter_removed_by_hand_is_backed_up(obs_world, sources, tmp_path):
+    sources.add("backup-cam-hand")
+    sources.add_filter("backup-cam-hand")
+    obs_world.wait_for_device_by_name("backup-cam-hand", tmp_path / "device.json", lambda r: r["found"])
+
+    obs_world.ws.call("RemoveSourceFilter", {"sourceName": "backup-cam-hand", "filterName": "PTZ"})
+
+    backup = wait_for_backup(obs_world, tmp_path / "backups.json", "backup-cam-hand")
+    assert backup["kind"] == FILTER_KIND
+    assert backup["type"] == "visca-over-tcp"
+    assert [p["name"] for p in backup["presets"]] == ["Wide", "Close"]
+    assert sources.filters("backup-cam-hand") == []
+
+
+def test_entry_without_kind_still_restores(obs_world, sources, tmp_path):
+    """A backup made before entries carried a kind is offered, and restored
+    to the kind its type belongs to"""
+    old = {"devices": [{
+        "name": "backup-cam-legacy",
+        "type": "visca-over-tcp",
+        "host": "127.0.0.1",
+        "tcp_port": sources.port,
+        "presets": PRESETS,
+        "backup_time": 1700000000,
+    }]}
+    (obs_world.config_dir / "device-backups.json").write_text(json.dumps(old))
+    obs_world.run_ui_test("reload_device_backups")
+    assert [b["name"] for b in backups(obs_world, tmp_path / "backups.json")] == ["backup-cam-legacy"]
+
+    sources.add("backup-cam-legacy")
+    result = add_device(obs_world, tmp_path / "add.json", "backup-cam-legacy")
+    assert "backup-cam-legacy" in result["chosen"]
+
+    filters = sources.filters("backup-cam-legacy")
+    assert [f["filterKind"] for f in filters] == [FILTER_KIND]
+    device = obs_world.wait_for_device_by_name("backup-cam-legacy", tmp_path / "device.json",
+                                               lambda r: r["found"] and r["bound"])
+    assert preset_names(obs_world, device["uuid"], tmp_path / "settings.json") == ["Wide", "Close"]
+
+
+# Backups made by switching scene collection with four devices, three on a
+# source each and one source with two (visca and soft): what the
+# implementation that backed up from inside the device made. See the commit
+# that introduced src/ptz-backup-store.cpp.
+COLLECTION_SWITCH_BACKUPS = 5
+
+
+def test_collection_switch_backs_up_no_more_than_before(obs_world, sources, tmp_path):
+    ws = obs_world.ws
+    original = ws.call("GetSceneCollectionList")["currentSceneCollectionName"]
+    names = [f"switch-cam-{i}" for i in range(3)]
+    for name in names:
+        sources.add(name)
+        sources.add_filter(name)
+    sources.add("switch-cam-pair")
+    sources.add_filter("switch-cam-pair")
+    sources.add_soft_filter("switch-cam-pair")
+    for name in names + ["switch-cam-pair"]:
+        obs_world.wait_for_device_by_name(name, tmp_path / "device.json", lambda r: r["found"])
+    out = tmp_path / "backups.json"
+    assert backups_named(obs_world, out, "switch-cam-") == []
+
+    ws.call("CreateSceneCollection", {"sceneCollectionName": "backup-switch-target"})
+    try:
+        obs_world.wait_for(lambda: ws.call("GetSceneCollectionList")["currentSceneCollectionName"] ==
+                           "backup-switch-target", timeout=20)
+        # Settle: whatever the switch backs up, it has by now
+        time.sleep(2)
+        count = len(backups_named(obs_world, out, "switch-cam-"))
+    finally:
+        ws.call("SetCurrentSceneCollection", {"sceneCollectionName": original})
+        obs_world.wait_for(lambda: ws.call("GetSceneCollectionList")["currentSceneCollectionName"] == original,
+                           timeout=20)
+    assert count == COLLECTION_SWITCH_BACKUPS

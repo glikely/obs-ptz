@@ -20,6 +20,7 @@
 #include "ptz-list-model.hpp"
 #include "ptz-controls.hpp"
 #include "settings.hpp"
+#include "ptz-backup-store.hpp"
 #include "ptz.h"
 
 namespace {
@@ -42,6 +43,13 @@ void runGetDeviceBackupsTest(const QMap<QString, QString> &params)
 	OBSDataAutoRelease result = obs_data_create();
 	obs_data_set_array(result, "devices", backups);
 	obs_data_save_json_safe(result, qUtf8Printable(filename), "tmp", "bak");
+}
+
+/* Has the store read the backup file again, after a test wrote it */
+void runReloadDeviceBackupsTest(const QMap<QString, QString> &)
+{
+	ptz_backup_store_stop();
+	ptz_backup_store_start();
 }
 
 /* Whether the add dialog's drivers are still looking for devices */
@@ -166,6 +174,7 @@ void runRemoveDeviceTest(const QMap<QString, QString> &params)
 } // namespace
 
 /* get_device_backups: filename - where to write {"devices": [...]}
+ * reload_device_backups: read the backup file again
  * add_device: filename, source, and one of type - the protocol's new device
  *   type ("visca-over-ip", say), restore - the source name of the backup to
  *   restore, or detected - text in a detected device's name; with none, what
@@ -176,6 +185,7 @@ void runRemoveDeviceTest(const QMap<QString, QString> &params)
 void registerDeviceBackupTest(PTZUITestHarness *harness)
 {
 	harness->registerTest(QStringLiteral("get_device_backups"), &runGetDeviceBackupsTest);
+	harness->registerTest(QStringLiteral("reload_device_backups"), &runReloadDeviceBackupsTest);
 	harness->registerTest(QStringLiteral("add_device"), &runAddDeviceTest);
 	harness->registerTest(QStringLiteral("remove_device"), &runRemoveDeviceTest);
 }
