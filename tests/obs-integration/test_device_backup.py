@@ -179,8 +179,8 @@ def test_add_creates_a_filter_from_defaults(obs_world, sources, tmp_path):
     assert "backup-cam-new" in result["sources"]
     assert "backup-cam-taken" not in result["sources"]
     # Each protocol is offered, but not the backup of a device that exists
-    assert "VISCA" in result["choices"]
-    assert result["chosen"] == "VISCA"
+    assert "VISCA PTZ Control" in result["choices"]
+    assert result["chosen"] == "VISCA PTZ Control"
     assert result["headings"][0] == "New device"
     assert not any("backup-cam-taken" in s for s in result["choices"])
 
