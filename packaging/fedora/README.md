@@ -10,14 +10,15 @@ packaging/fedora/docker-test.sh [fedora-version]   # default: rawhide
 ```
 
 This builds an image from `Dockerfile` (build dependencies are installed from
-the spec with `dnf builddep`), then builds the RPM from the committed `HEAD` of
-your checkout and runs `rpmlint`. The RPMs end up in `packaging/fedora/rpms-out/`.
+the spec with `dnf builddep`), then builds the RPM from the upstream tag that `Source0`
+downloads (`v<upstream_version>`, read from the spec; override with
+`SOURCE_REF=HEAD` to build your checkout with the same spec) and runs `rpmlint`. The RPMs end up in `packaging/fedora/rpms-out/`.
 After a build, `packaging/fedora/install-test.sh [fedora-version]` installs
 the RPMs from `rpms-out/` into a clean Fedora container together with
 `obs-studio` and checks that `obs-ptz.so` lands in the same directory as OBS's
 own plugins (`%{_libdir}/obs-plugins`), resolves all its symbols, and that the
 data directory (`/usr/share/obs/obs-plugins/obs-ptz`) is installed.
-Commit your spec changes first; uncommitted changes aren't included. Set
+The spec itself is taken from your working copy. Set
 `BASE_IMAGE=docker.io/library/fedora` if `registry.fedoraproject.org` is not
 reachable.
 
@@ -61,10 +62,14 @@ and the joystick and USB camera paths load.
 - **Bundled code.** `Provides: bundled(...)` lists what is copied into the
   plugin. Confirm the entries and licenses against the review guidelines, or
   patch the build to use system copies where Fedora ships them.
-- **License tag.** Upstream relicensed to GPL-2.0-or-later and fixed the
-  invalid `GPLv2` SPDX ids (commit `8fe88490`, newer than v0.19.0), so the tag
-  is `GPL-2.0-or-later AND MIT AND Zlib`. A tarball of v0.19.0 itself is still
-  GPL-2.0-only; the tag must be `GPL-2.0-only AND ...` for that release.
+- **Version and pre-releases.** The spec packages the tag `v0.20.0-pre2` as
+  `Version: 0.20.0~pre2` (`%global upstream_version` holds the tag spelling;
+  the tilde sorts it before the final release). For v1.0.0 set both to `1.0.0`.
+- **License tag.** The v0.20.0-pre2 sources still carry the invalid `GPLv2`
+  SPDX ids and are GPL-2.0-only, hence `GPL-2.0-only AND GPL-2.0-or-later AND
+  MIT AND Zlib`. Upstream relicensed to GPL-2.0-or-later and fixed the ids in
+  `8fe88490`, after that tag, so once a release includes it the tag becomes
+  `GPL-2.0-or-later AND MIT AND Zlib`.
 - **Known `rpmlint` output.** Tested clean on rawhide (F46) and F43 apart from
   `no-%check-section` (the plugin only loads inside OBS, so there are no
   runnable tests) and `incorrect-fsf-address`, which comes from the stock GPLv2
@@ -75,6 +80,6 @@ and the joystick and USB camera paths load.
 - **Release tag.** `Source0` assumes tags named `vX.Y.Z`. If upstream tags
   differ, adjust it.
 - **Version string.** The build runs `git describe`, but a release tarball has
-  no `.git`, so it falls back to `buildspec.json` (`0.19.0`). That's intended.
+  no `.git`, so it falls back to `buildspec.json` (`0.20.0-pre2`, confirmed in the build log). That's intended.
 - **`obs-studio` dependency.** The ABI is not stable between OBS releases, so
   you will probably need to rebuild this package whenever `obs-studio` updates.

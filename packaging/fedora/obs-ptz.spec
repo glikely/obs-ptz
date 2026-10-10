@@ -1,17 +1,24 @@
+# Upstream version as tagged (with a leading v). A pre-release is packaged as
+# Version: <next>~<pre>, which sorts before the final release. When v1.0.0 is
+# tagged: set upstream_version and Version to 1.0.0 and fix the License below.
+%global upstream_version 0.20.0-pre2
+
 Name:           obs-ptz
-Version:        0.19.0
+Version:        0.20.0~pre2
 Release:        %autorelease
 Summary:        PTZ camera control plugin for OBS Studio
 
-# Plugin sources are GPL-2.0-or-later (relicensed from GPL-2.0-only upstream in
-# 8fe88490, after v0.19.0). Bundled helper code, built into the plugin:
+# The v0.20.0-pre2 sources are GPL-2.0-only (their "GPLv2" SPDX tags mean the
+# LICENSE text). Upstream relicensed to GPL-2.0-or-later in 8fe88490, after that
+# tag, so use GPL-2.0-or-later for any release that includes it.
+# Bundled helper code, built into the plugin:
 #   shared/qjoysticks (QJoysticks)           MIT
 #   shared/qjoysticks/SDL/Database.txt       Zlib (SDL_GameControllerDB)
 #   shared/properties-view, shared/qt/*      GPL-2.0-or-later (from obs-studio)
 # shared/catch2 and shared/qtserialport are not built on Linux and not shipped.
-License:        GPL-2.0-or-later AND MIT AND Zlib
+License:        GPL-2.0-only AND GPL-2.0-or-later AND MIT AND Zlib
 URL:            https://github.com/glikely/obs-ptz
-Source0:        %{url}/archive/refs/tags/v%{version}/%{name}-%{version}.tar.gz
+Source0:        %{url}/archive/refs/tags/v%{upstream_version}/%{name}-%{upstream_version}.tar.gz
 
 BuildRequires:  cmake >= 3.28
 BuildRequires:  gcc
@@ -52,7 +59,7 @@ VISCA over IP (UDP and TCP) and serial, Pelco, ONVIF, Sony discovery and USB
 filter, and optional joystick and game controller control.
 
 %prep
-%autosetup -p1
+%autosetup -p1 -n %{name}-%{upstream_version}
 
 # The project defaults an empty build type to RelWithDebInfo, but sdl2-compat's
 # imported SDL2::SDL2 only has a "noconfig" location, so ask for None (the
