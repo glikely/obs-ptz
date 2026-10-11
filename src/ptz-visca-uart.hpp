@@ -7,6 +7,7 @@
 #pragma once
 
 #include <QObject>
+#include <QTimer>
 #include "uart-wrapper.hpp"
 #include "ptz-visca.hpp"
 
@@ -24,6 +25,7 @@ public:
 	bool open();
 	void receive_datagram(const QByteArray &packet);
 	void receiveBytes(const QByteArray &packet);
+	bool enumerated() const { return camera_count > 0; }
 
 	static ViscaUART *get_interface(QString port_name);
 };

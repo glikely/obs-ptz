@@ -91,12 +91,22 @@ ViscaSerialTransport::~ViscaSerialTransport()
 
 void ViscaSerialTransport::attach_interface(ViscaUART *new_iface)
 {
+	if (iface == new_iface)
+		return;
 	if (iface)
 		iface->disconnect(this);
 	iface = new_iface;
 	if (iface) {
 		connect(iface, &ViscaUART::receive, this, &ViscaTransport::receive);
 		connect(iface, &ViscaUART::reset, this, &ViscaTransport::reset);
+		/*
+		 * The interface is shared and outlives its transports (a scene
+		 * collection switch rebuilds them), so it may have enumerated
+		 * already and will not emit reset again. Queue one, so the
+		 * owner gets to send its camera info inquiry.
+		 */
+		if (iface->enumerated())
+			QTimer::singleShot(0, this, [this]() { emit reset(); });
 	}
 }
 
