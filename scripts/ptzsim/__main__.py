@@ -149,6 +149,10 @@ def parse_args():
     ap.add_argument("--no-onvif", action="store_true", help="disable the ONVIF backend")
     ap.add_argument("--onvif-http-port", type=int, default=8899,
                      help="ONVIF SOAP/HTTP listen port")
+    ap.add_argument("--onvif-probe-matches", type=int, default=1, metavar="N",
+                     help="answer a WS-Discovery probe with N ProbeMatches in the one reply, as "
+                          "a device with several endpoints may; each after the first has an "
+                          "endpoint of its own and the same address (default 1)")
 
     ap.add_argument("--no-pelco", action="store_true", help="disable the Pelco-D/P backend")
     ap.add_argument("--pelco-serial-path", default="/tmp/ptzsim-pelco-serial",
@@ -345,7 +349,8 @@ def main():
 
     if not args.no_onvif:
         onvif = OnvifBackend(state, args.advertise, args.onvif_http_port, args.rtsp_port,
-                             bind=args.host, discovery=not args.local_only)
+                             bind=args.host, discovery=not args.local_only,
+                             probe_matches=args.onvif_probe_matches)
         onvif.start()
         backends.append(onvif)
         print(f"[sim] onvif uuid = {onvif.uuid}")

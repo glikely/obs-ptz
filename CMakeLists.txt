@@ -346,6 +346,7 @@ if(ENABLE_UI_TESTS)
       tests/ui-harness/settings-dialog-test.cpp
       tests/ui-harness/api-version-test.cpp
       tests/ui-harness/driver-kinds-test.cpp
+      tests/ui-harness/discovery-test.cpp
       tests/ui-harness/device-backup-test.cpp
       tests/ui-harness/third-party-device-test.cpp
   )

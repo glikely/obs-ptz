@@ -11,10 +11,12 @@ this test is what keeps it true. It reads the document's structure:
 
 and checks it against:
 
- * what the plugin registered: PTZDevice's ptz_proc_add() and ptz_signal_add()
-   log every proc and signal, and tests/ui-harness/api-version-test.cpp's
-   "get_registered_api" test hands the log back, so a proc added in the code and
-   not here fails, and so does one here and not in the code;
+ * what the plugin registered: ptz_proc_add() and ptz_signal_add() log every
+   proc and signal, a device's (PTZDevice) and a discovery instance's
+   (src/ptz-discovery-kind.cpp), and tests/ui-harness/api-version-test.cpp's
+   "get_registered_api" test hands the log back, having made an instance of
+   each discovery kind so that theirs are in it, so a proc added in the code
+   and not here fails, and so does one here and not in the code;
  * real devices' state and config, whose keys have to be documented, and
    present, with the documented types;
  * the source, for the feature and trigger names, which the plugin doesn't
@@ -34,6 +36,8 @@ DOC = REPO_ROOT / "docs" / "ptz-device-api.md"
 SCOPES = {
     "Per-device proc_handler": "device-proc",
     "Per-device signal_handler": "device-signal",
+    "Per-discovery proc_handler": "discovery-proc",
+    "Per-discovery signal_handler": "discovery-signal",
 }
 
 # obs_data_t's types, as they come back from its JSON

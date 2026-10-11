@@ -346,11 +346,13 @@ class OnvifHandler(BaseHTTPRequestHandler):
 
 
 class OnvifBackend(Backend):
-    def __init__(self, state, host, http_port=8899, rtsp_port=8554, bind="0.0.0.0", discovery=True):
+    def __init__(self, state, host, http_port=8899, rtsp_port=8554, bind="0.0.0.0", discovery=True,
+                 probe_matches=1):
         self.state = state
         self.host = host                  # what it advertises
         self.bind = bind                  # what it listens on
         self.discovery = discovery        # answer WS-Discovery probes, which need the network
+        self.probe_matches = max(1, probe_matches)  # ProbeMatch elements in each reply
         self.http_port = http_port
         self.rtsp_port = rtsp_port
         self.uuid = "urn:uuid:" + str(uuid.uuid4())
@@ -415,6 +417,8 @@ class OnvifBackend(Backend):
 
     def _build_probe_match(self, relates_to):
         xaddr = f"http://{self.host}:{self.http_port}/onvif/device_service"
+        matches = "".join(self._probe_match_element(xaddr, self.uuid if i == 0 else f"{self.uuid}-{i}")
+                          for i in range(self.probe_matches))
         return f"""<?xml version="1.0" encoding="UTF-8"?>
 <s:Envelope xmlns:s="{NS['s']}" xmlns:a="{NS['a_disco']}" xmlns:d="{NS['d']}" xmlns:dn="{NS['dn']}">
  <s:Header>
@@ -425,8 +429,14 @@ class OnvifBackend(Backend):
  </s:Header>
  <s:Body>
   <d:ProbeMatches>
-   <d:ProbeMatch>
-    <a:EndpointReference><a:Address>{self.uuid}</a:Address></a:EndpointReference>
+{matches}  </d:ProbeMatches>
+ </s:Body>
+</s:Envelope>"""
+
+    @staticmethod
+    def _probe_match_element(xaddr, endpoint):
+        return f"""   <d:ProbeMatch>
+    <a:EndpointReference><a:Address>{endpoint}</a:Address></a:EndpointReference>
     <d:Types>dn:NetworkVideoTransmitter tds:Device</d:Types>
     <d:Scopes>
       onvif://www.onvif.org/type/Network_Video_Transmitter
@@ -439,6 +449,4 @@ class OnvifBackend(Backend):
     <d:XAddrs>{xaddr}</d:XAddrs>
     <d:MetadataVersion>1</d:MetadataVersion>
    </d:ProbeMatch>
-  </d:ProbeMatches>
- </s:Body>
-</s:Envelope>"""
+"""

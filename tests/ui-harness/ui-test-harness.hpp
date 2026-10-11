@@ -54,6 +54,12 @@ private:
  * none. */
 QModelIndex ptzUITestDeviceIndex(const QString &device);
 
+/* Starts counting what the discovery instances that exist now say, and
+ * whether OBS destroys them (the add dialog's, while it is open); and marks
+ * the moment it closed. See discovery-test.cpp's get_discovery_spy. */
+void ptzUITestDiscoverySpyArm();
+void ptzUITestDiscoverySpyClosed();
+
 /* Registers this plugin as an obs-websocket vendor ("obs-ptz", request
  * type "ui_test_run") if PTZ_UI_TEST_HARNESS=1 is set in the
  * environment; otherwise a no-op (including when obs-websocket itself
@@ -88,6 +94,7 @@ void registerSettingsDialogTest(PTZUITestHarness *harness);
 void registerCameraReportTest(PTZUITestHarness *harness);
 void registerApiVersionTest(PTZUITestHarness *harness);
 void registerDriverKindsTest(PTZUITestHarness *harness);
+void registerDiscoveryTest(PTZUITestHarness *harness);
 void registerPresetApiTest(PTZUITestHarness *harness);
 void registerDeviceBackupTest(PTZUITestHarness *harness);
 void registerThirdPartyDeviceTest(PTZUITestHarness *harness);

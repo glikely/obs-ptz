@@ -1,7 +1,9 @@
-"""Covers detecting devices in the Add Device dialog: the drivers' ways of
-finding cameras (src/ptz-discovery.hpp), and the dialog's "Detected devices"
-section, which offers each device they find, to add as a filter set up to
-reach it.
+"""Covers detecting devices: each driver's discovery kind, a hidden OBS
+source kind (src/ptz-discovery-kind.hpp, "Discovery kinds" in
+docs/ptz-device-api.md) driven only through its instance's own procs and
+signals, and the Add Device dialog's "Detected devices" section, which makes
+one instance of each, and offers each device they find, to add as a filter
+set up to reach it.
 
 Two ways of finding cameras are covered, each against its own ptzsim:
 ONVIF's WS-Discovery (src/ptz-onvif-discovery.cpp), which ptzsim's ONVIF
@@ -12,13 +14,16 @@ broadcast, so these need a network interface that can multicast and
 broadcast; loopback alone won't do.
 
 The dialog is driven through tests/ui-harness/device-backup-test.cpp's
-"add_device", which waits for a detected device to show up before picking it.
+"add_device", which waits for a detected device to show up before picking it;
+the discovery kinds, without the dialog, through
+tests/ui-harness/discovery-test.cpp.
 """
 
 import json
 import socket
 import subprocess
 import sys
+import time
 
 import pytest
 from obsws import ObsWebSocketError
@@ -26,6 +31,9 @@ from obsws import ObsWebSocketError
 from conftest import REPO_ROOT, free_port, free_udp_port, output_log, wait_for_port
 
 SONY_VISCA_PORT = 52381
+
+PREFIX = "ca.secretlab.obs-ptz."
+DISCOVERY_KINDS = {PREFIX + "visca.discovery", PREFIX + "onvif.discovery"}
 
 
 def primary_ipv4():
@@ -94,6 +102,20 @@ def onvif_sim(obs_world):
 
 
 @pytest.fixture
+def onvif_sim_two_matches(obs_world):
+    """An ONVIF ptzsim that answers each probe with two ProbeMatches in the one
+    reply, so the driver reports twice from one datagram"""
+    require_network()
+    port = free_port()
+    sim = Sim("ptzsim-onvif-two-matches",
+              ["--no-visca", "--onvif-http-port", str(port), "--onvif-probe-matches", "2"], port)
+    sim.port = port
+    sim.start()
+    yield sim
+    sim.stop()
+
+
+@pytest.fixture
 def sony_sim(obs_world):
     require_network()
     # Not on the port Sony's discovery says cameras use, 52381: a VISCA-over-IP
@@ -148,6 +170,142 @@ def sources(obs_world):
     s = Sources(obs_world)
     yield s
     s.cleanup()
+
+
+# --- the discovery kinds, without the dialog ----------------------------------------
+# First, so that a dialog test that leaves its dialog open (it is modal, and the
+# harness answers it from inside its event loop) doesn't take these with it
+
+
+def discovery_kinds(world, out):
+    world.run_ui_test("discovery_kinds", filename=str(out))
+    world.wait_for(out.exists)
+    return {k["kind"]: k for k in json.loads(out.read_text())["kinds"]}
+
+
+def discover(world, out, **mode):
+    """Makes a private instance of each discovery kind, starts it, and has what
+    each said until it finished (see tests/ui-harness/discovery-test.cpp for
+    `mode`)"""
+    world.run_ui_test("discover", filename=str(out), **mode)
+    world.wait_for(out.exists, timeout=20)
+    return json.loads(out.read_text())
+
+
+def assert_responsive(world, tmp_path):
+    """The main thread still runs the harness's requests, promptly"""
+    assert set(discovery_kinds(world, tmp_path / "responsive.json")) == DISCOVERY_KINDS
+
+
+def test_discovery_kind_not_listed(obs_world, tmp_path):
+    """OBS doesn't offer a discovery kind as a source to add, while the
+    controller still finds it"""
+    listed = set(obs_world.ws.call("GetInputKindList", {"unversioned": False})["inputKinds"])
+    listed |= set(obs_world.ws.call("GetInputKindList", {"unversioned": True})["inputKinds"])
+    assert listed, "OBS listed no input kinds at all"
+    assert DISCOVERY_KINDS & listed == set()
+
+    kinds = discovery_kinds(obs_world, tmp_path / "kinds.json")
+    assert set(kinds) == DISCOVERY_KINDS
+    for kind, entry in kinds.items():
+        assert entry["name"], kind
+
+
+def test_discovery_through_source_api(obs_world, onvif_sim, sony_sim, tmp_path):
+    host = primary_ipv4()
+    result = discover(obs_world, tmp_path / "discover.json")
+
+    instances = result["instances"]
+    assert set(instances) == DISCOVERY_KINDS
+    for kind, instance in instances.items():
+        assert (instance["major"], instance["minor"]) == (0, 3), kind
+        assert instance["finished"] == 1, kind
+        assert instance["found_after_finished"] == 0, kind
+
+    found = result["found"]
+    for device in found:
+        assert device["source_is_instance"], device
+        assert device["kind"] == device["discovery"].removesuffix(".discovery"), device
+    for kind in DISCOVERY_KINDS:
+        ids = [d["id"] for d in found if d["discovery"] == kind]
+        assert len(ids) == len(set(ids)), f"{kind} found one twice"
+
+    sony = [d for d in found if "SIMSONY1" in d["name"]]
+    assert len(sony) == 1, found
+    assert sony[0]["discovery"] == PREFIX + "visca.discovery"
+    assert sony[0]["name"] == "SIMSONY1 SIM-PTZ-1"
+    assert sony[0]["address"] == host
+    assert sony[0]["settings"] == {"type": "visca-over-ip", "host": host, "udp_port": SONY_VISCA_PORT}
+
+    onvif = [d for d in found if d["address"] == f"{host}:{onvif_sim.port}"]
+    assert len(onvif) == 1, found
+    assert onvif[0]["discovery"] == PREFIX + "onvif.discovery"
+    assert onvif[0]["name"] == "obs-ptz-sim SIM-PTZ-1"
+    assert onvif[0]["settings"] == {"type": "onvif", "host": host, "port": onvif_sim.port}
+
+
+def test_stop_from_inside_found_is_heard(obs_world, sony_sim, onvif_sim_two_matches, tmp_path):
+    """A controller may stop an instance from inside its ptz_device_found: the
+    driver says it has finished, on the same thread, inside that signal, and
+    says nothing more, not even for the other ProbeMatch of the same reply"""
+    result = discover(obs_world, tmp_path / "discover.json", stop_on_found="true")
+
+    for kind in DISCOVERY_KINDS:
+        assert result["instances"][kind]["stopped"], f"{kind} found nothing to stop from inside"
+    for kind, instance in result["instances"].items():
+        assert instance["finished"] == 1, kind
+        assert instance["found_after_stop"] == 0, kind
+    assert_responsive(obs_world, tmp_path)
+
+
+def test_start_from_inside_finished_looks_again(obs_world, sony_sim, tmp_path):
+    """A controller may start an instance again from inside its
+    ptz_discovery_finished: it looks again, and finishes again"""
+    result = discover(obs_world, tmp_path / "discover.json", restart_on_finished="true")
+
+    for kind, instance in result["instances"].items():
+        assert instance["finished"] == 2, kind
+    sony = [d for d in result["found"] if "SIMSONY1" in d["name"]]
+    assert len(sony) == 2, "each search finds the camera once"
+    assert_responsive(obs_world, tmp_path)
+
+
+def test_release_from_inside_found_is_safe(obs_world, onvif_sim_two_matches, tmp_path):
+    """A controller may let go of an instance's last reference from inside its
+    ptz_device_found: the driver, which then still has the reply's other
+    ProbeMatch to report, says nothing more, and OBS carries on"""
+    result = discover(obs_world, tmp_path / "discover.json", release_on_found="true")
+
+    onvif = result["instances"][PREFIX + "onvif.discovery"]
+    assert onvif["released"], "found nothing to let go from inside"
+    for kind, instance in result["instances"].items():
+        assert instance["found_after_release"] == 0, kind
+        assert instance["finished_after_release"] == 0, kind
+    ids = [d["id"] for d in result["found"] if d["discovery"] == PREFIX + "onvif.discovery"]
+    assert len(ids) == 1, "the second ProbeMatch was reported after the release"
+    assert_responsive(obs_world, tmp_path)
+
+
+def test_releasing_a_running_instance_silences_it(obs_world, tmp_path):
+    """Released while it is still looking, without ptz_discovery_stop, an
+    instance is destroyed and says nothing once OBS destroys it, nor when its
+    driver's own search would have run its course (3 s).
+
+    This can't tell the destroy's detach() of the reporter from its
+    deleteLater() of the driver: either alone keeps the driver quiet here."""
+    result = discover(obs_world, tmp_path / "discover.json", release_while_running="true", wait_ms=4000)
+
+    assert result["instances"] == len(DISCOVERY_KINDS)
+    assert result["destroyed"] == result["instances"]
+    # A camera that answers between the release and OBS getting round to
+    # destroying it may still be found; finishing would take the 3 s search
+    assert result["finished_after_release"] == 0
+    assert result["found_after_destroy"] == 0
+    assert result["finished_after_destroy"] == 0
+    assert_responsive(obs_world, tmp_path)
+
+
+# --- the Add Device dialog ---------------------------------------------------------
 
 
 def add_device(world, out, source, **choice):
@@ -216,3 +374,37 @@ def test_detection_finishes(obs_world, sources, tmp_path):
     assert "Searching…" not in result["headings"]
     if not result["detected"]:
         assert "None found" in result["headings"]
+
+
+def discovery_spy(world, out):
+    if out.exists():
+        out.unlink()
+    world.run_ui_test("get_discovery_spy", filename=str(out))
+    world.wait_for(out.exists)
+    return json.loads(out.read_text())
+
+
+def test_closing_dialog_stops_search(obs_world, sources, sony_sim, tmp_path):
+    """Closing the dialog while its drivers are still looking destroys their
+    instances, which say nothing afterwards, not even that they finished, and
+    opening it again looks again"""
+    sources.add("detect-close")
+
+    result = add_device(obs_world, tmp_path / "add.json", "detect-close", cancel="true", spy_discovery="true")
+    assert "Searching…" in result["headings"], "closed after the search finished: nothing to stop"
+
+    spy = discovery_spy(obs_world, tmp_path / "spy.json")
+    assert spy["closed"]
+    assert spy["instances"] == len(DISCOVERY_KINDS)
+    # Each instance looks for 3 s: wait longer than that, for one that wasn't stopped
+    obs_world.wait_for(lambda: discovery_spy(obs_world, tmp_path / "spy.json")["destroyed"] == spy["instances"],
+                       timeout=5)
+    time.sleep(3.5)
+    spy = discovery_spy(obs_world, tmp_path / "spy.json")
+    assert spy["destroyed"] == spy["instances"]
+    assert spy["alive"] == 0
+    assert spy["found_after_close"] == 0
+    assert spy["finished_after_close"] == 0
+
+    result = add_device(obs_world, tmp_path / "add.json", "detect-close", detected="SIMSONY1", cancel="true")
+    assert any("SIMSONY1" in d for d in result["detected"]), result

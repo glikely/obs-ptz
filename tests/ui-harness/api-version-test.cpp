@@ -10,6 +10,7 @@
 #include <obs-module.h>
 
 #include "ptz-device.hpp"
+#include "ptz-driver-kinds.hpp"
 #include "ptz-list-model.hpp"
 
 namespace {
@@ -38,7 +39,8 @@ void runGetApiVersionTest(const QMap<QString, QString> &params)
 }
 
 /* Writes the procs and signals the plugin has registered, from the log that
- * ptz_proc_add() and ptz_signal_add() keep */
+ * ptz_proc_add() and ptz_signal_add() keep. A discovery instance registers
+ * its own when it is made, so one of each discovery kind is made first. */
 void runGetRegisteredApiTest(const QMap<QString, QString> &params)
 {
 	QString filename = params.value(QStringLiteral("filename"));
@@ -46,6 +48,10 @@ void runGetRegisteredApiTest(const QMap<QString, QString> &params)
 		blog(LOG_INFO, "[ptz-ui-test] get_registered_api: missing filename");
 		return;
 	}
+
+	for (const auto &kind : ptz_discovery_kinds())
+		OBSSourceAutoRelease instance =
+			obs_source_create_private(qUtf8Printable(kind.kind), "ptz-ui-test", nullptr);
 
 	OBSDataArrayAutoRelease registered = obs_data_array_create();
 	for (const auto &[scope, signature] : ptz_registered_api()) {

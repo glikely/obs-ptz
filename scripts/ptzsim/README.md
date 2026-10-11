@@ -253,6 +253,9 @@ highlights:
 - `--pelco-address` (default 1; must match the device ID configured in
   OBS).
 - `--onvif-http-port` (default 8899).
+- `--onvif-probe-matches N` (default 1): answer a WS-Discovery probe with N
+  ProbeMatches in one reply, each after the first with an endpoint of its
+  own at the same address, as a device with several endpoints may.
 - `--visca-report FILE`: be the camera an obs-ptz camera report was made
   of, as far as the report goes (`backends/visca_report.py`): answer the
   inquiries it answered with its replies, or ptzsim's own where they are

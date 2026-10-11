@@ -69,6 +69,8 @@ void answerAddDialog(const QMap<QString, QString> &params, int attempt)
 	QString restore = params.value(QStringLiteral("restore"));
 	QString detected = params.value(QStringLiteral("detected"));
 	bool waitSearch = params.value(QStringLiteral("wait_search")) == QStringLiteral("true");
+	if (attempt == 0 && params.value(QStringLiteral("spy_discovery")) == QStringLiteral("true"))
+		ptzUITestDiscoverySpyArm();
 
 	auto add = qobject_cast<QDialog *>(QApplication::activeModalWidget());
 	auto sources = add ? add->findChild<QComboBox *>(QStringLiteral("sourceList")) : nullptr;
@@ -136,7 +138,9 @@ void answerAddDialog(const QMap<QString, QString> &params, int attempt)
  * detected device with `detected` in its name, or, with none of those,
  * whatever the dialog picked for the source, and presses OK (Cancel, with
  * `cancel`). With `wait_search`, first waits for the drivers to finish
- * looking for devices. Writes what the dialog offered: {"sources": [...],
+ * looking for devices. With `spy_discovery`, the dialog's discovery
+ * instances are watched (see ptzUITestDiscoverySpyArm()). Writes what the
+ * dialog offered: {"sources": [...],
  * "choices": [{"name", "heading", "detected"}...], "chosen"} */
 void runAddDeviceTest(const QMap<QString, QString> &params)
 {
@@ -148,6 +152,8 @@ void runAddDeviceTest(const QMap<QString, QString> &params)
 	/* The add dialog is modal: answer it from inside its own event loop */
 	QTimer::singleShot(0, [params]() { answerAddDialog(params, 0); });
 	dialog->addDevice();
+	if (params.value(QStringLiteral("spy_discovery")) == QStringLiteral("true"))
+		ptzUITestDiscoverySpyClosed();
 }
 
 /* Removes the device called `name` as a user would, with the settings
@@ -179,7 +185,9 @@ void runRemoveDeviceTest(const QMap<QString, QString> &params)
  *   type ("visca-over-ip", say), restore - the source name of the backup to
  *   restore, or detected - text in a detected device's name; with none, what
  *   the dialog picks for the source. wait_search: "true" to wait for the
- *   drivers to finish detecting devices first. cancel: press Cancel instead
+ *   drivers to finish detecting devices first. cancel: press Cancel instead.
+ *   spy_discovery: "true" to count what the dialog's discovery instances say
+ *   from when it opens, and mark when it has closed (see get_discovery_spy)
  * remove_device: name - the device to remove
  */
 void registerDeviceBackupTest(PTZUITestHarness *harness)
