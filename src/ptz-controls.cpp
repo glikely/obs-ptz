@@ -35,7 +35,7 @@
 #include "ui_ptz-controls.h"
 #include "ptz-controls.hpp"
 #include "ptz-list-model.hpp"
-#include "ptz-thumbnail.hpp"
+#include "ptz-thumbnail-sweep.hpp"
 #include "ptz-legacy-migration.hpp"
 #include "settings.hpp"
 #include "ptz.h"

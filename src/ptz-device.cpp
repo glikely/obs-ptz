@@ -18,21 +18,9 @@
 #include <QUrl>
 #include <QUuid>
 #include "ptz-device.hpp"
-#include "ptz-list-model.hpp"
-#include "ptz-legacy-migration.hpp"
-#include "ptz-thumbnail.hpp"
-#include "ptz-visca-udp.hpp"
-#include "ptz-visca-tcp.hpp"
-#include "ptz-onvif.hpp"
-#include "ptz-usb-cam.hpp"
-#include "ptz-soft-cam.hpp"
+#include "ptz-thumbnail-files.hpp"
 #include "ptz.h"
 #include "protocol-helpers.hpp"
-
-#if defined(ENABLE_SERIALPORT)
-#include "ptz-visca-uart.hpp"
-#include "ptz-pelco.hpp"
-#endif
 
 /* Everything the PTZ API registers goes through PTZDevice::addProc() and
  * addSignal() for a device's own handlers, or ptz_discovery_add_api() for a
@@ -198,7 +186,7 @@ PTZDevice::PTZDevice(OBSData config, obs_source_t *filter) : QObject()
 	stale_state = {"pan_pos", "tilt_pos", "zoom_pos", "focus_pos"};
 
 	/* Hear of OBS finishing loading and closing from this module's one
-	 * frontend callback (ptz_load_devices()), not the UI. A device is made
+	 * frontend callback (ptz_module_frontend_event()), not the UI. A device is made
 	 * on the main thread, where OBS sends them; if loading has finished
 	 * already this starts it. */
 	module_devices().push_back(this);
@@ -1006,38 +994,6 @@ void ptz_filter_defaults_mark(obs_data_t *defaults)
 	obs_data_set_default_int(defaults, PTZ_DEFAULTS_MINOR_KEY, PTZ_API_VERSION_MINOR);
 }
 
-obs_source_t *ptz_device_create_filter(obs_source_t *parent, obs_data_t *config)
-{
-	const char *kind = obs_data_get_string(config, "kind");
-	if (!*kind)
-		kind = ptz_legacy_kind_for_type(obs_data_get_string(config, "type"));
-	if (!parent || !kind)
-		return nullptr;
-
-	/* The filter knows its own source, see ptz_filter_save() */
-	OBSDataAutoRelease settings = obs_data_create();
-	obs_data_apply(settings, config);
-	PTZDevice::stripIdentity(settings);
-	obs_data_erase(settings, "backup_time");
-	obs_data_erase(settings, "kind");
-	obs_data_erase(settings, PTZ_DEFAULTS_MAJOR_KEY);
-	obs_data_erase(settings, PTZ_DEFAULTS_MINOR_KEY);
-
-	QString base = QT_UTF8(obs_source_get_display_name(kind));
-	QString name = base;
-	for (int i = 2;; i++) {
-		OBSSourceAutoRelease existing = obs_source_get_filter_by_name(parent, QT_TO_UTF8(name));
-		if (!existing)
-			break;
-		name = QString("%1 %2").arg(base).arg(i);
-	}
-
-	obs_source_t *filter = obs_source_create(kind, QT_TO_UTF8(name), settings, nullptr);
-	if (filter)
-		obs_source_filter_add(parent, filter);
-	return filter;
-}
-
 obs_properties_t *ptz_filter_get_properties(void *data)
 {
 	auto ptz = static_cast<PTZDevice *>(data);
@@ -1120,19 +1076,6 @@ void ptz_filter_save(void *data, obs_data_t *settings)
 	obs_data_erase(settings, PTZ_DEFAULTS_MINOR_KEY);
 }
 
-bool ptz_source_is_device(obs_source_t *source)
-{
-	proc_handler_t *ph = source ? obs_source_get_proc_handler(source) : nullptr;
-	if (!ph)
-		return false;
-	calldata_t cd = {};
-	bool usable = proc_handler_call(ph, "ptz_get_api_version", &cd) &&
-		      calldata_int(&cd, "major") == PTZ_API_VERSION_MAJOR &&
-		      calldata_int(&cd, "minor") >= PTZ_API_VERSION_MINOR;
-	calldata_free(&cd);
-	return usable;
-}
-
 /* One frontend callback for the module's devices, and the lifecycle and
  * device list it drives (main thread only, see PTZLifecycle) */
 void ptz_module_frontend_event(enum obs_frontend_event event, void *)
@@ -1155,38 +1098,6 @@ void ptz_module_frontend_event(enum obs_frontend_event event, void *)
 	default:
 		break;
 	}
-}
-
-void ptz_load_devices()
-{
-	obs_frontend_add_event_callback(ptz_module_frontend_event, nullptr);
-
-	/* Constructed here rather than as a plain static-storage global so
-	 * its constructor happens at a well-defined point in the module load
-	 * instead of at plugin-library-load time -- see PTZListModel::create() */
-	PTZListModel::create();
-
-	/* Each backend driver registers its own "<Driver> PTZ Control" OBS filter */
-	ptz_visca_register_filter();
-#if defined(ENABLE_SERIALPORT)
-	ptz_pelco_register_filter();
-#endif /* ENABLE_SERIALPORT */
-#if defined(ENABLE_ONVIF)
-	ptz_onvif_register_filter();
-#endif /* ENABLE_ONVIF */
-#if defined(ENABLE_USB_CAM)
-	ptz_usb_cam_register_filter();
-#endif /* ENABLE_USB_CAM */
-	/* The Add Device dialog lists the kinds in the order they register */
-	ptz_soft_cam_register_filter();
-}
-
-void ptz_unload_devices(void)
-{
-	/* Reverse of construction order */
-	obs_frontend_remove_event_callback(ptz_module_frontend_event, nullptr);
-	PTZListModel::destroy();
-	ptz_legacy_unload();
 }
 
 PTZDevice::CameraPresets PTZDevice::cameraPresets() const

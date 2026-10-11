@@ -1,4 +1,4 @@
-/* Pan Tilt Zoom Controls - preset thumbnails
+/* Pan Tilt Zoom Controls - preset thumbnail files
  *
  * Copyright 2026 Grant Likely <grant.likely@secretlab.ca>
  *
@@ -17,7 +17,8 @@
 static constexpr int PTZ_THUMBNAIL_WIDTH = 192;
 
 /* Directory the thumbnail image files live in. Only created when a
- * thumbnail is first written. */
+ * thumbnail is first written. The controller's ptz_thumbnail_sweep()
+ * computes the same directory and must agree with it. */
 QString ptz_thumbnail_dir();
 
 /* Full path of a thumbnail image, given the file name kept in the preset */
@@ -36,12 +37,3 @@ QString ptz_thumbnail_write(const QImage &image);
 
 /* Deletes a thumbnail file, by the name kept in the preset */
 void ptz_thumbnail_remove(const QString &fileName);
-
-/* Deletes thumbnail files that no preset refers to, left behind by importing
- * presets, removing a device, or a crash. The thumbnails are shared by every
- * scene collection, so a file counts as used if the name appears in any of
- * OBS's scene collection files or in this plugin's config.json, not just in
- * the devices loaded now. If any of those can't be read, nothing is
- * deleted. Files changed within the last day are left alone. Runs in the
- * background. */
-void ptz_thumbnail_sweep();

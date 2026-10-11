@@ -128,7 +128,10 @@ target_sources(
     src/ptz-controls.cpp
     src/ptz-movement-controls.cpp
     src/ptz-device.cpp
-    src/ptz-thumbnail.cpp
+    src/ptz-thumbnail-files.cpp
+    src/ptz-thumbnail-sweep.cpp
+    src/ptz-device-util.cpp
+    src/ptz-module-all.cpp
     src/ptz-legacy-migration.cpp
     src/ptz-list-model.cpp
     src/ptz-discovery-kind.cpp
@@ -152,7 +155,8 @@ target_sources(
     src/ptz-controls.hpp
     src/ptz-movement-controls.hpp
     src/ptz-device.hpp
-    src/ptz-thumbnail.hpp
+    src/ptz-thumbnail-files.hpp
+    src/ptz-thumbnail-sweep.hpp
     src/ptz-legacy-migration.hpp
     src/ptz-list-model.hpp
     src/ptz-discovery-kind.hpp

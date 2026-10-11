@@ -538,6 +538,10 @@ void ptz_filter_remove(void *data, obs_source_t *);
 void ptz_filter_destroy(void *data);
 void ptz_filter_save(void *data, obs_data_t *settings);
 
+/* The module's one frontend callback for its devices: drives their
+ * lifecycle and scene changes. The module adds it when it loads. */
+void ptz_module_frontend_event(enum obs_frontend_event event, void *);
+
 /* Registers a proc or signal of the PTZ API on `handler`, and logs it, in
  * `scope`, for ptz_registered_api() */
 void ptz_proc_add(const char *scope, proc_handler_t *handler, const char *decl, proc_handler_proc_t proc, void *data);

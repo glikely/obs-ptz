@@ -14,7 +14,7 @@
 #include <obs.h>
 #include <obs.hpp>
 #include "ptz-usb-cam.hpp"
-#include "ptz-thumbnail.hpp"
+#include "ptz-thumbnail-files.hpp"
 
 PTZUSBCam::PTZUSBCam(OBSData config, obs_source_t *source)
 	: PTZDevice(config, source),

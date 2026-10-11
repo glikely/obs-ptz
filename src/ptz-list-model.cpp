@@ -15,7 +15,6 @@
 #include "ptz-list-model.hpp"
 #include "ptz-backup-store.hpp"
 #include "ptz.h"
-#include "protocol-helpers.hpp"
 
 PTZListModel *ptzDeviceList = nullptr;
 

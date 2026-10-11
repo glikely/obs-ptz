@@ -48,7 +48,7 @@ extern void ptz_filter_defaults_mark(obs_data_t *defaults);
 /* Adds a PTZ Control filter, and so a device, to `parent`, with the settings
  * in `config`, of the filter kind in its "kind" or, without one, of its
  * "type" (see ptz_legacy_kind_for_type()). Returns a new reference to the
- * filter, or NULL. */
+ * filter, or NULL, as it does for a kind no module has registered. */
 extern obs_source_t *ptz_device_create_filter(obs_source_t *parent, obs_data_t *config);
 
 /* Whether a source is a device of the PTZ API, from this plugin or from any
@@ -57,7 +57,33 @@ extern obs_source_t *ptz_device_create_filter(obs_source_t *parent, obs_data_t *
  * (see docs/ptz-device-api.md). Nothing about its id says so. */
 extern bool ptz_source_is_device(obs_source_t *source);
 
-extern bool ptz_scene_is_source_active(obs_source_t *scene, obs_source_t *source);
+/* Whether `source` is `scene` or one of the sources it shows. Inline, as both
+ * the controller and the devices use it. */
+struct ptz_source_active_data {
+	obs_source_t *source;
+	bool active;
+};
+
+static inline void ptz_source_active_cb(obs_source_t *parent, obs_source_t *child, void *data)
+{
+	struct ptz_source_active_data *cb_data = (struct ptz_source_active_data *)data;
+	(void)parent;
+	if (child == cb_data->source)
+		cb_data->active = true;
+}
+
+static inline bool ptz_scene_is_source_active(obs_source_t *scene, obs_source_t *source)
+{
+	struct ptz_source_active_data cb_data;
+	cb_data.source = source;
+	cb_data.active = false;
+	if (!scene || !source)
+		return false;
+	if (scene == source)
+		return true;
+	obs_source_enum_active_sources(scene, ptz_source_active_cb, &cb_data);
+	return cb_data.active;
+}
 
 /* The version of the PTZ API that ptz_get_api_version reports, on each of this
  * plugin's devices (there is no version of the plugin as a whole): the procs and
