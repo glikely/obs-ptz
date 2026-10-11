@@ -120,6 +120,17 @@ class PTZState:
         for axis in axes:
             self._targets.pop(axis, None)
 
+    def set_move_time(self, seconds):
+        """How long an absolute move across the whole range takes, as
+        --move-time says; 0 makes moves instant, and ends any under way
+        where it was going"""
+        with self._lock:
+            self.move_rate = 2.0 / seconds if seconds > 0 else 0.0
+            if not self.move_rate:
+                for axis, value in self._targets.items():
+                    setattr(self, axis, value)
+                self._targets.clear()
+
     @property
     def moving_to_target(self):
         with self._lock:

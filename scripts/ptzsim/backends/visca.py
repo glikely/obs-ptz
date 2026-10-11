@@ -348,15 +348,27 @@ class ViscaCameraLogic:
         `axes`, once the camera has got there (see poll_completions())"""
         moving = set(axes) & self.state.target_axes()
         if not (moving and self.defer_completions and self.completions):
-            self.send_datagram(b'\x41')
+            # On a socket no move still under way is on, as a real camera
+            # does: its completion is not taken for the move's
+            busy = {p[1] for p in self._pending}
+            socket = next((s for s in self.SOCKETS if s not in busy), None)
+            if socket is None:
+                self.send_datagram(b'\x60\x03')  # command buffer full
+                return
+            self.send_datagram(bytes([0x40 | socket]))
             if self.completions:
-                self.send_datagram(b'\x51')
+                self.send_datagram(bytes([0x50 | socket]))
             return
-        # A move of an axis another is still making cancels it
+        # A move of an axis another is still making cancels it. To the link
+        # this one came on, that is said before this is ACKed, perhaps on the
+        # same socket, as a real camera does.
         for pending in list(self._pending):
             if pending[0] & moving:
                 self._pending.remove(pending)
-                self._ready.append((pending[2], self._frame(bytes([0x60 | pending[1], 0x04]))))
+                if pending[2] == self.context:
+                    self.send_datagram(bytes([0x60 | pending[1], 0x04]))
+                else:
+                    self._ready.append((pending[2], self._frame(bytes([0x60 | pending[1], 0x04]))))
         free = [s for s in self.SOCKETS if all(p[1] != s for p in self._pending)]
         if not free:
             self.send_datagram(b'\x60\x03')  # command buffer full

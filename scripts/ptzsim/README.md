@@ -270,5 +270,6 @@ highlights:
   advertises; nothing serves a stream there.
 - `--preset SLOT=NAME@PAN,TILT,ZOOM[,FOCUS]`: start with a preset saved in the camera, in
   VISCA's and Pelco's slot SLOT and under ONVIF's token SLOT; repeat it for more.
-- `--debug-http-port PORT`: serves `GET /state` as JSON; used by the CI
-  test framework in `tests/obs-integration/`, off by default.
+- `--debug-http-port PORT`: serves `GET /state` as JSON, and takes
+  `POST /move_time {"seconds": S}` to change `--move-time` while it runs; used
+  by the CI test framework in `tests/obs-integration/`, off by default.

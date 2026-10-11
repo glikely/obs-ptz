@@ -2,7 +2,9 @@
 
 Not a camera protocol -- just a way for a test harness to ask "what does
 the simulated camera think its state is right now" without decoding one
-of the real wire protocols. Off unless --debug-http-port is passed.
+of the real wire protocols. Off unless --debug-http-port is passed. A POST
+to /move_time changes how long the camera's moves take, for a test of what
+happens while one is under way.
 """
 
 import json
@@ -15,6 +17,24 @@ class DebugHandler(BaseHTTPRequestHandler):
 
     def log_message(self, fmt, *args):
         pass
+
+    def do_POST(self):
+        """/move_time {"seconds": s}: how long a move across the range takes
+        from now on, as --move-time says (0 for at once)"""
+        if self.path != "/move_time":
+            self.send_response(404)
+            self.end_headers()
+            return
+        length = int(self.headers.get("Content-Length", 0))
+        try:
+            seconds = float(json.loads(self.rfile.read(length))["seconds"])
+        except (ValueError, KeyError, TypeError):
+            self.send_response(400)
+            self.end_headers()
+            return
+        self.state.set_move_time(seconds)
+        self.send_response(204)
+        self.end_headers()
 
     def do_GET(self):
         if self.path != "/state":
