@@ -5,10 +5,11 @@ Master copy of this project is hosted on GitHub:
 https://github.com/glikely/obs-ptz
 
 Anyone may contribute to this project.
-Contributions are licensed under GPLv2 and must be made with a Developer
-Certificate of Origin [DCO] "Signed-off-by:" attestation as described below,
+Contributions are licensed under GPL version 2.0 or later and must be
+made with a Developer Certificate of Origin [DCO] "Signed-off-by:"
+attestation as described below,
 indicating that you wrote the code and have the right to pass it on as an open
-source patch under the GPLv2 license.
+source patch under the GPL version 2.0 license and later versions.
 Patches that are not signed off will not be accepted.
 
 Use GitHub pull requests to submit proposed changes.
