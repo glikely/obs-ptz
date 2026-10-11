@@ -538,7 +538,15 @@ void ptz_filter_remove(void *data, obs_source_t *);
 void ptz_filter_destroy(void *data);
 void ptz_filter_save(void *data, obs_data_t *settings);
 
+/* Registers a proc or signal of the PTZ API on `handler`, and logs it, in
+ * `scope`, for ptz_registered_api() */
+void ptz_proc_add(const char *scope, proc_handler_t *handler, const char *decl, proc_handler_proc_t proc, void *data);
+void ptz_signal_add(const char *scope, signal_handler_t *handler, const char *decl);
+/* ptz_get_api_version, for a device's or a discovery instance's proc_handler */
+void ptz_get_api_version_proc(void *, calldata_t *cd);
+
 /* What the PTZ API has registered so far, as (scope, declaration) pairs: the
  * procs and signals of docs/ptz-device-api.md. The scope is one of
- * "device-proc" and "device-signal". For tests/ui-harness, to hold that document to it. */
+ * "device-proc", "device-signal", "discovery-proc" and "discovery-signal".
+ * For tests/ui-harness, to hold that document to it. */
 QList<QPair<QString, QString>> ptz_registered_api();

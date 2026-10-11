@@ -233,8 +233,12 @@ would otherwise let the plugin share it and a reply would go to the camera.
     setup protocol (a `ptzsim` started with `--sony-discovery-name`), is
     offered and added as a filter set up to reach it, that one which already
     has a device isn't offered, and that the dialog says when it has
-    finished looking. Needs a network interface that can multicast and
-    broadcast, as cameras are found over the network, not loopback.
+    finished looking; and each driver's hidden discovery kind on its own:
+    that OBS doesn't list it, that an instance finds the same cameras
+    through its own procs and signals, and that closing the dialog mid-search
+    destroys its instances and silences them. Needs a network interface that
+    can multicast and broadcast, as cameras are found over the network, not
+    loopback.
 27. `test_visca_profiles.py` covers choosing a VISCA camera's command set:
     that a `ptzsim` that says it is a BirdDog P100 (`--visca-model`) is
     asked for nothing it doesn't have, by the syntax errors `ptzsim` counts

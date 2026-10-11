@@ -1,4 +1,5 @@
-/* Pan Tilt Zoom Controls - finding the PTZ drivers by their OBS filter kinds
+/* Pan Tilt Zoom Controls - finding the PTZ drivers by their OBS filter kinds,
+ * and the kinds that discover devices for them
  *
  * Copyright 2026 Grant Likely <grant.likely@secretlab.ca>
  *
@@ -26,3 +27,9 @@ struct PTZDriverKind {
  * version at least as new. Nothing is constructed to find out. Call it when
  * the answer is needed, not before every module has loaded. */
 QList<PTZDriverKind> ptz_driver_kinds();
+
+/* The hidden input kinds OBS has that discover devices for a driver (see
+ * "Discovery kinds" in docs/ptz-device-api.md): those whose id ends in
+ * ".discovery", which only tells them from other input kinds, and whose
+ * defaults carry the marker as ptz_driver_kinds() wants it. */
+QList<PTZDriverKind> ptz_discovery_kinds();

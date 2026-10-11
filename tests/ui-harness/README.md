@@ -36,7 +36,9 @@ and its driver, `test_device_signals.py`), and `open_settings_dialog`/
 `get_api_version` (see `api-version-test.cpp` and its driver,
 `test_api_version.py`), and `get_device_backups`/`add_device`/
 `remove_device` (see `device-backup-test.cpp` and its drivers,
-`test_device_backup.py` and `test_device_discovery.py`), and `reorder_presets`
+`test_device_backup.py` and `test_device_discovery.py`), and
+`discovery_kinds`/`discover`/`get_discovery_spy` (see `discovery-test.cpp`
+and its driver, `test_device_discovery.py`), and `reorder_presets`
 (see `reorder-presets-test.cpp` and its driver, `test_reorder_presets.py`) and
 `reorder_cameras` (see `reorder-cameras-test.cpp` and its driver,
 `test_reorder_cameras.py`)

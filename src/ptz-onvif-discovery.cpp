@@ -39,7 +39,7 @@ static const char *PROBE_TEMPLATE =
 	"<s:Body><d:Probe><d:Types>dn:NetworkVideoTransmitter</d:Types></d:Probe></s:Body>"
 	"</s:Envelope>";
 
-PTZOnvifDiscovery::PTZOnvifDiscovery(QObject *parent) : PTZDiscovery(parent)
+PTZOnvifDiscovery::PTZOnvifDiscovery(std::shared_ptr<PTZDiscoveryReporter> reporter) : m_reporter(std::move(reporter))
 {
 	m_timer.setSingleShot(true);
 	connect(&m_timer, &QTimer::timeout, this, &PTZOnvifDiscovery::stop);
@@ -71,7 +71,7 @@ void PTZOnvifDiscovery::stop()
 		return;
 	m_timer.stop();
 	m_running = false;
-	emit finished();
+	m_reporter->finished();
 }
 
 /* On every interface that can multicast, so a host on several networks
@@ -120,8 +120,9 @@ void PTZOnvifDiscovery::parseProbeMatches(const QByteArray &payload, const QHost
 	QString senderHost = QHostAddress(sender.toIPv4Address()).toString();
 	const QRegularExpression space("\\s+");
 
+	/* A listener may stop it from inside a report: then report no more */
 	auto matches = doc.elementsByTagNameNS(WSD_NS, "ProbeMatch");
-	for (int i = 0; i < matches.length(); i++) {
+	for (int i = 0; m_running && i < matches.length(); i++) {
 		QDomElement match = matches.at(i).toElement();
 
 		QString endpoint;
@@ -173,22 +174,20 @@ void PTZOnvifDiscovery::parseProbeMatches(const QByteArray &payload, const QHost
 			}
 		}
 
-		PTZDetectedDevice device;
-		device.id = id;
-		device.name = QStringList({maker, model}).join(' ').trimmed();
-		if (device.name.isEmpty())
-			device.name = "ONVIF";
-		device.address = QString("%1:%2").arg(url.host()).arg(port);
+		QString name = QStringList({maker, model}).join(' ').trimmed();
+		if (name.isEmpty())
+			name = "ONVIF";
+		QString address = QString("%1:%2").arg(url.host()).arg(port);
 		OBSDataAutoRelease settings = obs_data_create();
 		obs_data_set_string(settings, "type", "onvif");
 		obs_data_set_string(settings, "host", qUtf8Printable(url.host()));
 		obs_data_set_int(settings, "port", port);
-		device.settings = settings.Get();
-		emit deviceFound(device);
+		m_reporter->found(id, name, address, settings);
 	}
 }
 
 void ptz_onvif_register_discovery()
 {
-	ptz_discovery_register([](QObject *parent) -> PTZDiscovery * { return new PTZOnvifDiscovery(parent); });
+	ptz_discovery_register_kind<PTZOnvifDiscovery>("ca.secretlab.obs-ptz.onvif.discovery",
+						       "ca.secretlab.obs-ptz.onvif", "ONVIF Discovery");
 }

@@ -35,7 +35,10 @@
 #include <QLocale>
 #include <QStandardItemModel>
 
+#include <functional>
+#include <memory>
 #include <string>
+#include <vector>
 #include <cstring>
 
 #include <obs.hpp>
@@ -47,7 +50,6 @@
 
 #include "ptz.h"
 #include "ptz-list-model.hpp"
-#include "ptz-discovery.hpp"
 #include "ptz-driver-kinds.hpp"
 #include "ptz-backup-store.hpp"
 #include "ptz-controls.hpp"
@@ -522,9 +524,90 @@ static bool ptz_settings_contain(obs_data_t *config, obs_data_t *settings)
 	return true;
 }
 
+namespace {
+
+/* One driver's discovery instance, for the add dialog (see "Discovery kinds"
+ * in docs/ptz-device-api.md): made private, on the main thread, where its
+ * driver's sockets and timers live, heard only through its own signal
+ * handler, and released when this goes, which ends its search */
+class PTZDiscoverySearch {
+public:
+	using Found = std::function<void(const QString &kind, const QString &id, const QString &name,
+					 const QString &address, OBSData settings)>;
+
+	PTZDiscoverySearch(const QString &kind, Found found, std::function<void()> finished)
+		: onFound(std::move(found)),
+		  onFinished(std::move(finished))
+	{
+		source = obs_source_create_private(QT_TO_UTF8(kind), QT_TO_UTF8(kind), nullptr);
+		if (!source)
+			return;
+		signal_handler_t *sh = obs_source_get_signal_handler(source);
+		signal_handler_connect(sh, "ptz_device_found", foundCb, this);
+		signal_handler_connect(sh, "ptz_discovery_finished", finishedCb, this);
+	}
+
+	/* Not heard from again: then it stops looking now, rather than when
+	 * OBS gets round to destroying it */
+	~PTZDiscoverySearch()
+	{
+		if (!source)
+			return;
+		signal_handler_t *sh = obs_source_get_signal_handler(source);
+		signal_handler_disconnect(sh, "ptz_device_found", foundCb, this);
+		signal_handler_disconnect(sh, "ptz_discovery_finished", finishedCb, this);
+		call("ptz_discovery_stop");
+	}
+
+	PTZDiscoverySearch(const PTZDiscoverySearch &) = delete;
+	PTZDiscoverySearch &operator=(const PTZDiscoverySearch &) = delete;
+
+	bool valid() const { return source != nullptr; }
+	void start() { call("ptz_discovery_start"); }
+
+private:
+	void call(const char *proc)
+	{
+		calldata_t cd = {};
+		proc_handler_call(obs_source_get_proc_handler(source), proc, &cd);
+		calldata_free(&cd);
+	}
+
+	/* On the driver's thread: handled on the dialog's */
+	static void foundCb(void *data, calldata_t *cd)
+	{
+		auto self = static_cast<PTZDiscoverySearch *>(data);
+		QString kind = QT_UTF8(calldata_string(cd, "kind"));
+		QString id = QT_UTF8(calldata_string(cd, "id"));
+		QString name = QT_UTF8(calldata_string(cd, "name"));
+		QString address = QT_UTF8(calldata_string(cd, "address"));
+		OBSData settings = static_cast<obs_data_t *>(calldata_ptr(cd, "settings"));
+		if (kind.isEmpty() || id.isEmpty() || !settings)
+			return;
+		QMetaObject::invokeMethod(&self->receiver, [self, kind, id, name, address, settings]() {
+			self->onFound(kind, id, name, address, settings);
+		});
+	}
+
+	static void finishedCb(void *data, calldata_t *)
+	{
+		auto self = static_cast<PTZDiscoverySearch *>(data);
+		QMetaObject::invokeMethod(&self->receiver, [self]() { self->onFinished(); });
+	}
+
+	Found onFound;
+	std::function<void()> onFinished;
+	/* Goes, with anything still queued for it, after the signals are
+	 * disconnected */
+	QObject receiver;
+	OBSSourceAutoRelease source;
+};
+
+} // namespace
+
 /* A new device is a PTZ Control filter on a source, so ask which source,
  * and which protocol, or which device the drivers detected (see
- * PTZDiscovery), or which removed device's backup (see
+ * ptz_discovery_kinds()), or which removed device's backup (see
  * ptz_device_backups_get()) to restore, either of which brings its protocol
  * with it */
 void PTZSettings::addDevice()
@@ -619,9 +702,9 @@ void PTZSettings::addDevice()
 
 	/* Devices the drivers detect, added as they are found, above a note
 	 * saying they are still looking, or found nothing */
-	auto discoveries = ptz_discovery_create_all(&dialog);
+	auto discoveryKinds = ptz_discovery_kinds();
 	QStandardItem *detectedNote = nullptr;
-	if (!discoveries.isEmpty()) {
+	if (!discoveryKinds.isEmpty()) {
 		insertNote(deviceCombo->count(), obs_module_text("PTZ.AddDevice.DetectedHeading"));
 		insertNote(deviceCombo->count(), obs_module_text("PTZ.AddDevice.Searching"));
 		detectedNote = model ? model->item(deviceCombo->count() - 1) : nullptr;
@@ -649,31 +732,41 @@ void PTZSettings::addDevice()
 	connect(buttons, &QDialogButtonBox::rejected, &dialog, &QDialog::reject);
 	layout->addRow(buttons);
 
+	/* Each instance says it has finished once: when all have, the note
+	 * goes, or says nothing was found */
 	int searching = 0;
 	int detected = 0;
-	for (auto discovery : discoveries) {
-		connect(discovery, &PTZDiscovery::deviceFound, &dialog, [&](const PTZDetectedDevice &device) {
-			if (!detectedNote || deviceCombo->findData(device.id, Qt::UserRole + 3) >= 0)
-				return;
-			for (const auto &dev : live)
-				if (ptz_settings_contain(dev, device.settings))
-					return; /* already has a device */
-			int row = detectedNote->row();
-			deviceCombo->insertItem(row, QString("%1 (%2)").arg(device.name, device.address),
-						(int)choices.size());
-			deviceCombo->setItemData(row, device.id, Qt::UserRole + 3);
-			choices.append(device.settings);
-			detected++;
-		});
-		connect(discovery, &PTZDiscovery::finished, &dialog, [&]() {
-			if (--searching > 0 || !detectedNote)
-				return;
-			if (detected)
-				deviceCombo->removeItem(detectedNote->row());
-			else
-				detectedNote->setText(obs_module_text("PTZ.AddDevice.NoneDetected"));
-			detectedNote = nullptr;
-		});
+	auto found = [&](const QString &kind, const QString &id, const QString &name, const QString &address,
+			 OBSData settings) {
+		/* Only of a kind this can make a device of */
+		if (!detectedNote || !driverKinds.contains(kind) || deviceCombo->findData(id, Qt::UserRole + 3) >= 0)
+			return;
+		for (const auto &dev : live)
+			if (ptz_settings_contain(dev, settings))
+				return; /* already has a device */
+		OBSDataAutoRelease cfg = obs_data_create();
+		obs_data_apply(cfg, settings);
+		obs_data_set_string(cfg, "kind", QT_TO_UTF8(kind));
+		int row = detectedNote->row();
+		deviceCombo->insertItem(row, QString("%1 (%2)").arg(name, address), (int)choices.size());
+		deviceCombo->setItemData(row, id, Qt::UserRole + 3);
+		choices.append(cfg.Get());
+		detected++;
+	};
+	auto finished = [&]() {
+		if (--searching > 0 || !detectedNote)
+			return;
+		if (detected)
+			deviceCombo->removeItem(detectedNote->row());
+		else
+			detectedNote->setText(obs_module_text("PTZ.AddDevice.NoneDetected"));
+		detectedNote = nullptr;
+	};
+	std::vector<std::unique_ptr<PTZDiscoverySearch>> discoveries;
+	for (const auto &kind : discoveryKinds) {
+		auto search = std::make_unique<PTZDiscoverySearch>(kind.kind, found, finished);
+		if (search->valid())
+			discoveries.push_back(std::move(search));
 	}
 
 	/* Offer the backup of a device that was on a source of the same name;
@@ -691,14 +784,14 @@ void PTZSettings::addDevice()
 	connect(sourceCombo, &QComboBox::currentTextChanged, &dialog, matchBackup);
 	matchBackup(sourceCombo->currentText());
 
-	searching = discoveries.size();
-	for (auto discovery : discoveries)
+	searching = (int)discoveries.size();
+	if (discoveries.empty())
+		finished();
+	for (const auto &discovery : discoveries)
 		discovery->start();
 	int accepted = dialog.exec();
-	for (auto discovery : discoveries) {
-		discovery->disconnect(&dialog);
-		discovery->stop();
-	}
+	/* Releasing them ends their search: nothing is heard from them after */
+	discoveries.clear();
 	if (accepted != QDialog::Accepted)
 		return;
 

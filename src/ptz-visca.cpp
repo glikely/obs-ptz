@@ -11,6 +11,7 @@
 #include "ptz-visca.hpp"
 #include "ptz-visca-udp.hpp"
 #include "ptz-visca-tcp.hpp"
+#include "ptz-sony-discovery.hpp"
 #if defined(ENABLE_SERIALPORT)
 #include "ptz-visca-uart.hpp"
 #endif
@@ -1577,4 +1578,6 @@ void ptz_visca_register_filter()
 	info.icon_type = OBS_ICON_TYPE_CAMERA;
 	info.filter_add = ptz_filter_add;
 	obs_register_source(&info);
+	/* And the hidden kind that finds devices for it */
+	ptz_sony_register_discovery();
 }

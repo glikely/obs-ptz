@@ -23,7 +23,7 @@ static constexpr char STX = 0x02;
 static constexpr char ETX = 0x03;
 static constexpr char FIELD_END = (char)0xff;
 
-PTZSonyDiscovery::PTZSonyDiscovery(QObject *parent) : PTZDiscovery(parent)
+PTZSonyDiscovery::PTZSonyDiscovery(std::shared_ptr<PTZDiscoveryReporter> reporter) : m_reporter(std::move(reporter))
 {
 	m_timer.setSingleShot(true);
 	connect(&m_timer, &QTimer::timeout, this, &PTZSonyDiscovery::stop);
@@ -60,7 +60,7 @@ void PTZSonyDiscovery::stop()
 		return;
 	m_timer.stop();
 	m_running = false;
-	emit finished();
+	m_reporter->finished();
 }
 
 /* To the limited broadcast address, as the protocol says, and to each
@@ -118,23 +118,20 @@ void PTZSonyDiscovery::parseReply(const QByteArray &payload)
 		return;
 	m_seen.insert(id);
 
-	PTZDetectedDevice device;
-	device.id = id;
 	QString model = fields.value("MODEL");
 	QString name = fields.value("NAME");
-	device.name = name.isEmpty() ? model : model.isEmpty() || name == model ? name : name + " " + model;
-	if (device.name.isEmpty())
-		device.name = "Sony VISCA";
-	device.address = ip.toString();
+	name = name.isEmpty() ? model : model.isEmpty() || name == model ? name : name + " " + model;
+	if (name.isEmpty())
+		name = "Sony VISCA";
 	OBSDataAutoRelease settings = obs_data_create();
 	obs_data_set_string(settings, "type", "visca-over-ip");
 	obs_data_set_string(settings, "host", qUtf8Printable(ip.toString()));
 	obs_data_set_int(settings, "udp_port", SONY_VISCA_PORT);
-	device.settings = settings.Get();
-	emit deviceFound(device);
+	m_reporter->found(id, name, ip.toString(), settings);
 }
 
 void ptz_sony_register_discovery()
 {
-	ptz_discovery_register([](QObject *parent) -> PTZDiscovery * { return new PTZSonyDiscovery(parent); });
+	ptz_discovery_register_kind<PTZSonyDiscovery>("ca.secretlab.obs-ptz.visca.discovery",
+						      "ca.secretlab.obs-ptz.visca", "Sony VISCA-over-IP Discovery");
 }

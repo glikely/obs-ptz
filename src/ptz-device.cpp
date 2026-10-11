@@ -20,13 +20,10 @@
 #include "ptz-device.hpp"
 #include "ptz-list-model.hpp"
 #include "ptz-legacy-migration.hpp"
-#include "ptz-discovery.hpp"
 #include "ptz-thumbnail.hpp"
 #include "ptz-visca-udp.hpp"
 #include "ptz-visca-tcp.hpp"
 #include "ptz-onvif.hpp"
-#include "ptz-onvif-discovery.hpp"
-#include "ptz-sony-discovery.hpp"
 #include "ptz-usb-cam.hpp"
 #include "ptz-soft-cam.hpp"
 #include "ptz.h"
@@ -38,8 +35,10 @@
 #endif
 
 /* Everything the PTZ API registers goes through PTZDevice::addProc() and
- * addSignal() for a device's own handlers, which log it, as the scope it is
- * registered in ("device-proc" or "device-signal") and its declaration.
+ * addSignal() for a device's own handlers, or ptz_discovery_add_api() for a
+ * discovery instance's, which log it, as the scope it is registered in
+ * ("device-proc", "device-signal", "discovery-proc" or "discovery-signal")
+ * and its declaration.
  * ptz_registered_api() hands the log back, so that a test can hold
  * docs/ptz-device-api.md to what the plugin really registers rather than to
  * a copy of it. */
@@ -55,14 +54,13 @@ static void ptz_api_logged(const char *scope, const char *decl)
 		ptz_api_log.append(entry);
 }
 
-static void ptz_proc_add(const char *scope, proc_handler_t *handler, const char *decl, proc_handler_proc_t proc,
-			 void *data)
+void ptz_proc_add(const char *scope, proc_handler_t *handler, const char *decl, proc_handler_proc_t proc, void *data)
 {
 	ptz_api_logged(scope, decl);
 	proc_handler_add(handler, decl, proc, data);
 }
 
-static void ptz_signal_add(const char *scope, signal_handler_t *handler, const char *decl)
+void ptz_signal_add(const char *scope, signal_handler_t *handler, const char *decl)
 {
 	ptz_api_logged(scope, decl);
 	signal_handler_add(handler, decl);
@@ -76,6 +74,12 @@ void PTZDevice::addProc(const char *decl, proc_handler_proc_t proc, void *data)
 void PTZDevice::addSignal(const char *decl)
 {
 	ptz_signal_add("device-signal", sigs, decl);
+}
+
+void ptz_get_api_version_proc(void *, calldata_t *cd)
+{
+	calldata_set_int(cd, "major", PTZ_API_VERSION_MAJOR);
+	calldata_set_int(cd, "minor", PTZ_API_VERSION_MINOR);
 }
 
 QList<QPair<QString, QString>> ptz_registered_api()
@@ -131,12 +135,8 @@ PTZDevice::PTZDevice(OBSData config, obs_source_t *filter) : QObject()
 		return;
 	}
 
-	auto get_api_version = [](void *, calldata_t *cd) {
-		calldata_set_int(cd, "major", PTZ_API_VERSION_MAJOR);
-		calldata_set_int(cd, "minor", PTZ_API_VERSION_MINOR);
-	};
 	/* The device's own version: see docs/ptz-device-api.md */
-	addProc("void ptz_get_api_version(out int major, out int minor)", get_api_version, nullptr);
+	addProc("void ptz_get_api_version(out int major, out int minor)", ptz_get_api_version_proc, nullptr);
 
 	/* The PTZ Device API, which docs/ptz-device-api.md specifies and
 	 * tests/obs-integration/test_api_doc.py holds to what is registered
@@ -1168,13 +1168,11 @@ void ptz_load_devices()
 
 	/* Each backend driver registers its own "<Driver> PTZ Control" OBS filter */
 	ptz_visca_register_filter();
-	ptz_sony_register_discovery();
 #if defined(ENABLE_SERIALPORT)
 	ptz_pelco_register_filter();
 #endif /* ENABLE_SERIALPORT */
 #if defined(ENABLE_ONVIF)
 	ptz_onvif_register_filter();
-	ptz_onvif_register_discovery();
 #endif /* ENABLE_ONVIF */
 #if defined(ENABLE_USB_CAM)
 	ptz_usb_cam_register_filter();
@@ -1188,7 +1186,6 @@ void ptz_unload_devices(void)
 	/* Reverse of construction order */
 	obs_frontend_remove_event_callback(ptz_module_frontend_event, nullptr);
 	PTZListModel::destroy();
-	ptz_discovery_unregister_all();
 	ptz_legacy_unload();
 }
 

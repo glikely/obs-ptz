@@ -131,7 +131,7 @@ target_sources(
     src/ptz-thumbnail.cpp
     src/ptz-legacy-migration.cpp
     src/ptz-list-model.cpp
-    src/ptz-discovery.cpp
+    src/ptz-discovery-kind.cpp
     src/ptz-driver-kinds.cpp
     src/ptz-backup-store.cpp
     src/ptz-sony-discovery.cpp
@@ -155,7 +155,7 @@ target_sources(
     src/ptz-thumbnail.hpp
     src/ptz-legacy-migration.hpp
     src/ptz-list-model.hpp
-    src/ptz-discovery.hpp
+    src/ptz-discovery-kind.hpp
     src/ptz-driver-kinds.hpp
     src/ptz-backup-store.hpp
     src/ptz-sony-discovery.hpp

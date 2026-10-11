@@ -11,6 +11,7 @@
 
 #include <qt-wrappers.hpp>
 #include "ptz-onvif.hpp"
+#include "ptz-onvif-discovery.hpp"
 #include "ptz.h"
 #include <QtXml/QDomDocument>
 #include <QXmlStreamWriter>
@@ -991,4 +992,6 @@ void ptz_onvif_register_filter()
 	info.icon_type = OBS_ICON_TYPE_CAMERA;
 	info.filter_add = ptz_filter_add;
 	obs_register_source(&info);
+	/* And the hidden kind that finds devices for it */
+	ptz_onvif_register_discovery();
 }

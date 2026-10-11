@@ -9,7 +9,7 @@
 #include <QSet>
 #include <QTimer>
 #include <QUdpSocket>
-#include "ptz-discovery.hpp"
+#include "ptz-discovery-kind.hpp"
 
 /**
  * Finds Sony VISCA-over-IP cameras with the "Setting Protocol" of Sony's
@@ -18,13 +18,16 @@
  * port 52380, which each camera answers with its MAC and IP address, model
  * and name, broadcast back to the same port.
  */
-class PTZSonyDiscovery : public PTZDiscovery {
+class PTZSonyDiscovery : public QObject {
 	Q_OBJECT
 
 public:
-	explicit PTZSonyDiscovery(QObject *parent = nullptr);
-	void start() override;
-	void stop() override;
+	explicit PTZSonyDiscovery(std::shared_ptr<PTZDiscoveryReporter> reporter);
+	/* Looks for a while, reporting each device once, then says it has
+	 * finished; again, if called again */
+	void start();
+	/* Gives up early, saying it has finished if it hadn't */
+	void stop();
 
 private:
 	void sendInquiry();
@@ -35,6 +38,8 @@ private:
 	QTimer m_timer;
 	QSet<QString> m_seen;
 	bool m_running = false;
+	std::shared_ptr<PTZDiscoveryReporter> m_reporter;
 };
 
+/* Registers its discovery kind, "ca.secretlab.obs-ptz.visca.discovery" */
 void ptz_sony_register_discovery();
