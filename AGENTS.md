@@ -101,7 +101,7 @@ proc instead.
 ## Legacy self-managed devices
 
 Before devices were owned by filters, they were kept in the plugin's own
-`config.json`, bound to a source by name. `src/ptz-legacy-migration.cpp` turns
+`config.json`, bound to a source by name. `src/controller/ptz-legacy-migration.cpp` turns
 what an old `config.json` still has into filters when a scene collection loads,
 and is to be removed two releases after the first one that has it (see
 TODO.md, which lists what goes with it).
@@ -147,7 +147,7 @@ to 0) for a removal, rename or change of meaning. Then change
 `docs/ptz-device-api.md` to match, which is written by hand: it is the
 specification, and `tests/obs-integration/test_api_doc.py` fails when it and the
 plugin disagree. That test compares it with what `ptz_proc_add()` and
-`ptz_signal_add()` in `src/ptz-device.cpp` log, so register every proc and signal
+`ptz_signal_add()` in `src/core/ptz-device.cpp` log, so register every proc and signal
 of the API through them, not with `proc_handler_add()` directly.
 
 A device is named by its filter, and found again by the filter's UUID; the

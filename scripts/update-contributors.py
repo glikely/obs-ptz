@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Regenerate src/contributors-generated.hpp and AUTHORS from git history.
+"""Regenerate src/controller/contributors-generated.hpp and AUTHORS from git history.
 
 Run manually (no network access needed - it only reads local git history):
 
@@ -14,7 +14,7 @@ shares a real contributor's email or spelling variant to .mailmap rather
 than teaching this script about it.
 
 The project maintainer (MAINTAINER_EMAIL below) is excluded from
-src/contributors-generated.hpp only, since the About dialog already credits
+src/controller/contributors-generated.hpp only, since the About dialog already credits
 them separately as "By: ...". AUTHORS has no such separate credit, so it
 still lists them among the contributors, as it always has.
 
@@ -169,7 +169,7 @@ def main():
         help="file of commit SHAs to exclude, one per line, '#' comments allowed "
         "(default: scripts/update-contributors-exclude.txt; pass '' to skip it)",
     )
-    parser.add_argument("--out", default=os.path.join(ROOT, "src", "contributors-generated.hpp"))
+    parser.add_argument("--out", default=os.path.join(ROOT, "src", "controller", "contributors-generated.hpp"))
     parser.add_argument("--authors-file", default=os.path.join(ROOT, "AUTHORS"))
     parser.add_argument(
         "--exclude-email",

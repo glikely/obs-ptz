@@ -58,7 +58,7 @@ jobs:
         with:
           token: ${{ secrets.GH_TOKEN }}
           branch: crowdin-translator-credits
-          add-paths: src/translators-generated.hpp,AUTHORS
+          add-paths: src/controller/translators-generated.hpp,AUTHORS
           commit-message: 'Update translator credits from Crowdin'
           title: 'Update translator credits'
           body: "Regenerated from Crowdin's Top Members report via [PTZ Controls Project](https://crowdin.com/project/obs-ptz)."

@@ -1,6 +1,6 @@
 # PTZUARTWrapper hardware-in-the-loop test suite
 
-Exercises `PTZUARTWrapper` (`src/uart-wrapper.cpp`/`.hpp`) end to end: data
+Exercises `PTZUARTWrapper` (`src/drivers/serial/uart-wrapper.cpp`/`.hpp`) end to end: data
 transfer correctness, `send()` latency under concurrent reader-thread
 activity (written specifically to characterize a reported Windows
 blocking-write symptom), and disconnect/reconnect behavior. Not part of the

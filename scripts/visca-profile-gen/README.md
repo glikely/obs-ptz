@@ -1,10 +1,10 @@
 # visca-profile-gen
 
-Generates VISCA command sets (`src/visca-profiles/*.json`) from command
+Generates VISCA command sets (`src/drivers/visca/visca-profiles/*.json`) from command
 tables published elsewhere, rather than writing them by hand. Python 3
 standard library only.
 
-A camera's command set is the generic one (`src/ptz-visca-commands.cpp`)
+A camera's command set is the generic one (`src/drivers/visca/ptz-visca-commands.cpp`)
 without what the camera's table doesn't have: each command, inquiry,
 action and trigger the generic one uses is looked for in the table, nibble
 by nibble, where the generic one sends a value the table must have a

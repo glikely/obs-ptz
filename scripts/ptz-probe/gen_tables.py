@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """Writes what ptz-probe.py asks a camera for, and how it reads the answers,
 into ptz-probe.py itself, from the plugin's own source: the generic command
-set and the vendor and model names in src/ptz-visca-commands.cpp, the
-command sets shipped with the plugin in src/visca-profiles, and the plugin's
+set and the vendor and model names in src/drivers/visca/ptz-visca-commands.cpp, the
+command sets shipped with the plugin in src/drivers/visca/visca-profiles, and the plugin's
 version in buildspec.json. So the probe stays one file, which needs nothing
 but Python to run, and asks a camera what the plugin's own camera report
 does.
@@ -18,8 +18,8 @@ import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
-COMMANDS = ROOT / "src" / "ptz-visca-commands.cpp"
-PROFILES = ROOT / "src" / "visca-profiles"
+COMMANDS = ROOT / "src" / "drivers" / "visca" / "ptz-visca-commands.cpp"
+PROFILES = ROOT / "src" / "drivers" / "visca" / "visca-profiles"
 PROBE = Path(__file__).resolve().parent / "ptz-probe.py"
 BEGIN = "# --- tables: written by gen_tables.py, don't edit ---\n"
 END = "# --- end of tables ---\n"
@@ -28,7 +28,7 @@ FIELD = re.compile(r'new (\w+)\("(\w+)",(?: PTZVisca::\w+,)? (\d+)(?:, (0x[0-9a-
 
 # Each of the plugin's field classes as the probe reads and writes it: a
 # kind, and for an "int", its mask, whether it is signed, and how far what
-# it reads is shifted (see src/ptz-visca-commands.cpp)
+# it reads is shifted (see src/drivers/visca/ptz-visca-commands.cpp)
 CLASSES = {
     "visca_u4": ("int", 0x0f, False, 0),
     "visca_u7": ("int", 0x7f, False, 0),

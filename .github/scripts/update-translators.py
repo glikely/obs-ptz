@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Regenerate src/translators-generated.hpp from Crowdin's "Top Members" report.
+"""Regenerate src/controller/translators-generated.hpp from Crowdin's "Top Members" report.
 
 Crowdin is the source of truth for translator credits: this rewrites the
 whole generated array, so a name hand-added to the .hpp will be dropped on
@@ -167,7 +167,7 @@ def update_authors(path, secs):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--out", default=os.path.join(ROOT, "src", "translators-generated.hpp"))
+    parser.add_argument("--out", default=os.path.join(ROOT, "src", "controller", "translators-generated.hpp"))
     parser.add_argument("--authors-file", default=os.path.join(ROOT, "AUTHORS"))
     parser.add_argument("--locale-dir", default=os.path.join(ROOT, "data", "locale"))
     parser.add_argument("--min-words", type=int, default=10, help="minimum words translated to earn credit")

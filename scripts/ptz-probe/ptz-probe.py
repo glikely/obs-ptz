@@ -1958,8 +1958,8 @@ ERRORS = {0x01: "message length error", 0x02: "syntax error", 0x03: "buffer full
           0x05: "no socket", 0x41: "not executable"}
 
 
-# How the plugin reads and writes each kind of field (src/protocol-helpers.cpp,
-# src/ptz-visca-commands.cpp)
+# How the plugin reads and writes each kind of field (src/core/protocol-helpers.cpp,
+# src/drivers/visca/ptz-visca-commands.cpp)
 def decode(f, msg):
     """The value `f` reads from `msg`, or None"""
     name, kind, offset, mask, signed, shift = f
@@ -2124,7 +2124,7 @@ class Serial(Stream):
 
 class Probe:
     """Asks the camera at `address` on `link` one thing at a time, as the
-    plugin's report does (src/ptz-visca.cpp, start_report())"""
+    plugin's report does (src/drivers/visca/ptz-visca.cpp, start_report())"""
 
     def __init__(self, link, address=1):
         self.link = link
@@ -2215,7 +2215,7 @@ def hex4(value):
 
 def command_set_for(vendor, model):
     """The shipped command set the plugin would choose, by its model, then
-    by any of its vendor's, as src/ptz-visca-commands.cpp does"""
+    by any of its vendor's, as src/drivers/visca/ptz-visca-commands.cpp does"""
     sets = TABLES["command_sets"]
     for s in sets:
         if (vendor << 16 | model) in s["models"]:
@@ -2351,7 +2351,7 @@ def make_report(probe, progress=lambda done, total: None):
 
 def draft(report, probes, commands):
     """A command set for the camera, as the plugin drafts one
-    (src/ptz-visca.cpp, report_draft())"""
+    (src/drivers/visca/ptz-visca.cpp, report_draft())"""
     results = {p["cmd"]: p["result"] for p in probes}
     results.update({c["command"]: c["result"] for c in commands})
 

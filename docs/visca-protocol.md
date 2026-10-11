@@ -77,7 +77,7 @@ Once the TCP socket is established is uses the UART protocol init sequence to in
 
 Cameras don't all have the same commands and inquiries, and not every camera
 that has one means the same by it.
-What the plugin sends a camera comes from its command set (`ViscaProfile`, in `src/ptz-visca-commands.cpp`),
+What the plugin sends a camera comes from its command set (`ViscaProfile`, in `src/drivers/visca/ptz-visca-commands.cpp`),
 which has:
 
 - **Controls**: a state value (`wb_mode`, `focus_af_enabled`, ...),
@@ -97,7 +97,7 @@ before anything else, and uses the command set for that vendor and model ID,
 or the generic one, which has everything and finds out what a camera doesn't have
 from the syntax errors it answers with.
 The generic command set is built into the plugin's code.
-The others shipped with it are JSON files in `src/visca-profiles/`, in the same format as a user's (below),
+The others shipped with it are JSON files in `src/drivers/visca/visca-profiles/`, in the same format as a user's (below),
 linked into the plugin as Qt resources when it is built: a camera is added by adding a file there.
 
 ### A user's command sets
@@ -232,7 +232,7 @@ checks that a report has none of the simulator's address, port, camera ID or dev
 ### From a report to a command set
 
 A report's `draft_command_set` is where a command set for the camera starts:
-in `src/visca-profiles/`, with an `id` and `name` for the camera,
+in `src/drivers/visca/visca-profiles/`, with an `id` and `name` for the camera,
 its `source` saying which issue its report came from and which firmware it was tried with,
 and anything the issue says about what works and what doesn't.
 A command set there for the camera's model is chosen for it automatically.
@@ -245,7 +245,7 @@ the plugin chooses for each camera there asks it for nothing it doesn't have.
 So every camera that has been reported stays tested, by people who don't have it.
 
 A command set shipped with the plugin that it can't read is left out, with only a warning in the log,
-so CI checks each one in `src/visca-profiles/` before it can get that far.
+so CI checks each one in `src/drivers/visca/visca-profiles/` before it can get that far.
 `tests/visca-profile-check` (`ENABLE_VISCA_PROFILE_CHECK`, on in the Ubuntu CI builds) reads them
 with the plugin's own reader, as it reads the ones shipped with it, on every build,
 and fails it if one can't be read, isn't in a file named for its id, doesn't have a `source`,

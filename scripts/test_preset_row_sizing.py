@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """Checks that PTZPresetListDelegate's row height
-(src/ptz-controls.cpp, PTZPresetListDelegate::refreshTheme()/
+(src/controller/ptz-controls.cpp, PTZPresetListDelegate::refreshTheme()/
 rowHeightFor()/densityMetricsFor()) matches the real Sources dock's
 row height, that ptzToolbar/presetToolbar's height
 (PTZControls::showEvent()'s pad) matches the Sources dock's own
@@ -24,7 +24,7 @@ platform's OBS binary location, config directory, and how to ask a
 running OBS to quit cleanly. Requires:
   - A real OBS install whose obs-ptz.plugin/.so/.dll is this checkout's
     dev build, built with -DENABLE_UI_TESTS=ON - rebuild that target
-    before running this script if src/ptz-controls.cpp or
+    before running this script if src/controller/ptz-controls.cpp or
     tests/ui-harness/* changed. Defaults to the platform's normal
     install location (find_obs_binary()); set PTZ_TEST_OBS_BIN to an
     explicit obs64.exe/OBS/obs path to target a different install

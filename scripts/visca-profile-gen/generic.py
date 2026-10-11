@@ -1,8 +1,8 @@
-"""What the generic command set has, read from src/ptz-visca-commands.cpp"""
+"""What the generic command set has, read from src/drivers/visca/ptz-visca-commands.cpp"""
 import re
 from pathlib import Path
 
-SRC = Path(__file__).resolve().parents[2] / "src" / "ptz-visca-commands.cpp"
+SRC = Path(__file__).resolve().parents[2] / "src" / "drivers" / "visca" / "ptz-visca-commands.cpp"
 
 
 def load():

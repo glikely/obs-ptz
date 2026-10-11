@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Checks that the VISCA command sets in src/visca-profiles are laid out as
+"""Checks that the VISCA command sets in src/drivers/visca/visca-profiles are laid out as
 scripts/visca-profile-gen writes them (json.dumps(indent=2), and a newline
 at the end), so that a regenerated one changes only what changed in it, and
 a hand-written one reads like the rest.
@@ -13,7 +13,7 @@ import json
 import sys
 from pathlib import Path
 
-PROFILES = Path(__file__).resolve().parent.parent / "src" / "visca-profiles"
+PROFILES = Path(__file__).resolve().parent.parent / "src" / "drivers" / "visca" / "visca-profiles"
 
 
 def main():

@@ -1,4 +1,4 @@
-"""Writes the Sony command sets in src/visca-profiles from the protocol tables
+"""Writes the Sony command sets in src/drivers/visca/visca-profiles from the protocol tables
 in Bitfocus' Sony VISCA Companion module. Run with the path of a checkout of
 https://github.com/bitfocus/companion-module-sony-visca:
 
@@ -12,7 +12,7 @@ import sony
 import support
 
 P = str(Path(sys.argv[1]) / "protocol") + "/"
-OUT = str(Path(__file__).resolve().parents[2] / "src" / "visca-profiles") + "/"
+OUT = str(Path(__file__).resolve().parents[2] / "src" / "drivers" / "visca" / "visca-profiles") + "/"
 SRC = ("Generated from the protocol tables in Bitfocus' Sony VISCA Companion module "
        "(github.com/bitfocus/companion-module-sony-visca, protocol/{doc}, MIT licensed), "
        "{note}not yet verified against a camera.")

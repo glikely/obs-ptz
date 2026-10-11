@@ -9,7 +9,7 @@ Core
 ----
 
 - Remove the legacy self-managed device migration, two releases after the
-  first one that has it. Delete `src/ptz-legacy-migration.*`, its calls in
+  first one that has it. Delete `src/controller/ptz-legacy-migration.*`, its calls in
   `PTZControls::LoadConfig()`, `SaveConfig()` and `handleFrontendEvent()`,
   `ptz_device_startup()`. Before that, the integration suite's devices
   (`write_ptz_plugin_config()` in `tests/obs-integration/conftest.py`, which

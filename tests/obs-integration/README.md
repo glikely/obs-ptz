@@ -37,7 +37,7 @@ would otherwise let the plugin share it and a reply would go to the camera.
    as JSON without decoding a camera protocol themselves.
 2. **obs-ptz's own device config** -- the JSON file
    `PTZControls::LoadConfig()` reads from `obs_module_config_path
-   ("config.json")` (see `src/ptz-controls.cpp`) -- is pre-written with
+   ("config.json")` (see `src/controller/ptz-controls.cpp`) -- is pre-written with
    one device per backend, in the format of the old self-managed backend
    (it has an `"id"` for each, which nothing else does any more). The
    plugin makes each a filter on a placeholder source of the device's name,
@@ -56,7 +56,7 @@ would otherwise let the plugin share it and a reply would go to the camera.
 4. Each test uses `obsws.py` (a from-scratch, dependency-light
    obs-websocket v5 client -- just the Hello/Identify handshake and
    Request/RequestResponse, see its docstring) to create a scene, add a
-   `ptz_action_source` (`src/ptz-action-source.c`) configured for one
+   `ptz_action_source` (`src/controller/ptz-action-source.c`) configured for one
    device + one action, and switch to that scene. A `ptz_action_source`
    fires its configured action the moment it's added to what's already,
    or becomes, the current program scene (`ptz_action_source_activate()`
@@ -103,7 +103,7 @@ would otherwise let the plugin share it and a reply would go to the camera.
 11. `test_change_interface.py` covers switching an existing VISCA
     device's transport live -- the "Protocol" list in the properties
     dialog (`PTZVisca::get_obs_properties()`/`PTZVisca::update()`'s
-    `"type"` -> `ViscaTransport` switch, see `src/ptz-visca.cpp`) -- and
+    `"type"` -> `ViscaTransport` switch, see `src/drivers/visca/ptz-visca.cpp`) -- and
     that it persists through the original `"type"`/`"host"`/`"port"`
     field names rather than a separate field per transport. Walks one
     device through all three transports (TCP -> UDP -> serial -> back to
@@ -127,15 +127,15 @@ would otherwise let the plugin share it and a reply would go to the camera.
     list is showing.
 13. `test_legacy_migration.py` covers the migration of the devices an old
     `config.json` holds (what this suite writes, see 2 above) into
-    "PTZ Control" filters, see `src/ptz-legacy-migration.cpp`: each device
+    "PTZ Control" filters, see `src/controller/ptz-legacy-migration.cpp`: each device
     is a filter on its source, or on a placeholder source if it has none,
     with the same id; the old `config.json` is kept as
     `config.json.pre-filter-migration`, and what was migrated is no longer
     in `config.json`. When the legacy reader is removed (see the TODO in
-    `src/ptz-legacy-migration.hpp`), this suite's devices have to be made
+    `src/controller/ptz-legacy-migration.hpp`), this suite's devices have to be made
     as filters in a scene collection instead, and this test goes.
 14. `test_filter_devices.py` covers PTZ devices that belong to an OBS
-    filter (`ptz_visca_filter_info`, see `src/ptz-device.cpp`): adding a
+    filter (`ptz_visca_filter_info`, see `src/core/ptz-device.cpp`): adding a
     "VISCA PTZ Control" filter to a source creates a device for it,
     named after and bound to the source, that connects to the camera and
     can be driven like any other; it follows the source's rename and
@@ -169,13 +169,13 @@ would otherwise let the plugin share it and a reply would go to the camera.
     the model, such as OBS's Filters dialog and obs-websocket editing a
     filter. Uses `tests/ui-harness/device-signals-test.cpp`.
 18. `test_onvif_position.py` covers ONVIF reporting where the camera is
-    (`PTZOnvif::handleGetStatusResponse()` in `src/ptz-onvif.cpp`) as the
+    (`PTZOnvif::handleGetStatusResponse()` in `src/drivers/onvif/ptz-onvif.cpp`) as the
     generic position state, against the ONVIF backend of the shared
     `ptzsim`: which axes it reports, a position in range, and that it
     follows a move as it happens instead of at the slow poll's pace.
 19. The USB (UVC) driver reporting where the camera is
     (`PTZUSBCam::report_state()`, `PTZUsbWorker::captureState()` in
-    `src/ptz-usb-cam.cpp`/`src/ptz-usb-worker.cpp`) has no test here: there is
+    `src/drivers/usb/ptz-usb-cam.cpp`/`src/drivers/usb/ptz-usb-worker.cpp`) has no test here: there is
     no camera to drive through a live OBS, so it is covered at the worker
     level instead, in `tests/usb-backend/test_worker.cpp` ("the worker reports
     its state, for the axes the camera has", and a camera with no focus
@@ -251,7 +251,7 @@ would otherwise let the plugin share it and a reply would go to the camera.
     one, and can extend another, and that one that can't be read is left
     out; that the dock offers no zoom buttons for a camera whose command
     set has no zoom drive; that every command set shipped in
-    `src/visca-profiles` is offered by the settings, so is linked in and
+    `src/drivers/visca/visca-profiles` is offered by the settings, so is linked in and
     read; that one of the user's with a shipped one's id replaces it; and
     that one that only changes a control leaves the one it extends as it was.
 28. `test_device_features.py` covers what a device says it can do, the

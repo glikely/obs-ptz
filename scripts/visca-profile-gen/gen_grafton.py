@@ -1,4 +1,4 @@
-"""Writes the PTZOptics and Axis command sets in src/visca-profiles from the
+"""Writes the PTZOptics and Axis command sets in src/drivers/visca/visca-profiles from the
 command tables in grafton-visca's consolidated VISCA reference. Run with the
 path of a checkout of https://github.com/GrantSparks/grafton-visca:
 
@@ -12,7 +12,7 @@ import mdtable
 import support
 
 REFERENCE = Path(sys.argv[1]) / "docs" / "visca_reference.md"
-OUT = Path(__file__).resolve().parents[2] / "src" / "visca-profiles"
+OUT = Path(__file__).resolve().parents[2] / "src" / "drivers" / "visca" / "visca-profiles"
 SRC = ("Generated from the command tables in grafton-visca's VISCA reference "
        "(github.com/GrantSparks/grafton-visca, docs/visca_reference.md {sections}, "
        "MIT or Apache-2.0 licensed), not yet verified against a camera.")

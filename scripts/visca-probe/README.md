@@ -1,8 +1,8 @@
 # visca-probe
 
 Throwaway tools used to investigate how real cameras behave over
-VISCA-over-IP (UDP), which led to the fixes in `src/ptz-visca.cpp` and
-`src/ptz-visca-udp.cpp`. Python 3 standard library only. Run them from this
+VISCA-over-IP (UDP), which led to the fixes in `src/drivers/visca/ptz-visca.cpp` and
+`src/drivers/visca/ptz-visca-udp.cpp`. Python 3 standard library only. Run them from this
 directory, with a camera's IP address as the argument, e.g.
 `python3 gap.py 192.168.16.11`.
 

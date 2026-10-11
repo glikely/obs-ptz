@@ -29,7 +29,7 @@ UDP port 52381, whatever port it was asked from.
 What it asks for, and how it reads and writes the values, it has from the
 plugin's source, in tables at its top that `gen_tables.py` writes there:
 the generic command set and the vendor and model names in
-`src/ptz-visca-commands.cpp`, the command sets in `src/visca-profiles`, and
+`src/drivers/visca/ptz-visca-commands.cpp`, the command sets in `src/drivers/visca/visca-profiles`, and
 the plugin's release version. Run `python3 scripts/ptz-probe/gen_tables.py` after
 changing any of them; CI runs it with `--check`, which fails if the tables
 aren't what it would write.

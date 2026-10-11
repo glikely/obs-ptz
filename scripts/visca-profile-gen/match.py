@@ -3,7 +3,7 @@ nibble by nibble: where ours writes a value, theirs must have a parameter"""
 import re
 from pathlib import Path
 
-SRC = Path(__file__).resolve().parents[2] / "src" / "ptz-visca-commands.cpp"
+SRC = Path(__file__).resolve().parents[2] / "src" / "drivers" / "visca" / "ptz-visca-commands.cpp"
 
 # nibbles each field type writes, as (byte offset from the field's, which:
 # "lo" the low nibble only, "both" both nibbles, "any" a fixed byte that

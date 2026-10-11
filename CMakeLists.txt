@@ -103,123 +103,56 @@ endif()
 
 add_dependencies(${CMAKE_PROJECT_NAME} plugin_version)
 
-# The VISCA command sets shipped with the plugin, linked into it as Qt
-# resources, as :/visca-profiles/*.json. A new one is a new file there.
-file(GLOB VISCA_PROFILES CONFIGURE_DEPENDS "${CMAKE_SOURCE_DIR}/src/visca-profiles/*.json")
-qt_add_resources(
-  ${CMAKE_PROJECT_NAME}
-  visca_profiles
-  PREFIX "/visca-profiles"
-  BASE "${CMAKE_SOURCE_DIR}/src/visca-profiles"
-  FILES ${VISCA_PROFILES}
-)
+# The sources are split the way the modules will be: the controller (the
+# dock, settings and everything else that talks to devices only through the
+# PTZ API) in src/controller, what every driver shares in src/core, and each
+# driver in src/drivers/<name>. scripts/check-module-boundaries.py keeps their
+# #includes apart. They are all still linked into the one module.
 
-target_include_directories(${CMAKE_PROJECT_NAME} PRIVATE ${CMAKE_SOURCE_DIR}/src)
-target_sources(
-  ${CMAKE_PROJECT_NAME}
-  PRIVATE
-    ${PLUGIN_VERSION_SOURCE}
-    src/ptz-camera-report.ui
-    src/ptz-controls.ui
-    src/ptz-movement-controls.ui
-    src/settings.ui
-    src/ptz-controls.qrc
-    src/ptz.c
-    src/ptz-controls.cpp
-    src/ptz-movement-controls.cpp
-    src/ptz-device.cpp
-    src/ptz-thumbnail-files.cpp
-    src/ptz-thumbnail-sweep.cpp
-    src/ptz-device-util.cpp
-    src/ptz-module-all.cpp
-    src/ptz-legacy-migration.cpp
-    src/ptz-list-model.cpp
-    src/ptz-discovery-kind.cpp
-    src/ptz-driver-kinds.cpp
-    src/ptz-backup-store.cpp
-    src/ptz-sony-discovery.cpp
-    src/settings.cpp
-    src/ptz-camera-report.cpp
-    src/ptz-state-view.cpp
-    src/ptz-source-display.cpp
-    src/ptz-visca.cpp
-    src/ptz-visca-commands.cpp
-    src/ptz-visca-udp.cpp
-    src/ptz-visca-tcp.cpp
-    src/protocol-helpers.cpp
-    src/ptz-action-source.c
-    src/ptz-soft-cam.cpp
-    src/circularlistview.cpp
-    src/touch-control.cpp
-    src/ptz.h
-    src/ptz-controls.hpp
-    src/ptz-movement-controls.hpp
-    src/ptz-device.hpp
-    src/ptz-thumbnail-files.hpp
-    src/ptz-thumbnail-sweep.hpp
-    src/ptz-legacy-migration.hpp
-    src/ptz-list-model.hpp
-    src/ptz-discovery-kind.hpp
-    src/ptz-driver-kinds.hpp
-    src/ptz-backup-store.hpp
-    src/ptz-sony-discovery.hpp
-    src/settings.hpp
-    src/ptz-camera-report.hpp
-    src/ptz-state-view.hpp
-    src/ptz-source-display.hpp
-    src/contributors-generated.hpp
-    src/translators-generated.hpp
-    src/ptz-visca.hpp
-    src/ptz-visca-commands.hpp
-    src/ptz-visca-udp.hpp
-    src/ptz-visca-tcp.hpp
-    src/ptz-soft-cam.hpp
-    src/ptz-soft-viewport.hpp
-    src/protocol-helpers.hpp
-    src/circularlistview.hpp
-    src/touch-control.hpp
-    src/square-tool-button.hpp
-)
+# qt-wrappers is an interface library of sources, which the module compiles
+# once; the libraries below only need its header
+get_target_property(_ptz_qt_wrappers_include qt-wrappers INTERFACE_INCLUDE_DIRECTORIES)
 
-option(ENABLE_USB_CAM "Enable USB camera support" ON)
-if(ENABLE_USB_CAM)
-  # Each platform provides its own backend; see src/ptz-usb-backend.hpp
-  if(APPLE)
-    set(_usb_backend_sources src/ptz-usb-backend-macos.cpp src/uvc-protocol.hpp)
-    target_link_libraries(${CMAKE_PROJECT_NAME} PRIVATE "-framework IOKit" "-framework CoreFoundation")
-  elseif(WIN32)
-    set(_usb_backend_sources src/ptz-usb-backend-windows.cpp)
-  elseif(CMAKE_SYSTEM_NAME STREQUAL "Linux")
-    set(_usb_backend_sources src/ptz-usb-backend-linux.cpp)
-  else()
-    message(WARNING "USB camera support is not available on ${CMAKE_SYSTEM_NAME}")
-    set(ENABLE_USB_CAM OFF)
+# What each of the libraries the module links needs: OBS, Qt, and moc,
+# set up the way the module itself is above
+function(ptz_add_library target)
+  add_library(${target} STATIC)
+  target_include_directories(${target} PUBLIC "${CMAKE_SOURCE_DIR}/src" ${_ptz_qt_wrappers_include})
+  target_link_libraries(${target} PUBLIC OBS::libobs)
+  if(TARGET OBS::obs-frontend-api)
+    target_link_libraries(${target} PUBLIC OBS::obs-frontend-api)
   endif()
-endif()
-if(ENABLE_USB_CAM)
-  add_compile_definitions(ENABLE_USB_CAM)
-  target_sources(
-    ${CMAKE_PROJECT_NAME}
-    PRIVATE
-      src/ptz-usb-cam.cpp
-      src/ptz-usb-cam.hpp
-      src/ptz-usb-backend.hpp
-      src/ptz-usb-backend-slot.hpp
-      src/ptz-usb-worker.cpp
-      src/ptz-usb-worker.hpp
-      ${_usb_backend_sources}
-  )
-  unset(_usb_backend_sources)
-endif()
+  if(ENABLE_QT)
+    target_link_libraries(${target} PUBLIC Qt6::Core Qt6::Widgets Qt6::Network Qt6::Xml)
+    target_compile_options(
+      ${target}
+      PRIVATE $<$<C_COMPILER_ID:Clang,AppleClang>:-Wno-quoted-include-in-framework-header -Wno-comma>
+    )
+    set_target_properties(
+      ${target}
+      PROPERTIES AUTOMOC ON AUTORCC ON AUTOGEN_USE_SYSTEM_INCLUDE OFF
+    )
+  endif()
+  set_target_properties(${target} PROPERTIES POSITION_INDEPENDENT_CODE ON)
+  target_link_libraries(${CMAKE_PROJECT_NAME} PRIVATE ${target})
+endfunction()
 
-option(ENABLE_ONVIF "Enable ONVIF camera support" ON)
-if(ENABLE_ONVIF)
-  add_compile_definitions(ENABLE_ONVIF)
-  target_sources(
-    ${CMAKE_PROJECT_NAME}
-    PRIVATE src/ptz-onvif.cpp src/ptz-onvif.hpp src/ptz-onvif-discovery.cpp src/ptz-onvif-discovery.hpp
-  )
-endif()
+# The PTZDevice base class and what the drivers share with it
+ptz_add_library(ptz-device-core)
+target_include_directories(ptz-device-core PUBLIC "${CMAKE_SOURCE_DIR}/src/core")
+target_sources(
+  ptz-device-core
+  PRIVATE
+    src/core/ptz-device.cpp
+    src/core/ptz-device.hpp
+    src/core/ptz-lifecycle.hpp
+    src/core/ptz-discovery-kind.cpp
+    src/core/ptz-discovery-kind.hpp
+    src/core/ptz-thumbnail-files.cpp
+    src/core/ptz-thumbnail-files.hpp
+    src/core/protocol-helpers.cpp
+    src/core/protocol-helpers.hpp
+)
 
 option(ENABLE_SERIALPORT "Enable UART connected camera support" OFF)
 if(ENABLE_SERIALPORT)
@@ -229,14 +162,14 @@ if(ENABLE_SERIALPORT)
     # fork (see shared/qtserialport/README.md) - real Qt::SerialPort pulls
     # in Qt::CorePrivate, whose ABI breaks across every Qt point release.
     add_subdirectory(shared/qtserialport)
-    target_link_libraries(${CMAKE_PROJECT_NAME} PRIVATE qtserialport)
+    set(_serialport_lib qtserialport)
     set(_serialport_ok TRUE)
   else()
     # Linux: distro-packaged Qt6::SerialPort. Never had the ABI problem
     # above (obs-ptz and OBS build against the same distro Qt6 there).
     find_package(Qt6 COMPONENTS SerialPort)
     if(Qt6SerialPort_FOUND)
-      target_link_libraries(${CMAKE_PROJECT_NAME} PRIVATE Qt::SerialPort)
+      set(_serialport_lib Qt::SerialPort)
       package_qt_library(${CMAKE_PROJECT_NAME} SerialPort)
       set(_serialport_ok TRUE)
     endif()
@@ -244,19 +177,164 @@ if(ENABLE_SERIALPORT)
 
   if(_serialport_ok)
     add_compile_definitions(ENABLE_SERIALPORT)
-    target_sources(
-      ${CMAKE_PROJECT_NAME}
-      PRIVATE
-        src/uart-wrapper.cpp
-        src/uart-wrapper.hpp
-        src/ptz-visca-uart.cpp
-        src/ptz-visca-uart.hpp
-        src/ptz-pelco.cpp
-        src/ptz-pelco.hpp
-    )
+    # The serial port, which the VISCA and Pelco drivers share
+    ptz_add_library(ptz-serial)
+    target_include_directories(ptz-serial PUBLIC "${CMAKE_SOURCE_DIR}/src/drivers/serial")
+    target_sources(ptz-serial PRIVATE src/drivers/serial/uart-wrapper.cpp src/drivers/serial/uart-wrapper.hpp)
+    target_link_libraries(ptz-serial PUBLIC ${_serialport_lib})
   endif()
-  unset(_serialport_ok)
+  unset(_serialport_lib)
 endif()
+
+ptz_add_library(ptz-driver-visca)
+target_include_directories(ptz-driver-visca PUBLIC "${CMAKE_SOURCE_DIR}/src/drivers/visca")
+target_link_libraries(ptz-driver-visca PUBLIC ptz-device-core)
+target_sources(
+  ptz-driver-visca
+  PRIVATE
+    src/drivers/visca/ptz-visca.cpp
+    src/drivers/visca/ptz-visca.hpp
+    src/drivers/visca/ptz-visca-commands.cpp
+    src/drivers/visca/ptz-visca-commands.hpp
+    src/drivers/visca/ptz-visca-udp.cpp
+    src/drivers/visca/ptz-visca-udp.hpp
+    src/drivers/visca/ptz-visca-tcp.cpp
+    src/drivers/visca/ptz-visca-tcp.hpp
+    src/drivers/visca/ptz-sony-discovery.cpp
+    src/drivers/visca/ptz-sony-discovery.hpp
+)
+if(TARGET ptz-serial)
+  target_sources(ptz-driver-visca PRIVATE src/drivers/visca/ptz-visca-uart.cpp src/drivers/visca/ptz-visca-uart.hpp)
+  target_link_libraries(ptz-driver-visca PUBLIC ptz-serial)
+endif()
+
+# The VISCA command sets shipped with the plugin, linked into it as Qt
+# resources, as :/visca-profiles/*.json. A new one is a new file there.
+# Added to the module for now, as qt_add_resources() on a static library
+# makes an object library that the Xcode generator can't link for more than
+# one architecture.
+file(GLOB VISCA_PROFILES CONFIGURE_DEPENDS "${CMAKE_SOURCE_DIR}/src/drivers/visca/visca-profiles/*.json")
+qt_add_resources(
+  ${CMAKE_PROJECT_NAME}
+  visca_profiles
+  PREFIX "/visca-profiles"
+  BASE "${CMAKE_SOURCE_DIR}/src/drivers/visca/visca-profiles"
+  FILES ${VISCA_PROFILES}
+)
+
+if(TARGET ptz-serial)
+  ptz_add_library(ptz-driver-pelco)
+  target_include_directories(ptz-driver-pelco PUBLIC "${CMAKE_SOURCE_DIR}/src/drivers/pelco")
+  target_link_libraries(ptz-driver-pelco PUBLIC ptz-device-core ptz-serial)
+  target_sources(ptz-driver-pelco PRIVATE src/drivers/pelco/ptz-pelco.cpp src/drivers/pelco/ptz-pelco.hpp)
+endif()
+
+option(ENABLE_ONVIF "Enable ONVIF camera support" ON)
+if(ENABLE_ONVIF)
+  add_compile_definitions(ENABLE_ONVIF)
+  ptz_add_library(ptz-driver-onvif)
+  target_include_directories(ptz-driver-onvif PUBLIC "${CMAKE_SOURCE_DIR}/src/drivers/onvif")
+  target_link_libraries(ptz-driver-onvif PUBLIC ptz-device-core)
+  target_sources(
+    ptz-driver-onvif
+    PRIVATE
+      src/drivers/onvif/ptz-onvif.cpp
+      src/drivers/onvif/ptz-onvif.hpp
+      src/drivers/onvif/ptz-onvif-discovery.cpp
+      src/drivers/onvif/ptz-onvif-discovery.hpp
+  )
+endif()
+
+option(ENABLE_USB_CAM "Enable USB camera support" ON)
+if(ENABLE_USB_CAM)
+  # Each platform provides its own backend; see src/drivers/usb/ptz-usb-backend.hpp
+  if(APPLE)
+    set(_usb_backend_sources src/drivers/usb/ptz-usb-backend-macos.cpp src/drivers/usb/uvc-protocol.hpp)
+    set(_usb_backend_libs "-framework IOKit" "-framework CoreFoundation")
+  elseif(WIN32)
+    set(_usb_backend_sources src/drivers/usb/ptz-usb-backend-windows.cpp)
+  elseif(CMAKE_SYSTEM_NAME STREQUAL "Linux")
+    set(_usb_backend_sources src/drivers/usb/ptz-usb-backend-linux.cpp)
+  else()
+    message(WARNING "USB camera support is not available on ${CMAKE_SYSTEM_NAME}")
+    set(ENABLE_USB_CAM OFF)
+  endif()
+endif()
+if(ENABLE_USB_CAM)
+  add_compile_definitions(ENABLE_USB_CAM)
+  ptz_add_library(ptz-driver-usb)
+  target_include_directories(ptz-driver-usb PUBLIC "${CMAKE_SOURCE_DIR}/src/drivers/usb")
+  target_link_libraries(ptz-driver-usb PUBLIC ptz-device-core ${_usb_backend_libs})
+  target_sources(
+    ptz-driver-usb
+    PRIVATE
+      src/drivers/usb/ptz-usb-cam.cpp
+      src/drivers/usb/ptz-usb-cam.hpp
+      src/drivers/usb/ptz-usb-backend.hpp
+      src/drivers/usb/ptz-usb-backend-slot.hpp
+      src/drivers/usb/ptz-usb-worker.cpp
+      src/drivers/usb/ptz-usb-worker.hpp
+      ${_usb_backend_sources}
+  )
+endif()
+unset(_usb_backend_sources)
+unset(_usb_backend_libs)
+
+ptz_add_library(ptz-driver-soft)
+target_include_directories(ptz-driver-soft PUBLIC "${CMAKE_SOURCE_DIR}/src/drivers/soft")
+target_link_libraries(ptz-driver-soft PUBLIC ptz-device-core)
+target_sources(
+  ptz-driver-soft
+  PRIVATE src/drivers/soft/ptz-soft-cam.cpp src/drivers/soft/ptz-soft-cam.hpp src/drivers/soft/ptz-soft-viewport.hpp
+)
+
+# The controller, and the one file that loads it and the drivers together
+# until they are separate modules
+target_include_directories(${CMAKE_PROJECT_NAME} PRIVATE ${CMAKE_SOURCE_DIR}/src ${CMAKE_SOURCE_DIR}/src/controller)
+target_sources(
+  ${CMAKE_PROJECT_NAME}
+  PRIVATE
+    ${PLUGIN_VERSION_SOURCE}
+    src/ptz.h
+    src/ptz-module-all.cpp
+    src/controller/ptz-camera-report.ui
+    src/controller/ptz-controls.ui
+    src/controller/ptz-movement-controls.ui
+    src/controller/settings.ui
+    src/controller/ptz-controls.qrc
+    src/controller/ptz.c
+    src/controller/ptz-controls.cpp
+    src/controller/ptz-movement-controls.cpp
+    src/controller/ptz-thumbnail-sweep.cpp
+    src/controller/ptz-device-util.cpp
+    src/controller/ptz-legacy-migration.cpp
+    src/controller/ptz-list-model.cpp
+    src/controller/ptz-driver-kinds.cpp
+    src/controller/ptz-backup-store.cpp
+    src/controller/settings.cpp
+    src/controller/ptz-camera-report.cpp
+    src/controller/ptz-state-view.cpp
+    src/controller/ptz-source-display.cpp
+    src/controller/ptz-action-source.c
+    src/controller/circularlistview.cpp
+    src/controller/touch-control.cpp
+    src/controller/ptz-controls.hpp
+    src/controller/ptz-movement-controls.hpp
+    src/controller/ptz-thumbnail-sweep.hpp
+    src/controller/ptz-legacy-migration.hpp
+    src/controller/ptz-list-model.hpp
+    src/controller/ptz-driver-kinds.hpp
+    src/controller/ptz-backup-store.hpp
+    src/controller/settings.hpp
+    src/controller/ptz-camera-report.hpp
+    src/controller/ptz-state-view.hpp
+    src/controller/ptz-source-display.hpp
+    src/controller/contributors-generated.hpp
+    src/controller/translators-generated.hpp
+    src/controller/circularlistview.hpp
+    src/controller/touch-control.hpp
+    src/controller/square-tool-button.hpp
+)
 
 option(
   ENABLE_UART_TESTS
