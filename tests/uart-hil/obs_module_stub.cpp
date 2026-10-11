@@ -2,7 +2,7 @@
  * exercised by this test suite, but still referenced at link time). That
  * symbol is not exported by libobs itself - it only exists because
  * OBS_MODULE_USE_DEFAULT_LOCALE() is expanded once, in the real plugin's
- * src/ptz.c, alongside OBS_DECLARE_MODULE(). Pulling in ptz.c itself would
+ * src/controller/ptz.c, alongside OBS_DECLARE_MODULE(). Pulling in ptz.c itself would
  * drag in ptz_load_devices()/ptz_load_controls()/etc., which this test
  * binary has no use for - this gives it its own minimal, self-contained
  * module identity instead.

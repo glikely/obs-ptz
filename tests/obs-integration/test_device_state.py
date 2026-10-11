@@ -1,6 +1,6 @@
 """Covers a device's transient *state* API (see test_device_settings.py for
 the settings half): the "ptz_get_state" / "ptz_request_state" proc
-handlers (PTZDevice::saveState() and requestState(), src/ptz-device.cpp).
+handlers (PTZDevice::saveState() and requestState(), src/core/ptz-device.cpp).
 The same "ptz_get_state" also backs PTZListModel's device-row cache -- one
 proc for a device's whole state, whoever the caller is.
 
@@ -114,7 +114,7 @@ def test_an_unknown_trigger_does_nothing(obs_world, tmp_path):
 @pytest.mark.parametrize("backend", VISCA_BACKENDS)
 def test_position_is_reported_in_the_units_of_the_movement_api(obs_world, backend, tmp_path):
     """The raw positions VISCA reads back, over the ranges its absolute moves
-    use (src/ptz-visca.cpp), clamped: pan and tilt to [-1, 1], zoom and focus
+    use (src/drivers/visca/ptz-visca.cpp), clamped: pan and tilt to [-1, 1], zoom and focus
     to [0, 1]."""
     state = obs_world.wait_for_device_state(
         obs_world.device_names[backend], tmp_path / "state.json",

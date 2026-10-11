@@ -863,7 +863,7 @@ class ViscaTcpServer:
 # ---------------------------------------------------------------------------
 # UDP transport: Sony "VISCA-over-IP", an 8-byte header (type, length, a
 # 32-bit sequence number) in front of the same raw VISCA datagram used by
-# TCP/serial. See src/ptz-visca-udp.cpp for the client side this mirrors.
+# TCP/serial. See src/drivers/visca/ptz-visca-udp.cpp for the client side this mirrors.
 # ---------------------------------------------------------------------------
 VISCA_IP_COMMAND = 0x0100
 VISCA_IP_INQUIRY = 0x0110
@@ -875,7 +875,7 @@ VISCA_IP_RESET = 0x01
 
 class SonyUdpQuirks:
     """Makes the UDP server behave the way a real Sony SRG-120DH was
-    measured to over VISCA-over-IP (see src/ptz-visca.cpp), so a client's
+    measured to over VISCA-over-IP (see src/drivers/visca/ptz-visca.cpp), so a client's
     handling of those quirks can be tested:
 
     - a request that arrives within min_gap of the last reply sent is

@@ -1,6 +1,6 @@
-# Unit tests for the USB camera backend logic in src/ptz-usb-backend.hpp and
-# src/ptz-usb-backend-slot.hpp, and for the worker thread in
-# src/ptz-usb-worker.*. Needs no camera or OBS: the tests use a fake backend.
+# Unit tests for the USB camera backend logic in src/drivers/usb/ptz-usb-backend.hpp and
+# src/drivers/usb/ptz-usb-backend-slot.hpp, and for the worker thread in
+# src/drivers/usb/ptz-usb-worker.*. Needs no camera or OBS: the tests use a fake backend.
 # The worker is a QObject with a thread, so this does need Qt Core.
 
 # macOS's cmake/macos/xcode.cmake sets CMAKE_SKIP_RPATH TRUE project-wide, which
@@ -15,11 +15,11 @@ add_executable(
   test_uvc_protocol.cpp
   test_slot.cpp
   test_worker.cpp
-  "${CMAKE_SOURCE_DIR}/src/ptz-usb-worker.hpp"
-  "${CMAKE_SOURCE_DIR}/src/ptz-usb-worker.cpp"
+  "${CMAKE_SOURCE_DIR}/src/drivers/usb/ptz-usb-worker.hpp"
+  "${CMAKE_SOURCE_DIR}/src/drivers/usb/ptz-usb-worker.cpp"
 )
 
-target_include_directories(usb-backend-tests PRIVATE "${CMAKE_SOURCE_DIR}/src")
+target_include_directories(usb-backend-tests PRIVATE "${CMAKE_SOURCE_DIR}/src" "${CMAKE_SOURCE_DIR}/src/drivers/usb")
 target_link_libraries(usb-backend-tests PRIVATE Qt6::Core catch2_amalgamated)
 set_target_properties(usb-backend-tests PROPERTIES AUTOMOC ON CXX_STANDARD 17)
 

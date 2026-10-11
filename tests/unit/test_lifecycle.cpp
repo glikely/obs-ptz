@@ -1,4 +1,4 @@
-/* Tests for PTZLifecycle (src/ptz-lifecycle.hpp): the order in which devices
+/* Tests for PTZLifecycle (src/core/ptz-lifecycle.hpp): the order in which devices
  * are added, removed, started and stopped.
  *
  * Copyright 2026 Grant Likely <grant.likely@secretlab.ca>

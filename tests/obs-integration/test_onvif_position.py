@@ -1,5 +1,5 @@
 """Covers ONVIF reporting where the camera is (PTZOnvif::handleGetStatusResponse()
-in src/ptz-onvif.cpp), as the generic position part of the device state:
+in src/drivers/onvif/ptz-onvif.cpp), as the generic position part of the device state:
 "pan" and "tilt" in [-1, 1], "zoom" in [0, 1], and no "focus", which ONVIF's
 status has no position for.
 

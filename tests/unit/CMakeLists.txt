@@ -1,4 +1,4 @@
-# Unit tests for code that needs neither OBS nor Qt (src/ptz-lifecycle.hpp).
+# Unit tests for code that needs neither OBS nor Qt (src/core/ptz-lifecycle.hpp).
 #
 # Copyright 2026 Grant Likely <grant.likely@secretlab.ca>
 # SPDX-License-Identifier: GPL-2.0-or-later
@@ -8,9 +8,9 @@
 # subdirectory (same as tests/soft-ptz). No-op elsewhere.
 set(CMAKE_SKIP_RPATH FALSE)
 
-add_executable(ptz-unit-tests main.cpp test_lifecycle.cpp "${CMAKE_CURRENT_LIST_DIR}/../../src/ptz-lifecycle.hpp")
+add_executable(ptz-unit-tests main.cpp test_lifecycle.cpp "${CMAKE_CURRENT_LIST_DIR}/../../src/core/ptz-lifecycle.hpp")
 
-target_include_directories(ptz-unit-tests PRIVATE "${CMAKE_CURRENT_LIST_DIR}/../../src")
+target_include_directories(ptz-unit-tests PRIVATE "${CMAKE_CURRENT_LIST_DIR}/../../src/core")
 target_link_libraries(ptz-unit-tests PRIVATE catch2_amalgamated)
 set_target_properties(ptz-unit-tests PROPERTIES CXX_STANDARD 17)
 

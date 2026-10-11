@@ -1,4 +1,4 @@
-# Unit tests for the soft PTZ viewport model in src/ptz-soft-viewport.hpp.
+# Unit tests for the soft PTZ viewport model in src/drivers/soft/ptz-soft-viewport.hpp.
 # A header-only class with no Qt or OBS dependency, so needs neither.
 
 # macOS's cmake/macos/xcode.cmake sets CMAKE_SKIP_RPATH TRUE project-wide, which
@@ -11,10 +11,10 @@ add_executable(
   main.cpp
   test_viewport.cpp
   test_motion.cpp
-  "${CMAKE_CURRENT_LIST_DIR}/../../src/ptz-soft-viewport.hpp"
+  "${CMAKE_CURRENT_LIST_DIR}/../../src/drivers/soft/ptz-soft-viewport.hpp"
 )
 
-target_include_directories(soft-ptz-tests PRIVATE "${CMAKE_CURRENT_LIST_DIR}/../../src")
+target_include_directories(soft-ptz-tests PRIVATE "${CMAKE_CURRENT_LIST_DIR}/../../src/drivers/soft")
 target_link_libraries(soft-ptz-tests PRIVATE catch2_amalgamated)
 set_target_properties(soft-ptz-tests PROPERTIES CXX_STANDARD 17)
 

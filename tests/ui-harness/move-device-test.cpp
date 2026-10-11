@@ -14,9 +14,9 @@
 namespace {
 
 /* Drives PTZDevice::move_abs()/move_rel() (the "ptz_move_abs"/
- * "ptz_move_rel" proc handlers, see src/ptz-device.cpp) directly.
+ * "ptz_move_rel" proc handlers, see src/core/ptz-device.cpp) directly.
  * There's no ptz_action_source action type for either -- its PTZ_ACTION_*
- * enum (src/ptz-action-source.c) only covers continuous pan/tilt, stop,
+ * enum (src/controller/ptz-action-source.c) only covers continuous pan/tilt, stop,
  * presets and power -- so this is the only way
  * tests/obs-integration/test_absolute_relative_moves.py can exercise
  * PTZVisca::pantilt_abs()/pantilt_rel()/zoom_abs() end to end. */

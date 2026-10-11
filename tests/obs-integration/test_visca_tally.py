@@ -1,5 +1,5 @@
 """VISCA tally lamps: PTZVisca::onSceneChanged() and requestState() in
-src/ptz-visca.cpp.
+src/drivers/visca/ptz-visca.cpp.
 
 A VISCA camera with tally lamps has the red one lit while its source is in
 the program scene, and the green one lit while it is in the preview scene

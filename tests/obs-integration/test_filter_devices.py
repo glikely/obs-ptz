@@ -2,7 +2,7 @@
 Control" filter to a source creates a PTZDevice for that source, which
 lives as long as the filter does, instead of the device being set up in
 the plugin's own device list (see ptz_visca_filter_info in
-src/ptz-device.cpp).
+src/core/ptz-device.cpp).
 
 Each test creates a media source to stand in for the camera (an empty
 one is enough), adds the filter to it over obs-websocket (CreateSourceFilter) with the

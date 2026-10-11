@@ -3,7 +3,7 @@
 This suite's own config (write_ptz_plugin_config() in conftest.py) is such a
 config.json: a device each, with an id, bound to a source by name, none of
 which exist when OBS starts. Once OBS has loaded its scene collection the
-plugin makes each of them a "PTZ Control" filter (src/ptz-legacy-migration.cpp),
+plugin makes each of them a "PTZ Control" filter (src/controller/ptz-legacy-migration.cpp),
 on a placeholder source here, as there are no sources of those names.
 
 These tests look at what that left behind: the filters, that their devices

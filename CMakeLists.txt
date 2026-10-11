@@ -343,7 +343,10 @@ option(
 )
 if(ENABLE_UART_TESTS)
   if(NOT ENABLE_SERIALPORT)
-    message(FATAL_ERROR "ENABLE_UART_TESTS requires ENABLE_SERIALPORT=ON (needs libserialport and src/uart-wrapper.*)")
+    message(
+      FATAL_ERROR
+      "ENABLE_UART_TESTS requires ENABLE_SERIALPORT=ON (needs libserialport and src/drivers/serial/uart-wrapper.*)"
+    )
   endif()
   if(NOT TARGET catch2_amalgamated)
     add_subdirectory(shared/catch2)
@@ -436,7 +439,7 @@ endif()
 
 option(
   ENABLE_VISCA_PROFILE_CHECK
-  "Check the VISCA command sets in src/visca-profiles with the plugin's own reader on every build (tests/visca-profile-check)"
+  "Check the VISCA command sets in src/drivers/visca/visca-profiles with the plugin's own reader on every build (tests/visca-profile-check)"
   OFF
 )
 if(ENABLE_VISCA_PROFILE_CHECK)

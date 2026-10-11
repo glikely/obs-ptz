@@ -1,5 +1,5 @@
 """Covers the PTZ API's version: that the ptz_get_api_version proc on each
-device's proc_handler (src/ptz-device.cpp) reports the version src/ptz.h
+device's proc_handler (src/core/ptz-device.cpp) reports the version src/ptz.h
 declares, and that docs/ptz-device-api.md states it.
 
 Driven through tests/ui-harness/api-version-test.cpp's "get_api_version"

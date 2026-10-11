@@ -5,7 +5,7 @@
  * Touches only PTZUARTWrapper's public interface - no backend-specific
  * includes (no <serial_cpp/serial.h>, no <QSerialPort>, no
  * libserialport.h) - so this file compiles unchanged against whichever
- * backend src/uart-wrapper.cpp is written against on a given branch.
+ * backend src/drivers/serial/uart-wrapper.cpp is written against on a given branch.
  */
 #pragma once
 

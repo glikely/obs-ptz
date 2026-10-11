@@ -7,7 +7,7 @@ Copyright 2026 Grant Likely <grant.likely@secretlab.ca>
 SPDX-License-Identifier: GPL-2.0-or-later
 
 Driven through tests/ui-harness/driver-kinds-test.cpp's "driver_kinds" test,
-which reports what ptz_driver_kinds() (src/ptz-driver-kinds.cpp) returns.
+which reports what ptz_driver_kinds() (src/controller/ptz-driver-kinds.cpp) returns.
 Expects the kinds of a build with every driver enabled, as
 scripts/macos-dev.sh makes one.
 """

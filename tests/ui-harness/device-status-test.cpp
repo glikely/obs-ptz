@@ -17,7 +17,7 @@ namespace {
  * IsConnectedRole, which wraps PTZDevice::isConnected() -- see
  * ptz-list-model.cpp) plus its "power_on"/"focus_af_enabled"/"wb_mode"
  * state (populated from the camera's own inquiry replies -- see
- * PTZVisca::receive() in src/ptz-visca.cpp -- and read through the
+ * PTZVisca::receive() in src/drivers/visca/ptz-visca.cpp -- and read through the
  * "ptz_get_state" proc handler) as JSON. A value the device doesn't report
  * reads back as false/0: "wb_mode" is VISCA's alone. "connected" is the
  * wire link's own state, distinct from "power_on" (the camera's reported

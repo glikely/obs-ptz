@@ -1,8 +1,8 @@
 """End-to-end tests for camera power on/off (the "power_on" request
-handled by PTZVisca::requestState(), src/ptz-visca.cpp).
+handled by PTZVisca::requestState(), src/drivers/visca/ptz-visca.cpp).
 
 PTZ_ACTION_POWER_OFF/PTZ_ACTION_POWER_ON exist in ptz_action_source's own
-PTZ_ACTION_* enum (src/ptz-action-source.c) but are never actually wired
+PTZ_ACTION_* enum (src/controller/ptz-action-source.c) but are never actually wired
 up in ptz_action_source_do_action() (they fall through to its
 "default: break;") or exposed in its own "action" property list, so
 power is no more reachable over obs-websocket than autofocus/white

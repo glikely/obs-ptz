@@ -1,11 +1,11 @@
 """End-to-end tests for autofocus mode (PTZDevice::set_autofocus(),
 "focus_af_enabled") and white balance mode ("wb_mode") -- both requested
 through the "ptz_request_state" proc handler and readable in the "ptz_get_state" state
-(src/ptz-device.cpp/src/ptz-visca.cpp), the same ones PTZControls uses from
-inside the UI (src/ptz-controls.cpp).
+(src/core/ptz-device.cpp/src/drivers/visca/ptz-visca.cpp), the same ones PTZControls uses from
+inside the UI (src/controller/ptz-controls.cpp).
 
 Neither has a ptz_action_source action type of its own -- its own
-PTZ_ACTION_* enum (src/ptz-action-source.c) only covers continuous
+PTZ_ACTION_* enum (src/controller/ptz-action-source.c) only covers continuous
 pan/tilt, stop, presets and power -- so both are driven through
 tests/ui-harness/device-state-test.cpp's "set_device_state" test and read back
 through device-status-test.cpp's "get_device_status" test (see
@@ -14,11 +14,11 @@ same way as test_device_status.py.
 
 VISCA-only: "wb_mode" is state only VISCA reports, and Pelco has no
 autofocus concept in this plugin either (PTZDevice::set_autofocus() is
-an empty no-op unless a backend overrides it, see src/ptz-device.hpp).
+an empty no-op unless a backend overrides it, see src/core/ptz-device.hpp).
 
 set_autofocus() updates its cached "focus_af_enabled" locally as soon
 as the command is sent (see PTZVisca::set_autofocus() in
-src/ptz-visca.cpp), so that test mostly confirms the round trip through
+src/drivers/visca/ptz-visca.cpp), so that test mostly confirms the round trip through
 the real device object and a real, acked wire command. "wb_mode" has no
 such local update (see PTZVisca::requestState()) -- it only becomes correct once
 the follow-up CameraControlInq that VISCA_CAM_WB_Mode's own "affects"

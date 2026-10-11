@@ -8,7 +8,7 @@ observe PTZDevice::isConnected() from outside the plugin:
 obs-websocket exposes no device list or property read of its own.
 
 Connect/disconnect detection (PTZDevice::setConnected(), see
-PTZVisca::cmd_get_camera_info()/timeout() in src/ptz-visca.cpp) is only
+PTZVisca::cmd_get_camera_info()/timeout() in src/drivers/visca/ptz-visca.cpp) is only
 wired up for VISCA -- Pelco never calls setConnected() at all (obs-ptz
 has no read-back for it), so isConnected() would just stay permanently
 false there. These tests are VISCA-only for that reason.

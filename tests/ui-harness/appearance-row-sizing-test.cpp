@@ -57,14 +57,14 @@ void logFirstRowHeight(QWidget *mainWindow, const char *objectName, const char *
 void logRowHeights()
 {
 	auto *mainWindow = static_cast<QWidget *>(obs_frontend_get_main_window());
-	/* "presetListView"/"deviceList": src/ptz-controls.ui. "sources":
+	/* "presetListView"/"deviceList": src/controller/ptz-controls.ui. "sources":
 	 * OBS's own frontend/forms/OBSBasic.ui. */
 	logFirstRowHeight(mainWindow, "presetListView", "preset");
 	logFirstRowHeight(mainWindow, "deviceList", "camera");
 	logFirstRowHeight(mainWindow, "sources", "sources");
 }
 
-/* PTZControls::refreshToolbarSizes() (src/ptz-controls.cpp) mirrors
+/* PTZControls::refreshToolbarSizes() (src/controller/ptz-controls.cpp) mirrors
  * ptzToolbar/presetToolbar's minimum height directly from OBS's own
  * dock toolbars (e.g. sourcesToolbar, on the Sources dock) - see that
  * function's own comment for why matching it directly, rather than
@@ -84,7 +84,7 @@ void logToolbarHeight(QWidget *mainWindow, const char *objectName, const char *l
 void logToolbarHeights()
 {
 	auto *mainWindow = static_cast<QWidget *>(obs_frontend_get_main_window());
-	/* "ptzToolbar"/"presetToolbar": src/ptz-controls.ui.
+	/* "ptzToolbar"/"presetToolbar": src/controller/ptz-controls.ui.
 	 * "sourcesToolbar": OBS's own frontend/forms/OBSBasic.ui. */
 	logToolbarHeight(mainWindow, "ptzToolbar", "ptzToolbar");
 	logToolbarHeight(mainWindow, "presetToolbar", "presetToolbar");
@@ -92,7 +92,7 @@ void logToolbarHeights()
 }
 
 /* The preset list's recall icon (PTZPresetListDelegate::iconSize,
- * src/ptz-controls.cpp) is meant to track the same real-world thing as
+ * src/controller/ptz-controls.cpp) is meant to track the same real-world thing as
  * the Sources dock's own row-level icons: its vis/lock checkboxes
  * (styled ".checkbox-icon" in the theme) - not the fixed 16x16
  * scene/source-type QLabel icon, which never changes size at all.

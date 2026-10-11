@@ -39,7 +39,7 @@ SOURCE = "USB Camera Under Test"
 WRAPPER = REPO / "scripts" / "macos-integration-test-obs-wrapper.py"
 REAL_OBS = os.environ.get("PTZSIM_REAL_OBS_BINARY", "/Applications/OBS.app/Contents/MacOS/OBS")
 
-# ptz_action_source's actions, see src/ptz-action-source.c
+# ptz_action_source's actions, see src/controller/ptz-action-source.c
 ACTION_PRESET_RECALL = 2
 ACTION_PAN_TILT = 3
 ACTION_STOP = 4

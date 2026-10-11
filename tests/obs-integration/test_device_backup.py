@@ -4,7 +4,7 @@ removing devices from the settings dialog.
 Deleting a source takes its "PTZ Control" filter along, and with it the
 device's presets. So the controller keeps every device's settings in a backup
 as OBS removes or destroys its filter, or removes its source
-(src/ptz-backup-store.cpp), and the settings
+(src/controller/ptz-backup-store.cpp), and the settings
 dialog's Add, which adds a filter to a source rather than a device of the
 plugin's own, offers the backup of a device that was on a source of the same
 name. Its Remove removes a filter's device by removing the filter.
@@ -328,7 +328,7 @@ def test_entry_without_kind_still_restores(obs_world, sources, tmp_path):
 # Backups made by switching scene collection with four devices, three on a
 # source each and one source with two (visca and soft): what the
 # implementation that backed up from inside the device made. See the commit
-# that introduced src/ptz-backup-store.cpp.
+# that introduced src/controller/ptz-backup-store.cpp.
 COLLECTION_SWITCH_BACKUPS = 5
 
 

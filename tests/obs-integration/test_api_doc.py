@@ -13,7 +13,7 @@ and checks it against:
 
  * what the plugin registered: ptz_proc_add() and ptz_signal_add() log every
    proc and signal, a device's (PTZDevice) and a discovery instance's
-   (src/ptz-discovery-kind.cpp), and tests/ui-harness/api-version-test.cpp's
+   (src/core/ptz-discovery-kind.cpp), and tests/ui-harness/api-version-test.cpp's
    "get_registered_api" test hands the log back, having made an instance of
    each discovery kind so that theirs are in it, so a proc added in the code
    and not here fails, and so does one here and not in the code;
@@ -174,7 +174,7 @@ def test_the_features_a_device_reports_are_documented(obs_world, tmp_path):
 
 
 def test_the_doc_lists_the_features_in_the_source():
-    source = (REPO_ROOT / "src" / "ptz-device.cpp").read_text()
+    source = (REPO_ROOT / "src" / "core" / "ptz-device.cpp").read_text()
     table = re.search(r"PTZDevice::featureNames\(\)\s*\{.*?names = \{(.*?)\};", source, re.DOTALL).group(1)
     in_source = set(re.findall(r'\{\w+, "(\w+)"\}', table))
     in_doc = {name for row in table_rows("Features") for name in names(row[0])}
@@ -185,11 +185,11 @@ def test_the_doc_lists_the_features_in_the_source():
 def test_the_doc_lists_the_triggers_in_the_source():
     src = REPO_ROOT / "src"
     in_source = set()
-    for path in ("ptz-device.cpp", "ptz-visca.cpp"):
+    for path in ("core/ptz-device.cpp", "drivers/visca/ptz-visca.cpp"):
         body = re.search(r"bool \w+::runTrigger\(const QString &name\)\s*\{(.*?)\n\}\n", (src / path).read_text(),
                          re.DOTALL).group(1)
         in_source |= set(re.findall(r'name == "(\w+)"', body))
-    table = re.search(r"visca_triggers = \{(.*?)\};", (src / "ptz-visca-commands.cpp").read_text(), re.DOTALL).group(1)
+    table = re.search(r"visca_triggers = \{(.*?)\};", (src / "drivers" / "visca" / "ptz-visca-commands.cpp").read_text(), re.DOTALL).group(1)
     in_source |= set(re.findall(r'\{"(\w+)",', table))
     in_doc = {name for row in table_rows("Triggers") for name in names(row[0])}
     assert in_source, "found no triggers in the source"

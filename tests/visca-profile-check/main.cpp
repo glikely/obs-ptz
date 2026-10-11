@@ -4,7 +4,7 @@
  *
  * SPDX-License-Identifier: GPL-2.0-or-later
  *
- * Reads each command set in the directories given (src/visca-profiles, by
+ * Reads each command set in the directories given (src/drivers/visca/visca-profiles, by
  * default) with the plugin's own reader, as the plugin reads the ones shipped
  * with it, which leaves out one it can't read with only a warning in the log.
  * Then checks what a shipped one must be besides: in a file named for its
@@ -131,7 +131,7 @@ int main(int argc, char **argv)
 			dirs.append({QString::fromLocal8Bit(argv[i]), std::exchange(expected, false)});
 	}
 	if (dirs.isEmpty())
-		dirs.append({"src/visca-profiles", false});
+		dirs.append({"src/drivers/visca/visca-profiles", false});
 	int failed = 0;
 	for (const auto &[dir, bad] : dirs)
 		failed |= check(dir, bad);

@@ -1,14 +1,14 @@
 """Covers switching an existing VISCA device's transport live, through
 the "Protocol" list in the properties dialog (PTZVisca::get_obs_properties()'s
 "type" list + PTZVisca::update()'s "type" -> ViscaTransport switch, see
-src/ptz-visca.cpp) -- and specifically that it persists using the original
+src/drivers/visca/ptz-visca.cpp) -- and specifically that it persists using the original
 "type"/"host"/"*_port" field names (see the plugin's on-disk config format),
 not a separate namespaced field per transport.
 
 Driven through tests/ui-harness/update-device-test.cpp's "update_device"
 test, which applies a settings change to a device the same way
 PTZSettings::on_applyButton_clicked()/updateProperties() do when a user
-edits the properties dialog and clicks Apply/OK (src/settings.cpp): the
+edits the properties dialog and clicks Apply/OK (src/controller/settings.cpp): the
 device's current full config, overlaid with the fields under test, through
 PTZListModel::update().
 

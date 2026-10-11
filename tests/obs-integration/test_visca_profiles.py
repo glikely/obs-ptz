@@ -1,7 +1,7 @@
 """VISCA command sets: a camera is asked for what its model has.
 
 A camera says what it is in its reply to the version inquiry, and PTZVisca
-uses the command set (ViscaProfile, src/ptz-visca-commands.cpp) for that
+uses the command set (ViscaProfile, src/drivers/visca/ptz-visca-commands.cpp) for that
 model, or the generic one, which has everything and finds out what a camera
 doesn't have from the syntax errors it answers with. The "visca_profile"
 setting can name one instead.

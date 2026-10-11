@@ -1,8 +1,8 @@
 """VISCA camera settings: every value the Sony SRG-120DH manual has an inquiry
 for is read into the device's state, every one it has a command for can be
 asked for with ptz_request_state, and the settings dialog's state view shows
-them and changes them (the controls in src/ptz-visca-commands.cpp,
-PTZStateView in src/ptz-state-view.cpp).
+them and changes them (the controls in src/drivers/visca/ptz-visca-commands.cpp,
+PTZStateView in src/controller/ptz-state-view.cpp).
 
 A camera with the "7e 7e xx" block inquiries has most of them read with
 those; one without (a BirdDog, which ptzsim's --visca-no-block-inquiries

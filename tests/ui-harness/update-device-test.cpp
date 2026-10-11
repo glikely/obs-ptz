@@ -15,13 +15,13 @@ namespace {
 
 /* Drives PTZListModel::update(index, settings) with the device's own
  * current settings (from PTZListModel::save(), see PTZDevice::save()/
- * PTZVisca::save() in src/ptz-device.cpp/src/ptz-visca.cpp) overlaid with
+ * PTZVisca::save() in src/core/ptz-device.cpp/src/drivers/visca/ptz-visca.cpp) overlaid with
  * whatever fields the caller provided -- the same thing
  * PTZSettings::on_applyButton_clicked()/updateProperties() do with
  * propertiesView->GetSettings() when the user edits the properties
- * dialog and clicks Apply/OK (src/settings.cpp). In particular this is
+ * dialog and clicks Apply/OK (src/controller/settings.cpp). In particular this is
  * how the "Protocol" list (PTZVisca::get_obs_properties(), see
- * src/ptz-visca.cpp) switches a live VISCA device between the
+ * src/drivers/visca/ptz-visca.cpp) switches a live VISCA device between the
  * serial/UDP/TCP transports: set "type" to "visca"/"visca-over-ip"/
  * "visca-over-tcp" plus that transport's "host"/"*_port"/"address" fields,
  * reusing the same field names the properties dialog does (see

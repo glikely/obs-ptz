@@ -18,7 +18,7 @@ namespace {
 
 /* Reports a device's whole transient state through the "ptz_get_state"
  * proc handler (PTZDevice::get_state(), which is saveState() plus a few
- * more fields for PTZListModel's row display -- see src/ptz-device.cpp)
+ * more fields for PTZListModel's row display -- see src/core/ptz-device.cpp)
  * as JSON under "state". */
 void runGetDeviceStateTest(const QMap<QString, QString> &params)
 {
@@ -58,7 +58,7 @@ void runGetDeviceStateTest(const QMap<QString, QString> &params)
 }
 
 /* Drives the "ptz_request_state" proc handler (PTZDevice::request_state(),
- * see src/ptz-device.cpp) with a state object holding just the values given,
+ * see src/core/ptz-device.cpp) with a state object holding just the values given,
  * as the settings dialog's state view does. */
 void runSetDeviceStateTest(const QMap<QString, QString> &params)
 {

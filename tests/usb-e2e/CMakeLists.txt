@@ -1,9 +1,9 @@
 # usb-uvc-position: reads a USB camera's real position through the macOS
 # backend, for tests/usb-e2e/. See uvc-position.cpp.
 
-add_executable(usb-uvc-position uvc-position.cpp "${CMAKE_SOURCE_DIR}/src/ptz-usb-backend-macos.cpp")
+add_executable(usb-uvc-position uvc-position.cpp "${CMAKE_SOURCE_DIR}/src/drivers/usb/ptz-usb-backend-macos.cpp")
 
-target_include_directories(usb-uvc-position PRIVATE "${CMAKE_SOURCE_DIR}/src")
+target_include_directories(usb-uvc-position PRIVATE "${CMAKE_SOURCE_DIR}/src" "${CMAKE_SOURCE_DIR}/src/drivers/usb")
 target_link_libraries(usb-uvc-position PRIVATE OBS::libobs "-framework IOKit" "-framework CoreFoundation")
 set_target_properties(usb-uvc-position PROPERTIES CXX_STANDARD 17 XCODE_ATTRIBUTE_ENABLE_HARDENED_RUNTIME NO)
 

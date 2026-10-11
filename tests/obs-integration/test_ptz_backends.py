@@ -1,7 +1,7 @@
 """End-to-end tests: a real OBS Studio + obs-ptz plugin talking to a real
 ptzsim instance over each wire protocol.
 
-Each test triggers a `ptz_action_source` (see src/ptz-action-source.c)
+Each test triggers a `ptz_action_source` (see src/controller/ptz-action-source.c)
 through obs-websocket, which calls straight through obs-ptz's proc
 handler into the real PTZDevice for that backend -- the same code path
 a joystick move or a hotkey would use -- and then asserts on ptzsim's

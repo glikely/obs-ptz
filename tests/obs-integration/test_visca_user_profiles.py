@@ -154,9 +154,9 @@ def test_a_camera_without_presets_still_has_the_local_ones(request, obs_world, t
 
 
 def test_every_shipped_command_set_is_offered(obs_world, tmp_path):
-    """Each file in src/visca-profiles is linked into the plugin and read, so
+    """Each file in src/drivers/visca/visca-profiles is linked into the plugin and read, so
     one with anything wrong with it, which would be left out, fails here"""
-    shipped = {json.loads(path.read_text())["id"] for path in (REPO_ROOT / "src" / "visca-profiles").glob("*.json")}
+    shipped = {json.loads(path.read_text())["id"] for path in (REPO_ROOT / "src" / "drivers" / "visca" / "visca-profiles").glob("*.json")}
     offered = obs_world.device_settings(obs_world.device_names["visca-tcp"], tmp_path / "settings.json")["lists"]
     offered = offered["visca_profile"]
     assert shipped <= set(offered)

@@ -1,7 +1,7 @@
 """End-to-end tests for the preset export/import feature (issue #78),
 driven entirely through the REAL "Export/Import Presets..." context-menu
 actions (on_actionPresetExport_triggered()/on_actionPresetImport_
-triggered() in src/ptz-controls.cpp) -- deliberately the only way this
+triggered() in src/controller/ptz-controls.cpp) -- deliberately the only way this
 feature is tested; there is no lower-level entry point that bypasses the
 real device-selection and menu-action wiring.
 

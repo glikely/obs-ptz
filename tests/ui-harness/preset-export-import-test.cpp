@@ -20,7 +20,7 @@ namespace {
 
 /* Drives PTZControls's real "Export Presets..."/"Import Presets..."
  * context-menu actions (on_actionPresetExport_triggered()/
- * on_actionPresetImport_triggered() in src/ptz-controls.cpp) end to
+ * on_actionPresetImport_triggered() in src/controller/ptz-controls.cpp) end to
  * end: selects the requested device in the real deviceList view, then
  * triggers the real actionPresetExport/actionPresetImport QAction --
  * this is the only way this feature is tested (see

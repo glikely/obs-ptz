@@ -1,6 +1,6 @@
 """Pelco-D / Pelco-P protocol driver over an emulated serial port.
 
-obs-ptz's real Pelco driver (src/ptz-pelco.cpp) only ever runs over
+obs-ptz's real Pelco driver (src/drivers/pelco/ptz-pelco.cpp) only ever runs over
 UART, so this backend does too. Framing auto-detects the variant from
 the leading sync byte, so one link speaks both:
 

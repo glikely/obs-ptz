@@ -1,5 +1,5 @@
 """Whether a VISCA camera is powered is read before the rest of its state:
-PTZVisca::send_pending() in src/ptz-visca.cpp.
+PTZVisca::send_pending() in src/drivers/visca/ptz-visca.cpp.
 
 When the link comes up everything the camera can be asked for is read, one
 inquiry at a time. The device list shows a power indicator for a camera in

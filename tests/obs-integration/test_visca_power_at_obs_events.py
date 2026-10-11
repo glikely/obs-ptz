@@ -1,6 +1,6 @@
 """VISCA power on when OBS starts and off when it closes: the
 "power_on_at_startup" and "power_off_at_shutdown" settings, and
-PTZVisca::onOBSStartup()/onOBSShutdown() in src/ptz-visca.cpp.
+PTZVisca::onOBSStartup()/onOBSShutdown() in src/drivers/visca/ptz-visca.cpp.
 
 A PTZDevice hears of OBS having finished loading, and of it closing just
 before it clears its scenes, from OBS itself (PTZDevice::onFrontendEvent()),

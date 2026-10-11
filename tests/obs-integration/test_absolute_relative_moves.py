@@ -1,16 +1,16 @@
 """End-to-end tests for absolute and relative pan/tilt/zoom moves --
 PTZDevice::move_abs()/move_rel(), landing on PTZVisca::pantilt_abs()/
-pantilt_rel()/zoom_abs() in src/ptz-visca.cpp.
+pantilt_rel()/zoom_abs() in src/drivers/visca/ptz-visca.cpp.
 
 There's no ptz_action_source action type for either of these -- its own
-PTZ_ACTION_* enum (src/ptz-action-source.c) only covers continuous
+PTZ_ACTION_* enum (src/controller/ptz-action-source.c) only covers continuous
 pan/tilt, stop, presets and power -- so they're driven through
 tests/ui-harness/move-device-test.cpp's "move_device" test instead of
 World.trigger_action().
 
 VISCA-only: Pelco never overrides pantilt_abs()/pantilt_rel()/zoom_abs()
 (PTZDevice's own base implementations are empty no-ops -- see
-src/ptz-device.hpp), so those calls would be silent no-ops there.
+src/core/ptz-device.hpp), so those calls would be silent no-ops there.
 
 Pan-tiltDrive-AbsolutePosition/RelativePosition and CAM_Zoom-Direct
 encode their pan/tilt/zoom arguments over much smaller wire ranges

@@ -6,7 +6,7 @@ timeout, has only two command sockets, and answers "command buffer full"
 to anything sent while both are busy. ptzsim's --visca-udp-sony-quirks
 mode (SonyUdpQuirks in scripts/ptzsim/backends/visca.py) does the same, and
 counts what it saw, so these tests check how PTZVisca and its UDP transport
-(src/ptz-visca.cpp, src/ptz-visca-udp.cpp) cope:
+(src/drivers/visca/ptz-visca.cpp, src/drivers/visca/ptz-visca-udp.cpp) cope:
 
 - the startup inquiries are spaced out enough to not be dropped, and the
   reply timeout is long enough that none is sent twice;

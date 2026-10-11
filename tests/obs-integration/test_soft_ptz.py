@@ -1,4 +1,4 @@
-"""Covers the "Soft PTZ Control" filter (src/ptz-soft-cam.cpp): a PTZ device
+"""Covers the "Soft PTZ Control" filter (src/drivers/soft/ptz-soft-cam.cpp): a PTZ device
 with no camera, which pans, tilts and zooms by showing a part of the source it
 is on.
 

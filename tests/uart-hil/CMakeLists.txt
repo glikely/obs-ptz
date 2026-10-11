@@ -1,8 +1,8 @@
-# Hardware-in-the-loop test suite for PTZUARTWrapper (src/uart-wrapper.cpp).
+# Hardware-in-the-loop test suite for PTZUARTWrapper (src/drivers/serial/uart-wrapper.cpp).
 # See README.md for usage. Needs two wired-back-to-back serial ports, or
 # `socat` on macOS/Linux for a zero-hardware run - not for CI.
 #
-# Compiles src/uart-wrapper.cpp/.hpp directly (standalone, not linked from
+# Compiles src/drivers/serial/uart-wrapper.cpp/.hpp directly (standalone, not linked from
 # the plugin).
 
 # macOS's cmake/macos/xcode.cmake sets CMAKE_SKIP_RPATH TRUE project-wide -
@@ -26,11 +26,11 @@ add_executable(
   test_data_transfer.cpp
   test_concurrent_rw.cpp
   test_reconnect.cpp
-  "${CMAKE_SOURCE_DIR}/src/uart-wrapper.hpp"
-  "${CMAKE_SOURCE_DIR}/src/uart-wrapper.cpp"
+  "${CMAKE_SOURCE_DIR}/src/drivers/serial/uart-wrapper.hpp"
+  "${CMAKE_SOURCE_DIR}/src/drivers/serial/uart-wrapper.cpp"
 )
 
-target_include_directories(uart-hil-tests PRIVATE "${CMAKE_SOURCE_DIR}/src")
+target_include_directories(uart-hil-tests PRIVATE "${CMAKE_SOURCE_DIR}/src" "${CMAKE_SOURCE_DIR}/src/drivers/serial")
 
 # Same platform split as the plugin itself (see the top-level
 # CMakeLists.txt's ENABLE_SERIALPORT block): macOS/Windows link our

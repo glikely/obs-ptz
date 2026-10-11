@@ -1,14 +1,14 @@
 """Covers detecting devices: each driver's discovery kind, a hidden OBS
-source kind (src/ptz-discovery-kind.hpp, "Discovery kinds" in
+source kind (src/core/ptz-discovery-kind.hpp, "Discovery kinds" in
 docs/ptz-device-api.md) driven only through its instance's own procs and
 signals, and the Add Device dialog's "Detected devices" section, which makes
 one instance of each, and offers each device they find, to add as a filter
 set up to reach it.
 
 Two ways of finding cameras are covered, each against its own ptzsim:
-ONVIF's WS-Discovery (src/ptz-onvif-discovery.cpp), which ptzsim's ONVIF
+ONVIF's WS-Discovery (src/drivers/onvif/ptz-onvif-discovery.cpp), which ptzsim's ONVIF
 backend answers, and Sony's VISCA-over-IP setup protocol
-(src/ptz-sony-discovery.cpp), which ptzsim answers with
+(src/drivers/visca/ptz-sony-discovery.cpp), which ptzsim answers with
 --sony-discovery-name. Both are found over the network, multicast and
 broadcast, so these need a network interface that can multicast and
 broadcast; loopback alone won't do.

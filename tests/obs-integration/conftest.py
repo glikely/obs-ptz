@@ -4,13 +4,13 @@ session.
 
 Device wiring is entirely config-file driven: ptzsim's cameras are
 started on fixed local ports, and obs-ptz's own config.json (the file
-PTZControls::LoadConfig() reads -- see src/ptz-controls.cpp) is
+PTZControls::LoadConfig() reads -- see src/controller/ptz-controls.cpp) is
 pre-written with one device per ptzsim backend, in the format of the old
 self-managed backend, which the plugin turns into a filter on a source of the
-device's name (see src/ptz-legacy-migration.cpp). A device is then known by
+device's name (see src/controller/ptz-legacy-migration.cpp). A device is then known by
 that name, in DEVICE_NAMES. OBS itself is driven at
 runtime over obs-websocket (bundled since OBS 28), which every test
-module uses to add a `ptz_action_source` (src/ptz-action-source.c) to a
+module uses to add a `ptz_action_source` (src/controller/ptz-action-source.c) to a
 scene and make that scene current -- which is what fires the source's
 configured action against the real PTZDevice, exercising the exact same
 code path a user's joystick/hotkey would.
@@ -162,7 +162,7 @@ def write_preset_file(path, presets, preset_max=16, device="unused"):
     (ids were the camera's slot, an int), for test_preset_import_export.py to
     feed to the real "Import Presets..." action via World.run_ui_test(): the
     dock still reads them. See on_actionPresetExport_triggered() in
-    src/ptz-controls.cpp for what it writes now."""
+    src/controller/ptz-controls.cpp for what it writes now."""
     path.write_text(json.dumps({
         "obs-ptz-preset-format": 1,
         "device": device,
@@ -383,7 +383,7 @@ VISCA_PROFILES = {
     # also for a test model, and without one of the state values, which
     # replaces the shipped one
     "birddog-p100.json": {
-        **json.loads((REPO_ROOT / "src" / "visca-profiles" / "birddog-p100.json").read_text()),
+        **json.loads((REPO_ROOT / "src" / "drivers" / "visca" / "visca-profiles" / "birddog-p100.json").read_text()),
         "models": ["0109:2020", "0123:0004"],
         "remove": ["tally_preview", "low_latency"],
     },
@@ -1213,7 +1213,7 @@ class FlakyPtzsim:
 
     obs-ptz's own automatic reconnect (PTZViscaOverTCP::
     on_socket_stateChanged() retries connectToHost() every 1.9s, see
-    src/ptz-visca-tcp.cpp) picks a freshly (re)started listener back up
+    src/drivers/visca/ptz-visca-tcp.cpp) picks a freshly (re)started listener back up
     on its own; nothing here needs to poke the plugin to make that
     happen."""
 
