@@ -210,8 +210,8 @@ protected:
 	proc_handler_t *handler = nullptr;
 	/* ...and likewise a signal handler so status changes can sent */
 	signal_handler_t *sigs = nullptr;
-	/* Registers a proc or signal of the PTZ API on handler or sigs, and logs
-	 * it for ptz_registered_api() */
+	/* Registers a proc or signal of the PTZ API on handler or sigs (see
+	 * ptz_proc_add()) */
 	void addProc(const char *decl, proc_handler_proc_t proc, void *data);
 	void addSignal(const char *decl);
 	void signalDevice(const char *name, calldata_t *cd);
@@ -542,15 +542,9 @@ void ptz_filter_save(void *data, obs_data_t *settings);
  * lifecycle and scene changes. The module adds it when it loads. */
 void ptz_module_frontend_event(enum obs_frontend_event event, void *);
 
-/* Registers a proc or signal of the PTZ API on `handler`, and logs it, in
- * `scope`, for ptz_registered_api() */
+/* Registers a proc or signal of the PTZ API on `handler`, in `scope`, logging
+ * it in a build with the UI test harness (see ptz-device.cpp) */
 void ptz_proc_add(const char *scope, proc_handler_t *handler, const char *decl, proc_handler_proc_t proc, void *data);
 void ptz_signal_add(const char *scope, signal_handler_t *handler, const char *decl);
 /* ptz_get_api_version, for a device's or a discovery instance's proc_handler */
 void ptz_get_api_version_proc(void *, calldata_t *cd);
-
-/* What the PTZ API has registered so far, as (scope, declaration) pairs: the
- * procs and signals of docs/ptz-device-api.md. The scope is one of
- * "device-proc", "device-signal", "discovery-proc" and "discovery-signal".
- * For tests/ui-harness, to hold that document to it. */
-QList<QPair<QString, QString>> ptz_registered_api();

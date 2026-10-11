@@ -11,6 +11,7 @@
 #include <vector>
 #include <QCoreApplication>
 #include <QHash>
+#include <QSet>
 #include <QJsonDocument>
 #include <QMutex>
 #include <QThread>
@@ -24,22 +25,30 @@
 
 /* Everything the PTZ API registers goes through PTZDevice::addProc() and
  * addSignal() for a device's own handlers, or ptz_discovery_add_api() for a
- * discovery instance's, which log it, as the scope it is registered in
- * ("device-proc", "device-signal", "discovery-proc" or "discovery-signal")
- * and its declaration.
- * ptz_registered_api() hands the log back, so that a test can hold
- * docs/ptz-device-api.md to what the plugin really registers rather than to
- * a copy of it. */
+ * discovery instance's. In a build with the UI test harness each is logged,
+ * once per module, as "[ptz-api] <scope> <declaration>", the scope being
+ * "device-proc", "device-signal", "discovery-proc" or "discovery-signal", so
+ * that tests/obs-integration/test_api_doc.py can hold docs/ptz-device-api.md
+ * to what every module really registers rather than to a copy of it. */
+#ifdef ENABLE_UI_TESTS
 static QMutex ptz_api_log_mutex;
-static QList<QPair<QString, QString>> ptz_api_log;
+static QSet<QString> ptz_api_logged_set;
+#endif
 
 static void ptz_api_logged(const char *scope, const char *decl)
 {
-	QPair<QString, QString> entry(QString::fromUtf8(scope), QString::fromUtf8(decl));
+#ifdef ENABLE_UI_TESTS
+	QString entry = QString::fromUtf8(scope) + QLatin1Char(' ') + QString::fromUtf8(decl);
 	QMutexLocker locker(&ptz_api_log_mutex);
 	/* A device registers its handlers each time one is made */
-	if (!ptz_api_log.contains(entry))
-		ptz_api_log.append(entry);
+	if (ptz_api_logged_set.contains(entry))
+		return;
+	ptz_api_logged_set.insert(entry);
+	blog(LOG_INFO, "[ptz-api] %s", qUtf8Printable(entry));
+#else
+	Q_UNUSED(scope);
+	Q_UNUSED(decl);
+#endif
 }
 
 void ptz_proc_add(const char *scope, proc_handler_t *handler, const char *decl, proc_handler_proc_t proc, void *data)
@@ -68,12 +77,6 @@ void ptz_get_api_version_proc(void *, calldata_t *cd)
 {
 	calldata_set_int(cd, "major", PTZ_API_VERSION_MAJOR);
 	calldata_set_int(cd, "minor", PTZ_API_VERSION_MINOR);
-}
-
-QList<QPair<QString, QString>> ptz_registered_api()
-{
-	QMutexLocker locker(&ptz_api_log_mutex);
-	return ptz_api_log;
 }
 
 /**
