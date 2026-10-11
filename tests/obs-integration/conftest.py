@@ -537,6 +537,16 @@ class World:
         with urllib.request.urlopen(self.debug_url, timeout=5) as resp:
             return json.loads(resp.read())
 
+    def set_move_time(self, seconds):
+        """How long the shared ptzsim's moves across the whole range take from
+        now on (0: at once, which is how it starts), as its --move-time says"""
+        url = self.debug_url.rsplit("/", 1)[0] + "/move_time"
+        body = json.dumps({"seconds": seconds}).encode("utf-8")
+        request = urllib.request.Request(url, data=body, method="POST",
+                                         headers={"Content-Type": "application/json"})
+        with urllib.request.urlopen(request, timeout=5):
+            pass
+
     def wait_for_state(self, predicate, timeout=5, interval=0.1):
         deadline = time.time() + timeout
         last = None
@@ -1087,13 +1097,15 @@ def birddog_ptzsim(ptz_ports):
     """A VISCA-over-TCP-only ptzsim that, like a BirdDog, answers the block
     inquiries with a syntax error (--visca-no-block-inquiries), and the
     version inquiry too, so the plugin can't tell what it is and has to
-    find out what it has, wired to DEVICE_IDS["visca-tcp-birddog"]. Started
-    before OBS (see obs_world)."""
+    find out what it has, wired to DEVICE_IDS["visca-tcp-birddog"]. Like a
+    BirdDog it ACKs a command and never completes it (--visca-no-completions),
+    so the device can't tell when a move has ended. Started before OBS (see
+    obs_world)."""
     cmd = [
         sys.executable, "-m", "ptzsim",
         "--host", "127.0.0.1",
         "--visca-tcp-port", str(ptz_ports["visca_tcp_birddog"]),
-        "--visca-no-block-inquiries", "--visca-no-version-inquiry",
+        "--visca-no-block-inquiries", "--visca-no-version-inquiry", "--visca-no-completions",
         "--no-visca-udp", "--no-visca-serial", "--no-onvif", "--no-pelco",
     ]
     with output_log("ptzsim-birddog") as out:

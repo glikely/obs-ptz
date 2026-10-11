@@ -8,6 +8,8 @@ they check:
 
 - the filter makes a device, bound to the source, and moves go there: absolute
   and relative, and by a preset, with the position the device reports
+- a recall says it has arrived when the eased move has ended, and a move at a
+  speed, stopped, is no arrival
 - pan and tilt are kept inside the frame at the zoom there is
 - the picture is the part of the source the position says, which is looked at
   in a screenshot of the source (GetSourceScreenshot, which renders it with
@@ -20,6 +22,7 @@ import base64
 import itertools
 import json
 import struct
+import time
 import zlib
 
 import pytest
@@ -228,6 +231,93 @@ def test_a_local_preset_round_trips(obs_world, soft_cam, tmp_path):
 
     obs_world.call_proc(soft_cam, "ptz_preset_recall", {"id": preset})
     wait_for_position(obs_world, soft_cam, tmp_path, pan=0.5, tilt=-0.25, zoom=0.75)
+
+
+# How long the eased moves of the tests of arrival take
+EASE_SECONDS = 1.0
+# PTZDevice::kRecallSettleMs and kRecallBackstopMs: when a recall is said to
+# have arrived by a device that can't tell, and by one that can but never heard
+RECALL_SETTLE = 3.0
+RECALL_BACKSTOP = 15.0
+
+
+def recalled_events(world):
+    return [e for e in world.preset_signals() if e["signal"] == "ptz_preset_recalled"]
+
+
+def eased_preset(world, source, tmp_path):
+    """A preset away from where the viewport is, which takes EASE_SECONDS to get to"""
+    move(world, source, pan=0.5, tilt=-0.25, zoom=0.75)
+    wait_for_position(world, source, tmp_path, pan=0.5, tilt=-0.25, zoom=0.75)
+    preset = world.create_preset(source, "there", store="local")
+    assert preset
+    move(world, source, pan=0.0, tilt=0.0, zoom=0.0)
+    wait_for_position(world, source, tmp_path, pan=0.0, tilt=0.0, zoom=0.0)
+    world.ws.call("SetSourceFilterSettings", {
+        "sourceName": source, "filterName": "Soft PTZ", "filterSettings": {"recall_seconds": EASE_SECONDS},
+    })
+    return preset
+
+
+def test_it_says_it_can_tell_when_it_has_arrived(obs_world, soft_cam):
+    state = obs_world.call_proc(soft_cam, "ptz_get_state", {"state": {}})["args"]["state"]
+    assert "move_completion" in state["features"]
+
+
+def test_soft_recall_reports_arrival_when_ease_ends(obs_world, soft_cam, tmp_path):
+    preset = eased_preset(obs_world, soft_cam, tmp_path)
+    obs_world.record_preset_signals(soft_cam)
+
+    called = obs_world.call_proc(soft_cam, "ptz_preset_recall", {"id": preset})
+    obs_world.wait_for(lambda: recalled_events(obs_world), timeout=3)
+    elapsed = recalled_events(obs_world)[0]["ms"] - called["ms"]
+    # once the ease has ended, within a report and a few frames of it, and
+    # well before the 3 s a device that can't tell waits
+    assert EASE_SECONDS * 1000 - 50 <= elapsed <= EASE_SECONDS * 1000 + 500, elapsed
+    state = state_of(obs_world, soft_cam, tmp_path)
+    assert abs(state["pan"] - 0.5) < 0.01 and abs(state["zoom"] - 0.75) < 0.01
+    # and once: past when the 3 s timer would have said so too. The backstop's
+    # 15 s timer finds nothing pending once a recall has been reported, as
+    # every timer of the device does.
+    time.sleep(max(0, RECALL_SETTLE + 0.5 - elapsed / 1000))
+    assert [e["id"] for e in recalled_events(obs_world)] == [preset]
+
+
+def test_a_recall_that_moves_nothing_is_reported_by_the_backstop(obs_world, soft_cam, tmp_path):
+    """A preset of nothing it has (focus): the viewport never moves, so only
+    PTZDevice::kRecallBackstopMs says it has arrived. The one slow test here."""
+    preset = obs_world.create_preset(soft_cam, "focus only", store="local")
+    assert preset
+    obs_world.call_proc(soft_cam, "ptz_preset_update",
+                        {"id": preset, "changes": {"values": {"focus": {"position": 0.5}}}})
+    obs_world.record_preset_signals(soft_cam)
+
+    called = obs_world.call_proc(soft_cam, "ptz_preset_recall", {"id": preset})
+    time.sleep(RECALL_SETTLE + 0.5)
+    assert recalled_events(obs_world) == []
+    obs_world.wait_for(lambda: recalled_events(obs_world), timeout=RECALL_BACKSTOP + 3)
+    elapsed = recalled_events(obs_world)[0]["ms"] - called["ms"]
+    assert elapsed >= RECALL_BACKSTOP * 1000 - 100, elapsed
+    assert [e["id"] for e in recalled_events(obs_world)] == [preset]
+
+
+def test_soft_speed_move_stop_is_not_arrival(obs_world, soft_cam, tmp_path):
+    """A recall a speed has ended, then stopped with a zero speed, which cancels
+    nothing itself: it never arrived. A recall after it still says so."""
+    preset = eased_preset(obs_world, soft_cam, tmp_path)
+    obs_world.record_preset_signals(soft_cam)
+
+    obs_world.call_proc(soft_cam, "ptz_preset_recall", {"id": preset})
+    time.sleep(0.3)
+    obs_world.call_proc(soft_cam, "ptz_move", {"pan": 0.5, "tilt": 0.0})
+    time.sleep(0.3)
+    obs_world.call_proc(soft_cam, "ptz_move", {"pan": 0.0, "tilt": 0.0})
+    time.sleep(EASE_SECONDS + 3.5)
+    assert recalled_events(obs_world) == []
+
+    obs_world.call_proc(soft_cam, "ptz_preset_recall", {"id": preset})
+    obs_world.wait_for(lambda: recalled_events(obs_world), timeout=3)
+    assert [e["id"] for e in recalled_events(obs_world)] == [preset]
 
 
 def test_a_source_with_no_video_still_answers(obs_world, tmp_path):

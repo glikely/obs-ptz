@@ -17,11 +17,14 @@ ptzsim, the camera, has: a camera preset is in it, a local one is not.
 - update, move and refresh change the list and say so with signals of ids;
 - a recall says when the camera has arrived, once, and only for the last one
   asked for; a device that can't tell (ONVIF here) says so after a fixed settle
-  time, and the controller then refreshes the preset's thumbnail;
+  time, and the controller then refreshes the preset's thumbnail; a VISCA camera
+  says when it has got there, which is when the device does, but one that never
+  completes a command (a BirdDog) is left to the settle time;
 - what the camera keeps is not saved in the source's settings, and what is
   kept is, and the legacy `presets` of an older version is read as annotations.
 """
 
+import contextlib
 import json
 import time
 import urllib.request
@@ -683,6 +686,164 @@ def test_the_controller_refreshes_the_thumbnail_after_a_recall(obs_world, made):
     signals = [e["signal"] for e in obs_world.preset_signals()
                if e["signal"] == "ptz_preset_recalled" or "thumbnail" in e.get("changed", {})]
     assert signals == ["ptz_preset_recalled", "ptz_preset_changed"]
+
+
+# --------------------------------------------- arrival a VISCA camera says
+
+# How long the shared ptzsim takes over a move across the whole range (2
+# units), while a test has it move as a camera does: 1 unit a second
+MOVE_TIME = 2.0
+# Before which a device with move_completion says a recall below has arrived:
+# the longest move in them is under 0.8 s, and the settle timer would be at 3
+ARRIVAL_BOUND_MS = 2000
+
+
+def travel_ms(start, target):
+    """How long the camera takes from one position (in its own units) to the
+    other, at 1 unit a second on each axis at once"""
+    return 1000 * max(abs(a - b) for a, b in zip(start, target))
+
+
+@contextlib.contextmanager
+def slow_moves(world):
+    """The shared camera takes time to get somewhere, and completes a VISCA move
+    once it has; otherwise it is there at once"""
+    world.set_move_time(MOVE_TIME)
+    try:
+        yield
+    finally:
+        world.set_move_time(0)
+
+
+def features_of(world, device):
+    return world.call_proc(device, "ptz_get_state", {"state": {}})["args"]["state"]["features"]
+
+
+def recalled_events(world):
+    return [e for e in world.preset_signals() if e["signal"] == "ptz_preset_recalled"]
+
+
+def wait_for_arrival(world, target, timeout=5):
+    """The ptz_preset_recalled events, once there is one; the camera must be at
+    target by then. The signals are read before the camera is, so a signal seen
+    is one sent before the camera was looked at."""
+    deadline = time.time() + timeout
+    while time.time() < deadline:
+        events = recalled_events(world)
+        if events:
+            here = position(world)
+            assert near(here, target), f"said to have arrived at {target} while at {here}"
+            return events
+        time.sleep(0.05)
+    raise AssertionError(f"no ptz_preset_recalled within {timeout} s")
+
+
+def test_visca_has_move_completion_once_its_camera_completes_a_move(obs_world):
+    device = obs_world.device_names["visca-tcp"]
+    go_to(obs_world, device, 0.1, 0.1, 0.2)
+    assert "move_completion" in features_of(obs_world, device)
+
+
+def test_visca_recall_completes_when_camera_arrives(obs_world, made):
+    device = obs_world.device_names["visca-tcp"]
+    presets = made("visca-tcp")
+    target = go_to(obs_world, device, 0.3, 0.2, 0.4)
+    preset_id = presets.create("There", store="camera")
+    start = go_to(obs_world, device, -0.3, -0.2, 0.4)
+    assert "move_completion" in features_of(obs_world, device)
+    obs_world.record_preset_signals(device)
+
+    with slow_moves(obs_world):
+        called = presets.call("ptz_preset_recall", id=preset_id)
+        events = wait_for_arrival(obs_world, target)
+    elapsed = events[0]["ms"] - called["ms"]
+    # it waited for the camera, and not for the timer
+    assert travel_ms(start, target) - 100 <= elapsed < ARRIVAL_BOUND_MS, (elapsed, start, target)
+    time.sleep(max(0, RECALL_SETTLE + 0.5 - elapsed / 1000))
+    assert [e["id"] for e in recalled_events(obs_world)] == [preset_id]
+
+
+def test_visca_local_preset_waits_for_all_axes(obs_world, made):
+    """Its pan and tilt, and its zoom, are each a command the camera completes:
+    the zoom, which has further to go, is the last"""
+    device = obs_world.device_names["visca-tcp"]
+    presets = made("visca-tcp")
+    target = go_to(obs_world, device, 0.2, 0.0, 0.1)
+    preset_id = presets.create("Wide", store="local")
+    start = go_to(obs_world, device, -0.2, 0.0, 0.9)
+    pan_ms = travel_ms(start[:2], target[:2])
+    zoom_ms = travel_ms(start[2:], target[2:])
+    assert zoom_ms > pan_ms + 200, (start, target)
+    obs_world.record_preset_signals(device)
+
+    with slow_moves(obs_world):
+        called = presets.call("ptz_preset_recall", id=preset_id)
+        events = wait_for_arrival(obs_world, target)
+    elapsed = events[0]["ms"] - called["ms"]
+    # not when the pan got there, but the zoom
+    assert zoom_ms - 100 <= elapsed < ARRIVAL_BOUND_MS, (elapsed, start, target)
+    time.sleep(max(0, RECALL_SETTLE + 0.5 - elapsed / 1000))
+    assert [e["id"] for e in recalled_events(obs_world)] == [preset_id]
+
+
+def test_visca_superseded_recall_reports_only_the_last(obs_world, made):
+    """Review Focus 2: the camera cancels the first recall's move, with an error
+    for it, and completes the second"""
+    device = obs_world.device_names["visca-tcp"]
+    presets = made("visca-tcp")
+    go_to(obs_world, device, 0.4, 0.2, 0.4)
+    a = presets.create("A", store="camera")
+    target = go_to(obs_world, device, -0.2, -0.2, 0.4)
+    b = presets.create("B", store="camera")
+    go_to(obs_world, device, -0.4, 0.2, 0.4)
+    obs_world.record_preset_signals(device)
+
+    with slow_moves(obs_world):
+        presets.call("ptz_preset_recall", id=a)
+        time.sleep(0.2)
+        called = presets.call("ptz_preset_recall", id=b)
+        events = wait_for_arrival(obs_world, target)
+    assert events[0]["ms"] - called["ms"] < ARRIVAL_BOUND_MS
+    time.sleep(RECALL_SETTLE + 0.5)
+    assert [e["id"] for e in recalled_events(obs_world)] == [b]
+
+
+def test_visca_cancelled_move_does_not_report(obs_world, made):
+    """Recall, then stop: the camera never gets there"""
+    device = obs_world.device_names["visca-tcp"]
+    presets = made("visca-tcp")
+    go_to(obs_world, device, 0.4, 0.2, 0.4)
+    preset_id = presets.create("Far", store="camera")
+    go_to(obs_world, device, -0.4, -0.2, 0.4)
+    obs_world.record_preset_signals(device)
+
+    with slow_moves(obs_world):
+        presets.call("ptz_preset_recall", id=preset_id)
+        time.sleep(0.2)
+        presets.call("ptz_stop")
+        time.sleep(RECALL_SETTLE + 1)
+    assert recalled_events(obs_world) == []
+
+
+def test_a_visca_camera_that_never_completes_falls_back_to_the_timer(obs_world, made, tmp_path):
+    """A BirdDog only ACKs: the device can't tell, so it doesn't say it can"""
+    device = obs_world.device_names["visca-tcp-birddog"]
+    obs_world.wait_for_device_status(device, tmp_path / "status.json", lambda s: s["connected"] is True,
+                                     timeout=10)
+    presets = made("visca-tcp-birddog")
+    presets.call("ptz_move_abs", pan=0.1, tilt=0.1)
+    settled_device_position(obs_world, device)
+    preset_id = presets.create("Here", store="local")
+    presets.call("ptz_move_abs", pan=-0.1, tilt=-0.1)
+    settled_device_position(obs_world, device)
+    assert "move_completion" not in features_of(obs_world, device)
+    obs_world.record_preset_signals(device)
+
+    called = presets.call("ptz_preset_recall", id=preset_id)
+    obs_world.wait_for(lambda: recalled_events(obs_world), timeout=RECALL_SETTLE + 3)
+    elapsed = recalled_events(obs_world)[0]["ms"] - called["ms"]
+    assert elapsed >= RECALL_SETTLE * 1000 - 100, elapsed
+    assert [e["id"] for e in recalled_events(obs_world)] == [preset_id]
 
 
 # ------------------------------------------------------- what is saved

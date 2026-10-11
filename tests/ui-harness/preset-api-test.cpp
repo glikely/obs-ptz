@@ -10,6 +10,7 @@
 #include <obs-module.h>
 #include <QJsonArray>
 #include <QJsonDocument>
+#include <QElapsedTimer>
 #include <QJsonObject>
 #include <QList>
 #include <QStringList>
@@ -41,6 +42,9 @@ QJsonObject dataToJson(obs_data_t *data)
 		return QJsonObject();
 	return QJsonDocument::fromJson(obs_data_get_json(data)).object();
 }
+
+/* From when recording began: when each signal came, and each proc was called */
+QElapsedTimer recordClock;
 
 /* Calls a proc on the device's proc_handler with the calldata fields in args, a
  * JSON object: a string, number or bool goes in as that, and an object or array
@@ -93,6 +97,8 @@ void runCallProcTest(const QMap<QString, QString> &params)
 		older = !proc_handler_call(ph, "ptz_get_api_version", &version) || calldata_int(&version, "minor") < 2;
 		calldata_free(&version);
 	}
+	if (recordClock.isValid())
+		result["ms"] = recordClock.elapsed();
 	bool called = ph && !older && proc_handler_call(ph, qUtf8Printable(proc), &cd);
 	result["called"] = called;
 	QString returns = params.value(QStringLiteral("returns"));
@@ -148,6 +154,7 @@ void recordSignal(void *data, calldata_t *cd)
 	void *changed = nullptr;
 	if (calldata_get_ptr(cd, "changed", &changed) && changed)
 		event["changed"] = dataToJson(static_cast<obs_data_t *>(changed));
+	event["ms"] = recordClock.elapsed();
 	recorded.append(event);
 }
 
@@ -155,8 +162,10 @@ void recordSignal(void *data, calldata_t *cd)
  * it has */
 void runRecordPresetSignalsTest(const QMap<QString, QString> &params)
 {
-	if (params.value(QStringLiteral("keep")) != QStringLiteral("1"))
+	if (params.value(QStringLiteral("keep")) != QStringLiteral("1")) {
 		recorded.clear();
+		recordClock.start();
+	}
 	OBSSourceAutoRelease source = deviceSource(params.value(QStringLiteral("device")));
 	if (!source)
 		return;
@@ -189,8 +198,9 @@ void runGetPresetSignalsTest(const QMap<QString, QString> &params)
  *              unless it is here
  *   returns  - what it returns as "return": "string", "int", "bool" or "data" (an obs_data_t
  *              it releases); left out for nothing
- *   filename - where to write {"called", "return", "args"}, "called" being false if there was
- *              no such device or proc, and "args" the objects passed in, as the proc left them
+ *   filename - where to write {"called", "return", "args", "ms"}, "called" being false if there
+ *              was no such device or proc, "args" the objects passed in, as the proc left them,
+ *              and "ms" when it was called, on the clock of the signals' "ms", once recording
  *
  * record_preset_signals request params:
  *   device   - the device, which it starts recording the ptz_preset_* signals of, from
@@ -200,7 +210,8 @@ void runGetPresetSignalsTest(const QMap<QString, QString> &params)
  *
  * get_preset_signals request params:
  *   filename - where to write {"events": [{"signal", "id", "index", "from", "to",
- *              "request", "changed"}...]}, the fields each signal has, in the order they came
+ *              "request", "changed", "ms"}...]}, the fields each signal has, in the order they
+ *              came, and "ms" when it came, since recording began
  */
 void registerPresetApiTest(PTZUITestHarness *harness)
 {
