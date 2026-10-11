@@ -28,6 +28,9 @@ private:
 	/* Where the viewport is, for the device's state, a few times a second */
 	QTimer m_reportTimer;
 	void reportPosition();
+	/* An eased move has been asked for, and the report that has seen it end
+	 * says the device has arrived. A speed ends it with no arrival. Qt thread. */
+	bool m_easeReported = true;
 	/* Where it was when it was last written to the settings */
 	SoftPosition m_persisted;
 	/* What the picture is drawn to, before it is drawn to the scene, so that

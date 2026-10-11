@@ -1654,19 +1654,18 @@ void PTZDevice::recallPreset(const QString &id)
 	bool local = id.startsWith(QStringLiteral("local:"));
 	if (local ? presetIndex(id) < 0 : !id.startsWith(QStringLiteral("camera:")))
 		return;
-	/* Pending until the driver says the camera is there, or, if it can't
-	 * tell, until it has had time to get there. Recorded first, in case a
-	 * driver knows at once. */
+	/* Pending until the driver says the camera is there, or until a timer:
+	 * the time to get there if it can't tell, a backstop if it can. Recorded
+	 * first, in case a driver knows at once. */
 	cancelRecall();
 	m_recallPending = id;
 	if (local)
 		applyValues(m_presets.at(presetIndex(id)));
 	else
 		cameraPresetRecall(presetKey(id));
-	if (features().testFlag(MoveCompletion))
-		return;
+	int wait = features().testFlag(MoveCompletion) ? kRecallBackstopMs : kRecallSettleMs;
 	uint generation = m_recallGeneration;
-	QTimer::singleShot(kRecallSettleMs, this, [this, generation] {
+	QTimer::singleShot(wait, Qt::PreciseTimer, this, [this, generation] {
 		if (generation == m_recallGeneration && !m_recallPending.isEmpty())
 			finishRecall();
 	});

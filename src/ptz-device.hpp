@@ -80,8 +80,9 @@ public:
 		 * "tally_auto" setting is on */
 		TallyLight = 1 << 15,
 		/* The driver knows when the camera has arrived at a recalled
-		 * preset, and says so with moveFinished(); without it the
-		 * device guesses, kRecallSettleMs after the recall */
+		 * preset, and says so with moveFinished(), or else
+		 * kRecallBackstopMs after the recall, in case it never hears;
+		 * without it the device guesses, kRecallSettleMs after */
 		MoveCompletion = 1 << 16,
 	};
 	Q_DECLARE_FLAGS(Features, Feature)
@@ -112,6 +113,9 @@ protected:
 
 	/* How long a recall is taken to take, for a driver without MoveCompletion */
 	static constexpr int kRecallSettleMs = 3000;
+	/* When a recall of a MoveCompletion device is said to have arrived
+	 * without its driver saying so: a completion lost, or nothing moved */
+	static constexpr int kRecallBackstopMs = 15000;
 
 private:
 	/* The recall waiting to be reported with ptz_preset_recalled, if any.

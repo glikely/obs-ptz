@@ -682,24 +682,31 @@ static const QList<ViscaControl> visca_controls = {
 	  {0, assuming(VISCA_CAM_TallyGreen_Off, "tally_preview", false)}}},
 };
 
+/* A move to somewhere, which the camera completes when it is there */
+static PTZCmd moving(PTZCmd cmd)
+{
+	cmd.movesCamera = true;
+	return cmd;
+}
+
 /* What the driver sends to move the camera and use its presets, by name. Each
  * one's arguments are what the driver it is used by gives it. */
 static const QMap<QString, PTZCmd> visca_actions = {
 	/* pan and tilt speeds, then pan and tilt positions */
 	{"pantilt_drive", VISCA_PanTilt_drive},
-	{"pantilt_abs", VISCA_PanTilt_drive_abs},
-	{"pantilt_rel", VISCA_PanTilt_drive_rel},
-	{"pantilt_home", VISCA_PanTilt_Home},
+	{"pantilt_abs", moving(VISCA_PanTilt_drive_abs)},
+	{"pantilt_rel", moving(VISCA_PanTilt_drive_rel)},
+	{"pantilt_home", moving(VISCA_PanTilt_Home)},
 	/* a speed, or a position */
 	{"zoom_drive", VISCA_CAM_Zoom_drive},
-	{"zoom_abs", VISCA_CAM_Zoom_Direct},
+	{"zoom_abs", moving(VISCA_CAM_Zoom_Direct)},
 	{"focus_drive", VISCA_CAM_Focus_drive},
 	{"focus_onetouch", VISCA_CAM_Focus_OneTouch},
-	{"zoom_focus_abs", VISCA_CAM_ZoomFocus_Direct},
+	{"zoom_focus_abs", moving(VISCA_CAM_ZoomFocus_Direct)},
 	/* the preset number */
 	{"memory_reset", VISCA_CAM_Memory_Reset},
 	{"memory_set", VISCA_CAM_Memory_Set},
-	{"memory_recall", VISCA_CAM_Memory_Recall},
+	{"memory_recall", moving(VISCA_CAM_Memory_Recall)},
 };
 
 /* Commands that are sent as they are, by the ptz_trigger proc */
@@ -1018,6 +1025,7 @@ public:
 		}
 		if (!json.toObject().contains("affects"))
 			cmd->affects = builtin->affects;
+		cmd->movesCamera = builtin->movesCamera;
 		profile.actions.insert(name, *cmd);
 		return true;
 	}

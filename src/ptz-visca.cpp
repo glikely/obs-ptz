@@ -47,6 +47,7 @@ static constexpr int VISCA_POWER_ON_WAIT_MS = 60000;
 
 static constexpr int VISCA_ERROR_SYNTAX = 0x02;
 static constexpr int VISCA_ERROR_BUFFER_FULL = 0x03;
+static constexpr int VISCA_ERROR_CANCELLED = 0x04;
 static constexpr int VISCA_BUSY_BACKOFF_MS = 50;
 static constexpr unsigned int VISCA_BUSY_RETRIES_MAX = 20;
 
@@ -70,7 +71,33 @@ PTZVisca::PTZVisca(OBSData config, obs_source_t *source) : PTZDevice(config, sou
 void PTZVisca::reset()
 {
 	link_answered = false;
+	forget_moves();
+	/* It may be another camera now */
+	if (completes_moves) {
+		completes_moves = false;
+		featuresChanged();
+	}
 	cmd_get_camera_info();
+}
+
+/* The moves sent or still to send that the camera hasn't completed or refused */
+int PTZVisca::moves_outstanding() const
+{
+	int count = 0;
+	for (const auto &cmd : pending_cmds)
+		count += cmd.movesCamera;
+	for (const auto &cmd : active_cmd)
+		count += cmd && cmd->movesCamera;
+	return count;
+}
+
+/* The link has gone, and the completions of the moves the camera had with it */
+void PTZVisca::forget_moves()
+{
+	for (int i = 1; i < 8; i++) {
+		if (active_cmd[i] && active_cmd[i]->movesCamera)
+			active_cmd[i] = std::nullopt;
+	}
 }
 
 void PTZVisca::setInterface(const QString &interface)
@@ -436,6 +463,7 @@ void PTZVisca::timeout()
 	} else {
 		setConnected(false);
 		active_cmd[0] = std::nullopt;
+		forget_moves();
 		send_pending();
 	}
 }
@@ -716,6 +744,8 @@ PTZDevice::Features PTZVisca::features() const
 		features |= TallyLight;
 	if (profile->triggers.contains("wb_onepush"))
 		features |= WhiteBalanceOnePush;
+	if (completes_moves)
+		features |= MoveCompletion;
 	return features;
 }
 
@@ -825,10 +855,29 @@ void PTZVisca::receive(const QByteArray &msg)
 			obs_data_release(rslt_props);
 		}
 
-		active_cmd[slot] = std::nullopt;
+		{
+			bool moved = active_cmd[slot]->movesCamera;
+			active_cmd[slot] = std::nullopt;
+			if (moved) {
+				if (!completes_moves) {
+					completes_moves = true;
+					featuresChanged();
+				}
+				/* The last of the moves a recall made, and any made with it */
+				if (!moves_outstanding())
+					moveFinished();
+			}
+		}
 		break;
 	case VISCA_RESPONSE_ERROR:
 		incrementStatistic("visca_error_count");
+		/* A move a newer one replaced, which is the one waiting in that
+		 * socket, and not the request waiting for its first reply */
+		if (slot != 0 && msg.size() > 2 && msg[2] == VISCA_ERROR_CANCELLED) {
+			ptz_debug_trace("rx cancelled: %s", msg.toHex(':').data());
+			active_cmd[slot] = std::nullopt;
+			break;
+		}
 		timeout_timer.stop();
 		/* A camera has only a couple of command sockets; when they are
 		 * all busy it answers "command buffer full" to anything sent,

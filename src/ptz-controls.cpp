@@ -940,7 +940,7 @@ void PTZControls::presetRecalled(const QString &uuid, const QString &id)
 {
 	if (!refresh_thumbnail_on_recall)
 		return;
-	QTimer::singleShot(kThumbnailSettleMs, this,
+	QTimer::singleShot(kThumbnailSettleMs, Qt::PreciseTimer, this,
 			   [uuid, id] { ptzDeviceList->preset_capture_thumbnail(uuid, id, true); });
 }
 

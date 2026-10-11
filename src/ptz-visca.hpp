@@ -104,6 +104,11 @@ protected:
 	QSet<QByteArray> unsupported_requests;
 	QList<PTZCmd> pending_cmds;
 	std::optional<PTZCmd> active_cmd[8];
+	/* Whether the camera has completed a move, which a BirdDog, that only
+	 * ACKs, never does: until then it doesn't say it reports arrival */
+	bool completes_moves = false;
+	int moves_outstanding() const;
+	void forget_moves();
 	QTimer timeout_timer;
 	QTimer gap_timer;
 	QElapsedTimer since_last_rx;

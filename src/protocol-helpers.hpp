@@ -95,6 +95,8 @@ public:
 	/* The state the device is in once it has taken the command, for state
 	 * that can't be read back */
 	QVariantMap assumes;
+	/* A move the camera says it has finished with its completion */
+	bool movesCamera = false;
 	PTZCmd(const char *cmd_hex, affected_keys affects = {}) : cmd(QByteArray::fromHex(cmd_hex)), affects(affects) {}
 	PTZCmd(const char *cmd_hex, QList<datagram_field *> args, affected_keys affects = {})
 		: cmd(QByteArray::fromHex(cmd_hex)),

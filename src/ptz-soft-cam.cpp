@@ -122,7 +122,7 @@ obs_properties_t *PTZSoftCam::get_obs_properties()
  * absolute positions */
 PTZDevice::Features PTZSoftCam::features() const
 {
-	return PanTilt | Zoom | PanTiltAbs | PanTiltRel | ZoomAbs | Home;
+	return PanTilt | Zoom | PanTiltAbs | PanTiltRel | ZoomAbs | Home | MoveCompletion;
 }
 
 void PTZSoftCam::do_update()
@@ -131,6 +131,8 @@ void PTZSoftCam::do_update()
 		std::lock_guard<std::mutex> lock(m_lock);
 		m_viewport.setSpeeds(pan_speed, tilt_speed, zoom_speed);
 	}
+	if (pan_speed != 0 || tilt_speed != 0 || zoom_speed != 0)
+		m_easeReported = true;
 	pantilt_changed = false;
 	zoom_changed = false;
 	focus_changed = false;
@@ -138,24 +140,28 @@ void PTZSoftCam::do_update()
 
 void PTZSoftCam::pantilt_abs(double pan, double tilt)
 {
+	m_easeReported = false;
 	std::lock_guard<std::mutex> lock(m_lock);
 	m_viewport.movePanTiltTo(pan, tilt);
 }
 
 void PTZSoftCam::pantilt_rel(double pan, double tilt)
 {
+	m_easeReported = false;
 	std::lock_guard<std::mutex> lock(m_lock);
 	m_viewport.moveBy(pan, tilt);
 }
 
 void PTZSoftCam::pantilt_home()
 {
+	m_easeReported = false;
 	std::lock_guard<std::mutex> lock(m_lock);
 	m_viewport.home();
 }
 
 void PTZSoftCam::zoom_abs(double pos)
 {
+	m_easeReported = false;
 	std::lock_guard<std::mutex> lock(m_lock);
 	m_viewport.moveZoomTo(pos);
 }
@@ -200,6 +206,11 @@ void PTZSoftCam::reportPosition()
 	changed |= setPosition("zoom", pos.zoom);
 	if (changed)
 		notifyStateChanged();
+	/* There, as a recall wants to know: after the position it is at */
+	if (!moving && !m_easeReported) {
+		m_easeReported = true;
+		moveFinished();
+	}
 }
 
 /* The size of what the filter is on: its own is the same, whatever part of it
