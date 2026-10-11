@@ -114,9 +114,12 @@ add_dependencies(${CMAKE_PROJECT_NAME} plugin_version)
 get_target_property(_ptz_qt_wrappers_include qt-wrappers INTERFACE_INCLUDE_DIRECTORIES)
 
 # What each of the libraries the module links needs: OBS, Qt, and moc,
-# set up the way the module itself is above
-function(ptz_add_library target)
-  add_library(${target} STATIC)
+# set up the way the module itself is above. The core and the serial port are
+# static libraries, as each driver module will link its own copy. The drivers
+# are object libraries until they are modules: their objects are linked in
+# whole, Qt resources included.
+function(ptz_add_library target type)
+  add_library(${target} ${type})
   target_include_directories(${target} PUBLIC "${CMAKE_SOURCE_DIR}/src" ${_ptz_qt_wrappers_include})
   target_link_libraries(${target} PUBLIC OBS::libobs)
   if(TARGET OBS::obs-frontend-api)
@@ -138,7 +141,7 @@ function(ptz_add_library target)
 endfunction()
 
 # The PTZDevice base class and what the drivers share with it
-ptz_add_library(ptz-device-core)
+ptz_add_library(ptz-device-core STATIC)
 target_include_directories(ptz-device-core PUBLIC "${CMAKE_SOURCE_DIR}/src/core")
 target_sources(
   ptz-device-core
@@ -178,7 +181,7 @@ if(ENABLE_SERIALPORT)
   if(_serialport_ok)
     add_compile_definitions(ENABLE_SERIALPORT)
     # The serial port, which the VISCA and Pelco drivers share
-    ptz_add_library(ptz-serial)
+    ptz_add_library(ptz-serial STATIC)
     target_include_directories(ptz-serial PUBLIC "${CMAKE_SOURCE_DIR}/src/drivers/serial")
     target_sources(ptz-serial PRIVATE src/drivers/serial/uart-wrapper.cpp src/drivers/serial/uart-wrapper.hpp)
     target_link_libraries(ptz-serial PUBLIC ${_serialport_lib})
@@ -186,7 +189,7 @@ if(ENABLE_SERIALPORT)
   unset(_serialport_lib)
 endif()
 
-ptz_add_library(ptz-driver-visca)
+ptz_add_library(ptz-driver-visca OBJECT)
 target_include_directories(ptz-driver-visca PUBLIC "${CMAKE_SOURCE_DIR}/src/drivers/visca")
 target_link_libraries(ptz-driver-visca PUBLIC ptz-device-core)
 target_sources(
@@ -210,12 +213,11 @@ endif()
 
 # The VISCA command sets shipped with the plugin, linked into it as Qt
 # resources, as :/visca-profiles/*.json. A new one is a new file there.
-# Added to the module for now, as qt_add_resources() on a static library
-# makes an object library that the Xcode generator can't link for more than
-# one architecture.
+# (qt_add_resources() on a static library makes another object library,
+# which the Xcode generator can't link for two architectures.)
 file(GLOB VISCA_PROFILES CONFIGURE_DEPENDS "${CMAKE_SOURCE_DIR}/src/drivers/visca/visca-profiles/*.json")
 qt_add_resources(
-  ${CMAKE_PROJECT_NAME}
+  ptz-driver-visca
   visca_profiles
   PREFIX "/visca-profiles"
   BASE "${CMAKE_SOURCE_DIR}/src/drivers/visca/visca-profiles"
@@ -223,7 +225,7 @@ qt_add_resources(
 )
 
 if(TARGET ptz-serial)
-  ptz_add_library(ptz-driver-pelco)
+  ptz_add_library(ptz-driver-pelco OBJECT)
   target_include_directories(ptz-driver-pelco PUBLIC "${CMAKE_SOURCE_DIR}/src/drivers/pelco")
   target_link_libraries(ptz-driver-pelco PUBLIC ptz-device-core ptz-serial)
   target_sources(ptz-driver-pelco PRIVATE src/drivers/pelco/ptz-pelco.cpp src/drivers/pelco/ptz-pelco.hpp)
@@ -232,7 +234,7 @@ endif()
 option(ENABLE_ONVIF "Enable ONVIF camera support" ON)
 if(ENABLE_ONVIF)
   add_compile_definitions(ENABLE_ONVIF)
-  ptz_add_library(ptz-driver-onvif)
+  ptz_add_library(ptz-driver-onvif OBJECT)
   target_include_directories(ptz-driver-onvif PUBLIC "${CMAKE_SOURCE_DIR}/src/drivers/onvif")
   target_link_libraries(ptz-driver-onvif PUBLIC ptz-device-core)
   target_sources(
@@ -262,7 +264,7 @@ if(ENABLE_USB_CAM)
 endif()
 if(ENABLE_USB_CAM)
   add_compile_definitions(ENABLE_USB_CAM)
-  ptz_add_library(ptz-driver-usb)
+  ptz_add_library(ptz-driver-usb OBJECT)
   target_include_directories(ptz-driver-usb PUBLIC "${CMAKE_SOURCE_DIR}/src/drivers/usb")
   target_link_libraries(ptz-driver-usb PUBLIC ptz-device-core ${_usb_backend_libs})
   target_sources(
@@ -280,7 +282,7 @@ endif()
 unset(_usb_backend_sources)
 unset(_usb_backend_libs)
 
-ptz_add_library(ptz-driver-soft)
+ptz_add_library(ptz-driver-soft OBJECT)
 target_include_directories(ptz-driver-soft PUBLIC "${CMAKE_SOURCE_DIR}/src/drivers/soft")
 target_link_libraries(ptz-driver-soft PUBLIC ptz-device-core)
 target_sources(

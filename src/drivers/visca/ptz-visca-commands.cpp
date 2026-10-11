@@ -763,7 +763,7 @@ visca_load_profiles(const QDir &dir, const char *where, const QList<std::shared_
 		    bool replace, QMap<QString, QString> *errors = nullptr);
 
 /* The generic command set, the ones shipped with the plugin, linked into it
- * from src/visca-profiles, and the user's, read from the "visca-profiles"
+ * from src/drivers/visca/visca-profiles, and the user's, read from the "visca-profiles"
  * directory of the plugin's config the first time any is needed. The user's
  * come first, so that one for a camera's model is chosen over a shipped
  * one for it, and one of the user's with a shipped one's id replaces it. */
