@@ -10,7 +10,6 @@
 #include <obs-module.h>
 #include <QStringList>
 
-#include "ptz-device.hpp"
 #include "ptz-list-model.hpp"
 #include "ptz.h"
 
@@ -67,10 +66,12 @@ void collectStringLists(obs_properties_t *props, obs_data_array_t *out)
  * filter, after the filter's .save has had its say: what the scene collection
  * would hold. Adds nothing if the device isn't one of this plugin's filters.
  *
- * It is run on a copy of the settings. obs_source_save() runs it on the
- * filter's own settings, and what it writes there is the device's values,
- * over a change made to the settings that the device has yet to be updated
- * with: a test that looks while it waits for one would undo it. */
+ * Saved the way OBS saves a scene collection, with obs_save_source(), as the
+ * filter's .save is in its driver's module. That runs .save on the filter's
+ * own settings, which it may do: it writes only what the device itself
+ * changes (PTZDevice::persistState()), never a setting that can be changed
+ * from outside, so it can't undo a change the device has yet to be updated
+ * with. */
 void collectFilterKeys(obs_source_t *parent, obs_data_array_t *out, obs_data_t *defaultsOut)
 {
 	struct Find {
@@ -95,9 +96,11 @@ void collectFilterKeys(obs_source_t *parent, obs_data_array_t *out, obs_data_t *
 	for (obs_data_item_t *item = obs_data_first(defaults); item; obs_data_item_next(&item))
 		if (obs_data_item_gettype(item) == OBS_DATA_STRING)
 			obs_data_set_string(defaultsOut, obs_data_item_get_name(item), obs_data_item_get_string(item));
+	OBSDataAutoRelease saved = obs_save_source(find.filter);
+	OBSDataAutoRelease savedSettings = obs_data_get_obj(saved, "settings");
+	/* What is persisted: the values, not the defaults */
 	OBSDataAutoRelease settings = obs_data_create();
-	obs_data_apply(settings, current);
-	ptz_filter_save(obs_obj_get_data(find.filter), settings);
+	obs_data_apply(settings, savedSettings);
 	for (obs_data_item_t *item = obs_data_first(settings); item; obs_data_item_next(&item)) {
 		OBSDataAutoRelease entry = obs_data_create();
 		obs_data_set_string(entry, "key", obs_data_item_get_name(item));

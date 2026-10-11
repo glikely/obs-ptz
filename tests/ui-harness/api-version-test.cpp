@@ -9,7 +9,6 @@
 #include <obs.hpp>
 #include <obs-module.h>
 
-#include "ptz-device.hpp"
 #include "ptz-driver-kinds.hpp"
 #include "ptz-list-model.hpp"
 
@@ -38,33 +37,33 @@ void runGetApiVersionTest(const QMap<QString, QString> &params)
 		blog(LOG_INFO, "[ptz-ui-test] get_api_version: failed to write %s", qUtf8Printable(filename));
 }
 
-/* Writes the procs and signals the plugin has registered, from the log that
- * ptz_proc_add() and ptz_signal_add() keep. A discovery instance registers
- * its own when it is made, so one of each discovery kind is made first. */
-void runGetRegisteredApiTest(const QMap<QString, QString> &params)
+/* Makes, and destroys again, one instance of each discovery kind, which
+ * registers its procs and signals, so that a build with the harness logs them
+ * as "[ptz-api]" lines (see ptz_proc_add()) as a device's are when it is made.
+ * Writes the kinds it made one of. */
+void runMakeDiscoveryInstancesTest(const QMap<QString, QString> &params)
 {
 	QString filename = params.value(QStringLiteral("filename"));
 	if (filename.isEmpty()) {
-		blog(LOG_INFO, "[ptz-ui-test] get_registered_api: missing filename");
+		blog(LOG_INFO, "[ptz-ui-test] make_discovery_instances: missing filename");
 		return;
 	}
 
-	for (const auto &kind : ptz_discovery_kinds())
+	OBSDataArrayAutoRelease made = obs_data_array_create();
+	for (const auto &kind : ptz_discovery_kinds()) {
 		OBSSourceAutoRelease instance =
 			obs_source_create_private(qUtf8Printable(kind.kind), "ptz-ui-test", nullptr);
-
-	OBSDataArrayAutoRelease registered = obs_data_array_create();
-	for (const auto &[scope, signature] : ptz_registered_api()) {
+		if (!instance)
+			continue;
 		OBSDataAutoRelease item = obs_data_create();
-		obs_data_set_string(item, "scope", qUtf8Printable(scope));
-		obs_data_set_string(item, "signature", qUtf8Printable(signature));
-		obs_data_array_push_back(registered, item);
+		obs_data_set_string(item, "kind", qUtf8Printable(kind.kind));
+		obs_data_array_push_back(made, item);
 	}
 	OBSDataAutoRelease result = obs_data_create();
-	obs_data_set_array(result, "registered", registered);
+	obs_data_set_array(result, "made", made);
 
 	if (!obs_data_save_json_safe(result, qUtf8Printable(filename), "tmp", "bak"))
-		blog(LOG_INFO, "[ptz-ui-test] get_registered_api: failed to write %s", qUtf8Printable(filename));
+		blog(LOG_INFO, "[ptz-ui-test] make_discovery_instances: failed to write %s", qUtf8Printable(filename));
 }
 
 } // namespace
@@ -78,10 +77,9 @@ void runGetRegisteredApiTest(const QMap<QString, QString> &params)
 void registerApiVersionTest(PTZUITestHarness *harness)
 {
 	harness->registerTest(QStringLiteral("get_api_version"), &runGetApiVersionTest);
-	harness->registerTest(QStringLiteral("get_registered_api"), &runGetRegisteredApiTest);
+	harness->registerTest(QStringLiteral("make_discovery_instances"), &runMakeDiscoveryInstancesTest);
 }
 
-/* get_registered_api request params:
- *   filename  - where to write the {"registered": [{"scope", "signature"}...]}
- *               JSON result; see ptz_registered_api() for the scopes
+/* make_discovery_instances request params:
+ *   filename  - where to write the {"made": [{"kind"}...]} JSON result
  */

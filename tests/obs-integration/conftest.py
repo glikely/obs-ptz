@@ -529,6 +529,8 @@ class World:
         self.config_dir = None
         # Set by obs_world: quits OBS and starts it again on the same profile
         self.restart_obs = None
+        # Set by obs_world: the file the running OBS's output goes to
+        self.obs_log = None
         # Somewhere for the small files a test asks the harness to write
         self.scratch = Path(tempfile.mkdtemp(prefix="ptz-world-"))
         self._scene_counter = 0
@@ -1414,6 +1416,7 @@ def obs_world(tmp_path_factory, ptzsim_process, sony_ptzsim, birddog_ptzsim, pow
         world = World(running["ws"], f"http://127.0.0.1:{ptzsim_process['ports']['debug_http']}/state", DEVICE_NAMES)
         world.config_dir = obs_config_root(home) / "plugin_config" / "obs-ptz"
         world.restart_obs = restart_obs
+        world.obs_log = lambda: running["log"]
         yield world
     finally:
         exited_cleanly = stop_obs() if running["proc"] is not None else False

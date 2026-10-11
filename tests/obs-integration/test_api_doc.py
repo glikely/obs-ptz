@@ -11,12 +11,15 @@ this test is what keeps it true. It reads the document's structure:
 
 and checks it against:
 
- * what the plugin registered: ptz_proc_add() and ptz_signal_add() log every
+ * what the plugin registered: in a build with the UI test harness,
+   ptz_proc_add() and ptz_signal_add() (src/core/ptz-device.cpp) log every
    proc and signal, a device's (PTZDevice) and a discovery instance's
-   (src/core/ptz-discovery-kind.cpp), and tests/ui-harness/api-version-test.cpp's
-   "get_registered_api" test hands the log back, having made an instance of
-   each discovery kind so that theirs are in it, so a proc added in the code
-   and not here fails, and so does one here and not in the code;
+   (src/core/ptz-discovery-kind.cpp), as an "[ptz-api] <scope> <declaration>"
+   line in OBS's log, once per driver module, each of which has its own. The
+   lines of all of them, once tests/ui-harness/api-version-test.cpp's
+   "make_discovery_instances" test has made an instance of each discovery
+   kind so that theirs are there too, are what is registered, so a proc added
+   in the code and not here fails, and so does one here and not in the code;
  * real devices' state and config, whose keys have to be documented, and
    present, with the documented types;
  * the source, for the feature and trigger names, which the plugin doesn't
@@ -100,15 +103,26 @@ def test_the_doc_has_each_handler_section():
         assert len(signatures) == len(set(signatures)), f"{scope} has one documented twice"
 
 
-def test_the_doc_lists_what_the_plugin_registers(obs_world, tmp_path):
-    out = tmp_path / "registered.json"
-    obs_world.run_ui_test("get_registered_api", filename=str(out))
-    obs_world.wait_for(out.exists)
-
+def registered_api(log):
+    """{scope: {declaration, ...}} from the "[ptz-api]" lines in OBS's log, of
+    every device and module"""
     registered = {}
-    for item in json.loads(out.read_text())["registered"]:
-        registered.setdefault(item["scope"], set()).add(item["signature"])
+    for scope, signature in re.findall(r"\[ptz-api\] (\S+) (.+)$", log.read_text(errors="replace"),
+                                       flags=re.MULTILINE):
+        registered.setdefault(scope, set()).add(signature.strip())
+    return registered
+
+
+def test_the_doc_lists_what_the_plugin_registers(obs_world, tmp_path):
+    out = tmp_path / "made.json"
+    obs_world.run_ui_test("make_discovery_instances", filename=str(out))
+    obs_world.wait_for(out.exists)
+    assert json.loads(out.read_text())["made"], "made no discovery instance"
+
     documented = {scope: set(signatures) for scope, signatures in documented_signatures().items()}
+    # The log is written as the instances register
+    obs_world.wait_for(lambda: {"discovery-proc", "discovery-signal"} <= set(registered_api(obs_world.obs_log())))
+    registered = registered_api(obs_world.obs_log())
 
     assert set(registered) == set(documented)
     for scope in documented:
