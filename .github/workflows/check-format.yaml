@@ -34,3 +34,10 @@ jobs:
         run: python3 scripts/check-visca-profiles.py
       - name: ptz-probe tables check 🔭
         run: python3 scripts/ptz-probe/gen_tables.py --check
+
+  module-boundaries:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v6
+      - name: Module boundary check 🧱
+        run: python3 scripts/check-module-boundaries.py
