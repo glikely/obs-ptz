@@ -204,6 +204,71 @@ def test_the_procs_a_remote_caller_may_only_read_with(obs_world, tmp_path):
     assert by_access["none"] == {"ptz_get_parent_source"}
 
 
+# --- the binding to obs-websocket ------------------------------------------------
+
+BINDING = "WebSocket binding"
+
+
+def binding_table(heading):
+    """The names in the first column of the table under a "###" heading of the binding's section"""
+    parts = re.split(r"^### (.+)$", sections()[BINDING], flags=re.MULTILINE)
+    body = dict(zip(parts[1::2], parts[2::2]))[heading]
+    rows = [line.strip().strip("|").split("|") for line in body.splitlines() if line.startswith("|")][2:]
+    return {name for row in rows for name in names(row[0])}
+
+
+def test_the_bridge_exposes_what_the_doc_lists(obs_world):
+    """Every proc and signal the document has is a request or an event of the
+    vendor, and nothing else is, but for the procs that can't be called from
+    outside OBS"""
+    # A discovery instance's are there once there is one
+    assert obs_world.ws.vendor("obs-ptz", "ptz_list_discovery")["instances"]
+    exposed = obs_world.ws.vendor("obs-ptz", "ptz_list_api")
+    for title, scope in SCOPES.items():
+        if scope.endswith("-proc"):
+            documented = {re.search(r" (\w+)\(", decl).group(1)
+                          for decl, (_, access) in documented_procs(title).items() if access != "none"}
+        else:
+            documented = {re.search(r" (\w+)\(", decl).group(1) for decl in documented_signatures()[scope]}
+        assert {entry["name"] for entry in exposed[scope]} == documented, scope
+
+
+def test_the_doc_lists_the_bindings_own_requests_and_events(obs_world):
+    source = (REPO_ROOT / "src" / "controller" / "ptz-websocket.cpp").read_text()
+    requests = set(re.findall(r'addRequest\("(\w+)"', source))
+    assert requests and binding_table("Requests of the binding's own") == requests
+    events = set(re.findall(r'emitEvent\("(\w+)"', source))
+    assert events and binding_table("Events of the binding's own") == events
+    # and each of them is really there
+    for request in requests:
+        obs_world.ws.vendor("obs-ptz", request)
+
+
+def test_the_doc_lists_the_errors_in_the_source():
+    source = (REPO_ROOT / "src" / "controller" / "ptz-websocket.cpp").read_text()
+    in_source = set(re.findall(r'setError\(response, "(\w+)"', source))
+    assert in_source and binding_table("Errors") == in_source
+
+
+def test_the_doc_says_how_a_client_reaches_the_binding():
+    body = sections()[BINDING]
+    for said in ("`obs-ptz`", "`CallVendorRequest`", "`device`", "`VendorEvent`", "`websocket_access`",
+                 "`off`", "`read-only`", "`control`"):
+        assert said in body, said
+    # the subscription a client has to ask for, which is not in what it gets by default
+    assert "Vendors" in body and "1 << 9" in body
+    # the version of the binding, which the plugin answers with
+    major, minor = re.search(r"version \*\*(\d+)\.(\d+)\*\* of the binding", body).groups()
+    source = (REPO_ROOT / "src" / "controller" / "ptz-websocket.cpp").read_text()
+    assert re.search(r"kBridgeVersionMajor = %s;" % major, source)
+    assert re.search(r"kBridgeVersionMinor = %s;" % minor, source)
+
+
+def test_the_doc_says_how_json_becomes_calldata():
+    """One row for each type a declaration can have"""
+    assert binding_table("Fields") == {"string", "int", "float", "bool", "ptr"}
+
+
 # --- real devices' keys ----------------------------------------------------------
 
 

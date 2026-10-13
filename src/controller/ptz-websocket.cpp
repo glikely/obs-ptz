@@ -96,6 +96,10 @@ struct Request {
  * is never removed, as obs-websocket may be about to call it. */
 std::map<std::string, std::unique_ptr<Request>> requests;
 
+/* The names of the requests and events there are for the API, by the scope
+ * docs/ptz-device-api.md has them in ("device-proc", ...). Main thread. */
+std::map<std::string, std::set<std::string>> exposed;
+
 /* The discovery instances made for clients, by kind: see listDiscovery(). Main thread. */
 std::map<std::string, OBSSource> discoveryInstances;
 
@@ -563,6 +567,7 @@ void connectSignals(obs_source_t *source, bool discovery)
 			SignalLink *link = signalLinks[text].get();
 			signal_handler_connect(handler, link->name.c_str(), signalRaised, link);
 			entry.links.push_back(link);
+			exposed[discovery ? "discovery-signal" : "device-signal"].insert(link->name);
 		}
 	}
 	calldata_free(&cd);
@@ -614,11 +619,15 @@ void considerSource(obs_source_t *source)
 	if (!source || !ptz_source_is_device(source))
 		return;
 	auto procs = procsOf(source);
-	for (const auto &proc : procs)
-		if (proc.second.access == "read" || proc.second.access == "control")
-			addRequest(proc.first, proc.second.access, procRequest);
+	bool discovery = isDiscovery(procs);
+	for (const auto &proc : procs) {
+		if (proc.second.access != "read" && proc.second.access != "control")
+			continue;
+		addRequest(proc.first, proc.second.access, procRequest);
+		exposed[discovery ? "discovery-proc" : "device-proc"].insert(proc.first);
+	}
 	applyAccess();
-	connectSignals(source, isDiscovery(procs));
+	connectSignals(source, discovery);
 }
 
 /* OBS's own signals that a source, or a filter on one, has been made: on
@@ -749,6 +758,27 @@ void listDiscovery(obs_data_t *, obs_data_t *response, void *)
 		obs_data_set_array(response, "instances", instances);
 }
 
+/* What there is a request or an event for, of the API's procs and signals */
+void listApi(obs_data_t *, obs_data_t *response, void *)
+{
+	InFlight running;
+	OBSDataAutoRelease made = obs_data_create();
+	OBSData api = made.Get();
+	auto work = [api]() {
+		for (const char *scope : {"device-proc", "device-signal", "discovery-proc", "discovery-signal"}) {
+			OBSDataArrayAutoRelease list = obs_data_array_create();
+			for (const std::string &name : exposed[scope]) {
+				OBSDataAutoRelease item = obs_data_create();
+				obs_data_set_string(item, "name", name.c_str());
+				obs_data_array_push_back(list, item);
+			}
+			obs_data_set_array(api, scope, list);
+		}
+	};
+	if (hopDone(onMainThread(work), "ptz_list_api", response))
+		obs_data_apply(response, api);
+}
+
 /* Stops anything more being started, and has whatever is waiting for the main
  * thread give up. Main thread. */
 void beginClosing()
@@ -830,6 +860,7 @@ void ptz_websocket_load(void)
 	addRequest("ptz_list_devices", "read", listDevices);
 	/* It makes sources, which only a client that can use them is let do */
 	addRequest("ptz_list_discovery", "control", listDiscovery);
+	addRequest("ptz_list_api", "read", listApi);
 
 	/* No source has been loaded yet, but one that a module made is there */
 	signal_handler_t *global = obs_get_signal_handler();
