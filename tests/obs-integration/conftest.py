@@ -536,6 +536,8 @@ class World:
         self.config_dir = None
         # Set by obs_world: quits OBS and starts it again on the same profile
         self.restart_obs = None
+        # What the OBS that restart_obs() quit exited with
+        self.exit_code = None
         # Set by obs_world: the file the running OBS's output goes to
         self.obs_log = None
         # Somewhere for the small files a test asks the harness to write
@@ -1405,7 +1407,10 @@ def obs_world(tmp_path_factory, ptzsim_process, sony_ptzsim, birddog_ptzsim, pow
         and gives the world the new connection. Returns the file the output of the OBS
         that quit is in"""
         quit_log = running["log"]
+        quitting = running["proc"]
         assert stop_obs(), "OBS did not quit by itself"
+        # What it exited with: not 0 if it crashed on the way out
+        world.exit_code = quitting.returncode
         start_obs()
         world.ws = running["ws"]
         world.events = running["events"]

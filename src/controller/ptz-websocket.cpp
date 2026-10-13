@@ -24,6 +24,12 @@
  * of it, so that a request that gave up waiting leaves nothing behind for the
  * main thread to write to. No lock is held while a proc, or OBS, is called.
  *
+ * Signals. Each signal a device says it has is connected to, and sent on as an
+ * event of the vendor, on whatever thread raised it: its calldata is read
+ * and sent before the handler returns, and nothing of it is kept. Which
+ * sources are connected to (`connected`) has a lock of its own, held only to
+ * look one up or change the list.
+ *
  * Closing. From the moment OBS says it is closing, a request is answered
  * "unavailable" and one that is waiting gives up, so that nothing waits for a
  * main thread that has stopped running what it is sent; unloading then waits,
@@ -71,7 +77,10 @@ constexpr auto kUnloadWait = std::chrono::seconds(5);
 
 enum class Access { Off, ReadOnly, Control };
 
-obs_websocket_vendor vendor = nullptr;
+/* Null before obs-websocket has given it, and once it has been given back */
+std::atomic<obs_websocket_vendor> vendor{nullptr};
+/* ptz_websocket_load() has run, with an obs-websocket to load for. Main thread. */
+bool loaded = false;
 std::atomic<Access> accessLevel{Access::Control};
 
 /* A request of the vendor's. `access` is what a client has to be let do for
@@ -444,6 +453,144 @@ void procRequest(obs_data_t *requestData, obs_data_t *response, void *priv)
 		readField(&call->cd, decl->retName, decl->ret, true, response);
 }
 
+/* --- a signal, sent on as an event ----------------------------------------------- */
+
+/* A signal of the API, connected to on every source that has it: what its
+ * calldata has, by its declaration. Never freed, as a signal may be about to
+ * be raised with it. */
+struct SignalLink {
+	std::string name;
+	ptzws::Decl decl;
+};
+
+/* By declaration. Main thread. */
+std::map<std::string, std::unique_ptr<SignalLink>> signalLinks;
+
+/* A source whose signals are connected to */
+struct Connected {
+	OBSWeakSource source;
+	std::vector<SignalLink *> links;
+	bool discovery = false;
+};
+
+/* By UUID. A source is added on the main thread, and taken out on whichever
+ * destroys it. */
+std::mutex connectedMutex;
+std::map<std::string, Connected> connected;
+
+void emitEvent(const char *name, obs_data_t *data)
+{
+	if (vendor && !closing.load() && accessLevel.load() != Access::Off)
+		obs_websocket_vendor_emit_event(vendor, name, data);
+}
+
+/* A signal of the API has been raised: on any thread */
+void signalRaised(void *data, calldata_t *cd)
+{
+	InFlight running;
+	auto link = static_cast<SignalLink *>(data);
+	OBSDataAutoRelease event = obs_data_create();
+	for (const ptzws::Param &param : link->decl.params) {
+		const char *key = param.name.c_str();
+		if (param.type == ptzws::Type::Ptr && param.name == "source") {
+			/* The source that raised it, which a client knows by its UUID */
+			auto source = static_cast<obs_source_t *>(calldata_ptr(cd, key));
+			obs_data_set_string(event, "device", source ? obs_source_get_uuid(source) : "");
+		} else {
+			/* A ptr is the plugin's object, which is only read: obs-websocket
+			 * has made its JSON of it by the time the event has been emitted */
+			readField(cd, param.name, param.type, false, event);
+		}
+	}
+	emitEvent(link->name.c_str(), event);
+}
+
+/* A source whose signals are connected to is being destroyed */
+void sourceDestroyed(void *, calldata_t *cd)
+{
+	InFlight running;
+	auto source = static_cast<obs_source_t *>(calldata_ptr(cd, "source"));
+	if (!source)
+		return;
+	std::string uuid = obs_source_get_uuid(source);
+	bool device = false;
+	{
+		std::lock_guard<std::mutex> lock(connectedMutex);
+		auto found = connected.find(uuid);
+		if (found == connected.end())
+			return;
+		device = !found->second.discovery;
+		connected.erase(found);
+	}
+	if (!device)
+		return;
+	/* No signal of the API says a device has gone */
+	OBSDataAutoRelease event = obs_data_create();
+	obs_data_set_string(event, "device", uuid.c_str());
+	emitEvent("ptz_device_removed", event);
+}
+
+/* Connects to the signals the source says it has, if it hasn't been. Main thread. */
+void connectSignals(obs_source_t *source, bool discovery)
+{
+	std::string uuid = obs_source_get_uuid(source);
+	{
+		std::lock_guard<std::mutex> lock(connectedMutex);
+		if (connected.count(uuid))
+			return;
+	}
+	Connected entry;
+	entry.source = OBSGetWeakRef(source);
+	entry.discovery = discovery;
+	signal_handler_t *handler = obs_source_get_signal_handler(source);
+
+	calldata_t cd = {};
+	if (proc_handler_call(obs_source_get_proc_handler(source), "ptz_get_api_info", &cd)) {
+		OBSDataAutoRelease info = static_cast<obs_data_t *>(calldata_ptr(&cd, "return"));
+		OBSDataArrayAutoRelease list = obs_data_get_array(info, "signals");
+		for (size_t i = 0; i < obs_data_array_count(list); i++) {
+			OBSDataAutoRelease item = obs_data_array_item(list, i);
+			std::string text = obs_data_get_string(item, "decl");
+			if (!signalLinks.count(text)) {
+				auto decl = ptzws::parse_decl(text);
+				if (!decl)
+					continue;
+				auto link = std::make_unique<SignalLink>();
+				link->name = decl->name;
+				link->decl = *decl;
+				signalLinks[text] = std::move(link);
+			}
+			SignalLink *link = signalLinks[text].get();
+			signal_handler_connect(handler, link->name.c_str(), signalRaised, link);
+			entry.links.push_back(link);
+		}
+	}
+	calldata_free(&cd);
+	signal_handler_connect(handler, "destroy", sourceDestroyed, nullptr);
+
+	std::lock_guard<std::mutex> lock(connectedMutex);
+	connected[uuid] = entry;
+}
+
+/* Lets go of every signal, of the sources that are still there. Main thread. */
+void disconnectSignals()
+{
+	std::map<std::string, Connected> were;
+	{
+		std::lock_guard<std::mutex> lock(connectedMutex);
+		were.swap(connected);
+	}
+	for (auto &entry : were) {
+		OBSSourceAutoRelease source = OBSGetStrongRef(entry.second.source);
+		if (!source)
+			continue;
+		signal_handler_t *handler = obs_source_get_signal_handler(source);
+		for (SignalLink *link : entry.second.links)
+			signal_handler_disconnect(handler, link->name.c_str(), signalRaised, link);
+		signal_handler_disconnect(handler, "destroy", sourceDestroyed, nullptr);
+	}
+}
+
 /* --- finding devices ------------------------------------------------------------ */
 
 /* A reference to every source there is, a filter or not, private or not */
@@ -460,16 +607,18 @@ std::vector<OBSSource> allSources()
 	return sources;
 }
 
-/* Has a request for each proc the source says it has, if it is a device or a
- * discovery instance. Main thread. */
+/* Has a request for each proc the source says it has, and hears its signals,
+ * if it is a device or a discovery instance. Main thread. */
 void considerSource(obs_source_t *source)
 {
 	if (!source || !ptz_source_is_device(source))
 		return;
-	for (const auto &proc : procsOf(source))
+	auto procs = procsOf(source);
+	for (const auto &proc : procs)
 		if (proc.second.access == "read" || proc.second.access == "control")
 			addRequest(proc.first, proc.second.access, procRequest);
 	applyAccess();
+	connectSignals(source, isDiscovery(procs));
 }
 
 /* OBS's own signals that a source, or a filter on one, has been made: on
@@ -518,21 +667,34 @@ void listDevices(obs_data_t *, obs_data_t *response, void *)
 		return;
 	}
 	OBSDataArrayAutoRelease devices = obs_data_array_create();
+	/* The devices the binding has not come to know of yet: OBS has made them,
+	 * and what was queued for the main thread when it did has not run */
+	auto unknown = std::make_shared<std::vector<OBSSource>>();
 	for (const OBSSource &source : allSources()) {
 		if (!ptz_source_is_device(source) || isDiscovery(procsOf(source)))
 			continue;
+		{
+			std::lock_guard<std::mutex> lock(connectedMutex);
+			if (!connected.count(obs_source_get_uuid(source)))
+				unknown->push_back(source);
+		}
 		proc_handler_t *handler = obs_source_get_proc_handler(source);
 		OBSDataAutoRelease device = obs_data_create();
 		obs_data_set_string(device, "device", obs_source_get_uuid(source));
 		obs_data_set_string(device, "name", obs_source_get_name(source));
 
-		/* The source whose video the camera shows: the one a filter is on */
+		/* The source whose video the camera shows: the device says, or if
+		 * it hasn't the proc, the one a filter is on, or the source itself */
 		calldata_t cd = {};
-		if (proc_handler_call(handler, "ptz_get_parent_source", &cd)) {
-			OBSSourceAutoRelease parent = static_cast<obs_source_t *>(calldata_ptr(&cd, "return"));
-			obs_data_set_string(device, "source", parent ? obs_source_get_name(parent) : "");
-		}
+		OBSSourceAutoRelease parent;
+		if (proc_handler_call(handler, "ptz_get_parent_source", &cd))
+			parent = static_cast<obs_source_t *>(calldata_ptr(&cd, "return"));
+		else if (obs_source_get_type(source) == OBS_SOURCE_TYPE_FILTER)
+			parent = obs_source_get_ref(obs_filter_get_parent(source));
+		else
+			parent = obs_source_get_ref(source);
 		calldata_free(&cd);
+		obs_data_set_string(device, "source", parent ? obs_source_get_name(parent) : "");
 
 		cd = {};
 		OBSDataAutoRelease api = obs_data_create();
@@ -544,6 +706,15 @@ void listDevices(obs_data_t *, obs_data_t *response, void *)
 		obs_data_set_obj(device, "api", api);
 		obs_data_array_push_back(devices, device);
 	}
+	/* A client is not told of a device before it can call it: the requests
+	 * for one that is new are made now, on the main thread, and not when the
+	 * main thread gets to it. Only then is the main thread waited for, and
+	 * if it can't be, the list is still the list. */
+	if (!unknown->empty())
+		onMainThread([unknown]() {
+			for (const OBSSource &source : *unknown)
+				considerSource(source);
+		});
 	obs_data_set_array(response, "devices", devices);
 }
 
@@ -589,13 +760,33 @@ void beginClosing()
 	hopChanged.notify_all();
 }
 
-/* OBS has stopped running what the main thread is sent well before it unloads
- * a plugin, and obs-websocket, which waits for its requests to finish, may be
- * unloaded first: so it is here that waiting stops */
+/* Gives back everything obs-websocket gave the binding, while obs-websocket is
+ * still there: OBS unloads its modules in the reverse of the order it loaded
+ * them, which for two in one directory is by name, so obs-websocket goes before
+ * obs-ptz, and frees the vendor and the proc handler it is reached by. Nothing
+ * is asked of it after this. Main thread. */
+void letGoOfObsWebsocket()
+{
+	if (!vendor)
+		return;
+	accessLevel.store(Access::Off);
+	applyAccess();
+	vendor = nullptr;
+	blog(LOG_INFO, "[obs-ptz] websocket: let go of obs-websocket");
+}
+
+/* OBS is closing. It has stopped running what the main thread is sent well
+ * before it unloads a plugin, and obs-websocket, which waits for its requests
+ * to finish, is unloaded first: so it is here that waiting stops, and here that
+ * the binding lets go of obs-websocket, and of the sources it made. */
 void frontendEvent(enum obs_frontend_event event, void *)
 {
-	if (event == OBS_FRONTEND_EVENT_EXIT || event == OBS_FRONTEND_EVENT_SCRIPTING_SHUTDOWN)
-		beginClosing();
+	if (event != OBS_FRONTEND_EVENT_EXIT && event != OBS_FRONTEND_EVENT_SCRIPTING_SHUTDOWN)
+		return;
+	beginClosing();
+	letGoOfObsWebsocket();
+	disconnectSignals();
+	discoveryInstances.clear();
 }
 
 Access accessNamed(const char *access)
@@ -604,7 +795,11 @@ Access accessNamed(const char *access)
 		return Access::Off;
 	if (strcmp(access, "read-only") == 0)
 		return Access::ReadOnly;
-	return Access::Control;
+	if (strcmp(access, "control") == 0)
+		return Access::Control;
+	/* What isn't one of the three was meant to be one of them, and not
+	 * necessarily the one that lets a client do everything */
+	return Access::Off;
 }
 
 } // namespace
@@ -633,7 +828,8 @@ void ptz_websocket_load(void)
 
 	addRequest("ptz_bridge_version", "read", bridgeVersion);
 	addRequest("ptz_list_devices", "read", listDevices);
-	addRequest("ptz_list_discovery", "read", listDiscovery);
+	/* It makes sources, which only a client that can use them is let do */
+	addRequest("ptz_list_discovery", "control", listDiscovery);
 
 	/* No source has been loaded yet, but one that a module made is there */
 	signal_handler_t *global = obs_get_signal_handler();
@@ -643,22 +839,26 @@ void ptz_websocket_load(void)
 		considerSource(source);
 	applyAccess();
 	obs_frontend_add_event_callback(frontendEvent, nullptr);
+	loaded = true;
 }
 
 void ptz_websocket_unload(void)
 {
-	if (!vendor)
+	if (!loaded)
 		return;
+	loaded = false;
 	signal_handler_t *global = obs_get_signal_handler();
 	signal_handler_disconnect(global, "source_create", sourceCreated, nullptr);
 	signal_handler_disconnect(global, "source_filter_add", filterAdded, nullptr);
 	obs_frontend_remove_event_callback(frontendEvent, nullptr);
+	/* obs-websocket may have been unloaded by now, and is not to be asked
+	 * anything: it was let go of when OBS said it was closing. If OBS never
+	 * said so, its requests stay registered, and are answered "unavailable"
+	 * for as long as this code is there to answer. */
 	beginClosing();
-	/* obs-websocket starts no more of them... */
-	accessLevel.store(Access::Off);
-	applyAccess();
-	/* ...and the ones it has started are let leave this code before it goes.
-	 * None of them waits for this thread any more. */
+	disconnectSignals();
+	/* The requests and signals that have started are let leave this code
+	 * before it goes. None of them waits for this thread any more. */
 	auto deadline = std::chrono::steady_clock::now() + kUnloadWait;
 	while (inFlight.load() > 0 && std::chrono::steady_clock::now() < deadline)
 		std::this_thread::sleep_for(std::chrono::milliseconds(5));

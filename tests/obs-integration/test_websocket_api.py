@@ -212,6 +212,8 @@ def test_access_read_only_reads_and_does_not_control(obs_world, access):
     assert is_unknown_request(obs_world, "ptz_move", {"device": uuid, "pan": 0.5, "tilt": 0.0})
     assert is_unknown_request(obs_world, "ptz_preset_delete", {"device": uuid, "id": "camera:1"})
     assert is_unknown_request(obs_world, "ptz_get_parent_source", {"device": uuid})
+    # nor make the discovery instances, which it could do nothing with
+    assert is_unknown_request(obs_world, "ptz_list_discovery")
     assert obs_world.state()["pan_speed"] == 0.0
 
 
@@ -234,3 +236,22 @@ def test_access_is_kept_when_obs_is_restarted(obs_world, access):
     obs_world.restart_obs()
     obs_world.wait_for(lambda: current_access(obs_world) == "read-only")
     assert json.loads((obs_world.config_dir / "config.json").read_text())["websocket_access"] == "read-only"
+
+
+def test_an_access_that_is_not_one_of_the_three_is_off(obs_world, access):
+    """A setting that was mistyped in the config, "readonly" say, was meant to
+    let a client do less: it is not taken for the default, which lets it do
+    everything"""
+    obs_world.run_ui_test("set_websocket_access", value="readonly")
+    obs_world.wait_for(lambda: current_access(obs_world) == "off")
+
+
+def test_a_device_that_is_listed_can_be_called_as_soon_as_obs_has_started(obs_world):
+    """The requests for a device's procs are made as the binding comes to know of
+    the device, a moment after OBS has made it. A client that is there at once
+    is not told of a device before it can call it."""
+    obs_world.restart_obs()
+    listed = obs_world.ws.vendor(VENDOR, "ptz_list_devices")["devices"]
+    assert listed
+    for entry in listed:
+        assert obs_world.ws.vendor(VENDOR, "ptz_get_api_version", {"device": entry["device"]})["major"] == 0

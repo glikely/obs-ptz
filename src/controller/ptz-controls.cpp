@@ -939,10 +939,16 @@ void PTZControls::setSpeedRampEnabled(bool enabled)
 
 void PTZControls::setWebsocketAccess(const QString &access)
 {
-	/* What isn't one of the three is the default */
-	QString value = (access == QStringLiteral("off") || access == QStringLiteral("read-only"))
-				? access
-				: QStringLiteral("control");
+	/* What isn't one of the three was meant to be one of them, and is not
+	 * taken for the one that lets a client do everything */
+	QString value = access;
+	if (value != QStringLiteral("off") && value != QStringLiteral("read-only") &&
+	    value != QStringLiteral("control")) {
+		blog(LOG_WARNING,
+		     "[obs-ptz] websocket_access is '%s', which is not 'off', 'read-only' or 'control': taken as 'off'",
+		     QT_TO_UTF8(access));
+		value = QStringLiteral("off");
+	}
 	if (value == websocket_access)
 		return;
 	websocket_access = value;

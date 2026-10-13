@@ -99,9 +99,37 @@ def test_concurrent_clients_all_get_answers(obs_world, cameras):  # noqa: F811
     assert not any(thread.is_alive() for thread in threads), "a client never got its answers"
 
     assert len(outcomes) == 200
+    # the one that was removed is gone for whoever asks next, whenever the clients asked
+    with pytest.raises(ObsWebSocketError) as gone:
+        obs_world.ws.vendor(VENDOR, "ptz_get_state", {"device": targets[1]})
+    assert gone.value.status.get("error") == "unknown_device"
     assert set(outcomes) <= {"ok", "state", "unknown_device"}, sorted(set(outcomes))
     # the device that stayed was answered throughout
     assert outcomes.count("ok") >= 50 and outcomes.count("state") >= 50
+    log = obs_world.obs_log().read_text(errors="replace")[log_before:]
+    assert "called from wrong thread; ignored" not in log
+
+
+def test_every_proc_is_run_on_a_thread_it_may_be_called_from(obs_world, cameras):  # noqa: F811
+    """A proc that says it may be called from any thread is called on
+    obs-websocket's own, where one that may not be is ignored by its device,
+    which logs that and does nothing: so every proc there is a request for is
+    called, on a camera of its own, and none is"""
+    scene = obs_world.create_scene()
+    cameras.add_source(scene, "ws-every-proc")
+    cameras.add_filter("ws-every-proc")
+    obs_world.wait_for(lambda: "ws-every-proc" in devices(obs_world))
+    uuid = devices(obs_world)["ws-every-proc"]["device"]
+    log_before = len(obs_world.obs_log().read_text(errors="replace"))
+
+    procs = obs_world.ws.vendor(VENDOR, "ptz_get_api_info", {"device": uuid})["return"]["procs"]
+    called = [p["name"] for p in procs if p["access"] != "none"]
+    assert len(called) > 20
+    for name in called:
+        # with nothing but the device: every field of every proc can be left out
+        obs_world.ws.vendor(VENDOR, name, {"device": uuid})
+    # what was only queued for the device's thread has run by now
+    time.sleep(1)
     log = obs_world.obs_log().read_text(errors="replace")[log_before:]
     assert "called from wrong thread; ignored" not in log
 
@@ -123,7 +151,9 @@ def test_obs_quits_while_clients_ask_for_the_main_thread(obs_world):
                 outcome = "state" if "state" in answer else f"odd: {answer}"
             except ObsWebSocketError as e:
                 # obs-websocket itself refuses a request once OBS has begun to close
-                outcome = e.status.get("error") or ("not_ready" if e.status.get("code") == 207 else f"refused: {e}")
+                # ...and the binding takes its requests away then, so there is none by that name
+                outcome = e.status.get("error") or {207: "not_ready", 600: "gone"}.get(e.status.get("code"),
+                                                                                   f"refused: {e}")
             except Exception:  # OBS closed the connection, or has gone
                 with lock:
                     outcomes.append("closed")
@@ -143,9 +173,30 @@ def test_obs_quits_while_clients_ask_for_the_main_thread(obs_world):
         thread.join(timeout=60)
     assert not any(thread.is_alive() for thread in threads), "a client was never answered"
     assert outcomes.count("closed") == 4
-    assert set(outcomes) <= {"state", "closed", "not_ready", "unavailable", "timeout",
+    assert set(outcomes) <= {"state", "closed", "not_ready", "gone", "unavailable", "timeout",
                              "unknown_device"}, sorted(set(outcomes))
     assert outcomes.count("state") > 0
     obs_world.wait_for(
         lambda: obs_world.ws.vendor(VENDOR, "ptz_get_state", {"device": device(obs_world, "visca-tcp")})["state"],
         timeout=20)
+
+
+def test_the_binding_lets_go_of_obs_websocket_before_obs_unloads_it(obs_world):
+    """OBS unloads its modules in the reverse of the order it loaded them, which
+    for two in one directory is by name: obs-websocket is unloaded before
+    obs-ptz, and what the binding was given by it (the vendor, its proc handler)
+    is freed by then. So the binding takes its requests away when OBS says it is
+    closing, while obs-websocket is still there, and asks nothing of it after."""
+    quit_log = obs_world.restart_obs()
+    assert obs_world.exit_code == 0, f"OBS exited with {obs_world.exit_code}"
+    lines = quit_log.read_text(errors="replace").splitlines()
+
+    def line_of(text):
+        found = [i for i, line in enumerate(lines) if text in line]
+        assert found, f"OBS's log has no {text!r}"
+        return found[-1]
+
+    let_go = line_of("[obs-ptz] websocket: let go of obs-websocket")
+    assert let_go < line_of("[obs_module_unload] Shutting down")
+    # and nothing of the binding's is said after obs-websocket has gone
+    assert not any("[obs-ptz] websocket" in line for line in lines[line_of("[obs_module_unload] Shutting down"):])

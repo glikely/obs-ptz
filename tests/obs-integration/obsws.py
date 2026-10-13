@@ -13,6 +13,7 @@ import collections
 import hashlib
 import itertools
 import json
+import threading
 import time
 
 from websockets.sync.client import connect
@@ -36,13 +37,15 @@ class ObsWebSocketError(RuntimeError):
         self.status = status or {}
 
 
+# How many events are kept for wait_event(): the oldest go first
+EVENTS_KEPT = 20000
+
+
 class Client:
-    def __init__(self, url, password=None, timeout=10, event_subscriptions=0):
-        self._ws = connect(url, open_timeout=timeout, legacy=True)
+    def __init__(self, url, password=None, timeout=10, event_subscriptions=0, keepalive=20):
+        # keepalive: how often the connection is pinged, and how long an answer is waited for
+        self._ws = connect(url, open_timeout=timeout, legacy=True, ping_interval=keepalive, ping_timeout=keepalive)
         self._ids = itertools.count(1)
-        # The events that came while a request was waiting for its answer, in
-        # the order they came, for wait_event()
-        self._events = collections.deque()
 
         hello = json.loads(self._ws.recv(timeout=timeout))
         if hello.get("op") != OP_HELLO:
@@ -60,6 +63,34 @@ class Client:
         if ack.get("op") != OP_IDENTIFIED:
             raise ObsWebSocketError(f"Identify failed: {ack}")
 
+        # Everything that comes from here on is read by a thread of its own, as
+        # it comes, whether or not anything is waiting for it. A connection that
+        # is not read stops answering its pings once what is unread fills what
+        # holds it, and is closed for that: a test that never looks at its events
+        # would lose the connection to them.
+        self._changed = threading.Condition()
+        self._responses = {}
+        self._events = collections.deque(maxlen=EVENTS_KEPT)
+        self._closed = None
+        self._reader = threading.Thread(target=self._read, daemon=True)
+        self._reader.start()
+
+    def _read(self):
+        while True:
+            try:
+                msg = json.loads(self._ws.recv())
+            except Exception as e:  # closed, by either end
+                with self._changed:
+                    self._closed = e
+                    self._changed.notify_all()
+                return
+            with self._changed:
+                if msg.get("op") == OP_EVENT:
+                    self._events.append(msg["d"])
+                elif msg.get("op") == OP_REQUEST_RESPONSE:
+                    self._responses[msg["d"].get("requestId")] = msg["d"]
+                self._changed.notify_all()
+
     def call(self, request_type, request_data=None, timeout=10):
         request_id = str(next(self._ids))
         payload = {"op": OP_REQUEST, "d": {"requestType": request_type, "requestId": request_id}}
@@ -67,21 +98,18 @@ class Client:
             payload["d"]["requestData"] = request_data
         self._ws.send(json.dumps(payload))
 
-        while True:
-            msg = json.loads(self._ws.recv(timeout=timeout))
-            if msg.get("op") == OP_EVENT:
-                # What a request causes can be said before the request is answered
-                self._events.append(msg["d"])
-                continue
-            if msg.get("op") != OP_REQUEST_RESPONSE:
-                continue
-            d = msg["d"]
-            if d.get("requestId") != request_id:
-                continue
-            status = d["requestStatus"]
-            if not status["result"]:
-                raise ObsWebSocketError(f"{request_type} failed: {status}", status=status)
-            return d.get("responseData") or {}
+        with self._changed:
+            answered = self._changed.wait_for(lambda: request_id in self._responses or self._closed, timeout=timeout)
+            if request_id not in self._responses:
+                if self._closed:
+                    raise ConnectionError(f"{request_type}: the connection closed: {self._closed!r}")
+                assert not answered
+                raise TimeoutError(f"{request_type}: no answer within {timeout}s")
+            d = self._responses.pop(request_id)
+        status = d["requestStatus"]
+        if not status["result"]:
+            raise ObsWebSocketError(f"{request_type} failed: {status}", status=status)
+        return d.get("responseData") or {}
 
     def vendor(self, vendor, request, data=None, timeout=10):
         """Calls a vendor's request, and returns what the vendor answered. An
@@ -97,20 +125,10 @@ class Client:
         return answer
 
     def _next_event(self, timeout):
-        """The next event, of those kept by call() first; None if there is none in time"""
-        if self._events:
-            return self._events.popleft()
-        deadline = time.time() + timeout
-        while True:
-            remaining = deadline - time.time()
-            if remaining <= 0:
-                return None
-            try:
-                msg = json.loads(self._ws.recv(timeout=remaining))
-            except TimeoutError:
-                return None
-            if msg.get("op") == OP_EVENT:
-                return msg["d"]
+        """The oldest event that has not been returned; None if none comes in time"""
+        with self._changed:
+            self._changed.wait_for(lambda: self._events or self._closed, timeout=max(timeout, 0))
+            return self._events.popleft() if self._events else None
 
     def wait_event(self, event_type, predicate=None, timeout=10):
         """The data of the next `event_type` event for which predicate(data) is
@@ -129,13 +147,14 @@ class Client:
 
     def events(self, event_type, settle=0.2):
         """The data of every `event_type` event that has come and not been
-        returned, with those that come within `settle` seconds. Takes them all."""
+        returned, with those that come in the next `settle` seconds. Takes them all."""
         found = []
+        deadline = time.time() + settle
         while True:
-            event = self._next_event(settle)
-            if event is None:
+            event = self._next_event(deadline - time.time())
+            if event is None and (time.time() >= deadline or self._closed):
                 return found
-            if event.get("eventType") == event_type:
+            if event is not None and event.get("eventType") == event_type:
                 found.append(event.get("eventData") or {})
 
     def close(self):

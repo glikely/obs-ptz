@@ -51,6 +51,22 @@ def test_a_filter_at_a_usable_version_is_a_device(obs_world, source, tmp_path):
     assert found["uuid"]
 
 
+def test_a_device_of_an_older_minor_version_is_still_a_device(obs_world, source, tmp_path):
+    """The stand-in is written for 0.3, and the plugin's own devices are newer:
+    a caller written for a minor version works with any later one, and the
+    controller needs nothing of a device that 0.3 hasn't. Over obs-websocket it
+    is listed, with its version, and that is all: it hasn't ptz_get_api_info,
+    which is how the binding learns what a device has."""
+    add_filter(obs_world, source, GOOD_KIND)
+    obs_world.wait_for_device_by_name(source, tmp_path / "device.json", lambda r: r["found"])
+
+    listed = {d["source"]: d for d in obs_world.ws.vendor("obs-ptz", "ptz_list_devices")["devices"]}
+    assert listed[source]["api"] == {"major": 0, "minor": 3}
+    with pytest.raises(ObsWebSocketError) as raised:
+        obs_world.ws.vendor("obs-ptz", "ptz_get_state", {"device": listed[source]["device"]})
+    assert raised.value.status.get("error") == "no_such_proc"
+
+
 def test_removing_the_filter_removes_the_device(obs_world, source, tmp_path):
     out = tmp_path / "device.json"
     add_filter(obs_world, source, GOOD_KIND)

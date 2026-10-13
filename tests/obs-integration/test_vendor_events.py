@@ -58,3 +58,22 @@ def test_vendor_event_does_not_reach_a_general_subscriber(obs_world):
             general.wait_event("VendorEvent", is_probe("ptz_probe_general"), timeout=1)
     finally:
         general.close()
+
+
+def test_events_nobody_reads_do_not_stop_the_connection(obs_world):
+    """A test that doesn't look at the events for a while, as most never do, is
+    still sent the ones that come after: what is unread must not keep the
+    connection from answering its pings, which closes it"""
+    import time
+    from obsws import EVENT_VENDORS, Client
+
+    client = Client(obs_world.ws_url, password=obs_world.ws_password, event_subscriptions=EVENT_VENDORS, keepalive=1)
+    try:
+        for i in range(100):
+            obs_world.run_ui_test("emit_vendor_event", type="ptz_probe_unread", data='{"n": %d}' % i)
+        time.sleep(5)
+        obs_world.run_ui_test("emit_vendor_event", type="ptz_probe_after", data="{}")
+        client.wait_event("VendorEvent", is_probe("ptz_probe_after"))
+        assert client.vendor("obs-ptz", "ptz_bridge_version")["major"] == 1
+    finally:
+        client.close()
