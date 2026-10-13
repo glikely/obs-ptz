@@ -36,7 +36,7 @@ changes in the camera.
 
 ## API version
 
-This is version **0.3** of the PTZ API.
+This is version **0.4** of the PTZ API.
 The API is in a pre-release state, published as an RFC.
 It is subject to change at any time.
 Please provide feedback on the [API discussion
@@ -187,13 +187,167 @@ if (source) {
   A `ptr` a proc returns as `return` is a new reference or object that the
   caller releases, and each proc below says with what.
   A `ptr` in a signal belongs to the plugin.
-- **Fields.** A proc reads the calldata fields named under it.
-  The declared signature doesn't always list them all, so the fields here are
-  the contract.
+- **Fields.** A proc reads the calldata fields named under it, which are the
+  ones its declared signature lists.
   A field a caller leaves out is taken as not given, not as zero, unless a proc
-  says otherwise.
+  says otherwise: a signature says what a proc can be given, and not that it
+  has to be.
 - **Units.** A speed is -1.0 to 1.0 and a position is -1.0 to 1.0 for pan and
   tilt and 0.0 to 1.0 for zoom and focus, whatever the camera's own units.
+
+## WebSocket binding
+
+A program outside OBS uses the API over
+[obs-websocket](https://github.com/obsproject/obs-websocket), which OBS has
+built in.
+PTZ Controls registers a vendor there, `obs-ptz`, with a request for each proc
+of the API and an event for each signal, so that what is written of a proc or a
+signal in this document is true of its request or its event.
+Nothing is added for a client to learn but what is in this section.
+
+This is version **1.0** of the binding, which `ptz_bridge_version` answers
+with.
+It is the binding's own, and goes up as the API's version does, when the
+binding changes: the API's version is still each device's own, from
+`ptz_get_api_version`.
+
+### Calling a proc
+
+A client calls obs-websocket's `CallVendorRequest`, with the vendor `obs-ptz`,
+the name of the proc as the request, and the proc's fields as the request's
+data, with one more:
+
+- `device` (string): the UUID of the device, which `ptz_list_devices` gives, and
+  which is the same from one run of OBS to the next.
+
+```json
+{
+  "requestType": "CallVendorRequest",
+  "requestData": {
+    "vendorName": "obs-ptz",
+    "requestType": "ptz_move",
+    "requestData": {"device": "c7d8...", "pan": 0.5, "tilt": 0.0}
+  }
+}
+```
+
+The answer's data has what the proc gave back: each field its signature
+declares as `out`, under its name, what it returns as `return`, and each `ptr`
+the client passed in, as the proc left it.
+A proc that gives nothing back answers with nothing, `{}`.
+
+A client need not think about threads.
+A proc that is "Device thread" is run on OBS's main thread and waited for, for
+up to five seconds, and one that is "Any thread" is run at once.
+Requests may be made at the same time, on one connection or on several, and
+each is answered when it is done: two that are sent one after the other are
+not always answered in that order.
+
+A device from another plugin has requests and events if it has
+`ptz_get_api_info`, which is where the binding learns what a device has.
+One that has not is in `ptz_list_devices`, and that is all.
+
+### Fields
+
+A field is the JSON that its declared type takes:
+
+| Type | JSON | |
+| --- | --- | --- |
+| `string` | string | |
+| `int` | number | A whole number |
+| `float` | number | A whole number is one too |
+| `bool` | `true` or `false` | |
+| `ptr` | object | An `obs_data_t`: the settings, state or changes the proc documents. One the proc fills in for the caller, as `ptz_get_state`'s `state` is, can be left out, and comes back in the answer all the same |
+
+A field that is left out is not given, as for any caller.
+A field that the proc doesn't have is an error, `unknown_field`, and the proc
+is not called: a misspelt field doesn't move a camera somewhere else.
+
+### Errors
+
+A request that could not be done answers with `error`, one of the codes below,
+and `message`, which says more, for a person to read.
+obs-websocket itself reports the request as having succeeded: it is the
+answer's data that has the error.
+
+| Error | |
+| --- | --- |
+| `unknown_device` | `device` is missing, or is not the UUID of a PTZ device that exists |
+| `no_such_proc` | The device hasn't this proc, as a discovery instance hasn't `ptz_move` |
+| `unknown_field` | The request has a field that the proc doesn't have |
+| `bad_type` | A field is not of the type the proc declares for it |
+| `forbidden` | The proc is not allowed by the access setting, which was changed as the request was made |
+| `timeout` | A "Device thread" proc was not run within five seconds, as OBS's main thread was busy. It may still run |
+| `unavailable` | OBS is closing |
+
+A request for a proc that the access setting doesn't allow, or for one that no
+device there has ever been has had, is not a request at all: obs-websocket
+answers that there is no request by that name.
+
+### Events
+
+Each signal of a device is an event of the vendor, by the signal's name, with
+the signal's fields as its data, but for `source`: in its place is `device`, the
+UUID of the device the signal is from.
+A `ptr` field is an object, as it is in a request.
+obs-websocket sends a vendor's event as a `VendorEvent`, which has the vendor,
+the event's name, and its data:
+
+```json
+{
+  "eventType": "VendorEvent",
+  "eventData": {
+    "vendorName": "obs-ptz",
+    "eventType": "ptz_state_changed",
+    "eventData": {"device": "c7d8...", "changed": {"pan": 0.25}}
+  }
+}
+```
+
+A client is sent them only if it asks for obs-websocket's `Vendors` events when
+it identifies itself, `1 << 9` in its `eventSubscriptions`: they are not
+among the events a client gets if it says nothing.
+
+A device says a great deal as its camera moves.
+A client that subscribes has to keep reading what it is sent.
+
+### Access
+
+One setting, in the plugin's settings and as `websocket_access` in its
+`config.json`, says how much of this a client is let do:
+
+| Setting | A client can |
+| --- | --- |
+| `off` | Do nothing: the vendor has no request, and no event is sent |
+| `read-only` | Call the procs that are "Access: read", and hear every event |
+| `control` | Call every proc but those that are "Access: none", and hear every event. The default |
+
+It is changed while OBS runs, with no client disconnected.
+A `websocket_access` that is none of the three is taken as `off`.
+
+obs-websocket has one password, and no permissions: whatever has the password
+is let do everything the setting allows, to every camera.
+The plugin is not told which client a request is from, so the setting is the
+same for all of them, and is no substitute for the password.
+
+### Requests of the binding's own
+
+These are not procs of a device, and take no `device`.
+They are there unless the setting is `off`, but for `ptz_list_discovery`, which
+makes sources and is there only when the setting is `control`.
+
+| Request | Answers |
+| --- | --- |
+| `ptz_bridge_version` | `major` and `minor`: the version of the binding |
+| `ptz_list_devices` | `devices`: an array with, for each PTZ device there is, its `device` (the UUID), its `name`, the `source` it is on (the name of the source whose video the camera shows), and its `api`, the `major` and `minor` of the version of the API it implements |
+| `ptz_list_discovery` | `instances`: an array with, for each [discovery kind](#discovery-kinds) there is, the `kind` and the `device` (the UUID) of a discovery instance of it, to call `ptz_discovery_start` on. The binding makes them the first time it is asked, and keeps them: a client can't make one. What an instance finds can be added as a device with obs-websocket's own `CreateSourceFilter`, of the `kind` and with the `settings` its `ptz_device_found` gives |
+| `ptz_list_api` | The requests and events there are for the API, as four arrays, `device-proc`, `device-signal`, `discovery-proc` and `discovery-signal`, of an object for each with its `name`. What a device or an instance has is not there until there has been one |
+
+### Events of the binding's own
+
+| Event | |
+| --- | --- |
+| `ptz_device_removed` | `device`: a device has gone. No signal of the API says so, as there is no device left to say it |
 
 ## Providing a device
 
@@ -240,6 +394,15 @@ The following proc_handler calls are defined for PTZ Devices.
 All the procs start with `ptz_`, so they can be added to an existing
 proc_handler with low risk of conflicts.
 
+Each proc says which thread it may be called from, "Any thread." or "Device
+thread.", as [Rules for calling](#rules-for-calling) has it.
+A proc with an "Access:" line is one that a caller outside OBS is treated
+differently for: `read` if it only reads the device, and so is let through
+where control of the camera is not, and `none` if it can't be called from
+outside OBS at all.
+A proc with no such line controls the device.
+`ptz_get_api_info` gives both, for each proc.
+
 ### `void ptz_get_api_version(out int major, out int minor)`
 
 Returns the version of the PTZ API this device implements.
@@ -247,6 +410,25 @@ Each device may implement a different version of the API.
 Controllers must not assume that all devices implement the same API version.
 A caller must check each device's own before relying on anything else in the API.
 Any thread.
+Access: read.
+
+### `ptr ptz_get_api_info()`
+
+Returns, as `return`, an `obs_data_t *` that the caller releases with
+`obs_data_release()`, describing the procs and signals the device has, which a
+caller has no other way to ask for: libobs calls a proc and connects a signal
+only by a name the caller already knows.
+
+- `procs` (array): each an object with the proc's `name`, the `decl` it is
+  declared with (`"void ptz_preset_recall(string id)"`), the `thread` it may be
+  called from, `"any"` or `"device"`, and the `access` a caller outside OBS
+  needs to call it, `"read"`, `"control"` or `"none"`.
+- `signals` (array): each an object with the signal's `name` and `decl`.
+
+A caller takes a proc that has no `thread` as `"device"`, and one that has no
+`access` as `"control"`.
+Any thread.
+Access: read.
 
 ### `void ptz_stop()`
 
@@ -265,7 +447,7 @@ Saves the current position as the home position.
 Needs the `home_set` feature.
 Any thread.
 
-### `void ptz_move()`
+### `void ptz_move(float pan, float tilt, float zoom, float focus)`
 
 Moves at a speed, until told otherwise or stopped.
 Needs the `pantilt`, `zoom` and `focus` features, for each axis it moves.
@@ -282,7 +464,7 @@ Reads:
 
 A zero stops that axis; an axis left out is left as it is.
 
-### `void ptz_move_abs()`
+### `void ptz_move_abs(float pan, float tilt, float zoom, float focus)`
 
 Moves to a position and stops there.
 Needs the `pantilt_abs`, `zoom_abs` and `focus_abs` features, for each axis it
@@ -294,7 +476,7 @@ Reads:
   As for `ptz_move`, if either is given the other is taken as 0.
 - `zoom`, `focus` (float, 0.0 to 1.0): the position.
 
-### `void ptz_move_rel()`
+### `void ptz_move_rel(float pan, float tilt)`
 
 Moves by a distance.
 Needs the `pantilt_rel` feature.
@@ -310,6 +492,7 @@ Reads:
 Fills in the `state` object the caller owns with the device's whole transient
 state: see [State keys](#state-keys).
 Device thread.
+Access: read.
 
 ### `ptr ptz_get_statistics(ptr statistics)`
 
@@ -319,6 +502,7 @@ fast it answers, as numbers under names that the driver gives them.
 It isn't state: it is read when wanted and never announced as changing, and a
 rate in it is over the time since it was last read.
 Device thread.
+Access: read.
 
 ### `ptr ptz_get_parent_source()`
 
@@ -327,6 +511,7 @@ that is a filter the source it is on, and for one that is a source, itself.
 It is a new reference, which the caller releases with `obs_source_release()`,
 and it is null while the device has no source, or the source has been removed.
 Any thread.
+Access: none.
 
 ### `void ptz_request_state(ptr state)`
 
@@ -351,6 +536,7 @@ Returns, as `report`, the last report of what the camera has, which its
 It is for the user to look at and send in themselves; nothing in it identifies
 the camera, the user, or where either is.
 Device thread.
+Access: read.
 
 ### `ptr ptz_preset_get_list()`
 
@@ -372,6 +558,7 @@ Returns, as `return`, an `obs_data_t *` that the caller releases with
   each `true`.
 
 Device thread.
+Access: read.
 
 ### `void ptz_preset_save(string id)`
 
@@ -721,6 +908,15 @@ Any thread: the instance does the work on the main thread.
 
 The version of the PTZ API the instance implements, as a device's
 `ptz_get_api_version` says it: one version covers both.
+Any thread.
+Access: read.
+
+### `ptr ptz_get_api_info()`
+
+The procs and signals the instance has, as a device's `ptz_get_api_info` gives
+its own.
+Any thread.
+Access: read.
 
 ### `void ptz_discovery_start()`
 
@@ -728,10 +924,12 @@ Looks for devices for a while (a few seconds), saying `ptz_device_found` for
 each one it finds, then `ptz_discovery_finished`.
 While a search is running, it does nothing; after one, it looks again, and
 says again each device it finds.
+Any thread.
 
 ### `void ptz_discovery_stop()`
 
 Gives up the search, and says `ptz_discovery_finished` if one was running.
+Any thread.
 
 ## Per-discovery signal_handler
 
