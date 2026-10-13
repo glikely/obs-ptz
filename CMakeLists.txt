@@ -317,6 +317,7 @@ target_sources(
     src/controller/ptz-camera-report.cpp
     src/controller/ptz-state-view.cpp
     src/controller/ptz-source-display.cpp
+    src/controller/ptz-ws-decl.cpp
     src/controller/ptz-action-source.c
     src/controller/circularlistview.cpp
     src/controller/touch-control.cpp
@@ -331,6 +332,7 @@ target_sources(
     src/controller/ptz-camera-report.hpp
     src/controller/ptz-state-view.hpp
     src/controller/ptz-source-display.hpp
+    src/controller/ptz-ws-decl.hpp
     src/controller/contributors-generated.hpp
     src/controller/translators-generated.hpp
     src/controller/circularlistview.hpp

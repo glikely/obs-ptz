@@ -1,4 +1,5 @@
-# Unit tests for code that needs neither OBS nor Qt (src/core/ptz-lifecycle.hpp).
+# Unit tests for code that needs neither OBS nor Qt (src/core/ptz-lifecycle.hpp,
+# src/controller/ptz-ws-decl.cpp).
 #
 # Copyright 2026 Grant Likely <grant.likely@secretlab.ca>
 # SPDX-License-Identifier: GPL-2.0-or-later
@@ -8,9 +9,20 @@
 # subdirectory (same as tests/soft-ptz). No-op elsewhere.
 set(CMAKE_SKIP_RPATH FALSE)
 
-add_executable(ptz-unit-tests main.cpp test_lifecycle.cpp "${CMAKE_CURRENT_LIST_DIR}/../../src/core/ptz-lifecycle.hpp")
+add_executable(
+  ptz-unit-tests
+  main.cpp
+  test_lifecycle.cpp
+  test_ws_decl.cpp
+  "${CMAKE_CURRENT_LIST_DIR}/../../src/core/ptz-lifecycle.hpp"
+  "${CMAKE_CURRENT_LIST_DIR}/../../src/controller/ptz-ws-decl.cpp"
+  "${CMAKE_CURRENT_LIST_DIR}/../../src/controller/ptz-ws-decl.hpp"
+)
 
-target_include_directories(ptz-unit-tests PRIVATE "${CMAKE_CURRENT_LIST_DIR}/../../src/core")
+target_include_directories(
+  ptz-unit-tests
+  PRIVATE "${CMAKE_CURRENT_LIST_DIR}/../../src/core" "${CMAKE_CURRENT_LIST_DIR}/../../src/controller"
+)
 target_link_libraries(ptz-unit-tests PRIVATE catch2_amalgamated)
 set_target_properties(ptz-unit-tests PROPERTIES CXX_STANDARD 17)
 
@@ -21,3 +33,4 @@ if(APPLE)
 endif()
 
 add_test(NAME lifecycle COMMAND ptz-unit-tests "[lifecycle]")
+add_test(NAME ws_decl COMMAND ptz-unit-tests "[ws-decl]")
