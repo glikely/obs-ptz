@@ -18,6 +18,8 @@ SOURCE = "placeholder-cam"
 
 @pytest.fixture
 def host_source(obs_world):
+    # the stand-in source kind is the harness's
+    obs_world.need_harness()
     scene = obs_world.create_scene()
     item = obs_world.ws.call("CreateInput", {
         "sceneName": scene,

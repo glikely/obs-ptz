@@ -20,6 +20,8 @@ SOURCE_KIND = "ptz_test_third_party_source_device"
 @pytest.fixture
 def source(obs_world):
     """A source for a filter to be added to, removed at the end"""
+    # the device kinds that stand in for another plugin's are the harness's
+    obs_world.need_harness()
     name = "third-party-cam"
     obs_world.ws.call("CreateInput", {
         "sceneName": obs_world.create_scene(),
@@ -98,6 +100,7 @@ def test_a_filter_at_another_major_version_is_not(obs_world, source, tmp_path):
 
 
 def test_a_source_at_a_usable_version_is_a_device(obs_world, tmp_path):
+    obs_world.need_harness()
     out = tmp_path / "device.json"
     name = "third-party-source-device"
     scene = obs_world.create_scene()

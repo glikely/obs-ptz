@@ -54,6 +54,13 @@ Three ways, and a test uses the one that is how the thing is really done:
   it took the request, and writes what a test asked for to a file the test
   waits for.
 
+A plugin built without the harness, as a release is, can be tested too: a test
+that asks the harness for something is skipped when the harness isn't there
+(`World.run_ui_test()`, and `need_harness()` for one that needs its source
+kinds), and the rest run, which are the tests of the PTZ API over obs-websocket.
+`scripts/vm-linux-dev.sh build` without `--ui-tests`, then `test`, does that on
+Linux.
+
 ## How it works
 
 1. **`ptzsim`** is started as a subprocess on fixed local ports, one

@@ -115,6 +115,9 @@ def pytest_collection_modifyitems(config, items):
 # obs-websocket RequestStatus::NotReady -- returned while OBS's frontend
 # is still starting up, even after the websocket handshake has completed.
 OBS_NOT_READY = 207
+# obs-websocket RequestStatus::ResourceNotFound -- returned for a vendor, or a
+# request of a vendor's, that nothing has registered.
+OBS_NOT_FOUND = 600
 
 # The ids the old self-managed config.json format gives each device. Nothing
 # else has them: a device is its filter, and the tests refer to it by the name
@@ -678,7 +681,7 @@ class World:
             except ObsWebSocketError:
                 pass
 
-    def run_ui_test(self, cmd, **params):
+    def run_ui_test(self, cmd, connection=None, **params):
         """Dispatches a tests/ui-harness/ test by name (matching one of
         its registerTest() calls) via the "obs-ptz" vendor's
         "ui_test_run" request -- the same request scripts/
@@ -692,8 +695,20 @@ class World:
         ("accepted": true) and runs the actual test later, queued onto
         the GUI thread -- see vendorRequestCallback()'s own comment for
         why. Callers that need to observe the test's effect (e.g. a file
-        it wrote) have to poll for it, e.g. with wait_for() below."""
-        return self.ws.vendor("obs-ptz", "ui_test_run", {"cmd": cmd, **{k: str(v) for k, v in params.items()}})
+        it wrote) have to poll for it, e.g. with wait_for() below.
+
+        It is asked on the connection for requests, or on `connection`, for a
+        test of what a connection does with what the request causes."""
+        try:
+            return (connection or self.ws).vendor("obs-ptz", "ui_test_run",
+                                                  {"cmd": cmd, **{k: str(v) for k, v in params.items()}})
+        except ObsWebSocketError as e:
+            # obs-websocket's ResourceNotFound: the plugin was built without
+            # the harness (-DENABLE_UI_TESTS=ON), as a release is. What needs
+            # no harness, the PTZ API over obs-websocket, is still tested.
+            if e.status.get("code") == OBS_NOT_FOUND:
+                pytest.skip("needs the UI test harness, which this build of the plugin has not")
+            raise
 
     def device_uuid(self, device):
         """The UUID of a device a test names by it, or by the name of the source
@@ -708,6 +723,12 @@ class World:
     def _signal_ms(self, at=None):
         """A time, now unless given, in ms on the clock of the recorded signals' "ms"""
         return ((time.monotonic() if at is None else at) - self._record_start) * 1000
+
+    def need_harness(self):
+        """Skips the test if the plugin was built without the UI test harness,
+        for a test that needs something of the harness's before it asks it for
+        anything: the source kinds it registers, say"""
+        self.run_ui_test("nothing")
 
     def call_proc(self, device, proc, args=None, returns=None):
         """Calls proc on device, as a client of obs-websocket does: the "obs-ptz"

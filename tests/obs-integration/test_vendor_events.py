@@ -26,8 +26,7 @@ def test_call_does_not_lose_an_event_seen_while_it_waits(obs_world):
     request's answer or after, is still there for wait_event()"""
     client = obs_world.events
     for i in range(20):
-        client.vendor("obs-ptz", "ui_test_run",
-                      {"cmd": "emit_vendor_event", "type": "ptz_probe_kept", "data": '{"n": %d}' % i})
+        obs_world.run_ui_test("emit_vendor_event", connection=client, type="ptz_probe_kept", data='{"n": %d}' % i)
         # Something else asked on the same connection, while the event is on its way
         client.call("GetVersion")
     seen = [client.wait_event("VendorEvent", is_probe("ptz_probe_kept"))["eventData"]["n"] for _ in range(20)]
@@ -39,8 +38,9 @@ def test_vendor_raises_on_an_error_in_the_response(obs_world):
     from obsws import ObsWebSocketError
 
     with pytest.raises(ObsWebSocketError) as raised:
-        obs_world.ws.vendor("obs-ptz", "ui_test_run", {})
-    assert "missing 'cmd' field" in str(raised.value)
+        obs_world.ws.vendor("obs-ptz", "ptz_stop", {"device": "no such device"})
+    assert raised.value.status["error"] == "unknown_device"
+    assert "no such device" in str(raised.value)
 
 
 def test_vendor_event_does_not_reach_a_general_subscriber(obs_world):

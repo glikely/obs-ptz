@@ -11,7 +11,8 @@
 #   scripts/vm-linux-dev.sh setup              # one-time per checkout: share it to the VM
 #   scripts/vm-linux-dev.sh build [--ui-tests] [extra cmake args...]
 #   scripts/vm-linux-dev.sh install            # install the freshly built .so as the VM's system obs-ptz plugin
-#   scripts/vm-linux-dev.sh test [pytest args] # run tests/obs-integration against it (implies install)
+#   scripts/vm-linux-dev.sh test [pytest args] # run tests/obs-integration against it (implies install);
+#                                              # a build without --ui-tests runs only the tests that need no harness
 #   scripts/vm-linux-dev.sh run                # install the plugin, start OBS on the VNC display, open a viewer on the Mac
 #   scripts/vm-linux-dev.sh display            # just start the VNC display and open the viewer
 #   scripts/vm-linux-dev.sh clean              # kill stray obs/Xvfb/ptzsim processes left over from a previous run
@@ -170,12 +171,16 @@ EOF
 }
 
 cmd_test() {
-	# Every test drives the plugin through the UI test harness's
-	# obs-websocket vendor, which only a --ui-tests build contains; without
-	# it each test fails with "No vendor was found by that name".
-	if ! grep -qa ui_test_run "$SRC_MAC/build_vm/obs-ptz.so" 2>/dev/null; then
-		echo "vm-linux-dev: build_vm/obs-ptz.so is missing or lacks the UI test harness; run \`$0 build --ui-tests\` first" >&2
+	# Most tests drive the plugin through the UI test harness, which only a
+	# --ui-tests build contains. Without it they are skipped, and what is left
+	# is the tests of the PTZ API over obs-websocket, which is in every build:
+	# that is how a build as it is released is tested.
+	if [ ! -f "$SRC_MAC/build_vm/obs-ptz.so" ]; then
+		echo "vm-linux-dev: no build_vm/obs-ptz.so; run \`$0 build --ui-tests\` first" >&2
 		return 1
+	fi
+	if ! grep -qa ui_test_run "$SRC_MAC/build_vm/obs-ptz.so"; then
+		echo "vm-linux-dev: build_vm/obs-ptz.so has no UI test harness (\`$0 build --ui-tests\`): the tests that need it will be skipped" >&2
 	fi
 	cmd_install
 	cmd_venv
