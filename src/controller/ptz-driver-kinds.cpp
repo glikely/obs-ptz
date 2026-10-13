@@ -28,7 +28,7 @@ static QList<PTZDriverKind> ptz_marked_kinds(bool (*enumerate)(size_t, const cha
 		    !obs_data_has_default_value(defaults, PTZ_DEFAULTS_MINOR_KEY))
 			continue;
 		if (obs_data_get_int(defaults, PTZ_DEFAULTS_MAJOR_KEY) != PTZ_API_VERSION_MAJOR ||
-		    obs_data_get_int(defaults, PTZ_DEFAULTS_MINOR_KEY) < PTZ_API_VERSION_MINOR)
+		    obs_data_get_int(defaults, PTZ_DEFAULTS_MINOR_KEY) < PTZ_API_VERSION_MINOR_NEEDED)
 			continue;
 		const char *name = obs_source_get_display_name(id);
 		kinds.append({QT_UTF8(id), QT_UTF8(name ? name : id), OBSData(defaults.Get())});

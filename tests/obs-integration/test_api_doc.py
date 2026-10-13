@@ -23,7 +23,12 @@ and checks it against:
  * real devices' state and config, whose keys have to be documented, and
    present, with the documented types;
  * the source, for the feature and trigger names, which the plugin doesn't
-   register anywhere it can be asked.
+   register anywhere it can be asked;
+ * what the API says of itself, in ptz_get_api_info: the declarations, and for
+   each proc the thread it may be called from and what a remote caller needs to
+   be let do to call it, which are a line each in the proc's section,
+   "Any thread." or "Device thread.", and "Access: read." or "Access: none."
+   where it is not the control that most procs are.
 """
 
 import json
@@ -59,6 +64,20 @@ def documented_signatures():
     for title, scope in SCOPES.items():
         body = sections()[title]
         found[scope] = re.findall(r"^### `(.+)`$", body, flags=re.MULTILINE)
+    return found
+
+
+def documented_procs(title):
+    """{declaration: (thread, access)} for a proc_handler section, from each
+    proc's own "###" part of it: "any" or "device" by its "Any thread." or
+    "Device thread." line, None if it has neither, and "read", "none" or, with
+    no "Access:" line, "control"""
+    parts = re.split(r"^### `(.+)`$", sections()[title], flags=re.MULTILINE)
+    found = {}
+    for declaration, body in zip(parts[1::2], parts[2::2]):
+        thread = re.search(r"^(Any|Device) thread\.$", body, flags=re.MULTILINE)
+        access = re.search(r"^Access: (read|none)\.$", body, flags=re.MULTILINE)
+        found[declaration] = (thread.group(1).lower() if thread else None, access.group(1) if access else "control")
     return found
 
 
@@ -128,6 +147,61 @@ def test_the_doc_lists_what_the_plugin_registers(obs_world, tmp_path):
     for scope in documented:
         assert registered[scope] - documented[scope] == set(), f"{scope}: registered, and not in the doc"
         assert documented[scope] - registered[scope] == set(), f"{scope}: in the doc, and not registered"
+
+
+# --- what the API says of itself --------------------------------------------------
+
+
+def api_infos(obs_world, tmp_path):
+    """{"device": ..., "discovery": ...}: what ptz_get_api_info returns, of a device
+    and of a discovery instance"""
+    device = obs_world.call_proc(obs_world.device_names["visca-tcp"], "ptz_get_api_info", returns="data")
+    assert device["called"], "a device has no ptz_get_api_info"
+    out = tmp_path / "made.json"
+    obs_world.run_ui_test("make_discovery_instances", filename=str(out))
+    obs_world.wait_for(out.exists)
+    made = json.loads(out.read_text())["made"]
+    assert made and all(m.get("api") for m in made), "a discovery instance has no ptz_get_api_info"
+    # every kind's is the same: they all get it from ptz_discovery_add_api()
+    assert all(m["api"] == made[0]["api"] for m in made)
+    return {"device": device["return"], "discovery": made[0]["api"]}
+
+
+@pytest.mark.parametrize("kind,procs,signals", [
+    ("device", "Per-device proc_handler", "Per-device signal_handler"),
+    ("discovery", "Per-discovery proc_handler", "Per-discovery signal_handler"),
+])
+def test_api_info_lists_what_the_doc_lists(obs_world, tmp_path, kind, procs, signals):
+    info = api_infos(obs_world, tmp_path)[kind]
+    assert {p["decl"] for p in info["procs"]} == set(documented_procs(procs))
+    assert {s["decl"] for s in info["signals"]} == set(documented_signatures()[SCOPES[signals]])
+    for entry in info["procs"] + info["signals"]:
+        assert re.search(r" %s\(" % re.escape(entry["name"]), entry["decl"]), entry
+
+
+@pytest.mark.parametrize("kind,title", [
+    ("device", "Per-device proc_handler"),
+    ("discovery", "Per-discovery proc_handler"),
+])
+def test_each_proc_is_tagged_as_the_doc_says(obs_world, tmp_path, kind, title):
+    documented = documented_procs(title)
+    info = api_infos(obs_world, tmp_path)[kind]
+    for proc in info["procs"]:
+        thread, access = documented[proc["decl"]]
+        assert thread is not None, f"{proc['name']}: the doc doesn't say which thread"
+        assert proc["thread"] == thread, proc["name"]
+        assert proc["access"] == access, proc["name"]
+
+
+def test_the_procs_a_remote_caller_may_only_read_with(obs_world, tmp_path):
+    """The ones that neither move the camera nor change what the device keeps"""
+    info = api_infos(obs_world, tmp_path)["device"]
+    by_access = {}
+    for proc in info["procs"]:
+        by_access.setdefault(proc["access"], set()).add(proc["name"])
+    assert by_access["read"] == {"ptz_get_api_version", "ptz_get_api_info", "ptz_get_state", "ptz_get_statistics",
+                                 "ptz_get_camera_report", "ptz_preset_get_list"}
+    assert by_access["none"] == {"ptz_get_parent_source"}
 
 
 # --- real devices' keys ----------------------------------------------------------

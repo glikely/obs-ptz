@@ -53,8 +53,8 @@ extern obs_source_t *ptz_device_create_filter(obs_source_t *parent, obs_data_t *
 
 /* Whether a source is a device of the PTZ API, from this plugin or from any
  * other, a filter or not: its proc_handler answers ptz_get_api_version with
- * the same major version as this plugin's and a minor version at least as new
- * (see docs/ptz-device-api.md). Nothing about its id says so. */
+ * the same major version as this plugin's and a minor version at least
+ * PTZ_API_VERSION_MINOR_NEEDED (see docs/ptz-device-api.md). Nothing about its id says so. */
 extern bool ptz_source_is_device(obs_source_t *source);
 
 /* Whether `source` is `scene` or one of the sources it shows. Inline, as both
@@ -93,7 +93,13 @@ static inline bool ptz_scene_is_source_active(obs_source_t *scene, obs_source_t 
  * (something removed, renamed or changing meaning). Then update the doc,
  * which states it. */
 #define PTZ_API_VERSION_MAJOR 0
-#define PTZ_API_VERSION_MINOR 3
+#define PTZ_API_VERSION_MINOR 4
+/* The minor version the controller needs of a device, of this plugin or of any
+ * other: the newest it uses something of. It is not PTZ_API_VERSION_MINOR, which
+ * goes up with what this plugin's devices offer, and would shut out a device
+ * written for an older minor version that the controller can use as well as
+ * ever. Nothing the controller uses has been added since 0.3. */
+#define PTZ_API_VERSION_MINOR_NEEDED 3
 
 /* The keys of the filter kind defaults that mark a PTZ driver, see
  * ptz_filter_defaults_mark() */

@@ -218,7 +218,7 @@ def test_discovery_through_source_api(obs_world, onvif_sim, sony_sim, tmp_path):
     instances = result["instances"]
     assert set(instances) == DISCOVERY_KINDS
     for kind, instance in instances.items():
-        assert (instance["major"], instance["minor"]) == (0, 3), kind
+        assert (instance["major"], instance["minor"]) == (0, 4), kind
         assert instance["finished"] == 1, kind
         assert instance["found_after_finished"] == 0, kind
 

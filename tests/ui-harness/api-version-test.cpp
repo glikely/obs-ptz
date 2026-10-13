@@ -40,7 +40,8 @@ void runGetApiVersionTest(const QMap<QString, QString> &params)
 /* Makes, and destroys again, one instance of each discovery kind, which
  * registers its procs and signals, so that a build with the harness logs them
  * as "[ptz-api]" lines (see ptz_proc_add()) as a device's are when it is made.
- * Writes the kinds it made one of. */
+ * Writes the kinds it made one of, each with what its ptz_get_api_info returned
+ * as "api". */
 void runMakeDiscoveryInstancesTest(const QMap<QString, QString> &params)
 {
 	QString filename = params.value(QStringLiteral("filename"));
@@ -57,6 +58,13 @@ void runMakeDiscoveryInstancesTest(const QMap<QString, QString> &params)
 			continue;
 		OBSDataAutoRelease item = obs_data_create();
 		obs_data_set_string(item, "kind", qUtf8Printable(kind.kind));
+		/* What the instance says the API has, as another plugin would ask it */
+		calldata_t cd = {};
+		if (proc_handler_call(obs_source_get_proc_handler(instance), "ptz_get_api_info", &cd)) {
+			OBSDataAutoRelease api = static_cast<obs_data_t *>(calldata_ptr(&cd, "return"));
+			obs_data_set_obj(item, "api", api);
+		}
+		calldata_free(&cd);
 		obs_data_array_push_back(made, item);
 	}
 	OBSDataAutoRelease result = obs_data_create();

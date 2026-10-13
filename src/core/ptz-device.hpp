@@ -43,6 +43,13 @@ struct PTZCameraPresets {
 	bool enumerable = false;
 };
 
+/* What docs/ptz-device-api.md says of a proc, which ptz_get_api_info tells a
+ * caller: the thread it may be called from, any or only the device's own... */
+enum PTZProcThread { PTZ_THREAD_DEVICE, PTZ_THREAD_ANY };
+/* ...and what a caller from outside OBS has to be let do to call it: read the
+ * device, control it, or nothing, for a proc that can't be called from there */
+enum PTZProcAccess { PTZ_ACCESS_CONTROL, PTZ_ACCESS_READ, PTZ_ACCESS_NONE };
+
 class PTZDevice : public QObject, public PTZLifecycle::Listener {
 	Q_OBJECT
 
@@ -212,7 +219,8 @@ protected:
 	signal_handler_t *sigs = nullptr;
 	/* Registers a proc or signal of the PTZ API on handler or sigs (see
 	 * ptz_proc_add()) */
-	void addProc(const char *decl, proc_handler_proc_t proc, void *data);
+	void addProc(const char *decl, proc_handler_proc_t proc, void *data, PTZProcThread thread = PTZ_THREAD_DEVICE,
+		     PTZProcAccess access = PTZ_ACCESS_CONTROL);
 	void addSignal(const char *decl);
 	void signalDevice(const char *name, calldata_t *cd);
 	void notifyStateChanged();
@@ -543,8 +551,15 @@ void ptz_filter_save(void *data, obs_data_t *settings);
 void ptz_module_frontend_event(enum obs_frontend_event event, void *);
 
 /* Registers a proc or signal of the PTZ API on `handler`, in `scope`, logging
- * it in a build with the UI test harness (see ptz-device.cpp) */
-void ptz_proc_add(const char *scope, proc_handler_t *handler, const char *decl, proc_handler_proc_t proc, void *data);
+ * it in a build with the UI test harness (see ptz-device.cpp), and recording
+ * it for ptz_get_api_info. `thread` and `access` are what docs/ptz-device-api.md
+ * says of the proc: where it may be called from, and what a remote caller
+ * has to be let do to call it. */
+void ptz_proc_add(const char *scope, proc_handler_t *handler, const char *decl, proc_handler_proc_t proc, void *data,
+		  PTZProcThread thread = PTZ_THREAD_DEVICE, PTZProcAccess access = PTZ_ACCESS_CONTROL);
 void ptz_signal_add(const char *scope, signal_handler_t *handler, const char *decl);
 /* ptz_get_api_version, for a device's or a discovery instance's proc_handler */
 void ptz_get_api_version_proc(void *, calldata_t *cd);
+/* ptz_get_api_info, for either: `data` is "device" or "discovery", a string
+ * that outlives the handler */
+void ptz_get_api_info_proc(void *data, calldata_t *cd);

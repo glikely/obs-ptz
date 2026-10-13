@@ -51,21 +51,85 @@ static void ptz_api_logged(const char *scope, const char *decl)
 #endif
 }
 
-void ptz_proc_add(const char *scope, proc_handler_t *handler, const char *decl, proc_handler_proc_t proc, void *data)
+/* What this module has registered, by scope, for ptz_get_api_info: libobs
+ * can't be asked what a handler has, and a caller outside the module has no
+ * other way to learn a declaration. Each is recorded once, the first time it
+ * is registered, so it is whole by the time the first device or discovery
+ * instance exists to be asked, and only read from then on. */
+struct PTZApiEntry {
+	QByteArray decl;
+	PTZProcThread thread;
+	PTZProcAccess access;
+};
+static QMutex ptz_api_mutex;
+static QMap<QByteArray, QList<PTZApiEntry>> ptz_api_recorded;
+
+static void ptz_api_record(const char *scope, const char *decl, PTZProcThread thread, PTZProcAccess access)
+{
+	QMutexLocker locker(&ptz_api_mutex);
+	QList<PTZApiEntry> &entries = ptz_api_recorded[scope];
+	for (const PTZApiEntry &entry : entries)
+		if (entry.decl == decl)
+			return;
+	entries.append({decl, thread, access});
+}
+
+/* The name in a declaration, "void ptz_stop()": what is before the bracket */
+static QByteArray ptz_api_decl_name(const QByteArray &decl)
+{
+	int bracket = decl.indexOf('(');
+	int space = decl.lastIndexOf(' ', bracket);
+	return bracket < 0 ? QByteArray() : decl.mid(space + 1, bracket - space - 1);
+}
+
+void ptz_get_api_info_proc(void *data, calldata_t *cd)
+{
+	QByteArray kind = static_cast<const char *>(data);
+	obs_data_t *info = obs_data_create();
+	QMutexLocker locker(&ptz_api_mutex);
+	OBSDataArrayAutoRelease procs = obs_data_array_create();
+	for (const PTZApiEntry &entry : ptz_api_recorded.value(kind + "-proc")) {
+		OBSDataAutoRelease item = obs_data_create();
+		obs_data_set_string(item, "name", ptz_api_decl_name(entry.decl).constData());
+		obs_data_set_string(item, "decl", entry.decl.constData());
+		obs_data_set_string(item, "thread", entry.thread == PTZ_THREAD_ANY ? "any" : "device");
+		obs_data_set_string(item, "access",
+				    entry.access == PTZ_ACCESS_READ   ? "read"
+				    : entry.access == PTZ_ACCESS_NONE ? "none"
+								      : "control");
+		obs_data_array_push_back(procs, item);
+	}
+	OBSDataArrayAutoRelease signalList = obs_data_array_create();
+	for (const PTZApiEntry &entry : ptz_api_recorded.value(kind + "-signal")) {
+		OBSDataAutoRelease item = obs_data_create();
+		obs_data_set_string(item, "name", ptz_api_decl_name(entry.decl).constData());
+		obs_data_set_string(item, "decl", entry.decl.constData());
+		obs_data_array_push_back(signalList, item);
+	}
+	obs_data_set_array(info, "procs", procs);
+	obs_data_set_array(info, "signals", signalList);
+	calldata_set_ptr(cd, "return", info);
+}
+
+void ptz_proc_add(const char *scope, proc_handler_t *handler, const char *decl, proc_handler_proc_t proc, void *data,
+		  PTZProcThread thread, PTZProcAccess access)
 {
 	ptz_api_logged(scope, decl);
+	ptz_api_record(scope, decl, thread, access);
 	proc_handler_add(handler, decl, proc, data);
 }
 
 void ptz_signal_add(const char *scope, signal_handler_t *handler, const char *decl)
 {
 	ptz_api_logged(scope, decl);
+	ptz_api_record(scope, decl, PTZ_THREAD_DEVICE, PTZ_ACCESS_NONE);
 	signal_handler_add(handler, decl);
 }
 
-void PTZDevice::addProc(const char *decl, proc_handler_proc_t proc, void *data)
+void PTZDevice::addProc(const char *decl, proc_handler_proc_t proc, void *data, PTZProcThread thread,
+			PTZProcAccess access)
 {
-	ptz_proc_add("device-proc", handler, decl, proc, data);
+	ptz_proc_add("device-proc", handler, decl, proc, data, thread, access);
 }
 
 void PTZDevice::addSignal(const char *decl)
@@ -127,34 +191,40 @@ PTZDevice::PTZDevice(OBSData config, obs_source_t *filter) : QObject()
 	}
 
 	/* The device's own version: see docs/ptz-device-api.md */
-	addProc("void ptz_get_api_version(out int major, out int minor)", ptz_get_api_version_proc, nullptr);
+	addProc("void ptz_get_api_version(out int major, out int minor)", ptz_get_api_version_proc, nullptr,
+		PTZ_THREAD_ANY, PTZ_ACCESS_READ);
+	/* And what it has, for a caller that can't know: see ptz_get_api_info_proc() */
+	addProc("ptr ptz_get_api_info()", ptz_get_api_info_proc, const_cast<char *>("device"), PTZ_THREAD_ANY,
+		PTZ_ACCESS_READ);
 
 	/* The PTZ Device API, which docs/ptz-device-api.md specifies and
 	 * tests/obs-integration/test_api_doc.py holds to what is registered
 	 * here. All these functions are prefixed with 'ptz_' so that they can
 	 * be added to an existing proc_handler with low risk of conflicts */
-	addProc("void ptz_stop()", ptz_ph_lambda(stop), this);
-	addProc("void ptz_home_recall()", ptz_ph_lambda(pantilt_home), this);
-	addProc("void ptz_home_save()", ptz_ph_lambda(pantilt_set_home), this);
-	addProc("void ptz_move()", ptz_ph_lambda(move), this);
-	addProc("void ptz_move_abs()", ptz_ph_lambda(move_abs), this);
-	addProc("void ptz_move_rel()", ptz_ph_lambda(move_rel), this);
-	addProc("void ptz_preset_save(string id)", ptz_ph_lambda(preset_save), this);
-	addProc("void ptz_preset_recall(string id)", ptz_ph_lambda(preset_recall), this);
+	addProc("void ptz_stop()", ptz_ph_lambda(stop), this, PTZ_THREAD_ANY);
+	addProc("void ptz_home_recall()", ptz_ph_lambda(pantilt_home), this, PTZ_THREAD_ANY);
+	addProc("void ptz_home_save()", ptz_ph_lambda(pantilt_set_home), this, PTZ_THREAD_ANY);
+	addProc("void ptz_move()", ptz_ph_lambda(move), this, PTZ_THREAD_ANY);
+	addProc("void ptz_move_abs()", ptz_ph_lambda(move_abs), this, PTZ_THREAD_ANY);
+	addProc("void ptz_move_rel()", ptz_ph_lambda(move_rel), this, PTZ_THREAD_ANY);
+	addProc("void ptz_preset_save(string id)", ptz_ph_lambda(preset_save), this, PTZ_THREAD_ANY);
+	addProc("void ptz_preset_recall(string id)", ptz_ph_lambda(preset_recall), this, PTZ_THREAD_ANY);
 	addProc("void ptz_preset_capture_thumbnail(string id, bool if_arrived)",
-		ptz_ph_lambda(preset_capture_thumbnail), this);
+		ptz_ph_lambda(preset_capture_thumbnail), this, PTZ_THREAD_ANY);
 
-	addProc("ptr ptz_get_state(ptr state)", ptz_ph_lambda(get_state), this);
-	addProc("ptr ptz_get_statistics(ptr statistics)", ptz_ph_lambda(get_statistics), this);
-	addProc("ptr ptz_get_parent_source()", ptz_ph_lambda(get_parent_source), this);
+	addProc("ptr ptz_get_state(ptr state)", ptz_ph_lambda(get_state), this, PTZ_THREAD_DEVICE, PTZ_ACCESS_READ);
+	addProc("ptr ptz_get_statistics(ptr statistics)", ptz_ph_lambda(get_statistics), this, PTZ_THREAD_DEVICE,
+		PTZ_ACCESS_READ);
+	addProc("ptr ptz_get_parent_source()", ptz_ph_lambda(get_parent_source), this, PTZ_THREAD_ANY, PTZ_ACCESS_NONE);
 
 	addProc("void ptz_request_state(ptr state)", ptz_ph_lambda(request_state), this);
 
-	addProc("void ptz_trigger(string name)", ptz_ph_lambda(trigger), this);
+	addProc("void ptz_trigger(string name)", ptz_ph_lambda(trigger), this, PTZ_THREAD_ANY);
 
-	addProc("void ptz_get_camera_report(out string report)", ptz_ph_lambda(get_camera_report), this);
+	addProc("void ptz_get_camera_report(out string report)", ptz_ph_lambda(get_camera_report), this,
+		PTZ_THREAD_DEVICE, PTZ_ACCESS_READ);
 
-	addProc("ptr ptz_preset_get_list()", ptz_ph_lambda(preset_get_list), this);
+	addProc("ptr ptz_preset_get_list()", ptz_ph_lambda(preset_get_list), this, PTZ_THREAD_DEVICE, PTZ_ACCESS_READ);
 	addProc("string ptz_preset_create(string name, string store)", ptz_ph_lambda(preset_create), this);
 	addProc("void ptz_preset_delete(string id)", ptz_ph_lambda(preset_delete), this);
 	addProc("void ptz_preset_update(string id, ptr changes)", ptz_ph_lambda(preset_update), this);

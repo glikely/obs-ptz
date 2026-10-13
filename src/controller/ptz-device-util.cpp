@@ -21,7 +21,7 @@ bool ptz_source_is_device(obs_source_t *source)
 	calldata_t cd = {};
 	bool usable = proc_handler_call(ph, "ptz_get_api_version", &cd) &&
 		      calldata_int(&cd, "major") == PTZ_API_VERSION_MAJOR &&
-		      calldata_int(&cd, "minor") >= PTZ_API_VERSION_MINOR;
+		      calldata_int(&cd, "minor") >= PTZ_API_VERSION_MINOR_NEEDED;
 	calldata_free(&cd);
 	return usable;
 }

@@ -54,7 +54,9 @@ void getState(void *data, calldata_t *cd)
 
 void *createDevice(obs_data_t *, obs_source_t *source)
 {
-	auto self = new ThirdPartyDevice{source, PTZ_API_VERSION_MAJOR, PTZ_API_VERSION_MINOR};
+	/* Written for version 0.3 of the API, as a plugin that has not been
+	 * changed since is: it has no ptz_get_api_info, which 0.4 added */
+	auto self = new ThirdPartyDevice{source, PTZ_API_VERSION_MAJOR, 3};
 	if (strcmp(obs_source_get_id(source), OTHER_VERSION_ID) == 0)
 		self->major++;
 
