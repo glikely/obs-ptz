@@ -13,6 +13,12 @@
 
 namespace {
 PTZUITestHarness *g_harness = nullptr;
+obs_websocket_vendor g_vendor = nullptr;
+} // namespace
+
+obs_websocket_vendor ptzUITestVendor()
+{
+	return g_vendor;
 }
 
 PTZUITestHarness::PTZUITestHarness(QObject *parent) : QObject(parent)
@@ -40,6 +46,7 @@ PTZUITestHarness::PTZUITestHarness(QObject *parent) : QObject(parent)
 	registerReorderPresetsTest(this);
 	registerReorderCamerasTest(this);
 	registerThirdPartyDeviceTest(this);
+	registerVendorEventTest(this);
 }
 
 QModelIndex ptzUITestDeviceIndex(const QString &device)
@@ -105,12 +112,12 @@ void ptz_load_ui_tests(void)
 	 * lifetime, same as PTZControls itself (ptz-controls.cpp). */
 	g_harness = new PTZUITestHarness();
 
-	obs_websocket_vendor vendor = obs_websocket_register_vendor("obs-ptz");
-	if (!vendor) {
+	g_vendor = obs_websocket_register_vendor("obs-ptz");
+	if (!g_vendor) {
 		blog(LOG_INFO, "[ptz-ui-test] obs-websocket not available, harness inactive");
 		return;
 	}
-	obs_websocket_vendor_register_request(vendor, "ui_test_run", &PTZUITestHarness::vendorRequestCallback,
+	obs_websocket_vendor_register_request(g_vendor, "ui_test_run", &PTZUITestHarness::vendorRequestCallback,
 					      g_harness);
 	blog(LOG_INFO, "[ptz-ui-test] harness active (obs-websocket vendor 'obs-ptz', request 'ui_test_run')");
 }

@@ -54,6 +54,10 @@ private:
  * none. */
 QModelIndex ptzUITestDeviceIndex(const QString &device);
 
+/* The "obs-ptz" obs-websocket vendor the harness's request is on, for a test
+ * that emits an event as it. Null if there is no obs-websocket. */
+obs_websocket_vendor ptzUITestVendor();
+
 /* Starts counting what the discovery instances that exist now say, and
  * whether OBS destroys them (the add dialog's, while it is open); and marks
  * the moment it closed. See discovery-test.cpp's get_discovery_spy. */
@@ -98,3 +102,4 @@ void registerDiscoveryTest(PTZUITestHarness *harness);
 void registerPresetApiTest(PTZUITestHarness *harness);
 void registerDeviceBackupTest(PTZUITestHarness *harness);
 void registerThirdPartyDeviceTest(PTZUITestHarness *harness);
+void registerVendorEventTest(PTZUITestHarness *harness);

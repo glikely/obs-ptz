@@ -31,7 +31,7 @@ import urllib.request
 from pathlib import Path
 
 import pytest
-from obsws import Client, ObsWebSocketError
+from obsws import EVENT_VENDORS, Client, ObsWebSocketError
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 
@@ -523,6 +523,13 @@ def stop_process_group(proc, timeout, sig=signal.SIGTERM):
 class World:
     def __init__(self, ws, debug_url, device_names):
         self.ws = ws
+        # A second connection, subscribed to obs-websocket's Vendors events:
+        # set by obs_world. What a test waits for is
+        # read from here, so that the requests on ws don't have to keep it.
+        self.events = None
+        # Where and how to open another connection: set by obs_world
+        self.ws_url = None
+        self.ws_password = None
         self.debug_url = debug_url
         self.device_names = device_names
         # The plugin's config directory, for tests that look at what it keeps there
@@ -678,12 +685,7 @@ class World:
         the GUI thread -- see vendorRequestCallback()'s own comment for
         why. Callers that need to observe the test's effect (e.g. a file
         it wrote) have to poll for it, e.g. with wait_for() below."""
-        response = self.ws.call("CallVendorRequest", {
-            "vendorName": "obs-ptz",
-            "requestType": "ui_test_run",
-            "requestData": {"cmd": cmd, **{k: str(v) for k, v in params.items()}},
-        })
-        return response["responseData"]
+        return self.ws.vendor("obs-ptz", "ui_test_run", {"cmd": cmd, **{k: str(v) for k, v in params.items()}})
 
     def call_proc(self, device, proc, args=None, returns=None):
         """Calls proc on device's proc_handler the way another plugin would
@@ -1333,7 +1335,7 @@ def obs_world(tmp_path_factory, ptzsim_process, sony_ptzsim, birddog_ptzsim, pow
         xvfb, env["DISPLAY"] = start_xvfb()
 
     # "log" is the file OBS's output goes to, which stays after it has quit
-    running = {"proc": None, "ws": None, "log": None}
+    running = {"proc": None, "ws": None, "events": None, "log": None}
 
     def start_obs():
         """Starts OBS on this home and connects to it once it has loaded"""
@@ -1384,12 +1386,15 @@ def obs_world(tmp_path_factory, ptzsim_process, sony_ptzsim, birddog_ptzsim, pow
         # a ptz_action_source never fires. Force an instant Cut so each
         # trigger_action's scene switch always completes immediately.
         ws.call("SetCurrentSceneTransition", {"transitionName": "Cut"})
+        running["events"] = Client(f"ws://127.0.0.1:{ws_port}", password=ws_password,
+                                   event_subscriptions=EVENT_VENDORS)
 
     def stop_obs():
         """Quits OBS the way a user does, and says whether it got to exit by itself"""
-        if running["ws"] is not None:
-            running["ws"].close()
-            running["ws"] = None
+        for connection in ("ws", "events"):
+            if running[connection] is not None:
+                running[connection].close()
+                running[connection] = None
         # SIGINT, not SIGTERM: OBS closes its main window -- a normal quit --
         # on SIGINT since 23.2, but only on SIGTERM since 32.1. Before that
         # a SIGTERM just kills it, and nothing gets turned off.
@@ -1403,6 +1408,7 @@ def obs_world(tmp_path_factory, ptzsim_process, sony_ptzsim, birddog_ptzsim, pow
         assert stop_obs(), "OBS did not quit by itself"
         start_obs()
         world.ws = running["ws"]
+        world.events = running["events"]
         return quit_log
 
     try:
@@ -1414,6 +1420,8 @@ def obs_world(tmp_path_factory, ptzsim_process, sony_ptzsim, birddog_ptzsim, pow
         late_power_ptzsim.start()
 
         world = World(running["ws"], f"http://127.0.0.1:{ptzsim_process['ports']['debug_http']}/state", DEVICE_NAMES)
+        world.events = running["events"]
+        world.ws_url, world.ws_password = f"ws://127.0.0.1:{ws_port}", ws_password
         world.config_dir = obs_config_root(home) / "plugin_config" / "obs-ptz"
         world.restart_obs = restart_obs
         world.obs_log = lambda: running["log"]
