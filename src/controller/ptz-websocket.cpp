@@ -1,0 +1,530 @@
+/* Pan Tilt Zoom Controls - the PTZ API over obs-websocket
+ *
+ * Copyright 2026 Grant Likely <grant.likely@secretlab.ca>
+ *
+ * SPDX-License-Identifier: GPL-2.0-or-later
+ *
+ * See "WebSocket binding" in docs/ptz-device-api.md for what a client sees.
+ *
+ * A request of the vendor is a proc of the PTZ API by the same name, on the
+ * device whose UUID the request gives. Nothing here knows the API's procs: a
+ * device says what it has in ptz_get_api_info, with the declaration of each,
+ * and a request's JSON is turned into the proc's calldata by that.
+ *
+ * Threads. obs-websocket calls a request on any thread of its own pool, and
+ * several at once. A request holds a reference to its device for as long as it
+ * runs and shares nothing with another, so needs no lock. What is shared is the
+ * list of the requests there are (`requests`), which only the main thread
+ * touches: obs-websocket keeps its own copy of what is registered, and hands a
+ * request the entry it was registered with, which is never freed.
+ */
+#include "ptz-websocket.hpp"
+
+#include <atomic>
+#include <cstring>
+#include <map>
+#include <memory>
+#include <set>
+#include <string>
+#include <vector>
+
+#include <obs.hpp>
+#include <obs-module.h>
+#include <QCoreApplication>
+#include <QMetaObject>
+#include <QThread>
+#include <qt-wrappers.hpp>
+
+#include "ptz.h"
+#include "ptz-controls.hpp"
+#include "ptz-driver-kinds.hpp"
+#include "ptz-ws-decl.hpp"
+
+namespace {
+
+/* The version of the binding, which can change while the API's doesn't */
+constexpr int kBridgeVersionMajor = 1;
+constexpr int kBridgeVersionMinor = 0;
+
+enum class Access { Off, ReadOnly, Control };
+
+obs_websocket_vendor vendor = nullptr;
+std::atomic<Access> accessLevel{Access::Control};
+
+/* A request of the vendor's. `access` is what a client has to be let do for
+ * it to be there: "read" or "control". */
+struct Request {
+	std::string name;
+	std::string access;
+	obs_websocket_request_callback_function callback;
+	bool registered = false;
+};
+
+/* Every request there has been cause to have, by name. Main thread. An entry
+ * is never removed, as obs-websocket may be about to call it. */
+std::map<std::string, std::unique_ptr<Request>> requests;
+
+/* The discovery instances made for clients, by kind: see listDiscovery(). Main thread. */
+std::map<std::string, OBSSource> discoveryInstances;
+
+bool admits(Access level, const std::string &access)
+{
+	if (level == Access::Control)
+		return access == "read" || access == "control";
+	if (level == Access::ReadOnly)
+		return access == "read";
+	return false;
+}
+
+void setError(obs_data_t *response, const char *code, const std::string &message)
+{
+	obs_data_set_string(response, "error", code);
+	obs_data_set_string(response, "message", message.c_str());
+}
+
+/* Runs `work` on the main thread, and waits for it */
+template<typename Work> void onMainThread(Work work)
+{
+	if (QThread::currentThread() == qApp->thread())
+		work();
+	else
+		QMetaObject::invokeMethod(qApp, work, Qt::BlockingQueuedConnection);
+}
+
+/* --- what a device says it has ------------------------------------------------- */
+
+struct ProcInfo {
+	std::string decl;
+	bool anyThread = false;
+	std::string access = "control";
+};
+
+/* What ptz_get_api_info says of the source's procs, by name: nothing if it
+ * hasn't one */
+std::map<std::string, ProcInfo> procsOf(obs_source_t *source)
+{
+	std::map<std::string, ProcInfo> procs;
+	calldata_t cd = {};
+	if (proc_handler_call(obs_source_get_proc_handler(source), "ptz_get_api_info", &cd)) {
+		OBSDataAutoRelease info = static_cast<obs_data_t *>(calldata_ptr(&cd, "return"));
+		OBSDataArrayAutoRelease list = obs_data_get_array(info, "procs");
+		for (size_t i = 0; i < obs_data_array_count(list); i++) {
+			OBSDataAutoRelease item = obs_data_array_item(list, i);
+			ProcInfo proc;
+			proc.decl = obs_data_get_string(item, "decl");
+			/* One that doesn't say is taken as the device's thread only, and as control */
+			proc.anyThread = strcmp(obs_data_get_string(item, "thread"), "any") == 0;
+			if (obs_data_has_user_value(item, "access"))
+				proc.access = obs_data_get_string(item, "access");
+			procs[obs_data_get_string(item, "name")] = proc;
+		}
+	}
+	calldata_free(&cd);
+	return procs;
+}
+
+/* A discovery instance has the same version proc as a device, and is told
+ * from one by what else it has */
+bool isDiscovery(const std::map<std::string, ProcInfo> &procs)
+{
+	return procs.count("ptz_discovery_start") > 0;
+}
+
+/* --- the requests there are ------------------------------------------------------ */
+
+/* Registers with obs-websocket the requests the setting admits, and takes
+ * away the ones it doesn't. Main thread. */
+void applyAccess()
+{
+	if (!vendor)
+		return;
+	Access level = accessLevel.load();
+	for (auto &entry : requests) {
+		Request *request = entry.second.get();
+		bool wanted = admits(level, request->access);
+		if (wanted && !request->registered)
+			request->registered = obs_websocket_vendor_register_request(vendor, request->name.c_str(),
+										    request->callback, request);
+		else if (!wanted && request->registered)
+			request->registered = !obs_websocket_vendor_unregister_request(vendor, request->name.c_str());
+	}
+}
+
+/* Has a request by this name, if there isn't one. Main thread. */
+void addRequest(const std::string &name, const std::string &access, obs_websocket_request_callback_function callback)
+{
+	if (requests.count(name))
+		return;
+	auto request = std::make_unique<Request>();
+	request->name = name;
+	request->access = access;
+	request->callback = callback;
+	requests[name] = std::move(request);
+}
+
+/* --- a proc, called for a client ------------------------------------------------- */
+
+/* The JSON fields of a request as the calldata of the proc declared `decl`.
+ * False, with the error in `response`, if they aren't what it takes. A ptr is
+ * an obs_data_t, kept in `held` until the proc has been called. */
+bool fillCalldata(const ptzws::Decl &decl, obs_data_t *request, calldata_t *cd, std::vector<OBSData> &held,
+		  obs_data_t *response)
+{
+	for (obs_data_item_t *item = obs_data_first(request); item; obs_data_item_next(&item)) {
+		std::string key = obs_data_item_get_name(item);
+		if (key == "device")
+			continue;
+		const ptzws::Param *param = nullptr;
+		for (const ptzws::Param &p : decl.params)
+			if (p.name == key)
+				param = &p;
+		if (!param) {
+			setError(response, "unknown_field", decl.name + " has no field '" + key + "'");
+			obs_data_item_release(&item);
+			return false;
+		}
+		/* What the proc sets is not the caller's to give */
+		if (param->out)
+			continue;
+		enum obs_data_type type = obs_data_item_gettype(item);
+		bool ok = false;
+		switch (param->type) {
+		case ptzws::Type::String:
+			ok = type == OBS_DATA_STRING;
+			if (ok)
+				calldata_set_string(cd, key.c_str(), obs_data_item_get_string(item));
+			break;
+		case ptzws::Type::Bool:
+			ok = type == OBS_DATA_BOOLEAN;
+			if (ok)
+				calldata_set_bool(cd, key.c_str(), obs_data_item_get_bool(item));
+			break;
+		case ptzws::Type::Float:
+			/* A whole number is one too: JSON has no way to say 1.0 */
+			ok = type == OBS_DATA_NUMBER;
+			if (ok)
+				calldata_set_float(cd, key.c_str(), obs_data_item_get_double(item));
+			break;
+		case ptzws::Type::Int: {
+			double value = type == OBS_DATA_NUMBER ? obs_data_item_get_double(item) : 0.5;
+			ok = type == OBS_DATA_NUMBER && value == (double)(long long)value;
+			if (ok)
+				calldata_set_int(cd, key.c_str(), (long long)value);
+			break;
+		}
+		case ptzws::Type::Ptr:
+			ok = type == OBS_DATA_OBJECT;
+			if (ok) {
+				OBSDataAutoRelease object = obs_data_item_get_obj(item);
+				held.push_back(object.Get());
+				calldata_set_ptr(cd, key.c_str(), object.Get());
+			}
+			break;
+		case ptzws::Type::Void:
+			break;
+		}
+		if (!ok) {
+			setError(response, "bad_type", decl.name + ": '" + key + "' is not of the declared type");
+			obs_data_item_release(&item);
+			return false;
+		}
+	}
+	/* A ptr the caller left out is one for the proc to fill in, as ptz_get_state's is */
+	for (const ptzws::Param &param : decl.params) {
+		if (param.type != ptzws::Type::Ptr || param.out || obs_data_has_user_value(request, param.name.c_str()))
+			continue;
+		OBSDataAutoRelease object = obs_data_create();
+		held.push_back(object.Get());
+		calldata_set_ptr(cd, param.name.c_str(), object.Get());
+	}
+	return true;
+}
+
+/* One field of the calldata, after the proc has run, into the response. `own`
+ * says a ptr is a new object the proc returned, which is released here. */
+void readField(calldata_t *cd, const std::string &name, ptzws::Type type, bool own, obs_data_t *response)
+{
+	const char *key = name.c_str();
+	switch (type) {
+	case ptzws::Type::String: {
+		const char *text = nullptr;
+		if (calldata_get_string(cd, key, &text))
+			obs_data_set_string(response, key, text ? text : "");
+		break;
+	}
+	case ptzws::Type::Bool: {
+		bool value = false;
+		if (calldata_get_bool(cd, key, &value))
+			obs_data_set_bool(response, key, value);
+		break;
+	}
+	case ptzws::Type::Int: {
+		long long value = 0;
+		if (calldata_get_int(cd, key, &value))
+			obs_data_set_int(response, key, value);
+		break;
+	}
+	case ptzws::Type::Float: {
+		double value = 0.0;
+		if (calldata_get_float(cd, key, &value))
+			obs_data_set_double(response, key, value);
+		break;
+	}
+	case ptzws::Type::Ptr: {
+		void *ptr = nullptr;
+		if (calldata_get_ptr(cd, key, &ptr) && ptr) {
+			auto data = static_cast<obs_data_t *>(ptr);
+			obs_data_set_obj(response, key, data);
+			if (own)
+				obs_data_release(data);
+		}
+		break;
+	}
+	case ptzws::Type::Void:
+		break;
+	}
+}
+
+/* A request for a proc of the API: obs-websocket calls it, on a thread of its own */
+void procRequest(obs_data_t *requestData, obs_data_t *response, void *priv)
+{
+	auto request = static_cast<Request *>(priv);
+	const char *uuid = obs_data_get_string(requestData, "device");
+
+	/* Held until the proc has been called and what it returned has been read,
+	 * which is what keeps its proc_handler good */
+	OBSSourceAutoRelease source = *uuid ? obs_get_source_by_uuid(uuid) : nullptr;
+	if (!source || !ptz_source_is_device(source)) {
+		setError(response, "unknown_device", std::string("no PTZ device '") + uuid + "'");
+		return;
+	}
+	auto procs = procsOf(source);
+	auto found = procs.find(request->name);
+	if (found == procs.end()) {
+		setError(response, "no_such_proc", "the device has no " + request->name);
+		return;
+	}
+	const ProcInfo &proc = found->second;
+	/* The setting changed after obs-websocket found the request, or this
+	 * device's proc is not what the request was registered for */
+	if (!admits(accessLevel.load(), proc.access)) {
+		setError(response, "forbidden", request->name + " is not allowed by the PTZ websocket access setting");
+		return;
+	}
+	auto decl = ptzws::parse_decl(proc.decl);
+	if (!decl) {
+		setError(response, "no_such_proc", "can't read the declaration '" + proc.decl + "'");
+		return;
+	}
+
+	calldata_t cd = {};
+	std::vector<OBSData> held;
+	if (!fillCalldata(*decl, requestData, &cd, held, response)) {
+		calldata_free(&cd);
+		return;
+	}
+
+	proc_handler_t *handler = obs_source_get_proc_handler(source);
+	bool called = false;
+	auto call = [&]() {
+		called = proc_handler_call(handler, request->name.c_str(), &cd);
+	};
+	if (proc.anyThread)
+		call();
+	else
+		onMainThread(call);
+	if (!called) {
+		setError(response, "no_such_proc", "the device has no " + request->name);
+		calldata_free(&cd);
+		return;
+	}
+
+	for (const ptzws::Param &param : decl->params)
+		if (param.out || param.type == ptzws::Type::Ptr)
+			readField(&cd, param.name, param.type, false, response);
+	if (decl->ret != ptzws::Type::Void)
+		readField(&cd, decl->retName, decl->ret, true, response);
+	calldata_free(&cd);
+}
+
+/* --- finding devices ------------------------------------------------------------ */
+
+/* A reference to every source there is, a filter or not, private or not */
+std::vector<OBSSource> allSources()
+{
+	std::vector<OBSSource> sources;
+	/* Only referenced under OBS's lock on its sources: a proc is not called until it is let go */
+	obs_enum_all_sources(
+		[](void *data, obs_source_t *source) {
+			static_cast<std::vector<OBSSource> *>(data)->push_back(source);
+			return true;
+		},
+		&sources);
+	return sources;
+}
+
+/* Has a request for each proc the source says it has, if it is a device or a
+ * discovery instance. Main thread. */
+void considerSource(obs_source_t *source)
+{
+	if (!source || !ptz_source_is_device(source))
+		return;
+	for (const auto &proc : procsOf(source))
+		if (proc.second.access == "read" || proc.second.access == "control")
+			addRequest(proc.first, proc.second.access, procRequest);
+	applyAccess();
+}
+
+/* OBS's own signals that a source, or a filter on one, has been made: on
+ * whatever thread made it */
+void sourceCreated(void *, calldata_t *cd)
+{
+	auto source = static_cast<obs_source_t *>(calldata_ptr(cd, "source"));
+	OBSWeakSource weak = OBSGetWeakRef(source);
+	QMetaObject::invokeMethod(
+		qApp,
+		[weak]() {
+			OBSSourceAutoRelease strong = OBSGetStrongRef(weak);
+			considerSource(strong);
+		},
+		Qt::QueuedConnection);
+}
+
+void filterAdded(void *, calldata_t *cd)
+{
+	auto filter = static_cast<obs_source_t *>(calldata_ptr(cd, "filter"));
+	OBSWeakSource weak = OBSGetWeakRef(filter);
+	QMetaObject::invokeMethod(
+		qApp,
+		[weak]() {
+			OBSSourceAutoRelease strong = OBSGetStrongRef(weak);
+			considerSource(strong);
+		},
+		Qt::QueuedConnection);
+}
+
+/* --- the binding's own requests ---------------------------------------------------- */
+
+void bridgeVersion(obs_data_t *, obs_data_t *response, void *)
+{
+	obs_data_set_int(response, "major", kBridgeVersionMajor);
+	obs_data_set_int(response, "minor", kBridgeVersionMinor);
+}
+
+/* Every device there is, with what a client needs to call it */
+void listDevices(obs_data_t *, obs_data_t *response, void *)
+{
+	OBSDataArrayAutoRelease devices = obs_data_array_create();
+	for (const OBSSource &source : allSources()) {
+		if (!ptz_source_is_device(source) || isDiscovery(procsOf(source)))
+			continue;
+		proc_handler_t *handler = obs_source_get_proc_handler(source);
+		OBSDataAutoRelease device = obs_data_create();
+		obs_data_set_string(device, "device", obs_source_get_uuid(source));
+		obs_data_set_string(device, "name", obs_source_get_name(source));
+
+		/* The source whose video the camera shows: the one a filter is on */
+		calldata_t cd = {};
+		if (proc_handler_call(handler, "ptz_get_parent_source", &cd)) {
+			OBSSourceAutoRelease parent = static_cast<obs_source_t *>(calldata_ptr(&cd, "return"));
+			obs_data_set_string(device, "source", parent ? obs_source_get_name(parent) : "");
+		}
+		calldata_free(&cd);
+
+		cd = {};
+		OBSDataAutoRelease api = obs_data_create();
+		if (proc_handler_call(handler, "ptz_get_api_version", &cd)) {
+			obs_data_set_int(api, "major", calldata_int(&cd, "major"));
+			obs_data_set_int(api, "minor", calldata_int(&cd, "minor"));
+		}
+		calldata_free(&cd);
+		obs_data_set_obj(device, "api", api);
+		obs_data_array_push_back(devices, device);
+	}
+	obs_data_set_array(response, "devices", devices);
+}
+
+/* The discovery instances a client can use, one of each kind there is, which
+ * are made the first time they are asked for and kept until the plugin
+ * unloads: OBS has none of its own but while the dialog that adds a device is
+ * open, and a client has no way to make one. */
+void listDiscovery(obs_data_t *, obs_data_t *response, void *)
+{
+	OBSDataArrayAutoRelease instances = obs_data_array_create();
+	onMainThread([&]() {
+		for (const PTZDriverKind &kind : ptz_discovery_kinds()) {
+			std::string id = kind.kind.toStdString();
+			if (!discoveryInstances.count(id)) {
+				OBSSourceAutoRelease instance =
+					obs_source_create_private(id.c_str(), "ptz-websocket", nullptr);
+				if (!instance)
+					continue;
+				discoveryInstances[id] = instance.Get();
+				considerSource(instance);
+			}
+			OBSDataAutoRelease item = obs_data_create();
+			obs_data_set_string(item, "device", obs_source_get_uuid(discoveryInstances[id]));
+			obs_data_set_string(item, "kind", id.c_str());
+			obs_data_array_push_back(instances, item);
+		}
+	});
+	obs_data_set_array(response, "instances", instances);
+}
+
+Access accessNamed(const char *access)
+{
+	if (strcmp(access, "off") == 0)
+		return Access::Off;
+	if (strcmp(access, "read-only") == 0)
+		return Access::ReadOnly;
+	return Access::Control;
+}
+
+} // namespace
+
+obs_websocket_vendor ptz_websocket_vendor()
+{
+	return vendor;
+}
+
+void ptz_websocket_set_access(const char *access)
+{
+	accessLevel.store(accessNamed(access));
+	applyAccess();
+}
+
+void ptz_websocket_load(void)
+{
+	vendor = obs_websocket_register_vendor("obs-ptz");
+	if (!vendor) {
+		blog(LOG_INFO,
+		     "[obs-ptz] no obs-websocket, or its 'obs-ptz' vendor is taken: the PTZ API is not on it");
+		return;
+	}
+	if (PTZControls::getInstance())
+		accessLevel.store(accessNamed(QT_TO_UTF8(PTZControls::getInstance()->websocketAccess())));
+
+	addRequest("ptz_bridge_version", "read", bridgeVersion);
+	addRequest("ptz_list_devices", "read", listDevices);
+	addRequest("ptz_list_discovery", "read", listDiscovery);
+
+	/* No source has been loaded yet, but one that a module made is there */
+	signal_handler_t *global = obs_get_signal_handler();
+	signal_handler_connect(global, "source_create", sourceCreated, nullptr);
+	signal_handler_connect(global, "source_filter_add", filterAdded, nullptr);
+	for (const OBSSource &source : allSources())
+		considerSource(source);
+	applyAccess();
+}
+
+void ptz_websocket_unload(void)
+{
+	if (!vendor)
+		return;
+	signal_handler_t *global = obs_get_signal_handler();
+	signal_handler_disconnect(global, "source_create", sourceCreated, nullptr);
+	signal_handler_disconnect(global, "source_filter_add", filterAdded, nullptr);
+	accessLevel.store(Access::Off);
+	applyAccess();
+	discoveryInstances.clear();
+}

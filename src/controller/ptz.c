@@ -28,11 +28,14 @@ bool obs_module_load()
 
 void obs_module_post_load(void)
 {
+	/* The harness adds its request to the vendor the binding registers */
+	ptz_websocket_load();
 	ptz_load_ui_tests();
 }
 
 void obs_module_unload()
 {
+	ptz_websocket_unload();
 	ptz_unload_devices();
 	blog(LOG_INFO, "plugin unloaded");
 }

@@ -64,6 +64,7 @@ private:
 	bool live_move_lock_enabled = true;
 	bool autoselect_enabled = false;
 	bool speed_ramp_enabled = false;
+	QString websocket_access = QStringLiteral("control");
 	bool refresh_thumbnail_on_recall = true;
 	/* Where Add makes a preset when the device has both stores: this action,
 	 * checked, is the camera's, and unchecked OBS's. It is saved with the
@@ -188,6 +189,9 @@ public:
 	bool liveMoveLockEnabled() { return live_move_lock_enabled; };
 	bool liveMoveLockActive() { return live_move_lock_enabled && obs_frontend_preview_program_mode_active(); };
 	bool speedRampEnabled() { return speed_ramp_enabled; };
+	/* How much of the PTZ API a client of obs-websocket is let do: "off",
+	 * "read-only" or "control" (see ptz-websocket.hpp) */
+	QString websocketAccess() const { return websocket_access; };
 	bool refreshThumbnailOnRecall() const { return refresh_thumbnail_on_recall; };
 	static PTZControls *getInstance() { return instance; };
 	/* The order of the cameras is the scene collection's: written into the data OBS saves
@@ -201,6 +205,7 @@ public slots:
 	void setAutoselectEnabled(bool enable);
 	void setLiveMoveLockEnabled(bool enable);
 	void setSpeedRampEnabled(bool enable);
+	void setWebsocketAccess(const QString &access);
 	void setRefreshThumbnailOnRecall(bool enable);
 
 signals:
@@ -213,6 +218,7 @@ signals:
 	void autoselectEnabledChanged(bool enabled);
 	void liveMoveLockEnabledChanged(bool enabled);
 	void speedRampEnabledChanged(bool enabled);
+	void websocketAccessChanged(const QString &access);
 	void refreshThumbnailOnRecallChanged(bool enabled);
 };
 

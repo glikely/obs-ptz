@@ -318,6 +318,7 @@ target_sources(
     src/controller/ptz-state-view.cpp
     src/controller/ptz-source-display.cpp
     src/controller/ptz-ws-decl.cpp
+    src/controller/ptz-websocket.cpp
     src/controller/ptz-action-source.c
     src/controller/circularlistview.cpp
     src/controller/touch-control.cpp
@@ -333,6 +334,8 @@ target_sources(
     src/controller/ptz-state-view.hpp
     src/controller/ptz-source-display.hpp
     src/controller/ptz-ws-decl.hpp
+    src/controller/ptz-websocket.hpp
+    src/controller/obs-websocket-api.h
     src/controller/contributors-generated.hpp
     src/controller/translators-generated.hpp
     src/controller/circularlistview.hpp
@@ -414,7 +417,6 @@ if(ENABLE_UI_TESTS)
     PRIVATE
       tests/ui-harness/ui-test-harness.cpp
       tests/ui-harness/ui-test-harness.hpp
-      tests/ui-harness/obs-websocket-api.h
       tests/ui-harness/appearance-row-sizing-test.cpp
       tests/ui-harness/preset-export-import-test.cpp
       tests/ui-harness/device-status-test.cpp

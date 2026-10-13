@@ -34,6 +34,7 @@
 #include "touch-control.hpp"
 #include "ui_ptz-controls.h"
 #include "ptz-controls.hpp"
+#include "ptz-websocket.hpp"
 #include "ptz-list-model.hpp"
 #include "ptz-thumbnail-sweep.hpp"
 #include "ptz-legacy-migration.hpp"
@@ -746,6 +747,7 @@ void PTZControls::SaveConfig()
 	obs_data_set_bool(savedata, "live_moves_disabled", liveMoveLockEnabled());
 	obs_data_set_bool(savedata, "autoselect_enabled", autoselectEnabled());
 	obs_data_set_bool(savedata, "speed_ramp_enabled", speedRampEnabled());
+	obs_data_set_string(savedata, "websocket_access", QT_TO_UTF8(websocket_access));
 	obs_data_set_bool(savedata, "onscreen_joystick_enabled", ui->movementControlsWidget->onscreenJoystick());
 	obs_data_set_bool(savedata, "refresh_thumbnail_on_recall", refresh_thumbnail_on_recall);
 	obs_data_set_int(savedata, "preset_grid_zoom", presetDelegate->gridZoom());
@@ -826,6 +828,7 @@ void PTZControls::LoadConfig()
 	obs_data_set_default_bool(loaddata, "live_moves_disabled", true);
 	obs_data_set_default_bool(loaddata, "autoselect_enabled", true);
 	obs_data_set_default_bool(loaddata, "speed_ramp_enabled", true);
+	obs_data_set_default_string(loaddata, "websocket_access", "control");
 	obs_data_set_default_bool(loaddata, "onscreen_joystick_enabled", false);
 	obs_data_set_default_bool(loaddata, "refresh_thumbnail_on_recall", true);
 	obs_data_set_default_int(loaddata, "preset_grid_zoom", 100);
@@ -839,6 +842,7 @@ void PTZControls::LoadConfig()
 	live_move_lock_enabled = obs_data_get_bool(loaddata, "live_moves_disabled");
 	autoselect_enabled = obs_data_get_bool(loaddata, "autoselect_enabled");
 	speed_ramp_enabled = obs_data_get_bool(loaddata, "speed_ramp_enabled");
+	setWebsocketAccess(QT_UTF8(obs_data_get_string(loaddata, "websocket_access")));
 	ui->movementControlsWidget->setOnscreenJoystick(obs_data_get_bool(loaddata, "onscreen_joystick_enabled"));
 	refresh_thumbnail_on_recall = obs_data_get_bool(loaddata, "refresh_thumbnail_on_recall");
 	presetZoomSlider->setValue((int)obs_data_get_int(loaddata, "preset_grid_zoom"));
@@ -931,6 +935,19 @@ void PTZControls::setSpeedRampEnabled(bool enabled)
 		return;
 	speed_ramp_enabled = enabled;
 	emit speedRampEnabledChanged(enabled);
+}
+
+void PTZControls::setWebsocketAccess(const QString &access)
+{
+	/* What isn't one of the three is the default */
+	QString value = (access == QStringLiteral("off") || access == QStringLiteral("read-only"))
+				? access
+				: QStringLiteral("control");
+	if (value == websocket_access)
+		return;
+	websocket_access = value;
+	ptz_websocket_set_access(QT_TO_UTF8(value));
+	emit websocketAccessChanged(value);
 }
 
 /* Refresh a recalled preset's thumbnail, if the preference says to, with what the

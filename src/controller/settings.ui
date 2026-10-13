@@ -89,6 +89,43 @@
             </widget>
            </item>
            <item>
+            <layout class="QHBoxLayout" name="websocketAccessLayout">
+             <item>
+              <widget class="QLabel" name="websocketAccessLabel">
+               <property name="toolTip">
+                <string>PTZ.Settings.WebsocketAccess.Tooltip</string>
+               </property>
+               <property name="text">
+                <string>PTZ.Settings.WebsocketAccess</string>
+               </property>
+               <property name="buddy">
+                <cstring>websocketAccessComboBox</cstring>
+               </property>
+              </widget>
+             </item>
+             <item>
+              <widget class="QComboBox" name="websocketAccessComboBox">
+               <property name="toolTip">
+                <string>PTZ.Settings.WebsocketAccess.Tooltip</string>
+               </property>
+              </widget>
+             </item>
+             <item>
+              <spacer name="websocketAccessSpacer">
+               <property name="orientation">
+                <enum>Qt::Horizontal</enum>
+               </property>
+               <property name="sizeHint" stdset="0">
+                <size>
+                 <width>40</width>
+                 <height>20</height>
+                </size>
+               </property>
+              </spacer>
+             </item>
+            </layout>
+           </item>
+           <item>
             <widget class="QGroupBox" name="joystickGroupBox">
              <property name="title">
               <string>PTZ.Settings.JoystickControl</string>

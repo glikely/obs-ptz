@@ -31,6 +31,10 @@ extern void ptz_unload_devices(void);
 extern void ptz_load_action_source(void);
 extern void ptz_load_controls(void);
 extern void ptz_load_settings(void);
+/* Starts and stops the PTZ API's binding to obs-websocket (ptz-websocket.cpp).
+ * To be started from obs_module_post_load(), when obs-websocket has loaded. */
+extern void ptz_websocket_load(void);
+extern void ptz_websocket_unload(void);
 #ifdef ENABLE_UI_TESTS
 extern void ptz_load_ui_tests(void);
 #else

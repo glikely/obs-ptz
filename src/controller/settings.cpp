@@ -168,6 +168,22 @@ PTZSettings::PTZSettings() : QWidget(nullptr), ui(new Ui_PTZSettings)
 	connect(ui->speedRampCheckBox, &QCheckBox::clicked, PTZControls::getInstance(),
 		&PTZControls::setSpeedRampEnabled);
 
+	/* What a client of obs-websocket is let do with the cameras */
+	ui->websocketAccessComboBox->addItem(obs_module_text("PTZ.Settings.WebsocketAccess.Off"),
+					     QStringLiteral("off"));
+	ui->websocketAccessComboBox->addItem(obs_module_text("PTZ.Settings.WebsocketAccess.ReadOnly"),
+					     QStringLiteral("read-only"));
+	ui->websocketAccessComboBox->addItem(obs_module_text("PTZ.Settings.WebsocketAccess.Control"),
+					     QStringLiteral("control"));
+	auto showWebsocketAccess = [this](const QString &access) {
+		ui->websocketAccessComboBox->setCurrentIndex(ui->websocketAccessComboBox->findData(access));
+	};
+	showWebsocketAccess(PTZControls::getInstance()->websocketAccess());
+	connect(PTZControls::getInstance(), &PTZControls::websocketAccessChanged, this, showWebsocketAccess);
+	connect(ui->websocketAccessComboBox, &QComboBox::activated, this, [this](int index) {
+		PTZControls::getInstance()->setWebsocketAccess(ui->websocketAccessComboBox->itemData(index).toString());
+	});
+
 	ui->refreshThumbnailCheckBox->setChecked(PTZControls::getInstance()->refreshThumbnailOnRecall());
 	connect(PTZControls::getInstance(), &PTZControls::refreshThumbnailOnRecallChanged, ui->refreshThumbnailCheckBox,
 		&QCheckBox::setChecked);

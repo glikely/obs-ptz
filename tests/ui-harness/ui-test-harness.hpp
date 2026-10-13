@@ -18,7 +18,7 @@
 #include <QString>
 #include <functional>
 
-#include "obs-websocket-api.h"
+#include "ptz-websocket.hpp"
 
 class PTZUITestHarness : public QObject {
 	Q_OBJECT

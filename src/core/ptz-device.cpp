@@ -204,9 +204,11 @@ PTZDevice::PTZDevice(OBSData config, obs_source_t *filter) : QObject()
 	addProc("void ptz_stop()", ptz_ph_lambda(stop), this, PTZ_THREAD_ANY);
 	addProc("void ptz_home_recall()", ptz_ph_lambda(pantilt_home), this, PTZ_THREAD_ANY);
 	addProc("void ptz_home_save()", ptz_ph_lambda(pantilt_set_home), this, PTZ_THREAD_ANY);
-	addProc("void ptz_move()", ptz_ph_lambda(move), this, PTZ_THREAD_ANY);
-	addProc("void ptz_move_abs()", ptz_ph_lambda(move_abs), this, PTZ_THREAD_ANY);
-	addProc("void ptz_move_rel()", ptz_ph_lambda(move_rel), this, PTZ_THREAD_ANY);
+	addProc("void ptz_move(float pan, float tilt, float zoom, float focus)", ptz_ph_lambda(move), this,
+		PTZ_THREAD_ANY);
+	addProc("void ptz_move_abs(float pan, float tilt, float zoom, float focus)", ptz_ph_lambda(move_abs), this,
+		PTZ_THREAD_ANY);
+	addProc("void ptz_move_rel(float pan, float tilt)", ptz_ph_lambda(move_rel), this, PTZ_THREAD_ANY);
 	addProc("void ptz_preset_save(string id)", ptz_ph_lambda(preset_save), this, PTZ_THREAD_ANY);
 	addProc("void ptz_preset_recall(string id)", ptz_ph_lambda(preset_recall), this, PTZ_THREAD_ANY);
 	addProc("void ptz_preset_capture_thumbnail(string id, bool if_arrived)",

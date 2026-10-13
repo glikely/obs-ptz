@@ -6,6 +6,7 @@
  */
 #include "ui-test-harness.hpp"
 #include "ptz-list-model.hpp"
+#include "ptz-websocket.hpp"
 
 #include <obs-module.h>
 #include <QCoreApplication>
@@ -112,7 +113,9 @@ void ptz_load_ui_tests(void)
 	 * lifetime, same as PTZControls itself (ptz-controls.cpp). */
 	g_harness = new PTZUITestHarness();
 
-	g_vendor = obs_websocket_register_vendor("obs-ptz");
+	/* The PTZ API's binding to obs-websocket has the vendor, which can be
+	 * registered only once: the harness's request is one more on it */
+	g_vendor = ptz_websocket_vendor();
 	if (!g_vendor) {
 		blog(LOG_INFO, "[ptz-ui-test] obs-websocket not available, harness inactive");
 		return;

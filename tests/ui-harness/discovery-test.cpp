@@ -380,6 +380,10 @@ void ptzUITestDiscoverySpyArm()
 		auto kinds = static_cast<QStringList *>(data);
 		if (!kinds->contains(QString::fromUtf8(obs_source_get_id(source))))
 			return true;
+		/* Not the dialog's, but the ones the websocket binding keeps for its
+		 * clients (ptz_list_discovery), which outlive any dialog */
+		if (strcmp(obs_source_get_name(source), "ptz-websocket") == 0)
+			return true;
 		signal_handler_t *sh = obs_source_get_signal_handler(source);
 		signal_handler_connect(sh, "ptz_device_found", spyFoundCb, nullptr);
 		signal_handler_connect(sh, "ptz_discovery_finished", spyFinishedCb, nullptr);
