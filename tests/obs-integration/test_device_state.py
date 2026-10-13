@@ -4,8 +4,9 @@ handlers (PTZDevice::saveState() and requestState(), src/core/ptz-device.cpp).
 The same "ptz_get_state" also backs PTZListModel's device-row cache -- one
 proc for a device's whole state, whoever the caller is.
 
-Driven through tests/ui-harness/device-state-test.cpp's "get_device_state"
-and "set_device_state" tests (see World.device_state() in conftest.py).
+The state is read over obs-websocket, as a client outside OBS reads it (see
+World.device_state() in conftest.py), and requested through
+tests/ui-harness/device-state-test.cpp's "set_device_state" test.
 
 VISCA-only where the state is: "wb_mode" and "focus_af_enabled" are what
 a VISCA camera reports (see test_autofocus_white_balance.py).

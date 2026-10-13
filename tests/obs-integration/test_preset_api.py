@@ -3,9 +3,10 @@ preset has a string id that carries its store, `camera:<key>` for one the camera
 keeps and `local:<key>` for one the device does, and the procs and signals
 take and say that id.
 
-Everything is called the way another plugin would, through the device's own
-proc_handler and signal_handler (tests/ui-harness/preset-api-test.cpp's
-"call_proc" and the signal recording), and checked against what the shared
+Everything is called the way a client outside OBS would, over obs-websocket:
+each proc as the "obs-ptz" vendor's request of its name, and each signal as its
+event (World.call_proc() and the signal recording in conftest.py, and
+"WebSocket binding" in the document), and checked against what the shared
 ptzsim, the camera, has: a camera preset is in it, a local one is not.
 
 - the list says what stores a device has, and what its camera does;

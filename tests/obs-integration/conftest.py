@@ -527,6 +527,12 @@ class World:
         # set by obs_world. What a test waits for is
         # read from here, so that the requests on ws don't have to keep it.
         self.events = None
+        # And a third, for record_preset_signals() and preset_signals(), which
+        # take every event that comes on it
+        self.signals = None
+        self._recorded = []
+        self._recording = set()
+        self._record_start = time.monotonic()
         # Where and how to open another connection: set by obs_world
         self.ws_url = None
         self.ws_password = None
@@ -689,44 +695,93 @@ class World:
         it wrote) have to poll for it, e.g. with wait_for() below."""
         return self.ws.vendor("obs-ptz", "ui_test_run", {"cmd": cmd, **{k: str(v) for k, v in params.items()}})
 
+    def device_uuid(self, device):
+        """The UUID of a device a test names by it, or by the name of the source
+        the device is on; None if there is no such device"""
+        listed = self.ws.vendor("obs-ptz", "ptz_list_devices")["devices"]
+        for key in ("device", "source"):
+            for entry in listed:
+                if entry[key] == device:
+                    return entry["device"]
+        return None
+
+    def _signal_ms(self, at=None):
+        """A time, now unless given, in ms on the clock of the recorded signals' "ms"""
+        return ((time.monotonic() if at is None else at) - self._record_start) * 1000
+
     def call_proc(self, device, proc, args=None, returns=None):
-        """Calls proc on device's proc_handler the way another plugin would
-        (tests/ui-harness/preset-api-test.cpp's "call_proc"), with the calldata
-        fields in args: a str, bool, int or float as that, a dict or list as the
-        obs_data_t a ptr field takes. returns is what it gives back as "return":
-        "string", "int", "bool" or "data" (a dict). Returns
-        {"called", "return", "args"}; "args" has the dicts passed in, as the
-        proc left them."""
+        """Calls proc on device, as a client of obs-websocket does: the "obs-ptz"
+        vendor's request of that name (see "WebSocket binding" in
+        docs/ptz-device-api.md), with the calldata fields in args, a dict or list
+        being the obs_data_t a ptr field takes. returns is what it gives back as
+        "return": "string", "int", "bool" or "data" (a dict). Returns
+        {"called", "return", "args", "ms"}: "called" is False if there is no such
+        device, or it has no such proc; "args" has the dicts passed in, as the
+        proc left them; "ms" is when it was called, on the clock of the recorded
+        signals' "ms"""
         args = args or {}
-        out = self.scratch / "call-proc.json"
-        if out.exists():
-            out.unlink()
-        params = {"device": device, "proc": proc, "args": json.dumps(args),
-                  "floats": ",".join(k for k, v in args.items() if isinstance(v, float)),
-                  "filename": str(out)}
+        result = {"called": False, "args": {}, "ms": self._signal_ms()}
+        uuid = self.device_uuid(device)
+        if uuid is None:
+            return result
+        try:
+            answer = self.ws.vendor("obs-ptz", proc, {"device": uuid, **args})
+        except ObsWebSocketError as e:
+            # the device hasn't the proc, or nothing has: obs-websocket's ResourceNotFound
+            if e.status.get("error") == "no_such_proc" or e.status.get("code") == 600:
+                return result
+            raise
+        result["called"] = True
+        result["args"] = {key: answer[key] for key, value in args.items()
+                          if isinstance(value, (dict, list)) and key in answer}
         if returns:
-            params["returns"] = returns
-        self.run_ui_test("call_proc", **params)
-        self.wait_for(lambda: out.exists() and out.read_text())
-        return json.loads(out.read_text())
+            result["return"] = answer.get("return", {"string": "", "int": 0, "bool": False, "data": {}}[returns])
+        return result
+
+    def api_version(self, device):
+        """What device's ptz_get_api_version says, as {"called", "major", "minor"}"""
+        uuid = self.device_uuid(device)
+        if uuid is None:
+            return {"called": False}
+        return {"called": True, **self.ws.vendor("obs-ptz", "ptz_get_api_version", {"device": uuid})}
+
+    def _collect_preset_signals(self):
+        """Takes what has come on the signals' connection, and keeps the
+        ptz_preset_* events of the devices being recorded. An event is sent apart
+        from the answer to the request that caused it, and can come a moment
+        after it."""
+        time.sleep(0.05)
+        for event in self.signals.take("VendorEvent"):
+            data = event["eventData"]
+            fields = data.get("eventData") or {}
+            if (data.get("vendorName") != "obs-ptz" or not data.get("eventType", "").startswith("ptz_preset_")
+                    or fields.get("device") not in self._recording):
+                continue
+            self._recorded.append({"signal": data["eventType"],
+                                   **{key: value for key, value in fields.items() if key != "device"},
+                                   "ms": self._signal_ms(event["at"])})
 
     def record_preset_signals(self, device, keep=False):
-        """Starts recording device's ptz_preset_* signals, from nothing, or with keep
-        only makes sure it is being recorded, and keeps what has been"""
-        params = {"keep": "1"} if keep else {}
-        self.run_ui_test("record_preset_signals", device=device, **params)
+        """Starts recording device's ptz_preset_* signals, as the events a client
+        of obs-websocket is sent, from nothing, or with keep only makes sure it is
+        being recorded, and keeps what has been"""
+        self._collect_preset_signals()
+        if not keep:
+            self._recorded = []
+            self._recording = set()
+            self._record_start = time.monotonic()
+        uuid = self.device_uuid(device)
+        if uuid is not None:
+            self._recording.add(uuid)
 
     def preset_signals(self, with_create_done=False):
         """What the signals recorded since record_preset_signals() have said, as
-        [{"signal", "id", "request", "index", "from", "to", "changed"}...] in order.
+        [{"signal", "id", "request", "changed", "ms"}...], the fields each has, in
+        the order they came, "ms" being when, since recording began.
         ptz_preset_create_done is only in it with_create_done: create_preset() waits for it,
         and what a test asks of the others is not its to see"""
-        out = self.scratch / "preset-signals.json"
-        if out.exists():
-            out.unlink()
-        self.run_ui_test("get_preset_signals", filename=str(out))
-        self.wait_for(lambda: out.exists() and out.read_text())
-        events = json.loads(out.read_text())["events"]
+        self._collect_preset_signals()
+        events = list(self._recorded)
         return events if with_create_done else [e for e in events if e["signal"] != "ptz_preset_create_done"]
 
     def create_preset(self, device, name="", store="camera", timeout=10):
@@ -792,15 +847,17 @@ class World:
         self.wait_for(out_file.exists)
         return json.loads(out_file.read_text()).get("report")
 
-    def device_state(self, device_name, out_file):
-        """Fetches device_name's whole transient state ("state"), via
-        tests/ui-harness/device-state-test.cpp's "get_device_state" test.
-        Like device_status(), removes any stale out_file first."""
-        if out_file.exists():
-            out_file.unlink()
-        self.run_ui_test("get_device_state", device=device_name, filename=str(out_file))
-        self.wait_for(out_file.exists)
-        return json.loads(out_file.read_text())
+    def device_state(self, device_name, out_file=None):
+        """Fetches device_name's whole transient state ("state"), as a client of
+        obs-websocket does, with ptz_get_state, and its statistics, which are
+        read apart from the state but the tests that look at them ask for with
+        it, as "statistics" in it. out_file is not used: it was where the state
+        was written when it was fetched through the UI test harness."""
+        uuid = self.device_uuid(device_name)
+        assert uuid is not None, f"no device {device_name}"
+        state = self.ws.vendor("obs-ptz", "ptz_get_state", {"device": uuid})["state"]
+        state["statistics"] = self.ws.vendor("obs-ptz", "ptz_get_statistics", {"device": uuid})["statistics"]
+        return {"state": state}
 
     def wait_for_device_state(self, device_name, out_file, predicate, timeout=5, interval=0.2):
         """Polls device_state() until predicate(result) is true."""
@@ -1337,7 +1394,7 @@ def obs_world(tmp_path_factory, ptzsim_process, sony_ptzsim, birddog_ptzsim, pow
         xvfb, env["DISPLAY"] = start_xvfb()
 
     # "log" is the file OBS's output goes to, which stays after it has quit
-    running = {"proc": None, "ws": None, "events": None, "log": None}
+    running = {"proc": None, "ws": None, "events": None, "signals": None, "log": None}
 
     def start_obs():
         """Starts OBS on this home and connects to it once it has loaded"""
@@ -1388,12 +1445,13 @@ def obs_world(tmp_path_factory, ptzsim_process, sony_ptzsim, birddog_ptzsim, pow
         # a ptz_action_source never fires. Force an instant Cut so each
         # trigger_action's scene switch always completes immediately.
         ws.call("SetCurrentSceneTransition", {"transitionName": "Cut"})
-        running["events"] = Client(f"ws://127.0.0.1:{ws_port}", password=ws_password,
-                                   event_subscriptions=EVENT_VENDORS)
+        for connection in ("events", "signals"):
+            running[connection] = Client(f"ws://127.0.0.1:{ws_port}", password=ws_password,
+                                         event_subscriptions=EVENT_VENDORS)
 
     def stop_obs():
         """Quits OBS the way a user does, and says whether it got to exit by itself"""
-        for connection in ("ws", "events"):
+        for connection in ("ws", "events", "signals"):
             if running[connection] is not None:
                 running[connection].close()
                 running[connection] = None
@@ -1414,6 +1472,7 @@ def obs_world(tmp_path_factory, ptzsim_process, sony_ptzsim, birddog_ptzsim, pow
         start_obs()
         world.ws = running["ws"]
         world.events = running["events"]
+        world.signals = running["signals"]
         return quit_log
 
     try:
@@ -1426,6 +1485,7 @@ def obs_world(tmp_path_factory, ptzsim_process, sony_ptzsim, birddog_ptzsim, pow
 
         world = World(running["ws"], f"http://127.0.0.1:{ptzsim_process['ports']['debug_http']}/state", DEVICE_NAMES)
         world.events = running["events"]
+        world.signals = running["signals"]
         world.ws_url, world.ws_password = f"ws://127.0.0.1:{ws_port}", ws_password
         world.config_dir = obs_config_root(home) / "plugin_config" / "obs-ptz"
         world.restart_obs = restart_obs

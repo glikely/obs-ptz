@@ -86,6 +86,8 @@ class Client:
                 return
             with self._changed:
                 if msg.get("op") == OP_EVENT:
+                    # when it came, for a test of how long something took
+                    msg["d"]["at"] = time.monotonic()
                     self._events.append(msg["d"])
                 elif msg.get("op") == OP_REQUEST_RESPONSE:
                     self._responses[msg["d"].get("requestId")] = msg["d"]
@@ -156,6 +158,16 @@ class Client:
                 return found
             if event is not None and event.get("eventType") == event_type:
                 found.append(event.get("eventData") or {})
+
+    def take(self, event_type):
+        """Every `event_type` event that has come and not been returned, without
+        waiting for more: each as {"eventData", "at"}, "at" being when it came, on
+        time.monotonic()'s clock. Takes them all."""
+        with self._changed:
+            taken = list(self._events)
+            self._events.clear()
+        return [{"eventData": e.get("eventData") or {}, "at": e["at"]} for e in taken
+                if e.get("eventType") == event_type]
 
     def close(self):
         self._ws.close()

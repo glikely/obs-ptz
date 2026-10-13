@@ -2,8 +2,8 @@
 device's proc_handler (src/core/ptz-device.cpp) reports the version src/ptz.h
 declares, and that docs/ptz-device-api.md states it.
 
-Driven through tests/ui-harness/api-version-test.cpp's "get_api_version"
-test, which calls the proc the way another plugin would.
+Asked over obs-websocket, as a client outside OBS asks (see "WebSocket
+binding" in the document).
 """
 
 import json
@@ -19,13 +19,9 @@ def declared_version():
                  for part in ("MAJOR", "MINOR"))
 
 
-def test_each_device_reports_its_api_version(obs_world, tmp_path):
+def test_each_device_reports_its_api_version(obs_world):
     for backend, device_name in obs_world.device_names.items():
-        out = tmp_path / f"{backend}.json"
-        obs_world.run_ui_test("get_api_version", device=device_name, filename=str(out))
-        obs_world.wait_for(out.exists)
-
-        result = json.loads(out.read_text())
+        result = obs_world.api_version(device_name)
         assert result["called"] is True, backend
         assert (result["major"], result["minor"]) == declared_version(), backend
 
