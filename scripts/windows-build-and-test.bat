@@ -69,6 +69,9 @@ if not exist "%VENV%\Scripts\python.exe" (
 echo === running tests\obs-integration against %ARCH% ===
 set PTZ_TEST_OBS_BIN=%OBSDIR%\bin\64bit\obs64.exe
 set PTZSIM_OBS_BINARY=%PTZ_TEST_OBS_BIN%
+rem What OBS and the harness write for the tests is UTF-8, which Python reads
+rem as the code page of the system unless it is told
+set PYTHONUTF8=1
 shift
 set PYTEST_ARGS=%1 %2 %3 %4 %5 %6 %7 %8 %9
 if "%1"=="" set PYTEST_ARGS=tests\obs-integration

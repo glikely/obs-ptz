@@ -239,8 +239,11 @@ def write_websocket_config(home: Path, ws_port, ws_password):
     config_dir = obs_config_root(home)
     config_dir.mkdir(parents=True, exist_ok=True)
     # The plugin's strings are en-GB's: the language OBS is in must not be
-    # one with a file of its own that takes over
-    (config_dir / "user.ini").write_text("[General]\nLanguage=en-GB\n")
+    # one with a file of its own that takes over. And OBS has run before
+    # (FirstRun): one that has not opens its Auto-Configuration Wizard, a modal
+    # dialog, over a main window that then can't be closed. On Windows OBS is
+    # asked to quit by closing that window, and so never quit.
+    (config_dir / "user.ini").write_text("[General]\nFirstRun=true\nLanguage=en-GB\n")
     (config_dir / "global.ini").write_text(
         "[OBSWebSocket]\n"
         "FirstLoad=false\n"
@@ -478,14 +481,22 @@ def start_xvfb(timeout=10):
 
 def stop_process_tree(proc, timeout):
     """stop_process_group() where there are no process groups: asks proc's
-    window to close, as taskkill does without /F, and when it has not exited,
-    ends it and what it started. Returns whether proc exited on its own."""
-    subprocess.run(["taskkill", "/PID", str(proc.pid), "/T"], capture_output=True)
-    try:
-        proc.wait(timeout=timeout)
-        exited = True
-    except subprocess.TimeoutExpired:
-        exited = False
+    windows to close, as taskkill does without /F, and when it has not exited,
+    ends it and what it started. Returns whether proc exited on its own.
+
+    It is asked more than once. With another window of its own open, the PTZ
+    settings dialog that a test left, say, the first request closes that window
+    and OBS stays: it is the next that closes the main window, and OBS with it."""
+    deadline = time.time() + timeout
+    exited = False
+    while not exited and time.time() < deadline:
+        subprocess.run(["taskkill", "/PID", str(proc.pid), "/T"], capture_output=True)
+        try:
+            proc.wait(timeout=1)
+            exited = True
+        except subprocess.TimeoutExpired:
+            pass
+    if not exited:
         subprocess.run(["taskkill", "/PID", str(proc.pid), "/T", "/F"], capture_output=True)
     proc.wait()
     return exited
@@ -1426,6 +1437,12 @@ def obs_world(tmp_path_factory, ptzsim_process, sony_ptzsim, birddog_ptzsim, pow
                                                stderr=subprocess.STDOUT,
                                                **({} if IS_WINDOWS else {"start_new_session": True}))
         wait_for_port("127.0.0.1", ws_port, timeout=90)
+        if IS_WINDOWS:
+            # OBS on Windows says nothing on its standard output but a few
+            # lines as it starts: what it logs is in the file it keeps itself
+            logs = sorted((obs_config_root(home) / "logs").glob("*.txt"), key=lambda p: p.stat().st_mtime)
+            if logs:
+                running["log"] = logs[-1]
         deadline = time.time() + 30
         last_error = None
         while time.time() < deadline:
