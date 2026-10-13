@@ -41,7 +41,6 @@ PTZUITestHarness::PTZUITestHarness(QObject *parent) : QObject(parent)
 	registerApiVersionTest(this);
 	registerDriverKindsTest(this);
 	registerDiscoveryTest(this);
-	registerPresetApiTest(this);
 	registerDeviceBackupTest(this);
 	registerCameraReportTest(this);
 	registerReorderPresetsTest(this);

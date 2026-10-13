@@ -16,47 +16,6 @@
 
 namespace {
 
-/* Reports a device's whole transient state through the "ptz_get_state"
- * proc handler (PTZDevice::get_state(), which is saveState() plus a few
- * more fields for PTZListModel's row display -- see src/core/ptz-device.cpp)
- * as JSON under "state". */
-void runGetDeviceStateTest(const QMap<QString, QString> &params)
-{
-	QString deviceName = params.value(QStringLiteral("device"));
-	bool deviceOk = !deviceName.isEmpty();
-	QString filename = params.value(QStringLiteral("filename"));
-	if (!deviceOk || filename.isEmpty()) {
-		blog(LOG_INFO, "[ptz-ui-test] get_device_state: missing/invalid device or filename");
-		return;
-	}
-
-	QModelIndex index = ptzUITestDeviceIndex(deviceName);
-	if (!index.isValid()) {
-		blog(LOG_INFO, "[ptz-ui-test] get_device_state: device %s not found", qUtf8Printable(deviceName));
-		return;
-	}
-
-	OBSDataAutoRelease state = obs_data_create();
-	calldata cd = {};
-	calldata_set_ptr(&cd, "state", state.Get());
-	ptzDeviceList->callDevice(index, "ptz_get_state", &cd);
-	calldata_free(&cd);
-
-	/* The statistics are read apart from the state, but the tests that look
-	 * at them ask for them with it */
-	OBSDataAutoRelease statistics = obs_data_create();
-	calldata statisticsCd = {};
-	calldata_set_ptr(&statisticsCd, "statistics", statistics.Get());
-	ptzDeviceList->callDevice(index, "ptz_get_statistics", &statisticsCd);
-	calldata_free(&statisticsCd);
-	obs_data_set_obj(state, "statistics", statistics);
-
-	OBSDataAutoRelease result = obs_data_create();
-	obs_data_set_obj(result, "state", state);
-	if (!obs_data_save_json_safe(result, qUtf8Printable(filename), "tmp", "bak"))
-		blog(LOG_INFO, "[ptz-ui-test] get_device_state: failed to write %s", qUtf8Printable(filename));
-}
-
 /* Drives the "ptz_request_state" proc handler (PTZDevice::request_state(),
  * see src/core/ptz-device.cpp) with a state object holding just the values given,
  * as the settings dialog's state view does. */
@@ -138,10 +97,6 @@ void runGetCameraReportTest(const QMap<QString, QString> &params)
  *   filename  - where to write the {"report": {...}} JSON result, {} if
  *               there is no report
  *
- * get_device_state request params:
- *   device - the device, by the UUID of its filter or the name of the source it is on
- *   filename  - where to write the {"state": {...}} JSON result
- *
  * set_device_state request params:
  *   device         - the device, by the UUID of its filter or the name of the source it is on
  *   power_on          - optional, "True"/"False"
@@ -157,7 +112,6 @@ void runGetCameraReportTest(const QMap<QString, QString> &params)
  */
 void registerDeviceStateTest(PTZUITestHarness *harness)
 {
-	harness->registerTest(QStringLiteral("get_device_state"), &runGetDeviceStateTest);
 	harness->registerTest(QStringLiteral("set_device_state"), &runSetDeviceStateTest);
 	harness->registerTest(QStringLiteral("get_camera_report"), &runGetCameraReportTest);
 }

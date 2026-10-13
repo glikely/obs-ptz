@@ -99,7 +99,6 @@ void registerCameraReportTest(PTZUITestHarness *harness);
 void registerApiVersionTest(PTZUITestHarness *harness);
 void registerDriverKindsTest(PTZUITestHarness *harness);
 void registerDiscoveryTest(PTZUITestHarness *harness);
-void registerPresetApiTest(PTZUITestHarness *harness);
 void registerDeviceBackupTest(PTZUITestHarness *harness);
 void registerThirdPartyDeviceTest(PTZUITestHarness *harness);
 void registerVendorEventTest(PTZUITestHarness *harness);

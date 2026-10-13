@@ -1,4 +1,4 @@
-/* PTZ UI test harness: the PTZ API's version
+/* PTZ UI test harness: the discovery instances' registration of the PTZ API
  *
  * Copyright 2026 Grant Likely <grant.likely@secretlab.ca>
  *
@@ -13,29 +13,6 @@
 #include "ptz-list-model.hpp"
 
 namespace {
-
-/* Asks a device for the version through its ptz_get_api_version, the way
- * another plugin would */
-void runGetApiVersionTest(const QMap<QString, QString> &params)
-{
-	QString filename = params.value(QStringLiteral("filename"));
-	if (filename.isEmpty()) {
-		blog(LOG_INFO, "[ptz-ui-test] get_api_version: missing filename");
-		return;
-	}
-
-	calldata_t cd = {};
-	bool called = ptzDeviceList->callDevice(ptzUITestDeviceIndex(params.value(QStringLiteral("device"))),
-						"ptz_get_api_version", &cd);
-	OBSDataAutoRelease result = obs_data_create();
-	obs_data_set_bool(result, "called", called);
-	obs_data_set_int(result, "major", calldata_int(&cd, "major"));
-	obs_data_set_int(result, "minor", calldata_int(&cd, "minor"));
-	calldata_free(&cd);
-
-	if (!obs_data_save_json_safe(result, qUtf8Printable(filename), "tmp", "bak"))
-		blog(LOG_INFO, "[ptz-ui-test] get_api_version: failed to write %s", qUtf8Printable(filename));
-}
 
 /* Makes, and destroys again, one instance of each discovery kind, which
  * registers its procs and signals, so that a build with the harness logs them
@@ -76,15 +53,12 @@ void runMakeDiscoveryInstancesTest(const QMap<QString, QString> &params)
 
 } // namespace
 
-/* get_api_version request params:
- *   device - the device, by the UUID of its filter or the name of the source it is on
- *   filename  - where to write the {"called", "major", "minor"} JSON result;
- *               "called" is false if there was no such device, or no
- *               ptz_get_api_version to call
+/* make_discovery_instances request params:
+ *   filename - where to write {"made": [{"kind", "api"}...]}: the kinds it made an
+ *              instance of, each with what the instance's ptz_get_api_info returned
  */
 void registerApiVersionTest(PTZUITestHarness *harness)
 {
-	harness->registerTest(QStringLiteral("get_api_version"), &runGetApiVersionTest);
 	harness->registerTest(QStringLiteral("make_discovery_instances"), &runMakeDiscoveryInstancesTest);
 }
 

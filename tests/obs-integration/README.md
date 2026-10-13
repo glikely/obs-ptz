@@ -29,6 +29,31 @@ the tests of the serial and Pelco devices, and `test_change_interface.py`, are
 skipped. `ptzsim` binds its VISCA-over-IP port exclusively there, as Windows
 would otherwise let the plugin share it and a reply would go to the camera.
 
+## How a test reaches the plugin
+
+Three ways, and a test uses the one that is how the thing is really done:
+
+- **OBS's own obs-websocket requests** for what a user does in OBS: making a
+  scene, adding a source or a filter, switching scenes (which fires a
+  `ptz_action_source`).
+- **The PTZ API over obs-websocket**, for calling a proc of a device and
+  hearing its signals, as a remote controller does: the `"obs-ptz"` vendor's
+  requests and events (see "WebSocket binding" in `docs/ptz-device-api.md`,
+  and `src/controller/ptz-websocket.cpp`). `World.call_proc()`,
+  `device_state()`, `api_version()`, `record_preset_signals()` and
+  `preset_signals()` in `conftest.py` are this, and
+  `test_websocket_api.py`, `test_websocket_events.py` and
+  `test_websocket_threads.py` cover the binding itself. It needs no build
+  option: the binding is in every build. `World.ws` is the connection for
+  requests, and `World.events` one that is sent the vendor's events
+  (obs-websocket's `Vendors` subscription), read by a thread of the client's
+  own so that events nobody waits for don't stop it.
+- **The UI test harness** (`tests/ui-harness/`, `World.run_ui_test()`), for
+  what only the UI does or only code inside OBS sees: dialogs, the dock, the
+  list model. It needs a build with `-DENABLE_UI_TESTS=ON`, answers only that
+  it took the request, and writes what a test asked for to a file the test
+  waits for.
+
 ## How it works
 
 1. **`ptzsim`** is started as a subprocess on fixed local ports, one
@@ -155,9 +180,9 @@ would otherwise let the plugin share it and a reply would go to the camera.
     `get_device_settings` test.
 16. `test_device_state.py` covers the transient-state half of that split:
     the `ptz_get_state` and `ptz_request_state` proc handlers
-    (`PTZDevice::saveState()`, `requestState()`). Uses
-    `tests/ui-harness/device-state-test.cpp`'s `get_device_state` and
-    `set_device_state` tests, checking that a request asks the camera for
+    (`PTZDevice::saveState()`, `requestState()`). Reads the state over
+    obs-websocket, and uses `tests/ui-harness/device-state-test.cpp`'s
+    `set_device_state` test, checking that a request asks the camera for
     just the values it holds, even one it already reports. Also that nothing
     the camera reports is among a filter's settings properties, and that
     VISCA advertises its diagnostics, and that the `ptz_trigger` actions
@@ -192,9 +217,8 @@ would otherwise let the plugin share it and a reply would go to the camera.
     or changing interface while it is open. Opens the real dialog through
     `tests/ui-harness/settings-dialog-test.cpp`.
 21. `test_api_version.py` covers the PTZ API's version: that
-    `ptz_get_api_version`, on each device's proc_handler, reports the version `src/ptz.h` declares, called the way another plugin
-    would through
-    `tests/ui-harness/api-version-test.cpp`, and that
+    `ptz_get_api_version`, on each device's proc_handler, reports the version `src/ptz.h` declares, asked over
+    obs-websocket, and that
     `docs/ptz-device-api.md` states it.
 22. `test_visca_udp_sony.py` covers how VISCA-over-IP copes with a camera
     that behaves like a real Sony one, against a session-scoped `sony_ptzsim`

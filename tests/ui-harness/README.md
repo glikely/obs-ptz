@@ -26,15 +26,15 @@ and its driver, `tests/obs-integration/test_absolute_relative_moves.py`
 `test_preset_view.py`), and `get_device_source`/`hold_source`
 (see `device-source-test.cpp` and its driver, `test_filter_devices.py`), and
 `get_device_settings` (see `device-settings-test.cpp` and its driver,
-`test_device_settings.py`), and `get_device_state`/`set_device_state` (see
+`test_device_settings.py`), and `set_device_state` (see
 `device-state-test.cpp` and its drivers, `test_device_state.py`,
 `test_autofocus_white_balance.py` and `test_power.py`), and
 `watch_device_signals`/`get_device_signals` (see `device-signals-test.cpp`
 and its driver, `test_device_signals.py`), and `open_settings_dialog`/
 `get_settings_dialog`/`edit_dialog_state`/`press_dialog_button` (see
 `settings-dialog-test.cpp` and its driver, `test_settings_dialog.py`), and
-`get_api_version` (see `api-version-test.cpp` and its driver,
-`test_api_version.py`), and `get_device_backups`/`add_device`/
+`make_discovery_instances` (see `api-version-test.cpp` and its driver,
+`test_api_doc.py`), and `get_device_backups`/`add_device`/
 `remove_device` (see `device-backup-test.cpp` and its drivers,
 `test_device_backup.py` and `test_device_discovery.py`), and
 `discovery_kinds`/`discover`/`get_discovery_spy` (see `discovery-test.cpp`
@@ -59,14 +59,30 @@ driven from inside.
 ## Why obs-websocket, not a polled file
 
 Commands reach the harness through obs-websocket's vendor request
-mechanism (`obs-websocket-api.h`, vendored here - header-only, talks to
-obs-websocket purely via libobs's own `proc_handler`/`calldata`, no
+mechanism (`obs-websocket-api.h`, vendored in `src/controller/` - header-only,
+talks to obs-websocket purely via libobs's own `proc_handler`/`calldata`, no
 link dependency, degrades to a harmless no-op if obs-websocket isn't
-loaded). `PTZUITestHarness` registers as vendor `"obs-ptz"` with one
-request type, `"ui_test_run"`, from `ptz_load_ui_tests()` (called from
-`obs_module_post_load()` in `ptz.c` - vendor registration requires that
-specific hook, not `obs_module_load()`, since it needs obs-websocket's
-own module to have already finished loading first).
+loaded). The vendor, `"obs-ptz"`, is the plugin's own: the PTZ API's binding to
+obs-websocket (`src/controller/ptz-websocket.cpp`) registers it, as a vendor
+can be registered only once, and `ptz_load_ui_tests()` adds one request type
+to it, `"ui_test_run"` (called from `obs_module_post_load()` in `ptz.c`, after
+the binding - vendor registration requires that specific hook, not
+`obs_module_load()`, since it needs obs-websocket's own module to have already
+finished loading first).
+
+## What goes through the harness, and what doesn't
+
+The harness is for what only the UI can do, or only code inside OBS can see:
+a dialog, the dock's widgets, what a list model tells its views, a device made
+by a stand-in for another plugin. A test that calls a proc of the PTZ API, or
+waits for one of its signals, does it as a client of obs-websocket does, with
+the `"obs-ptz"` vendor's request and event of the same name (see "WebSocket
+binding" in `docs/ptz-device-api.md`): `World.call_proc()`, `device_state()`,
+`api_version()` and `record_preset_signals()`/`preset_signals()` in
+`tests/obs-integration/conftest.py`. That is a real answer on the connection,
+with nothing to poll, and it is the path a remote controller uses. Those went
+through the harness once, as `call_proc`, `get_device_state`, `get_api_version`
+and `record_preset_signals`/`get_preset_signals`, which are gone.
 
 An earlier version polled a temp file every 100ms instead. obs-websocket
 is strictly better here: it already ships with OBS on every platform,
