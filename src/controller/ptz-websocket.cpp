@@ -17,19 +17,37 @@
  * list of the requests there are (`requests`), which only the main thread
  * touches: obs-websocket keeps its own copy of what is registered, and hands a
  * request the entry it was registered with, which is never freed.
+ *
+ * A proc that has to be called on the main thread is sent there and waited for,
+ * for no longer than kMainThreadWait: see onMainThread(). What it works on is
+ * its own (a ProcCall), kept by whichever of the two threads is last to let go
+ * of it, so that a request that gave up waiting leaves nothing behind for the
+ * main thread to write to. No lock is held while a proc, or OBS, is called.
+ *
+ * Closing. From the moment OBS says it is closing, a request is answered
+ * "unavailable" and one that is waiting gives up, so that nothing waits for a
+ * main thread that has stopped running what it is sent; unloading then waits,
+ * for no longer than kUnloadWait, for the requests still running to leave this
+ * code.
  */
 #include "ptz-websocket.hpp"
 
 #include <atomic>
+#include <chrono>
+#include <condition_variable>
 #include <cstring>
+#include <functional>
 #include <map>
 #include <memory>
+#include <mutex>
 #include <set>
 #include <string>
+#include <thread>
 #include <vector>
 
 #include <obs.hpp>
 #include <obs-module.h>
+#include <obs-frontend-api.h>
 #include <QCoreApplication>
 #include <QMetaObject>
 #include <QThread>
@@ -45,6 +63,11 @@ namespace {
 /* The version of the binding, which can change while the API's doesn't */
 constexpr int kBridgeVersionMajor = 1;
 constexpr int kBridgeVersionMinor = 0;
+
+/* How long a request waits for the main thread to run its proc */
+constexpr auto kMainThreadWait = std::chrono::seconds(5);
+/* How long unloading waits for the requests that are running to finish */
+constexpr auto kUnloadWait = std::chrono::seconds(5);
 
 enum class Access { Off, ReadOnly, Control };
 
@@ -82,13 +105,74 @@ void setError(obs_data_t *response, const char *code, const std::string &message
 	obs_data_set_string(response, "message", message.c_str());
 }
 
-/* Runs `work` on the main thread, and waits for it */
-template<typename Work> void onMainThread(Work work)
+/* OBS is closing, or the plugin unloading: nothing more is started */
+std::atomic<bool> closing{false};
+/* The requests that are in this code now, which unloading waits for */
+std::atomic<int> inFlight{0};
+
+struct InFlight {
+	InFlight() { inFlight++; }
+	~InFlight() { inFlight--; }
+};
+
+/* Guards `done` and `cancelled` of every Hop, and is what a waiter waits on */
+std::mutex hopMutex;
+std::condition_variable hopChanged;
+
+struct Hop {
+	bool done = false;
+	bool cancelled = false;
+};
+
+enum class HopResult { Done, Timeout, Unavailable };
+
+/* Runs `work` on the main thread and waits for it, but no longer than
+ * kMainThreadWait, and not at all once OBS is closing. `work` owns everything
+ * it touches (it is copied to the main thread, and may run, or finish, after
+ * the caller has given up), and is not run at all if the caller gave up before
+ * the main thread got to it. */
+HopResult onMainThread(const std::function<void()> &work)
 {
-	if (QThread::currentThread() == qApp->thread())
+	if (closing.load())
+		return HopResult::Unavailable;
+	if (QThread::currentThread() == qApp->thread()) {
 		work();
-	else
-		QMetaObject::invokeMethod(qApp, work, Qt::BlockingQueuedConnection);
+		return HopResult::Done;
+	}
+	auto hop = std::make_shared<Hop>();
+	QMetaObject::invokeMethod(
+		qApp,
+		[hop, work]() {
+			{
+				std::lock_guard<std::mutex> lock(hopMutex);
+				if (hop->cancelled)
+					return;
+			}
+			work();
+			{
+				std::lock_guard<std::mutex> lock(hopMutex);
+				hop->done = true;
+			}
+			hopChanged.notify_all();
+		},
+		Qt::QueuedConnection);
+
+	std::unique_lock<std::mutex> lock(hopMutex);
+	hopChanged.wait_for(lock, kMainThreadWait, [&]() { return hop->done || closing.load(); });
+	if (hop->done)
+		return HopResult::Done;
+	hop->cancelled = true;
+	return closing.load() ? HopResult::Unavailable : HopResult::Timeout;
+}
+
+/* The answer to a request that the main thread didn't get to. True if it did. */
+bool hopDone(HopResult result, const std::string &what, obs_data_t *response)
+{
+	if (result == HopResult::Timeout)
+		setError(response, "timeout", what + " was not run in time: OBS's main thread is busy");
+	else if (result == HopResult::Unavailable)
+		setError(response, "unavailable", "OBS is closing");
+	return result == HopResult::Done;
 }
 
 /* --- what a device says it has ------------------------------------------------- */
@@ -285,14 +369,31 @@ void readField(calldata_t *cd, const std::string &name, ptzws::Type type, bool o
 	}
 }
 
+/* A proc being called for a request: the device, which is held until the proc
+ * has been called and what it returned read (which is what keeps its
+ * proc_handler good), and what it is called with. It is the request's until
+ * the proc is sent to the main thread, and from then whichever's lets go last. */
+struct ProcCall {
+	OBSSource source;
+	std::string name;
+	calldata_t cd = {};
+	std::vector<OBSData> held;
+	bool called = false;
+
+	~ProcCall() { calldata_free(&cd); }
+};
+
 /* A request for a proc of the API: obs-websocket calls it, on a thread of its own */
 void procRequest(obs_data_t *requestData, obs_data_t *response, void *priv)
 {
+	InFlight running;
+	if (closing.load()) {
+		setError(response, "unavailable", "OBS is closing");
+		return;
+	}
 	auto request = static_cast<Request *>(priv);
 	const char *uuid = obs_data_get_string(requestData, "device");
 
-	/* Held until the proc has been called and what it returned has been read,
-	 * which is what keeps its proc_handler good */
 	OBSSourceAutoRelease source = *uuid ? obs_get_source_by_uuid(uuid) : nullptr;
 	if (!source || !ptz_source_is_device(source)) {
 		setError(response, "unknown_device", std::string("no PTZ device '") + uuid + "'");
@@ -317,34 +418,30 @@ void procRequest(obs_data_t *requestData, obs_data_t *response, void *priv)
 		return;
 	}
 
-	calldata_t cd = {};
-	std::vector<OBSData> held;
-	if (!fillCalldata(*decl, requestData, &cd, held, response)) {
-		calldata_free(&cd);
+	auto call = std::make_shared<ProcCall>();
+	call->source = source.Get();
+	call->name = request->name;
+	if (!fillCalldata(*decl, requestData, &call->cd, call->held, response))
 		return;
-	}
 
-	proc_handler_t *handler = obs_source_get_proc_handler(source);
-	bool called = false;
-	auto call = [&]() {
-		called = proc_handler_call(handler, request->name.c_str(), &cd);
+	auto work = [call]() {
+		call->called =
+			proc_handler_call(obs_source_get_proc_handler(call->source), call->name.c_str(), &call->cd);
 	};
 	if (proc.anyThread)
-		call();
-	else
-		onMainThread(call);
-	if (!called) {
+		work();
+	else if (!hopDone(onMainThread(work), request->name, response))
+		return;
+	if (!call->called) {
 		setError(response, "no_such_proc", "the device has no " + request->name);
-		calldata_free(&cd);
 		return;
 	}
 
 	for (const ptzws::Param &param : decl->params)
 		if (param.out || param.type == ptzws::Type::Ptr)
-			readField(&cd, param.name, param.type, false, response);
+			readField(&call->cd, param.name, param.type, false, response);
 	if (decl->ret != ptzws::Type::Void)
-		readField(&cd, decl->retName, decl->ret, true, response);
-	calldata_free(&cd);
+		readField(&call->cd, decl->retName, decl->ret, true, response);
 }
 
 /* --- finding devices ------------------------------------------------------------ */
@@ -407,6 +504,7 @@ void filterAdded(void *, calldata_t *cd)
 
 void bridgeVersion(obs_data_t *, obs_data_t *response, void *)
 {
+	InFlight running;
 	obs_data_set_int(response, "major", kBridgeVersionMajor);
 	obs_data_set_int(response, "minor", kBridgeVersionMinor);
 }
@@ -414,6 +512,11 @@ void bridgeVersion(obs_data_t *, obs_data_t *response, void *)
 /* Every device there is, with what a client needs to call it */
 void listDevices(obs_data_t *, obs_data_t *response, void *)
 {
+	InFlight running;
+	if (closing.load()) {
+		setError(response, "unavailable", "OBS is closing");
+		return;
+	}
 	OBSDataArrayAutoRelease devices = obs_data_array_create();
 	for (const OBSSource &source : allSources()) {
 		if (!ptz_source_is_device(source) || isDiscovery(procsOf(source)))
@@ -450,8 +553,11 @@ void listDevices(obs_data_t *, obs_data_t *response, void *)
  * open, and a client has no way to make one. */
 void listDiscovery(obs_data_t *, obs_data_t *response, void *)
 {
-	OBSDataArrayAutoRelease instances = obs_data_array_create();
-	onMainThread([&]() {
+	InFlight running;
+	/* A source is made on the main thread, which fills in a list of its own */
+	OBSDataArrayAutoRelease made = obs_data_array_create();
+	OBSDataArray instances = made.Get();
+	auto work = [instances]() {
 		for (const PTZDriverKind &kind : ptz_discovery_kinds()) {
 			std::string id = kind.kind.toStdString();
 			if (!discoveryInstances.count(id)) {
@@ -467,8 +573,29 @@ void listDiscovery(obs_data_t *, obs_data_t *response, void *)
 			obs_data_set_string(item, "kind", id.c_str());
 			obs_data_array_push_back(instances, item);
 		}
-	});
-	obs_data_set_array(response, "instances", instances);
+	};
+	if (hopDone(onMainThread(work), "ptz_list_discovery", response))
+		obs_data_set_array(response, "instances", instances);
+}
+
+/* Stops anything more being started, and has whatever is waiting for the main
+ * thread give up. Main thread. */
+void beginClosing()
+{
+	{
+		std::lock_guard<std::mutex> lock(hopMutex);
+		closing.store(true);
+	}
+	hopChanged.notify_all();
+}
+
+/* OBS has stopped running what the main thread is sent well before it unloads
+ * a plugin, and obs-websocket, which waits for its requests to finish, may be
+ * unloaded first: so it is here that waiting stops */
+void frontendEvent(enum obs_frontend_event event, void *)
+{
+	if (event == OBS_FRONTEND_EVENT_EXIT || event == OBS_FRONTEND_EVENT_SCRIPTING_SHUTDOWN)
+		beginClosing();
 }
 
 Access accessNamed(const char *access)
@@ -515,6 +642,7 @@ void ptz_websocket_load(void)
 	for (const OBSSource &source : allSources())
 		considerSource(source);
 	applyAccess();
+	obs_frontend_add_event_callback(frontendEvent, nullptr);
 }
 
 void ptz_websocket_unload(void)
@@ -524,7 +652,17 @@ void ptz_websocket_unload(void)
 	signal_handler_t *global = obs_get_signal_handler();
 	signal_handler_disconnect(global, "source_create", sourceCreated, nullptr);
 	signal_handler_disconnect(global, "source_filter_add", filterAdded, nullptr);
+	obs_frontend_remove_event_callback(frontendEvent, nullptr);
+	beginClosing();
+	/* obs-websocket starts no more of them... */
 	accessLevel.store(Access::Off);
 	applyAccess();
+	/* ...and the ones it has started are let leave this code before it goes.
+	 * None of them waits for this thread any more. */
+	auto deadline = std::chrono::steady_clock::now() + kUnloadWait;
+	while (inFlight.load() > 0 && std::chrono::steady_clock::now() < deadline)
+		std::this_thread::sleep_for(std::chrono::milliseconds(5));
+	if (inFlight.load() > 0)
+		blog(LOG_WARNING, "[obs-ptz] %d websocket requests were still running at unload", inFlight.load());
 	discoveryInstances.clear();
 }
