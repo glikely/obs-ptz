@@ -9,7 +9,10 @@ SPDX-License-Identifier: GPL-2.0-or-later
 The widgets are the main window's, by the names they have in OBS's own
 frontend/forms/OBSBasic.ui, the same in every OBS the suite runs on (32.1 and
 32.2): the scene list "scenes" (a SceneTree), the transition list
-"transitions" (a QComboBox) and the Tools menu, "menuTools".
+"transitions" (a QComboBox), the Tools menu, "menuTools", and the Studio Mode
+button, "modeSwitch". A source's Filters window (OBSBasicFilters) is one OBS
+deletes when it is closed (WA_DeleteOnClose, in OBSBasic::OpenFilters), which
+obs-websocket's OpenInputFiltersDialog opens.
 """
 
 import threading
@@ -176,3 +179,173 @@ def test_obs_quits_with_a_request_waiting(obs_world):
         sorted(set(outcomes))
     assert outcomes.count("answered") > 0
     obs_world.wait_for(lambda: obs_world.ui.find(MAIN), timeout=20)
+
+
+@pytest.fixture
+def studio_mode_off(obs_world):
+    """Studio Mode off, and put back as it was"""
+    was = obs_world.ws.call("GetStudioModeEnabled")["studioModeEnabled"]
+    obs_world.ws.call("SetStudioModeEnabled", {"studioModeEnabled": False})
+    yield
+    obs_world.ws.call("SetStudioModeEnabled", {"studioModeEnabled": was})
+
+
+@pytest.fixture
+def program_scene(obs_world):
+    """The program scene, put back as it was"""
+    was = obs_world.ws.call("GetCurrentProgramScene")["currentProgramSceneName"]
+    yield
+    obs_world.ws.call("SetCurrentProgramScene", {"sceneName": was})
+
+
+def studio_mode(obs_world):
+    return obs_world.ws.call("GetStudioModeEnabled")["studioModeEnabled"]
+
+
+def test_set_writes_a_property(obs_world):
+    obs_world.need_ui_driver()
+    was = obs_world.ui.get1(MAIN, "scenes", name="toolTip")
+    try:
+        obs_world.ui.set(MAIN, "scenes", toolTip="set by the UI driver")
+        assert obs_world.ui.get1(MAIN, "scenes", name="toolTip") == "set by the UI driver"
+    finally:
+        obs_world.ui.set(MAIN, "scenes", toolTip=was or "")
+
+
+def test_set_refuses_a_value_of_the_wrong_type(obs_world):
+    obs_world.need_ui_driver()
+    with pytest.raises(UiDriverError) as raised:
+        obs_world.ui.set(MAIN, "scenes", enabled={"a": 1})
+    assert raised.value.code == "bad_value"
+    assert obs_world.ui.get1(MAIN, "scenes", name="enabled") is True
+
+
+def test_set_says_which_property_is_not_there(obs_world):
+    obs_world.need_ui_driver()
+    with pytest.raises(UiDriverError) as raised:
+        obs_world.ui.set(MAIN, "scenes", noSuchProperty=1)
+    assert raised.value.code == "no_property"
+
+
+def test_invoke_calls_a_slot(obs_world, studio_mode_off):
+    obs_world.need_ui_driver()
+    obs_world.ui.invoke(MAIN, "modeSwitch", method="click")
+    assert studio_mode(obs_world) is True
+
+
+def test_invoke_queued_answers_before_the_call_runs(obs_world, studio_mode_off):
+    obs_world.need_ui_driver()
+    assert obs_world.ui.invoke(MAIN, "modeSwitch", method="click", queued=True) is None
+    obs_world.wait_for(lambda: studio_mode(obs_world) is True)
+
+
+def test_invoke_says_when_there_is_no_such_method(obs_world):
+    obs_world.need_ui_driver()
+    with pytest.raises(UiDriverError) as raised:
+        obs_world.ui.invoke(MAIN, "modeSwitch", method="noSuchMethod")
+    assert raised.value.code == "no_method"
+
+
+def test_invoke_passes_arguments(obs_world):
+    obs_world.need_ui_driver()
+    # QWidget::setWindowTitle(QString) is a slot, and the scene list isn't a
+    # window, so its title shows nowhere
+    was = obs_world.ui.get1(MAIN, "scenes", name="windowTitle")
+    try:
+        obs_world.ui.invoke(MAIN, "scenes", method="setWindowTitle", args=["from invoke"])
+        assert obs_world.ui.get1(MAIN, "scenes", name="windowTitle") == "from invoke"
+    finally:
+        obs_world.ui.set(MAIN, "scenes", windowTitle=was or "")
+
+
+def test_activate_chooses_a_transition_as_a_user_does(obs_world):
+    obs_world.need_ui_driver()
+    was = obs_world.ws.call("GetCurrentSceneTransition")["transitionName"]
+    other = next(item["text"] for item in obs_world.ui.get1(MAIN, "transitions", name="items")
+                 if item["text"] != was)
+    try:
+        index = obs_world.ui.activate(MAIN, "transitions", text=other)
+        assert obs_world.ui.get1(MAIN, "transitions", name="currentIndex") == index
+        obs_world.wait_for(lambda: obs_world.ws.call("GetCurrentSceneTransition")["transitionName"] == other)
+    finally:
+        obs_world.ws.call("SetCurrentSceneTransition", {"transitionName": was})
+
+
+def test_activate_says_when_no_item_matches(obs_world):
+    obs_world.need_ui_driver()
+    with pytest.raises(UiDriverError) as raised:
+        obs_world.ui.activate(MAIN, "transitions", text="no such transition")
+    assert raised.value.code == "not_found"
+
+
+def test_select_makes_a_scene_current(obs_world, studio_mode_off, program_scene):
+    obs_world.need_ui_driver()
+    first, second = obs_world.create_scene(), obs_world.create_scene()
+    obs_world.ws.call("SetCurrentProgramScene", {"sceneName": first})
+    obs_world.ui.select(MAIN, "scenes", value=second)
+    obs_world.wait_for(lambda: obs_world.ws.call("GetCurrentProgramScene")["currentProgramSceneName"] == second)
+
+
+def test_select_says_when_no_row_matches(obs_world):
+    obs_world.need_ui_driver()
+    with pytest.raises(UiDriverError) as raised:
+        obs_world.ui.select(MAIN, "scenes", value="no such scene")
+    assert raised.value.code == "not_found"
+
+
+def test_select_says_when_the_model_has_no_such_role(obs_world):
+    obs_world.need_ui_driver()
+    with pytest.raises(UiDriverError) as raised:
+        obs_world.ui.select(MAIN, "scenes", value="x", role="noSuchRole")
+    assert raised.value.code == "bad_value"
+
+
+def test_watch_counts_a_signal(obs_world, studio_mode_off, program_scene):
+    obs_world.need_ui_driver()
+    first, second = obs_world.create_scene(), obs_world.create_scene()
+    obs_world.ws.call("SetCurrentProgramScene", {"sceneName": first})
+    obs_world.wait_for(lambda: obs_world.ui.get1(MAIN, "scenes", name="currentRow") >= 0)
+    watch = obs_world.ui.watch(MAIN, "scenes", signal="currentRowChanged")
+    assert obs_world.ui.count(watch) == 0
+    obs_world.ui.select(MAIN, "scenes", value=second)
+    obs_world.ui.select(MAIN, "scenes", value=first)
+    assert obs_world.ui.count(watch) == 2
+    # watching it again counts from nothing, under the same id
+    assert obs_world.ui.watch(MAIN, "scenes", signal="currentRowChanged") == watch
+    assert obs_world.ui.count(watch) == 0
+
+
+def test_watch_says_when_there_is_no_such_signal(obs_world):
+    obs_world.need_ui_driver()
+    with pytest.raises(UiDriverError) as raised:
+        obs_world.ui.watch(MAIN, "scenes", signal="noSuchSignal")
+    assert raised.value.code == "no_method"
+
+
+def test_count_of_a_destroyed_object_is_not_found(obs_world):
+    obs_world.need_ui_driver()
+    scene = obs_world.create_scene()
+    source = f"{scene}-filters"
+    obs_world.ws.call("CreateInput", {"sceneName": scene, "inputName": source, "inputKind": "color_source_v3",
+                                      "inputSettings": {}})
+    try:
+        obs_world.ws.call("OpenInputFiltersDialog", {"inputName": source})
+        obs_world.wait_for(lambda: obs_world.ui.find({"class": "OBSBasicFilters"}))
+        [window] = obs_world.ui.find({"class": "OBSBasicFilters"})
+        watch = obs_world.ui.watch({"id": window["id"]}, signal="windowTitleChanged")
+        # QWidget::close() says whether the window closed
+        assert obs_world.ui.invoke({"id": window["id"]}, method="close") is True
+
+        def gone():
+            try:
+                obs_world.ui.find({"id": window["id"]})
+            except UiDriverError as e:
+                return e.code == "not_found"
+            return False
+        obs_world.wait_for(gone)
+        with pytest.raises(UiDriverError) as raised:
+            obs_world.ui.count(watch)
+        assert raised.value.code == "not_found"
+        assert obs_world.ws.call("GetVersion")["obsVersion"]
+    finally:
+        obs_world.ws.call("RemoveInput", {"inputName": source})

@@ -59,6 +59,36 @@ class UiDriver:
         data = {"path": list(path)} if path else {}
         return self.call("tree", depth=depth, **data)["tree"]
 
+    def set(self, *path, **properties):
+        """Sets the properties given, of the object `path` names"""
+        self.call("set", path=list(path), properties=properties)
+
+    def invoke(self, *path, method, args=(), queued=False):
+        """Calls a slot, or invokable method, of the object `path` names, and
+        gives back what it returns. Queued, it is called once the driver has
+        answered, which a method that opens a modal dialog needs."""
+        return self.call("invoke", path=list(path), method=method, args=list(args), queued=queued).get("return")
+
+    def activate(self, *path, data=None, text=None):
+        """Chooses the item of the combo box `path` names whose data, or text,
+        is the one given, as a user would; gives back its index"""
+        choice = {"data": data} if data is not None else {"text": text}
+        return self.call("activate", path=list(path), **choice)["index"]
+
+    def select(self, *path, value, role="display", column=0):
+        """Selects, as a click does, the first row of the view `path` names whose
+        `role` (a name from its model's roleNames()) is `value`; gives back the row"""
+        return self.call("select", path=list(path), value=value, role=role, column=column)["row"]
+
+    def watch(self, *path, signal):
+        """Starts counting, from nothing, a signal of the object `path` names;
+        gives back the watch's id, the same if it is watched again"""
+        return self.call("watch", path=list(path), signal=signal)["watch"]
+
+    def count(self, watch):
+        """How often the watched signal has been sent since it was watched"""
+        return self.call("count", watch=watch)["count"]
+
     def available(self):
         """Whether OBS has the driver: it is a plugin of its own, and only
         answers when OBS was started with OBS_UI_DRIVER=1"""

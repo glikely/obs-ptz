@@ -22,6 +22,7 @@ target_sources(
     ui-driver-objects.cpp
     ui-driver-objects.hpp
     ui-driver-reading.cpp
+    ui-driver-actions.cpp
     obs-websocket-api.h
 )
 

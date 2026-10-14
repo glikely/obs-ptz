@@ -22,3 +22,4 @@ QJsonObject error(const char *code, const QString &message);
 
 /* The requests of each part of the driver, put on the vendor */
 void addReadingRequests();
+void addActionRequests();

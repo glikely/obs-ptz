@@ -31,6 +31,9 @@ that could not be done answers `{"error": code, "message": text}`:
 | `not_found` | Nothing is what a segment of the path names |
 | `ambiguous` | More than one thing is what a segment names |
 | `no_property` | The object has no property by that name |
+| `read_only` | The property can't be set |
+| `bad_value` | A value can't be what the property or argument is, or a model has no such role |
+| `no_method` | The object has no such method, or signal |
 | `timeout` | OBS's main thread did not get to it within 5 seconds |
 | `unavailable` | OBS is exiting |
 
@@ -40,6 +43,12 @@ that could not be done answers `{"error": code, "message": text}`:
 | `find` | `{"path", "all"?: false}` | `{"objects": [object...]}`, each described as below |
 | `get` | `{"path", "properties": [name...]}` | `{"properties": {name: value...}}` |
 | `tree` | `{"path"?, "depth"?: 3}` | `{"tree": object}`, the object with its `"children"`, and theirs, to `depth` levels; with no path, `{"tree": [object...]}`, every window so |
+| `set` | `{"path", "properties": {name: value...}}` | `{}`. Each value is made the property's type, as Qt converts it |
+| `invoke` | `{"path", "method", "args"?: [], "queued"?: false}` | `{"return": value}`, or `{}` for a method that returns nothing. It calls the first slot or invokable method of that name that takes that many arguments, up to 4, each made the parameter's type. With `"queued"`, the call is left for the main thread to make after the answer, `{}`, is given: a method that opens a modal dialog doesn't return until the dialog closes |
+| `activate` | `{"path", "data" \| "text"}` | `{"index"}`. The first item of a `QComboBox` whose data, or text, is the one given is chosen as a user chooses it: it is made current, and the combo box says `activated` and `textActivated`, which it doesn't for a change made in code |
+| `select` | `{"path", "value", "role"?: "display", "column"?: 0}` | `{"row"}`. The first row of a `QAbstractItemView` whose `role` (a name from its model's `roleNames()`) is the value is made current and selected, as a click does |
+| `watch` | `{"path", "signal"}` | `{"watch": id}`. Counts how often the object sends the signal, by its name, from now. Watching it again counts again from nothing, under the same id |
+| `count` | `{"watch"}` | `{"count"}`, or `not_found` once the object watched has gone |
 
 ### Paths
 
