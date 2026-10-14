@@ -32,6 +32,7 @@ from pathlib import Path
 
 import pytest
 from obsws import EVENT_VENDORS, Client, ObsWebSocketError
+from uidriver import UiDriver
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 
@@ -741,6 +742,18 @@ class World:
         anything: the source kinds it registers, say"""
         self.run_ui_test("nothing")
 
+    @property
+    def ui(self):
+        """The UI driver (tests/ui-driver/), over the connection for requests,
+        whichever that is after a restart"""
+        return UiDriver(self.ws)
+
+    def need_ui_driver(self):
+        """Skips the test if OBS hasn't the UI driver, a plugin of its own that
+        is only built with -DENABLE_UI_TESTS=ON"""
+        if not self.ui.available():
+            pytest.skip("needs the UI driver plugin, which this build has not")
+
     def call_proc(self, device, proc, args=None, returns=None):
         """Calls proc on device, as a client of obs-websocket does: the "obs-ptz"
         vendor's request of that name (see "WebSocket binding" in
@@ -1398,7 +1411,8 @@ def isolate_macos_obs(home: Path, env):
 
     - the plugin is not in this home's plugins/, where OBS now looks for it:
       PTZSIM_PLUGIN_BUNDLE is the obs-ptz.plugin to test, else the one
-      installed for the real user;
+      installed for the real user. PTZ_UI_DRIVER_BUNDLE, if it is set and
+      there, is the UI driver (tests/ui-driver/) to load with it;
     - OBS opens its first-run wizard, a modal dialog, unless it has run before
       (user.ini's FirstRun), and another one asking for permissions it will
       never be given, unless it has shown that already (global.ini's
@@ -1417,6 +1431,9 @@ def isolate_macos_obs(home: Path, env):
     plugins = obs_config_root(home) / "plugins"
     plugins.mkdir(parents=True, exist_ok=True)
     (plugins / "obs-ptz.plugin").symlink_to(Path(bundle).resolve())
+    driver = os.environ.get("PTZ_UI_DRIVER_BUNDLE")
+    if driver and Path(driver).is_dir():
+        (plugins / "obs-ui-driver.plugin").symlink_to(Path(driver).resolve())
 
     (obs_config_root(home) / "user.ini").write_text("[General]\nFirstRun=true\nLanguage=en-GB\n")
     with open(obs_config_root(home) / "global.ini", "a") as f:
@@ -1453,6 +1470,9 @@ def obs_world(tmp_path_factory, ptzsim_process, sony_ptzsim, birddog_ptzsim, pow
     # otherwise (ptz_load_ui_tests() is a stub in that case -- see
     # src/ptz.h), so always setting it keeps this fixture usable either way.
     env["PTZ_UI_TEST_HARNESS"] = "1"
+    # And the UI driver (tests/ui-driver/), a plugin of its own, which is only
+    # there when the scripts that run this suite installed it
+    env["OBS_UI_DRIVER"] = "1"
     if platform.system() == "Darwin":
         isolate_macos_obs(home, env)
 

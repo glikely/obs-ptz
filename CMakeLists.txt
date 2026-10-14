@@ -435,6 +435,8 @@ if(ENABLE_UI_TESTS)
       tests/ui-harness/third-party-device-test.cpp
       tests/ui-harness/vendor-event-test.cpp
   )
+  # A plugin of its own, for tests to drive OBS's widgets with
+  add_subdirectory(tests/ui-driver)
 endif()
 
 option(

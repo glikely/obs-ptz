@@ -46,6 +46,8 @@ VNC_PORT=5900
 VNC_PASSWORD="ptzdev"
 DATA_PATH="/usr/share/obs/obs-plugins/obs-ptz"
 PLUGIN_PATH="/usr/lib/aarch64-linux-gnu/obs-plugins/obs-ptz.so"
+# The UI driver (tests/ui-driver/), a plugin of its own that only a --ui-tests build has
+DRIVER_PATH="/usr/lib/aarch64-linux-gnu/obs-plugins/obs-ui-driver.so"
 
 ensure_shared_folder() {
 	if ! prlctl list -i "$VM" 2>/dev/null | grep -qF "$SHARE_NAME (+) path='$SRC_MAC'"; then
@@ -97,6 +99,14 @@ if [ ! -f "$PLUGIN_PATH.orig-backup" ]; then
 fi
 cp "$BUILD_VM/obs-ptz.so" "$PLUGIN_PATH"
 chmod 755 "$PLUGIN_PATH"
+# A real copy, as OBS skips a symlinked plugin; and none left from an earlier
+# build that had it
+if [ -f "$BUILD_VM/obs-ui-driver.so" ]; then
+	cp "$BUILD_VM/obs-ui-driver.so" "$DRIVER_PATH"
+	chmod 755 "$DRIVER_PATH"
+else
+	rm -f "$DRIVER_PATH"
+fi
 # The plugin's strings come from its data dir, not the .so, and the
 # packaged copy there goes stale: tests then see raw keys, not text.
 mkdir -p "$DATA_PATH/locale"
@@ -108,6 +118,7 @@ EOF
 cmd_restore() {
 	run_vm_script restore root <<EOF
 set -e
+rm -f "$DRIVER_PATH"
 if [ -f "$PLUGIN_PATH.orig-backup" ]; then
 	cp "$PLUGIN_PATH.orig-backup" "$PLUGIN_PATH"
 	echo RESTORE_OK
@@ -220,12 +231,12 @@ vm-linux-dev: plugin installed on "$VM". VNC=0, so no display was started.
 Log into the VM's own console (open its Parallels window, sign in as
 parallels) and run this there:
 
-    PTZ_UI_TEST_HARNESS=1 OBS_WEBSOCKET_SERVER_ENABLE=true obs --disable-updater
+    PTZ_UI_TEST_HARNESS=1 OBS_UI_DRIVER=1 OBS_WEBSOCKET_SERVER_ENABLE=true obs --disable-updater
 EOF
 	else
 		cmd_display
 		run_vm_script run parallels <<EOF
-export HOME=/home/parallels DISPLAY=$VNC_DISPLAY PTZ_UI_TEST_HARNESS=1 OBS_WEBSOCKET_SERVER_ENABLE=true
+export HOME=/home/parallels DISPLAY=$VNC_DISPLAY PTZ_UI_TEST_HARNESS=1 OBS_UI_DRIVER=1 OBS_WEBSOCKET_SERVER_ENABLE=true
 setsid nohup obs --disable-updater </dev/null >/tmp/vm-dev-obs.log 2>&1 &
 echo "OBS started; log: /tmp/vm-dev-obs.log"
 EOF

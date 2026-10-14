@@ -44,7 +44,7 @@ cmake --preset windows-%ARCH% -DENABLE_UI_TESTS=ON
 if errorlevel 1 exit /b 1
 
 echo === cmake build (%ARCH%) ===
-cmake --build build_%ARCH% --target obs-ptz --config RelWithDebInfo
+cmake --build build_%ARCH% --target obs-ptz obs-ui-driver --config RelWithDebInfo
 if errorlevel 1 exit /b 1
 
 set RUNDIR=%CD%\build_%ARCH%\rundir\RelWithDebInfo
@@ -56,6 +56,10 @@ if errorlevel 8 (
   echo overlay robocopy failed
   exit /b 1
 )
+rem The UI driver (tests\ui-driver\), a plugin of its own
+copy /y "%RUNDIR%\obs-ui-driver.dll" "%OBSDIR%\obs-plugins\64bit\obs-ui-driver.dll"
+if errorlevel 1 exit /b 1
+copy /y "%RUNDIR%\obs-ui-driver.pdb" "%OBSDIR%\obs-plugins\64bit\obs-ui-driver.pdb"
 
 set VENV=C:\OBS-Test\venv
 if not exist "%VENV%\Scripts\python.exe" (

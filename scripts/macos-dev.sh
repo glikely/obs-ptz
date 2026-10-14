@@ -41,6 +41,7 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 BUILD="$ROOT/build_macos"
 CONFIG="${CONFIG:-RelWithDebInfo}"
 PLUGIN="$BUILD/rundir/$CONFIG/obs-ptz.plugin"
+UI_DRIVER="$BUILD/rundir/$CONFIG/obs-ui-driver.plugin"
 OBS_DATA="$HOME/Library/Application Support/obs-studio"
 INSTALLED="$OBS_DATA/plugins/obs-ptz.plugin"
 # Outside plugins/ so OBS never scans it, and outside the bundle so codesign
@@ -112,6 +113,10 @@ setup_build() {
     # Signing is quick and the build re-links the binary, so always redo it.
     log "ad-hoc signing"
     codesign --force --sign - --timestamp=none -o runtime --generate-entitlement-der "$PLUGIN"
+    # The UI driver, a plugin of its own, built with the test options
+    if [ -d "$UI_DRIVER" ]; then
+        codesign --force --sign - --timestamp=none -o runtime --generate-entitlement-der "$UI_DRIVER"
+    fi
 }
 
 # Extra arguments are passed to cmake when configuring.
