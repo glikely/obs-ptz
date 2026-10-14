@@ -86,6 +86,8 @@ cmd_build() {
 	run_vm_script build root <<EOF
 set -e
 cmake -S "$SRC_VM" -B "$BUILD_VM" -G Ninja -DCMAKE_BUILD_TYPE=RelWithDebInfo $cmake_extra
+# The UI driver is only there if this build makes it: install copies it when it is
+rm -f "$BUILD_VM/obs-ui-driver.so"
 cmake --build "$BUILD_VM"
 echo BUILD_OK
 EOF

@@ -244,7 +244,7 @@ DIALOG_EDITS = {
 
 
 def open_dialog(obs_world, camera, tmp_path):
-    obs_world.run_ui_test("open_settings_dialog", device=camera.device_name)
+    obs_world.open_settings_dialog(camera.device_name)
     out = tmp_path / "dialog.json"
     return out, obs_world.wait_for_settings_dialog(
         out, lambda r: set(SETTABLE) | READ_ONLY | READ_ONLY_BLOCKS <= r["state_keys"], timeout=15)
@@ -268,7 +268,7 @@ def test_state_view_changes_a_setting(request, obs_world, tmp_path, key):
     value = DIALOG_EDITS[key]
     out, _ = open_dialog(obs_world, camera, tmp_path)
 
-    obs_world.run_ui_test("edit_dialog_state", **{key: value})
+    obs_world.edit_dialog_state(**{key: value})
 
     obs_world.wait_for(lambda: camera.sim.settings()[key] == value, timeout=5)
     # and the view follows the camera to it
@@ -276,6 +276,6 @@ def test_state_view_changes_a_setting(request, obs_world, tmp_path, key):
 
 
 def test_state_view_has_none_of_them_for_another_protocol(obs_world, tmp_path):
-    obs_world.run_ui_test("open_settings_dialog", device=obs_world.device_names["pelco-d"])
+    obs_world.open_settings_dialog(obs_world.device_names["pelco-d"])
     dialog = obs_world.wait_for_settings_dialog(tmp_path / "dialog.json", lambda r: "connected" in r["state_keys"])
     assert not (set(SETTABLE) | READ_ONLY | READ_ONLY_BLOCKS) & dialog["state_keys"]

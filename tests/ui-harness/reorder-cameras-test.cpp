@@ -140,7 +140,7 @@ void runReorderCamerasTest(const QMap<QString, QString> &params)
 
 /* Request params:
  *   in        - "dock" (the default) or "settings": which list a move is done in. The
- *               settings dialog has to be open, see open_settings_dialog
+ *               settings dialog has to be open, see World.open_settings_dialog()
  *   set_order - optional: comma-separated camera names to hand to
  *               setDeviceOrder(), as a loaded scene collection does
  *   from, to  - optional: move the camera in row `from` to `to`

@@ -31,7 +31,7 @@ would otherwise let the plugin share it and a reply would go to the camera.
 
 ## How a test reaches the plugin
 
-Three ways, and a test uses the one that is how the thing is really done:
+Four ways, and a test uses the one that is how the thing is really done:
 
 - **OBS's own obs-websocket requests** for what a user does in OBS: making a
   scene, adding a source or a filter, switching scenes (which fires a
@@ -48,6 +48,15 @@ Three ways, and a test uses the one that is how the thing is really done:
   requests, and `World.events` one that is sent the vendor's events
   (obs-websocket's `Vendors` subscription), read by a thread of the client's
   own so that events nobody waits for don't stop it.
+- **The UI driver** (`tests/ui-driver/`, `World.ui`), for what a user sees
+  and does in a window: a plugin of its own, on obs-websocket's vendor
+  `"ui-driver"`, that finds Qt widgets by name, class or property, reads
+  them, and clicks, chooses and selects as a user does. It knows nothing of
+  obs-ptz, and its tests (`test_ui_driver.py`) are on OBS's own widgets. The
+  settings dialog's tests use it (`World.open_settings_dialog()`,
+  `settings_dialog()`, `edit_dialog_state()`). It is built with
+  `-DENABLE_UI_TESTS=ON` too, and a test that needs it is skipped
+  (`World.need_ui_driver()`) when OBS hasn't it.
 - **The UI test harness** (`tests/ui-harness/`, `World.run_ui_test()`), for
   what only the UI does or only code inside OBS sees: dialogs, the dock, the
   list model. It needs a build with `-DENABLE_UI_TESTS=ON`, answers only that
@@ -213,8 +222,9 @@ Linux.
     redrawn, that picking a white balance in the status view changes the
     camera, that a camera with diagnostics, and only one, has buttons for
     them that work, and that the dialog copes with its device being removed
-    or changing interface while it is open. Opens the real dialog through
-    `tests/ui-harness/settings-dialog-test.cpp`.
+    or changing interface while it is open. Opens the real dialog, and
+    reads and edits it, through the UI driver (`World.open_settings_dialog()`
+    and `World.settings_dialog()`).
 21. `test_api_version.py` covers the PTZ API's version: that
     `ptz_get_api_version`, on each device's proc_handler, reports the version `src/ptz.h` declares, asked over
     obs-websocket, and that
@@ -240,7 +250,7 @@ Linux.
     without them (`--visca-no-block-inquiries`), the single-value ones; that
     each setting with a command can be asked for with `ptz_request_state`;
     and that the settings dialog's state view shows every one and changes
-    them through `edit_dialog_state`. Each test has its own source with a
+    them through `World.edit_dialog_state()`. Each test has its own source with a
     VISCA filter, pointed at a `ptzsim` that reports the camera's settings
     under `"visca"` in its `--debug-http-port` `/state` output.
 25. `test_device_backup.py` covers the backup of devices that go away and

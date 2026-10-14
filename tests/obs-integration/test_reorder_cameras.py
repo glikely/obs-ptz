@@ -43,7 +43,7 @@ def cameras(obs_world, tmp_path):
 @pytest.fixture
 def dialog(obs_world, tmp_path):
     """The settings dialog, open, which has its own list of the cameras"""
-    obs_world.run_ui_test("open_settings_dialog", device=obs_world.device_names["visca-tcp"])
+    obs_world.open_settings_dialog(obs_world.device_names["visca-tcp"])
     out = tmp_path / "dialog.json"
     obs_world.wait_for(lambda: obs_world.reorder_cameras(out)["settings_devices"])
     return out

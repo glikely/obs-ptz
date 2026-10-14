@@ -32,7 +32,7 @@ from pathlib import Path
 
 import pytest
 from obsws import EVENT_VENDORS, Client, ObsWebSocketError
-from uidriver import UiDriver
+from uidriver import UiDriver, UiDriverError
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 
@@ -158,6 +158,12 @@ DEVICE_IDS = {
 # The name of the source each device is on: the one in its config, or for a
 # device that has none a placeholder the migration makes, named for its id
 DEVICE_NAMES = {key: f"sim-{key}" for key in DEVICE_IDS}
+
+# What the UI driver names OBS's main window, the PTZ settings dialog, and the
+# dialog's state view by
+OBS_MAIN = {"class": "OBSBasic"}
+SETTINGS_DIALOG = {"name": "PTZSettings"}
+STATE_VIEW = {"class": "PTZStateView"}
 DEVICE_NAMES["unnamed"] = f"PTZ Device {DEVICE_IDS['unnamed']}"
 
 
@@ -548,6 +554,10 @@ class World:
         self._recorded = []
         self._recording = set()
         self._record_start = time.monotonic()
+        # What open_settings_dialog() started counting from: settings_dialog()
+        # counts the settings view's redraws and the state view's changes since
+        self._settings_watch = None
+        self._state_updates_at_open = 0
         # Where and how to open another connection: set by obs_world
         self.ws_url = None
         self.ws_password = None
@@ -982,18 +992,123 @@ class World:
             time.sleep(interval)
         raise AssertionError(f"device {device_name} signals never matched predicate; last seen: {last}")
 
-    def settings_dialog(self, out_file):
-        """Fetches what the open PTZ settings dialog's two views hold, via
-        tests/ui-harness/settings-dialog-test.cpp's "get_settings_dialog"
-        test (open it first, with run_ui_test("open_settings_dialog"))."""
-        if out_file.exists():
-            out_file.unlink()
-        self.run_ui_test("get_settings_dialog", filename=str(out_file))
-        self.wait_for(out_file.exists)
-        raw = json.loads(out_file.read_text())
-        for name in ("settings_keys", "state_keys"):
-            raw[name] = {e["key"] for e in raw.get(name, [])}
-        return raw
+    def _open_settings_window(self):
+        """Opens the PTZ settings dialog as a user does, from OBS's Tools menu"""
+        self.ui.invoke(OBS_MAIN, "menuTools", {"class": "QAction", "text": "PTZ Devices"}, method="trigger")
+
+    def open_settings_dialog(self, device):
+        """Opens the PTZ settings dialog on a device, as a user does: from OBS's
+        Tools menu, then choosing the device in the dialog's list, then its
+        Devices tab. Counts the settings view's redraws and the state view's
+        changes from now (see settings_dialog()). Skips the test if OBS hasn't
+        the UI driver, as the dialog's other helpers do."""
+        self.need_ui_driver()
+        uuid = self.device_uuid(device)
+        assert uuid is not None, f"no device {device}"
+        self._open_settings_window()
+        self.ui.select(SETTINGS_DIALOG, "deviceList", value=uuid, role="uuid")
+        pages = [tab["page"] for tab in self.ui.get1(SETTINGS_DIALOG, "tabWidget", name="tabs")]
+        self.ui.set(SETTINGS_DIALOG, "tabWidget", currentIndex=pages.index("devicesTab"))
+        self._settings_watch = self.ui.watch(SETTINGS_DIALOG, {"class": "OBSPropertiesView"},
+                                             signal="PropertiesRefreshed")
+        self._state_updates_at_open = self.ui.get1(SETTINGS_DIALOG, STATE_VIEW, name="updateCount")
+
+    def settings_dialog(self, out_file=None):
+        """What the open PTZ settings dialog shows, read from its widgets
+        through the UI driver (open it first, with open_settings_dialog()):
+
+          settings_keys - the keys of the settings the settings view edits
+          shown, state_keys - every value the state view shows, by key, and its keys
+          wb_mode, connected, pan, tilt, zoom, focus - some of those
+          header - the status line above the views, with its markup
+          settings_refreshes, state_updates - how often the settings view
+              redrew, and the state view changed, since it was opened
+          apply_enabled - whether Apply is enabled: there are edits to apply
+          tabs - the visible tabs, [{"name"}...]
+          state_widgets - how many widgets the state view is made of
+          wb_widget - the id of its white balance list, None if it has none:
+              the same id is the same widget, kept rather than replaced
+          diagnostics_visible - whether the diagnostics are shown at all
+              (they are on a tab of their own, which may not be the one showing)
+
+        out_file is not used: it was where the harness wrote all this."""
+        self.need_ui_driver()
+        ui = self.ui
+        shown = ui.get1(SETTINGS_DIALOG, STATE_VIEW, name="shownValues") or {}
+        try:
+            wb_widget = ui.find(SETTINGS_DIALOG, STATE_VIEW, "wb_mode")[0]["id"]
+        except UiDriverError as e:
+            if e.code != "not_found":
+                raise
+            wb_widget = None
+        try:
+            state_widgets = len(ui.find(SETTINGS_DIALOG, STATE_VIEW, {"class": "QWidget"}, all=True))
+        except UiDriverError as e:
+            if e.code != "not_found":
+                raise
+            state_widgets = 0
+        dialog = {
+            "settings_keys": set(ui.get1(SETTINGS_DIALOG, name="settingsKeys") or []),
+            "shown": shown,
+            "state_keys": set(shown),
+            "wb_mode": shown.get("wb_mode", 0),
+            "connected": shown.get("connected", False),
+            "header": ui.get1(SETTINGS_DIALOG, "statusHeader", name="text"),
+            "settings_refreshes": ui.count(self._settings_watch) if self._settings_watch else 0,
+            "state_updates": ui.get1(SETTINGS_DIALOG, STATE_VIEW, name="updateCount") - self._state_updates_at_open,
+            "apply_enabled": ui.get1(SETTINGS_DIALOG, "applyButton", name="enabled"),
+            "tabs": [{"name": tab["text"]} for tab in ui.get1(SETTINGS_DIALOG, "deviceTabs", name="tabs")
+                     if tab["visible"]],
+            "state_widgets": state_widgets,
+            "wb_widget": wb_widget,
+            "diagnostics_visible": not ui.get1(SETTINGS_DIALOG, "diagnostics", name="hidden"),
+        }
+        for axis in ("pan", "tilt", "zoom", "focus"):
+            dialog[axis] = shown.get(axis, 0.0)
+        return dialog
+
+    def edit_dialog_state(self, **fields):
+        """Edits the state view's fields as a user does, each a state key and the
+        value to give it: picks it in a list, clicks a checkbox that isn't
+        already that way, or enters a number. A field that isn't there, or a
+        list without that value, is left: a user couldn't edit it either."""
+        self.need_ui_driver()
+        ui = self.ui
+        for key, value in fields.items():
+            field = (SETTINGS_DIALOG, STATE_VIEW, key)
+            try:
+                kind = ui.find(*field)[0]["class"]
+                if kind == "QComboBox":
+                    ui.activate(*field, data=value)
+                elif kind == "QCheckBox":
+                    if ui.get1(*field, name="checked") != bool(value):
+                        ui.invoke(*field, method="click")
+                elif kind == "QSpinBox":
+                    ui.set(*field, value=value)
+                else:
+                    raise AssertionError(f"the state view's {key} is a {kind}, which isn't edited")
+            except UiDriverError as e:
+                if e.code != "not_found":
+                    raise
+
+    def press_dialog_button(self, name):
+        """Presses one of the PTZ settings dialog's buttons, by its object
+        name ("cameraReport", say), as a user does"""
+        self.need_ui_driver()
+        self.ui.invoke(SETTINGS_DIALOG, name, method="click")
+
+    def set_live_move_lock(self, enabled):
+        """Turns "Block Live Camera Moves" on or off, with its checkbox in the
+        PTZ settings dialog, which is opened if it isn't"""
+        self.need_ui_driver()
+        try:
+            self.ui.find(SETTINGS_DIALOG)
+        except UiDriverError as e:
+            if e.code != "not_found":
+                raise
+            self._open_settings_window()
+        if self.ui.get1(SETTINGS_DIALOG, "livemoveCheckBox", name="checked") != enabled:
+            self.ui.invoke(SETTINGS_DIALOG, "livemoveCheckBox", method="click")
 
     def wait_for_settings_dialog(self, out_file, predicate, timeout=5, interval=0.2):
         """Polls settings_dialog() until predicate(result) is true."""

@@ -21,9 +21,7 @@ driver, `test_preset_view.py`), and `get_device_source`/`hold_source`
 `get_device_settings` (see `device-settings-test.cpp` and its driver,
 `test_device_settings.py`), and
 `watch_device_signals`/`get_device_signals` (see `device-signals-test.cpp`
-and its driver, `test_device_signals.py`), and `open_settings_dialog`/
-`get_settings_dialog`/`edit_dialog_state`/`press_dialog_button` (see
-`settings-dialog-test.cpp` and its driver, `test_settings_dialog.py`), and
+and its driver, `test_device_signals.py`), and
 `get_device_backups`/`add_device`/
 `remove_device` (see `device-backup-test.cpp` and its drivers,
 `test_device_backup.py` and `test_device_discovery.py`), and
@@ -62,9 +60,17 @@ finished loading first).
 
 ## What goes through the harness, and what doesn't
 
-The harness is for what only the UI can do, or only code inside OBS can see:
-a dialog, the dock's widgets, what a list model tells its views, a device made
-by a stand-in for another plugin. A test that calls a proc of the PTZ API, or
+What a user sees and does in a window goes through the UI driver
+(`tests/ui-driver/`), a plugin of its own that finds and drives any of OBS's
+Qt widgets generically: the settings dialog's tests use it, and its hooks
+here, `open_settings_dialog`, `get_settings_dialog`, `edit_dialog_state`,
+`press_dialog_button` and `set_live_move_lock`, are gone. A widget's state
+that a test reads is a Qt property of the widget (`PTZStateView`'s
+`shownValues`, say), which the driver reads.
+
+The harness is for what the UI driver can't reach, or only code inside OBS
+can see: a dialog the driver doesn't drive yet, the dock's widgets, what a
+list model tells its views, a device made by a stand-in for another plugin. A test that calls a proc of the PTZ API, or
 waits for one of its signals, does it as a client of obs-websocket does, with
 the `"obs-ptz"` vendor's request and event of the same name (see "WebSocket
 binding" in `docs/ptz-device-api.md`): `World.call_proc()`, `device_state()`,

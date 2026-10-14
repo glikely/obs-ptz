@@ -89,7 +89,6 @@ void registerSceneItemSelectTest(PTZUITestHarness *harness);
 void registerDeviceSourceTest(PTZUITestHarness *harness);
 void registerDeviceSettingsTest(PTZUITestHarness *harness);
 void registerDeviceSignalsTest(PTZUITestHarness *harness);
-void registerSettingsDialogTest(PTZUITestHarness *harness);
 void registerCameraReportTest(PTZUITestHarness *harness);
 void registerDriverKindsTest(PTZUITestHarness *harness);
 void registerDiscoveryTest(PTZUITestHarness *harness);
