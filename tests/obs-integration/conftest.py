@@ -777,12 +777,12 @@ class World:
             return {"called": False}
         return {"called": True, **self.ws.vendor("obs-ptz", "ptz_get_api_version", {"device": uuid})}
 
-    def _collect_preset_signals(self):
+    def _collect_preset_signals(self, settle=0.05):
         """Takes what has come on the signals' connection, and keeps the
         ptz_preset_* events of the devices being recorded. An event is sent apart
         from the answer to the request that caused it, and can come a moment
-        after it."""
-        time.sleep(0.05)
+        after it: settle is how long that moment is waited for."""
+        time.sleep(settle)
         for event in self.signals.take("VendorEvent"):
             data = event["eventData"]
             fields = data.get("eventData") or {}
@@ -797,7 +797,9 @@ class World:
         """Starts recording device's ptz_preset_* signals, as the events a client
         of obs-websocket is sent, from nothing, or with keep only makes sure it is
         being recorded, and keeps what has been"""
-        self._collect_preset_signals()
+        # What was said before recording began is not to be taken for what
+        # came after: a little longer for it, on a slow machine
+        self._collect_preset_signals(settle=0.05 if keep else 0.3)
         if not keep:
             self._recorded = []
             self._recording = set()

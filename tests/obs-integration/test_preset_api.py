@@ -509,11 +509,23 @@ def recalled(world):
 
 
 def two_local_presets(world, presets, device):
+    """Two presets, each with the thumbnail that saving it captures: that is
+    made after a preset is, and said after, and a test that records what is
+    said from then on is not to hear it, however late it comes"""
     go_to(world, device, 0.3, 0.2, 0.4)
     a = presets.create("A", store="local")
+    world.wait_for(lambda: thumbnail_of(world, device, a), timeout=10)
     go_to(world, device, -0.3, -0.2, 0.1)
     b = presets.create("B", store="local")
+    world.wait_for(lambda: thumbnail_of(world, device, b), timeout=10)
     return a, b
+
+
+def wait_for_arrival_of(world, preset_id):
+    """Once the recall of preset_id has been said to arrive: what the
+    controller does after it, it does a fixed time after the arrival, and not
+    after the recall was asked for, which can be some time before it is done"""
+    world.wait_for(lambda: recalled(world) == [preset_id], timeout=RECALL_SETTLE + 5, interval=0.02)
 
 
 def test_onvif_has_no_move_completion(obs_world):
@@ -614,9 +626,8 @@ def test_a_move_while_the_controller_waits_skips_the_capture(obs_world, made, pr
 
     presets.call("ptz_preset_recall", id=a)
     # after the arrival, inside the controller's wait
-    time.sleep(RECALL_SETTLE + 0.3)
+    wait_for_arrival_of(obs_world, a)
     presets.call(proc, **args)
-    assert recalled(obs_world) == [a], "the move came before the arrival"
     time.sleep(THUMBNAIL_SETTLE + 1)
     assert thumbnail_changes(obs_world) == []
 
@@ -629,9 +640,8 @@ def test_a_recall_while_the_controller_waits_skips_the_older_capture(obs_world, 
     obs_world.record_preset_signals(device)
 
     presets.call("ptz_preset_recall", id=a)
-    time.sleep(RECALL_SETTLE + 0.3)
+    wait_for_arrival_of(obs_world, a)
     presets.call("ptz_preset_recall", id=b)
-    assert recalled(obs_world) == [a], "B came before A arrived"
     obs_world.wait_for(lambda: thumbnail_changes(obs_world), timeout=RECALL_SETTLE + THUMBNAIL_SETTLE + 3)
     time.sleep(0.5)
     assert recalled(obs_world) == [a, b]
