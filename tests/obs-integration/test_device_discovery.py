@@ -14,8 +14,10 @@ broadcast, so these need a network interface that can multicast and
 broadcast; loopback alone won't do.
 
 The dialog is driven through tests/ui-harness/device-backup-test.cpp's
-"add_device", which waits for a detected device to show up before picking it;
-the discovery kinds, without the dialog, through
+"add_device", which waits for a detected device to show up before picking it.
+The discovery kinds, without the dialog, are driven over the PTZ API's
+websocket binding, as a remote controller does, and, for what only a listener
+inside OBS can do from inside a signal, through
 tests/ui-harness/discovery-test.cpp.
 """
 
@@ -186,7 +188,7 @@ def discovery_kinds(world, out):
 def discover(world, out, **mode):
     """Makes a private instance of each discovery kind, starts it, and has what
     each said until it finished (see tests/ui-harness/discovery-test.cpp for
-    `mode`)"""
+    `mode`): what only a listener inside OBS can do, from inside a signal"""
     world.run_ui_test("discover", filename=str(out), **mode)
     world.wait_for(out.exists, timeout=20)
     return json.loads(out.read_text())
@@ -211,20 +213,54 @@ def test_discovery_kind_not_listed(obs_world, tmp_path):
         assert entry["name"], kind
 
 
-def test_discovery_through_source_api(obs_world, onvif_sim, sony_sim, tmp_path):
+def discover_over_websocket(world, timeout=20):
+    """Starts each of the websocket binding's discovery instances, as a remote
+    controller does, and has what each said until it finished, and for a while
+    after: {"instances": {uuid: kind}, "said": [(event, data)...]}"""
+    instances = {i["device"]: i["kind"] for i in world.ws.vendor("obs-ptz", "ptz_list_discovery")["instances"]}
+    # The binding keeps its instances: one may still be looking for an earlier test
+    for uuid in instances:
+        world.ws.vendor("obs-ptz", "ptz_discovery_stop", {"device": uuid})
+    world.events.events("VendorEvent", settle=0.3)
+    for uuid in instances:
+        world.ws.vendor("obs-ptz", "ptz_discovery_start", {"device": uuid})
+
+    said = []
+    finished = set()
+
+    def listen(settle):
+        for event in world.events.events("VendorEvent", settle=settle):
+            data = event.get("eventData") or {}
+            if event.get("vendorName") != "obs-ptz" or data.get("device") not in instances:
+                continue
+            said.append((event["eventType"], data))
+            if event["eventType"] == "ptz_discovery_finished":
+                finished.add(data["device"])
+
+    deadline = time.time() + timeout
+    while finished != set(instances) and time.time() < deadline:
+        listen(0.5)
+    # Anything said after finishing is said soon after
+    listen(1.0)
+    return {"instances": instances, "said": said}
+
+
+def test_discovery_through_websocket(obs_world, onvif_sim, sony_sim):
     host = primary_ipv4()
-    result = discover(obs_world, tmp_path / "discover.json")
+    result = discover_over_websocket(obs_world)
 
     instances = result["instances"]
-    assert set(instances) == DISCOVERY_KINDS
-    for kind, instance in instances.items():
-        assert (instance["major"], instance["minor"]) == (0, 4), kind
-        assert instance["finished"] == 1, kind
-        assert instance["found_after_finished"] == 0, kind
+    assert set(instances.values()) == DISCOVERY_KINDS
+    for uuid, kind in instances.items():
+        version = obs_world.ws.vendor("obs-ptz", "ptz_get_api_version", {"device": uuid})
+        assert (version["major"], version["minor"]) == (0, 4), kind
+        said = [event for event, data in result["said"] if data["device"] == uuid]
+        assert said.count("ptz_discovery_finished") == 1, kind
+        assert "ptz_device_found" not in said[said.index("ptz_discovery_finished"):], f"{kind} found after finishing"
 
-    found = result["found"]
+    found = [{**data, "discovery": instances[data["device"]]}
+             for event, data in result["said"] if event == "ptz_device_found"]
     for device in found:
-        assert device["source_is_instance"], device
         assert device["kind"] == device["discovery"].removesuffix(".discovery"), device
     for kind in DISCOVERY_KINDS:
         ids = [d["id"] for d in found if d["discovery"] == kind]
