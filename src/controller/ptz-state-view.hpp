@@ -41,6 +41,9 @@ class QVBoxLayout;
  * changed. */
 class PTZStateView : public QWidget {
 	Q_OBJECT
+	/* For whatever reads widgets by their Qt properties, as tests do */
+	Q_PROPERTY(QVariantMap shownValues READ shownValues NOTIFY shownChanged)
+	Q_PROPERTY(int updateCount READ updateCount NOTIFY shownChanged)
 
 public:
 	explicit PTZStateView(QWidget *parent = nullptr);

@@ -78,9 +78,15 @@ private:
 	QTimer statisticsTimer;
 	void refreshStatistics();
 
+	/* For whatever reads widgets by their Qt properties, as tests do */
+	Q_PROPERTY(QStringList settingsKeys READ settingsKeys)
+
 public:
 	PTZSettings();
 	~PTZSettings();
+
+	/* The keys of the settings the settings view edits */
+	QStringList settingsKeys() const;
 
 	bool eventFilter(QObject *watched, QEvent *event) override;
 

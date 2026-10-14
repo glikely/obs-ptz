@@ -599,6 +599,13 @@ static int presetNumber(const PTZListModel::PresetEntry &preset, int row)
 	return isNumber ? number : row + 1;
 }
 
+QHash<int, QByteArray> PTZListModel::roleNames() const
+{
+	QHash<int, QByteArray> roles = QAbstractItemModel::roleNames();
+	roles.insert(DeviceUuidRole, "uuid");
+	return roles;
+}
+
 QVariant PTZListModel::data(const QModelIndex &index, int role) const
 {
 	if (!index.isValid())

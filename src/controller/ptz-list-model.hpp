@@ -127,6 +127,8 @@ public:
 	bool moveRows(const QModelIndex &srcParent, int srcRow, int count, const QModelIndex &destParent,
 		      int destChild) override;
 	QVariant data(const QModelIndex &index, int role) const override;
+	/* Qt's roles, and DeviceUuidRole as "uuid", for a view's user to name it by */
+	QHash<int, QByteArray> roleNames() const override;
 	bool setData(const QModelIndex &index, const QVariant &value, int role = Qt::EditRole) override;
 	void do_reset();
 	Qt::ItemFlags flags(const QModelIndex &index) const override;

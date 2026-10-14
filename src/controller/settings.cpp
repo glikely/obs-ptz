@@ -1051,6 +1051,17 @@ void PTZSettings::deviceStateUpdated(const QString &uuid, OBSData changed)
 		QMetaObject::invokeMethod(propertiesView, "RefreshProperties", Qt::QueuedConnection);
 }
 
+QStringList PTZSettings::settingsKeys() const
+{
+	QStringList keys;
+	obs_data_t *settings = propertiesView ? propertiesView->GetSettings() : nullptr;
+	if (!settings)
+		return keys;
+	for (obs_data_item_t *item = obs_data_first(settings); item; obs_data_item_next(&item))
+		keys << QString::fromUtf8(obs_data_item_get_name(item));
+	return keys;
+}
+
 void PTZSettings::showDevice(const QModelIndex &index)
 {
 	if (index.isValid()) {
