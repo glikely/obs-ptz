@@ -1518,6 +1518,10 @@ def obs_world(tmp_path_factory, ptzsim_process, sony_ptzsim, birddog_ptzsim, pow
         # What it exited with: not 0 if it crashed on the way out
         world.exit_code = quitting.returncode
         start_obs()
+        # Not left to quit again before it has settled: a device set to turn its
+        # camera on when OBS starts has done so, as the check that it turns it
+        # off as OBS closes, at the end of the session, takes for granted
+        world.wait_for(lambda: power_ptzsim.power() is True, timeout=30)
         world.ws = running["ws"]
         world.events = running["events"]
         world.signals = running["signals"]
