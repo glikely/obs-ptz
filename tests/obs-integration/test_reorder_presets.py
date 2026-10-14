@@ -25,9 +25,10 @@ def presets(obs_world, tmp_path):
         obs_world.call_proc(device, "ptz_preset_delete", {"id": preset_id})
     made = []
     for name in NAMES:
-        result = obs_world.call_proc(device, "ptz_preset_create", {"name": name, "store": "local"}, returns="string")
-        assert result["return"], f"no preset made for {name}"
-        made.append(result["return"])
+        # ptz_preset_create only returns a request: the preset's id comes with its create_done
+        preset_id = obs_world.create_preset(device, name, store="local")
+        assert preset_id, f"no preset made for {name}"
+        made.append(preset_id)
     out = tmp_path / "order.json"
     obs_world.wait_for(lambda: obs_world.reorder_presets(out, select=device)["presets"] == NAMES)
     yield device, out
