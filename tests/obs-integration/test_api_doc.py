@@ -16,10 +16,10 @@ and checks it against:
    proc and signal, a device's (PTZDevice) and a discovery instance's
    (src/core/ptz-discovery-kind.cpp), as an "[ptz-api] <scope> <declaration>"
    line in OBS's log, once per driver module, each of which has its own. The
-   lines of all of them, once tests/ui-harness/api-version-test.cpp's
-   "make_discovery_instances" test has made an instance of each discovery
-   kind so that theirs are there too, are what is registered, so a proc added
-   in the code and not here fails, and so does one here and not in the code;
+   lines of all of them, once the websocket binding's ptz_list_discovery has
+   made an instance of each discovery kind so that theirs are there too, are
+   what is registered, so a proc added in the code and not here fails, and so
+   does one here and not in the code;
  * real devices' state and config, whose keys have to be documented, and
    present, with the documented types;
  * the source, for the feature and trigger names, which the plugin doesn't
@@ -31,7 +31,6 @@ and checks it against:
    where it is not the control that most procs are.
 """
 
-import json
 import re
 from pathlib import Path
 
@@ -132,11 +131,18 @@ def registered_api(log):
     return registered
 
 
-def test_the_doc_lists_what_the_plugin_registers(obs_world, tmp_path):
-    out = tmp_path / "made.json"
-    obs_world.run_ui_test("make_discovery_instances", filename=str(out))
-    obs_world.wait_for(out.exists)
-    assert json.loads(out.read_text())["made"], "made no discovery instance"
+def discovery_instances(obs_world):
+    """The websocket binding's discovery instances, one of each kind, which it
+    makes the first time it is asked, registering their procs and signals"""
+    instances = obs_world.ws.vendor("obs-ptz", "ptz_list_discovery")["instances"]
+    assert instances, "made no discovery instance"
+    return instances
+
+
+def test_the_doc_lists_what_the_plugin_registers(obs_world):
+    # Only a build with the harness logs what is registered
+    obs_world.need_harness()
+    discovery_instances(obs_world)
 
     documented = {scope: set(signatures) for scope, signatures in documented_signatures().items()}
     # The log is written as the instances register
@@ -152,27 +158,25 @@ def test_the_doc_lists_what_the_plugin_registers(obs_world, tmp_path):
 # --- what the API says of itself --------------------------------------------------
 
 
-def api_infos(obs_world, tmp_path):
+def api_infos(obs_world):
     """{"device": ..., "discovery": ...}: what ptz_get_api_info returns, of a device
     and of a discovery instance"""
     device = obs_world.call_proc(obs_world.device_names["visca-tcp"], "ptz_get_api_info", returns="data")
     assert device["called"], "a device has no ptz_get_api_info"
-    out = tmp_path / "made.json"
-    obs_world.run_ui_test("make_discovery_instances", filename=str(out))
-    obs_world.wait_for(out.exists)
-    made = json.loads(out.read_text())["made"]
-    assert made and all(m.get("api") for m in made), "a discovery instance has no ptz_get_api_info"
+    made = [obs_world.ws.vendor("obs-ptz", "ptz_get_api_info", {"device": instance["device"]}).get("return")
+            for instance in discovery_instances(obs_world)]
+    assert all(made), "a discovery instance has no ptz_get_api_info"
     # every kind's is the same: they all get it from ptz_discovery_add_api()
-    assert all(m["api"] == made[0]["api"] for m in made)
-    return {"device": device["return"], "discovery": made[0]["api"]}
+    assert all(api == made[0] for api in made)
+    return {"device": device["return"], "discovery": made[0]}
 
 
 @pytest.mark.parametrize("kind,procs,signals", [
     ("device", "Per-device proc_handler", "Per-device signal_handler"),
     ("discovery", "Per-discovery proc_handler", "Per-discovery signal_handler"),
 ])
-def test_api_info_lists_what_the_doc_lists(obs_world, tmp_path, kind, procs, signals):
-    info = api_infos(obs_world, tmp_path)[kind]
+def test_api_info_lists_what_the_doc_lists(obs_world, kind, procs, signals):
+    info = api_infos(obs_world)[kind]
     assert {p["decl"] for p in info["procs"]} == set(documented_procs(procs))
     assert {s["decl"] for s in info["signals"]} == set(documented_signatures()[SCOPES[signals]])
     for entry in info["procs"] + info["signals"]:
@@ -183,9 +187,9 @@ def test_api_info_lists_what_the_doc_lists(obs_world, tmp_path, kind, procs, sig
     ("device", "Per-device proc_handler"),
     ("discovery", "Per-discovery proc_handler"),
 ])
-def test_each_proc_is_tagged_as_the_doc_says(obs_world, tmp_path, kind, title):
+def test_each_proc_is_tagged_as_the_doc_says(obs_world, kind, title):
     documented = documented_procs(title)
-    info = api_infos(obs_world, tmp_path)[kind]
+    info = api_infos(obs_world)[kind]
     for proc in info["procs"]:
         thread, access = documented[proc["decl"]]
         assert thread is not None, f"{proc['name']}: the doc doesn't say which thread"
@@ -193,9 +197,9 @@ def test_each_proc_is_tagged_as_the_doc_says(obs_world, tmp_path, kind, title):
         assert proc["access"] == access, proc["name"]
 
 
-def test_the_procs_a_remote_caller_may_only_read_with(obs_world, tmp_path):
+def test_the_procs_a_remote_caller_may_only_read_with(obs_world):
     """The ones that neither move the camera nor change what the device keeps"""
-    info = api_infos(obs_world, tmp_path)["device"]
+    info = api_infos(obs_world)["device"]
     by_access = {}
     for proc in info["procs"]:
         by_access.setdefault(proc["access"], set()).add(proc["name"])

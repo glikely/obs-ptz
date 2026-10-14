@@ -33,7 +33,6 @@ PTZUITestHarness::PTZUITestHarness(QObject *parent) : QObject(parent)
 	registerDeviceSettingsTest(this);
 	registerDeviceSignalsTest(this);
 	registerSettingsDialogTest(this);
-	registerApiVersionTest(this);
 	registerDriverKindsTest(this);
 	registerDiscoveryTest(this);
 	registerDeviceBackupTest(this);

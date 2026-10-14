@@ -284,8 +284,8 @@ Linux.
 29. `test_api_doc.py` holds `docs/ptz-device-api.md`, the hand-written
     specification of the PTZ API, to the plugin: that its procs and signals are
     exactly the ones the plugin registers (logged by `ptz_proc_add()` and
-    `ptz_signal_add()`, read through
-    `tests/ui-harness/api-version-test.cpp`'s `get_registered_api` test), that
+    `ptz_signal_add()` in a build with the UI test harness, once the websocket
+    binding's `ptz_list_discovery` has made a discovery instance of each kind), that
     the state and config keys it lists are on real devices with the types it
     gives, and that its features and triggers are the ones in the source.
 

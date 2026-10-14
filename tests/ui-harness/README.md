@@ -24,8 +24,7 @@ driver, `test_preset_view.py`), and `get_device_source`/`hold_source`
 and its driver, `test_device_signals.py`), and `open_settings_dialog`/
 `get_settings_dialog`/`edit_dialog_state`/`press_dialog_button` (see
 `settings-dialog-test.cpp` and its driver, `test_settings_dialog.py`), and
-`make_discovery_instances` (see `api-version-test.cpp` and its driver,
-`test_api_doc.py`), and `get_device_backups`/`add_device`/
+`get_device_backups`/`add_device`/
 `remove_device` (see `device-backup-test.cpp` and its drivers,
 `test_device_backup.py` and `test_device_discovery.py`), and
 `discovery_kinds`/`discover`/`get_discovery_spy` (see `discovery-test.cpp`
@@ -74,9 +73,10 @@ binding" in `docs/ptz-device-api.md`): `World.call_proc()`, `device_state()`,
 with nothing to poll, and it is the path a remote controller uses. Those went
 through the harness once, as `call_proc`, `get_device_state`, `get_api_version`,
 `record_preset_signals`/`get_preset_signals`, `set_device_state`,
-`move_device`, `trigger_device`, `get_device_status` and `get_camera_report`,
-which are gone. So is what obs-websocket's own requests do: `update_device`
-(`SetSourceFilterSettings`, in `World.update_device()`).
+`move_device`, `trigger_device`, `get_device_status`, `get_camera_report` and
+`make_discovery_instances`, which are gone. So is what obs-websocket's own
+requests do: `update_device` (`SetSourceFilterSettings`, in
+`World.update_device()`).
 
 An earlier version polled a temp file every 100ms instead. obs-websocket
 is strictly better here: it already ships with OBS on every platform,
