@@ -72,7 +72,8 @@ Each segment has to name exactly one object, or the answer is `not_found` or
 true`, which names every object it matches.
 
 A value in a request is compared with an object's as numbers if both are
-numbers, as true or false if both are, and otherwise as text.
+numbers, as true or false if both are, and otherwise as text. A list, an
+object or null matches nothing.
 
 ### Objects and their properties
 

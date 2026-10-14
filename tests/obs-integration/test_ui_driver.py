@@ -349,3 +349,14 @@ def test_count_of_a_destroyed_object_is_not_found(obs_world):
         assert obs_world.ws.call("GetVersion")["obsVersion"]
     finally:
         obs_world.ws.call("RemoveInput", {"inputName": source})
+
+
+@pytest.mark.parametrize("value", [[], {}, None])
+def test_a_list_an_object_or_nothing_is_no_value_to_match(obs_world, value):
+    """Criteria are compared as numbers, true or false, or text: a list, an
+    object or null is none of them, and matches nothing, not every object
+    whose property is empty (a menu's separators have empty text)"""
+    obs_world.need_ui_driver()
+    with pytest.raises(UiDriverError) as raised:
+        obs_world.ui.find(MAIN, {"class": "QAction", "text": value}, all=True)
+    assert raised.value.code == "not_found"

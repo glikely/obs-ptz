@@ -101,8 +101,11 @@ QJsonObject onMainThread(const Handler &handler, const QJsonObject &request)
 		qApp,
 		[hop, handler, request]() {
 			{
+				/* Not once OBS has said it is exiting, although the request
+				 * hasn't woken to give up yet: OBS runs what was posted while
+				 * it takes the UI apart */
 				std::lock_guard<std::mutex> lock(hopMutex);
-				if (hop->cancelled)
+				if (hop->cancelled || closing.load())
 					return;
 			}
 			QJsonObject answer = handler(request);

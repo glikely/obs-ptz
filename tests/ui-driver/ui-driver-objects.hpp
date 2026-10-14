@@ -33,7 +33,8 @@ QString objectId(QObject *object);
 QJsonObject describe(QObject *object);
 
 /* Whether a value from a request is `value`: as numbers if both are, as
- * bools if both are, and otherwise as text */
+ * bools if both are, and otherwise as text. A list, an object or null is
+ * no value. */
 bool matches(const QJsonValue &json, const QVariant &value);
 
 /* `value` as JSON: what QJsonValue::fromVariant() makes of it, or its text if

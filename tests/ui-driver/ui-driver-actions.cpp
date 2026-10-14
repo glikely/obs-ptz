@@ -162,10 +162,14 @@ QJsonObject activateRequest(const QJsonObject &request)
 		if (!chosen)
 			continue;
 		/* As a user's choice: the list says it was chosen, which it doesn't for a
-		 * change made in code */
-		combo->setCurrentIndex(i);
-		emit combo->activated(i);
-		emit combo->textActivated(combo->itemText(i));
+		 * change made in code. What is told of it may delete the list. */
+		const QString text = combo->itemText(i);
+		QPointer<QComboBox> list(combo);
+		list->setCurrentIndex(i);
+		if (list)
+			emit list->activated(i);
+		if (list)
+			emit list->textActivated(text);
 		return QJsonObject{{"index", i}};
 	}
 	return error("not_found", "the combo box has no such item");
@@ -194,7 +198,8 @@ QJsonObject selectRequest(const QJsonObject &request)
 
 	for (int row = 0; row < model->rowCount(view->rootIndex()); row++) {
 		QModelIndex index = model->index(row, column, view->rootIndex());
-		if (!matches(request["value"], index.data(role)))
+		QVariant data = index.data(role);
+		if (!data.isValid() || !matches(request["value"], data))
 			continue;
 		/* As a click does */
 		view->selectionModel()->setCurrentIndex(index, QItemSelectionModel::ClearAndSelect |

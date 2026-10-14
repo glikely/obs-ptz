@@ -195,6 +195,10 @@ QJsonObject describe(QObject *object)
 
 bool matches(const QJsonValue &json, const QVariant &value)
 {
+	/* A list, an object or null is none of a number, true or false, or text,
+	 * and would otherwise be compared as text, which for them is "" */
+	if (json.isArray() || json.isObject() || json.isNull() || json.isUndefined())
+		return false;
 	if (json.isDouble() && isNumber(value))
 		return json.toDouble() == value.toDouble();
 	if (json.isBool() && value.typeId() == QMetaType::Bool)
