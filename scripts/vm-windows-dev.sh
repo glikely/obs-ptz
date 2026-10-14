@@ -140,13 +140,30 @@ cmd_test() {
 	require_arch "${1:-}" test
 	# What follows the architecture goes to pytest
 	src_win="$(win_src)"
+	rel_win="${src_win#\\\\psf\\hacking\\}"
 	run_vm_bat test <<EOF
 @echo off
-rem cmd's cd /d can't target a UNC path (\\psf\hacking\...); pushd maps
-rem one to a temporary drive letter and cds into that instead.
-pushd "$src_win"
+rem cmd's cd /d can't target a UNC path (\\psf\hacking\...), so the share is
+rem given a drive letter. Always the same one: CMake keeps the path of the
+rem build in its cache, a letter and all, and won't use a cache made under
+rem another letter. pushd takes whichever is free, and leaves it taken, so it
+rem was a different one each run. P: is used if it is free or already the
+rem share; otherwise, pushd, as before.
+net use P: 2>nul | find /i "\\\\psf\\hacking" >nul
+if errorlevel 1 (
+  if exist P:\ goto pushd
+  net use P: "\\\\psf\\hacking" /persistent:no >nul
+  if errorlevel 1 goto pushd
+)
+cd /d "P:\\$rel_win"
 call scripts\windows-build-and-test.bat $*
 exit /b %ERRORLEVEL%
+:pushd
+pushd "$src_win"
+call scripts\windows-build-and-test.bat $*
+set RC=%ERRORLEVEL%
+popd
+exit /b %RC%
 EOF
 }
 
