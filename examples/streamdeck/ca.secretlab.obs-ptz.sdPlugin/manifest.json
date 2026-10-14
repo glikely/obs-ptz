@@ -1,0 +1,65 @@
+{
+	"Name": "PTZ Controls",
+	"Version": "0.1.0.0",
+	"Author": "Grant Likely",
+	"Actions": [
+		{
+			"Name": "Move",
+			"UUID": "ca.secretlab.obs-ptz.move",
+			"Icon": "imgs/actions/move/icon",
+			"Tooltip": "Moves a camera while the key is held.",
+			"PropertyInspectorPath": "ui/move.html",
+			"Controllers": ["Keypad"],
+			"SupportedInMultiActions": false,
+			"States": [
+				{
+					"Image": "imgs/actions/move/key",
+					"TitleAlignment": "bottom"
+				}
+			]
+		},
+		{
+			"Name": "Preset",
+			"UUID": "ca.secretlab.obs-ptz.preset",
+			"Icon": "imgs/actions/preset/icon",
+			"Tooltip": "Recalls a camera's preset, and lights up while the camera is there.",
+			"PropertyInspectorPath": "ui/preset.html",
+			"Controllers": ["Keypad"],
+			"DisableAutomaticStates": true,
+			"States": [
+				{
+					"Image": "imgs/actions/preset/key",
+					"TitleAlignment": "middle"
+				},
+				{
+					"Image": "imgs/actions/preset/key-at",
+					"TitleAlignment": "middle"
+				}
+			]
+		}
+	],
+	"Category": "PTZ Controls",
+	"CategoryIcon": "imgs/plugin/category-icon",
+	"CodePath": "bin/plugin.js",
+	"Description": "Moves the cameras of OBS's PTZ Controls, and recalls their presets, over obs-websocket.",
+	"Icon": "imgs/plugin/marketplace",
+	"SDKVersion": 3,
+	"Software": {
+		"MinimumVersion": "7.1"
+	},
+	"OS": [
+		{
+			"Platform": "mac",
+			"MinimumVersion": "12"
+		},
+		{
+			"Platform": "windows",
+			"MinimumVersion": "10"
+		}
+	],
+	"Nodejs": {
+		"Version": "24",
+		"Debug": "enabled"
+	},
+	"UUID": "ca.secretlab.obs-ptz"
+}
