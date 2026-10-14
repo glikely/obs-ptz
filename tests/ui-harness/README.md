@@ -76,7 +76,7 @@ through the harness once, as `call_proc`, `get_device_state`, `get_api_version`,
 `move_device`, `trigger_device`, `get_device_status`, `get_camera_report` and
 `make_discovery_instances`, which are gone. So is what obs-websocket's own
 requests do: `update_device` (`SetSourceFilterSettings`, in
-`World.update_device()`).
+`World.update_device()`) and `fire_hotkey` (`TriggerHotkeyByName`).
 
 An earlier version polled a temp file every 100ms instead. obs-websocket
 is strictly better here: it already ships with OBS on every platform,

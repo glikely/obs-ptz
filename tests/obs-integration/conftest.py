@@ -1085,8 +1085,9 @@ class World:
         return result
 
     def fire_hotkey(self, name):
-        """Presses a hotkey of the dock, by name ("PTZ.Recall2"), the way a bound key does"""
-        self.run_ui_test("fire_hotkey", name=name)
+        """Presses a hotkey of the dock, by name ("PTZ.Recall2"), the way a bound key
+        does, with obs-websocket's TriggerHotkeyByName"""
+        self.ws.call("TriggerHotkeyByName", {"hotkeyName": name})
 
     def hotkey_description(self, name):
         """What the Hotkeys settings call a hotkey of the dock, or None if there is none"""
