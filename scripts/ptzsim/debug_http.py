@@ -4,7 +4,9 @@ Not a camera protocol -- just a way for a test harness to ask "what does
 the simulated camera think its state is right now" without decoding one
 of the real wire protocols. Off unless --debug-http-port is passed. A POST
 to /move_time changes how long the camera's moves take, for a test of what
-happens while one is under way.
+happens while one is under way, and one to /serial/release lets the emulated
+serial ports be opened again by a program after one that never closed them
+(see EmulatedSerialPort.release()).
 """
 
 import json
@@ -21,6 +23,13 @@ class DebugHandler(BaseHTTPRequestHandler):
     def do_POST(self):
         """/move_time {"seconds": s}: how long a move across the range takes
         from now on, as --move-time says (0 for at once)"""
+        if self.path == "/serial/release":
+            from .serial_port import release_all
+
+            release_all()
+            self.send_response(204)
+            self.end_headers()
+            return
         if self.path != "/move_time":
             self.send_response(404)
             self.end_headers()

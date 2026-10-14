@@ -11,6 +11,9 @@ a wire.
 import os
 import sys
 
+# Every emulated port there is, for release_all()
+_ports = []
+
 
 class EmulatedSerialPort:
     def __init__(self, symlink_path=None):
@@ -24,6 +27,7 @@ class EmulatedSerialPort:
         # straight back out through the master. Raw mode turns that off.
         tty.setraw(self.slave_fd)
         self.slave_name = os.ttyname(self.slave_fd)
+        _ports.append(self)
         self.symlink_path = symlink_path
         if symlink_path:
             try:
@@ -60,6 +64,22 @@ class EmulatedSerialPort:
         except OSError:
             pass
 
+    def release(self):
+        """Ends the exclusive use a program that opened the port asked for
+        (TIOCEXCL, as QSerialPort does), as the last close of a real port
+        does. This one never has a last close: the simulator keeps its own end
+        open. So on Linux, where the exclusive use outlasts the program that
+        asked for it, a program that went without closing the port, as one
+        that exits does, would leave it unopenable to the next"""
+        import fcntl
+        import termios
+
+        if hasattr(termios, "TIOCNXCL"):
+            try:
+                fcntl.ioctl(self.slave_fd, termios.TIOCNXCL)
+            except OSError:
+                pass
+
     def close(self, loop=None):
         if loop:
             try:
@@ -76,6 +96,12 @@ class EmulatedSerialPort:
                 os.remove(self.symlink_path)
             except OSError:
                 pass
+
+
+def release_all():
+    """EmulatedSerialPort.release() of every port there is"""
+    for port in _ports:
+        port.release()
 
 
 class DatagramFramer:

@@ -1430,6 +1430,16 @@ def obs_world(tmp_path_factory, ptzsim_process, sony_ptzsim, birddog_ptzsim, pow
 
     def start_obs():
         """Starts OBS on this home and connects to it once it has loaded"""
+        # An OBS that has quit leaves the simulated serial ports in the
+        # exclusive use it asked for, as it doesn't close them on its way out:
+        # a real port's goes with the last program that has it open, which the
+        # simulator, keeping its own end open, never is
+        if not IS_WINDOWS:
+            release = urllib.request.Request(
+                f"http://127.0.0.1:{ptzsim_process['ports']['debug_http']}/serial/release", data=b"",
+                method="POST")
+            with urllib.request.urlopen(release, timeout=5):
+                pass
         # Its own process group, so that whatever OBS starts goes when it does.
         with output_log("obs") as out:
             running["log"] = out.path
