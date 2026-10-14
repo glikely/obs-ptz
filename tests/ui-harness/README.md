@@ -75,7 +75,8 @@ with nothing to poll, and it is the path a remote controller uses. Those went
 through the harness once, as `call_proc`, `get_device_state`, `get_api_version`,
 `record_preset_signals`/`get_preset_signals`, `set_device_state`,
 `move_device`, `trigger_device`, `get_device_status` and `get_camera_report`,
-which are gone.
+which are gone. So is what obs-websocket's own requests do: `update_device`
+(`SetSourceFilterSettings`, in `World.update_device()`).
 
 An earlier version polled a temp file every 100ms instead. obs-websocket
 is strictly better here: it already ships with OBS on every platform,

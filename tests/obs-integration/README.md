@@ -138,11 +138,10 @@ Linux.
     ptzsim instance rather than the shared "visca-serial" device's, since
     ptzsim's simulated VISCA-serial camera only answers at bus address 1
     and sharing it would mean two devices filtering the same address off
-    the same wire. Uses `tests/ui-harness/update-device-test.cpp`'s
-    `update_device` test (same `-DENABLE_UI_TESTS=ON` requirement as
-    above), which applies a
-    settings change to a device the same way the properties dialog's
-    Apply/OK does.
+    the same wire. Uses `World.update_device()`, which applies a settings
+    change to a device the same way the properties dialog's Apply/OK does --
+    its whole settings, with the change over them -- as an update of its
+    filter over obs-websocket.
 12. `test_preset_view.py` covers what the PTZ Controls dock's preset list
     shows when there is no camera selected to show the presets of: nothing,
     not the list of cameras -- including after the model resets, as it does

@@ -81,7 +81,6 @@ extern "C" void ptz_load_ui_tests(void);
 /* Test registration hooks */
 void registerAppearanceRowSizingTest(PTZUITestHarness *harness);
 void registerPresetExportImportTest(PTZUITestHarness *harness);
-void registerUpdateDeviceTest(PTZUITestHarness *harness);
 void registerPresetViewTest(PTZUITestHarness *harness);
 void registerReorderPresetsTest(PTZUITestHarness *harness);
 void registerReorderCamerasTest(PTZUITestHarness *harness);

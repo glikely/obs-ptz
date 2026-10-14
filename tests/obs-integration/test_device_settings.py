@@ -69,7 +69,7 @@ def test_dialog_settings_reach_the_filter(obs_world, cameras, tmp_path):  # noqa
     device_name = obs_world.wait_for_device_by_name("dialog-cam", out, lambda r: r["found"] and r["bound"])["uuid"]
 
     # update_device seeds from the device's full save(), like the dialog does
-    obs_world.run_ui_test("update_device", device=device_name, tcp_port=5679)
+    obs_world.update_device(device_name, tcp_port=5679)
 
     def filter_settings():
         return obs_world.ws.call("GetSourceFilter", {"sourceName": "dialog-cam", "filterName": "PTZ"})["filterSettings"]

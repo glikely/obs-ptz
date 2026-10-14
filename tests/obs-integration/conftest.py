@@ -790,6 +790,26 @@ class World:
         """Has device do the one-shot action `name`, with ptz_trigger"""
         self._call_void(device, "ptz_trigger", {"name": name})
 
+    def update_device(self, device, **changes):
+        """Changes the settings of device's filter as the settings dialog's Apply
+        does: the whole of them, the kind's defaults and what the filter has, with
+        `changes` over them, so that what is not changed keeps its value. Over
+        obs-websocket, as SetSourceFilterSettings, which updates the filter as
+        PTZListModel::update() does."""
+        uuid = self.device_uuid(device)
+        assert uuid is not None, f"no device {device}"
+        listed = next(e for e in self.ws.vendor("obs-ptz", "ptz_list_devices")["devices"] if e["device"] == uuid)
+        where = {"sourceName": listed["source"], "filterName": listed["name"]}
+        current = self.ws.call("GetSourceFilter", where)
+        defaults = self.ws.call("GetSourceFilterDefaultSettings",
+                                {"filterKind": current["filterKind"]})["defaultFilterSettings"]
+        settings = {**defaults, **current["filterSettings"], **changes}
+        # The marks of a driver's kind are no setting of the device (see
+        # PTZListModel::save())
+        for mark in ("ptz_api_version_major", "ptz_api_version_minor"):
+            settings.pop(mark, None)
+        self.ws.call("SetSourceFilterSettings", {**where, "filterSettings": settings, "overlay": True})
+
     def api_version(self, device):
         """What device's ptz_get_api_version says, as {"called", "major", "minor"}"""
         uuid = self.device_uuid(device)

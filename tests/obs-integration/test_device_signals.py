@@ -37,7 +37,7 @@ def test_settings_update_is_announced(obs_world, tmp_path):
     obs_world.run_ui_test("watch_device_signals")
 
     # a whole, unedited settings update, as the dialog's Apply makes
-    obs_world.run_ui_test("update_device", device=device_name)
+    obs_world.update_device(device_name)
 
     obs_world.wait_for_device_signals(device_name, out, lambda r: r["settings_count"] >= 1)
 

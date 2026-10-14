@@ -120,7 +120,7 @@ def test_settings_changes_redraw_only_the_settings_view(obs_world, tmp_path):
     time.sleep(0.5)
     open_dialog(obs_world, device_name)  # settle, and count from zero
 
-    obs_world.run_ui_test("update_device", device=device_name)
+    obs_world.update_device(device_name)
     dialog = obs_world.wait_for_settings_dialog(out, lambda r: r["settings_refreshes"] > 0)
 
     assert dialog["state_updates"] == 0
@@ -235,7 +235,7 @@ def test_dialog_survives_its_device_changing_interface(obs_world, cameras, tmp_p
     device_name = obs_world.wait_for_device_by_name("dialog-iface-cam", out, lambda r: r["found"] and r["bound"])["uuid"]
     open_dialog(obs_world, device_name)
 
-    obs_world.run_ui_test("update_device", device=device_name, type="visca-over-ip", host="127.0.0.1", udp_port=9)
+    obs_world.update_device(device_name, type="visca-over-ip", host="127.0.0.1", udp_port=9)
     # give the change, and whatever the dialog does about it, time to happen
     time.sleep(1.0)
 

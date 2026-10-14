@@ -420,7 +420,6 @@ if(ENABLE_UI_TESTS)
       tests/ui-harness/appearance-row-sizing-test.cpp
       tests/ui-harness/preset-export-import-test.cpp
       tests/ui-harness/camera-report-test.cpp
-      tests/ui-harness/update-device-test.cpp
       tests/ui-harness/preset-view-test.cpp
       tests/ui-harness/reorder-presets-test.cpp
       tests/ui-harness/reorder-cameras-test.cpp

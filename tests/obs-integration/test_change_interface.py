@@ -5,12 +5,11 @@ src/drivers/visca/ptz-visca.cpp) -- and specifically that it persists using the 
 "type"/"host"/"*_port" field names (see the plugin's on-disk config format),
 not a separate namespaced field per transport.
 
-Driven through tests/ui-harness/update-device-test.cpp's "update_device"
-test, which applies a settings change to a device the same way
-PTZSettings::on_applyButton_clicked()/updateProperties() do when a user
-edits the properties dialog and clicks Apply/OK (src/controller/settings.cpp): the
-device's current full config, overlaid with the fields under test, through
-PTZListModel::update().
+Driven through World.update_device(), which applies a settings change to a
+device the same way PTZSettings::on_applyButton_clicked()/updateProperties()
+do when a user edits the properties dialog and clicks Apply/OK
+(src/controller/settings.cpp): the device's current full config, overlaid with
+the fields under test, as an update of its filter (here over obs-websocket).
 
 test_switch_visca_interface_across_all_transports walks the same device
 through all three VISCA transports (TCP -> UDP -> serial -> back to TCP),
@@ -123,8 +122,8 @@ def serial_ptzsim(tmp_path_factory):
 def restore_visca_tcp_device(obs_world, ptz_ports, tmp_path):
     yield
     device_name = obs_world.device_names[VISCA_TCP]
-    obs_world.run_ui_test(
-        "update_device", device=device_name,
+    obs_world.update_device(
+        device_name,
         type="visca-over-tcp", host="127.0.0.1", tcp_port=ptz_ports["visca_tcp"],
     )
     obs_world.wait_for_device_status(
@@ -149,8 +148,8 @@ def test_switch_visca_interface_across_all_transports(obs_world, ptz_ports, seri
     # old, already-connected TCP socket -- the device would stay
     # connected and this negative check would fail.
     dead_port = free_udp_port()
-    obs_world.run_ui_test(
-        "update_device", device=device_name,
+    obs_world.update_device(
+        device_name,
         type="visca-over-ip", host="127.0.0.1", udp_port=dead_port,
     )
     obs_world.trigger_action(device_name, ACTION_PAN_TILT, pan_speed=0.3)
@@ -162,22 +161,22 @@ def test_switch_visca_interface_across_all_transports(obs_world, ptz_ports, seri
     # speaking VISCA-over-UDP end to end (encoded by ViscaUDPTransport,
     # decoded by ptzsim's UDP backend) rather than having quietly fallen
     # back to anything else.
-    obs_world.run_ui_test(
-        "update_device", device=device_name,
+    obs_world.update_device(
+        device_name,
         type="visca-over-ip", host="127.0.0.1", udp_port=ptz_ports["visca_udp"],
     )
     _connect_and_move(obs_world, device_name, status_file, shared_debug_url, pan_speed=0.5)
 
     # VISCA serial, pointed at its own dedicated ptzsim instance.
-    obs_world.run_ui_test(
-        "update_device", device=device_name,
+    obs_world.update_device(
+        device_name,
         type="visca", serial_port=str(serial_ptzsim.serial_path), address=1,
     )
     _connect_and_move(obs_world, device_name, status_file, serial_ptzsim.debug_url, pan_speed=0.6)
 
     # Back to VISCA-over-TCP, on the shared simulated camera again.
-    obs_world.run_ui_test(
-        "update_device", device=device_name,
+    obs_world.update_device(
+        device_name,
         type="visca-over-tcp", host="127.0.0.1", tcp_port=ptz_ports["visca_tcp"],
     )
     _connect_and_move(obs_world, device_name, status_file, shared_debug_url, pan_speed=0.7)
