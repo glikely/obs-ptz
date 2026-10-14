@@ -30,7 +30,7 @@ def test_status_view_shows_the_cameras_real_state(obs_world, tmp_path):
     # Two different modes, so both are commands. An idle device that other
     # tests left marked disconnected only finds out it isn't by sending one.
     for mode in (1, 2):
-        obs_world.run_ui_test("set_device_state", device=device_name, wb_mode=mode)
+        obs_world.set_device_state(device_name, wb_mode=mode)
         obs_world.wait_for_device_state(device_name, tmp_path / "state.json", lambda r: r["state"].get("wb_mode") == mode)
 
     open_dialog(obs_world, device_name)
@@ -53,7 +53,7 @@ def test_status_view_shows_where_the_camera_is(obs_world, tmp_path):
     # from the middle of its range, not wherever earlier tests left it: the
     # device reads where the camera really is, and a short move from far
     # outside the range the plugin shows would not show
-    obs_world.run_ui_test("move_device", device=device_name, mode="abs", pan=0.0, tilt=0.0)
+    obs_world.move_device(device_name, mode="abs", pan=0.0, tilt=0.0)
     before = obs_world.wait_for_settings_dialog(out, lambda r: abs(r["pan"]) < 0.01, timeout=10)["pan"]
 
     obs_world.trigger_action(device_name, ACTION_PAN_TILT, pan_speed=0.6, tilt_speed=0.0)
@@ -104,9 +104,9 @@ def test_state_changes_update_only_the_status_view(obs_world, tmp_path):
     out = tmp_path / "dialog.json"
     open_dialog(obs_world, device_name)
 
-    obs_world.run_ui_test("set_device_state", device=device_name, wb_mode=1)
+    obs_world.set_device_state(device_name, wb_mode=1)
     obs_world.wait_for_settings_dialog(out, lambda r: r["wb_mode"] == 1)
-    obs_world.run_ui_test("set_device_state", device=device_name, wb_mode=2)
+    obs_world.set_device_state(device_name, wb_mode=2)
     dialog = obs_world.wait_for_settings_dialog(out, lambda r: r["wb_mode"] == 2)
 
     assert dialog["state_updates"] > 0
@@ -135,7 +135,7 @@ def test_status_view_updates_in_place(obs_world, tmp_path):
 
     # What changes as a camera works: what it reports of itself, and where it is
     for mode in (1, 2, 1):
-        obs_world.run_ui_test("set_device_state", device=device_name, wb_mode=mode)
+        obs_world.set_device_state(device_name, wb_mode=mode)
         obs_world.wait_for_settings_dialog(out, lambda r, m=mode: r["wb_mode"] == m)
     obs_world.trigger_action(device_name, ACTION_PAN_TILT, pan_speed=0.6, tilt_speed=0.0)
     time.sleep(0.5)

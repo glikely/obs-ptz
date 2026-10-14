@@ -15,20 +15,11 @@ Ships with these tests: `appearance_row_sizing` (see
 `tests/obs-integration/test_preset_import_export.py` - a pytest module
 rather than a standalone script; see its own docstring and "Driving a
 test from pytest instead of a standalone script" below for why that
-one's different), `get_device_status` (see `device-status-test.cpp` and
-its drivers, `tests/obs-integration/test_device_status.py`,
-`test_autofocus_white_balance.py` and `test_power.py` - also pytest
-modules, for the same reason), `move_device` (see `move-device-test.cpp`
-and its driver, `tests/obs-integration/test_absolute_relative_moves.py`
-- likewise a pytest module), and `trigger_device` (see
-`set-device-test.cpp` and its driver, `test_device_state.py`),
-`get_preset_view` (see `preset-view-test.cpp` and its driver,
-`test_preset_view.py`), and `get_device_source`/`hold_source`
+one's different), `get_preset_view` (see `preset-view-test.cpp` and its
+driver, `test_preset_view.py`), and `get_device_source`/`hold_source`
 (see `device-source-test.cpp` and its driver, `test_filter_devices.py`), and
 `get_device_settings` (see `device-settings-test.cpp` and its driver,
-`test_device_settings.py`), and `set_device_state` (see
-`device-state-test.cpp` and its drivers, `test_device_state.py`,
-`test_autofocus_white_balance.py` and `test_power.py`), and
+`test_device_settings.py`), and
 `watch_device_signals`/`get_device_signals` (see `device-signals-test.cpp`
 and its driver, `test_device_signals.py`), and `open_settings_dialog`/
 `get_settings_dialog`/`edit_dialog_state`/`press_dialog_button` (see
@@ -81,8 +72,10 @@ binding" in `docs/ptz-device-api.md`): `World.call_proc()`, `device_state()`,
 `api_version()` and `record_preset_signals()`/`preset_signals()` in
 `tests/obs-integration/conftest.py`. That is a real answer on the connection,
 with nothing to poll, and it is the path a remote controller uses. Those went
-through the harness once, as `call_proc`, `get_device_state`, `get_api_version`
-and `record_preset_signals`/`get_preset_signals`, which are gone.
+through the harness once, as `call_proc`, `get_device_state`, `get_api_version`,
+`record_preset_signals`/`get_preset_signals`, `set_device_state`,
+`move_device`, `trigger_device`, `get_device_status` and `get_camera_report`,
+which are gone.
 
 An earlier version polled a temp file every 100ms instead. obs-websocket
 is strictly better here: it already ships with OBS on every platform,

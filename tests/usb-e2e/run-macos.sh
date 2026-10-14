@@ -59,7 +59,7 @@ fi
 echo "==> Camera: $CAMERA"
 
 if [ "$SKIP_BUILD" -eq 0 ]; then
-    echo "==> Building the plugin and usb-uvc-position (build_macos must be configured with -DENABLE_USB_TESTS=ON -DENABLE_UI_TESTS=ON)"
+    echo "==> Building the plugin and usb-uvc-position (build_macos must be configured with -DENABLE_USB_TESTS=ON)"
     cmake --build "$REPO_ROOT/build_macos" --config RelWithDebInfo --target obs-ptz usb-uvc-position -- -quiet || die "build failed"
 fi
 [ -d "$PLUGIN_BUILD" ] || die "no plugin at $PLUGIN_BUILD"

@@ -68,11 +68,11 @@ def test_a_replayed_camera_refuses_what_the_camera_did(request, obs_world, tmp_p
     assert "ae_mode" not in state
     assert sim.syntax_errors() > 0
 
-    obs_world.run_ui_test("set_device_state", device=device_name, wb_mode=1)
+    obs_world.set_device_state(device_name, wb_mode=1)
     obs_world.wait_for_device_state(device_name, tmp_path / "set.json", lambda r: r["state"]["wb_mode"] == 1,
                                     timeout=10)
     errors = sim.syntax_errors()
-    obs_world.run_ui_test("set_device_state", device=device_name, ae_mode=3)
+    obs_world.set_device_state(device_name, ae_mode=3)
     sim.wait_for(lambda s: s["visca_syntax_errors"] > errors)
     assert sim.state()["visca"]["ae_mode"] == 0
 

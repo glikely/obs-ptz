@@ -4,9 +4,8 @@ handlers (PTZDevice::saveState() and requestState(), src/core/ptz-device.cpp).
 The same "ptz_get_state" also backs PTZListModel's device-row cache -- one
 proc for a device's whole state, whoever the caller is.
 
-The state is read over obs-websocket, as a client outside OBS reads it (see
-World.device_state() in conftest.py), and requested through
-tests/ui-harness/device-state-test.cpp's "set_device_state" test.
+The state is read and requested over obs-websocket, as a client outside OBS
+does (see World.device_state() and World.set_device_state() in conftest.py).
 
 VISCA-only where the state is: "wb_mode" and "focus_af_enabled" are what
 a VISCA camera reports (see test_autofocus_white_balance.py).
@@ -45,10 +44,10 @@ def test_requested_white_balance_mode_is_picked_up(obs_world, backend, mode, tmp
     out = tmp_path / "state.json"
     # not the mode asked for, so this is a change whichever was left before
     other = 1 if mode != 1 else 2
-    obs_world.run_ui_test("set_device_state", device=device_name, wb_mode=other)
+    obs_world.set_device_state(device_name, wb_mode=other)
     obs_world.wait_for_device_state(device_name, out, lambda r: r["state"]["wb_mode"] == other, timeout=5)
 
-    obs_world.run_ui_test("set_device_state", device=device_name, wb_mode=mode)
+    obs_world.set_device_state(device_name, wb_mode=mode)
     obs_world.wait_for_device_state(device_name, out, lambda r: r["state"]["wb_mode"] == mode, timeout=5)
 
 
@@ -75,18 +74,18 @@ def test_a_request_asks_for_just_what_it_holds(obs_world, tmp_path):
     out = tmp_path / "state.json"
 
     obs_world.wait_for_device_state(device_name, out, lambda r: r["state"].get("connected") is True, timeout=10)
-    obs_world.run_ui_test("set_device_state", device=device_name, wb_mode=1)
+    obs_world.set_device_state(device_name, wb_mode=1)
     obs_world.wait_for_device_state(device_name, out, lambda r: r["state"]["wb_mode"] == 1, timeout=5)
     before = settled_sent_count(obs_world, device_name, out)
 
     # an empty request asks for nothing
-    obs_world.run_ui_test("set_device_state", device=device_name)
+    obs_world.set_device_state(device_name)
     time.sleep(1.0)
     assert visca_sent_count(obs_world, device_name, out) == before
 
     # a value is asked for even if it is what the camera already reports,
     # which may not be what it is doing any more
-    obs_world.run_ui_test("set_device_state", device=device_name, wb_mode=1)
+    obs_world.set_device_state(device_name, wb_mode=1)
     obs_world.wait_for(lambda: visca_sent_count(obs_world, device_name, out) > before, timeout=5)
 
 
@@ -97,7 +96,7 @@ def test_a_trigger_sends_its_command(obs_world, name, tmp_path):
     obs_world.wait_for_device_state(device_name, out, lambda r: r["state"].get("connected") is True, timeout=10)
     before = settled_sent_count(obs_world, device_name, out)
 
-    obs_world.run_ui_test("trigger_device", device=device_name, name=name)
+    obs_world.trigger_device(device_name, name)
     obs_world.wait_for(lambda: visca_sent_count(obs_world, device_name, out) > before, timeout=5)
 
 
@@ -107,7 +106,7 @@ def test_an_unknown_trigger_does_nothing(obs_world, tmp_path):
     obs_world.wait_for_device_state(device_name, out, lambda r: r["state"].get("connected") is True, timeout=10)
     before = settled_sent_count(obs_world, device_name, out)
 
-    obs_world.run_ui_test("trigger_device", device=device_name, name="no_such_trigger")
+    obs_world.trigger_device(device_name, "no_such_trigger")
     time.sleep(1.0)
     assert visca_sent_count(obs_world, device_name, out) == before
 
@@ -175,7 +174,7 @@ def test_discovering_the_movement_limits(obs_world, cameras, tmp_path):  # noqa:
     assert limits() == {"visca_pan_range": 0x1400, "visca_tilt_range": 0x500, "visca_zoom_range": 0x7ac0,
                         "visca_focus_far": 0x1000, "visca_focus_near": 0xf000}
     assert obs_world.device_state(device_name, out)["state"]["focus_af_enabled"] is True
-    obs_world.run_ui_test("trigger_device", device=device_name, name="discover_limits")
+    obs_world.trigger_device(device_name, "discover_limits")
     obs_world.wait_for(lambda: limits()["visca_zoom_range"] != 0x7ac0, timeout=150, interval=2)
     found = limits()
     # the ends of the sim's travel (scripts/ptzsim/backends/visca.py), focus

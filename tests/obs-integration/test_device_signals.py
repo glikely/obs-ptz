@@ -22,8 +22,8 @@ def test_state_change_reports_what_changed(obs_world, tmp_path):
                                     lambda r: r["state"].get("wb_mode") is not None, timeout=10)
     obs_world.run_ui_test("watch_device_signals")
 
-    obs_world.run_ui_test("set_device_state", device=device_name, wb_mode=1)
-    obs_world.run_ui_test("set_device_state", device=device_name, wb_mode=2)
+    obs_world.set_device_state(device_name, wb_mode=1)
+    obs_world.set_device_state(device_name, wb_mode=2)
 
     # Nothing else changes wb_mode, so seeing it in a diff means the diff
     # got through with its values, and not empty

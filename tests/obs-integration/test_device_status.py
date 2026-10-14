@@ -1,11 +1,9 @@
 """End-to-end tests that the plugin itself -- not just ptzsim's own
 /state -- notices a camera connecting/disconnecting.
 
-These are driven through tests/ui-harness/device-status-test.cpp's
-"get_device_status" test (see World.device_status()/
-wait_for_device_status() in conftest.py), which is the only way to
-observe PTZDevice::isConnected() from outside the plugin:
-obs-websocket exposes no device list or property read of its own.
+These read the device's "connected" state key with "ptz_get_state" over
+obs-websocket (see World.device_status()/wait_for_device_status() in
+conftest.py), which is PTZDevice::isConnected().
 
 Connect/disconnect detection (PTZDevice::setConnected(), see
 PTZVisca::cmd_get_camera_info()/timeout() in src/drivers/visca/ptz-visca.cpp) is only

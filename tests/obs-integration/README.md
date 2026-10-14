@@ -106,32 +106,26 @@ Linux.
    `PTZ_UI_TEST_HARNESS=1`, which `conftest.py`'s `obs_world` fixture
    always sets -- a no-op if the binary wasn't built with that option, so
    it doesn't affect the rest of the suite.
-7. `test_device_status.py` covers camera connect/disconnect detection via
-   `tests/ui-harness/device-status-test.cpp`'s `get_device_status` test
-   (same `-DENABLE_UI_TESTS=ON` requirement as above), using its own
+7. `test_device_status.py` covers camera connect/disconnect detection,
+   reading the device's `connected` state over obs-websocket, using its own
    disposable `flaky_ptzsim` fixture -- a second, VISCA-TCP-only `ptzsim`
    instance a test can kill and restart -- rather than the session-scoped
    `ptzsim` every other test shares, since stopping *that* one would break
    the rest of the suite.
 8. `test_absolute_relative_moves.py` covers absolute/relative pan-tilt
-   moves and absolute zoom (`PTZDevice::move_abs()`/`move_rel()`), via
-   `tests/ui-harness/move-device-test.cpp`'s `move_device` test (same
-   `-DENABLE_UI_TESTS=ON` requirement as above) -- there's no
-   `ptz_action_source` action type for either, so obs-websocket alone
-   can't reach them.
+   moves and absolute zoom (`PTZDevice::move_abs()`/`move_rel()`), with the
+   `ptz_move_abs`/`ptz_move_rel` procs over obs-websocket -- there's no
+   `ptz_action_source` action type for either.
 9. `test_autofocus_white_balance.py` covers autofocus on/off
    (`PTZDevice::set_autofocus()`) and VISCA white balance mode
-   (`PTZVisca::requestState()`'s `"wb_mode"` handling), via
-   `tests/ui-harness/device-state-test.cpp`'s `set_device_state` test (same
-   `-DENABLE_UI_TESTS=ON` requirement as above), read back through
-   `get_device_status`.
+   (`PTZVisca::requestState()`'s `"wb_mode"` handling), requested with
+   `ptz_request_state` over obs-websocket and read back with `ptz_get_state`.
 10. `test_power.py` covers camera power on/off
     (`PTZVisca::requestState()`'s `"power_on"` handling), the same way as
-    autofocus/white balance -- `set_device_state` to request it, `get_device_status` to read it back.
+    autofocus/white balance -- `ptz_request_state` to request it, `ptz_get_state` to read it back.
     `PTZ_ACTION_POWER_OFF`/`PTZ_ACTION_POWER_ON` exist in
     `ptz_action_source`'s own action enum but are never actually wired
-    up or exposed in its properties, so obs-websocket alone can't reach
-    this either.
+    up or exposed in its properties.
 11. `test_change_interface.py` covers switching an existing VISCA
     device's transport live -- the "Protocol" list in the properties
     dialog (`PTZVisca::get_obs_properties()`/`PTZVisca::update()`'s
@@ -188,12 +182,11 @@ Linux.
 16. `test_device_state.py` covers the transient-state half of that split:
     the `ptz_get_state` and `ptz_request_state` proc handlers
     (`PTZDevice::saveState()`, `requestState()`). Reads the state over
-    obs-websocket, and uses `tests/ui-harness/device-state-test.cpp`'s
-    `set_device_state` test, checking that a request asks the camera for
+    obs-websocket, and requests it there too, checking that a request asks the camera for
     just the values it holds, even one it already reports. Also that nothing
     the camera reports is among a filter's settings properties, and that
     VISCA advertises its diagnostics, and that the `ptz_trigger` actions
-    send their commands (through the harness's `trigger_device`) and an
+    send their commands (through `ptz_trigger` over obs-websocket) and an
     unknown one sends nothing.
 17. `test_device_signals.py` covers what `PTZListModel` tells a listener
     (the settings dialog) about a device changing: the values a state change
@@ -246,7 +239,7 @@ Linux.
     system and pan/tilt status, everything the Sony manual has an inquiry
     for): that it is all read, with the block inquiries or, for a camera
     without them (`--visca-no-block-inquiries`), the single-value ones; that
-    each setting with a command can be asked for with `set_device_state`;
+    each setting with a command can be asked for with `ptz_request_state`;
     and that the settings dialog's state view shows every one and changes
     them through `edit_dialog_state`. Each test has its own source with a
     VISCA filter, pointed at a `ptzsim` that reports the camera's settings

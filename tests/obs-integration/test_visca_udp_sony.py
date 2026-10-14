@@ -66,7 +66,7 @@ def test_stays_connected_after_a_command_completes(obs_world, sony_ptzsim, tmp_p
     # Zoom completes as soon as it is ACKed, so nothing is left waiting for
     # the reply timer to guard, and it must not go off and mark the camera
     # disconnected, with nothing then to connect it again.
-    obs_world.run_ui_test("move_device", device=device_name, mode="abs", zoom=0.5)
+    obs_world.move_device(device_name, mode="abs", zoom=0.5)
     delta = change(before, settled(sony_ptzsim))
 
     assert delta["zoom_direct_executed"] == 1
@@ -83,7 +83,7 @@ def test_a_command_that_finds_the_camera_busy_is_sent_again(obs_world, sony_ptzs
     # Each move keeps a command socket for 150ms, and there are two, so the
     # third finds none free
     for pan in (0.01, 0.02, 0.03):
-        obs_world.run_ui_test("move_device", device=device_name, mode="abs", pan=pan, tilt=0)
+        obs_world.move_device(device_name, mode="abs", pan=pan, tilt=0)
     delta = change(before, settled(sony_ptzsim))
 
     assert delta["buffer_full"] >= 1, "the camera was never busy, so this proved nothing"

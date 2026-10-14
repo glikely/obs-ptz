@@ -419,10 +419,7 @@ if(ENABLE_UI_TESTS)
       tests/ui-harness/ui-test-harness.hpp
       tests/ui-harness/appearance-row-sizing-test.cpp
       tests/ui-harness/preset-export-import-test.cpp
-      tests/ui-harness/device-status-test.cpp
-      tests/ui-harness/move-device-test.cpp
       tests/ui-harness/camera-report-test.cpp
-      tests/ui-harness/set-device-test.cpp
       tests/ui-harness/update-device-test.cpp
       tests/ui-harness/preset-view-test.cpp
       tests/ui-harness/reorder-presets-test.cpp
@@ -431,7 +428,6 @@ if(ENABLE_UI_TESTS)
       tests/ui-harness/scene-item-select-test.cpp
       tests/ui-harness/device-source-test.cpp
       tests/ui-harness/device-settings-test.cpp
-      tests/ui-harness/device-state-test.cpp
       tests/ui-harness/device-signals-test.cpp
       tests/ui-harness/settings-dialog-test.cpp
       tests/ui-harness/api-version-test.cpp

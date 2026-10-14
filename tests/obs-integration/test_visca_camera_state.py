@@ -205,7 +205,7 @@ def test_a_setting_can_be_asked_for(obs_world, camera, key):
     value = SETTABLE[key]
     # read, so that the device is connected
     camera.wait_for_state(lambda s: key in s)
-    obs_world.run_ui_test("set_device_state", device=camera.device_name, **{key: value})
+    obs_world.set_device_state(camera.device_name, **{key: value})
 
     obs_world.wait_for(lambda: camera.sim.settings()[key] == value, timeout=5)
     # and is read back from the camera
@@ -217,7 +217,7 @@ def test_one_af_time_asked_for_keeps_the_other(request, obs_world, tmp_path):
     camera = make_camera(request.addfinalizer, obs_world, tmp_path)
     before = camera.wait_for_state(lambda s: "focus_af_move_time" in s)["focus_af_move_time"]
 
-    obs_world.run_ui_test("set_device_state", device=camera.device_name, focus_af_interval_time=21)
+    obs_world.set_device_state(camera.device_name, focus_af_interval_time=21)
     obs_world.wait_for(lambda: camera.sim.settings()["focus_af_interval_time"] == 21, timeout=5)
     assert camera.sim.settings()["focus_af_move_time"] == before
 
@@ -227,7 +227,7 @@ def test_the_menu_is_not_opened(request, obs_world, tmp_path):
     camera = make_camera(request.addfinalizer, obs_world, tmp_path)
     camera.wait_for_state(lambda s: s.get("menu_on") is False)
 
-    obs_world.run_ui_test("set_device_state", device=camera.device_name, menu_on=True, info_display=True)
+    obs_world.set_device_state(camera.device_name, menu_on=True, info_display=True)
     obs_world.wait_for(lambda: camera.sim.settings()["info_display"] is True, timeout=5)
     assert camera.sim.settings()["menu_on"] is False
 

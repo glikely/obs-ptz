@@ -140,7 +140,7 @@ def soft_cam(obs_world, tmp_path):
 
 
 def move(world, device, mode="abs", **axes):
-    world.run_ui_test("move_device", device=device, mode=mode, **axes)
+    world.move_device(device, mode=mode, **axes)
 
 
 def state_of(world, device, tmp_path):

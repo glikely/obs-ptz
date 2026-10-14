@@ -4,9 +4,9 @@ pantilt_rel()/zoom_abs() in src/drivers/visca/ptz-visca.cpp.
 
 There's no ptz_action_source action type for either of these -- its own
 PTZ_ACTION_* enum (src/controller/ptz-action-source.c) only covers continuous
-pan/tilt, stop, presets and power -- so they're driven through
-tests/ui-harness/move-device-test.cpp's "move_device" test instead of
-World.trigger_action().
+pan/tilt, stop, presets and power -- so they're driven through the
+"ptz_move_abs"/"ptz_move_rel" procs over obs-websocket (World.move_device())
+instead of World.trigger_action().
 
 VISCA-only: Pelco never overrides pantilt_abs()/pantilt_rel()/zoom_abs()
 (PTZDevice's own base implementations are empty no-ops -- see
@@ -45,10 +45,10 @@ def test_absolute_pan_tilt_move(obs_world, backend):
     # same move by another backend: the wait below would be over before this
     # device had sent its own command. And that command, sent late, would
     # move the camera again in the middle of the next test.
-    obs_world.run_ui_test("move_device", device=device_name, mode="abs", pan=0.0, tilt=0.0)
+    obs_world.move_device(device_name, mode="abs", pan=0.0, tilt=0.0)
     obs_world.wait_for_state(lambda s: abs(s["pan"]) < 0.005 and abs(s["tilt"]) < 0.005, timeout=5)
 
-    obs_world.run_ui_test("move_device", device=device_name, mode="abs", pan=1.0, tilt=-1.0)
+    obs_world.move_device(device_name, mode="abs", pan=1.0, tilt=-1.0)
 
     expected_pan = ABS_PAN_RANGE / PT_POS_RANGE
     expected_tilt = -ABS_TILT_RANGE / PT_POS_RANGE
@@ -61,10 +61,10 @@ def test_absolute_zoom_move(obs_world, backend):
     device_name = obs_world.device_names[backend]
 
     # Start from somewhere else, as test_absolute_pan_tilt_move() does
-    obs_world.run_ui_test("move_device", device=device_name, mode="abs", zoom=0.0)
+    obs_world.move_device(device_name, mode="abs", zoom=0.0)
     obs_world.wait_for_state(lambda s: abs(s["zoom"]) < 0.01, timeout=5)
 
-    obs_world.run_ui_test("move_device", device=device_name, mode="abs", zoom=1.0)
+    obs_world.move_device(device_name, mode="abs", zoom=1.0)
 
     expected_zoom = ABS_ZOOM_RANGE / ZF_POS_RANGE
     obs_world.wait_for_state(lambda s: abs(s["zoom"] - expected_zoom) < 0.01, timeout=5)
@@ -78,10 +78,10 @@ def test_relative_pan_tilt_move(obs_world, backend):
     # relative move below a known, reproducible starting point --
     # otherwise the assertion would depend on whatever position an
     # earlier test left this shared device at.
-    obs_world.run_ui_test("move_device", device=device_name, mode="abs", pan=0.0, tilt=0.0)
+    obs_world.move_device(device_name, mode="abs", pan=0.0, tilt=0.0)
     obs_world.wait_for_state(lambda s: abs(s["pan"]) < 0.005 and abs(s["tilt"]) < 0.005, timeout=5)
 
-    obs_world.run_ui_test("move_device", device=device_name, mode="rel", pan=1.0, tilt=-1.0)
+    obs_world.move_device(device_name, mode="rel", pan=1.0, tilt=-1.0)
 
     expected_pan = REL_PAN_RANGE / PT_POS_RANGE
     expected_tilt = -REL_TILT_RANGE / PT_POS_RANGE

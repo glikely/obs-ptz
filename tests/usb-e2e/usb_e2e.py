@@ -100,7 +100,7 @@ LAUNCHED = []
 
 
 class Obs:
-    """One launch of OBS, with the plugin's UI-test harness reachable over
+    """One launch of OBS, with the plugin's PTZ API reachable over
     obs-websocket. The wrapper puts the plugin's config where OBS really reads it."""
 
     def __init__(self, label):
@@ -109,7 +109,7 @@ class Obs:
             port = s.getsockname()[1]
         env = dict(os.environ, HOME=str(iso_home), OBS_WEBSOCKET_SERVER_ENABLE="true",
                    OBS_WEBSOCKET_SERVER_PORT=str(port), OBS_WEBSOCKET_SERVER_PASSWORD="",
-                   PTZ_UI_TEST_HARNESS="1", PTZSIM_REAL_OBS_BINARY=REAL_OBS)
+                   PTZSIM_REAL_OBS_BINARY=REAL_OBS)
         self.out = open(WORK / f"obs-stdout-{label}.txt", "w")
         self.proc = subprocess.Popen([str(WRAPPER), "--disable-updater"], cwd=iso_home, env=env, stdout=self.out,
                                      stderr=subprocess.STDOUT)
@@ -135,24 +135,23 @@ class Obs:
                     raise
                 time.sleep(1)
 
-    def ui(self, cmd, **params):
-        return self.ws.call("CallVendorRequest", {
-            "vendorName": "obs-ptz", "requestType": "ui_test_run",
-            "requestData": {"cmd": cmd, **{k: str(v) for k, v in params.items()}}})
+    def vendor(self, request, **data):
+        """A request of the PTZ API's binding to obs-websocket (see "WebSocket
+        binding" in docs/ptz-device-api.md)"""
+        return self.ws.vendor("obs-ptz", request, data)
+
+    def device(self):
+        """The UUID of the camera's device, the one on SOURCE; None until there is one"""
+        for entry in self.vendor("ptz_list_devices").get("devices", []):
+            if SOURCE in (entry["name"], entry["source"]):
+                return entry["device"]
+        return None
 
     def status(self):
-        out = WORK / "status.json"
-        if out.exists():
-            out.unlink()
-        self.ui("get_device_status", device=DEVICE_ID, filename=str(out))
-        for _ in range(50):
-            if out.exists():
-                try:
-                    return json.loads(out.read_text())
-                except ValueError:
-                    pass
-            time.sleep(0.1)
-        return {}
+        uuid = self.device()
+        if uuid is None:
+            return {}
+        return self.vendor("ptz_get_state", device=uuid).get("state", {})
 
     def wait_connected(self, timeout=25):
         end = time.time() + timeout
@@ -180,7 +179,7 @@ class Obs:
         self.ws.call("SetCurrentProgramScene", {"sceneName": scene})
 
     def move(self, **position):
-        self.ui("move_device", device=DEVICE_ID, mode="abs", **position)
+        self.vendor("ptz_move_abs", device=self.device(), **{axis: float(v) for axis, v in position.items()})
 
     def quit(self):
         # Leave nothing behind that would fire an action when OBS next starts

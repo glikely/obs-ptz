@@ -19,7 +19,7 @@ code, which need no camera, are in [`tests/usb-backend/`](../usb-backend).
 Configure once with the test targets on, then run the script:
 
 ```sh
-cmake --preset macos -DENABLE_USB_TESTS=ON -DENABLE_UI_TESTS=ON
+cmake --preset macos -DENABLE_USB_TESTS=ON
 tests/usb-e2e/run-macos.sh                  # the only USB camera, if there is one
 tests/usb-e2e/run-macos.sh --camera 0x210000036050064   # or say which
 ```

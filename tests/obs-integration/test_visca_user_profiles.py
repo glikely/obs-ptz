@@ -92,7 +92,7 @@ def test_a_user_state_value_is_read_and_set(request, obs_world, tmp_path):
     assert state["user_zoom"] == state["zoom_pos"]
     assert "low_latency" not in state
 
-    obs_world.run_ui_test("set_device_state", device=camera.device_name, user_wb=5)
+    obs_world.set_device_state(camera.device_name, user_wb=5)
     obs_world.wait_for(lambda: camera.sim.state()["visca"]["wb_mode"] == 5, timeout=5)
     camera.wait_for_state(lambda s: s.get("user_wb") == 5, timeout=5)
 
@@ -100,10 +100,10 @@ def test_a_user_state_value_is_read_and_set(request, obs_world, tmp_path):
 def test_a_user_trigger_is_sent(request, obs_world, tmp_path):
     camera = Camera(request, obs_world, tmp_path, "0123:0001")
     camera.wait_for_state(lambda s: "pan" in s)
-    obs_world.run_ui_test("move_device", device=camera.device_name, mode="abs", pan=0.5, tilt=0.0)
+    obs_world.move_device(camera.device_name, mode="abs", pan=0.5, tilt=0.0)
     obs_world.wait_for(lambda: camera.sim.state()["pan"] > 0.1, timeout=5)
 
-    obs_world.run_ui_test("trigger_device", device=camera.device_name, name="user_home")
+    obs_world.trigger_device(camera.device_name, "user_home")
     obs_world.wait_for(lambda: abs(camera.sim.state()["pan"]) < 0.005, timeout=5)
 
 
@@ -178,5 +178,5 @@ def test_a_command_set_doesnt_change_the_one_it_extends(request, obs_world, tmp_
     of a model no command set is for"""
     camera = Camera(request, obs_world, tmp_path, "0001:0000")
     camera.wait_for_state(lambda s: "ae_mode" in s)
-    obs_world.run_ui_test("set_device_state", device=camera.device_name, ae_mode=3)
+    obs_world.set_device_state(camera.device_name, ae_mode=3)
     obs_world.wait_for(lambda: camera.sim.state()["visca"]["ae_mode"] == 3, timeout=5)

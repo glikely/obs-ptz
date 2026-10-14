@@ -198,12 +198,12 @@ def test_state_follows_the_lamps(obs_world, tally):
 
 
 def test_lamps_can_be_requested(obs_world, tally):
-    obs_world.run_ui_test("set_device_state", device=tally.device_name, tally_preview=True)
+    obs_world.set_device_state(tally.device_name, tally_preview=True)
     tally.wait_for_lamps(red=False, green=True)
-    obs_world.run_ui_test("set_device_state", device=tally.device_name, tally_on=True)
+    obs_world.set_device_state(tally.device_name, tally_on=True)
     tally.wait_for_lamps(red=True, green=True)
 
-    obs_world.run_ui_test("set_device_state", device=tally.device_name, tally_preview=False, tally_on=False)
+    obs_world.set_device_state(tally.device_name, tally_preview=False, tally_on=False)
     tally.wait_for_lamps(red=False, green=False)
 
 

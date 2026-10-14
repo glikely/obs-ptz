@@ -770,6 +770,26 @@ class World:
             result["return"] = answer.get("return", {"string": "", "int": 0, "bool": False, "data": {}}[returns])
         return result
 
+    def _call_void(self, device, proc, args):
+        """call_proc() for a proc that gives nothing back, which device has to have"""
+        assert self.call_proc(device, proc, args)["called"], f"{device} has no {proc}"
+
+    def set_device_state(self, device, **state):
+        """Asks device to change the state values given, with ptz_request_state,
+        as the settings dialog's state view does"""
+        self._call_void(device, "ptz_request_state", {"state": state})
+
+    def move_device(self, device, mode="abs", **axes):
+        """Moves device to where, or by how much, the axes given say, with
+        ptz_move_abs, or ptz_move_rel for mode="rel". An axis left out is left
+        alone."""
+        self._call_void(device, "ptz_move_abs" if mode == "abs" else "ptz_move_rel",
+                        {axis: float(value) for axis, value in axes.items()})
+
+    def trigger_device(self, device, name):
+        """Has device do the one-shot action `name`, with ptz_trigger"""
+        self._call_void(device, "ptz_trigger", {"name": name})
+
     def api_version(self, device):
         """What device's ptz_get_api_version says, as {"called", "major", "minor"}"""
         uuid = self.device_uuid(device)
@@ -872,14 +892,14 @@ class World:
         keys["lists"] = {e["key"]: [v["value"] for v in e["values"]] for e in raw.get("lists", [])}
         return keys
 
-    def camera_report(self, device_name, out_file):
-        """Fetches device_name's camera report, or None if it has none, via
-        tests/ui-harness/device-state-test.cpp's "get_camera_report" test"""
-        if out_file.exists():
-            out_file.unlink()
-        self.run_ui_test("get_camera_report", device=device_name, filename=str(out_file))
-        self.wait_for(out_file.exists)
-        return json.loads(out_file.read_text()).get("report")
+    def camera_report(self, device_name, out_file=None):
+        """Fetches device_name's camera report, or None if it has none, with
+        ptz_get_camera_report. out_file is not used: it was where the report was
+        written when it was fetched through the UI test harness."""
+        uuid = self.device_uuid(device_name)
+        assert uuid is not None, f"no device {device_name}"
+        report = self.ws.vendor("obs-ptz", "ptz_get_camera_report", {"device": uuid}).get("report")
+        return json.loads(report) if report else None
 
     def device_state(self, device_name, out_file=None):
         """Fetches device_name's whole transient state ("state"), as a client of
@@ -953,25 +973,21 @@ class World:
             time.sleep(interval)
         raise AssertionError(f"settings dialog never matched predicate; last seen: {last}")
 
-    def device_status(self, device_name, out_file):
-        """Fetches device_name's live {"connected"} status via
-        tests/ui-harness/device-status-test.cpp's "get_device_status"
-        test -- the only way to observe PTZDevice::isConnected() from
-        outside the plugin, since obs-websocket has no device list or
-        property read of its own. Removes any stale out_file first so a
-        slow dispatch can never be mistaken for a fresh read, then waits
-        for the (re)written file before parsing it."""
-        if out_file.exists():
-            out_file.unlink()
-        self.run_ui_test("get_device_status", device=device_name, filename=str(out_file))
-        self.wait_for(out_file.exists)
-        return json.loads(out_file.read_text())
+    def device_status(self, device_name, out_file=None):
+        """Fetches device_name's {"connected", "power_on", "focus_af_enabled",
+        "wb_mode"} from its state (ptz_get_state), a value it doesn't report
+        being false or 0: "wb_mode" is VISCA's alone. "connected" is the link's
+        own state, apart from "power_on", what the camera says of its power.
+        out_file is not used: it was where the status was written when it was
+        fetched through the UI test harness."""
+        state = self.device_state(device_name)["state"]
+        return {"connected": bool(state.get("connected", False)),
+                "power_on": bool(state.get("power_on", False)),
+                "focus_af_enabled": bool(state.get("focus_af_enabled", False)),
+                "wb_mode": state.get("wb_mode", 0)}
 
     def wait_for_device_status(self, device_name, out_file, predicate, timeout=5, interval=0.2):
-        """Polls device_status() until predicate(status) is true,
-        re-dispatching get_device_status each time so out_file always
-        reflects a fresh read rather than one cached from an earlier
-        call."""
+        """Polls device_status() until predicate(status) is true."""
         deadline = time.time() + timeout
         last = None
         while time.time() < deadline:

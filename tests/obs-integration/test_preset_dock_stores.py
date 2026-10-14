@@ -129,7 +129,7 @@ def test_a_device_with_only_local_presets_has_the_docks_presets(request, obs_wor
     camera.wait_for_state(lambda s: s.get("features", {}).get("presets") is True and "pan" in s)
 
     # add: from where the camera is
-    obs_world.run_ui_test("move_device", device=camera.device_name, mode="abs", pan=0.5, tilt=0.0)
+    obs_world.move_device(camera.device_name, mode="abs", pan=0.5, tilt=0.0)
     obs_world.wait_for(lambda: camera.sim.state()["pan"] > 0.1, timeout=10)
     camera.wait_for_state(lambda s: s.get("pan", 0) > 0.4)
     select(obs_world, camera, tmp_path)
@@ -137,17 +137,17 @@ def test_a_device_with_only_local_presets_has_the_docks_presets(request, obs_wor
     preset = wait_for_rows(obs_world, tmp_path, 1)[0]["id"]
 
     # recall: goes back to it from elsewhere
-    obs_world.run_ui_test("move_device", device=camera.device_name, mode="abs", pan=-0.5, tilt=0.0)
+    obs_world.move_device(camera.device_name, mode="abs", pan=-0.5, tilt=0.0)
     obs_world.wait_for(lambda: camera.sim.state()["pan"] < -0.1, timeout=10)
     obs_world.call_proc(camera.device_name, "ptz_preset_recall", {"id": preset})
     obs_world.wait_for(lambda: camera.sim.state()["pan"] > 0.1, timeout=10)
 
     # save: replaces what it holds with where the camera is now
-    obs_world.run_ui_test("move_device", device=camera.device_name, mode="abs", pan=-0.5, tilt=0.0)
+    obs_world.move_device(camera.device_name, mode="abs", pan=-0.5, tilt=0.0)
     obs_world.wait_for(lambda: camera.sim.state()["pan"] < -0.1, timeout=10)
     camera.wait_for_state(lambda s: s.get("pan", 0) < -0.4)
     obs_world.call_proc(camera.device_name, "ptz_preset_save", {"id": preset})
-    obs_world.run_ui_test("move_device", device=camera.device_name, mode="abs", pan=0.5, tilt=0.0)
+    obs_world.move_device(camera.device_name, mode="abs", pan=0.5, tilt=0.0)
     obs_world.wait_for(lambda: camera.sim.state()["pan"] > 0.1, timeout=10)
     obs_world.call_proc(camera.device_name, "ptz_preset_recall", {"id": preset})
     obs_world.wait_for(lambda: camera.sim.state()["pan"] < -0.1, timeout=10)
@@ -158,7 +158,7 @@ def local_preset_values(world, camera, preset):
 
 
 def go_to(world, camera, pan):
-    world.run_ui_test("move_device", device=camera.device_name, mode="abs", pan=pan, tilt=0.0)
+    world.move_device(camera.device_name, mode="abs", pan=pan, tilt=0.0)
     camera.wait_for_state(lambda s: abs(s.get("pan", 9) - pan) < 0.05)
 
 

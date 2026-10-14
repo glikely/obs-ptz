@@ -24,7 +24,7 @@ CAMERA_ID = "0f0e0d0c"
 
 def report(obs_world, tmp_path, device_name, timeout=60):
     """Makes the device's camera report, and hands it back"""
-    obs_world.run_ui_test("trigger_device", device=device_name, name="camera_report")
+    obs_world.trigger_device(device_name, "camera_report")
     obs_world.wait_for_device_state(
         device_name, tmp_path / "started.json", lambda r: "camera_report" in r["state"], timeout=10)
     obs_world.wait_for_device_state(
