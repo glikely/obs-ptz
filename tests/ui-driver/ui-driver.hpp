@@ -19,3 +19,6 @@ void addRequest(const char *name, Handler handler);
 
 /* The answer to a request that could not be done: {"error": code, "message": message} */
 QJsonObject error(const char *code, const QString &message);
+
+/* The requests of each part of the driver, put on the vendor */
+void addReadingRequests();

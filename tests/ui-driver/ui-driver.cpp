@@ -195,6 +195,7 @@ void obs_module_post_load(void)
 		return;
 	}
 	addRequest("ping", [](const QJsonObject &) { return QJsonObject{{"driver", 1}}; });
+	addReadingRequests();
 	obs_frontend_add_event_callback(frontendEvent, nullptr);
 	/* If OBS never says it is exiting, it is still about to quit before it unloads modules */
 	QObject::connect(qApp, &QCoreApplication::aboutToQuit, qApp, []() { beginClosing(); });

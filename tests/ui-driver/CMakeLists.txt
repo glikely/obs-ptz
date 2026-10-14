@@ -14,7 +14,16 @@
 
 add_library(obs-ui-driver MODULE)
 
-target_sources(obs-ui-driver PRIVATE ui-driver.cpp ui-driver.hpp obs-websocket-api.h)
+target_sources(
+  obs-ui-driver
+  PRIVATE
+    ui-driver.cpp
+    ui-driver.hpp
+    ui-driver-objects.cpp
+    ui-driver-objects.hpp
+    ui-driver-reading.cpp
+    obs-websocket-api.h
+)
 
 # The frontend API only for OBS saying it is exiting, which is when the UI
 # starts being taken apart

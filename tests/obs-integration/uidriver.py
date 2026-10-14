@@ -39,6 +39,26 @@ class UiDriver:
             raise UiDriverError(result["error"], result.get("message", ""))
         return result
 
+    def find(self, *path, all=False):
+        """The objects `path` names, described: each segment a str, an
+        objectName, or a dict of criteria (see tests/ui-driver/README.md).
+        With all, the last segment may name more than one."""
+        return self.call("find", path=list(path), all=all)["objects"]
+
+    def get(self, *path, properties):
+        """The properties named, of the object `path` names, by name"""
+        return self.call("get", path=list(path), properties=list(properties))["properties"]
+
+    def get1(self, *path, name):
+        """One property of the object `path` names"""
+        return self.get(*path, properties=[name])[name]
+
+    def tree(self, *path, depth=3):
+        """The object `path` names, described, with its children to `depth`
+        levels; with no path, a list of every window so"""
+        data = {"path": list(path)} if path else {}
+        return self.call("tree", depth=depth, **data)["tree"]
+
     def available(self):
         """Whether OBS has the driver: it is a plugin of its own, and only
         answers when OBS was started with OBS_UI_DRIVER=1"""
