@@ -117,6 +117,7 @@ target_sources(
     src/ptz-action-source.c
     src/circularlistview.cpp
     src/touch-control.cpp
+    src/ptz-view-control.cpp
     src/ptz.h
     src/ptz-controls.hpp
     src/ptz-device.hpp
@@ -136,6 +137,7 @@ target_sources(
     src/protocol-helpers.hpp
     src/circularlistview.hpp
     src/touch-control.hpp
+    src/ptz-view-control.hpp
     src/square-tool-button.hpp
 )
 
