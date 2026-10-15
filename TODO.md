@@ -18,7 +18,6 @@ Core
 - Replace PTZControls->cameras with a QAbstractListModel
 - Add generic properties infrastructure so each camera can expose
   different settings
-- Fix display of transient window on startup
 
 PTZ Backend
 -----------

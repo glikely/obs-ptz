@@ -1469,11 +1469,15 @@ OBSData PTZDevice::captureValues() const
 	if (keys.contains(QStringLiteral("focus"))) {
 		OBSDataAutoRelease focus = obs_data_create();
 		Features f = features();
-		if ((f & FocusAbs) && obs_data_has_user_value(state, "focus"))
+		bool any = false;
+		if ((f & FocusAbs) && obs_data_has_user_value(state, "focus")) {
 			obs_data_set_double(focus, "position", obs_data_get_double(state, "focus"));
-		if ((f & AutoFocus) && obs_data_has_user_value(state, "focus_af_enabled"))
+			any = true;
+		}
+		if ((f & AutoFocus) && obs_data_has_user_value(state, "focus_af_enabled")) {
 			obs_data_set_bool(focus, "af_enabled", obs_data_get_bool(state, "focus_af_enabled"));
-		bool any = obs_data_first(focus) != nullptr;
+			any = true;
+		}
 		if (any)
 			obs_data_set_obj(values, "focus", focus);
 	}

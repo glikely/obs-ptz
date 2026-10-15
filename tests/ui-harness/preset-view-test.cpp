@@ -13,14 +13,12 @@
 #include <QApplication>
 #include <QKeyEvent>
 #include <QLineEdit>
-#include <QList>
 #include <QListView>
 #include <QMenu>
 #include <QToolButton>
 #include <QWidget>
 
 #include "ptz-list-model.hpp"
-#include "ptz.h"
 
 namespace {
 
@@ -55,26 +53,6 @@ void runPresetViewTest(const QMap<QString, QString> &params)
 	obs_data_set_bool(result, "found", deviceList && presetList);
 
 	if (deviceList && presetList) {
-		/* Adding or removing a device resets the model */
-		QString addDevice = params.value(QStringLiteral("add_device"));
-		if (!addDevice.isEmpty()) {
-			/* A device is a filter on a source: make the source, and
-			 * hold it, since nothing else does */
-			static QList<OBSSource> held;
-			OBSDataAutoRelease config = obs_data_create();
-			obs_data_set_string(config, "type", "visca-over-ip");
-			obs_data_set_string(config, "host", "127.0.0.1");
-			OBSSourceAutoRelease source =
-				obs_source_create("color_source_v3", qUtf8Printable(addDevice), nullptr, nullptr);
-			if (source) {
-				held.append(OBSSource(source.Get()));
-				OBSSourceAutoRelease filter = ptz_device_create_filter(source, config);
-			}
-		}
-		QString removeDevice = params.value(QStringLiteral("remove_device"));
-		if (!removeDevice.isEmpty())
-			ptzDeviceList->removeDevice(ptzDeviceList->indexFromName(removeDevice));
-
 		QString select = params.value(QStringLiteral("select"));
 		if (select == QStringLiteral("none")) {
 			deviceList->selectionModel()->setCurrentIndex(QModelIndex(), QItemSelectionModel::Clear);
@@ -185,11 +163,8 @@ void runSaveDockTest(const QMap<QString, QString> &)
 } // namespace
 
 /* Request params:
- *   add_device    - optional: add a device with this name first. It has no
- *                   source and no camera
- *   remove_device - optional: remove the device with this name first
- *   select        - optional: a device id to select in the camera list
- *                   (after the above), or "none" to clear the selection
+ *   select        - optional: a device id to select in the camera list,
+ *                   or "none" to clear the selection
  *   add           - optional: after the above, press the Add button
  *                   ("button"), or choose "camera", "local" or "toggle_default" in its menu
  *   filename      - where to write the {"found", "rows" ([{"text", "id",
