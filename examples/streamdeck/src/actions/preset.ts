@@ -5,6 +5,11 @@
  * position, as ptz_state_changed reports it, leaves where it arrived, whatever
  * moved it there and whatever moves it away.
  *
+ * The camera is the one selected in the PTZ dock, unless the key names one.
+ * Which presets there are changes with the camera selected, so a key on the
+ * selected camera is for a position in the dock's list, as the dock's own
+ * hotkeys are, and its title and light follow the camera that is selected.
+ *
  * Copyright 2026 Grant Likely <grant.likely@secretlab.ca>
  * SPDX-License-Identifier: GPL-2.0-or-later
  */
@@ -19,11 +24,13 @@ import streamDeck, {
 	WillAppearEvent,
 } from "@elgato/streamdeck";
 
-import { Data, Preset, ptz } from "../obs-ptz";
-import { InspectorRequest, sendCameras, sendPresets } from "./inspector";
+import { Data, Preset, PresetList, ptz, SELECTED } from "../obs-ptz";
+import { cameraOf, InspectorRequest, sendCameras, sendPresets } from "./inspector";
 
 type PresetSettings = {
+	/** The camera's UUID, or SELECTED (or nothing) for the one selected in the dock */
 	device?: string;
+	/** The preset's id; on the selected camera, its position in the dock's list, from 1 */
 	preset?: string;
 };
 
@@ -34,6 +41,20 @@ const AXES = ["pan", "tilt", "zoom"] as const;
 const AT_PRESET_SLACK = 0.02;
 
 type Arrival = { preset: string; position: Partial<Record<(typeof AXES)[number], number>> };
+
+/** The UUID of the camera a key is for now, "" if it is for the selected camera and none is */
+function deviceOf(settings: PresetSettings): string {
+	const camera = cameraOf(settings);
+	return camera === SELECTED ? ptz.selected : camera;
+}
+
+/** The preset of `presets` that a key is for, if the camera has it */
+function presetOf(settings: PresetSettings, presets: Preset[]): Preset | undefined {
+	if (cameraOf(settings) === SELECTED) {
+		return presets[Number(settings.preset) - 1];
+	}
+	return presets.find((p) => p.id === settings.preset);
+}
 
 @action({ UUID: "ca.secretlab.obs-ptz.preset" })
 export class PresetAction extends SingletonAction<PresetSettings> {
@@ -47,12 +68,15 @@ export class PresetAction extends SingletonAction<PresetSettings> {
 	}
 
 	override async onKeyDown(ev: KeyDownEvent<PresetSettings>): Promise<void> {
-		const { device, preset } = ev.payload.settings;
 		try {
-			if (!device || !preset) {
-				throw new Error("the key has no camera or preset");
+			// The selected camera's list says which camera it is of, and the
+			// recall goes to that one, whatever is selected by then
+			const list = await ptz.presets(cameraOf(ev.payload.settings));
+			const preset = presetOf(ev.payload.settings, list.presets);
+			if (!preset) {
+				throw new Error("the camera has no such preset");
 			}
-			await ptz.call("ptz_preset_recall", { device, id: preset });
+			await ptz.call("ptz_preset_recall", { device: list.device, id: preset.id });
 		} catch (e) {
 			streamDeck.logger.warn(String(e));
 			await ev.action.showAlert();
@@ -61,7 +85,7 @@ export class PresetAction extends SingletonAction<PresetSettings> {
 
 	// The camera or the preset was changed in the property inspector
 	override async onDidReceiveSettings(ev: DidReceiveSettingsEvent<PresetSettings>): Promise<void> {
-		await sendPresets(ev.payload.settings.device);
+		await sendPresets(cameraOf(ev.payload.settings));
 		if (ev.action.isKey()) {
 			await this.#refresh(ev.action, ev.payload.settings);
 		}
@@ -72,7 +96,7 @@ export class PresetAction extends SingletonAction<PresetSettings> {
 		if (event === "getCameras") {
 			await sendCameras();
 		} else if (event === "getPresets") {
-			await sendPresets((await ev.action.getSettings()).device);
+			await sendPresets(cameraOf(await ev.action.getSettings()));
 		}
 	}
 
@@ -81,6 +105,11 @@ export class PresetAction extends SingletonAction<PresetSettings> {
 		if (!connected) {
 			this.#at.clear();
 		}
+		await this.#refreshAll();
+	}
+
+	/** Called when another camera is selected in the dock: the keys on the selected camera follow it */
+	async selectionChanged(): Promise<void> {
 		await this.#refreshAll();
 	}
 
@@ -116,10 +145,12 @@ export class PresetAction extends SingletonAction<PresetSettings> {
 				}
 				break;
 			}
-			// A preset's name, or the camera's presets, changed: the titles follow
+			// A preset's name, the camera's presets, or their order, which is
+			// what a key on the selected camera goes by, changed: the keys follow
 			case "ptz_preset_changed":
 			case "ptz_preset_added":
 			case "ptz_preset_removed":
+			case "ptz_preset_order_changed":
 			case "ptz_preset_list_reset":
 				await this.#refreshAll(device);
 				break;
@@ -130,16 +161,16 @@ export class PresetAction extends SingletonAction<PresetSettings> {
 		}
 	}
 
-	/** Sets each key's title and state, or only those of `device`'s presets */
+	/** Sets each key's title and state, or only those of the keys that are for `device` now */
 	async #refreshAll(device?: string): Promise<void> {
 		// Each camera's list is asked for once, however many keys it has
-		const lists = new Map<string, Promise<Preset[]>>();
+		const lists = new Map<string, Promise<PresetList>>();
 		for (const key of this.actions) {
 			if (!key.isKey()) {
 				continue;
 			}
 			const settings = await key.getSettings();
-			if (device === undefined || settings.device === device) {
+			if (device === undefined || deviceOf(settings) === device) {
 				await this.#refresh(key, settings, lists);
 			}
 		}
@@ -148,22 +179,25 @@ export class PresetAction extends SingletonAction<PresetSettings> {
 	async #refresh(
 		key: KeyAction<PresetSettings>,
 		settings: PresetSettings,
-		lists = new Map<string, Promise<Preset[]>>(),
+		lists = new Map<string, Promise<PresetList>>(),
 	): Promise<void> {
-		const { device, preset } = settings;
+		const device = deviceOf(settings);
 		let title = "";
-		if (device && preset && ptz.connected) {
+		let at = false;
+		if (device && settings.preset && ptz.connected) {
 			try {
 				if (!lists.has(device)) {
 					lists.set(device, ptz.presets(device));
 				}
-				const found = (await lists.get(device)!).find((p) => p.id === preset);
-				title = found ? found.name || found.id : "(gone)";
+				const preset = presetOf(settings, (await lists.get(device)!).presets);
+				// A position on the selected camera that it has no preset at is blank
+				title = preset ? preset.name || preset.id : cameraOf(settings) === SELECTED ? "" : "(gone)";
+				at = preset !== undefined && this.#at.get(device)?.preset === preset.id;
 			} catch {
 				title = "(no camera)";
 			}
 		}
 		await key.setTitle(title);
-		await key.setState(device && this.#at.get(device)?.preset === preset ? 1 : 0);
+		await key.setState(at ? 1 : 0);
 	}
 }

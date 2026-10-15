@@ -22,6 +22,9 @@ const OP_REQUEST = 6;
 const OP_REQUEST_RESPONSE = 7;
 const EVENT_VENDORS = 1 << 9;
 
+/** What a request's device is to mean the camera selected in the PTZ dock */
+export const SELECTED = "selected";
+
 const REQUEST_TIMEOUT_MS = 10_000;
 const RECONNECT_MS = 3_000;
 
@@ -49,6 +52,9 @@ export type Preset = {
 
 export type Data = Record<string, unknown>;
 
+/** A camera's presets, in the order the dock shows them, and the camera they are of */
+export type PresetList = { device: string; presets: Preset[] };
+
 export class PtzError extends Error {}
 
 type Pending = {
@@ -63,17 +69,25 @@ export class ObsPtz {
 	onEvent: (name: string, data: Data) => void = () => {};
 	/** Called when the connection is made, and when it is lost */
 	onConnectionChanged: (connected: boolean) => void = () => {};
+	/** Called when another camera is selected in the PTZ dock */
+	onSelectionChanged: () => void = () => {};
 
 	#url = "";
 	#password = "";
 	#ws?: WebSocket;
 	#connected = false;
+	#selected = "";
 	#retry?: NodeJS.Timeout;
 	#nextId = 1;
 	#pending = new Map<string, Pending>();
 
 	get connected(): boolean {
 		return this.#connected;
+	}
+
+	/** The UUID of the camera selected in the PTZ dock, "" for none, as OBS last said */
+	get selected(): string {
+		return this.#selected;
 	}
 
 	/** Connects to the server the settings name, if it isn't the one there is a connection to already */
@@ -117,13 +131,17 @@ export class ObsPtz {
 		return (await this.call("ptz_list_devices")).devices as Camera[];
 	}
 
-	/** A camera's presets, in the order the dock shows them */
-	async presets(device: string): Promise<Preset[]> {
-		const list = (await this.call("ptz_preset_get_list", { device })).return as {
-			presets: Record<string, Preset>;
-			order: { id: string }[];
+	/**
+	 * A camera's presets, in the order the dock shows them. Asked of SELECTED,
+	 * they are the selected camera's, and the list says which camera that was.
+	 */
+	async presets(device: string): Promise<PresetList> {
+		const answer = await this.call("ptz_preset_get_list", { device });
+		const list = answer.return as { presets: Record<string, Preset>; order: { id: string }[] };
+		return {
+			device: (answer.device as string | undefined) ?? device,
+			presets: list.order.map((p) => list.presets[p.id]),
 		};
-		return list.order.map((p) => list.presets[p.id]);
 	}
 
 	#reconnect(delay: number): void {
@@ -159,6 +177,7 @@ export class ObsPtz {
 			pending.reject(new PtzError(`${pending.request}: the connection to OBS was lost`));
 			this.#pending.delete(id);
 		}
+		this.#selected = "";
 		if (this.#connected) {
 			this.#connected = false;
 			this.onConnectionChanged(false);
@@ -184,15 +203,27 @@ export class ObsPtz {
 				break;
 			}
 			case OP_IDENTIFIED:
+				// What is selected is learnt before the actions are told, so that
+				// they are drawn for it. A binding older than 1.1 hasn't the
+				// request, and has no selection to give
 				this.#connected = true;
-				this.onConnectionChanged(true);
+				this.call("ptz_get_selected")
+					.then((answer) => (this.#selected = answer.device as string))
+					.catch(() => {})
+					.finally(() => this.onConnectionChanged(true));
 				break;
 			case OP_REQUEST_RESPONSE:
 				this.#answer(msg.d);
 				break;
 			case OP_EVENT: {
 				const event = msg.d.eventData as { vendorName: string; eventType: string; eventData: Data };
-				if (msg.d.eventType === "VendorEvent" && event.vendorName === VENDOR) {
+				if (msg.d.eventType !== "VendorEvent" || event.vendorName !== VENDOR) {
+					break;
+				}
+				if (event.eventType === "ptz_selected_changed") {
+					this.#selected = event.eventData.device as string;
+					this.onSelectionChanged();
+				} else {
 					this.onEvent(event.eventType, event.eventData);
 				}
 				break;

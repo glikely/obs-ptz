@@ -1,6 +1,7 @@
 /*
  * A key that moves a camera for as long as it is held: ptz_move at a speed on
- * the key going down, and the same axes back to 0 on its coming up.
+ * the key going down, and the same axes back to 0 on its coming up. The camera
+ * is the one selected in the PTZ dock, unless the key names one.
  *
  * Copyright 2026 Grant Likely <grant.likely@secretlab.ca>
  * SPDX-License-Identifier: GPL-2.0-or-later
@@ -15,8 +16,8 @@ import streamDeck, {
 	WillDisappearEvent,
 } from "@elgato/streamdeck";
 
-import { ptz } from "../obs-ptz";
-import { InspectorRequest, sendCameras } from "./inspector";
+import { Data, ptz } from "../obs-ptz";
+import { cameraOf, InspectorRequest, sendCameras } from "./inspector";
 
 type Direction =
 	| "left"
@@ -31,6 +32,7 @@ type Direction =
 	| "zoom-out";
 
 type MoveSettings = {
+	/** The camera's UUID, or SELECTED (or nothing) for the one selected in the dock */
 	device?: string;
 	direction?: Direction;
 	/** Percent of the camera's top speed */
@@ -64,24 +66,25 @@ function speeds(direction: Direction, speed: number): Record<string, number> {
 export class MoveAction extends SingletonAction<MoveSettings> {
 	// The keys being held, by the key's id, with what to send to stop the move
 	// each started: not ptz_stop, which would stop a zoom that another key held
-	// at the same time had started, but its own axes, set to 0
-	#held = new Map<string, Record<string, unknown>>();
+	// at the same time had started, but its own axes, set to 0. It is known
+	// once the move is answered, which a quick press can come up before.
+	#held = new Map<string, Promise<Data | undefined>>();
 
 	override async onKeyDown(ev: KeyDownEvent<MoveSettings>): Promise<void> {
-		const { device, direction = "left", speed = 50 } = ev.payload.settings;
-		if (!device) {
-			await ev.action.showAlert();
-			return;
-		}
-		const stop = { device, ...speeds(direction, 0) };
-		this.#held.set(ev.action.id, stop);
-		try {
-			await ptz.call("ptz_move", { device, ...speeds(direction, speed / 100) });
-		} catch (e) {
-			this.#held.delete(ev.action.id);
-			streamDeck.logger.warn(String(e));
-			await ev.action.showAlert();
-		}
+		const { direction = "left", speed = 50 } = ev.payload.settings;
+		const device = cameraOf(ev.payload.settings);
+		const moving = ptz.call("ptz_move", { device, ...speeds(direction, speed / 100) }).then(
+			// The camera that was selected is the one to stop, whatever is
+			// selected by the time the key comes up: the answer says which
+			(answer) => ({ device: answer.device ?? device, ...speeds(direction, 0) }),
+			async (e) => {
+				streamDeck.logger.warn(String(e));
+				await ev.action.showAlert();
+				return undefined;
+			},
+		);
+		this.#held.set(ev.action.id, moving);
+		await moving;
 	}
 
 	override async onKeyUp(ev: KeyUpEvent<MoveSettings>): Promise<void> {
@@ -101,11 +104,12 @@ export class MoveAction extends SingletonAction<MoveSettings> {
 	}
 
 	async #stop(id: string): Promise<void> {
-		const stop = this.#held.get(id);
+		const moving = this.#held.get(id);
+		this.#held.delete(id);
+		const stop = await moving;
 		if (!stop) {
 			return;
 		}
-		this.#held.delete(id);
 		try {
 			await ptz.call("ptz_move", stop);
 		} catch (e) {

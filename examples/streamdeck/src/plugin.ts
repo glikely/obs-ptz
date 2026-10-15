@@ -22,6 +22,10 @@ ptz.onConnectionChanged = (connected) => {
 	presets.connectionChanged(connected).catch(warn);
 	refreshInspector().catch(warn);
 };
+ptz.onSelectionChanged = () => {
+	presets.selectionChanged().catch(warn);
+	refreshInspector().catch(warn);
+};
 
 streamDeck.actions.registerAction(new MoveAction());
 streamDeck.actions.registerAction(presets);

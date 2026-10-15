@@ -11,6 +11,14 @@ It has two actions:
 - **Preset**: recalls one of a camera's presets. Its title is the preset's name,
   and it lights up green while the camera is at the preset.
 
+Each is for the camera selected in the PTZ dock, unless it is set to one
+camera. A Preset key on the selected camera is set to a position in the dock's
+list, as the dock's "Recall preset N" hotkeys are, since which presets there are
+changes with the camera: its title and light follow whichever camera is
+selected.
+
+It needs version 1.1 of the binding, for the selected camera.
+
 ## Building and installing
 
 It needs Node.js 20 or later to build, and Stream Deck 7.1 or later to run.
@@ -37,10 +45,20 @@ runs, subscribed to vendors' events, and makes it again whenever it drops: the
 Stream Deck software usually starts before OBS does. Everything goes through
 obs-websocket's `CallVendorRequest`, to the `obs-ptz` vendor.
 
-- The property inspectors' camera menus come from `ptz_list_devices`, showing
-  each camera by the source it is on, and keep its `device` UUID, which is the
-  same from one run of OBS to the next. The preset menu comes from
-  `ptz_preset_get_list`, and keeps the preset's `id`, which is too.
+- The property inspectors' camera menus have "Selected camera", and each camera
+  from `ptz_list_devices`, by the source it is on. A key keeps the camera's
+  `device` UUID, which is the same from one run of OBS to the next, or
+  `selected`. The preset menu comes from `ptz_preset_get_list`, and keeps the
+  preset's `id`, which is too, or for the selected camera its position.
+- A key on the selected camera sends its requests with `device` set to
+  `selected`, and the binding sends them on to the camera selected as they come.
+  The answer says which camera that was, and what has to go to the same camera
+  goes there by its UUID: the release of a Move key, which the selection may
+  have moved on from while it was held, and the recall after a Preset key has
+  read the selected camera's list.
+- What is selected, for the keys' titles and lights, is read with
+  `ptz_get_selected` as the plugin connects, and followed with the
+  `ptz_selected_changed` event.
 - A Move key calls `ptz_move` with its speeds as it goes down, and `ptz_move`
   with the same axes at 0 as it comes up. It doesn't call `ptz_stop`, which
   would also stop a zoom that another key, held at the same time, had started.
@@ -50,7 +68,7 @@ obs-websocket's `CallVendorRequest`, to the `obs-ptz` vendor.
   where it arrived, whatever moved it: one of these keys, the PTZ dock, a
   joystick or the camera's own remote.
 - Preset keys' titles follow `ptz_preset_changed`, `ptz_preset_added`,
-  `ptz_preset_removed` and `ptz_preset_list_reset`.
+  `ptz_preset_removed`, `ptz_preset_order_changed` and `ptz_preset_list_reset`.
 
 ## What it doesn't do
 
