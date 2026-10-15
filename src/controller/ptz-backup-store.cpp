@@ -64,14 +64,13 @@ static void backups_write_locked()
 		return;
 	OBSDataAutoRelease data = obs_data_create();
 	obs_data_set_array(data, "devices", backups);
-	if (!obs_data_save_json_pretty_safe(data, file, "tmp", "bak")) {
-		char *path = obs_module_config_path("");
-		if (path) {
-			os_mkdirs(path);
-			bfree(path);
-		}
-		obs_data_save_json_pretty_safe(data, file, "tmp", "bak");
+	/* Make the directory first, as a failed write is logged as an error */
+	char *path = obs_module_config_path("");
+	if (path) {
+		os_mkdirs(path);
+		bfree(path);
 	}
+	obs_data_save_json_pretty_safe(data, file, "tmp", "bak");
 	bfree(file);
 }
 

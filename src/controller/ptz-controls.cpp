@@ -791,15 +791,14 @@ void PTZControls::SaveConfig()
 	if (obs_data_array_count(devices))
 		obs_data_set_array(savedata, "devices", devices);
 
-	/* Save data structure to json */
-	if (!obs_data_save_json_pretty_safe(savedata, file, "tmp", "bak")) {
-		char *path = obs_module_config_path("");
-		if (path) {
-			os_mkdirs(path);
-			bfree(path);
-		}
-		obs_data_save_json_safe(savedata, file, "tmp", "bak");
+	/* Save data structure to json. The directory is made first: a failed
+	 * write is logged as an error, and on a first run it doesn't exist yet */
+	char *path = obs_module_config_path("");
+	if (path) {
+		os_mkdirs(path);
+		bfree(path);
 	}
+	obs_data_save_json_pretty_safe(savedata, file, "tmp", "bak");
 	bfree(file);
 }
 
