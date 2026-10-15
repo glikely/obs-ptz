@@ -1,6 +1,6 @@
 """What a device can do: the "features" in its state (PTZDevice::features()),
-and the PTZ Controls dock enabling only the controls for them, through
-tests/ui-harness/dock-controls-test.cpp's "get_dock_controls" test.
+and the PTZ Controls dock enabling only the controls for them, read through
+the UI driver (World.dock_controls()).
 """
 
 import pytest

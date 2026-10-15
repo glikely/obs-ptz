@@ -25,7 +25,6 @@ obs_websocket_vendor ptzUITestVendor()
 PTZUITestHarness::PTZUITestHarness(QObject *parent) : QObject(parent)
 {
 	registerAppearanceRowSizingTest(this);
-	registerPresetExportImportTest(this);
 	registerPresetViewTest(this);
 	registerDockControlsTest(this);
 	registerSceneItemSelectTest(this);
@@ -35,7 +34,6 @@ PTZUITestHarness::PTZUITestHarness(QObject *parent) : QObject(parent)
 	registerDriverKindsTest(this);
 	registerDiscoveryTest(this);
 	registerDeviceBackupTest(this);
-	registerCameraReportTest(this);
 	registerReorderPresetsTest(this);
 	registerReorderCamerasTest(this);
 	registerThirdPartyDeviceTest(this);

@@ -22,7 +22,7 @@ def test_a_preset_the_device_makes_is_in_the_settings_at_once(obs_world, cameras
     uuid = obs_world.wait_for_device_by_name("persist-preset-cam", out, lambda r: r["found"] and r["bound"])["uuid"]
     assert filter_settings(obs_world, "persist-preset-cam").get("presets", []) == []
 
-    obs_world.run_ui_test("add_preset", device=uuid)
+    assert obs_world.create_preset(uuid)
 
     obs_world.wait_for(lambda: len(filter_settings(obs_world, "persist-preset-cam").get("presets", [])) == 1)
 
@@ -32,7 +32,7 @@ def test_an_update_of_another_setting_keeps_the_presets(obs_world, cameras, tmp_
     cameras.add_filter("persist-update-cam")
     out = tmp_path / "device.json"
     uuid = obs_world.wait_for_device_by_name("persist-update-cam", out, lambda r: r["found"] and r["bound"])["uuid"]
-    obs_world.run_ui_test("add_preset", device=uuid)
+    assert obs_world.create_preset(uuid)
     obs_world.wait_for(lambda: len(filter_settings(obs_world, "persist-update-cam").get("presets", [])) == 1)
 
     obs_world.ws.call("SetSourceFilterSettings", {

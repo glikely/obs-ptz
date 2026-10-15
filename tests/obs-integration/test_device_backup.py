@@ -207,7 +207,7 @@ def test_remove_removes_a_filter_device_and_backs_it_up(obs_world, sources, tmp_
     sources.add_filter("backup-cam-remove")
     obs_world.wait_for_device_by_name("backup-cam-remove", tmp_path / "device.json", lambda r: r["found"])
 
-    obs_world.run_ui_test("remove_device", name="backup-cam-remove")
+    obs_world.remove_device("backup-cam-remove")
 
     obs_world.wait_for_device_by_name("backup-cam-remove", tmp_path / "device.json", lambda r: not r["found"])
     assert sources.filters("backup-cam-remove") == []
@@ -229,7 +229,7 @@ def test_restoring_a_backup_brings_its_protocol(obs_world, sources, tmp_path):
     sources.add("backup-cam-old")
     sources.add_filter("backup-cam-old")
     obs_world.wait_for_device_by_name("backup-cam-old", tmp_path / "device.json", lambda r: r["found"])
-    obs_world.run_ui_test("remove_device", name="backup-cam-old")
+    obs_world.remove_device("backup-cam-old")
     wait_for_backup(obs_world, tmp_path / "backups.json", "backup-cam-old")
 
     sources.add("backup-cam-other")

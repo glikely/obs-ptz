@@ -14,6 +14,7 @@ setting, which only the settings dialog does otherwise.
 import json
 
 import pytest
+from conftest import OBS_MAIN, PTZ_DOCK
 from obsws import ObsWebSocketError
 
 VENDOR = "obs-ptz"
@@ -183,7 +184,7 @@ def access(obs_world):
     """Sets how much a client is let do, as the settings dialog does, and puts it
     back to the default"""
     def set_access(value):
-        obs_world.run_ui_test("set_websocket_access", value=value)
+        obs_world.set_websocket_access(value)
         obs_world.wait_for(lambda: current_access(obs_world) == value)
 
     yield set_access
@@ -242,7 +243,9 @@ def test_an_access_that_is_not_one_of_the_three_is_off(obs_world, access):
     """A setting that was mistyped in the config, "readonly" say, was meant to
     let a client do less: it is not taken for the default, which lets it do
     everything"""
-    obs_world.run_ui_test("set_websocket_access", value="readonly")
+    obs_world.need_ui_driver()
+    # What loading the plugin's config does with the setting in it
+    obs_world.ui.invoke(OBS_MAIN, PTZ_DOCK, method="setWebsocketAccess", args=["readonly"])
     obs_world.wait_for(lambda: current_access(obs_world) == "off")
 
 

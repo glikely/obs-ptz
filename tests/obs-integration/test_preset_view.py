@@ -21,12 +21,15 @@ def cameras_listed(view):
 
 
 def test_preset_list_is_blank_with_no_camera_selected(obs_world, tmp_path):
-    view = obs_world.preset_view(tmp_path / "view.json", select="none")
+    out = tmp_path / "view.json"
+    obs_world.preset_view(out, select="none")
+    # A device the test before removed has the model reset, which the view
+    # catches up with on a queued call
+    view = obs_world.wait_for_preset_view(out, lambda v: v["rows"] == [])
 
     assert view["found"] is True
     assert view["selected"] is False
     assert len(view["device_names"]) > 1
-    assert view["rows"] == []
 
 
 def test_preset_list_shows_the_selected_cameras_presets(obs_world, tmp_path):
@@ -34,14 +37,14 @@ def test_preset_list_shows_the_selected_cameras_presets(obs_world, tmp_path):
     out = tmp_path / "view.json"
     presets = tmp_path / "presets.json"
     for _ in range(2):
-        obs_world.run_ui_test("add_preset", device=device_name)
+        assert obs_world.create_preset(device_name)
     try:
         view = obs_world.preset_view(out, select=device_name)
         view = obs_world.wait_for_preset_view(out, lambda v: len(v["rows"]) == 2)
         # the camera keeps no names, so the file names them
         slots = [int(r["id"].partition(":")[2]) for r in view["rows"]]
         write_preset_file(presets, [{"id": slots[0], "name": "Kitchen"}, {"id": slots[1], "name": "Garden"}])
-        obs_world.run_ui_test("import_presets", device=device_name, filename=str(presets))
+        obs_world.import_presets(device_name, presets)
 
         view = obs_world.wait_for_preset_view(out, lambda v: [r["text"] for r in v["rows"]] == ["Kitchen", "Garden"])
         assert view["selected"] is True

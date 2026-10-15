@@ -140,20 +140,6 @@ void runPresetViewTest(const QMap<QString, QString> &params)
 		blog(LOG_INFO, "[ptz-ui-test] get_preset_view: failed to write %s", qUtf8Printable(filename));
 }
 
-/* Adds a preset to a device, as a user does from the preset list: a change the
- * device makes itself, which its settings did not give it */
-void runAddPresetTest(const QMap<QString, QString> &params)
-{
-	QModelIndex index = ptzUITestDeviceIndex(params.value(QStringLiteral("device")));
-	if (!index.isValid()) {
-		blog(LOG_INFO, "[ptz-ui-test] add_preset: device not found");
-		return;
-	}
-	QString store = params.value(QStringLiteral("store"), QStringLiteral("camera"));
-	QString id = ptzDeviceList->addPreset(index.data(PTZListModel::DeviceUuidRole).toString(), store);
-	blog(LOG_INFO, "[ptz-ui-test] add_preset: done %s", qUtf8Printable(id));
-}
-
 /* Has OBS save, which has the dock write its config.json */
 void runSaveDockTest(const QMap<QString, QString> &)
 {
@@ -174,14 +160,8 @@ void runSaveDockTest(const QMap<QString, QString> &)
 void registerPresetViewTest(PTZUITestHarness *harness)
 {
 	harness->registerTest(QStringLiteral("get_preset_view"), &runPresetViewTest);
-	harness->registerTest(QStringLiteral("add_preset"), &runAddPresetTest);
 	harness->registerTest(QStringLiteral("save_dock"), &runSaveDockTest);
 }
-
-/* add_preset request params:
- *   device - the device, by the UUID of its filter or the name of the source it is on
- *   store  - optional: "camera" (the default) or "local"
- */
 
 /* save_dock request params: none. It has OBS save, so the dock writes its
  * config.json */

@@ -289,8 +289,8 @@ Linux.
     that one that only changes a control leaves the one it extends as it was.
 28. `test_device_features.py` covers what a device says it can do, the
     `"features"` in its state, for VISCA, Pelco and ONVIF, and that the
-    PTZ Controls dock enables only the controls for them, read through
-    `tests/ui-harness/dock-controls-test.cpp`'s `get_dock_controls` test.
+    PTZ Controls dock enables only the controls for them, read through the
+    UI driver.
 29. `test_api_doc.py` holds `docs/ptz-device-api.md`, the hand-written
     specification of the PTZ API, to the plugin: that its procs and signals are
     exactly the ones the plugin registers (logged by `ptz_proc_add()` and

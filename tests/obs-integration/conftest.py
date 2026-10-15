@@ -160,11 +160,17 @@ DEVICE_IDS = {
 # device that has none a placeholder the migration makes, named for its id
 DEVICE_NAMES = {key: f"sim-{key}" for key in DEVICE_IDS}
 
-# What the UI driver names OBS's main window, the PTZ settings dialog, and the
-# dialog's state view by
+# What the UI driver names OBS's main window, the PTZ Controls dock, the PTZ
+# settings dialog, the dialog's state view, and the camera report dialog by
 OBS_MAIN = {"class": "OBSBasic"}
+PTZ_DOCK = {"class": "PTZControls"}
 SETTINGS_DIALOG = {"name": "PTZSettings"}
 STATE_VIEW = {"class": "PTZStateView"}
+REPORT_DIALOG = {"class": "PTZCameraReportDialog"}
+# The dock's controls whose enabled state follows what the camera can do
+DOCK_CONTROLS = ("panTiltButton_up", "panTiltButton_home", "panTiltTouch", "zoomButton_tele", "zoomButton_wide",
+                 "focusButton_auto", "focusButton_near", "focusButton_far", "focusButton_onetouch",
+                 "presetListView")
 DEVICE_NAMES["unnamed"] = f"PTZ Device {DEVICE_IDS['unnamed']}"
 
 
@@ -902,19 +908,35 @@ class World:
         self.wait_for(done, timeout=timeout)
         return found[0]["id"]
 
-    def export_and_wait(self, device_name, out_file, expected_presets, timeout=5, interval=0.1):
-        """Triggers the real "Export Presets..." action once (via
-        run_ui_test()) for device_name, writing to out_file, then waits for
-        it to show expected_presets -- run_ui_test()'s dispatch is queued
-        onto the GUI thread, not synchronous, so the file may not exist
-        yet the instant this returns. Returns the parsed file."""
-        self.run_ui_test("export_presets", device=device_name, filename=str(out_file))
+    def select_in_dock(self, device):
+        """Selects a device in the PTZ Controls dock's camera list, as a click does"""
+        self.need_ui_driver()
+        uuid = self.device_uuid(device)
+        assert uuid is not None, f"no device {device}"
+        self.ui.select(OBS_MAIN, PTZ_DOCK, "deviceList", value=uuid, role="uuid")
 
-        def matches():
-            return out_file.exists() and json.loads(out_file.read_text()).get("presets") == expected_presets
+    def _preset_file_action(self, device, action, path):
+        """Selects device in the dock, then does what its "Export Presets..." or
+        "Import Presets..." does once the file is chosen: the slot the action
+        triggers, with the file, as the native file dialog can't be driven.
+        Queued, so that a message box it shows doesn't hold up the answer."""
+        self.select_in_dock(device)
+        self.ui.invoke(OBS_MAIN, PTZ_DOCK, method=f"on_actionPreset{action}_triggered", args=[str(path)],
+                       queued=True)
 
-        self.wait_for(matches, timeout=timeout, interval=interval)
-        return json.loads(out_file.read_text())
+    def export_presets(self, device, path):
+        """Exports device's presets to path, as the dock's "Export Presets..."
+        does, and gives back what it wrote, once it has"""
+        path.unlink(missing_ok=True)
+        self._preset_file_action(device, "Export", path)
+        self.wait_for(lambda: path.exists() and path.read_text())
+        return json.loads(path.read_text())
+
+    def import_presets(self, device, path):
+        """Imports the presets in path to device, as the dock's "Import
+        Presets..." does. It is done once OBS's main thread gets to it: wait for
+        what it changes."""
+        self._preset_file_action(device, "Import", path)
 
     def device_settings(self, device_name, out_file):
         """Fetches, as three sets of key names, what device_name's settings
@@ -1098,9 +1120,8 @@ class World:
         self.need_ui_driver()
         self.ui.invoke(SETTINGS_DIALOG, name, method="click")
 
-    def set_live_move_lock(self, enabled):
-        """Turns "Block Live Camera Moves" on or off, with its checkbox in the
-        PTZ settings dialog, which is opened if it isn't"""
+    def _settings_window(self):
+        """Opens the PTZ settings dialog, if it isn't open"""
         self.need_ui_driver()
         try:
             self.ui.find(SETTINGS_DIALOG)
@@ -1108,6 +1129,11 @@ class World:
             if e.code != "not_found":
                 raise
             self._open_settings_window()
+
+    def set_live_move_lock(self, enabled):
+        """Turns "Block Live Camera Moves" on or off, with its checkbox in the
+        PTZ settings dialog, which is opened if it isn't"""
+        self._settings_window()
         if self.ui.get1(SETTINGS_DIALOG, "livemoveCheckBox", name="checked") != enabled:
             self.ui.invoke(SETTINGS_DIALOG, "livemoveCheckBox", method="click")
 
@@ -1146,25 +1172,97 @@ class World:
             time.sleep(interval)
         raise AssertionError(f"device {device_name} status never matched predicate; last seen: {last}")
 
-    def dock_controls(self, device_name, out_file):
-        """Which of the PTZ Controls dock's controls are enabled with the
-        device selected, via tests/ui-harness/dock-controls-test.cpp's
-        "get_dock_controls" test"""
-        if out_file.exists():
-            out_file.unlink()
-        self.run_ui_test("get_dock_controls", device=device_name, filename=str(out_file))
-        self.wait_for(out_file.exists)
-        return json.loads(out_file.read_text())
+    def dock_controls(self, device_name):
+        """Which of the PTZ Controls dock's controls (DOCK_CONTROLS) are enabled
+        with the device selected in its camera list, by name"""
+        self.select_in_dock(device_name)
+        return {name: self.ui.get1(OBS_MAIN, PTZ_DOCK, name, name="enabled") for name in DOCK_CONTROLS}
 
     def wait_for_dock_controls(self, device_name, out_file, predicate, timeout=5, interval=0.2):
+        """Polls dock_controls() until predicate(enabled) is true. out_file is
+        not used: it was where the harness wrote them."""
         deadline = time.time() + timeout
         last = None
         while time.time() < deadline:
-            last = self.dock_controls(device_name, out_file)
-            if predicate(last["enabled"]):
-                return last["enabled"]
+            last = self.dock_controls(device_name)
+            if predicate(last):
+                return last
             time.sleep(interval)
         raise AssertionError(f"dock controls never matched predicate; last seen: {last}")
+
+    def set_websocket_access(self, value):
+        """Chooses what a client of obs-websocket is let do ("off", "read-only"
+        or "control"), in the PTZ settings dialog, which is opened if it isn't"""
+        self._settings_window()
+        self.ui.activate(SETTINGS_DIALOG, "websocketAccessComboBox", data=value)
+
+    def remove_device(self, device):
+        """Removes a device as a user does: chooses it in the PTZ settings
+        dialog's list, presses Remove, and answers Yes"""
+        self.need_ui_driver()
+        uuid = self.device_uuid(device)
+        assert uuid is not None, f"no device {device}"
+        self._settings_window()
+        self.ui.select(SETTINGS_DIALOG, "deviceList", value=uuid, role="uuid")
+        # The question is modal: Remove doesn't return until it is answered
+        self.ui.invoke(SETTINGS_DIALOG, "removePTZ", method="click", queued=True)
+        question = (SETTINGS_DIALOG, {"class": "QMessageBox"})
+        self.wait_for(lambda: self.ui.find(*question))
+        # Its answer is the button clicked, not the dialog's result
+        buttons = self.ui.find(*question, {"class": "QPushButton"}, all=True)
+        yes = [b for b in buttons if b.get("text", "").replace("&", "") == "Yes"]
+        assert len(yes) == 1, f"the question has no one Yes button: {buttons}"
+        self.ui.invoke({"id": yes[0]["id"]}, method="click")
+        self.wait_for(lambda: self.device_uuid(uuid) is None)
+
+    def open_camera_report(self, device):
+        """Opens the camera report dialog on a device as a user does: with
+        "Create Camera Report" in the PTZ settings dialog's diagnostics"""
+        self.open_settings_dialog(device)
+        self.press_dialog_button("cameraReport")
+        self.wait_for(lambda: self.ui.find(REPORT_DIALOG))
+
+    def camera_report_dialog(self):
+        """What the camera report dialog shows: its "status" line, the "report",
+        its "progress" and "progress_max", which of its buttons are "enabled",
+        and the "issue_url" Open Issue opens; or None if it isn't open"""
+        self.need_ui_driver()
+        ui = self.ui
+        try:
+            ui.find(REPORT_DIALOG)
+        except UiDriverError as e:
+            if e.code != "not_found":
+                raise
+            return None
+        # Each is read on its own, while the report may still be coming: the
+        # buttons first, as the dialog enables them last, once the rest is final
+        enabled = {name: ui.get1(REPORT_DIALOG, name, name="enabled") for name in ("save", "copy", "openIssue")}
+        progress = ui.get(REPORT_DIALOG, "progress", properties=["value", "maximum"])
+        return {
+            "status": ui.get1(REPORT_DIALOG, "status", name="text"),
+            "report": ui.get1(REPORT_DIALOG, "report", name="plainText"),
+            "progress": progress["value"],
+            "progress_max": progress["maximum"],
+            "enabled": enabled,
+            "issue_url": ui.get1(REPORT_DIALOG, name="issueUrl"),
+        }
+
+    def close_camera_reports(self):
+        """Closes every camera report dialog that is open"""
+        if not self.ui.available():
+            return
+        try:
+            dialogs = self.ui.find(REPORT_DIALOG, all=True)
+        except UiDriverError as e:
+            if e.code != "not_found":
+                raise
+            return
+        for dialog in dialogs:
+            try:
+                self.ui.invoke({"id": dialog["id"]}, method="close")
+            except UiDriverError as e:
+                if e.code != "not_found":
+                    raise
 
     def preset_view(self, out_file, select=None, add=None):
         """What the PTZ Controls dock's preset list is showing, via

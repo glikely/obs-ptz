@@ -14,34 +14,22 @@ The actions read and write through the PTZ API's presets (docs/ptz-device-api.md
   sets the names of the camera presets it has that the file names, when the
   camera does not keep names;
 - a format 1 file, from an older version, names camera presets by their slot.
+- a file that isn't one of presets changes nothing, and says so.
 
-This drives tests/ui-harness/'s own "export_presets"/"import_presets"
-tests (tests/ui-harness/preset-export-import-test.cpp) over the "obs-ptz"
-vendor's "ui_test_run" request every other tests/ui-harness/ test uses
-(see World.run_ui_test() in conftest.py). The one thing it still can't drive is the
-real QFileDialog itself: see on_actionPresetExport_triggered()'s own
-comment in ptz-controls.cpp for why (native OS file pickers aren't
-reachable from outside the process) and how it's bypassed for this
-(PTZ_UI_TEST_PRESET_EXPORT_FILE/_IMPORT_FILE, only under an
--DENABLE_UI_TESTS=ON build).
+This drives the dock through the UI driver (World.export_presets() and
+World.import_presets() in conftest.py): it selects the device in the dock's
+camera list, then calls the slot the action triggers with the file a user
+would have chosen. The one thing it can't drive is the file dialog itself,
+which is the platform's own, and not a Qt widget.
 
 Each test has a camera of its own (test_visca_user_profiles.py's), which has
 both stores and keeps no names.
 
-run_ui_test() is fire-and-forget (the harness dispatch is queued onto
-OBS's GUI thread, not run synchronously -- see World.run_ui_test()'s own
-docstring), so assertions here wait for the file or the list to change.
-
-Deliberately not covered here: feeding a bad/missing file to the import
-action. Going through the real action means a bad file pops a real, modal
-QMessageBox::warning() in the live OBS window -- nothing in this suite
-clicks it away, so triggering that on purpose would hang the GUI thread
-(and therefore every subsequent queued test) rather than fail cleanly.
+The slot is called once the driver has answered, so assertions here wait for
+the file or the list to change.
 """
 
-import json
-
-from conftest import write_preset_file, write_preset_file_v2
+from conftest import OBS_MAIN, write_preset_file, write_preset_file_v2
 from test_visca_user_profiles import Camera
 
 MODEL = "0123:0001"
@@ -72,14 +60,11 @@ def values_of(world, camera, preset_id):
 
 
 def export(world, camera, path):
-    path.unlink(missing_ok=True)
-    world.run_ui_test("export_presets", device=camera.device_name, filename=str(path))
-    world.wait_for(lambda: path.exists() and path.read_text())
-    return json.loads(path.read_text())
+    return world.export_presets(camera.device_name, path)
 
 
 def do_import(world, camera, path):
-    world.run_ui_test("import_presets", device=camera.device_name, filename=str(path))
+    world.import_presets(camera.device_name, path)
 
 
 def test_export_writes_local_presets_in_full_and_camera_names(request, obs_world, tmp_path):
@@ -179,17 +164,17 @@ def test_import_reads_a_format_1_file(request, obs_world, tmp_path):
                        timeout=10)
 
 
-def test_export_unknown_device_leaves_no_file(obs_world, tmp_path):
-    out_file = tmp_path / "should-not-exist.json"
-    obs_world.run_ui_test("export_presets", device=999999, filename=str(out_file))
 
-    # There's no success/failure signal to wait on here (device_name
-    # 999999 has no deviceList row to select, so runPresetIOTest() in
-    # tests/ui-harness/preset-export-import-test.cpp bails out and logs,
-    # never reaching the file write) -- just give any queued dispatch a
-    # moment to run, then confirm nothing appeared.
-    try:
-        obs_world.wait_for(out_file.exists, timeout=1)
-    except AssertionError:
-        pass
-    assert not out_file.exists()
+def test_a_file_that_is_not_presets_is_not_imported(request, obs_world, tmp_path):
+    """It says so in a message box, which a user closes, and leaves the presets"""
+    camera = Camera(request, obs_world, tmp_path, MODEL)
+    local = create(obs_world, camera, "Keep", "local")
+    path = tmp_path / "not-presets.json"
+    path.write_text('{"something": "else"}')
+
+    do_import(obs_world, camera, path)
+
+    warning = (OBS_MAIN, {"class": "QMessageBox"})
+    obs_world.wait_for(lambda: obs_world.ui.find(*warning))
+    obs_world.ui.invoke(*warning, {"class": "QPushButton"}, method="click")
+    assert listed(obs_world, camera) == [(local, "local", "Keep")]

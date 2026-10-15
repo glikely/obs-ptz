@@ -9,7 +9,6 @@ their widgets (see World.open_settings_dialog() and World.settings_dialog() in
 conftest.py).
 """
 
-import json
 import time
 
 import pytest
@@ -190,17 +189,12 @@ def test_creating_a_camera_report_from_the_status_view(request, obs_world, camer
                                     lambda r: r["state"].get("connected") is True, timeout=10)
     obs_world.open_settings_dialog(device_name)
     obs_world.wait_for_settings_dialog(tmp_path / "dialog.json", lambda r: r["diagnostics_visible"])
-    request.addfinalizer(lambda: obs_world.run_ui_test("camera_report_dialog", action="close"))
+    request.addfinalizer(obs_world.close_camera_reports)
     obs_world.press_dialog_button("cameraReport")
-    report = tmp_path / "report.json"
 
     def made():
-        if report.exists():
-            report.unlink()
-        obs_world.run_ui_test("camera_report_dialog", action="read", filename=str(report))
-        obs_world.wait_for(report.exists)
-        shown = json.loads(report.read_text())
-        return shown["open"] and shown["enabled"]["copy"]
+        shown = obs_world.camera_report_dialog()
+        return shown is not None and shown["enabled"]["copy"]
     obs_world.wait_for(made, timeout=60)
 
 

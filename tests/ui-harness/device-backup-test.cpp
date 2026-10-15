@@ -1,5 +1,5 @@
-/* PTZ UI test harness: backups of removed devices, and adding and removing
- * devices from the settings dialog
+/* PTZ UI test harness: backups of removed devices, and adding devices from
+ * the settings dialog
  *
  * Copyright 2026 Grant Likely <grant.likely@secretlab.ca>
  *
@@ -12,8 +12,6 @@
 #include <QApplication>
 #include <QComboBox>
 #include <QDialog>
-#include <QMessageBox>
-#include <QPushButton>
 #include <QStandardItemModel>
 #include <QTimer>
 
@@ -156,27 +154,6 @@ void runAddDeviceTest(const QMap<QString, QString> &params)
 		ptzUITestDiscoverySpyClosed();
 }
 
-/* Removes the device called `name` as a user would, with the settings
- * dialog's Remove, answering Yes to its question */
-void runRemoveDeviceTest(const QMap<QString, QString> &params)
-{
-	QModelIndex index = ptzDeviceList->indexFromName(params.value(QStringLiteral("name")));
-	if (!index.isValid()) {
-		blog(LOG_INFO, "[ptz-ui-test] remove_device: no such device");
-		return;
-	}
-	ptz_settings_show(index);
-	PTZSettings *dialog = findDialog();
-	if (!dialog)
-		return;
-	QTimer::singleShot(0, []() {
-		auto box = qobject_cast<QMessageBox *>(QApplication::activeModalWidget());
-		if (box && box->button(QMessageBox::Yes))
-			box->button(QMessageBox::Yes)->click();
-	});
-	dialog->on_removePTZ_clicked();
-}
-
 } // namespace
 
 /* get_device_backups: filename - where to write {"devices": [...]}
@@ -188,12 +165,10 @@ void runRemoveDeviceTest(const QMap<QString, QString> &params)
  *   drivers to finish detecting devices first. cancel: press Cancel instead.
  *   spy_discovery: "true" to count what the dialog's discovery instances say
  *   from when it opens, and mark when it has closed (see get_discovery_spy)
- * remove_device: name - the device to remove
  */
 void registerDeviceBackupTest(PTZUITestHarness *harness)
 {
 	harness->registerTest(QStringLiteral("get_device_backups"), &runGetDeviceBackupsTest);
 	harness->registerTest(QStringLiteral("reload_device_backups"), &runReloadDeviceBackupsTest);
 	harness->registerTest(QStringLiteral("add_device"), &runAddDeviceTest);
-	harness->registerTest(QStringLiteral("remove_device"), &runRemoveDeviceTest);
 }

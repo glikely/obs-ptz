@@ -456,7 +456,7 @@ def test_a_removed_one_is_offered_back_with_its_presets(obs_world, plain_source,
     preset = obs_world.create_preset(plain_source, "kept", store="local")
     assert preset
 
-    obs_world.run_ui_test("remove_device", name=plain_source)
+    obs_world.remove_device(plain_source)
     obs_world.wait_for(lambda: filter_kinds(obs_world, plain_source) == [])
 
     run_add_device(obs_world, tmp_path / "add.json", plain_source, restore=plain_source)

@@ -10,20 +10,16 @@ it in explicitly when you want to run it.
 
 Ships with these tests: `appearance_row_sizing` (see
 `appearance-row-sizing-test.cpp` and its own driver,
-`scripts/test_preset_row_sizing.py`), `export_presets`/
-`import_presets` (see `preset-export-import-test.cpp` and its driver,
-`tests/obs-integration/test_preset_import_export.py` - a pytest module
-rather than a standalone script; see its own docstring and "Driving a
-test from pytest instead of a standalone script" below for why that
-one's different), `get_preset_view` (see `preset-view-test.cpp` and its
-driver, `test_preset_view.py`), and `get_device_source`/`hold_source`
+`scripts/test_preset_row_sizing.py`), `get_preset_view` (see
+`preset-view-test.cpp` and its driver, `tests/obs-integration/test_preset_view.py`
+- a pytest module rather than a standalone script; see "Driving a test from
+pytest instead of a standalone script" below), and `get_device_source`/`hold_source`
 (see `device-source-test.cpp` and its driver, `test_filter_devices.py`), and
 `get_device_settings` (see `device-settings-test.cpp` and its driver,
 `test_device_settings.py`), and
 `watch_device_signals`/`get_device_signals` (see `device-signals-test.cpp`
 and its driver, `test_device_signals.py`), and
-`get_device_backups`/`add_device`/
-`remove_device` (see `device-backup-test.cpp` and its drivers,
+`get_device_backups`/`add_device` (see `device-backup-test.cpp` and its drivers,
 `test_device_backup.py` and `test_device_discovery.py`), and
 `discovery_kinds`/`discover`/`get_discovery_spy` (see `discovery-test.cpp`
 and its driver, `test_device_discovery.py`), and `reorder_presets`
@@ -64,7 +60,11 @@ What a user sees and does in a window goes through the UI driver
 (`tests/ui-driver/`), a plugin of its own that finds and drives any of OBS's
 Qt widgets generically: the settings dialog's tests use it, and its hooks
 here, `open_settings_dialog`, `get_settings_dialog`, `edit_dialog_state`,
-`press_dialog_button` and `set_live_move_lock`, are gone. A widget's state
+`press_dialog_button` and `set_live_move_lock`, are gone, as are those of the
+dock and the dialogs it opens that the driver reaches: `get_dock_controls`,
+`export_presets`/`import_presets` (the file dialog, which is the platform's
+own, is skipped by calling the slot the action triggers with the file),
+`camera_report_dialog`, `set_websocket_access` and `remove_device`. A widget's state
 that a test reads is a Qt property of the widget (`PTZStateView`'s
 `shownValues`, say), which the driver reads.
 
@@ -79,7 +79,8 @@ binding" in `docs/ptz-device-api.md`): `World.call_proc()`, `device_state()`,
 with nothing to poll, and it is the path a remote controller uses. Those went
 through the harness once, as `call_proc`, `get_device_state`, `get_api_version`,
 `record_preset_signals`/`get_preset_signals`, `set_device_state`,
-`move_device`, `trigger_device`, `get_device_status`, `get_camera_report` and
+`move_device`, `trigger_device`, `get_device_status`, `get_camera_report`,
+`add_preset` (`ptz_preset_create`, in `World.create_preset()`) and
 `make_discovery_instances`, which are gone. So is what obs-websocket's own
 requests do: `update_device` (`SetSourceFilterSettings`, in
 `World.update_device()`) and `fire_hotkey` (`TriggerHotkeyByName`).
@@ -152,8 +153,8 @@ machine (see "Testing on Windows" below).
 
 ## Driving a test from pytest instead of a standalone script
 
-`test_preset_import_export.py` (`tests/obs-integration/`) drives
-`export_presets`/`import_presets` differently than
+`test_preset_view.py` (`tests/obs-integration/`) drives
+`get_preset_view` differently than
 `test_preset_row_sizing.py` drives `appearance_row_sizing`: rather than
 a standalone script that launches and tears down its own OBS process,
 it's a normal pytest module in the `tests/obs-integration` suite, using

@@ -12,8 +12,9 @@ it has only the local store.
 - a device with only the local store gets the dock's presets: add, recall and
   save.
 
-Driven through tests/ui-harness/preset-view-test.cpp's "get_preset_view" and
-"add_preset", see World.preset_view() in conftest.py.
+Driven through tests/ui-harness/preset-view-test.cpp's "get_preset_view", see
+World.preset_view() in conftest.py. A preset is made as the dock makes one,
+with the device's ptz_preset_create (World.create_preset()).
 """
 
 import json
@@ -56,8 +57,8 @@ def test_a_device_with_both_stores_adds_to_either(request, obs_world, tmp_path):
     assert len(shown["add_menu"]) == 3
     assert shown["add_menu"][2]["text"] == "Use Camera Saved Presets by Default"
 
-    obs_world.run_ui_test("add_preset", device=camera.device_name, store="camera")
-    obs_world.run_ui_test("add_preset", device=camera.device_name, store="local")
+    assert obs_world.create_preset(camera.device_name, store="camera")
+    assert obs_world.create_preset(camera.device_name, store="local")
     rows = wait_for_rows(obs_world, tmp_path, 2)
     assert [r["store"] for r in rows] == ["camera", "local"]
     assert rows[0]["id"].startswith("camera:")

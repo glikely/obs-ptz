@@ -9,6 +9,7 @@ it may identify the camera, its user, or where either is.
 import json
 import urllib.parse
 
+from conftest import REPORT_DIALOG
 from test_visca_profiles import camera
 
 
@@ -108,30 +109,24 @@ def test_a_report_drafts_a_command_set_for_the_camera(request, obs_world, tmp_pa
     assert draft["controls"] == []
 
 
-def dialog(obs_world, out_file, predicate=lambda d: True, timeout=60):
+def dialog(obs_world, predicate=lambda d: True, timeout=60):
     """What the camera report dialog shows, once `predicate` says it shows
     what it should"""
-    def read():
-        if out_file.exists():
-            out_file.unlink()
-        obs_world.run_ui_test("camera_report_dialog", action="read", filename=str(out_file))
-        obs_world.wait_for(out_file.exists)
-        return json.loads(out_file.read_text())
     shown = None
 
     def shows():
         nonlocal shown
-        shown = read()
-        return shown["open"] and predicate(shown)
+        shown = obs_world.camera_report_dialog()
+        return shown is not None and predicate(shown)
     obs_world.wait_for(shows, timeout=timeout)
     return shown
 
 
 def test_the_dialog_shows_the_report_to_save_copy_or_send(request, obs_world, tmp_path):
     sim, _, device_name = camera(request, obs_world, tmp_path, sim_args=SONY, read={"wb_mode"})
-    request.addfinalizer(lambda: obs_world.run_ui_test("camera_report_dialog", action="close"))
-    obs_world.run_ui_test("camera_report_dialog", action="open", device=device_name)
-    shown = dialog(obs_world, tmp_path / "dialog.json", lambda d: d["enabled"]["copy"])
+    request.addfinalizer(obs_world.close_camera_reports)
+    obs_world.open_camera_report(device_name)
+    shown = dialog(obs_world, lambda d: d["enabled"]["copy"])
     assert shown["enabled"] == {"save": True, "copy": True, "openIssue": True}
     assert shown["progress"] == shown["progress_max"]
     made = obs_world.camera_report(device_name, tmp_path / "report.json")
@@ -144,9 +139,8 @@ def test_the_dialog_shows_the_report_to_save_copy_or_send(request, obs_world, tm
     assert query["camera"] == ["Sony"]
     assert query["plugin-version"] == [made["plugin_version"]]
 
-    obs_world.run_ui_test("camera_report_dialog", action="click", button="copy")
-    shown = dialog(obs_world, tmp_path / "copied.json", lambda d: d["clipboard"])
-    assert json.loads(shown["clipboard"]) == made
+    obs_world.ui.invoke(REPORT_DIALOG, "copy", method="click")
+    assert json.loads(obs_world.ui.clipboard()) == made
 
 
 def test_the_dialog_says_a_camera_that_isnt_connected_cant_be_asked(request, obs_world, tmp_path):
@@ -154,7 +148,7 @@ def test_the_dialog_says_a_camera_that_isnt_connected_cant_be_asked(request, obs
     sim.stop()
     obs_world.wait_for_device_state(
         device_name, tmp_path / "gone.json", lambda r: r["state"]["connected"] is False, timeout=20)
-    request.addfinalizer(lambda: obs_world.run_ui_test("camera_report_dialog", action="close"))
-    obs_world.run_ui_test("camera_report_dialog", action="open", device=device_name)
-    shown = dialog(obs_world, tmp_path / "dialog.json", lambda d: "connected" in d["status"], timeout=10)
+    request.addfinalizer(obs_world.close_camera_reports)
+    obs_world.open_camera_report(device_name)
+    shown = dialog(obs_world, lambda d: "connected" in d["status"], timeout=10)
     assert shown["enabled"] == {"save": False, "copy": False, "openIssue": False}

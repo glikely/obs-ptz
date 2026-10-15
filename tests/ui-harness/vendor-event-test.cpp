@@ -1,5 +1,5 @@
-/* PTZ UI test harness: an event of the "obs-ptz" obs-websocket vendor, the
- * setting of what a client of it is let do, and a main thread kept busy
+/* PTZ UI test harness: an event of the "obs-ptz" obs-websocket vendor, and a
+ * main thread kept busy
  *
  * Copyright 2026 Grant Likely <grant.likely@secretlab.ca>
  *
@@ -10,8 +10,6 @@
 #include <obs.hpp>
 #include <obs-module.h>
 #include <QThread>
-
-#include "ptz-controls.hpp"
 
 namespace {
 
@@ -28,13 +26,6 @@ void runEmitVendorEventTest(const QMap<QString, QString> &params)
 		blog(LOG_INFO, "[ptz-ui-test] emit_vendor_event: could not emit %s", qUtf8Printable(type));
 }
 
-/* Sets what a client of obs-websocket is let do, as the settings dialog's
- * choice does */
-void runSetWebsocketAccessTest(const QMap<QString, QString> &params)
-{
-	PTZControls::getInstance()->setWebsocketAccess(params.value(QStringLiteral("value")));
-}
-
 /* Keeps the main thread busy, as a slow frame or a modal dialog does, for a
  * test of what waits for it */
 void runHoldMainThreadTest(const QMap<QString, QString> &params)
@@ -48,15 +39,11 @@ void runHoldMainThreadTest(const QMap<QString, QString> &params)
  *   type - the event's name
  *   data - its data, as a JSON object; {} if left out
  *
- * set_websocket_access request params:
- *   value - "off", "read-only" or "control"
- *
  * hold_main_thread request params:
  *   ms - how long to sleep in the main thread
  */
 void registerVendorEventTest(PTZUITestHarness *harness)
 {
 	harness->registerTest(QStringLiteral("emit_vendor_event"), &runEmitVendorEventTest);
-	harness->registerTest(QStringLiteral("set_websocket_access"), &runSetWebsocketAccessTest);
 	harness->registerTest(QStringLiteral("hold_main_thread"), &runHoldMainThreadTest);
 }
