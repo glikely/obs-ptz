@@ -67,15 +67,18 @@ def test_migrated_devices_are_gone_from_config_json(obs_world):
     assert not config.get("devices")
 
 
-def test_nothing_is_left_allocated_when_obs_quits(obs_world, power_ptzsim):
+def test_nothing_is_left_allocated_when_obs_quits(obs_world, power_ptzsim, obs_first_run_leaks):
     """OBS counts what is still allocated as it exits, after the plugin has
     been unloaded: whatever the plugin holds onto past that, such as the
     entries the migration kept in a static, is a leak it reports. This OBS
-    has migrated devices, which is when the migration holds some."""
+    has migrated devices, which is when the migration holds some. It is also
+    a first run on a fresh profile, which can leak by itself: no more than an
+    OBS without the plugin did on one is the plugin's."""
     log = obs_world.restart_obs()
     # The OBS that has just started is not left to quit before it has settled, which
     # the suite's own check that a camera is turned off as OBS exits would take for a fault
     obs_world.wait_for(lambda: power_ptzsim.power() is True, timeout=30)
     reported = re.findall(r"Number of memory leaks: (\d+)", log.read_text(errors="replace"))
     assert reported, f"OBS did not say how much it leaked: see {log}"
-    assert reported == ["0"], f"OBS leaked on exit: see {log}"
+    assert reported == [str(obs_first_run_leaks)], \
+        f"OBS leaked on exit, more than the {obs_first_run_leaks} it leaks without the plugin: see {log}"

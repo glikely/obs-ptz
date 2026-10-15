@@ -19,6 +19,7 @@ code path a user's joystick/hotkey would.
 import json
 import os
 import platform
+import re
 import select
 import shutil
 import signal
@@ -1513,6 +1514,104 @@ def flaky_ptzsim(obs_world, ptz_ports):
     sim.stop()
 
 
+def windows_obs_log(home: Path):
+    """The file the OBS on this home is logging to. OBS on Windows says nothing
+    on its standard output but a few lines as it starts: what it logs is in the
+    file it keeps itself"""
+    logs = sorted((obs_config_root(home) / "logs").glob("*.txt"), key=lambda p: p.stat().st_mtime)
+    return logs[-1] if logs else None
+
+
+def connect_when_ready(ws_port, ws_password):
+    """A connection to the OBS listening on ws_port, once its frontend has
+    loaded"""
+    deadline = time.time() + 30
+    last_error = None
+    ws = None
+    while time.time() < deadline:
+        try:
+            ws = Client(f"ws://127.0.0.1:{ws_port}", password=ws_password)
+            break
+        except (OSError, ObsWebSocketError) as e:
+            last_error = e
+            time.sleep(1)
+    if ws is None:
+        raise RuntimeError(f"could not complete obs-websocket handshake: {last_error}")
+
+    # The obs-websocket server thread starts (and completes the
+    # handshake above) before OBS's frontend has finished loading its
+    # scene collection. Requests made in that window are rejected with
+    # RequestStatus::NotReady (code 207) even though the connection is
+    # already up, so poll a harmless read-only request until the
+    # frontend catches up.
+    deadline = time.time() + 30
+    last_error = None
+    while time.time() < deadline:
+        try:
+            ws.call("GetSceneList")
+            return ws
+        except ObsWebSocketError as e:
+            if e.status.get("code") != OBS_NOT_READY:
+                raise
+            last_error = e
+            time.sleep(0.2)
+    raise RuntimeError(f"OBS frontend never became ready: {last_error}")
+
+
+def first_run_leaks(obs_binary, tmp_path_factory):
+    """How many allocations OBS says it leaked as it quit, after a first run on
+    a fresh profile with neither the plugin nor the UI driver loaded: what OBS
+    leaks by itself, which is not always nothing (one, from OBS 32.2.2 on
+    Windows, whatever plugins it has). They are turned off in its plugin
+    manager's list of modules, which OBS before 32.0 doesn't have: there, this
+    counts the plugin's leaks too.
+
+    On Windows this is the folder the session's own OBS keeps its profile in,
+    so it is run before that is made, and its profile is gone afterwards."""
+    home = portable_obs_home(obs_binary) if IS_WINDOWS else tmp_path_factory.mktemp("obs-first-run-home")
+    ws_port, ws_password = free_port(), "ptzsim-ci-password"
+    write_websocket_config(home, ws_port, ws_password)
+    module = {"display_name": "", "id": "", "version": "", "enabled": False, "sources": [], "outputs": [],
+              "encoders": [], "services": []}
+    modules = obs_config_root(home) / "plugin_manager" / "modules.json"
+    modules.parent.mkdir(parents=True, exist_ok=True)
+    modules.write_text(json.dumps([dict(module, module_name=name) for name in ("obs-ptz", "obs-ui-driver")]))
+
+    env = dict(os.environ)
+    env["HOME"] = str(home)
+    env["OBS_WEBSOCKET_SERVER_ENABLE"] = "true"
+    env["OBS_WEBSOCKET_SERVER_PORT"] = str(ws_port)
+    env["OBS_WEBSOCKET_SERVER_PASSWORD"] = ws_password
+    if platform.system() == "Darwin":
+        isolate_macos_obs(home, env)
+    xvfb = None
+    if platform.system() == "Linux" and not env.get("DISPLAY") and shutil.which("Xvfb"):
+        xvfb, env["DISPLAY"] = start_xvfb()
+    try:
+        with output_log("obs-first-run") as out:
+            log = out.path
+            proc = subprocess.Popen([obs_binary, "--disable-updater"],
+                                    cwd=Path(obs_binary).parent if IS_WINDOWS else home, env=env, stdout=out,
+                                    stderr=subprocess.STDOUT, **({} if IS_WINDOWS else {"start_new_session": True}))
+        try:
+            wait_for_port("127.0.0.1", ws_port, timeout=90)
+            if IS_WINDOWS:
+                log = windows_obs_log(home) or log
+            connect_when_ready(ws_port, ws_password).close()
+        finally:
+            exited = stop_process_group(proc, timeout=10, sig=signal.SIGINT)
+    finally:
+        if xvfb is not None:
+            stop_process_group(xvfb, timeout=5)
+    assert exited, f"OBS without the plugin did not quit by itself: see {log}"
+    reported = re.findall(r"Number of memory leaks: (\d+)", log.read_text(errors="replace"))
+    assert reported, f"OBS without the plugin did not say how much it leaked: see {log}"
+    if IS_WINDOWS:
+        # The session's OBS has a fresh one, and config.prev stays the last run's
+        shutil.rmtree(home / "config")
+    return int(reported[0])
+
+
 def isolate_macos_obs(home: Path, env):
     """Point OBS on macOS at home instead of the real user's.
 
@@ -1554,20 +1653,26 @@ def isolate_macos_obs(home: Path, env):
 
 
 @pytest.fixture(scope="session")
-def obs_world(tmp_path_factory, ptzsim_process, sony_ptzsim, birddog_ptzsim, power_ptzsim, filter_power_ptzsim,
-              late_power_ptzsim, no_power_ptzsim):
+def obs_world(request, tmp_path_factory, ptzsim_process, sony_ptzsim, birddog_ptzsim, power_ptzsim,
+              filter_power_ptzsim, late_power_ptzsim, no_power_ptzsim):
+    obs_binary = os.environ.get(
+        "PTZSIM_OBS_BINARY",
+        "/Applications/OBS.app/Contents/MacOS/OBS" if platform.system() == "Darwin" else "obs")
+    # Only when a test compares with it, as it is another OBS to start and
+    # quit; and before this session's own OBS, see first_run_leaks()
+    first_run = None
+    if any("obs_first_run_leaks" in item.fixturenames for item in request.session.items):
+        first_run = first_run_leaks(obs_binary, tmp_path_factory)
+
     home = tmp_path_factory.mktemp("obs-home")
     if IS_WINDOWS:
-        home = portable_obs_home(os.environ["PTZSIM_OBS_BINARY"])
+        home = portable_obs_home(obs_binary)
     write_ptz_plugin_config(home, ptzsim_process["ports"], ptzsim_process["serial_paths"])
 
     ws_port = free_port()
     ws_password = "ptzsim-ci-password"
     write_websocket_config(home, ws_port, ws_password)
 
-    obs_binary = os.environ.get(
-        "PTZSIM_OBS_BINARY",
-        "/Applications/OBS.app/Contents/MacOS/OBS" if platform.system() == "Darwin" else "obs")
     obs_cwd = home
 
     if IS_WINDOWS:
@@ -1620,43 +1725,8 @@ def obs_world(tmp_path_factory, ptzsim_process, sony_ptzsim, birddog_ptzsim, pow
                                                **({} if IS_WINDOWS else {"start_new_session": True}))
         wait_for_port("127.0.0.1", ws_port, timeout=90)
         if IS_WINDOWS:
-            # OBS on Windows says nothing on its standard output but a few
-            # lines as it starts: what it logs is in the file it keeps itself
-            logs = sorted((obs_config_root(home) / "logs").glob("*.txt"), key=lambda p: p.stat().st_mtime)
-            if logs:
-                running["log"] = logs[-1]
-        deadline = time.time() + 30
-        last_error = None
-        while time.time() < deadline:
-            try:
-                running["ws"] = Client(f"ws://127.0.0.1:{ws_port}", password=ws_password)
-                break
-            except (OSError, ObsWebSocketError) as e:
-                last_error = e
-                time.sleep(1)
-        if running["ws"] is None:
-            raise RuntimeError(f"could not complete obs-websocket handshake: {last_error}")
-        ws = running["ws"]
-
-        # The obs-websocket server thread starts (and completes the
-        # handshake above) before OBS's frontend has finished loading its
-        # scene collection. Requests made in that window are rejected with
-        # RequestStatus::NotReady (code 207) even though the connection is
-        # already up, so poll a harmless read-only request until the
-        # frontend catches up.
-        deadline = time.time() + 30
-        last_error = None
-        while time.time() < deadline:
-            try:
-                ws.call("GetSceneList")
-                break
-            except ObsWebSocketError as e:
-                if e.status.get("code") != OBS_NOT_READY:
-                    raise
-                last_error = e
-                time.sleep(0.2)
-        else:
-            raise RuntimeError(f"OBS frontend never became ready: {last_error}")
+            running["log"] = windows_obs_log(home) or running["log"]
+        running["ws"] = ws = connect_when_ready(ws_port, ws_password)
 
         # obs-websocket's SetCurrentProgramScene doesn't wait for the
         # switch to finish -- with the default (animated) transition, a
@@ -1714,6 +1784,7 @@ def obs_world(tmp_path_factory, ptzsim_process, sony_ptzsim, birddog_ptzsim, pow
         world.config_dir = obs_config_root(home) / "plugin_config" / "obs-ptz"
         world.restart_obs = restart_obs
         world.obs_log = lambda: running["log"]
+        world.first_run_leaks = first_run
         yield world
     finally:
         exited_cleanly = stop_obs() if running["proc"] is not None else False
@@ -1728,6 +1799,13 @@ def obs_world(tmp_path_factory, ptzsim_process, sony_ptzsim, birddog_ptzsim, pow
         assert filter_power_ptzsim.power() is False, "OBS closed without turning the filter's camera off"
         if no_power_ptzsim.left_on:
             assert no_power_ptzsim.power() is True, "OBS closed and turned off a camera it was not set to"
+
+
+@pytest.fixture(scope="session")
+def obs_first_run_leaks(obs_world):
+    """What OBS leaks by itself on a first run, see first_run_leaks(): obs_world
+    finds it before its own OBS starts, when a test asks for this"""
+    return obs_world.first_run_leaks
 
 
 @pytest.fixture(autouse=True)
