@@ -17,6 +17,7 @@ class Ui_PTZCameraReport;
  * with. The plugin sends it nowhere itself. */
 class PTZCameraReportDialog : public QDialog {
 	Q_OBJECT
+	Q_PROPERTY(QUrl issueUrl READ issueUrl)
 
 	Ui_PTZCameraReport *ui;
 	QString deviceUuid;
