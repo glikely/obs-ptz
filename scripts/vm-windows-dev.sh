@@ -148,9 +148,10 @@ rem given a drive letter. Always the same one: CMake keeps the path of the
 rem build in its cache, a letter and all, and won't use a cache made under
 rem another letter. pushd takes whichever is free, and leaves it taken, so it
 rem was a different one each run. P: is used if it is free or already the
-rem share; otherwise, pushd, as before.
-net use P: 2>nul | find /i "\\\\psf\\hacking" >nul
-if errorlevel 1 (
+rem share; otherwise, pushd, as before. Whether P: is the share is seen from
+rem what is on it: net use P: fails ("more data is available") when the
+rem letter is mapped more than once in the VM's sessions.
+if not exist "P:\\$rel_win\\CMakeLists.txt" (
   if exist P:\ goto pushd
   net use P: "\\\\psf\\hacking" /persistent:no >nul
   if errorlevel 1 goto pushd
