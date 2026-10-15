@@ -2,8 +2,7 @@
 """Writes what ptz-probe.py asks a camera for, and how it reads the answers,
 into ptz-probe.py itself, from the plugin's own source: the generic command
 set and the vendor and model names in src/drivers/visca/ptz-visca-commands.cpp, the
-command sets shipped with the plugin in src/drivers/visca/visca-profiles, and the plugin's
-version in buildspec.json. So the probe stays one file, which needs nothing
+command sets shipped with the plugin in src/drivers/visca/visca-profiles. So the probe stays one file, which needs nothing
 but Python to run, and asks a camera what the plugin's own camera report
 does.
 
@@ -146,7 +145,6 @@ def tables():
     source = COMMANDS.read_text()
     controls, inquiries = generic(source)
     return {
-        "version": json.loads((ROOT / "buildspec.json").read_text())["version"],
         "controls": controls,
         "inquiries": inquiries,
         "command_sets": command_sets(controls),

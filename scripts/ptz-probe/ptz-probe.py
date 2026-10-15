@@ -37,7 +37,6 @@ from pathlib import Path
 # --- tables: written by gen_tables.py, don't edit ---
 TABLES = json.loads(r'''
 {
- "version": "0.20.0-pre4",
  "controls": [
   {
    "key": "power_on",
@@ -2241,7 +2240,7 @@ def is_on(probe, command_set):
 def plugin_version():
     """What the plugin calls its version: the `git describe --dirty` its build
     has, which is what this has when it is run from a checkout of the plugin;
-    and the release the tables were written for when it isn't"""
+    and "unknown" when it isn't"""
     root = Path(__file__).resolve().parents[2]
     if (root / "buildspec.json").exists():
         try:
@@ -2251,7 +2250,7 @@ def plugin_version():
                 return done.stdout.strip()
         except (OSError, subprocess.SubprocessError):
             pass
-    return TABLES["version"]
+    return "unknown"
 
 
 def make_report(probe, progress=lambda done, total: None):
@@ -2379,7 +2378,7 @@ def draft(report, probes, commands):
         "name": name or "My camera",
         "models": [f"{camera['vendor_id']}:{camera['model_id']}"],
         "extends": "generic",
-        "source": f"Drafted from a camera report by {PROGRAM}, from obs-ptz {TABLES['version']}",
+        "source": f"Drafted from a camera report by {PROGRAM}, from obs-ptz {plugin_version()}",
         "remove_inquiries": sorted(unanswered),
         "remove": remove,
         "controls": controls,
