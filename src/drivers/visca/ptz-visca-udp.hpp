@@ -42,9 +42,12 @@ private:
 	/* Sequence number of the last request sent. A reply carries the
 	 * sequence number of the request it answers, and is accepted for any of
 	 * the last SEQ_WINDOW requests: a slow camera can answer a request after
-	 * a retry has been sent. */
+	 * a retry has been sent, and completes a command long after the
+	 * requests that have followed it. */
 	static constexpr uint32_t SEQ_WINDOW = 16;
 	uint32_t seq_last = 0;
+	/* What each of the last SEQ_WINDOW requests was, by sequence number */
+	QByteArray sent[SEQ_WINDOW];
 	QString host;        /* configured; empty to follow the source's */
 	QString source_host; /* from the parent source */
 	QString active_host; /* what ip_address was resolved from */

@@ -68,6 +68,8 @@ void ViscaUDPTransport::attach_interface(ViscaUDPSocket *new_iface)
 void ViscaUDPTransport::protocol_reset()
 {
 	seq_last = 0;
+	for (auto &request : sent)
+		request.clear();
 	emit statIncrement("visca_udp_reset_count");
 	if (iface)
 		iface->send(ip_address, QByteArray::fromHex("020000010000000001"));
@@ -101,6 +103,21 @@ void ViscaUDPTransport::receive_datagram(const QNetworkDatagram &dg)
 			     seq_last, qPrintable(data.toHex(':')));
 			emit statIncrement("visca_udp_outofseq_cmplt_count");
 			return;
+		}
+		/* An ACK, or what is in no socket (an inquiry's answer, or an
+		 * error), answers the request the camera was sent. One to a
+		 * request other than the last sent, which was sent again but
+		 * answered late after all, is not the answer to whatever has
+		 * been asked since: taken for it, every answer after would be
+		 * taken for the request after its own. */
+		if ((data[9] & 0xf0) == 0x40 || (data[9] & 0x0f) == 0) {
+			if (sent[seq % SEQ_WINDOW] != sent[seq_last % SEQ_WINDOW]) {
+				blog(LOG_DEBUG, "VISCA UDP late answer to %u, not to %u <-- %s", seq, seq_last,
+				     qPrintable(data.toHex(':')));
+				emit statIncrement("visca_udp_late_answer_count");
+				emit lateReply();
+				return;
+			}
 		}
 		emit receive(data.sliced(8));
 		break;
@@ -137,6 +154,7 @@ void ViscaUDPTransport::send(const QByteArray &msg, unsigned int address)
 	p[6] = (seq_last >> 8) & 0xff;
 	p[7] = seq_last & 0xff;
 	p[8] = '\x81';
+	sent[seq_last % SEQ_WINDOW] = msg;
 	iface->send(ip_address, p);
 	emit statIncrement("visca_udp_sent_count");
 }

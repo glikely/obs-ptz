@@ -125,6 +125,7 @@ void PTZVisca::setInterface(const QString &interface)
 	connect(transport, &ViscaTransport::receive, this, &PTZVisca::receive);
 	connect(transport, &ViscaTransport::reset, this, &PTZVisca::reset);
 	connect(transport, &ViscaTransport::refresh, this, &PTZVisca::cmd_get_camera_info);
+	connect(transport, &ViscaTransport::lateReply, this, [this]() { since_last_rx.start(); });
 	connect(transport, &ViscaTransport::statIncrement, this,
 		[this](const QString &name) { incrementStatistic(qPrintable(name)); });
 }

@@ -74,6 +74,10 @@ signals:
 	/* The link is known-good and pending inquiries can resume, without
 	 * needing a full reset */
 	void refresh();
+	/* The camera replied with something that answers nothing still
+	 * waiting, and so isn't passed on, but its next request still has to
+	 * wait minRequestGapMs() after it */
+	void lateReply();
 	void statIncrement(const QString &name);
 };
 
