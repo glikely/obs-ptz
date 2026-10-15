@@ -12,7 +12,12 @@ counts what it saw, so these tests check how PTZVisca and its UDP transport
   reply timeout is long enough that none is sent twice;
 - a command that is ACKed and completed on a socket leaves the device
   connected, instead of its reply timer going off afterwards;
-- a command that meets "buffer full" is sent again, not lost.
+- a command that meets "buffer full" is sent again, not lost;
+- an answer that comes after the inquiry has been sent again is not taken
+  for the answer to what is asked next.
+
+What the device does while the sim itself is held up (as a busy test
+machine does to it) is counted apart from all this, and not looked at.
 
 Each test looks at how the sim's counters changed, except the first, which
 looks at everything since startup and so has to run before the others (it
@@ -44,7 +49,7 @@ def settled(sim, quiet=1.5, timeout=15):
 
 
 def change(before, after):
-    return {k: after[k] - before[k] for k in after}
+    return {k: after[k] - before[k] for k in after if not isinstance(after[k], dict)}
 
 
 def test_startup_inquiries_are_neither_dropped_nor_repeated(obs_world, sony_ptzsim, tmp_path):
@@ -55,6 +60,7 @@ def test_startup_inquiries_are_neither_dropped_nor_repeated(obs_world, sony_ptzs
     assert stats["requests"] > 0
     assert stats["dropped_too_soon"] == 0
     assert stats["retried_requests"] == 0
+    assert stats["overlapping_requests"] == 0
     assert stats["seq_errors"] == 0
 
 
@@ -92,5 +98,24 @@ def test_a_command_that_finds_the_camera_busy_is_sent_again(obs_world, sony_ptzs
     assert stats["visca_error_count"] >= delta["buffer_full"]
     assert "visca_errors_per_second" in stats
     assert delta["pan_tilt_abs_executed"] == 3
+    assert delta["dropped_too_soon"] == 0
+    assert obs_world.device_status(device_name, status_file)["connected"] is True
+
+
+def test_a_late_answer_is_not_taken_for_the_next_request(obs_world, sony_ptzsim, tmp_path):
+    device_name = obs_world.device_names["visca-udp-sony"]
+    status_file = tmp_path / "status.json"
+    before = settled(sony_ptzsim)
+
+    # The inquiry is sent again once the reply timer goes off, and that is
+    # answered. The answer to the first comes only after the next request:
+    # taken for the answer to that, every answer after is taken for the
+    # request after its own, and each request is sent before the one in front
+    # of it has been answered.
+    sony_ptzsim.hold_next_inquiry()
+    delta = change(before, settled(sony_ptzsim))
+
+    assert delta["retried_requests"] >= 1, "nothing was answered late, so this proved nothing"
+    assert delta["overlapping_requests"] == 0
     assert delta["dropped_too_soon"] == 0
     assert obs_world.device_status(device_name, status_file)["connected"] is True

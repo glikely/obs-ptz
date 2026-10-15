@@ -1443,6 +1443,14 @@ def sony_ptzsim(ptz_ports):
             with urllib.request.urlopen(url, timeout=2) as resp:
                 return json.load(resp)["visca_udp_quirks"]
 
+        def hold_next_inquiry(self):
+            """Has the camera answer the next inquiry only once a different
+            request has come after it"""
+            url = f"http://127.0.0.1:{ptz_ports['debug_http_sony']}/visca_udp/hold_next_inquiry"
+            request = urllib.request.Request(url, data=b"", method="POST")
+            with urllib.request.urlopen(request, timeout=2):
+                pass
+
     yield SonySim()
     proc.terminate()
     try:
