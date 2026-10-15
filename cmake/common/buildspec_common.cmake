@@ -52,23 +52,29 @@ function(_setup_sdl)
     set(_cmake_config RelWithDebInfo)
     set(_cmake_arch "")
     set(_cmake_extra "")
+    # Its video driver makes the hidden window DirectInput joysticks and
+    # rumble need (SDL_HelperWindow): without it they can't be opened
+    set(_sdl_video ON)
   elseif(OS_MACOS)
     set(_cmake_config Release)
     set(_cmake_arch "-DCMAKE_OSX_ARCHITECTURES:STRING='arm64;x86_64'")
     set(_cmake_extra "-DCMAKE_OSX_DEPLOYMENT_TARGET=${CMAKE_OSX_DEPLOYMENT_TARGET}")
+    # Joysticks don't need it, and when started, its event pump took events
+    # off OBS's own queue (see SDL_Joysticks.cpp)
+    set(_sdl_video OFF)
   endif()
 
   # Configure SDL for only joystick/game-controller input (open, poll,
   # hotplug, the SDL_GameControllerAddMapping database) and haptic rumble.
-  # SDL_VIDEO stays on: SDL's joystick event pump needs it initialized on
-  # some platforms even though nothing is ever rendered.
+  # SDL_VIDEO is never started, but is built where the joysticks need it.
   message(STATUS "Configure ${label} (${arch})")
   execute_process(
     COMMAND
       "${CMAKE_COMMAND}" -B build_${arch} -G Ninja "${_cmake_arch}" "-DCMAKE_INSTALL_PREFIX='${dependencies_dir}/sdl'"
       "-DCMAKE_PREFIX_PATH='${dependencies_dir}/sdl" "--no-warn-unused-cli" "-DBUILD_SHARED_LIBS:BOOL=OFF"
       "-DCMAKE_BUILD_TYPE=${_cmake_config}" "${_cmake_extra}" "-DSDL_AUDIO=OFF" "-DSDL_RENDER=OFF" "-DSDL_SENSOR=OFF"
-      "-DSDL_POWER=OFF" "-DSDL_LOCALE=OFF" "-DSDL_MISC=OFF" "-DSDL_TEST=OFF" "-DSDL2_DISABLE_SDL2MAIN=ON"
+      "-DSDL_POWER=OFF" "-DSDL_LOCALE=OFF" "-DSDL_MISC=OFF" "-DSDL_TEST=OFF" "-DSDL_VIDEO=${_sdl_video}"
+      "-DSDL2_DISABLE_SDL2MAIN=ON"
     WORKING_DIRECTORY "${dependencies_dir}/${destination}"
     RESULT_VARIABLE _process_result
     COMMAND_ERROR_IS_FATAL ANY
