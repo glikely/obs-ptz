@@ -59,6 +59,10 @@ class UiDriver:
         data = {"path": list(path)} if path else {}
         return self.call("tree", depth=depth, **data)["tree"]
 
+    def clipboard(self):
+        """The text on the clipboard"""
+        return self.call("clipboard")["text"]
+
     def set(self, *path, **properties):
         """Sets the properties given, of the object `path` names"""
         self.call("set", path=list(path), properties=properties)

@@ -9,6 +9,7 @@
 #include "ui-driver.hpp"
 
 #include <QApplication>
+#include <QClipboard>
 #include <QJsonArray>
 #include <QWidget>
 
@@ -78,6 +79,12 @@ QJsonObject treeRequest(const QJsonObject &request)
 	return QJsonObject{{"tree", node(found.objects.first(), depth)}};
 }
 
+/* What a copy put on the clipboard: what a button that copies did */
+QJsonObject clipboardRequest(const QJsonObject &)
+{
+	return QJsonObject{{"text", QApplication::clipboard()->text()}};
+}
+
 } // namespace
 
 void addReadingRequests()
@@ -85,4 +92,5 @@ void addReadingRequests()
 	addRequest("find", findRequest);
 	addRequest("get", getRequest);
 	addRequest("tree", treeRequest);
+	addRequest("clipboard", clipboardRequest);
 }

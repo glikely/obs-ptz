@@ -44,6 +44,7 @@ that could not be done answers `{"error": code, "message": text}`:
 | `find` | `{"path", "all"?: false}` | `{"objects": [object...]}`, each described as below |
 | `get` | `{"path", "properties": [name...]}` | `{"properties": {name: value...}}` |
 | `tree` | `{"path"?, "depth"?: 3}` | `{"tree": object}`, the object with its `"children"`, and theirs, to `depth` levels; with no path, `{"tree": [object...]}`, every window so |
+| `clipboard` | `{}` | `{"text"}`, the text on the clipboard |
 | `set` | `{"path", "properties": {name: value...}}` | `{}`. Each value is made the property's type, as Qt converts it |
 | `invoke` | `{"path", "method", "args"?: [], "queued"?: false}` | `{"return": value}`, or `{}` for a method that returns nothing. It calls the first slot or invokable method of that name that takes that many arguments, up to 4, each made the parameter's type. With `"queued"`, the call is left for the main thread to make after the answer, `{}`, is given: a method that opens a modal dialog doesn't return until the dialog closes |
 | `activate` | `{"path", "data" \| "text"}` | `{"index"}`. The first item of a `QComboBox` whose data, or text, is the one given is chosen as a user chooses it: it is made current, and the combo box says `activated` and `textActivated`, which it doesn't for a change made in code |

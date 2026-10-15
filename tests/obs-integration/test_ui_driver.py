@@ -99,6 +99,16 @@ def test_get_says_which_property_is_not_there(obs_world):
     assert raised.value.code == "no_property"
 
 
+def test_clipboard_reads_what_was_copied(obs_world):
+    """The line edit of the transition's duration copies its text"""
+    obs_world.need_ui_driver()
+    duration = (MAIN, "transitionDuration", "qt_spinbox_lineedit")
+    text = obs_world.ui.get1(*duration, name="text")
+    obs_world.ui.invoke(*duration, method="selectAll")
+    obs_world.ui.invoke(*duration, method="copy")
+    assert obs_world.ui.clipboard() == text
+
+
 def test_tree_lists_the_windows(obs_world):
     obs_world.need_ui_driver()
     windows = obs_world.ui.tree()
