@@ -218,7 +218,8 @@ the name of the proc as the request, and the proc's fields as the request's
 data, with one more:
 
 - `device` (string): the UUID of the device, which `ptz_list_devices` gives, and
-  which is the same from one run of OBS to the next.
+  which is the same from one run of OBS to the next; or `selected`, for the
+  camera selected in the PTZ dock.
 
 ```json
 {
@@ -247,6 +248,24 @@ A device from another plugin has requests and events if it has
 `ptz_get_api_info`, which is where the binding learns what a device has.
 One that has not is in `ptz_list_devices`, and that is all.
 
+### The selected camera
+
+A request whose `device` is `selected` is for whichever camera is selected in
+the PTZ dock as the request comes, as the dock's own hotkeys are: a client
+that only sends requests can control the camera the operator is working on
+without following the selection itself.
+Its answer has one field more, `device`, the UUID of the camera that was
+selected, and that is the camera to send what follows to, when it has to be the
+same one: the stop at the end of a move, which a client that sent it to
+`selected` would send to another camera if the selection had changed in
+between.
+With no camera selected it answers `no_selection`.
+
+The selection is never in an event of a device, which always names the device
+by its UUID: a client that shows the selected camera's state, its presets or
+where it is, follows the selection with `ptz_get_selected` and the
+`ptz_selected_changed` event.
+
 ### Fields
 
 A field is the JSON that its declared type takes:
@@ -273,6 +292,7 @@ answer's data that has the error.
 | Error | |
 | --- | --- |
 | `unknown_device` | `device` is missing, or is not the UUID of a PTZ device that exists |
+| `no_selection` | `device` is `selected`, and no camera is selected in the PTZ dock |
 | `no_such_proc` | The device hasn't this proc, as a discovery instance hasn't `ptz_move` |
 | `unknown_field` | The request has a field that the proc doesn't have |
 | `bad_type` | A field is not of the type the proc declares for it |
@@ -339,6 +359,7 @@ makes sources and is there only when the setting is `control`.
 | Request | Answers |
 | --- | --- |
 | `ptz_bridge_version` | `major` and `minor`: the version of the binding |
+| `ptz_get_selected` | `device`: the UUID of the camera selected in the PTZ dock, "" if none is |
 | `ptz_list_devices` | `devices`: an array with, for each PTZ device there is, its `device` (the UUID), its `name`, the `source` it is on (the name of the source whose video the camera shows), and its `api`, the `major` and `minor` of the version of the API it implements |
 | `ptz_list_discovery` | `instances`: an array with, for each [discovery kind](#discovery-kinds) there is, the `kind` and the `device` (the UUID) of a discovery instance of it, to call `ptz_discovery_start` on. The binding makes them the first time it is asked, and keeps them: a client can't make one. What an instance finds can be added as a device with obs-websocket's own `CreateSourceFilter`, of the `kind` and with the `settings` its `ptz_device_found` gives |
 | `ptz_list_api` | The requests and events there are for the API, as four arrays, `device-proc`, `device-signal`, `discovery-proc` and `discovery-signal`, of an object for each with its `name`. What a device or an instance has is not there until there has been one |
@@ -348,6 +369,7 @@ makes sources and is there only when the setting is `control`.
 | Event | |
 | --- | --- |
 | `ptz_device_removed` | `device`: a device has gone. No signal of the API says so, as there is no device left to say it |
+| `ptz_selected_changed` | `device`: another camera is selected in the PTZ dock, by the user, a hotkey, or the dock following the scene; "" if none is |
 
 ## Providing a device
 
