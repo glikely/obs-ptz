@@ -4,9 +4,10 @@ Not a camera protocol -- just a way for a test harness to ask "what does
 the simulated camera think its state is right now" without decoding one
 of the real wire protocols. Off unless --debug-http-port is passed. A POST
 to /move_time changes how long the camera's moves take, for a test of what
-happens while one is under way, and one to /serial/release lets the emulated
-serial ports be opened again by a program after one that never closed them
-(see EmulatedSerialPort.release()).
+happens while one is under way, one to /visca_udp/hold_next_inquiry has a
+camera with --visca-udp-sony-quirks answer its next inquiry late, and one to
+/serial/release lets the emulated serial ports be opened again by a program
+after one that never closed them (see EmulatedSerialPort.release()).
 """
 
 import json
@@ -27,6 +28,12 @@ class DebugHandler(BaseHTTPRequestHandler):
             from .serial_port import release_all
 
             release_all()
+            self.send_response(204)
+            self.end_headers()
+            return
+        quirks = getattr(self.state, "visca_udp_quirks", None)
+        if self.path == "/visca_udp/hold_next_inquiry" and quirks:
+            quirks.hold_next_inquiry()
             self.send_response(204)
             self.end_headers()
             return

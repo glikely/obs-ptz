@@ -274,5 +274,7 @@ highlights:
 - `--preset SLOT=NAME@PAN,TILT,ZOOM[,FOCUS]`: start with a preset saved in the camera, in
   VISCA's and Pelco's slot SLOT and under ONVIF's token SLOT; repeat it for more.
 - `--debug-http-port PORT`: serves `GET /state` as JSON, and takes
-  `POST /move_time {"seconds": S}` to change `--move-time` while it runs; used
-  by the CI test framework in `tests/obs-integration/`, off by default.
+  `POST /move_time {"seconds": S}` to change `--move-time` while it runs, and,
+  with `--visca-udp-sony-quirks`, `POST /visca_udp/hold_next_inquiry` to answer
+  the next inquiry only once a different request has come after it; used by
+  the CI test framework in `tests/obs-integration/`, off by default.

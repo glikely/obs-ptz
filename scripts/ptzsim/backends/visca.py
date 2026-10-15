@@ -16,6 +16,7 @@ model.
 """
 
 import asyncio
+import collections
 import socket
 import sys
 import time
@@ -891,13 +892,34 @@ class SonyUdpQuirks:
       is busy, any request, inquiries included, gets "command buffer full"
       (90 60 03 ff).
 
+    A client should send a request only once the last has been answered, or
+    has gone unanswered for longer than the camera takes. One that does
+    otherwise is counted: retried_requests for an inquiry sent again before
+    its answer was due, overlapping_requests for a different request.
+
+    Nothing of this process runs while its event loop, or the whole machine,
+    is held up, so a reply can go out late, and a request can sit unread.
+    What the client did then was no fault of its own: a request it sent again
+    because the answer was not there in time, one that crossed that late
+    answer and was dropped (as a camera would drop it), or one that came
+    while the sim could not answer. Such are counted on their own, in
+    after_stall, for each of the counters above it would have gone in.
+    hold_next_inquiry() answers one inquiry late on purpose, as a camera
+    can, and at the worst time: once the client has sent it again, had that
+    answered, and moved on to another request.
+
     `stats` counts what happened, for a test to read back through the
     --debug-http-port /state endpoint.
     """
 
-    def __init__(self, min_gap=0.008, inquiry_latency=0.07, ack_latency=0.02, move_time=0.15, sockets=2):
+    def __init__(self, min_gap=0.008, inquiry_latency=0.07, ack_latency=0.02, move_time=0.15, sockets=2,
+                 stall=0.1):
         self.min_gap = min_gap
+        # How much longer than it should something can take before this
+        # process is taken to have been held up
+        self.stall = stall
         self.inquiry_latency = inquiry_latency
+        self.hold_next = False
         self.ack_latency = ack_latency
         self.move_time = move_time
         self.sockets = sockets
@@ -908,10 +930,19 @@ class SonyUdpQuirks:
             'buffer_full': 0,
             # An inquiry sent again while the same one still awaited its reply
             'retried_requests': 0,
+            # A request sent while a different one still awaited its reply
+            'overlapping_requests': 0,
+            # What the client did while this process was held up
+            'after_stall': {'dropped_too_soon': 0, 'retried_requests': 0, 'overlapping_requests': 0},
             'commands_executed': 0,
             'pan_tilt_abs_executed': 0,
             'zoom_direct_executed': 0,
         }
+
+    def hold_next_inquiry(self):
+        """Answers the next inquiry only when a different request comes
+        after it"""
+        self.hold_next = True
 
 
 class ViscaUdpProtocol(asyncio.DatagramProtocol):
@@ -920,8 +951,20 @@ class ViscaUdpProtocol(asyncio.DatagramProtocol):
         self.quirks = quirks
         self._last_seq = 0
         self._last_reply = float('-inf')
+        # The request the last reply answered, if it went out late
+        self._late_reply_to = None
+        # When the event loop was last seen running
+        self._tick = time.perf_counter()
+        # What was received and sent last, and when, for working out why a
+        # request was counted
+        self._history = collections.deque(maxlen=12)
         self._busy_sockets = set()
-        self._awaiting = {}
+        # The requests still to be answered, by sequence number: what each
+        # was, and when its answer was due
+        self._outstanding = {}
+        # An inquiry hold_next_inquiry() keeps the answer to: (addr, seq,
+        # inquiry, replies)
+        self._held = None
         # SonyUdpQuirks times its own completions
         self.logic.defer_completions = quirks is None
 
@@ -929,9 +972,20 @@ class ViscaUdpProtocol(asyncio.DatagramProtocol):
         self.transport = transport
         self._completions = asyncio.get_running_loop().create_task(
             send_completions(self.logic, lambda context, dg: self._send(context[0], VISCA_IP_REPLY, context[1], dg)))
+        if self.quirks:
+            self._heartbeat = asyncio.get_running_loop().create_task(self._beat())
 
     def connection_lost(self, exc):
         self._completions.cancel()
+        if self.quirks:
+            self._heartbeat.cancel()
+
+    async def _beat(self):
+        """Keeps _tick up to date, so a request read after the event loop
+        has been held up is known to have perhaps waited all that time"""
+        while True:
+            self._tick = time.perf_counter()
+            await asyncio.sleep(0.005)
 
     def datagram_received(self, data, addr):
         if len(data) < 9:
@@ -949,6 +1003,7 @@ class ViscaUdpProtocol(asyncio.DatagramProtocol):
                 self._send(addr, VISCA_IP_REPLY, seq, reply)
         elif ptype == VISCA_IP_CONTROL_CMD:
             if payload[:1] == bytes([VISCA_IP_RESET]):
+                self._history.append((time.perf_counter(), '<-- reset', seq, payload))
                 self._last_seq = 0
                 self._send(addr, VISCA_IP_CONTROL_REPLY, seq, bytes([VISCA_IP_RESET]))
         # Unrecognized control opcodes are silently ignored.
@@ -959,11 +1014,31 @@ class ViscaUdpProtocol(asyncio.DatagramProtocol):
             seq.to_bytes(4, 'big')
         self.transport.sendto(header + payload, addr)
 
-    def _sony_reply(self, addr, seq, reply, awaited=None):
-        if awaited is not None:
-            self._awaiting[awaited] -= 1
+    def _sony_reply(self, addr, seq, reply, answers=False):
+        """Sends a reply; `answers` if it is the one the request waits for,
+        not the completion of a command already ACKed"""
         self._last_reply = time.perf_counter()
+        self._late_reply_to = None
+        if answers and seq in self._outstanding:
+            dg, due = self._outstanding.pop(seq)
+            if self._last_reply - due > self.quirks.stall:
+                print(f'[visca-udp] reply to seq {seq} {(self._last_reply - due) * 1000:.1f}ms late', flush=True)
+                self._late_reply_to = dg
+            # The client has its answer, to whichever time it asked
+            for other in [s for s, (d, _) in self._outstanding.items() if d == dg]:
+                del self._outstanding[other]
+        self._history.append((self._last_reply, '-->', seq, reply))
         self._send(addr, VISCA_IP_REPLY, seq, reply)
+
+    def _count(self, name, stalled, seq, now):
+        q = self.quirks
+        if stalled:
+            q.stats['after_stall'][name] += 1
+        else:
+            q.stats[name] += 1
+        print(f'[visca-udp] {name}{" after a stall" if stalled else ""}: seq {seq}', flush=True)
+        for t, way, s, data in self._history:
+            print(f'  {(t - now) * 1000:8.1f}ms {way} seq {s} {data.hex(":")}', flush=True)
 
     def _sony_request(self, addr, seq, dg):
         q = self.quirks
@@ -971,8 +1046,15 @@ class ViscaUdpProtocol(asyncio.DatagramProtocol):
         q.stats['requests'] += 1
 
         # not loop.time(), which on Windows ticks every 16ms, longer than min_gap
-        if time.perf_counter() - self._last_reply < q.min_gap:
-            q.stats['dropped_too_soon'] += 1
+        now = time.perf_counter()
+        # A request read after the event loop was held up may have come at
+        # any time since it last ran
+        arrived = self._tick if now - self._tick > q.stall else now
+        self._tick = now
+        self._history.append((now, '<--', seq, dg))
+        if now - self._last_reply < q.min_gap:
+            # Before that reply went out, or crossing it as it was late
+            self._count('dropped_too_soon', arrived < self._last_reply or dg == self._late_reply_to, seq, now)
             return
         if seq <= self._last_seq:
             q.stats['seq_errors'] += 1
@@ -981,8 +1063,18 @@ class ViscaUdpProtocol(asyncio.DatagramProtocol):
         self._last_seq = seq
 
         is_inquiry = len(dg) > 1 and dg[1] == 0x09
-        if is_inquiry and self._awaiting.get(dg):
-            q.stats['retried_requests'] += 1
+        if self._held and self._held[2] != dg:
+            held_addr, held_seq, _, held_replies = self._held
+            self._held = None
+            for reply in held_replies:
+                self._sony_reply(held_addr, held_seq, reply, True)
+        # Read late, or with what it waited on held up past its time
+        same = [due for other, due in self._outstanding.values() if other == dg]
+        different = [due for other, due in self._outstanding.values() if other != dg]
+        if is_inquiry and same:
+            self._count('retried_requests', arrived < now or now - max(same) > q.stall, seq, now)
+        if different:
+            self._count('overlapping_requests', arrived < now or now - max(different) > q.stall, seq, now)
         if len(self._busy_sockets) >= q.sockets:
             q.stats['buffer_full'] += 1
             self._sony_reply(addr, seq, b'\x90\x60\x03\xff')
@@ -990,9 +1082,14 @@ class ViscaUdpProtocol(asyncio.DatagramProtocol):
 
         replies = self.logic.handle_datagram(dg)
         if is_inquiry:
-            self._awaiting[dg] = self._awaiting.get(dg, 0) + 1
+            if q.hold_next:
+                q.hold_next = False
+                self._held = (addr, seq, dg, replies)
+                self._outstanding[seq] = (dg, float('inf'))
+                return
+            self._outstanding[seq] = (dg, arrived + q.inquiry_latency)
             for reply in replies:
-                loop.call_later(q.inquiry_latency, self._sony_reply, addr, seq, reply, dg)
+                loop.call_later(q.inquiry_latency, self._sony_reply, addr, seq, reply, True)
             return
         if not (len(replies) == 2 and replies[0][1] == 0x41 and replies[1][1] == 0x51):
             for reply in replies:
@@ -1008,7 +1105,8 @@ class ViscaUdpProtocol(asyncio.DatagramProtocol):
         sock = min(set(range(1, q.sockets + 1)) - self._busy_sockets)
         self._busy_sockets.add(sock)
         done = q.ack_latency + (q.move_time if moves else 0)
-        loop.call_later(q.ack_latency, self._sony_reply, addr, seq, bytes([0x90, 0x40 | sock, 0xff]))
+        self._outstanding[seq] = (dg, arrived + q.ack_latency)
+        loop.call_later(q.ack_latency, self._sony_reply, addr, seq, bytes([0x90, 0x40 | sock, 0xff]), True)
         loop.call_later(done, self._sony_complete, addr, seq, sock)
 
     def _sony_complete(self, addr, seq, sock):

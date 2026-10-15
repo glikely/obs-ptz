@@ -336,6 +336,7 @@ def main():
         if tcp_port or udp_port or serial_path:
             quirks = SonyUdpQuirks() if args.visca_udp_sony_quirks else None
             state.visca_udp_stats = quirks.stats if quirks else None
+            state.visca_udp_quirks = quirks
             visca = ViscaBackend(state, args.host, tcp_port, udp_port, serial_path, quirks)
             loop.run_until_complete(visca.start(loop))
             backends.append(visca)
