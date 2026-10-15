@@ -121,6 +121,53 @@ def test_a_source_that_is_no_device_is_an_unknown_device(obs_world):
     assert error_of(obs_world, "ptz_stop", {"device": uuid}) == "unknown_device"
 
 
+# --- the camera selected in the dock ---------------------------------------------
+
+
+@pytest.fixture
+def no_selection(obs_world):
+    """Nothing selected in the PTZ dock's camera list, and a camera selected again after"""
+    obs_world.need_ui_driver()
+    obs_world.ui.invoke(OBS_MAIN, PTZ_DOCK, "deviceList", {"class": "QItemSelectionModel"},
+                        method="clearCurrentIndex")
+    yield
+    obs_world.select_in_dock(device(obs_world, "visca-tcp"))
+
+
+def test_get_selected_is_the_camera_selected_in_the_dock(obs_world):
+    for backend in ("visca-tcp", "visca-udp"):
+        uuid = device(obs_world, backend)
+        obs_world.select_in_dock(uuid)
+        assert obs_world.ws.vendor(VENDOR, "ptz_get_selected") == {"device": uuid}
+
+
+def test_a_request_for_selected_is_for_the_selected_camera_and_says_which(obs_world):
+    for backend in ("visca-tcp", "visca-udp"):
+        uuid = device(obs_world, backend)
+        obs_world.select_in_dock(uuid)
+        answer = obs_world.ws.vendor(VENDOR, "ptz_get_state", {"device": "selected"})
+        assert answer["device"] == uuid
+        assert answer["state"]["source"] == obs_world.device_names[backend]
+        # a proc that gives nothing back still says which camera it was
+        assert obs_world.ws.vendor(VENDOR, "ptz_stop", {"device": "selected"}) == {"device": uuid}
+
+
+def test_a_move_of_selected_reaches_the_camera(obs_world):
+    obs_world.select_in_dock(device(obs_world, "visca-tcp"))
+    obs_world.ws.vendor(VENDOR, "ptz_move", {"device": "selected", "pan": 0.5, "tilt": 0.0})
+    obs_world.wait_for_state(lambda s: s["pan_speed"] > 0.4)
+    obs_world.ws.vendor(VENDOR, "ptz_move", {"device": "selected", "pan": 0.0, "tilt": 0.0})
+    obs_world.wait_for_state(lambda s: s["pan_speed"] == 0.0)
+
+
+def test_selected_with_no_camera_selected(obs_world, no_selection):
+    assert obs_world.ws.vendor(VENDOR, "ptz_get_selected") == {"device": ""}
+    assert error_of(obs_world, "ptz_stop", {"device": "selected"}) == "no_selection"
+
+
+# --- what a client is told when it asks wrongly ----------------------------------
+
+
 def test_unknown_field(obs_world):
     uuid = device(obs_world, "visca-tcp")
     assert error_of(obs_world, "ptz_stop", {"device": uuid, "bogus": 1}) == "unknown_field"

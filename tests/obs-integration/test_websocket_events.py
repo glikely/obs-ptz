@@ -85,6 +85,19 @@ def test_a_new_device_is_bridged_and_a_removed_one_is_announced(obs_world, camer
     obs_world.wait_for(lambda: "ws-event-cam" not in devices(obs_world))
 
 
+def test_selecting_another_camera_in_the_dock_is_an_event(obs_world):
+    first, second = device(obs_world, "visca-tcp"), device(obs_world, "visca-udp")
+    obs_world.select_in_dock(first)
+    forget_events(obs_world)
+    obs_world.select_in_dock(second)
+    changed = obs_world.events.wait_event("VendorEvent", ptz_event("ptz_selected_changed", device=second))
+    assert changed["eventData"] == {"device": second}
+    # selecting the one that is selected changes nothing, and says nothing
+    obs_world.select_in_dock(second)
+    assert not [e for e in obs_world.events.events("VendorEvent", settle=0.5)
+                if e.get("eventType") == "ptz_selected_changed"]
+
+
 def test_a_discovery_instance_says_when_it_has_finished(obs_world):
     instances = obs_world.ws.vendor(VENDOR, "ptz_list_discovery")["instances"]
     forget_events(obs_world)
