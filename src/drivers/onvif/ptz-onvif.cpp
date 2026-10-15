@@ -941,7 +941,7 @@ obs_properties_t *PTZOnvif::get_obs_properties()
 	obs_properties_add_text(config, "host", obs_module_text("PTZ.Device.Hostname"), OBS_TEXT_DEFAULT);
 	obs_properties_add_int(config, "port", obs_module_text("PTZ.Device.TCPPort"), 1, 65535, 1);
 	obs_properties_add_text(config, "username", obs_module_text("PTZ.Device.Username"), OBS_TEXT_DEFAULT);
-	obs_properties_add_text(config, "password", obs_module_text("PTZ.Device.Password"), OBS_TEXT_DEFAULT);
+	obs_properties_add_text(config, "password", obs_module_text("PTZ.Device.Password"), OBS_TEXT_PASSWORD);
 	obs_properties_add_float_slider(config, "speed_boost", obs_module_text("PTZ.ONVIF.SpeedBoost"), 0.1, 10.0,
 					0.01);
 	obs_property_t *prof = obs_properties_add_list(config, "profile_token",
