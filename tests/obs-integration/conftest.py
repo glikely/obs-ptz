@@ -1883,6 +1883,10 @@ def obs_world(request, tmp_path_factory, ptzsim_process, sony_ptzsim, birddog_pt
         world.restart_obs = restart_obs
         world.obs_log = lambda: running["log"]
         world.first_run_leaks = first_run
+        # Settled before a test can end the session, as restart_obs() does for
+        # a restart: an OBS that quits before its camera has been turned on
+        # sends the on and the off together, and the on can land last
+        world.wait_for(lambda: power_ptzsim.power() is True, timeout=30)
         yield world
     finally:
         exited_cleanly = stop_obs() if running["proc"] is not None else False
