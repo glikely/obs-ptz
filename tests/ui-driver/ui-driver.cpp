@@ -36,6 +36,7 @@
 #include <thread>
 
 #include "obs-websocket-api.h"
+#include "ui-driver-objects.hpp"
 #include "ui-driver.hpp"
 
 OBS_DECLARE_MODULE()
@@ -159,6 +160,7 @@ void beginClosing()
 void letGoOfWebsocket()
 {
 	beginClosing();
+	stopWatchingForSecrets();
 	for (Request &request : requests) {
 		if (request.registered)
 			obs_websocket_vendor_unregister_request(vendor, request.name.c_str());
@@ -197,6 +199,7 @@ void obs_module_post_load(void)
 		blog(LOG_WARNING, "[obs-ui-driver] no obs-websocket, or its vendor \"ui-driver\" is taken");
 		return;
 	}
+	watchForSecrets();
 	addRequest("ping", [](const QJsonObject &) { return QJsonObject{{"driver", 1}}; });
 	addReadingRequests();
 	addActionRequests();
@@ -212,6 +215,7 @@ void obs_module_unload(void)
 		return;
 	obs_frontend_remove_event_callback(frontendEvent, nullptr);
 	beginClosing();
+	stopWatchingForSecrets();
 	/* The requests that have started leave this code before it goes */
 	auto deadline = std::chrono::steady_clock::now() + kUnloadWait;
 	while (inFlight.load() > 0 && std::chrono::steady_clock::now() < deadline)

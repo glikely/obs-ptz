@@ -13,11 +13,21 @@ frontend/forms/OBSBasic.ui, the same in every OBS the suite runs on (32.1 and
 button, "modeSwitch". A source's Filters window (OBSBasicFilters) is one OBS
 deletes when it is closed (WA_DeleteOnClose, in OBSBasic::OpenFilters), which
 obs-websocket's OpenInputFiltersDialog opens.
+
+A secret is the one widget that isn't OBS's own window's: OBS's properties
+view, as the PTZ settings dialog shows it for the ONVIF device, whose password
+is an OBS_TEXT_PASSWORD property. The view shows one in a QLineEdit that hides
+what is typed in it, beside a checkable "Show" button that shows it, neither
+with an objectName (OBSPropertiesView::AddText() in OBS's
+shared/properties-view). Whether anything gave the secret away is worked out
+before it is asserted, so that an assertion that fails doesn't print it.
 """
 
+import json
 import threading
 
 import pytest
+from conftest import SETTINGS_DIALOG
 from obsws import Client, ObsWebSocketError
 from test_websocket_threads import hold_main_thread
 from uidriver import UiDriver, UiDriverError
@@ -360,3 +370,123 @@ def test_a_list_an_object_or_nothing_is_no_value_to_match(obs_world, value):
     with pytest.raises(UiDriverError) as raised:
         obs_world.ui.find(MAIN, {"class": "QAction", "text": value}, all=True)
     assert raised.value.code == "not_found"
+
+
+SECRET = "not-for-the-driver-to-tell"
+PROPERTIES = {"class": "OBSPropertiesView"}
+# Qt::ImSurroundingText: what QLineEdit::inputMethodQuery() answers with its text
+IM_SURROUNDING_TEXT = 0x10
+
+
+def gives_away(answer):
+    return SECRET in json.dumps(answer)
+
+
+@pytest.fixture
+def secret_field(obs_world):
+    """The path of the ONVIF device's password field, holding SECRET, and
+    hidden again, and emptied, after the test"""
+    obs_world.need_ui_driver()
+    obs_world.open_settings_dialog(obs_world.device_names["onvif"])
+    obs_world.wait_for(lambda: "password" in (obs_world.ui.get1(SETTINGS_DIALOG, name="settingsKeys") or []))
+    edits = obs_world.ui.find(SETTINGS_DIALOG, PROPERTIES, {"class": "QLineEdit"}, all=True)
+    [field] = [edit for edit in edits if edit.get("secret")]
+    path = ({"id": field["id"]},)
+    # written as code does, which no "edited" signal says, so nothing is to apply
+    obs_world.ui.set(*path, text=SECRET)
+    yield path
+    try:
+        obs_world.ui.set(*path, text="")
+        show = (SETTINGS_DIALOG, PROPERTIES, {"class": "QPushButton", "checkable": True})
+        if obs_world.ui.get1(*show, name="checked"):
+            obs_world.ui.invoke(*show, method="click")
+    except UiDriverError as e:
+        if e.code != "not_found":  # the view was drawn again
+            raise
+
+
+def show_secret(obs_world):
+    """Clicks the password's "Show" button, as a user does"""
+    obs_world.ui.invoke(SETTINGS_DIALOG, PROPERTIES, {"class": "QPushButton", "text": "Show"}, method="click")
+
+
+def test_a_field_that_hides_its_text_is_a_secret(obs_world, secret_field):
+    [field] = obs_world.ui.find(*secret_field)
+    assert field["secret"] is True and "text" not in field
+    # the other fields of the view are not
+    edits = obs_world.ui.find(SETTINGS_DIALOG, PROPERTIES, {"class": "QLineEdit"}, all=True)
+    assert any("text" in edit and not edit.get("secret") for edit in edits)
+
+
+def test_tree_gives_away_no_secret(obs_world, secret_field):
+    leaked = gives_away(obs_world.ui.tree(depth=100))
+    assert not leaked
+
+
+def test_get_reads_nothing_of_what_is_in_a_secret(obs_world, secret_field):
+    for name in ("text", "displayText", "selectedText", "uiDriverSecret"):
+        with pytest.raises(UiDriverError) as raised:
+            obs_world.ui.get(*secret_field, properties=[name])
+        leaked = gives_away(raised.value.message)
+        assert raised.value.code == "secret" and not leaked, name
+    got = obs_world.ui.get(*secret_field, properties=["enabled", "hidden", "echoMode", "readOnly"])
+    assert got["enabled"] is True and got["hidden"] is False
+
+
+def test_a_secret_is_not_found_by_its_text(obs_world, secret_field):
+    with pytest.raises(UiDriverError) as raised:
+        obs_world.ui.find(SETTINGS_DIALOG, PROPERTIES, {"class": "QLineEdit", "text": SECRET})
+    # as a wrong guess is (its message says what was looked for, which was the guess)
+    assert raised.value.code == "not_found"
+    # but by what isn't its text
+    [field] = obs_world.ui.find(*secret_field)
+    assert obs_world.ui.find(SETTINGS_DIALOG, PROPERTIES, {"class": "QLineEdit", "readOnly": False,
+                                                           "id": field["id"]})
+
+
+def test_a_secret_shown_stays_a_secret(obs_world, secret_field):
+    hidden = obs_world.ui.get1(*secret_field, name="echoMode")
+    show_secret(obs_world)
+    assert obs_world.ui.get1(*secret_field, name="echoMode") != hidden
+    [field] = obs_world.ui.find(*secret_field)
+    assert field["secret"] is True and "text" not in field
+    with pytest.raises(UiDriverError) as raised:
+        obs_world.ui.get(*secret_field, properties=["text"])
+    assert raised.value.code == "secret"
+    leaked = gives_away(obs_world.ui.tree(depth=100))
+    assert not leaked
+
+
+def test_a_secret_is_not_shown_by_setting_its_echo_mode(obs_world, secret_field):
+    hidden = obs_world.ui.get1(*secret_field, name="echoMode")
+    with pytest.raises(UiDriverError) as raised:
+        obs_world.ui.set(*secret_field, echoMode=0)
+    assert raised.value.code == "secret"
+    assert obs_world.ui.get1(*secret_field, name="echoMode") == hidden
+
+
+def test_invoke_gives_back_nothing_of_a_secret(obs_world, secret_field):
+    with pytest.raises(UiDriverError) as raised:
+        obs_world.ui.invoke(*secret_field, method="inputMethodQuery", args=[IM_SURROUNDING_TEXT, 0])
+    leaked = gives_away(raised.value.message)
+    assert raised.value.code == "secret" and not leaked
+    # a method that gives nothing back is called
+    obs_world.ui.invoke(*secret_field, method="selectAll")
+    assert obs_world.ui.get1(*secret_field, name="enabled") is True
+
+
+def test_a_secret_is_not_copied_even_shown(obs_world, secret_field):
+    show_secret(obs_world)
+    for method in ("copy", "cut"):
+        with pytest.raises(UiDriverError) as raised:
+            obs_world.ui.invoke(*secret_field, method=method)
+        assert raised.value.code == "secret", method
+
+
+def test_nothing_is_pasted(obs_world, secret_field):
+    """Not even into a field that isn't a secret: what is pasted may be one"""
+    edits = obs_world.ui.find(SETTINGS_DIALOG, PROPERTIES, {"class": "QLineEdit"}, all=True)
+    other = next(edit for edit in edits if not edit.get("secret"))
+    with pytest.raises(UiDriverError) as raised:
+        obs_world.ui.invoke({"id": other["id"]}, method="paste")
+    assert raised.value.code == "secret"

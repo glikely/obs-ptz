@@ -20,6 +20,26 @@ struct Found {
 	QJsonObject error;
 };
 
+/* Secrets. An object is a secret if it is a QLineEdit hiding what is typed in
+ * it (any echoMode but Normal), or has the dynamic property "uiDriverSecret"
+ * true. Once one is, it stays one, although it is then shown, by a "Show"
+ * button or by code: what is in it is read by nothing the driver does (see
+ * README.md). */
+
+/* Starts marking each QLineEdit that hides what is typed in it as it is made
+ * ready to show (QEvent::Polish), and marks those there are already. Until
+ * stopWatchingForSecrets(). */
+void watchForSecrets();
+void stopWatchingForSecrets();
+
+/* Whether `object` is a secret; one that is, and wasn't marked, is from now */
+bool isSecret(QObject *object);
+
+/* Whether the property `name` of `object` may be read, or matched: any of an
+ * object that isn't a secret, and of one that is, only those that aren't
+ * what is in it */
+bool readable(QObject *object, const QString &name);
+
 /* The objects `path` names (see README.md). Each segment but the last has to
  * name exactly one, and so does the last unless `all`. */
 Found resolve(const QJsonValue &path, bool all = false);

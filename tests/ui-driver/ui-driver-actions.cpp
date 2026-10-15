@@ -46,6 +46,12 @@ QObject *one(const QJsonObject &request, QJsonObject *failed)
 	return found.objects.first();
 }
 
+/* The answer refusing what would give away what is in a secret */
+QJsonObject secret(QObject *object, const QString &what)
+{
+	return error("secret", QString("%1 is a secret: %2").arg(object->metaObject()->className(), what));
+}
+
 /* `json` as a value of `type`, or an invalid QVariant if it can't be one */
 QVariant converted(const QJsonValue &json, QMetaType type)
 {
@@ -66,6 +72,9 @@ QJsonObject setRequest(const QJsonObject &request)
 	if (!object)
 		return failed;
 	const QJsonObject properties = request["properties"].toObject();
+	/* A secret is written to, but not shown */
+	if (isSecret(object) && properties.contains("echoMode"))
+		return secret(object, "its echoMode is not set");
 	for (auto entry = properties.begin(); entry != properties.end(); ++entry) {
 		const QMetaObject *meta = object->metaObject();
 		int index = meta->indexOfProperty(entry.key().toUtf8().constData());
@@ -116,6 +125,19 @@ QJsonObject invokeRequest(const QJsonObject &request)
 		return error("no_method", QString("%1 has no method %2 that takes %3 arguments")
 						  .arg(meta->className(), name)
 						  .arg(args.size()));
+	/* Nothing a secret's method gives back is given, as it may be what is in
+	 * it (QLineEdit's inputMethodQuery() is), and what is in it is not put
+	 * where anything is pasted from. Nothing is pasted, as what is may be a
+	 * secret, copied by a button that copies it. */
+	if (name == "paste")
+		return secret(object, "nothing is pasted, as it may be one");
+	if (isSecret(object)) {
+		if (name == "copy" || name == "cut")
+			return secret(object, "nothing is copied from it");
+		QMetaType returns = method.returnMetaType();
+		if (!queued && returns.isValid() && returns.id() != QMetaType::Void)
+			return secret(object, QString("what %1 gives back is not given").arg(name));
+	}
 
 	QVariant values[4];
 	QGenericArgument generic[4];
@@ -152,6 +174,9 @@ QJsonObject activateRequest(const QJsonObject &request)
 	QObject *object = one(request, &failed);
 	if (!object)
 		return failed;
+	/* Which item is chosen says what the items are */
+	if (isSecret(object))
+		return secret(object, "its items are not chosen from");
 	auto combo = qobject_cast<QComboBox *>(object);
 	if (!combo)
 		return error("bad_request", QString("a %1 is not a combo box").arg(object->metaObject()->className()));
@@ -183,6 +208,8 @@ QJsonObject selectRequest(const QJsonObject &request)
 	QObject *object = one(request, &failed);
 	if (!object)
 		return failed;
+	if (isSecret(object))
+		return secret(object, "its rows are not chosen from");
 	auto view = qobject_cast<QAbstractItemView *>(object);
 	if (!view || !view->model() || !view->selectionModel())
 		return error("bad_request",

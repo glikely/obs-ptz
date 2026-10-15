@@ -10,9 +10,11 @@
 
 #include <QApplication>
 #include <QComboBox>
+#include <QEvent>
 #include <QHash>
 #include <QJsonArray>
 #include <QJsonDocument>
+#include <QLineEdit>
 #include <QPointer>
 #include <QSet>
 #include <QTabWidget>
@@ -25,6 +27,31 @@ namespace {
 QHash<QObject *, QString> idOf;
 QHash<QString, QPointer<QObject>> objectOf;
 quint64 lastId = 0;
+
+/* The dynamic property that marks a secret */
+constexpr char kSecret[] = "uiDriverSecret";
+
+/* What may be read of a secret: nothing of what is in it */
+const QSet<QString> kReadableOfSecret{"objectName", "enabled", "visible",  "hidden",         "echoMode",
+				      "readOnly",   "toolTip", "geometry", "placeholderText"};
+
+/* Marks each QLineEdit that hides what is typed in it as it is made ready to
+ * show, by when setupUi(), or whatever made it, has set its echoMode, and
+ * before a user, or the driver, can have it show its text */
+class SecretWatcher : public QObject {
+public:
+	using QObject::QObject;
+
+protected:
+	bool eventFilter(QObject *object, QEvent *event) override
+	{
+		if (event->type() == QEvent::Polish)
+			isSecret(object);
+		return false;
+	}
+};
+
+QPointer<SecretWatcher> secretWatcher;
 
 /* What a segment is about, for an error's message */
 QString segmentText(const QJsonValue &segment)
@@ -63,6 +90,9 @@ bool meets(QObject *object, const QJsonValue &segment)
 			if (objectOf.value(criterion.value().toString()) != object)
 				return false;
 		} else {
+			/* Nor can a secret's text be guessed, one try at a time */
+			if (!readable(object, key))
+				return false;
 			QVariant value = object->property(key.toUtf8().constData());
 			if (!value.isValid() || !matches(criterion.value(), value))
 				return false;
@@ -114,6 +144,38 @@ bool isNumber(const QVariant &value)
 }
 
 } // namespace
+
+void watchForSecrets()
+{
+	if (secretWatcher)
+		return;
+	secretWatcher = new SecretWatcher(qApp);
+	qApp->installEventFilter(secretWatcher);
+	for (QObject *object : everything())
+		isSecret(object);
+}
+
+void stopWatchingForSecrets()
+{
+	/* It is this module's code, which unloads */
+	delete secretWatcher;
+}
+
+bool isSecret(QObject *object)
+{
+	if (object->property(kSecret).toBool())
+		return true;
+	auto edit = qobject_cast<QLineEdit *>(object);
+	if (!edit || edit->echoMode() == QLineEdit::Normal)
+		return false;
+	object->setProperty(kSecret, true);
+	return true;
+}
+
+bool readable(QObject *object, const QString &name)
+{
+	return !isSecret(object) || kReadableOfSecret.contains(name);
+}
 
 QString objectId(QObject *object)
 {
@@ -188,7 +250,9 @@ QJsonObject describe(QObject *object)
 		described["visible"] = widget->isVisible();
 		described["enabled"] = widget->isEnabled();
 	}
-	if (object->metaObject()->indexOfProperty("text") >= 0)
+	if (isSecret(object))
+		described["secret"] = true;
+	else if (object->metaObject()->indexOfProperty("text") >= 0)
 		described["text"] = toJson(object->property("text"));
 	return described;
 }

@@ -36,6 +36,9 @@ QJsonObject getRequest(const QJsonObject &request)
 	QJsonObject properties;
 	const QJsonArray names = request["properties"].toArray();
 	for (const QJsonValue name : names) {
+		if (!readable(object, name.toString()))
+			return error("secret", QString("%1's %2 is not read: it is a secret")
+						       .arg(object->metaObject()->className(), name.toString()));
 		bool has = false;
 		QJsonValue value = property(object, name.toString(), &has);
 		if (!has)

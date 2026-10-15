@@ -34,6 +34,7 @@ that could not be done answers `{"error": code, "message": text}`:
 | `read_only` | The property can't be set |
 | `bad_value` | A value can't be what the property or argument is, or a model has no such role |
 | `no_method` | The object has no such method, or signal |
+| `secret` | It would give away what is in a secret (see [Secrets](#secrets)) |
 | `timeout` | OBS's main thread did not get to it within 5 seconds |
 | `unavailable` | OBS is exiting |
 
@@ -91,6 +92,49 @@ as JSON. It also reads three that widgets have no Qt property for:
 - `"tabs"` of a `QTabWidget`: `[{"text", "visible", "page"}...]`, where
   `page` is the tab's page's `objectName`;
 - `"items"` of a `QComboBox`: `[{"text", "data"}...]`.
+
+### Secrets
+
+A password, a stream key or any other secret typed into OBS is in a widget the
+driver can reach, and an answer can end up in a test's output, or a log. So
+the driver gives nothing away of what is in a **secret**:
+
+- a `QLineEdit` that hides what is typed in it: one whose `echoMode` is
+  anything but `Normal`, as OBS's stream key, obs-websocket's password and
+  every `OBS_TEXT_PASSWORD` property are;
+- any object whose dynamic property `uiDriverSecret` is true, which code may
+  give any widget whose content is a secret.
+
+Once an object is a secret it stays one for as long as it lives, although it
+is then shown by its "Show" button, or by code: a `QLineEdit` is seen to be one
+when it is made ready to show (`QEvent::Polish`), by when what made it has set
+its `echoMode`, and before anything can have shown its text. One made to hide
+its text only after that is a secret once the driver finds it hiding it.
+
+Of a secret:
+
+- an answer describing it leaves out `"text"`, and says `"secret": true`;
+- `get` reads only `objectName`, `enabled`, `visible`, `hidden`,
+  `echoMode`, `readOnly`, `toolTip`, `geometry` and `placeholderText`, and
+  answers `secret` for anything else;
+- a path's criteria match it on those alone, and on `class`, `name` and
+  `id`: any other property is one it hasn't, so a guess at its text is
+  `not_found`, as a wrong one is;
+- `set` sets anything but its `echoMode`, so that a test can type into it, but
+  can't have it show what is in it;
+- `invoke` calls a method that gives nothing back, or is `queued`, but not
+  `copy` or `cut`;
+- `activate` and `select` don't choose from it, as which item there is says
+  what it holds.
+
+`invoke` calls no object's `paste`, whether it is a secret or not: what is
+pasted may be one, copied by a button that copies it (obs-websocket's Connect
+Info has one).
+
+What isn't in a widget is beyond this: a secret in an object's own Qt
+property, read by `get` of that object, or one that a method of an object that
+isn't marked gives back. Nor does it make the driver safe to start on an OBS
+whose secrets matter: it can still press any button, and change any setting.
 
 ## Building and running it
 
