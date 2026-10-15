@@ -17,3 +17,9 @@
  * that only read a device; "control", all of them. Anything else is taken as
  * "control". Applies at once. Main thread. */
 void ptz_websocket_set_access(const char *access);
+
+/* The camera selected in the dock is now the device with this UUID, "" for
+ * none: what a request's "selected" device is, and what ptz_get_selected
+ * answers. Announced as ptz_selected_changed if it is not the one it was.
+ * Main thread. */
+void ptz_websocket_set_selected(const char *uuid);
