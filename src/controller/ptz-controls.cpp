@@ -383,6 +383,10 @@ PTZControls::PTZControls(QWidget *parent) : QFrame(parent), ui(new Ui::PTZContro
 	 * Queued, so that it happens after the views have done that. */
 	connect(ptzDeviceList, &QAbstractItemModel::modelReset, this, &PTZControls::updatePresetList,
 		Qt::QueuedConnection);
+	/* Nor does the selection that a reset throws away say it has changed */
+	connect(
+		ptzDeviceList, &QAbstractItemModel::modelReset, this,
+		[this]() { publishSelection(ui->deviceList->currentIndex()); }, Qt::QueuedConnection);
 
 	joystickSetup();
 
@@ -1016,10 +1020,17 @@ void PTZControls::updateMoveControls()
 	emit moveControlsChanged();
 }
 
+/* The camera selected is the one a websocket client means by "selected" */
+void PTZControls::publishSelection(const QModelIndex &current)
+{
+	ptz_websocket_set_selected(QT_TO_UTF8(current.data(PTZListModel::DeviceUuidRole).toString()));
+}
+
 void PTZControls::currentChanged(QModelIndex current, QModelIndex)
 {
 	/* Stops the camera that was being moved, if one was */
 	ui->movementControlsWidget->setDevice(current);
+	publishSelection(current);
 
 	updatePresetList();
 	updateMoveControls();

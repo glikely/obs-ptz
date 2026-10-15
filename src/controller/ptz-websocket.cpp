@@ -68,7 +68,10 @@ namespace {
 
 /* The version of the binding, which can change while the API's doesn't */
 constexpr int kBridgeVersionMajor = 1;
-constexpr int kBridgeVersionMinor = 0;
+constexpr int kBridgeVersionMinor = 1;
+
+/* What a request gives as its "device" to mean the camera selected in the dock */
+constexpr const char *kSelectedDevice = "selected";
 
 /* How long a request waits for the main thread to run its proc */
 constexpr auto kMainThreadWait = std::chrono::seconds(5);
@@ -99,6 +102,17 @@ std::map<std::string, std::unique_ptr<Request>> requests;
 /* The names of the requests and events there are for the API, by the scope
  * docs/ptz-device-api.md has them in ("device-proc", ...). Main thread. */
 std::map<std::string, std::set<std::string>> exposed;
+
+/* The UUID of the camera selected in the dock, "" for none. Set on the main
+ * thread as the selection changes, and read by a request on any. */
+std::mutex selectedMutex;
+std::string selectedUuid;
+
+std::string selectedDevice()
+{
+	std::lock_guard<std::mutex> lock(selectedMutex);
+	return selectedUuid;
+}
 
 /* The discovery instances made for clients, by kind: see listDiscovery(). Main thread. */
 std::map<std::string, OBSSource> discoveryInstances;
@@ -405,11 +419,23 @@ void procRequest(obs_data_t *requestData, obs_data_t *response, void *priv)
 		return;
 	}
 	auto request = static_cast<Request *>(priv);
-	const char *uuid = obs_data_get_string(requestData, "device");
+	std::string uuid = obs_data_get_string(requestData, "device");
 
-	OBSSourceAutoRelease source = *uuid ? obs_get_source_by_uuid(uuid) : nullptr;
+	/* The camera selected in the dock is the one it is as the request comes,
+	 * and the answer says which, for a client to send what follows to that
+	 * one: the release of a move, say, which the selection may have left */
+	if (uuid == kSelectedDevice) {
+		uuid = selectedDevice();
+		if (uuid.empty()) {
+			setError(response, "no_selection", "no camera is selected in the PTZ dock");
+			return;
+		}
+		obs_data_set_string(response, "device", uuid.c_str());
+	}
+
+	OBSSourceAutoRelease source = !uuid.empty() ? obs_get_source_by_uuid(uuid.c_str()) : nullptr;
 	if (!source || !ptz_source_is_device(source)) {
-		setError(response, "unknown_device", std::string("no PTZ device '") + uuid + "'");
+		setError(response, "unknown_device", "no PTZ device '" + uuid + "'");
 		return;
 	}
 	auto procs = procsOf(source);
@@ -727,6 +753,13 @@ void listDevices(obs_data_t *, obs_data_t *response, void *)
 	obs_data_set_array(response, "devices", devices);
 }
 
+/* The camera selected in the dock */
+void getSelected(obs_data_t *, obs_data_t *response, void *)
+{
+	InFlight running;
+	obs_data_set_string(response, "device", selectedDevice().c_str());
+}
+
 /* The discovery instances a client can use, one of each kind there is, which
  * are made the first time they are asked for and kept until the plugin
  * unloads: OBS has none of its own but while the dialog that adds a device is
@@ -845,6 +878,19 @@ void ptz_websocket_set_access(const char *access)
 	applyAccess();
 }
 
+void ptz_websocket_set_selected(const char *uuid)
+{
+	{
+		std::lock_guard<std::mutex> lock(selectedMutex);
+		if (selectedUuid == uuid)
+			return;
+		selectedUuid = uuid;
+	}
+	OBSDataAutoRelease event = obs_data_create();
+	obs_data_set_string(event, "device", uuid);
+	emitEvent("ptz_selected_changed", event);
+}
+
 void ptz_websocket_load(void)
 {
 	vendor = obs_websocket_register_vendor("obs-ptz");
@@ -858,6 +904,7 @@ void ptz_websocket_load(void)
 
 	addRequest("ptz_bridge_version", "read", bridgeVersion);
 	addRequest("ptz_list_devices", "read", listDevices);
+	addRequest("ptz_get_selected", "read", getSelected);
 	/* It makes sources, which only a client that can use them is let do */
 	addRequest("ptz_list_discovery", "control", listDiscovery);
 	addRequest("ptz_list_api", "read", listApi);

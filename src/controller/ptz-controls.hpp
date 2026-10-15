@@ -97,6 +97,7 @@ private:
 	void presetRecall(const QString &id);
 
 	bool callCurrentDevice(const char *method, calldata_t *cd = nullptr) const;
+	void publishSelection(const QModelIndex &current);
 	bool callCurrentDevice(const char *method, const char *arg, const QString &val) const;
 
 	OBSSignal itemSelectSignal;
