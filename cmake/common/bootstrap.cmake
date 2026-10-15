@@ -10,6 +10,7 @@ set(
     Release
     MinSizeRel
     None
+    NoConfig
     ""
 )
 set(
@@ -18,6 +19,7 @@ set(
     Release
     RelWithDebInfo
     None
+    NoConfig
     ""
 )
 set(
@@ -26,6 +28,7 @@ set(
     RelWithDebInfo
     MinSizeRel
     None
+    NoConfig
     ""
 )
 # gersemi: on
