@@ -6,13 +6,13 @@ what a Pelco filter that doesn't say speaks.
 Copyright 2026 Grant Likely <grant.likely@secretlab.ca>
 SPDX-License-Identifier: GPL-2.0-or-later
 
-Driven through tests/ui-harness/driver-kinds-test.cpp's "driver_kinds" test,
-which reports what ptz_driver_kinds() (src/controller/ptz-driver-kinds.cpp) returns.
-Expects the kinds of a build with every driver enabled, as
-scripts/macos-dev.sh makes one.
+The kinds are found as the controller finds them, from what OBS says of its
+filter kinds over obs-websocket: GetSourceFilterKindList, and each kind's
+GetSourceFilterDefaultSettings, which carry the marker. (The controller's own
+list, and the names it shows, are those of the Add Device dialog, covered in
+test_device_discovery.py.) Expects the kinds of a build with every driver
+enabled, as scripts/macos-dev.sh makes one.
 """
-
-import json
 
 import pytest
 from obsws import ObsWebSocketError
@@ -22,6 +22,18 @@ KINDS = {PREFIX + name for name in ("visca", "onvif", "pelco", "usb-cam", "soft-
 PELCO_KIND = PREFIX + "pelco"
 # Defaults of a kind, never settings of a filter
 NOT_SETTINGS = {"ptz_api_version_major", "ptz_api_version_minor"}
+
+
+def driver_kinds(obs_world):
+    """{kind: its defaults} of the filter kinds whose defaults carry the PTZ API
+    version marker (see "Driver kinds" in docs/ptz-device-api.md)"""
+    kinds = obs_world.ws.call("GetSourceFilterKindList")["sourceFilterKinds"]
+    found = {}
+    for kind in kinds:
+        defaults = obs_world.ws.call("GetSourceFilterDefaultSettings", {"filterKind": kind})["defaultFilterSettings"]
+        if NOT_SETTINGS <= set(defaults):
+            found[kind] = defaults
+    return found
 
 
 @pytest.fixture
@@ -47,17 +59,11 @@ def sources(obs_world):
             pass
 
 
-def test_driver_kinds_listed(obs_world, tmp_path):
-    out = tmp_path / "kinds.json"
-    obs_world.run_ui_test("driver_kinds", filename=str(out))
-    obs_world.wait_for(out.exists)
-
-    kinds = {k["kind"]: k for k in json.loads(out.read_text(encoding="utf-8"))["kinds"]}
+def test_driver_kinds_listed(obs_world):
+    kinds = driver_kinds(obs_world)
     assert set(kinds) == KINDS
-    for kind, entry in kinds.items():
-        assert entry["name"], kind
     # A Pelco filter whose settings don't say speaks Pelco-P, as it always has
-    assert kinds[PELCO_KIND]["defaults"]["use_pelco_d"] is False
+    assert kinds[PELCO_KIND]["use_pelco_d"] is False
 
 
 def saved_settings(obs_world, source, tmp_path):
