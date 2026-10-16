@@ -8,26 +8,30 @@ windowed `OBS.app`, and a test that drives a dialog pops it open and
 closed for real - don't drive the mouse/keyboard while one runs) - link
 it in explicitly when you want to run it.
 
-Ships with these tests: `appearance_row_sizing` (see
-`appearance-row-sizing-test.cpp` and its own driver,
-`scripts/test_preset_row_sizing.py`), `get_preset_view` (see
-`preset-view-test.cpp` and its driver, `tests/obs-integration/test_preset_view.py`
-- a pytest module rather than a standalone script; see "Driving a test from
-pytest instead of a standalone script" below), and `get_device_source`/`hold_source`
-(see `device-source-test.cpp` and its driver, `test_filter_devices.py`), and
-`get_device_settings` (see `device-settings-test.cpp` and its driver,
-`test_device_settings.py`), and
-`watch_device_signals`/`get_device_signals` (see `device-signals-test.cpp`
-and its driver, `test_device_signals.py`), and
-`get_device_backups`/`add_device` (see `device-backup-test.cpp` and its drivers,
-`test_device_backup.py` and `test_device_discovery.py`), and
-`discovery_kinds`/`discover`/`get_discovery_spy` (see `discovery-test.cpp`
-and its driver, `test_device_discovery.py`), and `reorder_presets`
-(see `reorder-presets-test.cpp` and its driver, `test_reorder_presets.py`) and
-`reorder_cameras` (see `reorder-cameras-test.cpp` and its driver,
-`test_reorder_cameras.py`)
-- see
-"Adding a new test" below for how to add another.
+Ships with these tests, each in a `*-test.cpp` file with the pytest module that
+drives it:
+
+- `appearance_row_sizing`/`measure_now` (`appearance-row-sizing-test.cpp`, and its own
+  driver, `scripts/test_preset_row_sizing.py`): the dock's row heights against OBS's
+  Density and Font Size settings;
+- `get_device_settings` (`device-settings-test.cpp`, `test_device_settings.py`): the
+  keys a device's settings properties edit and its filter saves, and what its string
+  lists offer, which need `obs_source_properties()`;
+- `reload_device_backups` (`device-backup-test.cpp`, `test_device_backup.py`): the
+  backup store reading its file again, which it does only when it is started;
+- `discover`/`get_discovery_spy`/`arm_discovery_spy`/`close_discovery_spy`
+  (`discovery-test.cpp`, `test_device_discovery.py`): the drivers' discovery
+  instances, from inside the signals they say, and what the Add Device dialog's
+  instances do;
+- `reorder_presets`/`reorder_cameras` (`reorder-presets-test.cpp`,
+  `reorder-cameras-test.cpp`, `test_reorder_presets.py`, `test_reorder_cameras.py`):
+  the device list model's moves, drops and saved order;
+- `emit_vendor_event`/`hold_main_thread` (`vendor-event-test.cpp`,
+  `test_websocket_events.py`, `test_websocket_threads.py`): the websocket binding's
+  events, with the main thread held;
+
+and `third-party-device-test.cpp`, which registers stand-ins for devices of another
+plugin. See "Adding a new test" below for how to add another.
 
 ## Why in-process, not a standalone test binary
 
@@ -58,19 +62,28 @@ finished loading first).
 
 What a user sees and does in a window goes through the UI driver
 (`tests/ui-driver/`), a plugin of its own that finds and drives any of OBS's
-Qt widgets generically: the settings dialog's tests use it, and its hooks
-here, `open_settings_dialog`, `get_settings_dialog`, `edit_dialog_state`,
-`press_dialog_button` and `set_live_move_lock`, are gone, as are those of the
-dock and the dialogs it opens that the driver reaches: `get_dock_controls`,
-`export_presets`/`import_presets` (the file dialog, which is the platform's
-own, is skipped by calling the slot the action triggers with the file),
-`camera_report_dialog`, `set_websocket_access` and `remove_device`. A widget's state
-that a test reads is a Qt property of the widget (`PTZStateView`'s
-`shownValues`, say), which the driver reads.
+Qt widgets generically, and reads the rows of its lists: the settings dialog's
+tests, the dock's (its preset list, camera list, selection and the Add button's
+menu), the Add Device dialog (`World.add_device()`), the camera report dialog, the
+file actions, OBS's Settings dialog for the hotkeys' names, and OBS's Sources list
+all use it. Their hooks are gone from here: `open_settings_dialog`,
+`get_settings_dialog`, `edit_dialog_state`, `press_dialog_button`,
+`set_live_move_lock`, `get_dock_controls`, `get_dock_selection`, `select_scene_item`,
+`get_preset_view`, `save_dock` (OBS's `SaveProject()`), `get_device_source` and
+`set_device_locked` (a device's source is in `ptz_list_devices`, and its live,
+preview and locked states are roles of the dock's camera list), `add_device`,
+`get_hotkey`, `export_presets`/`import_presets` (the file dialog, which is the
+platform's own, is skipped by calling the slot the action triggers with the file),
+`camera_report_dialog`, `set_websocket_access` and `remove_device`. The device
+signals hooks, `watch_device_signals` and `get_device_signals`, are gone too: what
+the dialog hears of a changed state or setting is what it shows. A widget's state
+that a test reads is a Qt property of the widget (`PTZStateView`'s `shownValues`,
+say), which the driver reads.
 
 The harness is for what the UI driver can't reach, or only code inside OBS
-can see: a dialog the driver doesn't drive yet, the dock's widgets, what a
-list model tells its views, a device made by a stand-in for another plugin. A test that calls a proc of the PTZ API, or
+can see: libobs's own view of a device (`obs_source_properties()`), a signal
+answered from inside the signal, the model's moves, a device made by a stand-in for
+another plugin. A test that calls a proc of the PTZ API, or
 waits for one of its signals, does it as a client of obs-websocket does, with
 the `"obs-ptz"` vendor's request and event of the same name (see "WebSocket
 binding" in `docs/ptz-device-api.md`): `World.call_proc()`, `device_state()`,
@@ -83,7 +96,10 @@ through the harness once, as `call_proc`, `get_device_state`, `get_api_version`,
 `add_preset` (`ptz_preset_create`, in `World.create_preset()`) and
 `make_discovery_instances`, which are gone. So is what obs-websocket's own
 requests do: `update_device` (`SetSourceFilterSettings`, in
-`World.update_device()`) and `fire_hotkey` (`TriggerHotkeyByName`).
+`World.update_device()`), `fire_hotkey` (`TriggerHotkeyByName`), `driver_kinds` and
+`discovery_kinds` (`GetSourceFilterKindList` and `GetSourceFilterDefaultSettings`
+in `test_driver_kinds.py`, and `ptz_list_discovery`) and `hold_source` (nothing
+used it), and `get_device_backups`, which was the backup file's contents.
 
 An earlier version polled a temp file every 100ms instead. obs-websocket
 is strictly better here: it already ships with OBS on every platform,

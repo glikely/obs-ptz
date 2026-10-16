@@ -59,8 +59,9 @@ Four ways, and a test uses the one that is how the thing is really done:
   (`World.need_ui_driver()`) when OBS hasn't it.
 - **The UI test harness** (`tests/ui-harness/`, `World.run_ui_test()`), for
   what only the UI does or only code inside OBS sees: dialogs, the dock, the
-  list model. It needs a build with `-DENABLE_UI_TESTS=ON`, answers only that
-  it took the request, and writes what a test asked for to a file the test
+  list model's moves, libobs's own view of a device, and a signal answered from
+  inside the signal. It needs a build with `-DENABLE_UI_TESTS=ON`, answers only
+  that it took the request, and writes what a test asked for to a file the test
   waits for.
 
 A plugin built without the harness, as a release is, can be tested too: a test
@@ -155,10 +156,9 @@ Linux.
     shows when there is no camera selected to show the presets of: nothing,
     not the list of cameras -- including after the model resets, as it does
     when a device is added or removed. Uses
-    `tests/ui-harness/preset-view-test.cpp`'s `get_preset_view` test (same
-    `-DENABLE_UI_TESTS=ON` requirement as above), which can select a camera
-    in the dock, or add or remove a device, and reports the rows the preset
-    list is showing.
+    the UI driver (`World.preset_view()`), which can select a camera in the
+    dock and reports the rows the preset list is showing; a device is added or
+    removed over obs-websocket.
 13. `test_legacy_migration.py` covers the migration of the devices an old
     `config.json` holds (what this suite writes, see 2 above) into
     "PTZ Control" filters, see `src/controller/ptz-legacy-migration.cpp`: each device
@@ -200,7 +200,7 @@ Linux.
     (the settings dialog) about a device changing: the values a state change
     reported, and settings changes, including ones that don't go through
     the model, such as OBS's Filters dialog and obs-websocket editing a
-    filter. Uses `tests/ui-harness/device-signals-test.cpp`.
+    filter. Seen from the settings dialog, through the UI driver.
 18. `test_onvif_position.py` covers ONVIF reporting where the camera is
     (`PTZOnvif::handleGetStatusResponse()` in `src/drivers/onvif/ptz-onvif.cpp`) as the
     generic position state, against the ONVIF backend of the shared
@@ -260,7 +260,10 @@ Linux.
     which brings its protocol with it, offering first the backup of a device
     that was on a source of the same name; and that Remove removes a
     filter's device.
-    Drives the dialogs through `tests/ui-harness/device-backup-test.cpp`.
+    Drives the dialogs through the UI driver (`World.add_device()`,
+    `World.remove_device()`), and reads the backups from the file the controller
+    writes them to; only reading an old file again (`reload_device_backups`) is a
+    request to `tests/ui-harness/device-backup-test.cpp`.
 26. `test_device_discovery.py` covers the Add dialog's "Detected devices":
     that a camera found by ONVIF's WS-Discovery, or by Sony's VISCA-over-IP
     setup protocol (a `ptzsim` started with `--sony-discovery-name`), is
