@@ -83,7 +83,6 @@ void registerAppearanceRowSizingTest(PTZUITestHarness *harness);
 void registerPresetViewTest(PTZUITestHarness *harness);
 void registerReorderPresetsTest(PTZUITestHarness *harness);
 void registerReorderCamerasTest(PTZUITestHarness *harness);
-void registerDockControlsTest(PTZUITestHarness *harness);
 void registerSceneItemSelectTest(PTZUITestHarness *harness);
 void registerDeviceSourceTest(PTZUITestHarness *harness);
 void registerDeviceSettingsTest(PTZUITestHarness *harness);

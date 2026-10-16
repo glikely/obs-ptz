@@ -189,5 +189,6 @@ def test_a_preset_hotkey_acts_on_that_row(request, obs_world, tmp_path):
 
 
 def test_the_preset_hotkeys_say_preset(obs_world):
-    assert obs_world.hotkey_description("PTZ.Recall3") == "Preset Recall #3"
-    assert obs_world.hotkey_description("PTZ.Save3") == "Preset Save #3"
+    assert obs_world.hotkey_listed("Preset Recall #3")
+    assert obs_world.hotkey_listed("Preset Save #3")
+    assert not obs_world.hotkey_listed("Position Recall #3")

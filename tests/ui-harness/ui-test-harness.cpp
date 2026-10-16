@@ -26,7 +26,6 @@ PTZUITestHarness::PTZUITestHarness(QObject *parent) : QObject(parent)
 {
 	registerAppearanceRowSizingTest(this);
 	registerPresetViewTest(this);
-	registerDockControlsTest(this);
 	registerSceneItemSelectTest(this);
 	registerDeviceSourceTest(this);
 	registerDeviceSettingsTest(this);

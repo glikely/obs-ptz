@@ -1309,14 +1309,35 @@ class World:
         does, with obs-websocket's TriggerHotkeyByName"""
         self.ws.call("TriggerHotkeyByName", {"hotkeyName": name})
 
-    def hotkey_description(self, name):
-        """What the Hotkeys settings call a hotkey of the dock, or None if there is none"""
-        out = self.scratch / "hotkey.json"
-        out.unlink(missing_ok=True)
-        self.run_ui_test("get_hotkey", name=name, filename=str(out))
-        self.wait_for(out.exists)
-        result = json.loads(out.read_text())
-        return result["description"] if result["found"] else None
+    def hotkey_listed(self, text):
+        """Whether OBS's Settings list a hotkey under `text`, as a user sees it
+        (File > Settings > Hotkeys): the dialog is opened and its labels read with
+        the UI driver"""
+        self.need_ui_driver()
+        settings = {"class": "OBSBasicSettings"}
+        # The dialog is modal, so it is opened once the driver has answered
+        self.ui.invoke(OBS_MAIN, "action_Settings", method="trigger", queued=True)
+        try:
+            self.wait_for(lambda: self.ui.find(settings))
+            # OBS makes the page's rows some moments after the page is first shown
+            self.ui.select(settings, "listWidget", value="Hotkeys")
+            label = {"class": "OBSHotkeyLabel"}
+
+            def rows():
+                try:
+                    return self.ui.find(settings, label, all=True)
+                except UiDriverError as e:
+                    if e.code != "not_found":
+                        raise
+                    return []
+
+            self.wait_for(rows)
+            return any(row.get("text") == text for row in rows())
+        finally:
+            try:
+                self.ui.invoke(settings, method="reject")
+            except UiDriverError:
+                pass
 
     def wait_for_preset_view(self, out_file, predicate, timeout=5, interval=0.2):
         """Polls preset_view() until predicate(view) is true -- the view
