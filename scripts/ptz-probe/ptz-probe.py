@@ -2238,19 +2238,27 @@ def is_on(probe, command_set):
 
 
 def plugin_version():
-    """What the plugin calls its version: the `git describe --dirty` its build
-    has, which is what this has when it is run from a checkout of the plugin;
-    and "unknown" when it isn't"""
+    """What the plugin calls its version, when this is run from a checkout of
+    it: as its build has it (cmake/common/version.cmake), the `git describe
+    --dirty` of the checkout, or, where git can't say (a tree that isn't a
+    git checkout, or a worktree whose git directory isn't there, as on a
+    virtual machine's share of it), the version buildspec.json gives. And
+    "unknown" when it isn't run from a checkout."""
     root = Path(__file__).resolve().parents[2]
-    if (root / "buildspec.json").exists():
-        try:
-            done = subprocess.run(["git", "-C", str(root), "describe", "--dirty"], capture_output=True, text=True,
-                                  timeout=10)
-            if done.returncode == 0 and done.stdout.strip():
-                return done.stdout.strip()
-        except (OSError, subprocess.SubprocessError):
-            pass
-    return "unknown"
+    buildspec = root / "buildspec.json"
+    if not buildspec.exists():
+        return "unknown"
+    try:
+        done = subprocess.run(["git", "-C", str(root), "describe", "--dirty"], capture_output=True, text=True,
+                              timeout=10)
+        if done.returncode == 0 and done.stdout.strip():
+            return done.stdout.strip()
+    except (OSError, subprocess.SubprocessError):
+        pass
+    try:
+        return json.loads(buildspec.read_text(encoding="utf-8"))["version"]
+    except (OSError, ValueError, KeyError):
+        return "unknown"
 
 
 def make_report(probe, progress=lambda done, total: None):
