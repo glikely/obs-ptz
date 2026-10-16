@@ -1055,31 +1055,6 @@ class World:
             time.sleep(interval)
         raise AssertionError(f"device {device_name} state never matched predicate; last seen: {last}")
 
-    def device_signals(self, device_name, out_file):
-        """Fetches how often PTZListModel's deviceSettingsUpdated() and
-        deviceStateUpdated() fired for device_name since watch_device_signals(),
-        and which state keys the latter reported as changed, via
-        tests/ui-harness/device-signals-test.cpp's "get_device_signals"
-        test."""
-        if out_file.exists():
-            out_file.unlink()
-        self.run_ui_test("get_device_signals", device=device_name, filename=str(out_file))
-        self.wait_for(out_file.exists)
-        raw = json.loads(out_file.read_text())
-        raw["state_keys"] = {e["key"] for e in raw.get("state_keys", [])}
-        return raw
-
-    def wait_for_device_signals(self, device_name, out_file, predicate, timeout=5, interval=0.2):
-        """Polls device_signals() until predicate(result) is true."""
-        deadline = time.time() + timeout
-        last = None
-        while time.time() < deadline:
-            last = self.device_signals(device_name, out_file)
-            if predicate(last):
-                return last
-            time.sleep(interval)
-        raise AssertionError(f"device {device_name} signals never matched predicate; last seen: {last}")
-
     def _open_settings_window(self):
         """Opens the PTZ settings dialog as a user does, from OBS's Tools menu"""
         self.ui.invoke(OBS_MAIN, "menuTools", {"class": "QAction", "text": "PTZ Devices"}, method="trigger")

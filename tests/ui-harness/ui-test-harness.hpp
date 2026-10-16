@@ -83,7 +83,6 @@ void registerAppearanceRowSizingTest(PTZUITestHarness *harness);
 void registerReorderPresetsTest(PTZUITestHarness *harness);
 void registerReorderCamerasTest(PTZUITestHarness *harness);
 void registerDeviceSettingsTest(PTZUITestHarness *harness);
-void registerDeviceSignalsTest(PTZUITestHarness *harness);
 void registerDiscoveryTest(PTZUITestHarness *harness);
 void registerDeviceBackupTest(PTZUITestHarness *harness);
 void registerThirdPartyDeviceTest(PTZUITestHarness *harness);
