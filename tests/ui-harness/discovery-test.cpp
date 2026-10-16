@@ -25,25 +25,6 @@ void writeResult(obs_data_t *result, const QString &filename, const char *test)
 		blog(LOG_INFO, "[ptz-ui-test] %s: failed to write %s", test, qUtf8Printable(filename));
 }
 
-void runDiscoveryKindsTest(const QMap<QString, QString> &params)
-{
-	QString filename = params.value(QStringLiteral("filename"));
-	if (filename.isEmpty()) {
-		blog(LOG_INFO, "[ptz-ui-test] discovery_kinds: missing filename");
-		return;
-	}
-	OBSDataArrayAutoRelease kinds = obs_data_array_create();
-	for (const auto &discovery : ptz_discovery_kinds()) {
-		OBSDataAutoRelease item = obs_data_create();
-		obs_data_set_string(item, "kind", qUtf8Printable(discovery.kind));
-		obs_data_set_string(item, "name", qUtf8Printable(discovery.name));
-		obs_data_array_push_back(kinds, item);
-	}
-	OBSDataAutoRelease result = obs_data_create();
-	obs_data_set_array(result, "kinds", kinds);
-	writeResult(result, filename, "discovery_kinds");
-}
-
 /* --- discover: one instance of each kind, until each has finished --------- */
 
 struct Search;
@@ -401,9 +382,7 @@ void ptzUITestDiscoverySpyClosed()
 	spy.closed = true;
 }
 
-/* discovery_kinds: filename - where to write {"kinds": [{"kind", "name"}...]},
- *   what ptz_discovery_kinds() returns
- * discover: filename - where to write, once an instance of every discovery
+/* discover: filename - where to write, once an instance of every discovery
  *   kind has said ptz_discovery_finished (or after 15s), {"instances": {kind:
  *   {"major", "minor" (from its ptz_get_api_version), "finished" (how often it
  *   said so), "found_after_finished"}}, "found": [{"discovery" (the instance's
@@ -426,7 +405,6 @@ void ptzUITestDiscoverySpyClosed()
  */
 void registerDiscoveryTest(PTZUITestHarness *harness)
 {
-	harness->registerTest(QStringLiteral("discovery_kinds"), &runDiscoveryKindsTest);
 	harness->registerTest(QStringLiteral("discover"), &runDiscoverTest);
 	harness->registerTest(QStringLiteral("get_discovery_spy"), &runGetDiscoverySpyTest);
 }

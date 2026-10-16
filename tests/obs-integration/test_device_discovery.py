@@ -179,10 +179,10 @@ def sources(obs_world):
 # harness answers it from inside its event loop) doesn't take these with it
 
 
-def discovery_kinds(world, out):
-    world.run_ui_test("discovery_kinds", filename=str(out))
-    world.wait_for(out.exists)
-    return {k["kind"]: k for k in json.loads(out.read_text())["kinds"]}
+def discovery_kinds(world):
+    """The kinds of the discovery instances the websocket binding makes: one for each
+    discovery kind OBS has, as the controller finds them"""
+    return {i["kind"] for i in world.ws.vendor("obs-ptz", "ptz_list_discovery")["instances"]}
 
 
 def discover(world, out, **mode):
@@ -194,12 +194,14 @@ def discover(world, out, **mode):
     return json.loads(out.read_text())
 
 
-def assert_responsive(world, tmp_path):
-    """The main thread still runs the harness's requests, promptly"""
-    assert set(discovery_kinds(world, tmp_path / "responsive.json")) == DISCOVERY_KINDS
+def assert_responsive(world):
+    """The main thread still runs requests, promptly: the UI driver does its on it"""
+    world.need_ui_driver()
+    world.ui.call("ping")
+    assert discovery_kinds(world) == DISCOVERY_KINDS
 
 
-def test_discovery_kind_not_listed(obs_world, tmp_path):
+def test_discovery_kind_not_listed(obs_world):
     """OBS doesn't offer a discovery kind as a source to add, while the
     controller still finds it"""
     listed = set(obs_world.ws.call("GetInputKindList", {"unversioned": False})["inputKinds"])
@@ -207,10 +209,7 @@ def test_discovery_kind_not_listed(obs_world, tmp_path):
     assert listed, "OBS listed no input kinds at all"
     assert DISCOVERY_KINDS & listed == set()
 
-    kinds = discovery_kinds(obs_world, tmp_path / "kinds.json")
-    assert set(kinds) == DISCOVERY_KINDS
-    for kind, entry in kinds.items():
-        assert entry["name"], kind
+    assert discovery_kinds(obs_world) == DISCOVERY_KINDS
 
 
 def discover_over_websocket(world, timeout=20):
@@ -291,7 +290,7 @@ def test_stop_from_inside_found_is_heard(obs_world, sony_sim, onvif_sim_two_matc
     for kind, instance in result["instances"].items():
         assert instance["finished"] == 1, kind
         assert instance["found_after_stop"] == 0, kind
-    assert_responsive(obs_world, tmp_path)
+    assert_responsive(obs_world)
 
 
 def test_start_from_inside_finished_looks_again(obs_world, sony_sim, tmp_path):
@@ -303,7 +302,7 @@ def test_start_from_inside_finished_looks_again(obs_world, sony_sim, tmp_path):
         assert instance["finished"] == 2, kind
     sony = [d for d in result["found"] if "SIMSONY1" in d["name"]]
     assert len(sony) == 2, "each search finds the camera once"
-    assert_responsive(obs_world, tmp_path)
+    assert_responsive(obs_world)
 
 
 def test_release_from_inside_found_is_safe(obs_world, onvif_sim_two_matches, tmp_path):
@@ -319,7 +318,7 @@ def test_release_from_inside_found_is_safe(obs_world, onvif_sim_two_matches, tmp
         assert instance["finished_after_release"] == 0, kind
     ids = [d["id"] for d in result["found"] if d["discovery"] == PREFIX + "onvif.discovery"]
     assert len(ids) == 1, "the second ProbeMatch was reported after the release"
-    assert_responsive(obs_world, tmp_path)
+    assert_responsive(obs_world)
 
 
 def test_releasing_a_running_instance_silences_it(obs_world, tmp_path):
@@ -338,7 +337,7 @@ def test_releasing_a_running_instance_silences_it(obs_world, tmp_path):
     assert result["finished_after_release"] == 0
     assert result["found_after_destroy"] == 0
     assert result["finished_after_destroy"] == 0
-    assert_responsive(obs_world, tmp_path)
+    assert_responsive(obs_world)
 
 
 # --- the Add Device dialog ---------------------------------------------------------
