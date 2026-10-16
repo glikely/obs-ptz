@@ -1030,6 +1030,21 @@ class ViscaUdpProtocol(asyncio.DatagramProtocol):
         self._history.append((self._last_reply, '-->', seq, reply))
         self._send(addr, VISCA_IP_REPLY, seq, reply)
 
+    def _later(self, delay, callback, *args):
+        """loop.call_later(), but never early: asyncio runs a timer that is
+        due within its clock's resolution, which on Windows is 15.6ms, so a
+        reply could go out sooner than the camera would send it"""
+        loop = asyncio.get_running_loop()
+        due = time.perf_counter() + delay
+
+        def fire():
+            left = due - time.perf_counter()
+            if left > 0:
+                loop.call_later(left, fire)
+            else:
+                callback(*args)
+        loop.call_later(delay, fire)
+
     def _count(self, name, stalled, seq, now):
         q = self.quirks
         if stalled:
@@ -1042,7 +1057,6 @@ class ViscaUdpProtocol(asyncio.DatagramProtocol):
 
     def _sony_request(self, addr, seq, dg):
         q = self.quirks
-        loop = asyncio.get_running_loop()
         q.stats['requests'] += 1
 
         # not loop.time(), which on Windows ticks every 16ms, longer than min_gap
@@ -1089,7 +1103,7 @@ class ViscaUdpProtocol(asyncio.DatagramProtocol):
                 return
             self._outstanding[seq] = (dg, arrived + q.inquiry_latency)
             for reply in replies:
-                loop.call_later(q.inquiry_latency, self._sony_reply, addr, seq, reply, True)
+                self._later(q.inquiry_latency, self._sony_reply, addr, seq, reply, True)
             return
         if not (len(replies) == 2 and replies[0][1] == 0x41 and replies[1][1] == 0x51):
             for reply in replies:
@@ -1106,8 +1120,8 @@ class ViscaUdpProtocol(asyncio.DatagramProtocol):
         self._busy_sockets.add(sock)
         done = q.ack_latency + (q.move_time if moves else 0)
         self._outstanding[seq] = (dg, arrived + q.ack_latency)
-        loop.call_later(q.ack_latency, self._sony_reply, addr, seq, bytes([0x90, 0x40 | sock, 0xff]), True)
-        loop.call_later(done, self._sony_complete, addr, seq, sock)
+        self._later(q.ack_latency, self._sony_reply, addr, seq, bytes([0x90, 0x40 | sock, 0xff]), True)
+        self._later(done, self._sony_complete, addr, seq, sock)
 
     def _sony_complete(self, addr, seq, sock):
         self._busy_sockets.discard(sock)
