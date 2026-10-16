@@ -306,6 +306,31 @@ def test_select_makes_a_scene_current(obs_world, studio_mode_off, program_scene)
     obs_world.wait_for(lambda: obs_world.ws.call("GetCurrentProgramScene")["currentProgramSceneName"] == second)
 
 
+def test_rows_gives_the_rows_of_a_view_and_which_is_current(obs_world, studio_mode_off, program_scene):
+    obs_world.need_ui_driver()
+    first, second = obs_world.create_scene(), obs_world.create_scene()
+    obs_world.ui.select(MAIN, "scenes", value=second)
+    rows, current, selected = obs_world.ui.rows(MAIN, "scenes")
+    names = [row["display"] for row in rows]
+    assert {first, second} <= set(names)
+    assert names[current] == second
+    assert selected == [current]
+
+
+def test_rows_says_when_the_model_has_no_such_role(obs_world):
+    obs_world.need_ui_driver()
+    with pytest.raises(UiDriverError) as raised:
+        obs_world.ui.rows(MAIN, "scenes", roles=["noSuchRole"])
+    assert raised.value.code == "bad_value"
+
+
+def test_rows_says_when_it_is_not_a_view(obs_world):
+    obs_world.need_ui_driver()
+    with pytest.raises(UiDriverError) as raised:
+        obs_world.ui.rows(MAIN)
+    assert raised.value.code == "bad_request"
+
+
 def test_select_says_when_no_row_matches(obs_world):
     obs_world.need_ui_driver()
     with pytest.raises(UiDriverError) as raised:

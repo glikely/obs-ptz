@@ -52,6 +52,24 @@ QJsonObject secret(QObject *object, const QString &what)
 	return error("secret", QString("%1 is a secret: %2").arg(object->metaObject()->className(), what));
 }
 
+/* The role a request names: a name from the model's roleNames(), "accessibleText"
+ * or "accessibleDescription" (which a model answers without naming them, as OBS's
+ * sources list does), or the role's number. -1 if the model has no such role. */
+int roleNamed(const QAbstractItemModel *model, const QJsonValue &name)
+{
+	if (name.isDouble())
+		return name.toInt();
+	const QByteArray text = name.toString().toUtf8();
+	int role = model->roleNames().key(text, -1);
+	if (role >= 0)
+		return role;
+	if (text == "accessibleText")
+		return Qt::AccessibleTextRole;
+	if (text == "accessibleDescription")
+		return Qt::AccessibleDescriptionRole;
+	return -1;
+}
+
 /* `json` as a value of `type`, or an invalid QVariant if it can't be one */
 QVariant converted(const QJsonValue &json, QMetaType type)
 {
@@ -216,11 +234,10 @@ QJsonObject selectRequest(const QJsonObject &request)
 			     QString("a %1 is not a view of a model").arg(object->metaObject()->className()));
 
 	QAbstractItemModel *model = view->model();
-	const QByteArray roleName = request["role"].toString("display").toUtf8();
-	const QHash<int, QByteArray> roles = model->roleNames();
-	int role = roles.key(roleName, -1);
+	const QJsonValue roleName = request.contains("role") ? request["role"] : QJsonValue("display");
+	int role = roleNamed(model, roleName);
 	if (role < 0)
-		return error("bad_value", QString("the model has no role %1").arg(QString::fromUtf8(roleName)));
+		return error("bad_value", QString("the model has no role %1").arg(roleName.toVariant().toString()));
 	int column = request["column"].toInt(0);
 
 	for (int row = 0; row < model->rowCount(view->rootIndex()); row++) {
@@ -284,6 +301,74 @@ QJsonObject countRequest(const QJsonObject &request)
 	return QJsonObject{{"count", counter->count}};
 }
 
+/* The rows of a view or a combo box, as it shows them: for each, the value of
+ * every role asked for ("flags" is the row's item flags), and which row is
+ * current and which are selected */
+QJsonObject rowsRequest(const QJsonObject &request)
+{
+	QJsonObject failed;
+	QObject *object = one(request, &failed);
+	if (!object)
+		return failed;
+	if (isSecret(object))
+		return secret(object, "its rows are not read");
+
+	QAbstractItemModel *model = nullptr;
+	QModelIndex root;
+	QAbstractItemView *view = qobject_cast<QAbstractItemView *>(object);
+	QComboBox *combo = qobject_cast<QComboBox *>(object);
+	if (view) {
+		model = view->model();
+		root = view->rootIndex();
+	} else if (combo) {
+		model = combo->model();
+		root = combo->rootModelIndex();
+	} else {
+		return error("bad_request",
+			     QString("a %1 is not a view or a combo box").arg(object->metaObject()->className()));
+	}
+	/* One with no model, as a view is while it has nothing to show, has no rows */
+	if (!model)
+		return QJsonObject{{"rows", QJsonArray()}, {"current", -1}, {"selected", QJsonArray()}};
+
+	constexpr int FlagsRole = -2;
+	QList<QPair<QString, int>> roles;
+	const QJsonArray asked = request["roles"].isArray() ? request["roles"].toArray() : QJsonArray{"display"};
+	for (const QJsonValue name : asked) {
+		int role = name.toString() == "flags" ? FlagsRole : roleNamed(model, name);
+		if (role == -1)
+			return error("bad_value", QString("the model has no role %1").arg(name.toVariant().toString()));
+		roles.append({name.toVariant().toString(), role});
+	}
+	int column = request["column"].toInt(0);
+
+	QJsonArray rows;
+	for (int row = 0; row < model->rowCount(root); row++) {
+		QModelIndex index = model->index(row, column, root);
+		QJsonObject values;
+		for (const auto &[name, role] : roles)
+			values[name] = role == FlagsRole ? QJsonValue(int(model->flags(index)))
+							 : toJson(index.data(role));
+		rows.append(values);
+	}
+	QJsonArray selected;
+	int currentRow = -1;
+	if (view) {
+		if (view->selectionModel())
+			for (const QModelIndex &index : view->selectionModel()->selectedRows(column))
+				if (index.parent() == root)
+					selected.append(index.row());
+		QModelIndex current = view->currentIndex();
+		if (current.isValid() && current.parent() == root)
+			currentRow = current.row();
+	} else {
+		currentRow = combo->currentIndex();
+		if (currentRow >= 0)
+			selected.append(currentRow);
+	}
+	return QJsonObject{{"rows", rows}, {"current", currentRow}, {"selected", selected}};
+}
+
 } // namespace
 
 void addActionRequests()
@@ -292,6 +377,7 @@ void addActionRequests()
 	addRequest("invoke", invokeRequest);
 	addRequest("activate", activateRequest);
 	addRequest("select", selectRequest);
+	addRequest("rows", rowsRequest);
 	addRequest("watch", watchRequest);
 	addRequest("count", countRequest);
 }

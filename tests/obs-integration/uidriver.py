@@ -84,6 +84,13 @@ class UiDriver:
         `role` (a name from its model's roleNames()) is `value`; gives back the row"""
         return self.call("select", path=list(path), value=value, role=role, column=column)["row"]
 
+    def rows(self, *path, roles=("display",), column=0):
+        """The rows of the view `path` names, [{role: value}...], with each of
+        `roles` (names from its model's roleNames()); also the row that is current
+        (-1 if none) and those that are selected: (rows, current, selected)"""
+        answer = self.call("rows", path=list(path), roles=list(roles), column=column)
+        return answer["rows"], answer["current"], answer["selected"]
+
     def watch(self, *path, signal):
         """Starts counting, from nothing, a signal of the object `path` names;
         gives back the watch's id, the same if it is watched again"""
