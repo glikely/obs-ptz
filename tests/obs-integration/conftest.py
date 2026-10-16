@@ -910,6 +910,26 @@ class World:
         assert uuid is not None, f"no device {device}"
         self.ui.select(OBS_MAIN, PTZ_DOCK, "deviceList", value=uuid, role="uuid")
 
+    def dock_selected(self, device):
+        """Whether `device` is the one selected in the PTZ Controls dock's camera list"""
+        self.need_ui_driver()
+        uuid = self.device_uuid(device)
+        rows, current, _ = self.ui.rows(OBS_MAIN, PTZ_DOCK, "deviceList", roles=["uuid"])
+        return uuid is not None and 0 <= current < len(rows) and rows[current]["uuid"] == uuid
+
+    def set_autoselect(self, enabled):
+        """Turns the dock's autoselecting of a camera on or off, as the checkbox in its menu does"""
+        self.need_ui_driver()
+        self.ui.invoke(OBS_MAIN, PTZ_DOCK, method="setAutoselectEnabled", args=[enabled])
+
+    def select_scene_item(self, name):
+        """Selects the item `name` in OBS's Sources list, as a click does. A new item
+        starts out selected, and selecting a selected row is no event, so the
+        selection is cleared first."""
+        self.need_ui_driver()
+        self.ui.invoke(OBS_MAIN, "sources", method="clearSelection")
+        self.ui.select(OBS_MAIN, "sources", value=name, role="accessibleText")
+
     def _preset_file_action(self, device, action, path):
         """Selects device in the dock, then does what its "Export Presets..." or
         "Import Presets..." does once the file is chosen: the slot the action

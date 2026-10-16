@@ -421,7 +421,6 @@ if(ENABLE_UI_TESTS)
       tests/ui-harness/preset-view-test.cpp
       tests/ui-harness/reorder-presets-test.cpp
       tests/ui-harness/reorder-cameras-test.cpp
-      tests/ui-harness/scene-item-select-test.cpp
       tests/ui-harness/device-source-test.cpp
       tests/ui-harness/device-settings-test.cpp
       tests/ui-harness/device-signals-test.cpp

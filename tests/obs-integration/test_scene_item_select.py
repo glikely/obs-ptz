@@ -4,18 +4,9 @@ worked on is the one the dock controls. It follows the same autoselect
 setting as a change of scene does.
 """
 
-import json
 import time
 
 from test_filter_devices import camera_sim, cameras  # noqa: F401
-
-
-def selected(world, device, out):
-    if out.exists():
-        out.unlink()
-    world.run_ui_test("get_dock_selection", device=device, filename=str(out))
-    world.wait_for(out.exists)
-    return json.loads(out.read_text())["selected"]
 
 
 def two_cameras_in_a_scene(world, cameras, tmp_path):  # noqa: F811
@@ -28,30 +19,29 @@ def two_cameras_in_a_scene(world, cameras, tmp_path):  # noqa: F811
         cameras.add_source(scene, name)
         cameras.add_filter(name)
         world.wait_for_device_by_name(name, tmp_path / f"{name}.json", lambda r: r["found"] and r["bound"])
-    world.run_ui_test("select_scene_item", autoselect="true")
+    world.set_autoselect(True)
     world.ws.call("SetCurrentProgramScene", {"sceneName": scene})
-    world.wait_for(lambda: selected(world, "select-cam-a", tmp_path / "scene-changed.json"))
+    world.wait_for(lambda: world.dock_selected("select-cam-a"))
     return scene
 
 
 def test_selecting_a_source_selects_its_camera(obs_world, cameras, tmp_path):  # noqa: F811
-    scene = two_cameras_in_a_scene(obs_world, cameras, tmp_path)
-    out = tmp_path / "selection.json"
+    two_cameras_in_a_scene(obs_world, cameras, tmp_path)
 
-    obs_world.run_ui_test("select_scene_item", scene=scene, source="select-cam-b")
-    obs_world.wait_for(lambda: selected(obs_world, "select-cam-b", out))
+    obs_world.select_scene_item("select-cam-b")
+    obs_world.wait_for(lambda: obs_world.dock_selected("select-cam-b"))
 
-    obs_world.run_ui_test("select_scene_item", scene=scene, source="select-cam-a")
-    obs_world.wait_for(lambda: selected(obs_world, "select-cam-a", out))
+    obs_world.select_scene_item("select-cam-a")
+    obs_world.wait_for(lambda: obs_world.dock_selected("select-cam-a"))
 
 
 def test_it_follows_the_autoselect_setting(obs_world, cameras, tmp_path):  # noqa: F811
-    scene = two_cameras_in_a_scene(obs_world, cameras, tmp_path)
-    out = tmp_path / "selection.json"
-    obs_world.run_ui_test("select_scene_item", scene=scene, source="select-cam-a")
-    obs_world.wait_for(lambda: selected(obs_world, "select-cam-a", out))
+    two_cameras_in_a_scene(obs_world, cameras, tmp_path)
+    obs_world.select_scene_item("select-cam-a")
+    obs_world.wait_for(lambda: obs_world.dock_selected("select-cam-a"))
 
-    obs_world.run_ui_test("select_scene_item", scene=scene, source="select-cam-b", autoselect="false")
+    obs_world.set_autoselect(False)
+    obs_world.select_scene_item("select-cam-b")
     # Nothing to wait for: give a queued selection, if there were one, time to run
     time.sleep(1)
-    assert selected(obs_world, "select-cam-a", out)
+    assert obs_world.dock_selected("select-cam-a")
