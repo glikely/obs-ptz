@@ -82,7 +82,6 @@ extern "C" void ptz_load_ui_tests(void);
 void registerAppearanceRowSizingTest(PTZUITestHarness *harness);
 void registerReorderPresetsTest(PTZUITestHarness *harness);
 void registerReorderCamerasTest(PTZUITestHarness *harness);
-void registerDeviceSourceTest(PTZUITestHarness *harness);
 void registerDeviceSettingsTest(PTZUITestHarness *harness);
 void registerDeviceSignalsTest(PTZUITestHarness *harness);
 void registerDiscoveryTest(PTZUITestHarness *harness);

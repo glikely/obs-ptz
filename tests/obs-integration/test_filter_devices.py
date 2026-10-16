@@ -7,8 +7,8 @@ src/core/ptz-device.cpp).
 Each test creates a media source to stand in for the camera (an empty
 one is enough), adds the filter to it over obs-websocket (CreateSourceFilter) with the
 connection settings for a dedicated ptzsim instance, and finds the
-device through tests/ui-harness/device-source-test.cpp's
-"get_device_source" test -- by name, since a filter's device is given
+device through World.device_by_name() (the websocket binding's list of devices
+and the dock's camera list) -- by name, since a filter's device is given
 its id by the plugin, not by the test's config file. What the tests check:
 
 - the filter kind exists, and adding one creates a device named after,

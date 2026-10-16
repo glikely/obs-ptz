@@ -25,7 +25,6 @@ obs_websocket_vendor ptzUITestVendor()
 PTZUITestHarness::PTZUITestHarness(QObject *parent) : QObject(parent)
 {
 	registerAppearanceRowSizingTest(this);
-	registerDeviceSourceTest(this);
 	registerDeviceSettingsTest(this);
 	registerDeviceSignalsTest(this);
 	registerDiscoveryTest(this);

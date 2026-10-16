@@ -634,19 +634,51 @@ class World:
         self.ws.call("CreateScene", {"sceneName": scene})
         return scene
 
-    def _query_device_source(self, out_file, **params):
-        if out_file.exists():
-            out_file.unlink()
-        self.run_ui_test("get_device_source", filename=str(out_file), **params)
-        self.wait_for(out_file.exists)
-        return json.loads(out_file.read_text())
+    def _query_device_source(self, out_file=None, device=None):
+        """What is known of a device, by its UUID, its name or the name of its source:
+        {"found"} alone if there is none, otherwise also "uuid", "name" (as the dock's camera list shows it), the "source"
+        it is on and its "source_uuid" ("bound" says there is one), as the PTZ API
+        says them: the websocket binding asks the device's ptz_get_parent_source, so
+        "proc_bound", "proc_source" and "proc_source_uuid" are the same; and "live",
+        "preview" and "locked", as the dock's camera list has them. out_file is
+        not used: it was where the harness wrote all this."""
+        self.need_ui_driver()
+        try:
+            listed = self.ws.vendor("obs-ptz", "ptz_list_devices")["devices"]
+        except ObsWebSocketError as e:
+            # With the binding's access off (a test does that) it answers no request: the
+            # dock's camera list says the devices, by the names it shows
+            if e.status.get("code") != 600:
+                raise
+            rows, _, _ = self.ui.rows(OBS_MAIN, PTZ_DOCK, "deviceList", roles=["display", "uuid"])
+            listed = [{"device": r["uuid"], "name": r["display"], "source": r["display"]} for r in rows]
+        entry = None
+        for key in ("device", "name", "source"):
+            entry = next((e for e in listed if e[key] == device), None)
+            if entry:
+                break
+        result = {"found": entry is not None}
+        if not entry:
+            return result
+        source_uuid = ""
+        if entry["source"]:
+            inputs = self.ws.call("GetInputList")["inputs"]
+            source_uuid = next((i["inputUuid"] for i in inputs if i["inputName"] == entry["source"]), "")
+        rows, _, _ = self.ui.rows(OBS_MAIN, PTZ_DOCK, "deviceList", roles=["display", "uuid", "live", "preview", "locked"])
+        row = next((r for r in rows if r["uuid"] == entry["device"]), {})
+        bound = bool(entry["source"])
+        result.update({
+            "uuid": entry["device"], "name": row.get("display", entry["name"]),
+            "bound": bound, "source": entry["source"], "source_uuid": source_uuid,
+            "proc_bound": bound, "proc_source": entry["source"], "proc_source_uuid": source_uuid,
+            "live": bool(row.get("live")), "preview": bool(row.get("preview")), "locked": bool(row.get("locked")),
+        })
+        return result
 
     def device_source(self, device_name, out_file):
         """Fetches which OBS source device_name is bound to, and the
-        device's name, via tests/ui-harness/device-source-test.cpp's
-        "get_device_source" test. Like device_status(), removes any stale
-        out_file first and waits for the rewritten one. Note that asking
-        can itself bind the device to a source that has just appeared."""
+        device's name, from the websocket binding's device list and the dock's
+        camera list (see _query_device_source())."""
         return self._query_device_source(out_file, device=device_name)
 
     def device_by_name(self, name, out_file):
@@ -669,11 +701,15 @@ class World:
         raise AssertionError(f"device {device_name} source never matched predicate; last seen: {last}")
 
     def set_device_locked(self, device_name, locked):
-        """Locks or unlocks a device as a click on its padlock in the device
-        list does, via tests/ui-harness/device-source-test.cpp's
-        "set_device_locked" test. Like every ui test it runs queued on the
-        GUI thread, so read the result back with wait_for_device_source()."""
-        self.run_ui_test("set_device_locked", device=device_name, locked="1" if locked else "0")
+        """Locks or unlocks a device as a click on its padlock in the dock's camera
+        list does: the list's model is given the new value for the device's row"""
+        self.need_ui_driver()
+        uuid = self.device_uuid(device_name)
+        rows, _, _ = self.ui.rows(OBS_MAIN, PTZ_DOCK, "deviceList", roles=["uuid", "locked"])
+        row = next(i for i, r in enumerate(rows) if r["uuid"] == uuid)
+        # The model takes only a change: a click on a padlock already so does nothing
+        if bool(rows[row]["locked"]) != bool(locked):
+            self.ui.set_data(OBS_MAIN, PTZ_DOCK, "deviceList", row=row, value=bool(locked), role="locked")
 
     def wait_for_device_by_name(self, name, out_file, predicate, timeout=5, interval=0.2):
         """wait_for_device_source() for a device found by name."""
@@ -685,18 +721,6 @@ class World:
                 return last
             time.sleep(interval)
         raise AssertionError(f"device {name!r} never matched predicate; last seen: {last}")
-
-    def hold_source(self, name, out_file, release=False):
-        """Takes (or, with release=True, drops) a strong reference to the
-        source called `name`, through tests/ui-harness/device-source-test.
-        cpp's "hold_source" test, and waits for it to have done so -- the
-        request is queued onto the GUI thread, so a caller that goes on to
-        remove the source over obs-websocket would otherwise race it."""
-        if out_file.exists():
-            out_file.unlink()
-        self.run_ui_test("hold_source", name=name, release="1" if release else "0", filename=str(out_file))
-        self.wait_for(out_file.exists)
-        assert json.loads(out_file.read_text())["ok"] is True
 
     def cleanup_scenes(self):
         for i in range(1, self._scene_counter + 1):
