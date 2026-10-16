@@ -103,15 +103,10 @@ def pytest_collection_modifyitems(config, items):
     if not IS_WINDOWS:
         return
     no_serial = pytest.mark.skip(reason="no simulated serial port on Windows")
-    # Two requests of the camera are sometimes closer together than the Sony
-    # quirks allow, on Windows only, whatever the clocks do. Not yet understood.
-    timing = pytest.mark.skip(reason="the camera drops a retry that arrives too soon, on Windows: not yet understood")
     for item in items:
         name = item.nodeid.rsplit("::", 1)[-1]
         if "serial" in name or "pelco" in name or item.fspath.basename == "test_change_interface.py":
             item.add_marker(no_serial)
-        elif name == "test_a_command_that_finds_the_camera_busy_is_sent_again":
-            item.add_marker(timing)
 
 
 # obs-websocket RequestStatus::NotReady -- returned while OBS's frontend
