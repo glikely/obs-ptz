@@ -12,8 +12,8 @@ it has only the local store.
 - a device with only the local store gets the dock's presets: add, recall and
   save.
 
-Driven through tests/ui-harness/preset-view-test.cpp's "get_preset_view", see
-World.preset_view() in conftest.py. A preset is made as the dock makes one,
+Driven through the UI driver, which reads the dock's preset list and presses its
+Add button, see World.preset_view() in conftest.py. A preset is made as the dock makes one,
 with the device's ptz_preset_create (World.create_preset()).
 """
 
@@ -99,7 +99,7 @@ def test_the_default_store_is_saved_with_the_dock(request, obs_world, tmp_path):
 
     def saved():
         config.unlink(missing_ok=True)
-        obs_world.run_ui_test("save_dock")
+        obs_world.save_dock()
         obs_world.wait_for(config.exists)
         return json.loads(config.read_text())["preset_default_camera"]
 

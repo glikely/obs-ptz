@@ -9,8 +9,8 @@ would show the cameras. The view also throws its root away, and the camera
 list its selection, whenever the model resets, as it does whenever a device is
 added or removed, so that has to be put right again then, too.
 
-Driven through tests/ui-harness/preset-view-test.cpp's "get_preset_view"
-test, see World.preset_view() in conftest.py.
+Driven through the UI driver, which reads the dock's preset list, see
+World.preset_view() in conftest.py.
 """
 
 from conftest import write_preset_file
@@ -57,10 +57,17 @@ def test_preset_list_is_blank_again_once_the_selection_is_cleared(obs_world, tmp
     out = tmp_path / "view.json"
     obs_world.preset_view(out, select=obs_world.device_names["visca-tcp"])
 
-    view = obs_world.preset_view(out, select="none")
+    # What the test before set going can still choose a camera just after: clear
+    # the selection until it stays clear, as test_preset_list_is_blank_with_no_camera_selected
+    # waits for the view to catch up
+    cleared = []
 
-    assert view["selected"] is False
-    assert view["rows"] == []
+    def clear():
+        cleared[:] = [obs_world.preset_view(out, select="none")]
+        return cleared[0]["selected"] is False
+
+    obs_world.wait_for(clear)
+    assert cleared[0]["rows"] == []
 
 
 def test_preset_list_is_blank_after_the_model_resets(obs_world, tmp_path):

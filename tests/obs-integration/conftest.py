@@ -910,6 +910,12 @@ class World:
         assert uuid is not None, f"no device {device}"
         self.ui.select(OBS_MAIN, PTZ_DOCK, "deviceList", value=uuid, role="uuid")
 
+    def save_dock(self):
+        """Has OBS save the scene collection, and so the dock's settings, as it does
+        when a scene changes: its SaveProject()"""
+        self.need_ui_driver()
+        self.ui.invoke(OBS_MAIN, method="SaveProject")
+
     def dock_selected(self, device):
         """Whether `device` is the one selected in the PTZ Controls dock's camera list"""
         self.need_ui_driver()
@@ -1279,22 +1285,61 @@ class World:
                 if e.code != "not_found":
                     raise
 
-    def preset_view(self, out_file, select=None, add=None):
-        """What the PTZ Controls dock's preset list is showing, via
-        tests/ui-harness/preset-view-test.cpp's "get_preset_view" test.
-        First it can select a device in the camera list (`select`: a
-        device id, or "none" to clear the selection). Then `add` presses
+    def preset_view(self, out_file=None, select=None, add=None):
+        """What the PTZ Controls dock's preset list is showing, read through the UI
+        driver. First it can select a device in the camera list (`select`: a
+        device id or name, or "none" to clear the selection). Then `add` presses
         the Add button ("button"), or chooses "camera" or "local" in its
         menu, or "toggle_default": the entry in it that has Add use the
         camera's store, or OBS's. The rows have each preset's
         "text", "id", "store" and "tooltip"; "add_menu" has the entries of the
-        Add button's menu, and "add_stores" the stores of the device."""
-        if out_file.exists():
-            out_file.unlink()
-        params = {k: v for k, v in (("select", select), ("add", add)) if v is not None}
-        self.run_ui_test("get_preset_view", filename=str(out_file), **params)
-        self.wait_for(out_file.exists)
-        return json.loads(out_file.read_text())
+        Add button's menu, "add_stores" the stores of the device, "device_names"
+        the cameras, and "selected" whether one is selected. out_file is not
+        used: it was where the harness wrote all this."""
+        self.need_ui_driver()
+        ui = self.ui
+        camera_list = (OBS_MAIN, PTZ_DOCK, "deviceList")
+        if select == "none":
+            ui.select(*camera_list, value=None)
+        elif select is not None:
+            self.select_in_dock(select)
+
+        actions = {"camera": "actionPresetAddCamera", "local": "actionPresetAddLocal",
+                   "toggle_default": "actionPresetDefaultCamera", "button": "actionPresetAdd"}
+        if add is not None:
+            ui.invoke(OBS_MAIN, actions[add], method="trigger")
+            # The name of the preset it made is left as it is: a new preset opens for
+            # renaming, and Escape closes the editor
+            editor = (OBS_MAIN, "presetListView", {"class": "QLineEdit"})
+            try:
+                self.wait_for(lambda: ui.find(*editor), timeout=2)
+                ui.key(*editor, key="Escape")
+            except (UiDriverError, AssertionError):
+                pass
+
+        rows, _, _ = ui.rows(OBS_MAIN, "presetListView", roles=["display", 256, "store", "toolTip"])
+        devices, current, _ = ui.rows(*camera_list, roles=["display", "uuid"])
+        view = {
+            "found": True,
+            "rows": [{"text": r["display"], "id": r["256"], "store": r["store"], "tooltip": r["toolTip"]}
+                     for r in rows],
+            "device_names": [{"text": d["display"]} for d in devices],
+            "selected": current >= 0,
+            "add_menu": [],
+            "add_stores": [],
+        }
+        # The menu is only for a device with both stores: its button is then a split one
+        add_text = ui.get1(OBS_MAIN, "actionPresetAdd", name="text")
+        button = (OBS_MAIN, "presetToolbar", {"class": "QToolButton", "text": add_text})
+        if ui.get1(*button, name="popupMode") == "MenuButtonPopup":
+            for name in ("actionPresetAddCamera", "actionPresetAddLocal", "actionPresetDefaultCamera"):
+                entry = ui.get(OBS_MAIN, name, properties=["text", "checked"])
+                view["add_menu"].append({"text": entry["text"], "checked": entry["checked"]})
+        if current >= 0:
+            info = self.call_proc(devices[current]["uuid"], "ptz_preset_get_list", returns="data")["return"]
+            stores = (info or {}).get("stores", {})
+            view["add_stores"] = [{"text": store} for store in ("camera", "local") if stores.get(store)]
+        return view
 
     def reorder_presets(self, out_file, **params):
         """Moves a preset of the dock's preset list, or only reports their
