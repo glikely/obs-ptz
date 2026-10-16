@@ -50,6 +50,8 @@ static constexpr int VISCA_ERROR_SYNTAX = 0x02;
 static constexpr int VISCA_ERROR_BUFFER_FULL = 0x03;
 static constexpr int VISCA_ERROR_CANCELLED = 0x04;
 static constexpr int VISCA_BUSY_BACKOFF_MS = 50;
+/* How long to wait for one of our own commands to free a socket */
+static constexpr int VISCA_BUSY_SOCKET_WAIT_MS = 1000;
 static constexpr unsigned int VISCA_BUSY_RETRIES_MAX = 20;
 
 /*
@@ -878,17 +880,25 @@ void PTZVisca::receive(const QByteArray &msg)
 		if (slot != 0 && msg.size() > 2 && msg[2] == VISCA_ERROR_CANCELLED) {
 			ptz_debug_trace("rx cancelled: %s", msg.toHex(':').data());
 			active_cmd[slot] = std::nullopt;
+			busy_backoff_ms = 0;
 			break;
 		}
 		timeout_timer.stop();
 		/* A camera has only a couple of command sockets; when they are
 		 * all busy it answers "command buffer full" to anything sent,
 		 * inquiries included. That is not a failure: send the request
-		 * again once it has had a moment to free one up. */
+		 * again once it has had a moment to free one up. When our own
+		 * commands hold the sockets, that is when one of them completes
+		 * (which ends the wait): a retry on a timer of its own can
+		 * cross that completion, and a Sony camera drops a request that
+		 * comes too soon after any reply. */
 		if (slot == 0 && msg.size() > 2 && msg[2] == VISCA_ERROR_BUFFER_FULL && active_cmd[0].has_value() &&
 		    busy_retries < VISCA_BUSY_RETRIES_MAX) {
 			busy_retries++;
-			busy_backoff_ms = VISCA_BUSY_BACKOFF_MS;
+			bool ours = false;
+			for (int i = 1; i < 8; i++)
+				ours |= active_cmd[i].has_value();
+			busy_backoff_ms = ours ? VISCA_BUSY_SOCKET_WAIT_MS : VISCA_BUSY_BACKOFF_MS;
 			pending_cmds.prepend(active_cmd[0].value());
 			ptz_debug("rx busy, retrying: %s", msg.toHex(':').data());
 			active_cmd[0] = std::nullopt;
@@ -1086,7 +1096,8 @@ void PTZVisca::send_pending()
 	if (transport && since_last_rx.isValid()) {
 		int wait = std::max(transport->minRequestGapMs(), busy_backoff_ms) - (int)since_last_rx.elapsed();
 		if (wait > 0) {
-			if (!gap_timer.isActive())
+			/* sooner, if a socket has come free */
+			if (!gap_timer.isActive() || gap_timer.remainingTime() > wait)
 				gap_timer.start(wait);
 			return;
 		}
