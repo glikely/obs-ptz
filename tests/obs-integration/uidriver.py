@@ -84,7 +84,8 @@ class UiDriver:
 
     def select(self, *path, value, role="display", column=0):
         """Selects, as a click does, the first row of the view `path` names whose
-        `role` (a name from its model's roleNames()) is `value`; gives back the row"""
+        `role` (a name from its model's roleNames()) is `value`; gives back the row.
+        A value of None leaves no row current or selected, and gives back -1."""
         return self.call("select", path=list(path), value=value, role=role, column=column)["row"]
 
     def rows(self, *path, roles=("display",), column=0):

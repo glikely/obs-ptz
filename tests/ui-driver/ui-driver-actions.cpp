@@ -237,6 +237,14 @@ QJsonObject selectRequest(const QJsonObject &request)
 		return error("bad_request",
 			     QString("a %1 is not a view of a model").arg(object->metaObject()->className()));
 
+	/* No value: no row, as a click in the view where there is none leaves it. In
+	 * one change, of the current row and the selection together: clear() makes two,
+	 * and a view that answers the first by choosing a row again keeps it */
+	if (request["value"].isNull()) {
+		view->selectionModel()->setCurrentIndex(QModelIndex(), QItemSelectionModel::Clear);
+		return QJsonObject{{"row", -1}};
+	}
+
 	QAbstractItemModel *model = view->model();
 	const QJsonValue roleName = request.contains("role") ? request["role"] : QJsonValue("display");
 	int role = roleNamed(model, roleName);

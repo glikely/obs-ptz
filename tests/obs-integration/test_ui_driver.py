@@ -376,6 +376,16 @@ def test_key_says_when_it_is_not_a_key(obs_world):
     assert raised.value.code == "bad_value"
 
 
+def test_select_of_no_value_leaves_no_row_selected(obs_world, studio_mode_off, program_scene):
+    obs_world.need_ui_driver()
+    scene = obs_world.create_scene()
+    obs_world.ui.select(MAIN, "scenes", value=scene)
+    assert obs_world.ui.select(MAIN, "scenes", value=None) == -1
+    _, current, selected = obs_world.ui.rows(MAIN, "scenes")
+    assert current == -1
+    assert selected == []
+
+
 def test_select_says_when_no_row_matches(obs_world):
     obs_world.need_ui_driver()
     with pytest.raises(UiDriverError) as raised:
