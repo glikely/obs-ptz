@@ -1236,6 +1236,92 @@ class World:
         self._settings_window()
         self.ui.activate(SETTINGS_DIALOG, "websocketAccessComboBox", data=value)
 
+    def add_device(self, source, **choice):
+        """Adds a device to `source` through the PTZ settings dialog's Add, as a user
+        does, choosing in the dialog that opens: type= a protocol's new device
+        type, restore= the source name of a backup, detected= a text a detected
+        device's entry has in it (waiting for the search to find one), or with none
+        of them what the dialog picks for the source. wait_search="true" waits
+        until the search is over first; cancel= (any value) closes the dialog with
+        Cancel instead of accepting; spy_discovery="true" counts what the dialog's
+        discovery instances say, from when it opens, and marks when it has closed
+        (see the harness's get_discovery_spy). Returns what the dialog offered:
+        {"sources": [{"name"}], "choices": [{"name", "heading", "detected"}],
+        "chosen": the text of the entry chosen}."""
+        self.need_ui_driver()
+        ui = self.ui
+        self._settings_window()
+        add_button = (SETTINGS_DIALOG, "addPTZ")
+        # The dialog is modal: Add doesn't return until it is answered
+        ui.invoke(*add_button, method="click", queued=True)
+        dialog = (SETTINGS_DIALOG, {"class": "QDialog"})
+        self.wait_for(lambda: ui.find(*dialog))
+        sources_list, devices_list = (*dialog, "sourceList"), (*dialog, "deviceTypeList")
+        if choice.get("spy_discovery") == "true":
+            self.run_ui_test("arm_discovery_spy")
+        searching = "Searching…"
+        type_role, restore_role, detected_role = 257, 258, 259
+        wait_search = choice.get("wait_search") == "true"
+        detected = choice.get("detected", "")
+
+        def devices():
+            return ui.rows(*devices_list, roles=["display", type_role, restore_role, detected_role, "flags"])[0]
+
+        def detected_row():
+            rows = devices()
+            found = [i for i, r in enumerate(rows) if r[str(detected_role)] is not None and detected in r["display"]]
+            return rows, (found[-1] if found else -1)
+
+        # Detection goes on while the dialog is open: wait for what is asked of it
+        deadline = time.time() + 12
+        while time.time() < deadline:
+            rows, detected_at = detected_row()
+            waiting = (detected and detected_at < 0) or wait_search
+            if not (waiting and any(r["display"] == searching for r in rows)):
+                break
+            time.sleep(0.1)
+
+        source_rows, _, _ = ui.rows(*sources_list)
+        source_names = [r["display"] for r in source_rows]
+        result = {"sources": [{"name": n} for n in source_names]}
+        if source in source_names:
+            ui.set(*sources_list, currentIndex=source_names.index(source))
+        selectable = 1  # Qt::ItemIsSelectable
+        result["choices"] = [
+            {"name": r["display"], "heading": not (r["flags"] & selectable),
+             "detected": r[str(detected_role)] is not None}
+            for r in rows if r["display"]]
+        # The list goes on changing while the search is on, so the entry is chosen in
+        # one request that finds it, not by a row counted before
+        row = ui.get1(*devices_list, name="currentIndex")
+        try:
+            for key, role in (("type", type_role), ("restore", restore_role)):
+                if key in choice:
+                    row = ui.activate(*devices_list, data=choice[key], role=role)
+                    break
+            else:
+                if detected:
+                    text = rows[detected_at]["display"] if detected_at >= 0 else None
+                    row = ui.activate(*devices_list, text=text) if text else -1
+        except UiDriverError as e:
+            if e.code != "not_found":
+                raise
+            row = -1
+        result["chosen"] = ui.get1(*devices_list, name="currentText")
+        accept = (source in source_names and row >= 0 and "cancel" not in choice)
+        ui.invoke(*dialog, method="accept" if accept else "reject")
+
+        def closed():
+            try:
+                return not ui.find(*dialog)
+            except UiDriverError:
+                return True
+
+        self.wait_for(closed, timeout=15)
+        if choice.get("spy_discovery") == "true":
+            self.run_ui_test("close_discovery_spy")
+        return result
+
     def remove_device(self, device):
         """Removes a device as a user does: chooses it in the PTZ settings
         dialog's list, presses Remove, and answers Yes"""

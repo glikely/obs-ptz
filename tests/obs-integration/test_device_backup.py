@@ -9,8 +9,8 @@ dialog's Add, which adds a filter to a source rather than a device of the
 plugin's own, offers the backup of a device that was on a source of the same
 name. Its Remove removes a filter's device by removing the filter.
 
-The dialog is driven through tests/ui-harness/device-backup-test.cpp, which
-answers the add dialog and the remove question as a user would. Filters are
+The dialog is driven through the UI driver, which answers the add dialog and the remove
+question as a user would (World.add_device() and World.remove_device() in conftest.py). Filters are
 pointed at a port nothing listens on: none of this needs a camera.
 """
 
@@ -90,12 +90,10 @@ def sources(obs_world):
     s.cleanup()
 
 
-def backups(world, out):
-    if out.exists():
-        out.unlink()
-    world.run_ui_test("get_device_backups", filename=str(out))
-    world.wait_for(out.exists)
-    return json.loads(out.read_text())["devices"]
+def backups(world, out=None):
+    """The backups the controller keeps, as it writes them to its file as each is made"""
+    file = world.config_dir / "device-backups.json"
+    return json.loads(file.read_text(encoding="utf-8"))["devices"] if file.exists() else []
 
 
 def wait_for_backup(world, out, name):
@@ -113,11 +111,7 @@ def add_device(world, out, source, **choice):
     """Adds a device to `source` through the settings dialog's Add, choosing
     type= a protocol's new device type or restore= the source name of a
     backup, or, with neither, what the dialog picks for the source."""
-    if out.exists():
-        out.unlink()
-    world.run_ui_test("add_device", filename=str(out), source=source, **choice)
-    world.wait_for(out.exists)
-    result = json.loads(out.read_text())
+    result = world.add_device(source, **choice)
     result["sources"] = [s["name"] for s in result.get("sources", [])]
     result["headings"] = [s["name"] for s in result.get("choices", []) if s["heading"]]
     result["choices"] = [s["name"] for s in result.get("choices", []) if not s["heading"]]

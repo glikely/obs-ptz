@@ -347,7 +347,7 @@ void runGetDiscoverySpyTest(const QMap<QString, QString> &params)
 
 } // namespace
 
-void ptzUITestDiscoverySpyArm()
+static void armDiscoverySpy(const QMap<QString, QString> &)
 {
 	spy.instances = 0;
 	spy.found = 0;
@@ -375,7 +375,7 @@ void ptzUITestDiscoverySpyArm()
 	obs_enum_all_sources(cb, &kinds);
 }
 
-void ptzUITestDiscoverySpyClosed()
+static void closeDiscoverySpy(const QMap<QString, QString> &)
 {
 	spy.foundAtClose = spy.found;
 	spy.finishedAtClose = spy.finished;
@@ -401,10 +401,15 @@ void ptzUITestDiscoverySpyClosed()
  * get_discovery_spy: filename - where to write {"instances", "destroyed",
  *   "alive", "found", "finished", "closed", "found_after_close",
  *   "finished_after_close"}: what the add dialog's discovery instances did,
- *   counted from add_device's spy_discovery (see ptzUITestDiscoverySpyArm())
+ *   counted from arm_discovery_spy
+ * arm_discovery_spy: start counting what the discovery instances that exist now
+ *   say, and whether OBS destroys them (the add dialog's, while it is open)
+ * close_discovery_spy: mark the moment the add dialog closed
  */
 void registerDiscoveryTest(PTZUITestHarness *harness)
 {
 	harness->registerTest(QStringLiteral("discover"), &runDiscoverTest);
 	harness->registerTest(QStringLiteral("get_discovery_spy"), &runGetDiscoverySpyTest);
+	harness->registerTest(QStringLiteral("arm_discovery_spy"), &armDiscoverySpy);
+	harness->registerTest(QStringLiteral("close_discovery_spy"), &closeDiscoverySpy);
 }

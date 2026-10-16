@@ -13,8 +13,8 @@ backend answers, and Sony's VISCA-over-IP setup protocol
 broadcast, so these need a network interface that can multicast and
 broadcast; loopback alone won't do.
 
-The dialog is driven through tests/ui-harness/device-backup-test.cpp's
-"add_device", which waits for a detected device to show up before picking it.
+The dialog is driven through the UI driver (World.add_device() in conftest.py),
+which waits for a detected device to show up before picking it.
 The discovery kinds, without the dialog, are driven over the PTZ API's
 websocket binding, as a remote controller does, and, for what only a listener
 inside OBS can do from inside a signal, through
@@ -344,11 +344,7 @@ def test_releasing_a_running_instance_silences_it(obs_world, tmp_path):
 
 
 def add_device(world, out, source, **choice):
-    if out.exists():
-        out.unlink()
-    world.run_ui_test("add_device", filename=str(out), source=source, **choice)
-    world.wait_for(out.exists, timeout=15)
-    result = json.loads(out.read_text())
+    result = world.add_device(source, **choice)
     items = result.get("choices", [])
     result["headings"] = [c["name"] for c in items if c["heading"]]
     result["detected"] = [c["name"] for c in items if c["detected"]]

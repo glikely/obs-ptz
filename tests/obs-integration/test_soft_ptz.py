@@ -416,11 +416,7 @@ def test_a_zoomed_picture_stays_inside_its_source_in_the_scene(obs_world, tmp_pa
 
 
 def run_add_device(world, out, source, **choice):
-    if out.exists():
-        out.unlink()
-    world.run_ui_test("add_device", filename=str(out), source=source, **choice)
-    world.wait_for(out.exists)
-    return json.loads(out.read_text())
+    return world.add_device(source, **choice)
 
 
 def filter_kinds(world, source):

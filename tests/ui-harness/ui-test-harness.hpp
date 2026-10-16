@@ -58,12 +58,6 @@ QModelIndex ptzUITestDeviceIndex(const QString &device);
  * that emits an event as it. Null if there is no obs-websocket. */
 obs_websocket_vendor ptzUITestVendor();
 
-/* Starts counting what the discovery instances that exist now say, and
- * whether OBS destroys them (the add dialog's, while it is open); and marks
- * the moment it closed. See discovery-test.cpp's get_discovery_spy. */
-void ptzUITestDiscoverySpyArm();
-void ptzUITestDiscoverySpyClosed();
-
 /* Registers this plugin as an obs-websocket vendor ("obs-ptz", request
  * type "ui_test_run") if PTZ_UI_TEST_HARNESS=1 is set in the
  * environment; otherwise a no-op (including when obs-websocket itself
