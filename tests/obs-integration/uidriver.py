@@ -73,10 +73,13 @@ class UiDriver:
         answered, which a method that opens a modal dialog needs."""
         return self.call("invoke", path=list(path), method=method, args=list(args), queued=queued).get("return")
 
-    def activate(self, *path, data=None, text=None):
-        """Chooses the item of the combo box `path` names whose data, or text,
-        is the one given, as a user would; gives back its index"""
+    def activate(self, *path, data=None, text=None, role=None):
+        """Chooses the item of the combo box `path` names whose data (of item data
+        role `role`, Qt::UserRole by default), or text, is the one given, as a user
+        would; gives back its index"""
         choice = {"data": data} if data is not None else {"text": text}
+        if role is not None:
+            choice["role"] = role
         return self.call("activate", path=list(path), **choice)["index"]
 
     def select(self, *path, value, role="display", column=0):
@@ -90,6 +93,15 @@ class UiDriver:
         (-1 if none) and those that are selected: (rows, current, selected)"""
         answer = self.call("rows", path=list(path), roles=list(roles), column=column)
         return answer["rows"], answer["current"], answer["selected"]
+
+    def set_data(self, *path, row, value, role="edit", column=0):
+        """Sets the data of `role` of row `row` of the view `path` names, as an editor
+        or a click on a control in the row does"""
+        self.call("setdata", path=list(path), row=row, value=value, role=role, column=column)
+
+    def key(self, *path, key):
+        """Presses and releases `key` ("Escape", "Return", "Ctrl+A") in the widget `path` names"""
+        self.call("key", path=list(path), key=key)
 
     def watch(self, *path, signal):
         """Starts counting, from nothing, a signal of the object `path` names;

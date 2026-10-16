@@ -331,6 +331,51 @@ def test_rows_says_when_it_is_not_a_view(obs_world):
     assert raised.value.code == "bad_request"
 
 
+def test_setdata_sets_the_data_of_a_row(obs_world, studio_mode_off, program_scene):
+    """The list shows the text the row was given, and the row is given its own back"""
+    obs_world.need_ui_driver()
+    scene = obs_world.create_scene()
+    rows, _, _ = obs_world.ui.rows(MAIN, "scenes")
+    row = [r["display"] for r in rows].index(scene)
+    try:
+        obs_world.ui.set_data(MAIN, "scenes", row=row, value="set by the driver", role="display")
+        assert obs_world.ui.rows(MAIN, "scenes")[0][row]["display"] == "set by the driver"
+    finally:
+        obs_world.ui.set_data(MAIN, "scenes", row=row, value=scene, role="display")
+    assert obs_world.ui.rows(MAIN, "scenes")[0][row]["display"] == scene
+
+
+def test_setdata_says_when_there_is_no_such_row(obs_world):
+    obs_world.need_ui_driver()
+    with pytest.raises(UiDriverError) as raised:
+        obs_world.ui.set_data(MAIN, "scenes", row=9999, value="x")
+    assert raised.value.code == "not_found"
+
+
+def test_key_is_typed_into_a_widget(obs_world):
+    """Escape closes a dialog"""
+    obs_world.need_ui_driver()
+    settings = {"class": "OBSBasicSettings"}
+    obs_world.ui.invoke(MAIN, "action_Settings", method="trigger", queued=True)
+    obs_world.wait_for(lambda: obs_world.ui.find(settings))
+    obs_world.ui.key(settings, key="Escape")
+
+    def closed():
+        try:
+            return not obs_world.ui.find(settings)
+        except UiDriverError:
+            return True
+
+    obs_world.wait_for(closed)
+
+
+def test_key_says_when_it_is_not_a_key(obs_world):
+    obs_world.need_ui_driver()
+    with pytest.raises(UiDriverError) as raised:
+        obs_world.ui.key(MAIN, key="no such key")
+    assert raised.value.code == "bad_value"
+
+
 def test_select_says_when_no_row_matches(obs_world):
     obs_world.need_ui_driver()
     with pytest.raises(UiDriverError) as raised:

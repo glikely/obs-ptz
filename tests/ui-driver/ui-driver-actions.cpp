@@ -9,6 +9,9 @@
 #include "ui-driver.hpp"
 
 #include <QAbstractItemView>
+#include <QApplication>
+#include <QKeyEvent>
+#include <QKeySequence>
 #include <QComboBox>
 #include <QHash>
 #include <QJsonArray>
@@ -199,8 +202,9 @@ QJsonObject activateRequest(const QJsonObject &request)
 	if (!combo)
 		return error("bad_request", QString("a %1 is not a combo box").arg(object->metaObject()->className()));
 
+	const int dataRole = request["role"].toInt(Qt::UserRole);
 	for (int i = 0; i < combo->count(); i++) {
-		bool chosen = request.contains("data") ? matches(request["data"], combo->itemData(i))
+		bool chosen = request.contains("data") ? matches(request["data"], combo->itemData(i, dataRole))
 						       : request["text"].toString() == combo->itemText(i);
 		if (!chosen)
 			continue;
@@ -369,6 +373,59 @@ QJsonObject rowsRequest(const QJsonObject &request)
 	return QJsonObject{{"rows", rows}, {"current", currentRow}, {"selected", selected}};
 }
 
+/* Sets the value of a role of a row of a view's model, as an editor or a click on
+ * a row's control does: the view's model's setData() */
+QJsonObject setDataRequest(const QJsonObject &request)
+{
+	if (!request.contains("value") || !request.contains("row"))
+		return error("bad_request", "a row's data is set with its \"row\" and its \"value\"");
+	QJsonObject failed;
+	QObject *object = one(request, &failed);
+	if (!object)
+		return failed;
+	if (isSecret(object))
+		return secret(object, "its rows are not set");
+	auto view = qobject_cast<QAbstractItemView *>(object);
+	if (!view || !view->model())
+		return error("bad_request",
+			     QString("a %1 is not a view of a model").arg(object->metaObject()->className()));
+	QAbstractItemModel *model = view->model();
+	const QJsonValue roleName = request.contains("role") ? request["role"] : QJsonValue("edit");
+	int role = roleNamed(model, roleName);
+	if (role < 0)
+		return error("bad_value", QString("the model has no role %1").arg(roleName.toVariant().toString()));
+	QModelIndex index = model->index(request["row"].toInt(-1), request["column"].toInt(0), view->rootIndex());
+	if (!index.isValid())
+		return error("not_found", "the view has no such row");
+	if (!model->setData(index, request["value"].toVariant(), role))
+		return error("bad_value", "the model did not take the value");
+	return QJsonObject();
+}
+
+/* Presses and releases a key, as typed into a widget: the first key of a key
+ * sequence's text ("Escape", "Return", "Ctrl+A") */
+QJsonObject keyRequest(const QJsonObject &request)
+{
+	QJsonObject failed;
+	QObject *object = one(request, &failed);
+	if (!object)
+		return failed;
+	auto widget = qobject_cast<QWidget *>(object);
+	if (!widget)
+		return error("bad_request", QString("a %1 is not a widget").arg(object->metaObject()->className()));
+	if (isSecret(widget))
+		return secret(widget, "nothing is typed into it as a key");
+	QKeySequence sequence = QKeySequence::fromString(request["key"].toString());
+	if (sequence.isEmpty() || sequence[0].key() == Qt::Key_unknown)
+		return error("bad_value", QString("%1 is not a key").arg(request["key"].toString()));
+	const QKeyCombination combination = sequence[0];
+	QKeyEvent press(QEvent::KeyPress, combination.key(), combination.keyboardModifiers());
+	QKeyEvent release(QEvent::KeyRelease, combination.key(), combination.keyboardModifiers());
+	QApplication::sendEvent(widget, &press);
+	QApplication::sendEvent(widget, &release);
+	return QJsonObject();
+}
+
 } // namespace
 
 void addActionRequests()
@@ -378,6 +435,8 @@ void addActionRequests()
 	addRequest("activate", activateRequest);
 	addRequest("select", selectRequest);
 	addRequest("rows", rowsRequest);
+	addRequest("setdata", setDataRequest);
+	addRequest("key", keyRequest);
 	addRequest("watch", watchRequest);
 	addRequest("count", countRequest);
 }
