@@ -602,7 +602,15 @@ static int presetNumber(const PTZListModel::PresetEntry &preset, int row)
 QHash<int, QByteArray> PTZListModel::roleNames() const
 {
 	QHash<int, QByteArray> roles = QAbstractItemModel::roleNames();
+	/* Named so that a client of the view, a test through the UI driver, can ask for them */
 	roles.insert(DeviceUuidRole, "uuid");
+	roles.insert(IsLiveRole, "live");
+	roles.insert(IsPreviewRole, "preview");
+	roles.insert(IsConnectedRole, "connected");
+	roles.insert(IsPoweredOffRole, "poweredOff");
+	roles.insert(IsLockedRole, "locked");
+	roles.insert(FeaturesRole, "features");
+	roles.insert(PresetStoreRole, "store");
 	return roles;
 }
 
