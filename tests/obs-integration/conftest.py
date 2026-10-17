@@ -1498,20 +1498,57 @@ class World:
             "preset_flags_drag": bool(rows) and bool(rows[0]["flags"] & drag_enabled),
         }
 
-    def reorder_cameras(self, out_file, **params):
-        """Moves a camera of the dock's or the settings dialog's list, or only
-        reports their order, via tests/ui-harness/reorder-cameras-test.cpp's
-        "reorder_cameras" test. See there for the params: in, set_order, from,
-        to, via and reload. Returns its result, with the lists of cameras as lists
-        of names, and "uuids" as the devices' uuids in order."""
-        if out_file.exists():
-            out_file.unlink()
-        self.run_ui_test("reorder_cameras", filename=str(out_file), **params)
-        self.wait_for(out_file.exists, timeout=30)
-        result = json.loads(out_file.read_text())
-        for key in ("devices", "settings_devices", "uuids"):
-            result[key] = [r["text"] if isinstance(r, dict) else r for r in result.get(key, [])]
-        return result
+    def reorder_cameras(self, out_file=None, via=None, reload=None, set_order=None, **move):
+        """Moves a camera of the dock's camera list, or of the settings dialog's with
+        in="settings", or only reports their order, through the UI driver: with "from" and
+        "to", the camera at row from is moved to before row to (see _move_in(), and via);
+        set_order (names, comma-separated) puts the cameras it names first, in its order,
+        by moving them; reload="1" loads the scene collection again, by switching to
+        another and back. Returns {"found", "moved", "devices" and "settings_devices": the
+        names in the dock's and the dialog's list, "uuids": the dock's devices' uuids in
+        order, "selected_row" of the list moved in, and whether each list can be dragged,
+        "dock_drag" and "settings_drag"}. out_file is not used: it was where the harness
+        wrote all this."""
+        self.need_ui_driver()
+        ui = self.ui
+        dock, dialog = (OBS_MAIN, PTZ_DOCK, "deviceList"), (SETTINGS_DIALOG, "deviceList")
+        view = dialog if move.pop("in", None) == "settings" else dock
+        if set_order:
+            for i, name in enumerate(set_order.split(",")):
+                names = [r["display"] for r in ui.rows(*dock)[0]]
+                if name in names and names.index(name) != i:
+                    ui.move_row(*dock, frm=names.index(name), to=i)
+        moved = False
+        if "from" in move and "to" in move:
+            moved = self._move_in(view, int(move["from"]), int(move["to"]), via)
+        if reload == "1":
+            current = self.ws.call("GetSceneCollectionList")["currentSceneCollectionName"]
+            if "ptz-reorder-cameras-other" in self.ws.call("GetSceneCollectionList")["sceneCollections"]:
+                self.ws.call("SetCurrentSceneCollection", {"sceneCollectionName": "ptz-reorder-cameras-other"})
+            else:
+                self.ws.call("CreateSceneCollection", {"sceneCollectionName": "ptz-reorder-cameras-other"})
+            self.ws.call("SetCurrentSceneCollection", {"sceneCollectionName": current})
+
+        def listed(path):
+            try:
+                return ui.rows(*path, roles=["display", "uuid"]), ui.get1(*path, name="dragEnabled")
+            except UiDriverError as e:
+                if e.code != "not_found":
+                    raise
+                return ([], -1, []), False
+
+        (rows, current_row, _), dock_drag = listed(dock)
+        (settings_rows, settings_current, _), settings_drag = listed(dialog)
+        return {
+            "found": True,
+            "moved": moved,
+            "devices": [r["display"] for r in rows],
+            "settings_devices": [r["display"] for r in settings_rows],
+            "uuids": [r["uuid"] for r in rows],
+            "selected_row": settings_current if view == dialog else current_row,
+            "dock_drag": dock_drag,
+            "settings_drag": settings_drag,
+        }
 
     def fire_hotkey(self, name):
         """Presses a hotkey of the dock, by name ("PTZ.Recall2"), the way a bound key
@@ -2081,15 +2118,18 @@ def obs_world(request, tmp_path_factory, ptzsim_process, sony_ptzsim, birddog_pt
         # a SIGTERM just kills it, and nothing gets turned off.
         return stop_process_group(running["proc"], timeout=10, sig=signal.SIGINT)
 
-    def restart_obs():
+    def restart_obs(between=None):
         """Quits OBS and starts it again on the same profile, as a user restarting it would,
-        and gives the world the new connection. Returns the file the output of the OBS
-        that quit is in"""
+        and gives the world the new connection. between, if given, is called once OBS has
+        quit and before it starts again, as with a profile's files to change. Returns the
+        file the output of the OBS that quit is in"""
         quit_log = running["log"]
         quitting = running["proc"]
         assert stop_obs(), "OBS did not quit by itself"
         # What it exited with: not 0 if it crashed on the way out
         world.exit_code = quitting.returncode
+        if between:
+            between()
         start_obs()
         # Not left to quit again before it has settled: a device set to turn its
         # camera on when OBS starts has done so, as the check that it turns it

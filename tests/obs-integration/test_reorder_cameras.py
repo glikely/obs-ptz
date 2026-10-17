@@ -1,16 +1,17 @@
 """Covers reordering the cameras, in the PTZ Controls dock and in the settings
 dialog, which show the one list of cameras and so the one order.
 
-The cameras are moved two ways, both through tests/ui-harness/reorder-cameras-
-test.cpp's "reorder_cameras" test: with the model's moveRow(), and by doing to
-a list view what a drop does (CircularListView::dropCurrentRowAt()), which is
+The cameras are moved two ways, both through the UI driver (see
+World.reorder_cameras() in conftest.py): with the model's moveRow(), and by doing
+to a list view what a drop does (CircularListView::dropCurrentRowAt()), which is
 what dragging a camera does once the mouse is let go. A drag itself can't be
 made without a real pointer.
 
 The order belongs to the scene collection, which a camera's filter is in: it is
 saved in the collection's file, and is there again when the collection is loaded
-again, as a restart does. The test for that loads the collection again by
-switching away from it and back.
+again, as a restart does. What a loaded collection's order does is tested by
+quitting OBS, changing the order the collection's file has, and starting it
+again (restart_with_order()).
 """
 
 import json
@@ -131,42 +132,63 @@ def test_the_order_is_saved_with_the_scene_collection(obs_world, tmp_path, camer
     obs_world.wait_for(lambda: result["uuids"] in scene_collection_orders(obs_world).values(), timeout=15)
 
 
-def saved_scene_collection(world, uuids):
-    """The file of the scene collection whose saved order is uuids"""
+def collection_file(world):
+    """The file of the scene collection OBS has loaded"""
+    name = world.ws.call("GetSceneCollectionList")["currentSceneCollectionName"]
     scenes = world.config_dir.parent.parent / "basic" / "scenes"
     for path in scenes.glob("*.json"):
-        modules = json.loads(path.read_text()).get("modules", {})
-        if [item["uuid"] for item in modules.get("ptz_camera_order", [])] == uuids:
+        if json.loads(path.read_text()).get("name") == name:
             return path
-    return None
+    raise AssertionError(f"no file for the scene collection {name}")
+
+
+def restart_with_order(world, uuids):
+    """Quits OBS, gives the scene collection's file the camera order uuids (None: no
+    order at all), and starts OBS again, which loads the collection from it"""
+    path = collection_file(world)
+
+    def edit():
+        data = json.loads(path.read_text())
+        modules = data.setdefault("modules", {})
+        if uuids is None:
+            modules.pop("ptz_camera_order", None)
+        else:
+            modules["ptz_camera_order"] = [{"uuid": uuid} for uuid in uuids]
+        path.write_text(json.dumps(data))
+
+    world.restart_obs(between=edit)
+
+
+def uuids_of(world, names):
+    """The uuids of the cameras named, in the order named"""
+    listed = world.reorder_cameras()
+    by_name = dict(zip(listed["devices"], listed["uuids"]))
+    return [by_name[name] for name in names]
+
+
+def in_source_order(world, names):
+    """The cameras named, in the order the collection's file has their sources: what a
+    collection with no order of its own leaves them in"""
+    sources = [s["name"] for s in json.loads(collection_file(world).read_text()).get("sources", [])]
+    source_of = {d["device"]: d["source"] for d in world.ws.vendor("obs-ptz", "ptz_list_devices")["devices"]}
+    on = {name: source_of.get(uuid) for name, uuid in zip(names, uuids_of(world, names))}
+    return sorted(names, key=lambda name: sources.index(on[name]) if on[name] in sources else len(sources))
 
 
 def test_the_saved_order_is_what_loading_the_scene_collection_gives(obs_world, tmp_path, cameras):
-    """The collection is not loaded again here, which takes the whole session's
-    cameras down with it: its saved order is handed to what OBS hands it to when it
-    loads one, after the cameras were put in another order, as a collection with another
-    order would have them. (test_the_order_survives_loading_the_collection does it for real.)"""
-    out = tmp_path / "o.json"
-    moved = obs_world.reorder_cameras(out, **{"from": 0, "to": len(cameras)})
-    expected = cameras[1:] + [cameras[0]]
-    assert moved["devices"] == expected
-    obs_world.wait_for(lambda: saved_scene_collection(obs_world, moved["uuids"]), timeout=15)
-    saved = saved_scene_collection(obs_world, moved["uuids"])
+    """The cameras are in the order the collection has, once it is loaded, whatever order
+    they were in before"""
+    wanted = list(reversed(cameras))
+    restart_with_order(obs_world, uuids_of(obs_world, wanted))
 
-    scrambled = obs_world.reorder_cameras(out, set_order=",".join(reversed(cameras)))
-    assert scrambled["devices"] == list(reversed(cameras))
-
-    loaded = obs_world.reorder_cameras(out, load_from=str(saved))
-    assert loaded["devices"] == expected
+    assert obs_world.reorder_cameras()["devices"] == wanted
 
 
 def test_a_collection_with_no_saved_order_leaves_the_cameras_as_they_are(obs_world, tmp_path, cameras):
-    empty = tmp_path / "empty.json"
-    empty.write_text(json.dumps({"modules": {}}))
+    restart_with_order(obs_world, None)
 
-    result = obs_world.reorder_cameras(tmp_path / "o.json", load_from=str(empty))
-
-    assert result["devices"] == cameras
+    loaded = obs_world.reorder_cameras()["devices"]
+    assert loaded == in_source_order(obs_world, cameras)
 
 
 @pytest.mark.skipif(not os.environ.get("PTZSIM_TEST_COLLECTION_RELOAD"),
@@ -184,9 +206,10 @@ def test_the_order_survives_loading_the_collection(obs_world, tmp_path, cameras)
 
 
 def test_cameras_the_order_does_not_name_go_last_in_the_order_they_were(obs_world, tmp_path, cameras):
-    result = obs_world.reorder_cameras(tmp_path / "o.json", set_order=cameras[3] + "," + cameras[1])
+    restart_with_order(obs_world, uuids_of(obs_world, [cameras[3], cameras[1]]))
 
-    assert result["devices"] == [cameras[3], cameras[1], cameras[0], cameras[2]] + cameras[4:]
+    rest = in_source_order(obs_world, [c for c in cameras if c not in (cameras[3], cameras[1])])
+    assert obs_world.reorder_cameras()["devices"] == [cameras[3], cameras[1]] + rest
 
 
 def test_the_order_survives_restarting_obs(obs_world, tmp_path, cameras):
