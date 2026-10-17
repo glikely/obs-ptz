@@ -58,16 +58,18 @@ Four ways, and a test uses the one that is how the thing is really done:
   `-DENABLE_UI_TESTS=ON` too, and a test that needs it is skipped
   (`World.need_ui_driver()`) when OBS hasn't it.
 - **The UI test harness** (`tests/ui-harness/`, `World.run_ui_test()`), for
-  what only the UI does or only code inside OBS sees: dialogs, the dock, the
-  list model's moves, libobs's own view of a device, and a signal answered from
-  inside the signal. It needs a build with `-DENABLE_UI_TESTS=ON`, answers only
+  what only code inside OBS sees: libobs's own view of a device, a signal
+  answered from inside the signal, OBS's theme under the dock, and devices of
+  a stand-in for another plugin. It is a plugin of its own too,
+  `obs-ptz-ui-harness`, on obs-websocket's vendor `"obs-ptz-ui-harness"`, built
+  with `-DENABLE_UI_TESTS=ON` and installed by the same scripts; it answers only
   that it took the request, and writes what a test asked for to a file the test
   waits for.
 
-A plugin built without the harness, as a release is, can be tested too: a test
-that asks the harness for something is skipped when the harness isn't there
-(`World.run_ui_test()`, and `need_harness()` for one that needs its source
-kinds), and the rest run, which are the tests of the PTZ API over obs-websocket.
+`obs-ptz` is the same plugin whether or not those two are built. OBS without
+them can be tested too: a test that needs one is skipped when it isn't there
+(`World.run_ui_test()` and `need_harness()`, `need_ui_driver()`), and the rest
+run, which are the tests of the PTZ API over obs-websocket.
 `scripts/vm-linux-dev.sh build` without `--ui-tests`, then `test`, does that on
 Linux.
 
@@ -84,8 +86,8 @@ Linux.
    (it has an `"id"` for each, which nothing else does any more). The
    plugin makes each a filter on a placeholder source of the device's name,
    and a test refers to the device by that name (`DEVICE_NAMES` in
-   `conftest.py`), or by the UUID of its filter, which the harness gives
-   back for a device found by name. This is the *only* obs-ptz/OBS file this suite hand-writes --
+   `conftest.py`), or by the UUID of its filter, which `World.device_by_name()`
+   gives back for a device found by name. This is the *only* obs-ptz/OBS file this suite hand-writes --
    everything else about OBS's state (scenes, sources) is driven live
    over obs-websocket once OBS is running, specifically to avoid
    depending on OBS's own scene-collection JSON schema, which is
@@ -110,12 +112,9 @@ Linux.
    expected pan/tilt speed or position, or times out.
 6. `test_preset_import_export.py` covers the preset export/import feature.
    It triggers the import/export context menu action. However, it passes
-   a filename at call time as the tests cannot drive the file dialog.
-   Needs the plugin built with `-DENABLE_UI_TESTS=ON` (`tests/ui-harness/`
-   is entirely inert otherwise) and OBS launched with
-   `PTZ_UI_TEST_HARNESS=1`, which `conftest.py`'s `obs_world` fixture
-   always sets -- a no-op if the binary wasn't built with that option, so
-   it doesn't affect the rest of the suite.
+   a filename at call time as the tests cannot drive the file dialog: the UI
+   driver calls the slot the action triggers, with the file. Needs the UI
+   driver, which a build with `-DENABLE_UI_TESTS=ON` makes.
 7. `test_device_status.py` covers camera connect/disconnect detection,
    reading the device's `connected` state over obs-websocket, using its own
    disposable `flaky_ptzsim` fixture -- a second, VISCA-TCP-only `ptzsim`
@@ -262,8 +261,8 @@ Linux.
     filter's device.
     Drives the dialogs through the UI driver (`World.add_device()`,
     `World.remove_device()`), and reads the backups from the file the controller
-    writes them to; only reading an old file again (`reload_device_backups`) is a
-    request to `tests/ui-harness/device-backup-test.cpp`.
+    writes them to; an old file is given to the controller as it starts, by
+    restarting OBS (`World.restart_obs()`'s `between`).
 26. `test_device_discovery.py` covers the Add dialog's "Detected devices":
     that a camera found by ONVIF's WS-Discovery, or by Sony's VISCA-over-IP
     setup protocol (a `ptzsim` started with `--sony-discovery-name`), is
@@ -296,9 +295,10 @@ Linux.
     UI driver.
 29. `test_api_doc.py` holds `docs/ptz-device-api.md`, the hand-written
     specification of the PTZ API, to the plugin: that its procs and signals are
-    exactly the ones the plugin registers (logged by `ptz_proc_add()` and
-    `ptz_signal_add()` in a build with the UI test harness, once the websocket
-    binding's `ptz_list_discovery` has made a discovery instance of each kind), that
+    exactly the ones the plugin registers (recorded by `ptz_proc_add()` and
+    `ptz_signal_add()` for `ptz_get_api_info`, which every device and a discovery
+    instance of each kind, once the websocket binding's `ptz_list_discovery` has
+    made them, is asked), that
     the state and config keys it lists are on real devices with the types it
     gives, and that its features and triggers are the ones in the source.
 
@@ -307,9 +307,10 @@ Linux.
 Needs a real OBS Studio with this plugin built and installed into it --
 see the top-level `CMakeLists.txt` options; you'll want
 `-DENABLE_SERIALPORT=ON` so the VISCA-serial and Pelco device types
-exist at all (off by default), and `-DENABLE_UI_TESTS=ON` if you want
-`test_preset_import_export.py` to actually find anything to drive
-(`test_ptz_backends.py` works fine without it).
+exist at all (off by default), and `-DENABLE_UI_TESTS=ON` if you want the
+tests that need the UI driver or the UI test harness to run: it builds them,
+plugins of their own, next to `obs-ptz` (`test_ptz_backends.py` works fine
+without them).
 
 **macOS**: use `scripts/run-macos-integration-tests.sh`, which builds the
 plugin, signs it and runs the suite. OBS on macOS finds its config directory
@@ -317,8 +318,9 @@ through a system call that ignores `$HOME`, so the suite also sets
 `CFFIXED_USER_HOME`, which it does honor; OBS then runs on an empty profile
 in the temporary home and your real one is never read or changed. The plugin
 in that home is a symlink to `$PTZSIM_PLUGIN_BUNDLE` (the `obs-ptz.plugin` to
-test), or else to the one installed for your user. To run `pytest` yourself,
-set that and `PTZSIM_OBS_BINARY`.
+test), or else to the one installed for your user, and the harness and the UI
+driver are symlinked in from `$PTZ_UI_HARNESS_BUNDLE` and `$PTZ_UI_DRIVER_BUNDLE`,
+if they are set. To run `pytest` yourself, set those and `PTZSIM_OBS_BINARY`.
 
 **Linux**: `$HOME` isolation actually works, so a plain
 
@@ -327,6 +329,7 @@ apt install obs-studio libobs-dev  # or your distro's equivalents
 cmake --preset ubuntu-<arch> -DENABLE_SERIALPORT=ON -DENABLE_ONVIF=ON -DENABLE_UI_TESTS=ON
 cmake --build --preset ubuntu-<arch>
 cp build_<arch>/obs-ptz.so /usr/lib/<arch>-linux-gnu/obs-plugins/  # real file, not a symlink -- OBS's plugin scan skips symlinks
+cp build_<arch>/obs-ptz-ui-harness.so build_<arch>/obs-ui-driver.so /usr/lib/<arch>-linux-gnu/obs-plugins/
 pip install -r tests/obs-integration/requirements.txt
 PTZSIM_OBS_BINARY=obs pytest tests/obs-integration -v
 ```

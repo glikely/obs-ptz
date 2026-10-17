@@ -1,12 +1,16 @@
 # PTZ UI test harness
 
-Drives UI-level integration tests against a live, running OBS process
-from inside the plugin itself - things like opening a real dialog,
-clicking through it, and checking what a widget actually rendered.
-Not part of the normal plugin build, not CI-integrated (needs a real
-windowed `OBS.app`, and a test that drives a dialog pops it open and
-closed for real - don't drive the mouse/keyboard while one runs) - link
-it in explicitly when you want to run it.
+Drives integration tests against a live, running OBS process from inside
+it, for what a client outside OBS can't reach: libobs's own view of a
+device, a signal answered from inside the signal, OBS's theme reloading
+under the dock, a device made by a stand-in for another plugin. It is a
+plugin of its own, `obs-ptz-ui-harness`, next to `obs-ptz` and the UI
+driver (`tests/ui-driver/`), and needs nothing of `obs-ptz`'s but
+`src/ptz.h`, for the PTZ API's version: it finds devices as any controller
+of the PTZ API does, from libobs and the devices' own procs
+(`ptzUITestDeviceSource()` and the others in `ui-test-harness.hpp`). The
+plugin that is tested is the plugin that ships. Not CI-integrated (it needs
+a real windowed OBS).
 
 Ships with these tests, each in a `*-test.cpp` file with the pytest module that
 drives it:
@@ -17,46 +21,39 @@ drives it:
 - `get_device_settings` (`device-settings-test.cpp`, `test_device_settings.py`): the
   keys a device's settings properties edit and its filter saves, and what its string
   lists offer, which need `obs_source_properties()`;
-- `reload_device_backups` (`device-backup-test.cpp`, `test_device_backup.py`): the
-  backup store reading its file again, which it does only when it is started;
 - `discover`/`get_discovery_spy`/`arm_discovery_spy`/`close_discovery_spy`
   (`discovery-test.cpp`, `test_device_discovery.py`): the drivers' discovery
   instances, from inside the signals they say, and what the Add Device dialog's
   instances do;
-- `reorder_presets`/`reorder_cameras` (`reorder-presets-test.cpp`,
-  `reorder-cameras-test.cpp`, `test_reorder_presets.py`, `test_reorder_cameras.py`):
-  the device list model's moves, drops and saved order;
 - `emit_vendor_event`/`hold_main_thread` (`vendor-event-test.cpp`,
-  `test_websocket_events.py`, `test_websocket_threads.py`): the websocket binding's
-  events, with the main thread held;
+  `test_vendor_events.py`, `test_websocket_threads.py`): events emitted as a
+  vendor, and the websocket binding with the main thread held;
 
 and `third-party-device-test.cpp`, which registers stand-ins for devices of another
 plugin. See "Adding a new test" below for how to add another.
 
-## Why in-process, not a standalone test binary
+## Why inside OBS, not a standalone test binary
 
 `tests/uart-hil` tests `PTZUARTWrapper` in isolation, without OBS
-running at all. UI tests need the opposite: real widgets, real dialogs,
-real OBS-internal state that only exists inside a running OBS process -
-much of it not reachable through `obs-frontend-api` from an external
-tool at all (there's no call to trigger a theme reload, for instance,
-which `appearance-row-sizing-test.cpp` needed - see its own comment).
-So the harness has to be linked into the plugin binary itself and
-driven from inside.
+running at all. These tests need the opposite: real OBS-internal state
+that only exists inside a running OBS process - much of it not reachable
+through obs-websocket or `obs-frontend-api` from an external tool at all
+(there's no call to trigger a theme reload, for instance, which
+`appearance-row-sizing-test.cpp` needed - see its own comment). So the
+harness is a plugin, loaded by OBS, and driven from inside it.
 
 ## Why obs-websocket, not a polled file
 
 Commands reach the harness through obs-websocket's vendor request
-mechanism (`obs-websocket-api.h`, vendored in `src/controller/` - header-only,
+mechanism (`obs-websocket-api.h`, vendored in `tests/ui-driver/` - header-only,
 talks to obs-websocket purely via libobs's own `proc_handler`/`calldata`, no
 link dependency, degrades to a harmless no-op if obs-websocket isn't
-loaded). The vendor, `"obs-ptz"`, is the plugin's own: the PTZ API's binding to
-obs-websocket (`src/controller/ptz-websocket.cpp`) registers it, as a vendor
-can be registered only once, and `ptz_load_ui_tests()` adds one request type
-to it, `"ui_test_run"` (called from `obs_module_post_load()` in `ptz.c`, after
-the binding - vendor registration requires that specific hook, not
-`obs_module_load()`, since it needs obs-websocket's own module to have already
-finished loading first).
+loaded). The vendor, `"obs-ptz-ui-harness"`, is the harness's own, with one
+request type, `"ui_test_run"`, registered from the harness's
+`obs_module_post_load()` - vendor registration requires that specific hook,
+not `obs_module_load()`, since it needs obs-websocket's own module to have
+already finished loading first. It does nothing unless OBS was started with
+`PTZ_UI_TEST_HARNESS=1` in its environment.
 
 ## What goes through the harness, and what doesn't
 
@@ -78,11 +75,18 @@ platform's own, is skipped by calling the slot the action triggers with the file
 signals hooks, `watch_device_signals` and `get_device_signals`, are gone too: what
 the dialog hears of a changed state or setting is what it shows. A widget's state
 that a test reads is a Qt property of the widget (`PTZStateView`'s `shownValues`,
-say), which the driver reads.
+say), which the driver reads. The lists are reordered through it too
+(`reorder_presets` and `reorder_cameras` are gone): with the model's
+`moveRow()`, as the move buttons do, and with `CircularListView::dropCurrentRowAt()`,
+which a drop does, at a point on a row the driver says where to find. What a scene
+collection's saved order does when it is loaded is tested by loading one: OBS is
+quit, the collection's file given the order, and OBS started again
+(`World.restart_obs()`'s `between`), which also gives the backup store an old file
+to read as it starts (`reload_device_backups` is gone).
 
 The harness is for what the UI driver can't reach, or only code inside OBS
 can see: libobs's own view of a device (`obs_source_properties()`), a signal
-answered from inside the signal, the model's moves, a device made by a stand-in for
+answered from inside the signal, a device made by a stand-in for
 another plugin. A test that calls a proc of the PTZ API, or
 waits for one of its signals, does it as a client of obs-websocket does, with
 the `"obs-ptz"` vendor's request and event of the same name (see "WebSocket
@@ -118,7 +122,10 @@ it only parses the request and marshals the actual work back over via
 `QMetaObject::invokeMethod(qApp, ..., Qt::QueuedConnection)`, then
 acknowledges receipt immediately; `PTZUITestHarness::dispatch()` (which
 that queued call lands on) is what actually runs on the GUI thread, and
-is what calls into a registered test function. A *test's own result*
+is what calls into a registered test function. A test registered with
+`registerInlineTest()` instead runs on obs-websocket's thread, in the request,
+before it is answered: one that touches no Qt object, and whose effect has to
+come before the answer, as `emit_vendor_event`'s event does. A *test's own result*
 therefore still only reaches a caller via whatever it itself logs (e.g.
 `blog(LOG_INFO, "[ptz-ui-test] ...")`, the convention the harness's own
 code uses) - the obs-websocket response only confirms the request was
@@ -131,13 +138,14 @@ something already provided here.
 
 ```
 cmake --preset macos -DENABLE_UI_TESTS=ON   # or your platform's preset
-cmake --build build_macos --target obs-ptz
+cmake --build build_macos --target obs-ptz-ui-harness
 ```
 
 `ENABLE_UI_TESTS` is never on by default - always pass it explicitly.
-This only adds the harness to the binary; it stays completely inert
-(no vendor registration, nothing) unless `PTZ_UI_TEST_HARNESS=1` is
-also set in OBS's environment at runtime.
+It builds the harness and the UI driver, plugins of their own, next to
+`obs-ptz` in `rundir`; `obs-ptz` itself is the same either way. The scripts
+that run the suite (`scripts/macos-dev.sh test`, `scripts/vm-linux-dev.sh build
+--ui-tests` then `test`, `scripts/vm-windows-dev.sh test <arch>`) install both.
 
 ## Running
 
@@ -145,7 +153,7 @@ With OBS running under `PTZ_UI_TEST_HARNESS=1` and obs-websocket
 enabled:
 
 ```
-python3 scripts/obs_ws_client.py --vendor obs-ptz --request-type ui_test_run \
+python3 scripts/obs_ws_client.py --vendor obs-ptz-ui-harness --request-type ui_test_run \
     --password <server_password from obs-websocket's config.json> \
     --data '{"cmd": "appearance_row_sizing", "density": "-4", "fontscale": "10"}'
 ```
@@ -169,8 +177,8 @@ machine (see "Testing on Windows" below).
 
 ## Driving a test from pytest instead of a standalone script
 
-`test_preset_view.py` (`tests/obs-integration/`) drives
-`get_preset_view` differently than
+`test_device_settings.py` (`tests/obs-integration/`) drives
+`get_device_settings` differently than
 `test_preset_row_sizing.py` drives `appearance_row_sizing`: rather than
 a standalone script that launches and tears down its own OBS process,
 it's a normal pytest module in the `tests/obs-integration` suite, using
@@ -180,12 +188,11 @@ instance for `test_ptz_backends.py` anyway, obs-websocket vendor and
 all, so there's no reason for a UI-driven test to launch a second,
 separate OBS just to reach the same vendor. `conftest.py`'s `obs_world`
 fixture always sets `PTZ_UI_TEST_HARNESS=1` in OBS's environment for
-exactly this - inert unless the binary was actually built with
-`-DENABLE_UI_TESTS=ON`, so it doesn't change anything for the rest of
-that suite.
+exactly this - inert unless the harness plugin is installed, and a test that
+asks it for something is skipped when it isn't.
 
 `World.run_ui_test(cmd, **params)` wraps the same `CallVendorRequest`
-call `scripts/obs_ws_client.py --vendor obs-ptz --request-type
+call `scripts/obs_ws_client.py --vendor obs-ptz-ui-harness --request-type
 ui_test_run` makes; `World.wait_for(predicate)` is the generic
 poll-until-true helper for waiting on that dispatch's effect (a file it
 wrote, ...), since the request itself only confirms it was *accepted*,
@@ -217,9 +224,9 @@ binary differs, and nothing about OBS's config is architecture-specific.
 
 `scripts/windows-build-and-test.bat <arm64|x64>` does the full cycle
 for one architecture: finds Visual Studio via `vswhere.exe`, configures
-and builds `obs-ptz` with `-DENABLE_UI_TESTS=ON` for that arch's preset,
-overlays the fresh `obs-ptz.dll`/data into that arch's `C:\OBS-Test\`
-tree, and runs `test_preset_row_sizing.py` against it (via
+and builds `obs-ptz`, the harness and the UI driver with `-DENABLE_UI_TESTS=ON`
+for that arch's preset, overlays the fresh DLLs and data into that arch's
+`C:\OBS-Test\` tree, and runs `tests\obs-integration` against it (via
 `PTZ_TEST_OBS_BIN`). Run it from the repo root:
 
 ```
@@ -237,10 +244,8 @@ One-time setup this depends on:
    the dev build under test, both get loaded, they race for
    obs-websocket's `obs-ptz` vendor registration
    (`WebSocketApi::vendor_register_cb`), and if the installed one wins,
-   the harness silently ends up running that *older* copy's test code
-   instead of the dev build's - confusing, since the symptom is
-   individual test commands the current code definitely has (e.g.
-   `measure_now`) logging `unknown cmd '...', ignoring`. Rename that
+   the tests silently end up talking to that *older* copy's PTZ API
+   instead of the dev build's. Rename that
    directory (e.g. append `.disabled`) rather than uninstalling, so
    it's easy to tell it was intentional and to put back.
 3. A GUI process launched via `prlctl exec`'s default `nt authority\system`
@@ -289,24 +294,26 @@ Gotchas specific to this setup:
 
 ## Adding a new test
 
-1. Add `tests/ui-harness/<name>-test.hpp`/`.cpp`: a
+1. Add `tests/ui-harness/<name>-test.cpp`: a
    `register<Name>Test(PTZUITestHarness *harness)` function that calls
    `harness->registerTest("<cmd>", &yourFunction)`, where `yourFunction`
    takes a `const QMap<QString, QString> &params` (the request's
    key=value pairs, `cmd` included) and does whatever driving/checking
-   the test needs - log its result (`blog(LOG_INFO, "[ptz-ui-test] ...")`
-   is the convention so far) so an external driver script has something
-   to grep for. This function always runs already on the Qt GUI thread
+   the test needs - write its result to the file a `filename` param names,
+   or log it (`blog(LOG_INFO, "[ptz-ui-test] ...")`), so the test has
+   something to read. This function always runs already on the Qt GUI thread
    (`PTZUITestHarness::dispatch()` guarantees that), so it's safe to
-   touch widgets directly.
-2. `#include` the new header and call your `register<Name>Test(this)`
+   touch widgets directly. Find a device with `ptzUITestDeviceSource()`, as
+   a controller of the PTZ API would, and nothing of `obs-ptz`'s own: the
+   harness is a plugin of its own, and can't reach into it.
+2. Declare your `register<Name>Test()` in `ui-test-harness.hpp`, and call it
    from `PTZUITestHarness`'s constructor (`ui-test-harness.cpp`).
-3. Add both new files to `CMakeLists.txt`'s `ENABLE_UI_TESTS` block.
-4. If a driver script needs to exist for it: launch OBS with
-   `PTZ_UI_TEST_HARNESS=1`, then shell out to
-   `python3 scripts/obs_ws_client.py --vendor obs-ptz --request-type
+3. Add the new file to `tests/ui-harness/CMakeLists.txt`.
+4. Drive it from a pytest module with `World.run_ui_test("<cmd>", ...)`, or,
+   from a script of its own, launch OBS with `PTZ_UI_TEST_HARNESS=1` and the
+   harness installed, then shell out to
+   `python3 scripts/obs_ws_client.py --vendor obs-ptz-ui-harness --request-type
    ui_test_run --data '{"cmd": "...", ...}'` per invocation (reading
    obs-websocket's port/password from its own
    `plugin_config/obs-websocket/config.json`, since that's simpler than
-   prompting for them) and grep OBS's log for the test's own result
-   lines.
+   prompting for them).
