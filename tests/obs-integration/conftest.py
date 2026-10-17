@@ -1446,18 +1446,57 @@ class World:
             view["add_stores"] = [{"text": store} for store in ("camera", "local") if stores.get(store)]
         return view
 
-    def reorder_presets(self, out_file, **params):
-        """Moves a preset of the dock's preset list, or only reports their
-        order, via tests/ui-harness/reorder-presets-test.cpp's "reorder_presets"
-        test. See there for the params: select, from, to and via. Returns its
-        result, with "presets" as a list of names."""
-        if out_file.exists():
-            out_file.unlink()
-        self.run_ui_test("reorder_presets", filename=str(out_file), **params)
-        self.wait_for(out_file.exists)
-        result = json.loads(out_file.read_text())
-        result["presets"] = [r["text"] for r in result.get("presets", [])]
-        return result
+    def _drop_point(self, view, to):
+        """Where in `view`'s viewport a drop puts its current row at `to`: on row `to`, in
+        its lower half, so after it; or below the last row, if `to` is past it and there
+        is room there, which puts it last"""
+        rows, _, _ = self.ui.rows(*view, roles=["rect"])
+        x, y, w, h = rows[min(to, len(rows) - 1)]["rect"]
+        bottom = y + h - 1
+        if to >= len(rows) and bottom + 2 < self.ui.get1(*view, "qt_scrollarea_viewport", name="height"):
+            return [x + w // 2, bottom + 2]
+        return [x + w // 2, bottom - 1]
+
+    def _move_in(self, view, frm, to, via=None):
+        """Moves row `frm` of a list to before row `to`, with its model's moveRow(), which is
+        what the move buttons do, or with via="drop" to row `to` as a drop does (see
+        _drop_point()), once the row is current; whether it moved"""
+        if via != "drop":
+            return self.ui.move_row(*view, frm=frm, to=to)
+        rows, _, _ = self.ui.rows(*view, roles=[256])
+        self.ui.select(*view, value=rows[frm]["256"], role=256)
+        return bool(self.ui.invoke(*view, method="dropCurrentRowAt", args=[self._drop_point(view, to)]))
+
+    def reorder_presets(self, out_file=None, select=None, via=None, grid=None, **move):
+        """Moves a preset of the dock's preset list, or only reports their order,
+        through the UI driver: with select, the camera (by name) is selected first; with
+        grid "1" or "0", the list is shown as a grid or not first; with "from" and "to",
+        the preset at row from is moved, to before row to (see _move_in(), and via).
+        Returns {"found", "moved", "presets": names in order, "selected_row", and whether
+        the presets ("presets_drag", and each preset row's "preset_flags_drag") and the
+        cameras ("devices_drag") can be dragged}. out_file is not used: it was where the
+        harness wrote all this."""
+        self.need_ui_driver()
+        ui = self.ui
+        presets, cameras = (OBS_MAIN, "presetListView"), (OBS_MAIN, PTZ_DOCK, "deviceList")
+        if grid is not None:
+            ui.set(OBS_MAIN, "actionPresetGridView", checked=grid == "1")
+        if select:
+            self.select_in_dock(select)
+        moved = False
+        if "from" in move and "to" in move:
+            moved = self._move_in(presets, int(move["from"]), int(move["to"]), via)
+        rows, current, _ = ui.rows(*presets, roles=["display", "flags"])
+        drag_enabled = 0x4  # Qt::ItemIsDragEnabled
+        return {
+            "found": True,
+            "moved": moved,
+            "presets": [r["display"] for r in rows],
+            "selected_row": current,
+            "presets_drag": ui.get1(*presets, name="dragEnabled"),
+            "devices_drag": ui.get1(*cameras, name="dragEnabled"),
+            "preset_flags_drag": bool(rows) and bool(rows[0]["flags"] & drag_enabled),
+        }
 
     def reorder_cameras(self, out_file, **params):
         """Moves a camera of the dock's or the settings dialog's list, or only

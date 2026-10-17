@@ -418,7 +418,6 @@ if(ENABLE_UI_TESTS)
       tests/ui-harness/ui-test-harness.cpp
       tests/ui-harness/ui-test-harness.hpp
       tests/ui-harness/appearance-row-sizing-test.cpp
-      tests/ui-harness/reorder-presets-test.cpp
       tests/ui-harness/reorder-cameras-test.cpp
       tests/ui-harness/device-settings-test.cpp
       tests/ui-harness/discovery-test.cpp

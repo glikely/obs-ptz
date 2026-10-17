@@ -1,7 +1,7 @@
 """Covers reordering the presets in the PTZ Controls dock.
 
-The presets are moved two ways, both through tests/ui-harness/reorder-
-presets-test.cpp's "reorder_presets" test: with the model's moveRow(), which is
+The presets are moved two ways, both through the UI driver (see
+World.reorder_presets() in conftest.py): with the model's moveRow(), which is
 what the move up and down buttons do, and by doing to the list view what a drop
 does (CircularListView::dropCurrentRowAt()), which is what dragging a preset
 does once the mouse is let go. A drag itself can't be made without a real
