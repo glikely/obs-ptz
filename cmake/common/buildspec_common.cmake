@@ -103,7 +103,9 @@ function(_setup_sdl)
   message(STATUS "Install ${label} (${_cmake_config} - ${arch}) - done")
 endfunction()
 
-# _setup_obs_studio: Create obs-studio build project, then build libobs and obs-frontend-api
+# _setup_obs_studio: Create obs-studio build project, then build libobs and
+# obs-frontend-api, and install them into ${obs_prefix}: a directory of its own
+# for each platform and architecture, as for SDL (see _setup_sdl)
 function(_setup_obs_studio)
   if(NOT libobs_DIR)
     set(_is_fresh --fresh)
@@ -159,16 +161,14 @@ function(_setup_obs_studio)
 
   message(STATUS "Install ${label} (${arch})")
   execute_process(
-    COMMAND
-      "${CMAKE_COMMAND}" --install build_${arch} --component Development --config Debug --prefix "${dependencies_dir}"
+    COMMAND "${CMAKE_COMMAND}" --install build_${arch} --component Development --config Debug --prefix "${obs_prefix}"
     WORKING_DIRECTORY "${dependencies_dir}/${_obs_destination}"
     RESULT_VARIABLE _process_result
     COMMAND_ERROR_IS_FATAL ANY
     OUTPUT_QUIET
   )
   execute_process(
-    COMMAND
-      "${CMAKE_COMMAND}" --install build_${arch} --component Development --config Release --prefix "${dependencies_dir}"
+    COMMAND "${CMAKE_COMMAND}" --install build_${arch} --component Development --config Release --prefix "${obs_prefix}"
     WORKING_DIRECTORY "${dependencies_dir}/${_obs_destination}"
     RESULT_VARIABLE _process_result
     COMMAND_ERROR_IS_FATAL ANY
@@ -289,7 +289,20 @@ function(_check_dependencies)
     elseif(dependency STREQUAL obs-studio)
       set(_obs_version ${version})
       set(_obs_destination "${destination}")
-      list(APPEND CMAKE_PREFIX_PATH "${dependencies_dir}")
+      set(obs_prefix "${dependencies_dir}/obs-${arch}")
+      # A build directory configured before each had its own still has .deps
+      # itself, where they all were installed, in its cached CMAKE_PREFIX_PATH, and
+      # their packages' directories, which find_package() would go on using
+      list(REMOVE_ITEM CMAKE_PREFIX_PATH "${dependencies_dir}")
+      list(APPEND CMAKE_PREFIX_PATH "${obs_prefix}")
+      foreach(_obs_package IN ITEMS libobs obs-frontend-api w32-pthreads)
+        if(DEFINED CACHE{${_obs_package}_DIR})
+          string(FIND "${${_obs_package}_DIR}" "${obs_prefix}/" _obs_dir_in_prefix)
+          if(NOT _obs_dir_in_prefix EQUAL 0)
+            unset(${_obs_package}_DIR CACHE)
+          endif()
+        endif()
+      endforeach()
     endif()
 
     message(STATUS "Setting up ${label} (${arch}) - done")

@@ -30,7 +30,8 @@ function(_check_dependencies_macos)
     COMMAND_ERROR_IS_FATAL ANY
   )
 
-  list(APPEND CMAKE_FRAMEWORK_PATH "${dependencies_dir}/Frameworks")
+  # libobs, as obs-studio's install of it is a framework (see _setup_obs_studio)
+  list(APPEND CMAKE_FRAMEWORK_PATH "${dependencies_dir}/obs-${arch}/Frameworks")
   set(CMAKE_FRAMEWORK_PATH ${CMAKE_FRAMEWORK_PATH} PARENT_SCOPE)
 endfunction()
 

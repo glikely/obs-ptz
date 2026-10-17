@@ -22,10 +22,11 @@
 # The main checkout needs no clone.
 #
 # Why configure pins SDL2_DIR and obs-frontend-api_DIR: a .deps that the
-# Windows builds also install into has Windows-layout packages at .deps/cmake
-# (and, before SDL had a directory of its own for each platform,
-# .deps/sdl/cmake), which a fresh configure finds before the macOS ones and
-# turns into Windows link flags (-lkernel32 ...).
+# Windows builds also install into had Windows-layout packages at .deps/cmake
+# and .deps/sdl/cmake, before obs-studio and SDL each had a directory of their
+# own for each platform (.deps/obs-universal, .deps/sdl-universal), which a
+# fresh configure found before the macOS ones and turned into Windows link
+# flags (-lkernel32 ...). A .deps from before still has them.
 #
 # test hands off to scripts/run-macos-integration-tests.sh, which runs OBS on
 # an empty profile in a temporary home directory, so your real one is not
@@ -90,7 +91,7 @@ setup_configure() {
     local deps sdl api
     deps="$(cd "$ROOT/.deps" && pwd -P)"
     sdl="$deps/sdl-universal/lib/cmake/SDL2"
-    api="$deps/lib/cmake/obs-frontend-api"
+    api="$deps/obs-universal/lib/cmake/obs-frontend-api"
     # Extra options (from `test`) always reconfigure, which is quick.
     if [ "$#" -eq 0 ] && [ "$(cache_value CMAKE_HOME_DIRECTORY)" = "$ROOT" ] &&
         [ "$(cache_value SDL2_DIR)" = "$sdl" ] &&
