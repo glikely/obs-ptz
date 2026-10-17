@@ -57,12 +57,12 @@ def test_list_devices_has_every_configured_device(obs_world):
         assert name in listed, backend
         entry = listed[name]
         assert entry["device"] and entry["name"], backend
-        assert entry["api"] == {"major": 0, "minor": 4}, backend
+        assert entry["api"] == {"major": 0, "minor": 5}, backend
 
 
 def test_ptz_get_api_version_over_the_wire(obs_world):
     assert obs_world.ws.vendor(VENDOR, "ptz_get_api_version", {"device": device(obs_world, "visca-tcp")}) == {
-        "major": 0, "minor": 4}
+        "major": 0, "minor": 5}
 
 
 def test_move_reaches_the_camera(obs_world):
@@ -200,7 +200,7 @@ def test_list_discovery_has_an_instance_of_each_kind(obs_world):
 
 def test_a_discovery_instance_is_called_as_a_device_is(obs_world):
     instance = obs_world.ws.vendor(VENDOR, "ptz_list_discovery")["instances"][0]["device"]
-    assert obs_world.ws.vendor(VENDOR, "ptz_get_api_version", {"device": instance}) == {"major": 0, "minor": 4}
+    assert obs_world.ws.vendor(VENDOR, "ptz_get_api_version", {"device": instance}) == {"major": 0, "minor": 5}
     assert obs_world.ws.vendor(VENDOR, "ptz_discovery_start", {"device": instance}) == {}
     assert obs_world.ws.vendor(VENDOR, "ptz_discovery_stop", {"device": instance}) == {}
 

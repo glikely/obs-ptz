@@ -25,6 +25,7 @@ ptzsim, the camera, has: a camera preset is in it, a local one is not.
   kept is, and the legacy `presets` of an older version is read as annotations.
 """
 
+import base64
 import contextlib
 import json
 import time
@@ -650,6 +651,24 @@ def test_a_recall_while_the_controller_waits_skips_the_older_capture(obs_world, 
 
 def thumbnail_of(world, device, preset_id):
     return presets_by_id(world, device)[preset_id].get("thumbnail", "")
+
+
+def test_get_thumbnail_proc_returns_the_image(obs_world, made):
+    """For a caller that can't read the file the list names, as one on another machine can't"""
+    device = obs_world.device_names["onvif"]
+    presets = made("onvif")
+    preset_id = presets.create("Pictured", store="local")
+    obs_world.wait_for(lambda: thumbnail_of(obs_world, device, preset_id))
+    uuid = obs_world.device_uuid(device)
+
+    answer = obs_world.ws.vendor("obs-ptz", "ptz_preset_get_thumbnail", {"device": uuid, "id": preset_id})
+    with open(thumbnail_of(obs_world, device, preset_id), "rb") as f:
+        assert base64.b64decode(answer["data"]) == f.read()
+    assert answer["mime"] in ("image/jpeg", "image/png")
+
+    # a preset it hasn't is not an error: there is just no image
+    answer = obs_world.ws.vendor("obs-ptz", "ptz_preset_get_thumbnail", {"device": uuid, "id": "nope"})
+    assert answer == {"mime": "", "data": ""}
 
 
 def test_capture_thumbnail_proc_updates_thumbnail(obs_world, made):

@@ -205,7 +205,7 @@ def test_the_procs_a_remote_caller_may_only_read_with(obs_world):
     for proc in info["procs"]:
         by_access.setdefault(proc["access"], set()).add(proc["name"])
     assert by_access["read"] == {"ptz_get_api_version", "ptz_get_api_info", "ptz_get_state", "ptz_get_statistics",
-                                 "ptz_get_camera_report", "ptz_preset_get_list"}
+                                 "ptz_get_camera_report", "ptz_preset_get_list", "ptz_preset_get_thumbnail"}
     assert by_access["none"] == {"ptz_get_parent_source"}
 
 
