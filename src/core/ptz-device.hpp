@@ -550,9 +550,8 @@ void ptz_filter_save(void *data, obs_data_t *settings);
  * lifecycle and scene changes. The module adds it when it loads. */
 void ptz_module_frontend_event(enum obs_frontend_event event, void *);
 
-/* Registers a proc or signal of the PTZ API on `handler`, in `scope`, logging
- * it in a build with the UI test harness (see ptz-device.cpp), and recording
- * it for ptz_get_api_info. `thread` and `access` are what docs/ptz-device-api.md
+/* Registers a proc or signal of the PTZ API on `handler`, in `scope`, recording
+ * it for ptz_get_api_info (see ptz-device.cpp). `thread` and `access` are what docs/ptz-device-api.md
  * says of the proc: where it may be called from, and what a remote caller
  * has to be let do to call it. */
 void ptz_proc_add(const char *scope, proc_handler_t *handler, const char *decl, proc_handler_proc_t proc, void *data,

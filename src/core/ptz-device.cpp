@@ -23,34 +23,6 @@
 #include "ptz.h"
 #include "protocol-helpers.hpp"
 
-/* Everything the PTZ API registers goes through PTZDevice::addProc() and
- * addSignal() for a device's own handlers, or ptz_discovery_add_api() for a
- * discovery instance's. In a build with the UI test harness each is logged,
- * once per module, as "[ptz-api] <scope> <declaration>", the scope being
- * "device-proc", "device-signal", "discovery-proc" or "discovery-signal", so
- * that tests/obs-integration/test_api_doc.py can hold docs/ptz-device-api.md
- * to what every module really registers rather than to a copy of it. */
-#ifdef ENABLE_UI_TESTS
-static QMutex ptz_api_log_mutex;
-static QSet<QString> ptz_api_logged_set;
-#endif
-
-static void ptz_api_logged(const char *scope, const char *decl)
-{
-#ifdef ENABLE_UI_TESTS
-	QString entry = QString::fromUtf8(scope) + QLatin1Char(' ') + QString::fromUtf8(decl);
-	QMutexLocker locker(&ptz_api_log_mutex);
-	/* A device registers its handlers each time one is made */
-	if (ptz_api_logged_set.contains(entry))
-		return;
-	ptz_api_logged_set.insert(entry);
-	blog(LOG_INFO, "[ptz-api] %s", qUtf8Printable(entry));
-#else
-	Q_UNUSED(scope);
-	Q_UNUSED(decl);
-#endif
-}
-
 /* What this module has registered, by scope, for ptz_get_api_info: libobs
  * can't be asked what a handler has, and a caller outside the module has no
  * other way to learn a declaration. Each is recorded once, the first time it
@@ -114,14 +86,12 @@ void ptz_get_api_info_proc(void *data, calldata_t *cd)
 void ptz_proc_add(const char *scope, proc_handler_t *handler, const char *decl, proc_handler_proc_t proc, void *data,
 		  PTZProcThread thread, PTZProcAccess access)
 {
-	ptz_api_logged(scope, decl);
 	ptz_api_record(scope, decl, thread, access);
 	proc_handler_add(handler, decl, proc, data);
 }
 
 void ptz_signal_add(const char *scope, signal_handler_t *handler, const char *decl)
 {
-	ptz_api_logged(scope, decl);
 	ptz_api_record(scope, decl, PTZ_THREAD_DEVICE, PTZ_ACCESS_NONE);
 	signal_handler_add(handler, decl);
 }
