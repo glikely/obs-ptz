@@ -15,8 +15,6 @@
 #include <obs.hpp>
 #include <QTimer>
 
-#include "ptz-driver-kinds.hpp"
-
 namespace {
 
 void writeResult(obs_data_t *result, const QString &filename, const char *test)
@@ -191,14 +189,13 @@ void runDiscoverTest(const QMap<QString, QString> &params)
 	search->stopOnFound = params.value(QStringLiteral("stop_on_found")) == QStringLiteral("true");
 	search->restartOnFinished = params.value(QStringLiteral("restart_on_finished")) == QStringLiteral("true");
 	search->releaseOnFound = params.value(QStringLiteral("release_on_found")) == QStringLiteral("true");
-	for (const auto &kind : ptz_discovery_kinds()) {
-		OBSSourceAutoRelease source =
-			obs_source_create_private(qUtf8Printable(kind.kind), "ptz-ui-test", nullptr);
+	for (const QString &kind : ptzUITestDiscoveryKinds()) {
+		OBSSourceAutoRelease source = obs_source_create_private(qUtf8Printable(kind), "ptz-ui-test", nullptr);
 		if (!source)
 			continue;
 		auto instance = std::make_unique<SearchInstance>();
 		instance->search = search;
-		instance->kind = kind.kind;
+		instance->kind = kind;
 		instance->source = source.Get();
 		calldata_t cd = {};
 		if (proc_handler_call(obs_source_get_proc_handler(source), "ptz_get_api_version", &cd)) {
@@ -262,9 +259,8 @@ void releasedDestroyCb(void *data, calldata_t *)
 void runDiscoverReleasedTest(const QString &filename, int waitMs)
 {
 	released.clear();
-	for (const auto &kind : ptz_discovery_kinds()) {
-		OBSSourceAutoRelease source =
-			obs_source_create_private(qUtf8Printable(kind.kind), "ptz-ui-test", nullptr);
+	for (const QString &kind : ptzUITestDiscoveryKinds()) {
+		OBSSourceAutoRelease source = obs_source_create_private(qUtf8Printable(kind), "ptz-ui-test", nullptr);
 		if (!source)
 			continue;
 		ReleasedInstance &r = released.emplace_back();
@@ -354,9 +350,7 @@ static void armDiscoverySpy(const QMap<QString, QString> &)
 	spy.finished = 0;
 	spy.destroyed = 0;
 	spy.closed = false;
-	QStringList kinds;
-	for (const auto &kind : ptz_discovery_kinds())
-		kinds.append(kind.kind);
+	QStringList kinds = ptzUITestDiscoveryKinds();
 	auto cb = [](void *data, obs_source_t *source) {
 		auto kinds = static_cast<QStringList *>(data);
 		if (!kinds->contains(QString::fromUtf8(obs_source_get_id(source))))

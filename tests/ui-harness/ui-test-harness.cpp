@@ -5,8 +5,8 @@
  * SPDX-License-Identifier: GPL-2.0-or-later
  */
 #include "ui-test-harness.hpp"
-#include "ptz-list-model.hpp"
 #include "ptz-websocket.hpp"
+#include "ptz.h"
 
 #include <obs-module.h>
 #include <QCoreApplication>
@@ -31,10 +31,71 @@ PTZUITestHarness::PTZUITestHarness(QObject *parent) : QObject(parent)
 	registerVendorEventTest(this);
 }
 
-QModelIndex ptzUITestDeviceIndex(const QString &device)
+bool ptzUITestIsDevice(obs_source_t *source)
 {
-	QModelIndex index = ptzDeviceList->indexFromUuid(device);
-	return index.isValid() ? index : ptzDeviceList->indexFromName(device);
+	proc_handler_t *ph = source ? obs_source_get_proc_handler(source) : nullptr;
+	if (!ph)
+		return false;
+	calldata_t cd = {};
+	bool usable = proc_handler_call(ph, "ptz_get_api_version", &cd) &&
+		      calldata_int(&cd, "major") == PTZ_API_VERSION_MAJOR &&
+		      calldata_int(&cd, "minor") >= PTZ_API_VERSION_MINOR_NEEDED;
+	calldata_free(&cd);
+	return usable;
+}
+
+OBSSource ptzUITestDeviceSource(const QString &device)
+{
+	OBSSourceAutoRelease byUuid = obs_get_source_by_uuid(qUtf8Printable(device));
+	if (byUuid && ptzUITestIsDevice(byUuid))
+		return byUuid.Get();
+	OBSSourceAutoRelease source = obs_get_source_by_name(qUtf8Printable(device));
+	if (!source)
+		return nullptr;
+	if (ptzUITestIsDevice(source))
+		return source.Get();
+	/* The first of its filters that is a device */
+	OBSSource found;
+	obs_source_enum_filters(
+		source,
+		[](obs_source_t *, obs_source_t *filter, void *data) {
+			auto found = static_cast<OBSSource *>(data);
+			if (!*found && ptzUITestIsDevice(filter))
+				*found = filter;
+		},
+		&found);
+	return found;
+}
+
+OBSSource ptzUITestParentSource(obs_source_t *device)
+{
+	calldata_t cd = {};
+	proc_handler_call(obs_source_get_proc_handler(device), "ptz_get_parent_source", &cd);
+	OBSSourceAutoRelease said = static_cast<obs_source_t *>(calldata_ptr(&cd, "return"));
+	calldata_free(&cd);
+	if (said)
+		return said.Get();
+	if (obs_source_get_type(device) == OBS_SOURCE_TYPE_FILTER)
+		return obs_filter_get_parent(device);
+	return device;
+}
+
+QStringList ptzUITestDiscoveryKinds()
+{
+	QStringList kinds;
+	const char *id;
+	for (size_t i = 0; obs_enum_input_types(i, &id); i++) {
+		if (!QByteArray(id).endsWith(".discovery"))
+			continue;
+		OBSDataAutoRelease defaults = obs_get_source_defaults(id);
+		if (!defaults || !obs_data_has_default_value(defaults, PTZ_DEFAULTS_MAJOR_KEY) ||
+		    !obs_data_has_default_value(defaults, PTZ_DEFAULTS_MINOR_KEY))
+			continue;
+		if (obs_data_get_int(defaults, PTZ_DEFAULTS_MAJOR_KEY) == PTZ_API_VERSION_MAJOR &&
+		    obs_data_get_int(defaults, PTZ_DEFAULTS_MINOR_KEY) >= PTZ_API_VERSION_MINOR_NEEDED)
+			kinds << QString::fromUtf8(id);
+	}
+	return kinds;
 }
 
 void PTZUITestHarness::registerTest(const QString &name, TestFn fn)

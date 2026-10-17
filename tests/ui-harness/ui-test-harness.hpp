@@ -12,11 +12,13 @@
  */
 #pragma once
 
-#include <QModelIndex>
 #include <QObject>
 #include <QMap>
 #include <QString>
+#include <QStringList>
 #include <functional>
+
+#include <obs.hpp>
 
 #include "ptz-websocket.hpp"
 
@@ -49,10 +51,25 @@ private:
 	QMap<QString, TestFn> tests;
 };
 
-/* The device a test names, as the "device" param of its request: the UUID of
- * its filter, or the name of the source the filter is on. Invalid if there is
- * none. */
-QModelIndex ptzUITestDeviceIndex(const QString &device);
+/* Whether a source is a device of the PTZ API, as a controller finds one: its
+ * proc_handler answers ptz_get_api_version with a version it can use (see
+ * docs/ptz-device-api.md) */
+bool ptzUITestIsDevice(obs_source_t *source);
+
+/* The device a test names, as the "device" param of its request: its UUID, or
+ * the name of its source (a device that is a source), or of the source its
+ * filter is on. Null if there is none. Found as any controller finds one, from
+ * libobs and the PTZ API, not from this plugin's own list. */
+OBSSource ptzUITestDeviceSource(const QString &device);
+
+/* The source a device shows the video of: what its ptz_get_parent_source says,
+ * or, if it doesn't say, its filter's parent, or itself if it is a source */
+OBSSource ptzUITestParentSource(obs_source_t *device);
+
+/* The ids of the discovery kinds (see "Discovery kinds" in docs/ptz-device-api.md):
+ * the hidden input kinds with ids ending in ".discovery" whose defaults carry the
+ * PTZ API version marker with a version the plugin can use */
+QStringList ptzUITestDiscoveryKinds();
 
 /* The "obs-ptz" obs-websocket vendor the harness's request is on, for a test
  * that emits an event as it. Null if there is no obs-websocket. */

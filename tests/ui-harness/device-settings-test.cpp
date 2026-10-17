@@ -10,7 +10,6 @@
 #include <obs-module.h>
 #include <QStringList>
 
-#include "ptz-list-model.hpp"
 #include "ptz.h"
 
 namespace {
@@ -83,7 +82,7 @@ void collectFilterKeys(obs_source_t *parent, obs_data_array_t *out, obs_data_t *
 		parent,
 		[](obs_source_t *, obs_source_t *filter, void *data) {
 			auto f = static_cast<Find *>(data);
-			if (!f->filter && ptz_source_is_device(filter))
+			if (!f->filter && ptzUITestIsDevice(filter))
 				f->filter = filter;
 		},
 		&find);
@@ -125,21 +124,29 @@ void runGetDeviceSettingsTest(const QMap<QString, QString> &params)
 		return;
 	}
 
-	QModelIndex index = ptzUITestDeviceIndex(deviceName);
-	if (!index.isValid()) {
+	OBSSource device = ptzUITestDeviceSource(deviceName);
+	if (!device) {
 		blog(LOG_INFO, "[ptz-ui-test] get_device_settings: device %s not found", qUtf8Printable(deviceName));
 		return;
 	}
 
 	QStringList propertyKeys;
 	OBSDataArrayAutoRelease listArray = obs_data_array_create();
-	obs_properties_t *props = ptzDeviceList->getProperties(index);
-	collectValueKeys(props, propertyKeys);
-	collectStringLists(props, listArray);
-	obs_properties_destroy(props);
+	/* As OBS asks any source for them */
+	obs_properties_t *props = obs_source_properties(device);
+	if (props) {
+		collectValueKeys(props, propertyKeys);
+		collectStringLists(props, listArray);
+		obs_properties_destroy(props);
+	}
 
-	OBSDataAutoRelease saved = obs_data_create();
-	ptzDeviceList->save(index, saved.Get());
+	/* Its settings, over the defaults they leave as they are: the complete set
+	 * the device saves, but for the marks of its kind, which are no setting */
+	OBSDataAutoRelease live = obs_source_get_settings(device);
+	OBSDataAutoRelease saved = obs_data_get_defaults(live);
+	obs_data_apply(saved, live);
+	obs_data_erase(saved, PTZ_DEFAULTS_MAJOR_KEY);
+	obs_data_erase(saved, PTZ_DEFAULTS_MINOR_KEY);
 	OBSDataArrayAutoRelease propertyArray = obs_data_array_create();
 	OBSDataArrayAutoRelease saveArray = obs_data_array_create();
 
@@ -156,7 +163,7 @@ void runGetDeviceSettingsTest(const QMap<QString, QString> &params)
 
 	OBSDataArrayAutoRelease filterArray = obs_data_array_create();
 	OBSDataAutoRelease filterDefaults = obs_data_create();
-	OBSSource parent = ptzDeviceList->parentSource(index);
+	OBSSource parent = ptzUITestParentSource(device);
 	collectFilterKeys(parent, filterArray, filterDefaults);
 
 	OBSDataAutoRelease result = obs_data_create();
