@@ -834,11 +834,6 @@ Access accessNamed(const char *access)
 
 } // namespace
 
-obs_websocket_vendor ptz_websocket_vendor()
-{
-	return vendor;
-}
-
 void ptz_websocket_set_access(const char *access)
 {
 	accessLevel.store(accessNamed(access));

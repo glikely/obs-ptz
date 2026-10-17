@@ -35,11 +35,6 @@ extern void ptz_load_settings(void);
  * To be started from obs_module_post_load(), when obs-websocket has loaded. */
 extern void ptz_websocket_load(void);
 extern void ptz_websocket_unload(void);
-#ifdef ENABLE_UI_TESTS
-extern void ptz_load_ui_tests(void);
-#else
-static inline void ptz_load_ui_tests(void) {};
-#endif
 
 /* The "PTZ Control" filter kind that a device "type" of the old self-managed
  * backend, or of a backup that has no "kind", belongs to, or NULL if none.

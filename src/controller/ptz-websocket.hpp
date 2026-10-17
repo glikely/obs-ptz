@@ -13,11 +13,6 @@
 
 #include "obs-websocket-api.h"
 
-/* The "obs-ptz" vendor, which obs-websocket lets be registered once: whatever
- * else in the plugin has a request of its own (the UI test harness) adds it to
- * this. Null before ptz_websocket_load(), and if there is no obs-websocket. */
-obs_websocket_vendor ptz_websocket_vendor();
-
 /* How much a client is let do: "off", nothing at all; "read-only", the procs
  * that only read a device; "control", all of them. Anything else is taken as
  * "control". Applies at once. Main thread. */
