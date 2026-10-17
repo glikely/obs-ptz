@@ -11,15 +11,14 @@ this test is what keeps it true. It reads the document's structure:
 
 and checks it against:
 
- * what the plugin registered: in a build with the UI test harness,
-   ptz_proc_add() and ptz_signal_add() (src/core/ptz-device.cpp) log every
-   proc and signal, a device's (PTZDevice) and a discovery instance's
-   (src/core/ptz-discovery-kind.cpp), as an "[ptz-api] <scope> <declaration>"
-   line in OBS's log, once per driver module, each of which has its own. The
-   lines of all of them, once the websocket binding's ptz_list_discovery has
-   made an instance of each discovery kind so that theirs are there too, are
-   what is registered, so a proc added in the code and not here fails, and so
-   does one here and not in the code;
+ * what the plugin registered: ptz_proc_add() and ptz_signal_add()
+   (src/core/ptz-device.cpp) record every proc and signal they register, a
+   device's (PTZDevice) and a discovery instance's
+   (src/core/ptz-discovery-kind.cpp), for ptz_get_api_info, once per driver
+   module, each of which has its own. What every device and a discovery
+   instance of each kind says, once the websocket binding's ptz_list_discovery
+   has made them, is what is registered, so a proc added in the code and not
+   here fails, and so does one here and not in the code;
  * real devices' state and config, whose keys have to be documented, and
    present, with the documented types;
  * the source, for the feature and trigger names, which the plugin doesn't
@@ -35,6 +34,7 @@ import re
 from pathlib import Path
 
 import pytest
+from obsws import ObsWebSocketError
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 DOC = REPO_ROOT / "docs" / "ptz-device-api.md"
@@ -121,16 +121,6 @@ def test_the_doc_has_each_handler_section():
         assert len(signatures) == len(set(signatures)), f"{scope} has one documented twice"
 
 
-def registered_api(log):
-    """{scope: {declaration, ...}} from the "[ptz-api]" lines in OBS's log, of
-    every device and module"""
-    registered = {}
-    for scope, signature in re.findall(r"\[ptz-api\] (\S+) (.+)$", log.read_text(errors="replace"),
-                                       flags=re.MULTILINE):
-        registered.setdefault(scope, set()).add(signature.strip())
-    return registered
-
-
 def discovery_instances(obs_world):
     """The websocket binding's discovery instances, one of each kind, which it
     makes the first time it is asked, registering their procs and signals"""
@@ -139,15 +129,26 @@ def discovery_instances(obs_world):
     return instances
 
 
-def test_the_doc_lists_what_the_plugin_registers(obs_world):
-    # Only a build with the harness logs what is registered
-    obs_world.need_harness()
-    discovery_instances(obs_world)
+def registered_api(obs_world):
+    """{scope: {declaration, ...}} of every module: what ptz_get_api_info says of each
+    device, and of each discovery instance. A device of another plugin that hasn't
+    ptz_get_api_info registered nothing of this plugin's."""
+    registered = {}
+    asked = [("device", d["device"]) for d in obs_world.ws.vendor("obs-ptz", "ptz_list_devices")["devices"]]
+    asked += [("discovery", i["device"]) for i in discovery_instances(obs_world)]
+    for kind, uuid in asked:
+        try:
+            info = obs_world.ws.vendor("obs-ptz", "ptz_get_api_info", {"device": uuid}).get("return")
+        except ObsWebSocketError:
+            continue
+        for scope, entries in ((f"{kind}-proc", info["procs"]), (f"{kind}-signal", info["signals"])):
+            registered.setdefault(scope, set()).update(entry["decl"] for entry in entries)
+    return registered
 
+
+def test_the_doc_lists_what_the_plugin_registers(obs_world):
     documented = {scope: set(signatures) for scope, signatures in documented_signatures().items()}
-    # The log is written as the instances register
-    obs_world.wait_for(lambda: {"discovery-proc", "discovery-signal"} <= set(registered_api(obs_world.obs_log())))
-    registered = registered_api(obs_world.obs_log())
+    registered = registered_api(obs_world)
 
     assert set(registered) == set(documented)
     for scope in documented:
