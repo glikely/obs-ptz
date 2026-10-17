@@ -51,9 +51,9 @@ runs:
         if (( ${+RUNNER_DEBUG} )) setopt XTRACE
 
         print ::group::Install gersemi
-        brew update
-        brew trust obsproject/tools
-        brew install --quiet obsproject/tools/gersemi
+        # The version local builds get from Homebrew, not the older
+        # obsproject/tools one: the two format some calls differently
+        pipx install --quiet gersemi==0.29.2
         print ::endgroup::
 
         print ::group::Run gersemi

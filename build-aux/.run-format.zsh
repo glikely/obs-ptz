@@ -93,9 +93,13 @@ invoke_formatter() {
       if (( ${+commands[gersemi]} )) {
         local gersemi_version=($(gersemi --version))
 
-        if ! is-at-least 0.12.0 ${gersemi_version[2]}; then
-          log_error "gersemi is not version 0.12.0 or above (found ${gersemi_version[2]}."
+        if ! is-at-least 0.29.2 ${gersemi_version[2]}; then
+          log_error "gersemi is not version 0.29.2 or above (found ${gersemi_version[2]})."
           exit 2
+        fi
+
+        if ! is-at-least ${gersemi_version[2]} 0.29.2; then
+          log_error "gersemi is more recent than version 0.29.2 (found ${gersemi_version[2]})."
         fi
       }
 
