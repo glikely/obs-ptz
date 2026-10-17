@@ -46,7 +46,10 @@ function(_check_deps_version version)
   return(PROPAGATE found CMAKE_PREFIX_PATH)
 endfunction()
 
-# _setup_sdl: Build the SDL library
+# _setup_sdl: Build the SDL library, and install it into ${sdl_prefix}: a
+# directory of its own for each platform and architecture, as macOS and
+# both Windows architectures can be built from the one checkout, and an
+# install of one in a shared directory would take the place of another's
 function(_setup_sdl)
   if(OS_WINDOWS)
     set(_cmake_config RelWithDebInfo)
@@ -70,8 +73,8 @@ function(_setup_sdl)
   message(STATUS "Configure ${label} (${arch})")
   execute_process(
     COMMAND
-      "${CMAKE_COMMAND}" -B build_${arch} -G Ninja "${_cmake_arch}" "-DCMAKE_INSTALL_PREFIX='${dependencies_dir}/sdl'"
-      "-DCMAKE_PREFIX_PATH='${dependencies_dir}/sdl" "--no-warn-unused-cli" "-DBUILD_SHARED_LIBS:BOOL=OFF"
+      "${CMAKE_COMMAND}" -B build_${arch} -G Ninja "${_cmake_arch}" "-DCMAKE_INSTALL_PREFIX='${sdl_prefix}'"
+      "-DCMAKE_PREFIX_PATH='${sdl_prefix}" "--no-warn-unused-cli" "-DBUILD_SHARED_LIBS:BOOL=OFF"
       "-DCMAKE_BUILD_TYPE=${_cmake_config}" "${_cmake_extra}" "-DSDL_AUDIO=OFF" "-DSDL_RENDER=OFF" "-DSDL_SENSOR=OFF"
       "-DSDL_POWER=OFF" "-DSDL_LOCALE=OFF" "-DSDL_MISC=OFF" "-DSDL_TEST=OFF" "-DSDL_VIDEO=${_sdl_video}"
       "-DSDL2_DISABLE_SDL2MAIN=ON"
@@ -270,8 +273,19 @@ function(_check_dependencies)
     elseif(dependency STREQUAL qt6)
       list(APPEND CMAKE_PREFIX_PATH "${dependencies_dir}/${destination}")
     elseif(dependency STREQUAL sdl)
+      set(sdl_prefix "${dependencies_dir}/sdl-${arch}")
       _setup_sdl()
-      list(APPEND CMAKE_PREFIX_PATH "${dependencies_dir}/sdl")
+      # A build directory configured before each had its own still has the shared
+      # one in its cached CMAKE_PREFIX_PATH, ahead of this, and its SDL2_DIR,
+      # which find_package() would go on using
+      list(REMOVE_ITEM CMAKE_PREFIX_PATH "${dependencies_dir}/sdl")
+      list(APPEND CMAKE_PREFIX_PATH "${sdl_prefix}")
+      if(DEFINED CACHE{SDL2_DIR})
+        string(FIND "${SDL2_DIR}" "${sdl_prefix}/" _sdl_dir_in_prefix)
+        if(NOT _sdl_dir_in_prefix EQUAL 0)
+          unset(SDL2_DIR CACHE)
+        endif()
+      endif()
     elseif(dependency STREQUAL obs-studio)
       set(_obs_version ${version})
       set(_obs_destination "${destination}")
