@@ -1,2 +1,2 @@
 pytest>=7
-websockets>=12
+websockets>=15

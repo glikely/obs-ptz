@@ -44,7 +44,13 @@ EVENTS_KEPT = 20000
 class Client:
     def __init__(self, url, password=None, timeout=10, event_subscriptions=0, keepalive=20):
         # keepalive: how often the connection is pinged, and how long an answer is waited for
-        self._ws = connect(url, open_timeout=timeout, legacy=True, ping_interval=keepalive, ping_timeout=keepalive)
+        options = dict(open_timeout=timeout, ping_interval=keepalive, ping_timeout=keepalive)
+        try:
+            self._ws = connect(url, legacy=True, **options)
+        except TypeError:
+            # websockets before 17 has no `legacy`: its connect() is the
+            # client already, and passes the argument on to the socket
+            self._ws = connect(url, **options)
         self._ids = itertools.count(1)
 
         hello = json.loads(self._ws.recv(timeout=timeout))
