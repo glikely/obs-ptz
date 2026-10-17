@@ -4,11 +4,12 @@
  *
  * SPDX-License-Identifier: GPL-2.0-or-later
  *
- * Drives UI-level integration tests against a live, running OBS
- * process from inside the plugin itself - see README.md for why this
- * has to run in-process rather than as an external test binary, how
- * commands reach it (obs-websocket, not a polled file - also in
- * README.md), and how to add a new test.
+ * Drives integration tests against a live, running OBS process from
+ * inside it: a plugin of its own, obs-ptz-ui-harness, which needs nothing
+ * of obs-ptz's but ptz.h, and finds devices as any controller of the PTZ
+ * API does. See README.md for why this has to run inside OBS rather than
+ * as an external test binary, how commands reach it (obs-websocket, on its
+ * own vendor), and how to add a new test.
  */
 #pragma once
 
@@ -20,7 +21,7 @@
 
 #include <obs.hpp>
 
-#include "ptz-websocket.hpp"
+#include "obs-websocket-api.h"
 
 class PTZUITestHarness : public QObject {
 	Q_OBJECT
@@ -36,19 +37,26 @@ public:
 	 * for the pattern - not directly. */
 	void registerTest(const QString &name, TestFn fn);
 
+	/* Registers a test function that is run on obs-websocket's own thread, in
+	 * the request, before it is answered, rather than queued for the main thread:
+	 * for one that touches no Qt object, and whose effect has to come before the
+	 * answer, as an event it emits does */
+	void registerInlineTest(const QString &name, TestFn fn);
+
 	/* Runs the registered test named `cmd` with `params`. Only call
 	 * already on the Qt GUI thread - see vendorRequestCallback()'s own
 	 * comment in the .cpp for why that matters. */
 	void dispatch(const QString &cmd, const QMap<QString, QString> &params);
 
 	/* obs_websocket_request_callback_function - passed to
-	 * obs_websocket_vendor_register_request() by ptz_load_ui_tests()
+	 * obs_websocket_vendor_register_request() by obs_module_post_load()
 	 * (a free function, hence public rather than a friend). Not meant
 	 * to be called any other way. */
 	static void vendorRequestCallback(obs_data_t *request_data, obs_data_t *response_data, void *priv_data);
 
 private:
 	QMap<QString, TestFn> tests;
+	QMap<QString, TestFn> inlineTests;
 };
 
 /* Whether a source is a device of the PTZ API, as a controller finds one: its
@@ -71,23 +79,9 @@ OBSSource ptzUITestParentSource(obs_source_t *device);
  * PTZ API version marker with a version the plugin can use */
 QStringList ptzUITestDiscoveryKinds();
 
-/* The "obs-ptz" obs-websocket vendor the harness's request is on, for a test
- * that emits an event as it. Null if there is no obs-websocket. */
+/* The harness's obs-websocket vendor, "obs-ptz-ui-harness", for a test that
+ * emits an event as it. Null if there is no obs-websocket. */
 obs_websocket_vendor ptzUITestVendor();
-
-/* Registers this plugin as an obs-websocket vendor ("obs-ptz", request
- * type "ui_test_run") if PTZ_UI_TEST_HARNESS=1 is set in the
- * environment; otherwise a no-op (including when obs-websocket itself
- * isn't loaded/running - obs_websocket_register_vendor() degrades
- * gracefully). Declared here but only ever called - and only ever
- * linked in at all - when the ENABLE_UI_TESTS CMake option is on.
- *
- * Must run from obs_module_post_load(), not obs_module_load():
- * obs-websocket-api.h's obs_websocket_register_vendor() requires it,
- * since module load order between plugins isn't otherwise guaranteed
- * and obs-websocket needs to have already finished its own
- * obs_module_load() first. See ptz.c. */
-extern "C" void ptz_load_ui_tests(void);
 
 /* Test registration hooks */
 void registerAppearanceRowSizingTest(PTZUITestHarness *harness);

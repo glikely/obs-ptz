@@ -155,6 +155,9 @@ DEVICE_IDS = {
 # device that has none a placeholder the migration makes, named for its id
 DEVICE_NAMES = {key: f"sim-{key}" for key in DEVICE_IDS}
 
+# The UI test harness's obs-websocket vendor (tests/ui-harness/)
+HARNESS_VENDOR = "obs-ptz-ui-harness"
+
 # What the UI driver names OBS's main window, the PTZ Controls dock, the PTZ
 # settings dialog, the dialog's state view, and the camera report dialog by
 OBS_MAIN = {"class": "OBSBasic"}
@@ -731,8 +734,8 @@ class World:
 
     def run_ui_test(self, cmd, connection=None, **params):
         """Dispatches a tests/ui-harness/ test by name (matching one of
-        its registerTest() calls) via the "obs-ptz" vendor's
-        "ui_test_run" request -- the same request scripts/
+        its registerTest() calls) via the harness's own vendor's
+        ("obs-ptz-ui-harness") "ui_test_run" request -- the same request scripts/
         test_preset_row_sizing.py uses for the appearance_row_sizing/
         measure_now tests. obs-websocket's vendorRequestCallback()
         (tests/ui-harness/ui-test-harness.cpp) only ever reads params as
@@ -748,14 +751,15 @@ class World:
         It is asked on the connection for requests, or on `connection`, for a
         test of what a connection does with what the request causes."""
         try:
-            return (connection or self.ws).vendor("obs-ptz", "ui_test_run",
+            return (connection or self.ws).vendor(HARNESS_VENDOR, "ui_test_run",
                                                   {"cmd": cmd, **{k: str(v) for k, v in params.items()}})
         except ObsWebSocketError as e:
-            # obs-websocket's ResourceNotFound: the plugin was built without
-            # the harness (-DENABLE_UI_TESTS=ON), as a release is. What needs
-            # no harness, the PTZ API over obs-websocket, is still tested.
+            # obs-websocket's ResourceNotFound: OBS hasn't the harness, a plugin
+            # of its own that only a build with -DENABLE_UI_TESTS=ON makes, as a
+            # release doesn't. What needs no harness, the PTZ API over
+            # obs-websocket, is still tested.
             if e.status.get("code") == OBS_NOT_FOUND:
-                pytest.skip("needs the UI test harness, which this build of the plugin has not")
+                pytest.skip("needs the UI test harness plugin, which OBS has not")
             raise
 
     def device_uuid(self, device):
@@ -773,7 +777,7 @@ class World:
         return ((time.monotonic() if at is None else at) - self._record_start) * 1000
 
     def need_harness(self):
-        """Skips the test if the plugin was built without the UI test harness,
+        """Skips the test if OBS hasn't the UI test harness plugin,
         for a test that needs something of the harness's before it asks it for
         anything: the source kinds it registers, say"""
         self.run_ui_test("nothing")
@@ -1943,7 +1947,7 @@ def first_run_leaks(obs_binary, tmp_path_factory):
               "encoders": [], "services": []}
     modules = obs_config_root(home) / "plugin_manager" / "modules.json"
     modules.parent.mkdir(parents=True, exist_ok=True)
-    modules.write_text(json.dumps([dict(module, module_name=name) for name in ("obs-ptz", "obs-ui-driver")]))
+    modules.write_text(json.dumps([dict(module, module_name=name) for name in ("obs-ptz", "obs-ptz-ui-harness", "obs-ui-driver")]))
 
     env = dict(os.environ)
     env["HOME"] = str(home)
@@ -1991,8 +1995,9 @@ def isolate_macos_obs(home: Path, env):
 
     - the plugin is not in this home's plugins/, where OBS now looks for it:
       PTZSIM_PLUGIN_BUNDLE is the obs-ptz.plugin to test, else the one
-      installed for the real user. PTZ_UI_DRIVER_BUNDLE, if it is set and
-      there, is the UI driver (tests/ui-driver/) to load with it;
+      installed for the real user. PTZ_UI_HARNESS_BUNDLE and
+      PTZ_UI_DRIVER_BUNDLE, if they are set and there, are the UI test harness
+      (tests/ui-harness/) and the UI driver (tests/ui-driver/) to load with it;
     - OBS opens its first-run wizard, a modal dialog, unless it has run before
       (user.ini's FirstRun), and another one asking for permissions it will
       never be given, unless it has shown that already (global.ini's
@@ -2011,9 +2016,10 @@ def isolate_macos_obs(home: Path, env):
     plugins = obs_config_root(home) / "plugins"
     plugins.mkdir(parents=True, exist_ok=True)
     (plugins / "obs-ptz.plugin").symlink_to(Path(bundle).resolve())
-    driver = os.environ.get("PTZ_UI_DRIVER_BUNDLE")
-    if driver and Path(driver).is_dir():
-        (plugins / "obs-ui-driver.plugin").symlink_to(Path(driver).resolve())
+    for variable, name in (("PTZ_UI_HARNESS_BUNDLE", "obs-ptz-ui-harness"), ("PTZ_UI_DRIVER_BUNDLE", "obs-ui-driver")):
+        test_plugin = os.environ.get(variable)
+        if test_plugin and Path(test_plugin).is_dir():
+            (plugins / f"{name}.plugin").symlink_to(Path(test_plugin).resolve())
 
     (obs_config_root(home) / "user.ini").write_text("[General]\nFirstRun=true\nLanguage=en-GB\n")
     with open(obs_config_root(home) / "global.ini", "a") as f:
@@ -2051,10 +2057,8 @@ def obs_world(request, tmp_path_factory, ptzsim_process, sony_ptzsim, birddog_pt
     env["OBS_WEBSOCKET_SERVER_ENABLE"] = "true"
     env["OBS_WEBSOCKET_SERVER_PORT"] = str(ws_port)
     env["OBS_WEBSOCKET_SERVER_PASSWORD"] = ws_password
-    # Activates tests/ui-harness/ (test_preset_import_export.py) when the
-    # plugin was built with -DENABLE_UI_TESTS=ON; a harmless no-op
-    # otherwise (ptz_load_ui_tests() is a stub in that case -- see
-    # src/ptz.h), so always setting it keeps this fixture usable either way.
+    # Activates the UI test harness (tests/ui-harness/), a plugin of its own,
+    # which is only there when the scripts that run this suite installed it
     env["PTZ_UI_TEST_HARNESS"] = "1"
     # And the UI driver (tests/ui-driver/), a plugin of its own, which is only
     # there when the scripts that run this suite installed it

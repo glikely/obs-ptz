@@ -46,8 +46,10 @@ VNC_PORT=5900
 VNC_PASSWORD="ptzdev"
 DATA_PATH="/usr/share/obs/obs-plugins/obs-ptz"
 PLUGIN_PATH="/usr/lib/aarch64-linux-gnu/obs-plugins/obs-ptz.so"
-# The UI driver (tests/ui-driver/), a plugin of its own that only a --ui-tests build has
+# The UI driver (tests/ui-driver/) and the UI test harness (tests/ui-harness/),
+# plugins of their own that only a --ui-tests build has
 DRIVER_PATH="/usr/lib/aarch64-linux-gnu/obs-plugins/obs-ui-driver.so"
+HARNESS_PATH="/usr/lib/aarch64-linux-gnu/obs-plugins/obs-ptz-ui-harness.so"
 
 ensure_shared_folder() {
 	if ! prlctl list -i "$VM" 2>/dev/null | grep -qF "$SHARE_NAME (+) path='$SRC_MAC'"; then
@@ -86,8 +88,8 @@ cmd_build() {
 	run_vm_script build root <<EOF
 set -e
 cmake -S "$SRC_VM" -B "$BUILD_VM" -G Ninja -DCMAKE_BUILD_TYPE=RelWithDebInfo $cmake_extra
-# The UI driver is only there if this build makes it: install copies it when it is
-rm -f "$BUILD_VM/obs-ui-driver.so"
+# The test plugins are only there if this build makes them: install copies them when they are
+rm -f "$BUILD_VM/obs-ui-driver.so" "$BUILD_VM/obs-ptz-ui-harness.so"
 cmake --build "$BUILD_VM"
 echo BUILD_OK
 EOF
@@ -103,12 +105,16 @@ cp "$BUILD_VM/obs-ptz.so" "$PLUGIN_PATH"
 chmod 755 "$PLUGIN_PATH"
 # A real copy, as OBS skips a symlinked plugin; and none left from an earlier
 # build that had it
-if [ -f "$BUILD_VM/obs-ui-driver.so" ]; then
-	cp "$BUILD_VM/obs-ui-driver.so" "$DRIVER_PATH"
-	chmod 755 "$DRIVER_PATH"
-else
-	rm -f "$DRIVER_PATH"
-fi
+for test_plugin in "obs-ui-driver.so:$DRIVER_PATH" "obs-ptz-ui-harness.so:$HARNESS_PATH"; do
+	built="$BUILD_VM/\${test_plugin%%:*}"
+	installed="\${test_plugin#*:}"
+	if [ -f "\$built" ]; then
+		cp "\$built" "\$installed"
+		chmod 755 "\$installed"
+	else
+		rm -f "\$installed"
+	fi
+done
 # The plugin's strings come from its data dir, not the .so, and the
 # packaged copy there goes stale: tests then see raw keys, not text.
 mkdir -p "$DATA_PATH/locale"
@@ -120,7 +126,7 @@ EOF
 cmd_restore() {
 	run_vm_script restore root <<EOF
 set -e
-rm -f "$DRIVER_PATH"
+rm -f "$DRIVER_PATH" "$HARNESS_PATH"
 if [ -f "$PLUGIN_PATH.orig-backup" ]; then
 	cp "$PLUGIN_PATH.orig-backup" "$PLUGIN_PATH"
 	echo RESTORE_OK

@@ -5,12 +5,14 @@
  * SPDX-License-Identifier: GPL-2.0-or-later
  */
 #include "ui-test-harness.hpp"
-#include "ptz-websocket.hpp"
 #include "ptz.h"
 
 #include <obs-module.h>
 #include <QCoreApplication>
 #include <QMetaObject>
+
+OBS_DECLARE_MODULE();
+OBS_MODULE_AUTHOR("Grant Likely <grant.likely@secretlab.ca>");
 
 namespace {
 PTZUITestHarness *g_harness = nullptr;
@@ -103,6 +105,11 @@ void PTZUITestHarness::registerTest(const QString &name, TestFn fn)
 	tests[name] = std::move(fn);
 }
 
+void PTZUITestHarness::registerInlineTest(const QString &name, TestFn fn)
+{
+	inlineTests[name] = std::move(fn);
+}
+
 void PTZUITestHarness::dispatch(const QString &cmd, const QMap<QString, QString> &params)
 {
 	auto it = tests.constFind(cmd);
@@ -140,29 +147,37 @@ void PTZUITestHarness::vendorRequestCallback(obs_data_t *request_data, obs_data_
 		return;
 	}
 
-	QMetaObject::invokeMethod(
-		qApp, [harness, cmd, params]() { harness->dispatch(cmd, params); }, Qt::QueuedConnection);
+	auto inlineTest = harness->inlineTests.constFind(cmd);
+	if (inlineTest != harness->inlineTests.constEnd())
+		(*inlineTest)(params);
+	else
+		QMetaObject::invokeMethod(
+			qApp, [harness, cmd, params]() { harness->dispatch(cmd, params); }, Qt::QueuedConnection);
 
 	obs_data_set_bool(response_data, "accepted", true);
 }
 
-void ptz_load_ui_tests(void)
+bool obs_module_load(void)
+{
+	return true;
+}
+
+void obs_module_post_load(void)
 {
 	if (!qEnvironmentVariableIsSet("PTZ_UI_TEST_HARNESS"))
 		return;
 
-	/* Intentionally never deleted: lives for the plugin's process
-	 * lifetime, same as PTZControls itself (ptz-controls.cpp). */
+	/* Intentionally never deleted: lives for the process's lifetime */
 	g_harness = new PTZUITestHarness();
 
-	/* The PTZ API's binding to obs-websocket has the vendor, which can be
-	 * registered only once: the harness's request is one more on it */
-	g_vendor = ptz_websocket_vendor();
+	/* obs-websocket has to have loaded first, which it has by post_load */
+	g_vendor = obs_websocket_register_vendor("obs-ptz-ui-harness");
 	if (!g_vendor) {
 		blog(LOG_INFO, "[ptz-ui-test] obs-websocket not available, harness inactive");
 		return;
 	}
 	obs_websocket_vendor_register_request(g_vendor, "ui_test_run", &PTZUITestHarness::vendorRequestCallback,
 					      g_harness);
-	blog(LOG_INFO, "[ptz-ui-test] harness active (obs-websocket vendor 'obs-ptz', request 'ui_test_run')");
+	blog(LOG_INFO,
+	     "[ptz-ui-test] harness active (obs-websocket vendor 'obs-ptz-ui-harness', request 'ui_test_run')");
 }

@@ -1,18 +1,22 @@
 """Covers what the tests' own obs-websocket client (obsws.py) does with events,
-and that an event a plugin emits as the "obs-ptz" vendor reaches a client that
-subscribed to obs-websocket's Vendors events, and no other, which is how the
-PTZ API's signals are to reach one.
+and that an event a plugin emits as its vendor reaches a client that subscribed
+to obs-websocket's Vendors events, and no other, which is how the PTZ API's
+signals are to reach one.
 
 Copyright 2026 Grant Likely <grant.likely@secretlab.ca>
 SPDX-License-Identifier: GPL-2.0-or-later
 
 Driven through tests/ui-harness/vendor-event-test.cpp's "emit_vendor_event"
-test, which emits the event it is asked for.
+test, which emits the event it is asked for as the harness's own vendor, in
+the request, before it is answered.
 """
 
 
+from conftest import HARNESS_VENDOR
+
+
 def is_probe(name):
-    return lambda d: d.get("vendorName") == "obs-ptz" and d.get("eventType") == name
+    return lambda d: d.get("vendorName") == HARNESS_VENDOR and d.get("eventType") == name
 
 
 def test_vendor_event_reaches_a_vendors_subscriber(obs_world):

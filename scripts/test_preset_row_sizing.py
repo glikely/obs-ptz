@@ -23,7 +23,8 @@ transport already were; this script's own job is just knowing each
 platform's OBS binary location, config directory, and how to ask a
 running OBS to quit cleanly. Requires:
   - A real OBS install whose obs-ptz.plugin/.so/.dll is this checkout's
-    dev build, built with -DENABLE_UI_TESTS=ON - rebuild that target
+    dev build, with the UI test harness plugin (obs-ptz-ui-harness, which a
+    build with -DENABLE_UI_TESTS=ON makes) installed next to it - rebuild them
     before running this script if src/controller/ptz-controls.cpp or
     tests/ui-harness/* changed. Defaults to the platform's normal
     install location (find_obs_binary()); set PTZ_TEST_OBS_BIN to an
@@ -286,7 +287,7 @@ def run_measure_now(ws_port, ws_password, timeout=30):
     deadline = time.time() + timeout
     while True:
         result = obs_ws_client.call_vendor_request(
-            "127.0.0.1", ws_port, ws_password, "obs-ptz", "ui_test_run", {"cmd": "measure_now"}, timeout=10
+            "127.0.0.1", ws_port, ws_password, "obs-ptz-ui-harness", "ui_test_run", {"cmd": "measure_now"}, timeout=10
         )
         if result.get("requestStatus", {}).get("code") != REQUEST_STATUS_NOT_READY:
             return result
@@ -306,7 +307,7 @@ def run_ui_test(ws_port, ws_password, density, fontscale, timeout=30):
             "127.0.0.1",
             ws_port,
             ws_password,
-            "obs-ptz",
+            "obs-ptz-ui-harness",
             "ui_test_run",
             {"cmd": "appearance_row_sizing", "density": str(density), "fontscale": str(fontscale)},
             timeout=10,
@@ -505,7 +506,7 @@ def main():
             tail.wait_for(r"\[ptz-ui-test\] harness active", timeout=15)
         except TestError:
             print(
-                f"error: harness didn't report active in {logfile} - was obs-ptz built with -DENABLE_UI_TESTS=ON?",
+                f"error: harness didn't report active in {logfile} - is obs-ptz-ui-harness, built with -DENABLE_UI_TESTS=ON, installed?",
                 file=sys.stderr,
             )
             return 1

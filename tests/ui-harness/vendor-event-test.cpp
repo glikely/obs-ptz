@@ -44,6 +44,8 @@ void runHoldMainThreadTest(const QMap<QString, QString> &params)
  */
 void registerVendorEventTest(PTZUITestHarness *harness)
 {
-	harness->registerTest(QStringLiteral("emit_vendor_event"), &runEmitVendorEventTest);
+	/* In the request, so that the event goes before the answer, and a test that
+	 * asks for two gets them in the order it asked */
+	harness->registerInlineTest(QStringLiteral("emit_vendor_event"), &runEmitVendorEventTest);
 	harness->registerTest(QStringLiteral("hold_main_thread"), &runHoldMainThreadTest);
 }

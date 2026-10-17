@@ -6,8 +6,9 @@
 # OBS on macOS finds that directory through a system call that ignores
 # $HOME, so conftest.py sets CFFIXED_USER_HOME, which it does honor. The
 # plugin is not in the temporary home, so it is symlinked in from
-# PTZSIM_PLUGIN_BUNDLE (set here to this checkout's build), and the UI driver
-# (tests/ui-driver/) from PTZ_UI_DRIVER_BUNDLE, if the build has it.
+# PTZSIM_PLUGIN_BUNDLE (set here to this checkout's build), and the UI test
+# harness (tests/ui-harness/) and the UI driver (tests/ui-driver/) from
+# PTZ_UI_HARNESS_BUNDLE and PTZ_UI_DRIVER_BUNDLE, if the build has them.
 #
 # Usage: scripts/run-macos-integration-tests.sh [pytest args...]
 #
@@ -50,6 +51,7 @@ fi
 echo "==> Running the integration tests"
 cd "$REPO_ROOT"
 PTZSIM_PLUGIN_BUNDLE="$REPO_ROOT/build_macos/rundir/RelWithDebInfo/obs-ptz.plugin" \
+    PTZ_UI_HARNESS_BUNDLE="$REPO_ROOT/build_macos/rundir/RelWithDebInfo/obs-ptz-ui-harness.plugin" \
     PTZ_UI_DRIVER_BUNDLE="$REPO_ROOT/build_macos/rundir/RelWithDebInfo/obs-ui-driver.plugin" \
     PTZSIM_OBS_BINARY="$OBS_BINARY" \
     "$VENV/bin/pytest" tests/obs-integration "$@"

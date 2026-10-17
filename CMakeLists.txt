@@ -407,23 +407,12 @@ if(ENABLE_PROTOCOL_TRACE)
 endif()
 option(
   ENABLE_UI_TESTS
-  "Link in the UI test harness (tests/ui-harness), driven over obs-websocket; inert unless PTZ_UI_TEST_HARNESS=1 is also set at runtime. See tests/ui-harness/README.md."
+  "Build the plugins the integration tests load next to obs-ptz: the UI test harness (tests/ui-harness) and the UI driver (tests/ui-driver), both driven over obs-websocket and inert unless PTZ_UI_TEST_HARNESS=1 and OBS_UI_DRIVER=1 are set at runtime. obs-ptz itself is the same either way. See tests/ui-harness/README.md."
   OFF
 )
 if(ENABLE_UI_TESTS)
-  add_compile_definitions(ENABLE_UI_TESTS)
-  target_sources(
-    ${CMAKE_PROJECT_NAME}
-    PRIVATE
-      tests/ui-harness/ui-test-harness.cpp
-      tests/ui-harness/ui-test-harness.hpp
-      tests/ui-harness/appearance-row-sizing-test.cpp
-      tests/ui-harness/device-settings-test.cpp
-      tests/ui-harness/discovery-test.cpp
-      tests/ui-harness/third-party-device-test.cpp
-      tests/ui-harness/vendor-event-test.cpp
-  )
-  # A plugin of its own, for tests to drive OBS's widgets with
+  # Plugins of their own: one to drive tests from inside OBS, one to drive OBS's widgets
+  add_subdirectory(tests/ui-harness)
   add_subdirectory(tests/ui-driver)
 endif()
 
