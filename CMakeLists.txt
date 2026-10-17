@@ -420,7 +420,6 @@ if(ENABLE_UI_TESTS)
       tests/ui-harness/appearance-row-sizing-test.cpp
       tests/ui-harness/device-settings-test.cpp
       tests/ui-harness/discovery-test.cpp
-      tests/ui-harness/device-backup-test.cpp
       tests/ui-harness/third-party-device-test.cpp
       tests/ui-harness/vendor-event-test.cpp
   )

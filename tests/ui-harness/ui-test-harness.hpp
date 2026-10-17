@@ -76,6 +76,5 @@ extern "C" void ptz_load_ui_tests(void);
 void registerAppearanceRowSizingTest(PTZUITestHarness *harness);
 void registerDeviceSettingsTest(PTZUITestHarness *harness);
 void registerDiscoveryTest(PTZUITestHarness *harness);
-void registerDeviceBackupTest(PTZUITestHarness *harness);
 void registerThirdPartyDeviceTest(PTZUITestHarness *harness);
 void registerVendorEventTest(PTZUITestHarness *harness);

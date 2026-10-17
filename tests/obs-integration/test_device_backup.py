@@ -10,7 +10,8 @@ plugin's own, offers the backup of a device that was on a source of the same
 name. Its Remove removes a filter's device by removing the filter.
 
 The dialog is driven through the UI driver, which answers the add dialog and the remove
-question as a user would (World.add_device() and World.remove_device() in conftest.py). Filters are
+question as a user would (World.add_device() and World.remove_device() in conftest.py).
+A backup file of its own is given to the controller as it starts, by restarting OBS. Filters are
 pointed at a port nothing listens on: none of this needs a camera.
 """
 
@@ -304,8 +305,9 @@ def test_entry_without_kind_still_restores(obs_world, sources, tmp_path):
         "presets": PRESETS,
         "backup_time": 1700000000,
     }]}
-    (obs_world.config_dir / "device-backups.json").write_text(json.dumps(old))
-    obs_world.run_ui_test("reload_device_backups")
+    # The controller reads its backups when it starts, and writes them as it backs up
+    # the devices OBS takes down as it quits: the file is written once OBS has quit
+    obs_world.restart_obs(between=lambda: (obs_world.config_dir / "device-backups.json").write_text(json.dumps(old)))
     assert [b["name"] for b in backups(obs_world, tmp_path / "backups.json")] == ["backup-cam-legacy"]
 
     sources.add("backup-cam-legacy")
