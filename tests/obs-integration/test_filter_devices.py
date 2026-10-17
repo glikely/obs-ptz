@@ -155,6 +155,12 @@ def unreachable_cameras(obs_world):
 
 def make_program(world, scene):
     world.ws.call("SetCurrentProgramScene", {"sceneName": scene})
+    world.scenes_settled(program=scene)
+
+
+def make_preview(world, scene):
+    world.ws.call("SetCurrentPreviewScene", {"sceneName": scene})
+    world.scenes_settled(preview=scene)
 
 
 def test_filter_kind_is_registered(obs_world):
@@ -272,6 +278,9 @@ def test_filter_device_is_live_when_its_source_is(obs_world, cameras, tmp_path):
 def set_studio_mode(world, enabled):
     world.ws.call("SetStudioModeEnabled", {"studioModeEnabled": enabled})
     world.wait_for(lambda: world.ws.call("GetStudioModeEnabled")["studioModeEnabled"] == enabled, timeout=5)
+    # and the main thread has done what it does with the news, as the dock putting
+    # its cameras' locks back to whether they are live, before a test locks one
+    world.ui.available()
 
 
 @pytest.fixture
@@ -349,7 +358,9 @@ def test_user_can_unlock_a_live_device_until_the_scene_changes(obs_world, camera
     cameras.add_source(scene, "filter-cam-unlock")
     make_program(obs_world, scene)
     cameras.add_filter("filter-cam-unlock")
-    device = obs_world.wait_for_device_by_name("filter-cam-unlock", out, lambda r: r["found"] and r["live"], timeout=10)["uuid"]
+    # Live, and locked for being live, which the dock does once it has seen it live
+    device = obs_world.wait_for_device_by_name("filter-cam-unlock", out,
+                                               lambda r: r["found"] and r["live"] and r["locked"], timeout=10)["uuid"]
 
     obs_world.set_device_locked(device, False)
     result = obs_world.wait_for_device_source(device, out, lambda r: not r["locked"], timeout=10)
@@ -371,7 +382,9 @@ def test_user_lock_is_dropped_when_the_preview_changes(obs_world, cameras, studi
     cameras.add_filter("filter-cam-prelock")
     device = obs_world.wait_for_device_by_name("filter-cam-prelock", out, lambda r: r["found"] and r["bound"])["uuid"]
     make_program(obs_world, empty_scene)
-    obs_world.ws.call("SetCurrentPreviewScene", {"sceneName": empty_scene})
+    # The dock puts every lock back to whether the camera is live as it hears of a
+    # change of scene, which it does after obs-websocket has answered
+    make_preview(obs_world, empty_scene)
 
     obs_world.set_device_locked(device, True)
     obs_world.wait_for_device_source(device, out, lambda r: r["locked"], timeout=10)

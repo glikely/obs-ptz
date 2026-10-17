@@ -934,6 +934,26 @@ class World:
         assert uuid is not None, f"no device {device}"
         self.ui.select(OBS_MAIN, PTZ_DOCK, "deviceList", value=uuid, role="uuid")
 
+    def scenes_settled(self, program=None, preview=None):
+        """Waits until OBS has made `program` its program scene, and `preview` its preview
+        scene, which it does on its main thread after obs-websocket has answered the
+        request to; and then for the main thread to have done what it does with the news,
+        such as the dock putting its cameras' locks back to whether they are live, by
+        having the UI driver ask it for something"""
+        def settled():
+            ok = program is None or self.ws.call("GetCurrentProgramScene")["currentProgramSceneName"] == program
+            ok = ok and (preview is None or
+                         self.ws.call("GetCurrentPreviewScene")["currentPreviewSceneName"] == preview)
+            # OBS has the new program scene as its transition to it starts, a fade on a
+            # new profile, and says so only once it has finished: obs-websocket's cursor
+            # is 1 when no transition is running
+            return ok and self.ws.call("GetCurrentSceneTransitionCursor")["transitionCursor"] >= 1.0
+
+        self.wait_for(settled)
+        # The driver's ping is answered on the main thread; without the driver, that
+        # part of the wait isn't had
+        self.ui.available()
+
     def save_dock(self):
         """Has OBS save the scene collection, and so the dock's settings, as it does
         when a scene changes: its SaveProject()"""
