@@ -80,5 +80,7 @@ def test_nothing_is_left_allocated_when_obs_quits(obs_world, power_ptzsim, obs_f
     obs_world.wait_for(lambda: power_ptzsim.power() is True, timeout=30)
     reported = re.findall(r"Number of memory leaks: (\d+)", log.read_text(errors="replace"))
     assert reported, f"OBS did not say how much it leaked: see {log}"
-    assert reported == [str(obs_first_run_leaks)], \
+    # No more than a first run leaks: once an earlier test has restarted OBS, the one
+    # that quits here is no first run, and can leak less
+    assert len(reported) == 1 and int(reported[0]) <= obs_first_run_leaks, \
         f"OBS leaked on exit, more than the {obs_first_run_leaks} it leaks without the plugin: see {log}"
