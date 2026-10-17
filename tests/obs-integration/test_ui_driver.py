@@ -352,6 +352,44 @@ def test_setdata_says_when_there_is_no_such_row(obs_world):
     assert raised.value.code == "not_found"
 
 
+def test_rows_gives_where_each_row_is(obs_world, studio_mode_off, program_scene):
+    obs_world.need_ui_driver()
+    obs_world.create_scene()
+    rows, _, _ = obs_world.ui.rows(MAIN, "scenes", roles=["rect"])
+    assert all(len(r["rect"]) == 4 and r["rect"][3] > 0 for r in rows)
+    # one under another, in a list
+    tops = [r["rect"][1] for r in rows]
+    assert tops == sorted(tops)
+
+
+def test_moverow_moves_a_row_as_the_model_does(obs_world, studio_mode_off, program_scene):
+    """The Scenes list moves a row with its model's moveRow(), and moves it back"""
+    obs_world.need_ui_driver()
+    first, second = obs_world.create_scene(), obs_world.create_scene()
+
+    def names():
+        return [r["display"] for r in obs_world.ui.rows(MAIN, "scenes")[0]]
+
+    before = names()
+    # the lower of the two, moved to above the other
+    upper, lower = sorted((before.index(first), before.index(second)))
+    assert obs_world.ui.move_row(MAIN, "scenes", frm=lower, to=upper) is True
+    after = names()
+    assert after[upper] == before[lower] and after[upper + 1] == before[upper]
+    # a row moved to before itself stays where it is
+    assert obs_world.ui.move_row(MAIN, "scenes", frm=upper, to=upper) is False
+    # and back: to before the row after the one it was at
+    assert obs_world.ui.move_row(MAIN, "scenes", frm=upper, to=lower + 1) is True
+    assert names() == before
+
+
+def test_moverow_says_when_it_is_not_a_view(obs_world):
+    obs_world.need_ui_driver()
+    with pytest.raises(UiDriverError) as raised:
+        obs_world.ui.move_row(MAIN, frm=0, to=1)
+    assert raised.value.code == "bad_request"
+
+
 def test_key_is_typed_into_a_widget(obs_world):
     """Escape closes a dialog"""
     obs_world.need_ui_driver()

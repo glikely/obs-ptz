@@ -17,7 +17,9 @@
 #include <QJsonArray>
 #include <QJsonDocument>
 #include <QMetaMethod>
+#include <QPoint>
 #include <QPointer>
+#include <QRect>
 
 namespace {
 
@@ -76,6 +78,13 @@ int roleNamed(const QAbstractItemModel *model, const QJsonValue &name)
 /* `json` as a value of `type`, or an invalid QVariant if it can't be one */
 QVariant converted(const QJsonValue &json, QMetaType type)
 {
+	/* A point is [x, y], as a rect of rows gives one corner of it */
+	if (type.id() == QMetaType::QPoint) {
+		const QJsonArray xy = json.toArray();
+		if (xy.size() != 2 || !xy[0].isDouble() || !xy[1].isDouble())
+			return QVariant();
+		return QPoint(xy[0].toInt(), xy[1].toInt());
+	}
 	QVariant value = json.toVariant();
 	if (!value.isValid())
 		return QVariant();
@@ -344,10 +353,13 @@ QJsonObject rowsRequest(const QJsonObject &request)
 		return QJsonObject{{"rows", QJsonArray()}, {"current", -1}, {"selected", QJsonArray()}};
 
 	constexpr int FlagsRole = -2;
+	constexpr int RectRole = -3;
 	QList<QPair<QString, int>> roles;
 	const QJsonArray asked = request["roles"].isArray() ? request["roles"].toArray() : QJsonArray{"display"};
 	for (const QJsonValue name : asked) {
-		int role = name.toString() == "flags" ? FlagsRole : roleNamed(model, name);
+		int role = name.toString() == "flags"          ? FlagsRole
+			   : name.toString() == "rect" && view ? RectRole
+							       : roleNamed(model, name);
 		if (role == -1)
 			return error("bad_value", QString("the model has no role %1").arg(name.toVariant().toString()));
 		roles.append({name.toVariant().toString(), role});
@@ -359,8 +371,14 @@ QJsonObject rowsRequest(const QJsonObject &request)
 		QModelIndex index = model->index(row, column, root);
 		QJsonObject values;
 		for (const auto &[name, role] : roles)
-			values[name] = role == FlagsRole ? QJsonValue(int(model->flags(index)))
-							 : toJson(index.data(role));
+			if (role == FlagsRole) {
+				values[name] = int(model->flags(index));
+			} else if (role == RectRole) {
+				const QRect r = view->visualRect(index);
+				values[name] = QJsonArray{r.x(), r.y(), r.width(), r.height()};
+			} else {
+				values[name] = toJson(index.data(role));
+			}
 		rows.append(values);
 	}
 	QJsonArray selected;
@@ -410,6 +428,27 @@ QJsonObject setDataRequest(const QJsonObject &request)
 	return QJsonObject();
 }
 
+/* Moves a row of a view's model to before another, as a view's own moving of a
+ * row does: the model's moveRow(), whose destination is the row to go before */
+QJsonObject moveRowRequest(const QJsonObject &request)
+{
+	if (!request.contains("from") || !request.contains("to"))
+		return error("bad_request", "a row is moved \"from\" a row \"to\" before another");
+	QJsonObject failed;
+	QObject *object = one(request, &failed);
+	if (!object)
+		return failed;
+	if (isSecret(object))
+		return secret(object, "its rows are not moved");
+	auto view = qobject_cast<QAbstractItemView *>(object);
+	if (!view || !view->model())
+		return error("bad_request",
+			     QString("a %1 is not a view of a model").arg(object->metaObject()->className()));
+	QModelIndex root = view->rootIndex();
+	bool moved = view->model()->moveRow(root, request["from"].toInt(), root, request["to"].toInt());
+	return QJsonObject{{"moved", moved}};
+}
+
 /* Presses and releases a key, as typed into a widget: the first key of a key
  * sequence's text ("Escape", "Return", "Ctrl+A") */
 QJsonObject keyRequest(const QJsonObject &request)
@@ -444,6 +483,7 @@ void addActionRequests()
 	addRequest("select", selectRequest);
 	addRequest("rows", rowsRequest);
 	addRequest("setdata", setDataRequest);
+	addRequest("moverow", moveRowRequest);
 	addRequest("key", keyRequest);
 	addRequest("watch", watchRequest);
 	addRequest("count", countRequest);

@@ -100,6 +100,11 @@ class UiDriver:
         or a click on a control in the row does"""
         self.call("setdata", path=list(path), row=row, value=value, role=role, column=column)
 
+    def move_row(self, *path, frm, to):
+        """Moves row `frm` of the view `path` names to before row `to`, as the view's
+        own moving of a row does (its model's moveRow()); whether it moved"""
+        return self.call("moverow", path=list(path), **{"from": frm, "to": to})["moved"]
+
     def key(self, *path, key):
         """Presses and releases `key` ("Escape", "Return", "Ctrl+A") in the widget `path` names"""
         self.call("key", path=list(path), key=key)
