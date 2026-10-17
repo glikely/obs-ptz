@@ -14,8 +14,10 @@ public:
 	CircularListView(QWidget *parent = nullptr) : QListView(parent) {};
 
 	/* What dropping the current row at `pos` (in the viewport) does, apart from
-	 * the drag: moves it there, with the model's moveRow(). False if it did not move */
-	bool dropCurrentRowAt(const QPoint &pos);
+	 * the drag: moves it there, with the model's moveRow(). False if it did not move.
+	 * Invokable, as a real drag can't be made without a pointer: the UI driver
+	 * (tests/ui-driver/) calls it for the drop of one. */
+	Q_INVOKABLE bool dropCurrentRowAt(const QPoint &pos);
 
 	/* Rows can be dragged to reorder them, which a list of presets has */
 	void enableRowDragging();
