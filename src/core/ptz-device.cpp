@@ -9,7 +9,10 @@
 #include <algorithm>
 #include <functional>
 #include <vector>
+#include <QByteArray>
 #include <QCoreApplication>
+#include <QFile>
+#include <QFileInfo>
 #include <QHash>
 #include <QSet>
 #include <QJsonDocument>
@@ -197,6 +200,8 @@ PTZDevice::PTZDevice(OBSData config, obs_source_t *filter) : QObject()
 		PTZ_THREAD_DEVICE, PTZ_ACCESS_READ);
 
 	addProc("ptr ptz_preset_get_list()", ptz_ph_lambda(preset_get_list), this, PTZ_THREAD_DEVICE, PTZ_ACCESS_READ);
+	addProc("void ptz_preset_get_thumbnail(string id, out string mime, out string data)",
+		ptz_ph_lambda(preset_get_thumbnail), this, PTZ_THREAD_DEVICE, PTZ_ACCESS_READ);
 	addProc("string ptz_preset_create(string name, string store)", ptz_ph_lambda(preset_create), this);
 	addProc("void ptz_preset_delete(string id)", ptz_ph_lambda(preset_delete), this);
 	addProc("void ptz_preset_update(string id, ptr changes)", ptz_ph_lambda(preset_update), this);
@@ -809,6 +814,32 @@ void PTZDevice::preset_get_list(calldata_t *cd) const
 	obs_data_set_bool(info, "names_on_camera", camera.namesOnCamera);
 	obs_data_set_bool(info, "enumerable", camera.enumerable);
 	calldata_set_ptr(cd, "return", info);
+}
+
+/**
+ * Returns the image of a preset's thumbnail, for a caller that can't read the
+ * file the list names: its type as "mime" and the file, base64 encoded, as
+ * "data". Both are "" for a preset with no thumbnail or none that can be read.
+ */
+void PTZDevice::preset_get_thumbnail(calldata_t *cd) const
+{
+	if (wrongThread("ptz_preset_get_thumbnail"))
+		return;
+	const char *id = nullptr;
+	calldata_get_string(cd, "id", &id);
+	QString mime;
+	QByteArray data;
+	int index = id ? presetIndex(QString::fromUtf8(id)) : -1;
+	if (index >= 0 && !m_presets.at(index).thumbnail.isEmpty()) {
+		QString path = ptz_thumbnail_path(m_presets.at(index).thumbnail);
+		QFile file(path);
+		if (file.open(QIODevice::ReadOnly)) {
+			data = file.readAll().toBase64();
+			mime = QFileInfo(path).suffix().toLower() == "png" ? "image/png" : "image/jpeg";
+		}
+	}
+	calldata_set_string(cd, "mime", QT_TO_UTF8(mime));
+	calldata_set_string(cd, "data", data.constData());
 }
 
 void PTZDevice::preset_create(calldata_t *cd)

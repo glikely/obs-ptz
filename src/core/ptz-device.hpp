@@ -448,6 +448,7 @@ protected slots:
 	void request_state(calldata_t *cd);
 	void get_camera_report(calldata_t *cd) const;
 	void preset_get_list(calldata_t *cd) const;
+	void preset_get_thumbnail(calldata_t *cd) const;
 	void preset_create(calldata_t *cd);
 	void preset_delete(calldata_t *cd);
 	void preset_update(calldata_t *cd);
