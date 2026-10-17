@@ -36,7 +36,7 @@ changes in the camera.
 
 ## API version
 
-This is version **0.4** of the PTZ API.
+This is version **0.5** of the PTZ API.
 The API is in a pre-release state, published as an RFC.
 It is subject to change at any time.
 Please provide feedback on the [API discussion
@@ -601,6 +601,18 @@ Announces `ptz_preset_recalled` when the camera has arrived, unless a newer
 recall or a move comes first.
 Needs the `presets` feature.
 Any thread.
+
+### `void ptz_preset_get_thumbnail(string id, out string mime, out string data)`
+
+Returns the image of the thumbnail of the preset `id`, for a caller that can't
+read the file whose path `ptz_preset_get_list` gives, as one outside the
+machine OBS runs on can't: its type as `mime`, `image/jpeg` or `image/png`, and
+the file's bytes, base64 encoded, as `data`.
+Both are "" if the preset has no thumbnail, or the device hasn't the preset.
+A thumbnail is small, a few kilobytes, and a caller asks for it again when
+`ptz_preset_changed` says `thumbnail` changed.
+Device thread.
+Access: read.
 
 ### `void ptz_preset_capture_thumbnail(string id, bool if_arrived)`
 
