@@ -5,6 +5,10 @@ argument, as well as one that has.
 Copyright 2026 Grant Likely <grant.likely@secretlab.ca>
 SPDX-License-Identifier: GPL-2.0-or-later
 
+That a request which finds the connection closed, as one made after OBS's
+obs-websocket server was turned off does, says so as the connection closing
+and with the request, as one that is waiting when it closes already does.
+
 websockets 17 added `legacy`, to keep `connect()` returning the connection when
 it is not used as a context manager. Before it, `connect()` passes an argument
 it does not know on to socket.create_connection, which refuses it, so a client
@@ -51,4 +55,21 @@ def test_client_connects_with_a_websockets_that_has_no_legacy_argument(monkeypat
         threading.Thread(target=server.serve_forever, daemon=True).start()
         client = obsws.Client(f"ws://127.0.0.1:{port}", timeout=5)
         client.close()
+        server.shutdown()
+
+
+def test_a_request_made_after_the_server_has_gone_says_the_connection_closed():
+    def handler(connection):
+        connection.send(json.dumps({"op": 0, "d": {"rpcVersion": 1}}))
+        connection.recv()  # Identify
+        connection.send(json.dumps({"op": 2, "d": {"negotiatedRpcVersion": 1}}))
+        connection.close(1001, "Server stopping")
+
+    with serve(handler, "127.0.0.1", 0) as server:
+        port = server.socket.getsockname()[1]
+        threading.Thread(target=server.serve_forever, daemon=True).start()
+        client = obsws.Client(f"ws://127.0.0.1:{port}", timeout=5)
+        client._reader.join(5)  # the connection has closed, and the client has noticed
+        with pytest.raises(ConnectionError, match="GetVersion: the connection closed"):
+            client.call("GetVersion", timeout=3)
         server.shutdown()

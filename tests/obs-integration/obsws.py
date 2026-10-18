@@ -16,6 +16,7 @@ import json
 import threading
 import time
 
+from websockets.exceptions import ConnectionClosed
 from websockets.sync.client import connect
 
 OP_HELLO = 0
@@ -104,7 +105,10 @@ class Client:
         payload = {"op": OP_REQUEST, "d": {"requestType": request_type, "requestId": request_id}}
         if request_data is not None:
             payload["d"]["requestData"] = request_data
-        self._ws.send(json.dumps(payload))
+        try:
+            self._ws.send(json.dumps(payload))
+        except ConnectionClosed as e:
+            raise ConnectionError(f"{request_type}: the connection closed: {e!r}") from e
 
         with self._changed:
             answered = self._changed.wait_for(lambda: request_id in self._responses or self._closed, timeout=timeout)
