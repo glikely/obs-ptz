@@ -22,6 +22,7 @@ timed out waiting for a handshake that was never tried.
 
 import json
 import threading
+import time
 
 import obsws
 import pytest
@@ -109,3 +110,12 @@ def test_the_wait_for_obs_tries_again_when_the_connection_is_closed_on_it():
         server.shutdown()
 
     assert len(attempts) == 3
+
+
+def test_the_wait_for_obs_ends_at_once_when_obs_has_exited():
+    from conftest import connect_when_ready, free_port
+
+    started = time.monotonic()
+    with pytest.raises(RuntimeError, match="handshake"):
+        connect_when_ready(free_port(), None, alive=lambda: False)
+    assert time.monotonic() - started < 5

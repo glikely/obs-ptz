@@ -33,6 +33,7 @@ from pathlib import Path
 
 import pytest
 from obsws import EVENT_VENDORS, Client, ObsWebSocketError
+from obsws import connect_when_ready as connect_client_when_ready
 from uidriver import UiDriver, UiDriverError
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
@@ -1894,24 +1895,14 @@ def windows_obs_log(home: Path):
     return logs[-1] if logs else None
 
 
-def connect_when_ready(ws_port, ws_password):
+def connect_when_ready(ws_port, ws_password, alive=lambda: True):
     """A connection to the OBS listening on ws_port, once its frontend has
-    loaded"""
-    deadline = time.time() + 30
-    last_error = None
-    ws = None
-    while time.time() < deadline:
-        try:
-            ws = Client(f"ws://127.0.0.1:{ws_port}", password=ws_password)
-            break
-        except Exception as e:
-            # OBS accepts the connection while it is still starting, and may
-            # close it before it says Hello: websockets raises its own
-            # exception for that, which is not an OSError
-            last_error = e
-            time.sleep(1)
-    if ws is None:
-        raise RuntimeError(f"could not complete obs-websocket handshake: {last_error}")
+    loaded. `alive` says whether that OBS is still running, so that a wait
+    for one that has gone ends at once, not when it runs out."""
+    try:
+        ws = connect_client_when_ready(f"ws://127.0.0.1:{ws_port}", ws_password, timeout=30, alive=alive)
+    except (TimeoutError, ObsWebSocketError) as e:
+        raise RuntimeError(f"could not complete obs-websocket handshake: {e}") from e
 
     # The obs-websocket server thread starts (and completes the
     # handshake above) before OBS's frontend has finished loading its
@@ -1972,7 +1963,7 @@ def first_run_leaks(obs_binary, tmp_path_factory):
             wait_for_port("127.0.0.1", ws_port, timeout=90)
             if IS_WINDOWS:
                 log = windows_obs_log(home) or log
-            connect_when_ready(ws_port, ws_password).close()
+            connect_when_ready(ws_port, ws_password, alive=lambda: proc.poll() is None).close()
         finally:
             exited = stop_process_group(proc, timeout=10, sig=signal.SIGINT)
     finally:
@@ -2101,7 +2092,7 @@ def obs_world(request, tmp_path_factory, ptzsim_process, sony_ptzsim, birddog_pt
         wait_for_port("127.0.0.1", ws_port, timeout=90)
         if IS_WINDOWS:
             running["log"] = windows_obs_log(home) or running["log"]
-        running["ws"] = ws = connect_when_ready(ws_port, ws_password)
+        running["ws"] = ws = connect_when_ready(ws_port, ws_password, alive=lambda: running["proc"].poll() is None)
 
         # obs-websocket's SetCurrentProgramScene doesn't wait for the
         # switch to finish -- with the default (animated) transition, a
