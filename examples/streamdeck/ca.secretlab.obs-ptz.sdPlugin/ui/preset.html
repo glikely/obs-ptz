@@ -1,0 +1,32 @@
+<!doctype html>
+<html>
+	<head lang="en">
+		<title>Preset</title>
+		<meta charset="utf-8" />
+		<script src="https://sdpi-components.dev/releases/v4/sdpi-components.js"></script>
+	</head>
+
+	<body>
+		<sdpi-item label="Camera">
+			<sdpi-select setting="device" datasource="getCameras" hot-reload loading="Asking OBS..." default="selected"></sdpi-select>
+		</sdpi-item>
+		<!-- hot-reload: the plugin sends the list again when the camera changes. On the
+		     selected camera it is a list of positions in the dock's list, each named
+		     for the preset the camera selected now has there -->
+		<sdpi-item label="Preset">
+			<sdpi-select setting="preset" datasource="getPresets" hot-reload loading="Asking OBS..."></sdpi-select>
+		</sdpi-item>
+
+		<sdpi-heading>OBS</sdpi-heading>
+		<!-- Global: one connection, shared by every key -->
+		<sdpi-item label="Host">
+			<sdpi-textfield setting="host" global default="127.0.0.1"></sdpi-textfield>
+		</sdpi-item>
+		<sdpi-item label="Port">
+			<sdpi-textfield setting="port" global default="4455" pattern="\d+"></sdpi-textfield>
+		</sdpi-item>
+		<sdpi-item label="Password">
+			<sdpi-password setting="password" global></sdpi-password>
+		</sdpi-item>
+	</body>
+</html>

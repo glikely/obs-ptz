@@ -1,0 +1,37 @@
+<!doctype html>
+<html>
+	<head lang="en">
+		<title>Lens</title>
+		<meta charset="utf-8" />
+		<script src="https://sdpi-components.dev/releases/v4/sdpi-components.js"></script>
+	</head>
+
+	<body>
+		<sdpi-item label="Camera">
+			<sdpi-select setting="device" datasource="getCameras" hot-reload loading="Asking OBS..." default="selected"></sdpi-select>
+		</sdpi-item>
+		<sdpi-item label="Axis">
+			<sdpi-select setting="axis" default="zoom">
+				<option value="pan">Pan</option>
+				<option value="tilt">Tilt</option>
+				<option value="zoom">Zoom</option>
+				<option value="focus">Focus (push toggles autofocus)</option>
+			</sdpi-select>
+		</sdpi-item>
+		<sdpi-item label="Step">
+			<sdpi-range setting="step" min="1" max="10" step="1" default="2" showlabels></sdpi-range>
+		</sdpi-item>
+
+		<sdpi-heading>OBS</sdpi-heading>
+		<!-- Global: one connection, shared by every key -->
+		<sdpi-item label="Host">
+			<sdpi-textfield setting="host" global default="127.0.0.1"></sdpi-textfield>
+		</sdpi-item>
+		<sdpi-item label="Port">
+			<sdpi-textfield setting="port" global default="4455" pattern="\d+"></sdpi-textfield>
+		</sdpi-item>
+		<sdpi-item label="Password">
+			<sdpi-password setting="password" global></sdpi-password>
+		</sdpi-item>
+	</body>
+</html>

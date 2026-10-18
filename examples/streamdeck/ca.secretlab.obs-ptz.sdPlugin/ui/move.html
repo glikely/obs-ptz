@@ -1,0 +1,51 @@
+<!doctype html>
+<html>
+	<head lang="en">
+		<title>Move</title>
+		<meta charset="utf-8" />
+		<script src="https://sdpi-components.dev/releases/v4/sdpi-components.js"></script>
+	</head>
+
+	<body>
+		<sdpi-item label="Camera">
+			<sdpi-select setting="device" datasource="getCameras" hot-reload loading="Asking OBS..." default="selected"></sdpi-select>
+		</sdpi-item>
+		<sdpi-item label="Direction">
+			<sdpi-select setting="direction" default="left">
+				<optgroup label="Pan and tilt">
+					<option value="left">Left</option>
+					<option value="right">Right</option>
+					<option value="up">Up</option>
+					<option value="down">Down</option>
+					<option value="up-left">Up and left</option>
+					<option value="up-right">Up and right</option>
+					<option value="down-left">Down and left</option>
+					<option value="down-right">Down and right</option>
+				</optgroup>
+				<optgroup label="Zoom">
+					<option value="zoom-in">Zoom in</option>
+					<option value="zoom-out">Zoom out</option>
+				</optgroup>
+				<optgroup label="Focus">
+					<option value="focus-near">Focus near (in)</option>
+					<option value="focus-far">Focus far (out)</option>
+				</optgroup>
+			</sdpi-select>
+		</sdpi-item>
+		<sdpi-item label="Speed">
+			<sdpi-range setting="speed" min="5" max="100" step="5" default="50" showlabels></sdpi-range>
+		</sdpi-item>
+
+		<sdpi-heading>OBS</sdpi-heading>
+		<!-- Global: one connection, shared by every key -->
+		<sdpi-item label="Host">
+			<sdpi-textfield setting="host" global default="127.0.0.1"></sdpi-textfield>
+		</sdpi-item>
+		<sdpi-item label="Port">
+			<sdpi-textfield setting="port" global default="4455" pattern="\d+"></sdpi-textfield>
+		</sdpi-item>
+		<sdpi-item label="Password">
+			<sdpi-password setting="password" global></sdpi-password>
+		</sdpi-item>
+	</body>
+</html>
