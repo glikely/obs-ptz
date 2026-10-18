@@ -2,10 +2,13 @@
 
 Just enough of the protocol (the Hello/Identify handshake with its SHA256
 challenge, Request/RequestResponse, and Events) to drive OBS from a test:
-create a scene, add a ptz_action_source to it, call a vendor's request, and
-wait for an event. Not a general-purpose client -- see
+create scenes and sources, call a request, and wait for an event. Not a
+general-purpose client -- see
 https://github.com/obsproject/obs-websocket/blob/master/docs/generated/protocol.md
 for the protocol it implements a slice of.
+
+Copyright 2026 Grant Likely <grant.likely@secretlab.ca>
+SPDX-License-Identifier: GPL-2.0-or-later
 """
 
 import base64
@@ -30,6 +33,8 @@ OP_REQUEST_RESPONSE = 7
 # which a client that asks for no more than General is not sent.
 EVENT_GENERAL = 1 << 0
 EVENT_VENDORS = 1 << 9
+# The audio levels of the inputs, which are sent all the time once asked for
+EVENT_INPUT_VOLUME_METERS = 1 << 16
 
 
 class ObsWebSocketError(RuntimeError):
