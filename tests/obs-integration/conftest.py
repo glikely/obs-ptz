@@ -1904,7 +1904,10 @@ def connect_when_ready(ws_port, ws_password):
         try:
             ws = Client(f"ws://127.0.0.1:{ws_port}", password=ws_password)
             break
-        except (OSError, ObsWebSocketError) as e:
+        except Exception as e:
+            # OBS accepts the connection while it is still starting, and may
+            # close it before it says Hello: websockets raises its own
+            # exception for that, which is not an OSError
             last_error = e
             time.sleep(1)
     if ws is None:
