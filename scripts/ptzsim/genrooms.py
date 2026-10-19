@@ -1,6 +1,6 @@
 """Rooms ptzsim draws itself: no download, no licence, the same for everyone.
 A room is built from boxes, cylinders and ring sectors into a .glb in the
-cache, which --scene (three.js) reads like any other glTF.
+cache, which --scene (three.js) and --ndi (pygfx) both read like any other glTF.
 They are plain: flat colours, no textures. Units are metres, y up, the floor
 at y=0, and pan 0 looks along -Z. Each has coloured markers on its walls so
 that pan, tilt, zoom and focus can be judged.

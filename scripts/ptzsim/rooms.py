@@ -21,6 +21,7 @@ ROOMS = {
     "sponza": {
         "title": "Sponza atrium (Khronos glTF sample; Cryengine Limited License)",
         "scene": "sponza",
+        "credit": "Sponza: Khronos glTF Sample Assets, from Crytek's Sponza, Cryengine Limited License",
         # Units are metres, y up; pan 0 is -Z, so a heading of 90 looks along +X.
         # The hall runs along X, about 9 m across, with galleries at 4.6 m.
         "cameras": {
@@ -33,6 +34,7 @@ ROOMS = {
     "hallway": {
         "title": "Space ship hallway (by yeeyeeman, Creative Commons Attribution on Sketchfab; via three.js examples)",
         "scene": THREE_MODELS + "space_ship_hallway.glb",
+        "credit": "Space Ship Hallway by yeeyeeman, CC BY, https://sketchfab.com/3d-models/space-ship-hallway-",
         # A corridor 8 m wide and 29 m long, along Z, its floor at y=-3
         "cameras": {
             "mid": {"position": (20.1, 0.5, -11), "heading": 0},
@@ -92,7 +94,7 @@ def pick(name, camera=None):
     result = {"title": room["title"], "camera": camera, "backdrop": room.get("backdrop"),
               "scene": room.get("scene"), "position": chosen.get("position"),
               "heading": chosen.get("heading", 0.0), "view": chosen.get("view"),
-              "exposure": room.get("exposure", 1)}
+              "exposure": room.get("exposure", 1), "credit": room.get("credit")}
     return result
 
 

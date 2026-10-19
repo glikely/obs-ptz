@@ -195,6 +195,20 @@ def parse_args():
     ap.add_argument("--camera-pos", default=None, metavar="X,Y,Z",
                      help="where the camera stands in the --scene, in its units (default: "
                           "the middle of it, a third of the way up)")
+    ap.add_argument("--ndi", action="store_true",
+                     help="send the picture as an NDI source: ptzsim draws the --scene, --backdrop or "
+                          "--room itself, with pygfx, with depth of field for focus and the VISCA "
+                          "picture settings (white balance, colour gain, brightness) applied, and "
+                          "OBS lighting the source's tally lights the simulated lamp. The web view "
+                          "shows the same frames. pip install pygfx gltflib imageio pillow numpy cyndilib")
+    ap.add_argument("--ndi-name", default="ptzsim", metavar="NAME",
+                     help="what the --ndi source is called (default ptzsim)")
+    ap.add_argument("--ndi-size", default="1280x720", metavar="WxH")
+    ap.add_argument("--ndi-fps", type=float, default=15.0, help="frames a second (default 15)")
+    ap.add_argument("--credit", default=None, metavar="TEXT",
+                     help="the credit line drawn in the corner of the --ndi picture (default: the room's "
+                          "or backdrop's, such as a Poly Haven HDRI's author and licence)")
+    ap.add_argument("--no-credit", action="store_true", help="draw no credit line on the --ndi picture")
     ap.add_argument("--blender", default=None, metavar="FILE|builtin", nargs="?", const="builtin",
                      help="have Blender render the web view: a .blend file, or the built-in test "
                           "room (the default for a bare --blender). Blender follows the camera, "
@@ -244,11 +258,12 @@ def parse_args():
         print(rooms.describe())
         sys.exit(0)
     args.initial_view = None
+    args.room_credit = None
     if args.room:
         if args.backdrop or args.scene:
             ap.error("--room sets the backdrop or scene itself: don't also give --backdrop or --scene")
-        if not args.web_port:
-            ap.error("--room is for the web view: drop --no-web or --web-port 0")
+        if not args.web_port and not args.ndi:
+            ap.error("--room is for the web view or --ndi: drop --no-web or --web-port 0")
         try:
             room = rooms.pick(args.room, args.camera)
         except rooms.RoomError as e:
@@ -260,6 +275,7 @@ def parse_args():
             args.heading = room.get("heading", 0.0)
         args.initial_view = room.get("view")
         args.exposure = room["exposure"]
+        args.room_credit = room.get("credit")
         print(f"[room] {room['title']}, camera '{room['camera']}'")
     elif args.camera:
         ap.error("--camera is for a --room")
@@ -269,14 +285,18 @@ def parse_args():
     args.local_only = ipaddress.ip_address(args.advertise).is_loopback
     if args.sony_discovery_name and args.local_only:
         ap.error("--sony-discovery-name is answered on the network: give --host a LAN address, or 0.0.0.0")
-    if (args.backdrop or args.scene) and not args.web_port:
-        ap.error("--backdrop and --scene are for the web view: drop --no-web or --web-port 0")
+    if (args.backdrop or args.scene) and not args.web_port and not args.ndi:
+        ap.error("--backdrop and --scene are for the web view or --ndi: drop --no-web or --web-port 0")
     if args.blender and (args.backdrop or args.scene or args.room):
         ap.error("--blender draws the picture itself: don't also give --backdrop, --scene or --room")
     if args.blender and not args.web_port:
         ap.error("--blender is for the web view: drop --no-web or --web-port 0")
     if args.blender and args.blender != "builtin" and not os.path.isfile(args.blender):
         ap.error(f"--blender: no file {args.blender}")
+    if args.ndi and not (args.backdrop or args.scene):
+        ap.error("--ndi draws a room: give --scene, --backdrop or --room")
+    if args.ndi and args.blender:
+        ap.error("--ndi and --blender both draw the picture: use one")
     if args.backdrop and args.scene:
         ap.error("--backdrop and --scene both set what the camera sees: use one")
     if args.camera_pos:
@@ -290,6 +310,12 @@ def parse_args():
 
 def main():
     args = parse_args()
+    if args.ndi:    # before anything is downloaded or listened on
+        from . import pygfxview
+        try:
+            pygfxview.check_requirements()
+        except pygfxview.PygfxError as e:
+            sys.exit(f"[ndi] {e}")
     if sys.platform == 'win32':
         # Timers, and the asyncio clock, tick every 16ms by default: coarser than
         # the delays the simulated cameras are made of
@@ -378,23 +404,32 @@ def main():
 
     web = None
     renderer = None
-    if args.web_port:
-        picture = None
+    ndi = None
+    picture = panorama = scene_file = None
+    if args.web_port or args.ndi:
         if args.backdrop:
             try:
-                picture = backdrop.resolve(args.backdrop, args.backdrop_res, args.backdrop_cache)
+                resolved = backdrop.resolve(args.backdrop, args.backdrop_res, args.backdrop_cache)
             except backdrop.BackdropError as e:
                 sys.exit(f"[backdrop] {e}")
-        scene = None
-        if args.scene:
-            try:
-                directory, entry = scene_module.resolve(args.scene, args.scene_cache)
+            if args.ndi:
+                panorama = resolved
+            else:
+                picture = resolved
+    scene = None
+    if args.scene and (args.web_port or args.ndi):
+        try:
+            directory, entry = scene_module.resolve(args.scene, args.scene_cache)
+            if args.ndi:
+                scene_file = os.path.join(directory, entry)
+            else:
                 scene = {"dir": directory, "entry": entry, "camera_pos": args.camera_pos,
                          "exposure": getattr(args, "exposure", 1),
                          "vendor": scene_module.ensure_three(args.scene_cache)}
-            except backdrop.BackdropError as e:
-                sys.exit(f"[scene] {e}")
-        frames = blenderview.FrameStore() if args.blender else None
+        except backdrop.BackdropError as e:
+            sys.exit(f"[scene] {e}")
+    if args.web_port:
+        frames = blenderview.FrameStore() if (args.blender or args.ndi) else None
         web = WebViewServer(state, args.host, args.web_port, picture, scene, args.heading,
                             advertise=args.advertise, frames=frames)
         try:
@@ -417,6 +452,23 @@ def main():
                 sys.exit(f"[blender] {e}")
             renderer.start()
 
+    if args.ndi:
+        from . import ndi as ndi_module, pygfxview
+        credit = None if args.no_credit else (args.credit or args.room_credit
+                                              or (backdrop.credit_of(panorama) if panorama else None))
+        try:
+            width, height = (int(v) for v in args.ndi_size.lower().split("x"))
+            sinks = [pygfxview.jpeg_sink(frames)] if web and frames else []
+            ndi = ndi_module.NdiSender(args.ndi_name, width, height, args.ndi_fps, state)
+            sinks.append(ndi)
+            renderer = pygfxview.PygfxRenderer(
+                state, scene_file, heading=args.heading, camera_pos=args.camera_pos,
+                size=args.ndi_size, fps=args.ndi_fps, exposure=getattr(args, "exposure", 1), sinks=sinks,
+                panorama=panorama, credit=credit)
+        except (pygfxview.PygfxError, ndi_module.NdiError) as e:
+            sys.exit(f"[ndi] {e}")
+        renderer.start()
+
     def shutdown(*_):
         print("[sim] shutting down")
         stop_event.set()
@@ -424,6 +476,8 @@ def main():
             debug_http.stop()
         if renderer:
             renderer.stop()
+        if ndi:
+            ndi.stop()
         if web:
             web.stop()
         for backend in backends:
@@ -437,7 +491,9 @@ def main():
         async def watch_renderer():
             while renderer.poll() is None:
                 await asyncio.sleep(1)
-            print(f"[blender] stopped with code {renderer.poll()}; see {renderer.log_path}")
+            name = "ndi" if args.ndi else "blender"
+            detail = "" if args.ndi else f"; see {renderer.log_path}"
+            print(f"[{name}] stopped with code {renderer.poll()}{detail}")
         loop.create_task(watch_renderer())
 
     try:

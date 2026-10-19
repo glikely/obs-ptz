@@ -110,6 +110,15 @@ def _polyhaven(key, resolution, cache_dir):
     return path
 
 
+def credit_of(path):
+    """The credit line recorded beside a downloaded Poly Haven HDRI, or None"""
+    try:
+        with open(path + ".json") as f:
+            return json.load(f).get("credit")
+    except (OSError, ValueError):
+        return None
+
+
 def resolve(spec, resolution="4k", cache_dir=None):
     """The path of a local file holding the picture `spec` names"""
     cache_dir = cache_dir or default_cache_dir()

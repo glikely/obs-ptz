@@ -141,6 +141,46 @@ extra cost, with `--blender-samples` setting its quality:
 The degree lines aren't drawn over Blender's picture, and `--blender` can't be
 combined with `--backdrop`, `--scene` or `--room`.
 
+### NDI output (experimental)
+
+`--ndi` sends the picture as an NDI source, which OBS's NDI source
+(DistroAV) can show, so the Media Source path gets exercised as well as the
+Browser Source. ptzsim draws the picture itself with [pygfx](https://pygfx.org/)
+(wgpu: Metal, Vulkan or D3D12; no window, no Blender, no browser): about 20 ms
+a frame at 1280x720 on an Apple-silicon Mac. It takes what the web view does:
+a `--scene` (glTF), a `--backdrop` (a panorama, drawn on the inside of a sphere)
+or a `--room`.
+
+Pan, tilt and zoom move the camera as in the web view, focus is a depth-of-field
+pass (a panorama is one distance away, so focus blurs all of it at once), and the
+VISCA picture settings show in a colour pass: white balance (the Auto, Indoor and
+Outdoor modes and manual R/B gain), colour gain, brightness and exposure
+compensation, and the negative and black-and-white effects. Tally shows as a
+border, standby as black, and OBS putting the source on program or preview lights
+the simulated red or green lamp. The web view shows the same frames.
+
+It needs Python packages the rest of ptzsim doesn't. A system Python often won't
+let `pip` install into it, so use a virtual environment, and run ptzsim with its Python:
+
+```
+python3 -m venv ~/ptzsim-venv
+~/ptzsim-venv/bin/pip install pygfx gltflib imageio pillow numpy cyndilib
+~/ptzsim-venv/bin/python scripts/ptzsim --room chapel --ndi
+~/ptzsim-venv/bin/python scripts/ptzsim --scene sponza --ndi --ndi-name sponza-cam --ndi-size 1920x1080
+```
+
+If any are missing, ptzsim says which and stops before it downloads or listens on anything.
+
+`--ndi-name` is what the source is called (default `ptzsim`: OBS lists it as
+`HOSTNAME (ptzsim)`), `--ndi-fps` the frame rate (the picture is only redrawn when
+something changed, and the last frame is resent between). The pygfx picture is
+plainly lit, with no shadows, so it won't look quite like the three.js view.
+
+A line of credit is drawn in the bottom-left corner of the picture: a Poly Haven
+panorama's name, author and licence, or a room's own. `--credit TEXT` says
+something else, and `--no-credit` leaves it off. Check a licence before you share
+a picture that has it off.
+
 ### Ready-made rooms
 
 `--room NAME` is a backdrop or 3D scene with cameras standing in it, so you
