@@ -38,6 +38,13 @@ You can also move the camera from the view: right-click the Browser Source
 in OBS and choose **Interact**, then drag to pan and tilt (the view follows
 the pointer, so the camera moves the other way), scroll to zoom, and
 double-click to send it home. Every protocol sees the new position.
+A control pad appears at the bottom of the page while the pointer is over it:
+hold a button to pan, tilt, zoom or focus (several at once work), a slider sets
+the speed, and Home sends the camera home. It drives the camera as a joystick does,
+so it reads back over every protocol and moves at the `--move-time` pace. A
+Browser Source has no pointer, so the pad never shows in OBS; `?controls=0` (or
+`?hud=0`) keeps it off the page for good. The page's `POST /drive`, `/stop` and
+`/home` do the same from a script.
 It needs OBS's browser source (CEF), and it isn't a video stream, so it
 doesn't exercise OBS's Media Source path.
 

@@ -76,8 +76,11 @@ class WebHandler(BaseHTTPRequestHandler):
 
     def do_POST(self):
         """The page holding the camera: POST /move {"pan", "tilt", "zoom", "focus"}
-        (any of them, normalized as in PTZState) puts it there now, and
-        POST /home sends it home. The renderer posts its frames to /frame."""
+        (any of them, normalized as in PTZState) puts it there now; POST /drive
+        {"pan_speed", "tilt_speed", "zoom_speed", "focus_speed"} (any of them,
+        -1..1) drives it, as a joystick or a VISCA drive command does, until
+        POST /stop; POST /home sends it home. The renderer posts its frames
+        to /frame."""
         path = self.path.split("?", 1)[0]
         length = int(self.headers.get("Content-Length") or 0)
         if path == "/frame":
@@ -95,6 +98,18 @@ class WebHandler(BaseHTTPRequestHandler):
             if path == "/move":
                 self.state.jump_to(*(float(body[k]) if k in body else None
                                      for k in ("pan", "tilt", "zoom", "focus")))
+            elif path == "/drive":
+                snap = self.state.snapshot()
+                speed = {k: float(body.get(k, getattr(snap, k))) for k in
+                         ("pan_speed", "tilt_speed", "zoom_speed", "focus_speed")}
+                if "pan_speed" in body or "tilt_speed" in body:
+                    self.state.set_pt_speed(speed["pan_speed"], speed["tilt_speed"])
+                if "zoom_speed" in body:
+                    self.state.set_zoom_speed(speed["zoom_speed"])
+                if "focus_speed" in body:
+                    self.state.set_focus_speed(speed["focus_speed"])
+            elif path == "/stop":
+                self.state.stop(pan_tilt=True, zoom=True, focus=True)
             elif path == "/home":
                 self.state.goto_home()
             else:
