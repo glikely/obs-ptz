@@ -165,7 +165,7 @@ let `pip` install into it, so use a virtual environment, and run ptzsim with its
 ```
 python3 -m venv ~/ptzsim-venv
 ~/ptzsim-venv/bin/pip install pygfx gltflib imageio pillow numpy cyndilib
-~/ptzsim-venv/bin/python scripts/ptzsim --room chapel --ndi
+~/ptzsim-venv/bin/python scripts/ptzsim --room sanctuary --ndi
 ~/ptzsim-venv/bin/python scripts/ptzsim --scene sponza --ndi --ndi-name sponza-cam --ndi-size 1920x1080
 ```
 
@@ -199,6 +199,20 @@ python3 scripts/ptzsim --room sponza --camera east-end
 | `chapel` | `pews`, `platform`, `windows` |
 | `church` | `platform`, `aisle` |
 | `gallery` | `hall`, `doorway` |
+| `sanctuary` | `nave`, `chancel`, `gallery` |
+| `lecture-hall` | `audience`, `piano-side` |
+| `auditorium` | `stage`, `stalls-left`, `stalls-right` |
+| `arena` | `centre`, `stands-left`, `stands-right` |
+| `stadium` | `pitch`, `west-stand`, `east-stand` |
+| `sanctuary-3d` (built by ptzsim) | `pulpit`, `rear`, `side-pew` |
+| `lecture-hall-3d` (built by ptzsim) | `lectern`, `back-row`, `side` |
+| `arena-3d` (built by ptzsim) | `centre`, `floor-edge`, `upper-deck` |
+
+The `-3d` rooms are built by ptzsim itself (`genrooms.py`): plain flat-coloured
+geometry, nothing downloaded and no licence to check, so everyone gets the same
+room, and a camera can stand anywhere in them (`--scene gen:arena` with
+`--camera-pos`). They work with the web view's three.js and with `--ndi`. The others
+are panoramas from Poly Haven (CC0), downloaded once like any `--backdrop`.
 
 Run one simulator per camera, each on its own `--web-port` and protocol
 ports, to get a multi-camera set in the same room. A panorama is one spot,

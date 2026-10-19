@@ -77,6 +77,81 @@ ROOMS = {
             "doorway": {"heading": 170},
         },
     },
+    # Panoramas of the three kinds of room a camera is wanted in, from Poly Haven (CC0):
+    # a sanctuary, a lecture hall and an auditorium, an arena and a stadium
+    "sanctuary": {
+        "title": "Sanctuary (Poly Haven graaff_reinet_groote_kerk, CC0)",
+        "backdrop": "graaff_reinet_groote_kerk",
+        "cameras": {
+            "nave": {"heading": 35},
+            "chancel": {"heading": -150},
+            "gallery": {"heading": 100},
+        },
+    },
+    "lecture-hall": {
+        "title": "Lecture hall (Poly Haven school_hall, CC0)",
+        "backdrop": "school_hall",
+        "cameras": {
+            "audience": {"heading": 80},
+            "piano-side": {"heading": 165},
+        },
+    },
+    "auditorium": {
+        "title": "Auditorium (Poly Haven theater_02, CC0)",
+        "backdrop": "theater_02",
+        "cameras": {
+            "stage": {"heading": 0},
+            "stalls-left": {"heading": -150},
+            "stalls-right": {"heading": 150},
+        },
+    },
+    "arena": {
+        "title": "Arena (Poly Haven circus_arena, CC0)",
+        "backdrop": "circus_arena",
+        "cameras": {
+            "centre": {"heading": 0},
+            "stands-left": {"heading": -115},
+            "stands-right": {"heading": 115},
+        },
+    },
+    "stadium": {
+        "title": "Stadium (Poly Haven stadium_01, CC0)",
+        "backdrop": "stadium_01",
+        "cameras": {
+            "pitch": {"heading": 0},
+            "west-stand": {"heading": -80},
+            "east-stand": {"heading": 85},
+        },
+    },
+    # Rooms ptzsim builds itself (genrooms.py), which unlike a panorama a camera can stand
+    # in different places in: nothing is downloaded
+    "sanctuary-3d": {
+        "title": "Sanctuary, a church nave built by ptzsim: chancel, pews, stained glass",
+        "scene": "gen:sanctuary",
+        "cameras": {
+            "pulpit": {"position": (0, 2.3, -11.5), "heading": 180},
+            "rear": {"position": (0, 1.7, 15), "heading": 0},
+            "side-pew": {"position": (-4.8, 1.3, 3), "heading": 90},
+        },
+    },
+    "lecture-hall-3d": {
+        "title": "Lecture hall built by ptzsim: stage, whiteboard, ten rows of seats",
+        "scene": "gen:lecture-hall",
+        "cameras": {
+            "lectern": {"position": (0, 1.8, -5.5), "heading": 180},
+            "back-row": {"position": (0, 5.1, 13.4), "heading": 0},
+            "side": {"position": (-9.4, 3.2, 4), "heading": 90},
+        },
+    },
+    "arena-3d": {
+        "title": "Arena built by ptzsim: a court in a bowl of stands, with a scoreboard",
+        "scene": "gen:arena",
+        "cameras": {
+            "centre": {"position": (0, 1.7, 0), "heading": 0},
+            "floor-edge": {"position": (0, 1.7, 15), "heading": 180},
+            "upper-deck": {"position": (0, 13.2, 40), "heading": 0},
+        },
+    },
 }
 
 
