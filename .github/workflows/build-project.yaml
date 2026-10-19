@@ -255,6 +255,7 @@ jobs:
   windows-build:
     name: Build for Windows 🪟
     strategy:
+      fail-fast: false
       matrix:
         include:
           - target: x64
