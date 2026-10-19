@@ -207,7 +207,7 @@ below), or the simulator itself under "Detected devices":
 | VISCA (over IP/UDP)| host = the machine running `ptzsim`, port 52381 |
 | VISCA (serial)     | the printed `/tmp/ptzsim-visca-serial` path (or `--visca-serial-path`) |
 | Pelco              | the printed `/tmp/ptzsim-pelco-serial` path (or `--pelco-serial-path`), device ID matching `--pelco-address` (default 1) |
-| ONVIF (experimental) | with a network `--host`, detected as `obs-ptz-sim SIM-PTZ-1`, with its host and port; credentials aren't enforced, `admin`/`admin` works |
+| ONVIF | with a network `--host`, detected as `obs-ptz-sim SIM-PTZ-1`, with its host and port; credentials aren't enforced, `admin`/`admin` works |
 | VISCA (over IP/UDP), detected | with `--sony-discovery-name NAME`, detected as `NAME SIM-PTZ-1`, at host port 52381 (so leave `--visca-udp-port` at its default) |
 
 The VISCA-serial and Pelco entries require `ENABLE_SERIALPORT=ON` at

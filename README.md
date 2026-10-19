@@ -30,7 +30,7 @@ Features:
   - VISCA (RS232, RS422, UDP and TCP)
   - Pelco-P
   - Pelco-D
-  - ONVIF (experimental)
+  - ONVIF
   - USB Cameras (UVC)
 - Pan, tilt and zoom within any source with the Soft PTZ Control filter, with no camera needed
 

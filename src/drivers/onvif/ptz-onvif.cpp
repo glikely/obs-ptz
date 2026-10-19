@@ -3,10 +3,6 @@
  * Copyright 2022 Jonatã Bolzan Loss <jonata@jonata.org>
  *
  * SPDX-License-Identifier: GPL-2.0-or-later
- *
- * ONVIF support is experimental and needs rework to be non-blocking before it
- * can be enabled generically. This code is disabled by default. To use it
- * requires manually adding an ONVIF entry to the config file.
  */
 
 #include <qt-wrappers.hpp>
@@ -936,8 +932,7 @@ obs_properties_t *PTZOnvif::get_obs_properties()
 	obs_properties_t *ptz_props = PTZDevice::get_obs_properties();
 	obs_property_t *p = obs_properties_get(ptz_props, "interface");
 	obs_properties_t *config = obs_property_group_content(p);
-	obs_property_set_description(p, obs_module_text("PTZ.ONVIF.Name"));
-	obs_properties_add_text(config, "warning", obs_module_text("PTZ.ONVIF.Warning"), OBS_TEXT_INFO);
+	obs_property_set_description(p, obs_module_text("PTZ.ONVIF.Protocol"));
 	obs_properties_add_text(config, "host", obs_module_text("PTZ.Device.Hostname"), OBS_TEXT_DEFAULT);
 	obs_properties_add_int(config, "port", obs_module_text("PTZ.Device.TCPPort"), 1, 65535, 1);
 	obs_properties_add_text(config, "username", obs_module_text("PTZ.Device.Username"), OBS_TEXT_DEFAULT);

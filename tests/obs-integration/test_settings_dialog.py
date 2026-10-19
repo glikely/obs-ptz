@@ -17,6 +17,7 @@ ACTION_PAN_TILT = 3
 ACTION_STOP = 4
 
 # The filter fixtures live in test_filter_devices.py
+from conftest import SETTINGS_DIALOG
 from test_filter_devices import camera_sim, cameras, make_program, studio_mode  # noqa: F401
 
 
@@ -80,6 +81,19 @@ def test_settings_view_drops_the_last_devices_settings(obs_world, tmp_path):
     dialog = obs_world.wait_for_settings_dialog(tmp_path / "dialog.json",
                                                 lambda d: "tcp_port" in d["settings_keys"])
     assert not {"wb_mode", "username", "password"} & dialog["settings_keys"]
+
+
+def test_onvif_settings_say_nothing_of_it_being_experimental(obs_world, tmp_path):
+    """ONVIF is a supported protocol: its settings are headed plain ONVIF,
+    with no warning among them"""
+    obs_world.open_settings_dialog(obs_world.device_names["onvif"])
+    obs_world.wait_for_settings_dialog(tmp_path / "dialog.json", lambda d: "host" in d["settings_keys"])
+    view = (SETTINGS_DIALOG, {"class": "OBSPropertiesView"})
+    texts = [w.get("text", "") for w in obs_world.ui.find(*view, {"class": "QWidget"}, all=True)]
+    titles = [obs_world.ui.get1(*view, {"id": g["id"]}, name="title")
+              for g in obs_world.ui.find(*view, {"class": "QGroupBox"}, all=True)]
+    assert "ONVIF" in titles
+    assert not [t for t in texts + titles if "xperimental" in t]
 
 
 def test_picking_a_white_balance_in_the_status_view_changes_the_camera(obs_world, tmp_path):
