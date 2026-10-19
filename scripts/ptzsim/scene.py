@@ -74,6 +74,12 @@ def _entry(directory):
 def resolve(spec, cache_dir=None):
     """(the directory to serve, the scene file in it) for what --scene names"""
     cache_dir = cache_dir or default_cache_dir()
+    if spec.startswith("gen:"):
+        from . import genrooms
+        try:
+            return genrooms.generate(spec[len("gen:"):], cache_dir)
+        except KeyError as e:
+            raise BackdropError(e.args[0])
     if os.path.isfile(spec):
         return os.path.dirname(os.path.abspath(spec)), os.path.basename(spec)
     if re.match(r"^https?://", spec):

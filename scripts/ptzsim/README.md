@@ -85,6 +85,12 @@ and focus is real depth of field: focus 0 is sharp at 0.5 m and 1 at 100 m
 (0.5 is 7 m), and what is nearer or farther blurs more the more you zoom
 (`?dof=0` turns the blur off). It can't be combined with `--backdrop`. `--scene-cache DIR` moves the cache.
 
+`--scene gen:lecture-hall`, `gen:arena` and `gen:sanctuary` are rooms ptzsim builds
+itself (`genrooms.py`): plain flat-coloured geometry with coloured markers on the
+walls to judge pan, tilt, zoom and focus against. Nothing is downloaded and there
+is no licence to check, so everyone gets the same room; `--camera-pos` puts the
+camera anywhere in it.
+
 ### Blender as the renderer (experimental)
 
 `--blender` has Blender render the web view, so the camera has real optics:
