@@ -62,6 +62,13 @@ import socket
 import sys
 import threading
 
+if not __package__:
+    # Run as `python3 scripts/ptzsim`, Python runs this file with no package, so the
+    # relative imports below would fail: run it again as the package's module
+    parent = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    env = dict(os.environ, PYTHONPATH=os.pathsep.join(filter(None, (parent, os.environ.get("PYTHONPATH")))))
+    os.execve(sys.executable, [sys.executable, "-m", "ptzsim"] + sys.argv[1:], env)
+
 from .backends.onvif import OnvifBackend
 from .backends.sony_setup import SonySetupBackend
 from .backends.pelco import PelcoBackend
