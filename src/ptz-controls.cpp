@@ -650,6 +650,7 @@ void PTZControls::SaveConfig()
 	obs_data_set_bool(savedata, "speed_ramp_enabled", speedRampEnabled());
 	obs_data_set_bool(savedata, "onscreen_joystick_enabled", ui->pantiltStack->currentIndex() != 0);
 	obs_data_set_bool(savedata, "preset_grid_view", ui->actionPresetGridView->isChecked());
+	obs_data_set_int(savedata, "control_tab", ui->controlTabs->currentIndex());
 	obs_data_set_bool(savedata, "joystick_enable", m_joystick_enable);
 	obs_data_set_int(savedata, "joystick_id", m_joystick_id);
 	obs_data_set_double(savedata, "joystick_speed", m_joystick_speed);
@@ -731,6 +732,7 @@ void PTZControls::LoadConfig()
 	speed_ramp_enabled = obs_data_get_bool(loaddata, "speed_ramp_enabled");
 	ui->pantiltStack->setCurrentIndex(obs_data_get_bool(loaddata, "onscreen_joystick_enabled") ? 1 : 0);
 	ui->actionPresetGridView->setChecked(obs_data_get_bool(loaddata, "preset_grid_view"));
+	ui->controlTabs->setCurrentIndex((int)obs_data_get_int(loaddata, "control_tab"));
 	m_joystick_enable = obs_data_get_bool(loaddata, "joystick_enable");
 	m_joystick_id = (int)obs_data_get_int(loaddata, "joystick_id");
 	m_joystick_speed = obs_data_get_double(loaddata, "joystick_speed");
@@ -1076,6 +1078,11 @@ void PTZControls::updateMoveControls()
 	ui->zoomButton_tele->setEnabled(PTZListModel::hasFeature(device, "zoom"));
 	ui->zoomButton_wide->setEnabled(PTZListModel::hasFeature(device, "zoom"));
 	presetUpdateActions();
+
+	/* The view control shows the camera's own source, named as it is */
+	OBSSourceAutoRelease source =
+		device.isValid() ? obs_get_source_by_name(QT_TO_UTF8(device.data(Qt::DisplayRole).toString())) : nullptr;
+	ui->viewControl->setSource(source);
 
 	RefreshToolBarStyling(ui->ptzToolbar);
 

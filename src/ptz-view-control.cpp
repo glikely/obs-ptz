@@ -12,6 +12,7 @@
 #include <obs-nix-platform.h>
 #endif
 #include "ptz-view-control.hpp"
+#include <qt-wrappers.hpp>
 #include "ptz-controls.hpp"
 #include "ptz-list-model.hpp"
 
@@ -43,6 +44,8 @@ PTZViewControl::PTZViewControl(QWidget *parent) : QWidget(parent)
 	setAttribute(Qt::WA_PaintOnScreen);
 	setAttribute(Qt::WA_NativeWindow);
 	setAttribute(Qt::WA_NoSystemBackground);
+	/* Or the dock it is in becomes a native window too */
+	setAttribute(Qt::WA_DontCreateNativeAncestors);
 	connect(&m_timer, &QTimer::timeout, this, &PTZViewControl::tick);
 	m_timer.start(tickMs);
 }
@@ -163,9 +166,40 @@ bool PTZViewControl::readPosition(const QModelIndex &index, double &pan, double 
 	return true;
 }
 
+void PTZViewControl::trace(const QString &what)
+{
+	if (what == m_lastTrace)
+		return;
+	m_lastTrace = what;
+	blog(LOG_INFO, "[ptz] view control: %s", QT_TO_UTF8(what));
+}
+
+static QString describe(const QModelIndex &index)
+{
+	OBSDataAutoRelease state = obs_data_create();
+	ptzDeviceList->saveState(index, state.Get());
+	auto has = [&](const char *key) {
+		return obs_data_has_user_value(state, key) ? QString::number(obs_data_get_double(state, key))
+							   : QString("none");
+	};
+	return QString("device '%1' connected=%2 live=%3 locked=%4 pantilt_abs=%5 zoom_abs=%6 pan=%7 tilt=%8 zoom=%9")
+		.arg(index.data(Qt::DisplayRole).toString())
+		.arg(obs_data_get_bool(state, "connected"))
+		.arg(obs_data_get_bool(state, "live"))
+		.arg(obs_data_get_bool(state, "locked"))
+		.arg(PTZListModel::hasFeature(index, "pantilt_abs"))
+		.arg(PTZListModel::hasFeature(index, "zoom_abs"))
+		.arg(has("pan"), has("tilt"), has("zoom")) +
+	       QString(" pan_pos=%1 zoom_pos=%2 statistics=%3")
+		       .arg(has("pan_pos"), has("zoom_pos"))
+		       .arg(QString::fromUtf8(obs_data_get_json(OBSDataAutoRelease(obs_data_get_obj(state, "statistics")))));
+}
+
 void PTZViewControl::setSource(obs_source_t *source)
 {
 	QMutexLocker locker(&m_sourceMutex);
+	if (source ? obs_weak_source_references_source(m_source, source) : !m_source)
+		return;
 	m_source = OBSGetWeakRef(source);
 	m_dragging = false;
 	m_wheelDelta = 0;
@@ -185,6 +219,17 @@ void PTZViewControl::showEvent(QShowEvent *event)
 {
 	QWidget::showEvent(event);
 	createDisplay();
+	if (m_display)
+		obs_display_set_enabled(m_display, true);
+}
+
+/* Nothing to draw for while it can't be seen, as on another tab */
+void PTZViewControl::hideEvent(QHideEvent *event)
+{
+	QWidget::hideEvent(event);
+	if (m_display)
+		obs_display_set_enabled(m_display, false);
+	m_dragging = false;
 }
 
 void PTZViewControl::mousePressEvent(QMouseEvent *event)
@@ -193,7 +238,12 @@ void PTZViewControl::mousePressEvent(QMouseEvent *event)
 	if (event->button() != Qt::LeftButton)
 		return;
 	auto index = device();
-	if (!index.isValid() || liveLocked(index) || !PTZListModel::hasFeature(index, "pantilt_abs"))
+	if (!index.isValid()) {
+		trace("press: no device for this source");
+		return;
+	}
+	trace("press: " + describe(index));
+	if (liveLocked(index) || !PTZListModel::hasFeature(index, "pantilt_abs"))
 		return;
 	if (!readPosition(index, m_panStart, m_tiltStart, m_dragZoom))
 		return;
@@ -226,12 +276,19 @@ void PTZViewControl::mouseReleaseEvent(QMouseEvent *event)
 void PTZViewControl::wheelEvent(QWheelEvent *event)
 {
 	m_wheelDelta += event->angleDelta().y();
+	trace(QString("wheel: %1").arg(event->angleDelta().y()));
 	event->accept();
 }
 
 void PTZViewControl::tick()
 {
 	auto index = device();
+	if ((m_wheelDelta || m_dragging) && !index.isValid())
+		trace("tick: no device for this source");
+	else if ((m_wheelDelta || m_dragging) && liveLocked(index))
+		trace("tick: live locked");
+	else if (m_wheelDelta && !PTZListModel::hasFeature(index, "zoom_abs"))
+		trace("tick: no zoom_abs; " + describe(index));
 	if (!index.isValid() || liveLocked(index)) {
 		m_wheelDelta = 0;
 		m_dragging = false;
@@ -243,6 +300,7 @@ void PTZViewControl::tick()
 			OBSDataAutoRelease state = obs_data_create();
 			ptzDeviceList->saveState(index, state.Get());
 			if (!obs_data_has_user_value(state, "zoom")) {
+				trace("tick: no zoom position; " + describe(index));
 				m_wheelDelta = 0;
 				return;
 			}
@@ -253,6 +311,7 @@ void PTZViewControl::tick()
 		m_wheelDelta = 0;
 		m_lastZoom.start();
 
+		trace(QString("tick: zoom to %1").arg(m_zoomTarget));
 		calldata_t cd = {};
 		calldata_set_float(&cd, "zoom", m_zoomTarget);
 		ptzDeviceList->callDevice(index, "ptz_move_abs", &cd);
@@ -262,8 +321,10 @@ void PTZViewControl::tick()
 	if (m_dragging && m_dragMoved) {
 		m_dragMoved = false;
 		QRectF rect = sourceRect();
-		if (rect.isEmpty())
+		if (rect.isEmpty()) {
+			trace("tick: source has no size");
 			return;
+		}
 		/* The camera turns the way the mouse moves, by as much of its
 		 * field of view as the mouse moved across the picture */
 		double magnification = 1.0 + (m_config.maxMagnification - 1.0) * m_dragZoom;
@@ -272,6 +333,7 @@ void PTZViewControl::tick()
 		double pan = std::clamp(m_panStart + dx * m_config.panPerWidth / magnification, -1.0, 1.0);
 		double tilt = std::clamp(m_tiltStart + dy * m_config.tiltPerHeight / magnification, -1.0, 1.0);
 
+		trace(QString("tick: pan/tilt to %1, %2").arg(pan).arg(tilt));
 		calldata_t cd = {};
 		calldata_set_float(&cd, "pan", pan);
 		calldata_set_float(&cd, "tilt", tilt);

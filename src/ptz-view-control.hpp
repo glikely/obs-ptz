@@ -37,6 +37,7 @@ public:
 protected:
 	void resizeEvent(QResizeEvent *event) override;
 	void showEvent(QShowEvent *event) override;
+	void hideEvent(QHideEvent *event) override;
 	void mousePressEvent(QMouseEvent *event) override;
 	void mouseMoveEvent(QMouseEvent *event) override;
 	void mouseReleaseEvent(QMouseEvent *event) override;
@@ -51,6 +52,9 @@ private:
 	bool liveLocked(const QModelIndex &index) const;
 	bool readPosition(const QModelIndex &index, double &pan, double &tilt, double &zoom) const;
 	void tick();
+	/* Temporary: logs what the view control did, or why it did nothing */
+	void trace(const QString &what);
+	QString m_lastTrace;
 
 	obs_display_t *m_display = nullptr;
 	/* Read by the draw callback, on the graphics thread */
