@@ -44,6 +44,34 @@ runs:
         path: ${{ inputs.path }}
         if-no-files-found: error
 
+    - name: Wait For Artifact To Be Listed ⏳
+      if: fromJSON(steps.check.outputs.haveSigningCredentials)
+      shell: pwsh
+      env:
+        GH_TOKEN: ${{ github.token }}
+        ARTIFACT_ID: ${{ steps.upload-unsigned.outputs.artifact-id }}
+        ARTIFACT_NAME: ${{ inputs.artifactName }}-unsigned
+      run: |
+        # Wait For Artifact To Be Listed ⏳
+        # The SignPath connector finds the artifact through the GitHub API, and
+        # a freshly finalized upload can take a moment to show up in the run's
+        # artifact list. Submitting before then fails with "no published artifact".
+        $Uri = "${env:GITHUB_API_URL}/repos/${env:GITHUB_REPOSITORY}/actions/runs/${env:GITHUB_RUN_ID}/artifacts?name=${env:ARTIFACT_NAME}&per_page=100"
+        $Headers = @{ Authorization = "Bearer ${env:GH_TOKEN}"; Accept = 'application/vnd.github+json' }
+        for ( $Attempt = 1; $Attempt -le 12; $Attempt++ ) {
+          try {
+            $Listed = (Invoke-RestMethod -Uri $Uri -Headers $Headers).artifacts.id -contains [int64]$env:ARTIFACT_ID
+          } catch {
+            $Listed = $false
+          }
+          if ( $Listed ) {
+            Write-Output "Artifact ${env:ARTIFACT_ID} is listed (attempt ${Attempt})"
+            return
+          }
+          Start-Sleep -Seconds 5
+        }
+        Write-Warning "Artifact ${env:ARTIFACT_ID} still not listed after 60 seconds; submitting anyway"
+
     - name: Submit to SignPath ✍️
       if: fromJSON(steps.check.outputs.haveSigningCredentials)
       uses: signpath/github-action-submit-signing-request@v2
