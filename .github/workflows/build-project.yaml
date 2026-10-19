@@ -311,6 +311,38 @@ jobs:
           config: ${{ needs.check-event.outputs.config }}
           package: ${{ fromJSON(needs.check-event.outputs.package) }}
 
+      - name: Stage Installer For Signing 📦
+        id: stage-installer
+        if: fromJSON(needs.check-event.outputs.codesign)
+        run: |
+          # Stage Installer For Signing 📦
+          $Installer = Get-ChildItem -Path release -Filter '*-Installer.exe' -File
+          if ( $Installer ) {
+            New-Item -ItemType Directory -Force -Path release/installer | Out-Null
+            Copy-Item -Path $Installer.FullName -Destination release/installer
+            'haveInstaller=true' >> $env:GITHUB_OUTPUT
+          } else {
+            'haveInstaller=false' >> $env:GITHUB_OUTPUT
+          }
+
+      - name: Sign Installer 🔏
+        id: sign-installer
+        uses: ./.github/actions/sign-windows-signpath
+        if: fromJSON(needs.check-event.outputs.codesign) && steps.stage-installer.outputs.haveInstaller == 'true'
+        with:
+          apiToken: ${{ secrets.SIGNPATH_API_TOKEN }}
+          organizationId: ${{ vars.SIGNPATH_ORGANIZATION_ID }}
+          signingPolicySlug: ${{ startsWith(github.ref, 'refs/tags/v') && 'release-signing' || 'test-signing' }}
+          artifactConfigurationSlug: windows-installer
+          artifactName: ${{ steps.setup.outputs.pluginName }}-windows-${{ matrix.target }}-${{ needs.check-event.outputs.commitHash }}-installer
+          path: ${{ github.workspace }}/release/installer
+
+      - name: Replace Installer With Signed Installer 🔁
+        if: steps.sign-installer.outputs.haveSigningCredentials == 'true'
+        run: |
+          # Replace Installer With Signed Installer 🔁
+          Copy-Item -Path release/installer/*-Installer.exe -Destination release -Force
+
       - name: Upload Artifacts 📡
         uses: actions/upload-artifact@v4
         with:

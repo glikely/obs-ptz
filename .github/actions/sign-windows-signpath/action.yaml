@@ -10,6 +10,10 @@ inputs:
   signingPolicySlug:
     description: SignPath signing policy slug (test-signing or release-signing)
     required: true
+  artifactConfigurationSlug:
+    description: SignPath artifact configuration slug describing what to sign in the submitted files
+    required: false
+    default: windows-plugin
   artifactName:
     description: Name to give the unsigned/signed workflow artifacts
     required: true
@@ -48,7 +52,7 @@ runs:
         organization-id: ${{ inputs.organizationId }}
         project-slug: obs-ptz
         signing-policy-slug: ${{ inputs.signingPolicySlug }}
-        artifact-configuration-slug: windows-plugin
+        artifact-configuration-slug: ${{ inputs.artifactConfigurationSlug }}
         github-artifact-id: ${{ steps.upload-unsigned.outputs.artifact-id }}
         wait-for-completion: true
         output-artifact-directory: ${{ inputs.path }}-signed
