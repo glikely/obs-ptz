@@ -38,6 +38,13 @@ You can also move the camera from the view: right-click the Browser Source
 in OBS and choose **Interact**, then drag to pan and tilt (the view follows
 the pointer, so the camera moves the other way), scroll to zoom, and
 double-click to send it home. Every protocol sees the new position.
+A control pad appears at the bottom of the page while the pointer is over it:
+hold a button to pan, tilt, zoom or focus (several at once work), a slider sets
+the speed, and Home sends the camera home. It drives the camera as a joystick does,
+so it reads back over every protocol and moves at the `--move-time` pace. A
+Browser Source has no pointer, so the pad never shows in OBS; `?controls=0` (or
+`?hud=0`) keeps it off the page for good. The page's `POST /drive`, `/stop` and
+`/home` do the same from a script.
 It needs OBS's browser source (CEF), and it isn't a video stream, so it
 doesn't exercise OBS's Media Source path.
 
@@ -85,6 +92,12 @@ and focus is real depth of field: focus 0 is sharp at 0.5 m and 1 at 100 m
 (0.5 is 7 m), and what is nearer or farther blurs more the more you zoom
 (`?dof=0` turns the blur off). It can't be combined with `--backdrop`. `--scene-cache DIR` moves the cache.
 
+`--scene gen:lecture-hall`, `gen:arena` and `gen:sanctuary` are rooms ptzsim builds
+itself (`genrooms.py`): plain flat-coloured geometry with coloured markers on the
+walls to judge pan, tilt, zoom and focus against. Nothing is downloaded and there
+is no licence to check, so everyone gets the same room; `--camera-pos` puts the
+camera anywhere in it.
+
 ### Blender as the renderer (experimental)
 
 `--blender` has Blender render the web view, so the camera has real optics:
@@ -128,6 +141,46 @@ extra cost, with `--blender-samples` setting its quality:
 The degree lines aren't drawn over Blender's picture, and `--blender` can't be
 combined with `--backdrop`, `--scene` or `--room`.
 
+### NDI output (experimental)
+
+`--ndi` sends the picture as an NDI source, which OBS's NDI source
+(DistroAV) can show, so the Media Source path gets exercised as well as the
+Browser Source. ptzsim draws the picture itself with [pygfx](https://pygfx.org/)
+(wgpu: Metal, Vulkan or D3D12; no window, no Blender, no browser): about 20 ms
+a frame at 1280x720 on an Apple-silicon Mac. It takes what the web view does:
+a `--scene` (glTF), a `--backdrop` (a panorama, drawn on the inside of a sphere)
+or a `--room`.
+
+Pan, tilt and zoom move the camera as in the web view, focus is a depth-of-field
+pass (a panorama is one distance away, so focus blurs all of it at once), and the
+VISCA picture settings show in a colour pass: white balance (the Auto, Indoor and
+Outdoor modes and manual R/B gain), colour gain, brightness and exposure
+compensation, and the negative and black-and-white effects. Tally shows as a
+border, standby as black, and OBS putting the source on program or preview lights
+the simulated red or green lamp. The web view shows the same frames.
+
+It needs Python packages the rest of ptzsim doesn't. A system Python often won't
+let `pip` install into it, so use a virtual environment, and run ptzsim with its Python:
+
+```
+python3 -m venv ~/ptzsim-venv
+~/ptzsim-venv/bin/pip install pygfx gltflib imageio pillow numpy cyndilib
+~/ptzsim-venv/bin/python scripts/ptzsim --room sanctuary --ndi
+~/ptzsim-venv/bin/python scripts/ptzsim --scene sponza --ndi --ndi-name sponza-cam --ndi-size 1920x1080
+```
+
+If any are missing, ptzsim says which and stops before it downloads or listens on anything.
+
+`--ndi-name` is what the source is called (default `ptzsim`: OBS lists it as
+`HOSTNAME (ptzsim)`), `--ndi-fps` the frame rate (the picture is only redrawn when
+something changed, and the last frame is resent between). The pygfx picture is
+plainly lit, with no shadows, so it won't look quite like the three.js view.
+
+A line of credit is drawn in the bottom-left corner of the picture: a Poly Haven
+panorama's name, author and licence, or a room's own. `--credit TEXT` says
+something else, and `--no-credit` leaves it off. Check a licence before you share
+a picture that has it off.
+
 ### Ready-made rooms
 
 `--room NAME` is a backdrop or 3D scene with cameras standing in it, so you
@@ -146,6 +199,20 @@ python3 scripts/ptzsim --room sponza --camera east-end
 | `chapel` | `pews`, `platform`, `windows` |
 | `church` | `platform`, `aisle` |
 | `gallery` | `hall`, `doorway` |
+| `sanctuary` | `nave`, `chancel`, `gallery` |
+| `lecture-hall` | `audience`, `piano-side` |
+| `auditorium` | `stage`, `stalls-left`, `stalls-right` |
+| `arena` | `centre`, `stands-left`, `stands-right` |
+| `stadium` | `pitch`, `west-stand`, `east-stand` |
+| `sanctuary-3d` (built by ptzsim) | `pulpit`, `rear`, `side-pew` |
+| `lecture-hall-3d` (built by ptzsim) | `lectern`, `back-row`, `side` |
+| `arena-3d` (built by ptzsim) | `centre`, `floor-edge`, `upper-deck` |
+
+The `-3d` rooms are built by ptzsim itself (`genrooms.py`): plain flat-coloured
+geometry, nothing downloaded and no licence to check, so everyone gets the same
+room, and a camera can stand anywhere in them (`--scene gen:arena` with
+`--camera-pos`). They work with the web view's three.js and with `--ndi`. The others
+are panoramas from Poly Haven (CC0), downloaded once like any `--backdrop`.
 
 Run one simulator per camera, each on its own `--web-port` and protocol
 ports, to get a multi-camera set in the same room. A panorama is one spot,

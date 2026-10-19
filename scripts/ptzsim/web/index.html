@@ -11,6 +11,21 @@
   #tally { position: fixed; inset: 0; pointer-events: none; box-sizing: border-box; }
   #standby { position: fixed; inset: 0; background: #000; color: #888; display: none;
              align-items: center; justify-content: center; font: 600 32px ui-monospace, Menlo, monospace; }
+  /* The control pad: only while the pointer is about, so a Browser Source in OBS, which has none, never shows it */
+  #pad { position: fixed; left: 50%; bottom: 16px; transform: translateX(-50%); z-index: 3; display: flex; gap: 14px;
+         align-items: center; padding: 10px 14px; border-radius: 14px; background: rgba(20, 22, 26, .72);
+         backdrop-filter: blur(6px); color: #fff; font: 600 13px ui-sans-serif, system-ui, sans-serif;
+         opacity: 0; pointer-events: none; transition: opacity .25s; user-select: none; -webkit-user-select: none; }
+  body.pad-on #pad { opacity: 1; pointer-events: auto; }
+  #pad .group { display: flex; align-items: center; gap: 4px; }
+  #pad .label { opacity: .65; margin-right: 4px; font-size: 11px; text-transform: uppercase; letter-spacing: .06em; }
+  #pad button { min-width: 38px; height: 38px; padding: 0 8px; border: 0; border-radius: 9px; background: #3a3f48;
+                color: #fff; font: inherit; font-size: 17px; cursor: pointer; touch-action: none; }
+  #pad button:hover { background: #4a505b; }
+  #pad button.on, #pad button:active { background: #2f7de1; }
+  #pad button.text { font-size: 13px; }
+  #pad input[type=range] { width: 84px; accent-color: #2f7de1; }
+  @media (max-width: 760px) { #pad { flex-wrap: wrap; justify-content: center; width: calc(100vw - 32px); box-sizing: border-box; } }
 </style>
 <script type="importmap">
 { "imports": { "three": "./vendor/three.module.min.js", "three/addons/": "./vendor/addons/" } }
@@ -19,6 +34,23 @@
 <div id="tally"></div>
 <div id="hud"></div>
 <div id="standby">STANDBY</div>
+<div id="pad" aria-label="Camera controls">
+  <div class="group"><span class="label">Pan</span>
+    <button data-drive="pan_speed" data-dir="-1" title="Pan left" aria-label="Pan left">◀</button>
+    <button data-drive="pan_speed" data-dir="1" title="Pan right" aria-label="Pan right">▶</button></div>
+  <div class="group"><span class="label">Tilt</span>
+    <button data-drive="tilt_speed" data-dir="1" title="Tilt up" aria-label="Tilt up">▲</button>
+    <button data-drive="tilt_speed" data-dir="-1" title="Tilt down" aria-label="Tilt down">▼</button></div>
+  <div class="group"><span class="label">Zoom</span>
+    <button data-drive="zoom_speed" data-dir="-1" title="Zoom out" aria-label="Zoom out">−</button>
+    <button data-drive="zoom_speed" data-dir="1" title="Zoom in" aria-label="Zoom in">+</button></div>
+  <div class="group"><span class="label">Focus</span>
+    <button class="text" data-drive="focus_speed" data-dir="-1" title="Focus near" aria-label="Focus near">Near</button>
+    <button class="text" data-drive="focus_speed" data-dir="1" title="Focus far" aria-label="Focus far">Far</button></div>
+  <div class="group"><span class="label">Speed</span>
+    <input type="range" id="padSpeed" min="0.1" max="1" step="0.05" value="0.5" aria-label="Speed"></div>
+  <div class="group"><button class="text" id="padHome" title="Send the camera home">Home</button></div>
+</div>
 <script>
 "use strict";
 // Mapping from the simulator's normalized state to camera angles.
@@ -344,6 +376,51 @@ canvas.addEventListener("wheel", e => {
   send({ zoom });
 }, { passive: false });
 canvas.addEventListener("dblclick", () => post("home"));
+
+// ---- Control pad: hold a button to drive, as a joystick does ----------------
+// It sits over the picture while the pointer is moving (?controls=0 never shows it).
+// Holding a button sets a drive speed; letting go, or the page losing the
+// pointer, sets it back to zero. Moves from any protocol show here too.
+const pad = document.getElementById("pad");
+if (params.get("controls") === "0" || params.get("hud") === "0") {
+  pad.remove();
+} else {
+  let hideTimer = null;
+  const showPad = () => {
+    document.body.classList.add("pad-on");
+    clearTimeout(hideTimer);
+    hideTimer = setTimeout(() => { if (!pad.matches(":hover") && !driving.size) document.body.classList.remove("pad-on"); }, 3000);
+  };
+  addEventListener("pointermove", showPad);
+  addEventListener("pointerdown", showPad);
+  const speedEl = document.getElementById("padSpeed");
+  const driving = new Map();      // button -> axis it holds
+  const driveSpeed = axis => driving.size ? [...driving].filter(([, a]) => a.axis === axis).reduce((v, [, a]) => v + a.dir, 0) : 0;
+  function drive(axis) {          // tell the simulator the speed of one axis from the buttons held
+    const speed = clamp(driveSpeed(axis) * Number(speedEl.value), -1, 1);
+    post("drive", { [axis]: speed });
+  }
+  function release(button) {
+    const held = driving.get(button);
+    if (!held) return;
+    driving.delete(button);
+    button.classList.remove("on");
+    drive(held.axis);
+  }
+  for (const button of pad.querySelectorAll("button[data-drive]")) {
+    button.addEventListener("pointerdown", e => {
+      if (e.button !== 0) return;
+      try { button.setPointerCapture(e.pointerId); } catch (_) { /* a pointer that has gone: still drive */ }
+      driving.set(button, { axis: button.dataset.drive, dir: Number(button.dataset.dir) });
+      button.classList.add("on");
+      drive(button.dataset.drive);
+    });
+    for (const type of ["pointerup", "pointercancel", "lostpointercapture"]) button.addEventListener(type, () => release(button));
+  }
+  addEventListener("blur", () => { for (const b of [...driving.keys()]) release(b); });
+  speedEl.addEventListener("input", () => { for (const [, a] of driving) drive(a.axis); });
+  document.getElementById("padHome").addEventListener("click", () => post("home"));
+}
 
 const tallyEl = document.getElementById("tally"), standby = document.getElementById("standby");
 function frame() {
