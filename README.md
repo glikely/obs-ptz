@@ -55,6 +55,9 @@ to follow the building from source instructions below.
 
 [OBS PTZ Releases](https://github.com/glikely/obs-ptz/releases)
 
+Release builds for Windows and macOS are signed: see the
+[Code signing policy](docs/code-signing-policy.md).
+
 ## Configuration
 
 To show the controls dock, in the `Docks` menu select `PTZ Controls`.
