@@ -239,10 +239,12 @@ def test_dialog_survives_its_device_changing_interface(obs_world, cameras, tmp_p
     out = tmp_path / "device.json"
     device_name = obs_world.wait_for_device_by_name("dialog-iface-cam", out, lambda r: r["found"] and r["bound"])["uuid"]
     obs_world.open_settings_dialog(device_name)
+    # the camera has answered as far as its white balance, which the dialog
+    # is to go on showing, and editing, once nothing answers
+    obs_world.wait_for_settings_dialog(tmp_path / "dialog.json", lambda d: "wb_mode" in d["state_keys"], timeout=10)
 
     obs_world.update_device(device_name, type="visca-over-ip", host="127.0.0.1", udp_port=9)
-    # give the change, and whatever the dialog does about it, time to happen
-    time.sleep(1.0)
+    obs_world.wait_for_settings_dialog(tmp_path / "dialog.json", lambda d: not d["connected"], timeout=10)
 
     # the dialog is still driveable, and so is what is under it
     obs_world.edit_dialog_state(wb_mode=1)
