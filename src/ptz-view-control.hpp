@@ -4,6 +4,7 @@
  */
 #pragma once
 
+#include <atomic>
 #include <obs.hpp>
 #include <QElapsedTimer>
 #include <QModelIndex>
@@ -40,6 +41,7 @@ protected:
 	void hideEvent(QHideEvent *event) override;
 	void mousePressEvent(QMouseEvent *event) override;
 	void mouseMoveEvent(QMouseEvent *event) override;
+	void leaveEvent(QEvent *event) override;
 	void mouseReleaseEvent(QMouseEvent *event) override;
 	void wheelEvent(QWheelEvent *event) override;
 
@@ -52,11 +54,28 @@ private:
 	bool liveLocked(const QModelIndex &index) const;
 	bool readPosition(const QModelIndex &index, double &pan, double &tilt, double &zoom) const;
 	void tick();
+	void updateReadout(const QModelIndex &index);
 	/* Temporary: logs what the view control did, or why it did nothing */
 	void trace(const QString &what);
 	QString m_lastTrace;
 
 	obs_display_t *m_display = nullptr;
+	/* A line of text drawn over the picture, as an image Qt paints. The
+	 * texture is made, swapped and drawn only with the graphics context
+	 * entered. */
+	struct TextOverlay {
+		gs_texture_t *texture = nullptr;
+		QString text;
+		int size = 0;
+	};
+	TextOverlay m_positionReadout;
+	TextOverlay m_cursorReadout;
+	void setText(TextOverlay &overlay, const QString &text);
+	void updateCursorReadout();
+	QPointF m_cursorPos;
+	bool m_cursorOver = false;
+	/* Display pixels per widget pixel, for the draw callback */
+	std::atomic<float> m_pixelRatio = 1.0f;
 	/* Read by the draw callback, on the graphics thread */
 	mutable QMutex m_sourceMutex;
 	OBSWeakSource m_source;

@@ -4,7 +4,14 @@
  */
 
 #include <algorithm>
+#include <cmath>
+#include <obs-module.h>
 #include <obs.hpp>
+#include <QFontDatabase>
+#include <QFontInfo>
+#include <QFontMetrics>
+#include <QImage>
+#include <QPainter>
 #include <QMouseEvent>
 #include <QWheelEvent>
 #include <QWindow>
@@ -46,6 +53,8 @@ PTZViewControl::PTZViewControl(QWidget *parent) : QWidget(parent)
 	setAttribute(Qt::WA_NoSystemBackground);
 	/* Or the dock it is in becomes a native window too */
 	setAttribute(Qt::WA_DontCreateNativeAncestors);
+	/* Moves without a button down too, for the cursor readout */
+	setMouseTracking(true);
 	connect(&m_timer, &QTimer::timeout, this, &PTZViewControl::tick);
 	m_timer.start(tickMs);
 }
@@ -57,6 +66,104 @@ PTZViewControl::~PTZViewControl()
 		obs_display_destroy(m_display);
 		m_display = nullptr;
 	}
+	obs_enter_graphics();
+	for (TextOverlay *overlay : {&m_positionReadout, &m_cursorReadout}) {
+		if (overlay->texture)
+			gs_texture_destroy(overlay->texture);
+	}
+	obs_leave_graphics();
+}
+
+/* Semi-transparent gray, as 0xAARRGGBB */
+static constexpr uint32_t overlayColor = 0x80c0c0c0;
+
+/* A rectangle along the edges of where the source is drawn, a circle 4
+ * pixels across in its middle, and lines from the circle at 45 degrees to the
+ * rectangle's sides. In display pixels. */
+static void drawOverlay(uint32_t cx, uint32_t cy, int x, int y, int width, int height, float pixelRatio)
+{
+	constexpr float pi = 3.14159265358979f;
+	constexpr int circleSegments = 16;
+	const float radius = 2.0f * pixelRatio;
+	/* Lines on the middle of the edge pixels, so all of them shows */
+	const float left = x + 0.5f, top = y + 0.5f;
+	const float right = x + width - 0.5f, bottom = y + height - 0.5f;
+	const float x0 = x + width / 2.0f, y0 = y + height / 2.0f;
+
+	gs_projection_push();
+	gs_viewport_push();
+	gs_set_viewport(0, 0, cx, cy);
+	gs_ortho(0.0f, (float)cx, 0.0f, (float)cy, -100.0f, 100.0f);
+	gs_blend_state_push();
+	gs_enable_blending(true);
+	gs_blend_function(GS_BLEND_SRCALPHA, GS_BLEND_INVSRCALPHA);
+
+	gs_effect_t *solid = obs_get_base_effect(OBS_EFFECT_SOLID);
+	gs_effect_set_color(gs_effect_get_param_by_name(solid, "color"), overlayColor);
+	/* OBS's own vertex buffer: one made here would be left loaded once freed */
+	while (gs_effect_loop(solid, "Solid")) {
+		gs_render_start(false);
+		gs_vertex2f(left, top);
+		gs_vertex2f(right, top);
+		gs_vertex2f(right, bottom);
+		gs_vertex2f(left, bottom);
+		gs_vertex2f(left, top);
+		gs_render_stop(GS_LINESTRIP);
+
+		gs_render_start(false);
+		for (int i = 0; i <= circleSegments; i++) {
+			float angle = 2.0f * pi * i / circleSegments;
+			gs_vertex2f(x0 + radius * cosf(angle), y0 + radius * sinf(angle));
+		}
+		gs_render_stop(GS_LINESTRIP);
+
+		/* As many pixels across as down, to the nearer pair of sides:
+		 * the source isn't square */
+		const float start = radius / sqrtf(2.0f);
+		const float reach = std::min(right - x0, bottom - y0);
+		gs_render_start(false);
+		for (float dx : {1.0f, -1.0f}) {
+			for (float dy : {1.0f, -1.0f}) {
+				gs_vertex2f(x0 + start * dx, y0 + start * dy);
+				gs_vertex2f(x0 + reach * dx, y0 + reach * dy);
+			}
+		}
+		gs_render_stop(GS_LINES);
+	}
+
+	gs_blend_state_pop();
+	gs_viewport_pop();
+	gs_projection_pop();
+}
+
+/* A readout, centered on the picture across, at `top`. In display pixels. */
+static void drawText(gs_texture_t *text, uint32_t cx, uint32_t cy, int x, int width, int top)
+{
+	uint32_t textCx = gs_texture_get_width(text);
+	uint32_t textCy = gs_texture_get_height(text);
+	int left = x + (width - (int)textCx) / 2;
+
+	gs_projection_push();
+	gs_viewport_push();
+	gs_set_viewport(0, 0, cx, cy);
+	gs_ortho(0.0f, (float)cx, 0.0f, (float)cy, -100.0f, 100.0f);
+	gs_blend_state_push();
+	gs_enable_blending(true);
+	gs_blend_function(GS_BLEND_SRCALPHA, GS_BLEND_INVSRCALPHA);
+	gs_matrix_push();
+	gs_matrix_identity();
+	gs_matrix_translate3f((float)left, (float)top, 0.0f);
+
+	/* gs_draw_sprite() draws with OBS's own vertex buffer, which is never freed */
+	gs_effect_t *effect = obs_get_base_effect(OBS_EFFECT_DEFAULT);
+	gs_effect_set_texture(gs_effect_get_param_by_name(effect, "image"), text);
+	while (gs_effect_loop(effect, "Draw"))
+		gs_draw_sprite(text, 0, textCx, textCy);
+
+	gs_matrix_pop();
+	gs_blend_state_pop();
+	gs_viewport_pop();
+	gs_projection_pop();
 }
 
 /* Runs on the graphics thread */
@@ -88,6 +195,17 @@ void PTZViewControl::drawCallback(void *param, uint32_t cx, uint32_t cy)
 	obs_source_video_render(source);
 	gs_viewport_pop();
 	gs_projection_pop();
+
+	drawOverlay(cx, cy, (cx - width) / 2, (cy - height) / 2, width, height, view->m_pixelRatio);
+	/* The position just below the picture and the cursor just above it, or
+	 * as near as they fit in the display */
+	const int x = (cx - width) / 2, y = (cy - height) / 2;
+	const int gap = (int)(2 * view->m_pixelRatio);
+	if (gs_texture_t *text = view->m_positionReadout.texture)
+		drawText(text, cx, cy, x, width,
+			 std::min(y + height + gap, (int)cy - (int)gs_texture_get_height(text)));
+	if (gs_texture_t *text = view->m_cursorReadout.texture)
+		drawText(text, cx, cy, x, width, std::max(y - gap - (int)gs_texture_get_height(text), 0));
 }
 
 void PTZViewControl::createDisplay()
@@ -99,6 +217,7 @@ void PTZViewControl::createDisplay()
 	if (!window)
 		return;
 
+	m_pixelRatio = (float)devicePixelRatioF();
 	QSize size = this->size() * devicePixelRatioF();
 	gs_init_data info = {};
 	info.cx = size.width();
@@ -209,6 +328,7 @@ void PTZViewControl::setSource(obs_source_t *source)
 void PTZViewControl::resizeEvent(QResizeEvent *event)
 {
 	QWidget::resizeEvent(event);
+	m_pixelRatio = (float)devicePixelRatioF();
 	if (m_display) {
 		QSize size = this->size() * devicePixelRatioF();
 		obs_display_resize(m_display, size.width(), size.height());
@@ -255,10 +375,20 @@ void PTZViewControl::mousePressEvent(QMouseEvent *event)
 void PTZViewControl::mouseMoveEvent(QMouseEvent *event)
 {
 	QWidget::mouseMoveEvent(event);
+	m_cursorPos = event->position();
+	m_cursorOver = true;
+	updateCursorReadout();
 	if (!m_dragging)
 		return;
 	m_dragPos = event->position();
 	m_dragMoved = true;
+}
+
+void PTZViewControl::leaveEvent(QEvent *event)
+{
+	QWidget::leaveEvent(event);
+	m_cursorOver = false;
+	updateCursorReadout();
 }
 
 void PTZViewControl::mouseReleaseEvent(QMouseEvent *event)
@@ -280,9 +410,91 @@ void PTZViewControl::wheelEvent(QWheelEvent *event)
 	event->accept();
 }
 
+/* Where the camera says it is pointing, in the units of the movement API,
+ * each value always as wide as -x.xxx so that none of them moves */
+void PTZViewControl::updateReadout(const QModelIndex &index)
+{
+	OBSDataAutoRelease state = obs_data_create();
+	if (index.isValid())
+		ptzDeviceList->saveState(index, state.Get());
+	auto value = [&](const char *key) {
+		return obs_data_has_user_value(state, key) ? QString::asprintf("% .3f", obs_data_get_double(state, key))
+							   : QString(6, ' ');
+	};
+	QString text = QString("%1:%2 %3:%4 %5:%6")
+			       .arg(obs_module_text("PTZ.Device.State.Pan"), value("pan"),
+				    obs_module_text("PTZ.Device.State.Tilt"), value("tilt"),
+				    obs_module_text("PTZ.Device.State.Zoom"), value("zoom"));
+	setText(m_positionReadout, text);
+}
+
+/* Where the cursor is on the picture, in the source's pixels: 0, 0 at its top
+ * left and the source's width and height at its bottom right. Blank when the
+ * cursor isn't over the picture. */
+void PTZViewControl::updateCursorReadout()
+{
+	OBSSourceAutoRelease source;
+	{
+		QMutexLocker locker(&m_sourceMutex);
+		source = obs_weak_source_get_source(m_source);
+	}
+	const QRectF rect = sourceRect();
+	QString x(5, ' '), y(5, ' ');
+	if (source && m_cursorOver && !rect.isEmpty() && rect.contains(m_cursorPos)) {
+		/* The last pixel across is the source's width, the last down its height */
+		double sourceCx = obs_source_get_width(source);
+		double sourceCy = obs_source_get_height(source);
+		double across = std::max(1.0, rect.width() - 1.0), down = std::max(1.0, rect.height() - 1.0);
+		int sx = (int)std::lround(std::clamp((m_cursorPos.x() - rect.left()) / across, 0.0, 1.0) * sourceCx);
+		int sy = (int)std::lround(std::clamp((m_cursorPos.y() - rect.top()) / down, 0.0, 1.0) * sourceCy);
+		x = QString::asprintf("%5d", sx);
+		y = QString::asprintf("%5d", sy);
+	}
+	setText(m_cursorReadout, QString("X:%1, Y:%2").arg(x, y));
+}
+
+/* Paints `text` with Qt into a new texture for `overlay`, if it changed. Drawn
+ * by OBS so that it can be over the picture with nothing behind it: a widget
+ * can't be over a display. */
+void PTZViewControl::setText(TextOverlay &overlay, const QString &text)
+{
+	/* Text as tall as the dock's own, in display pixels */
+	int size = (int)(QFontInfo(font()).pixelSize() * devicePixelRatioF());
+	if (text == overlay.text && size == overlay.size)
+		return;
+	overlay.text = text;
+	overlay.size = size;
+
+	QFont mono = QFontDatabase::systemFont(QFontDatabase::FixedFont);
+	mono.setPixelSize(size);
+	QFontMetrics metrics(mono);
+	QImage image(std::max(1, metrics.horizontalAdvance(text)), std::max(1, metrics.height()),
+		     QImage::Format_ARGB32);
+	image.fill(Qt::transparent);
+	{
+		QPainter painter(&image);
+		painter.setFont(mono);
+		painter.setPen(QColor(0xc0, 0xc0, 0xc0));
+		painter.drawText(0, metrics.ascent(), text);
+	}
+
+	/* Format_ARGB32 is B, G, R, A in memory, each row exactly as wide as the
+	 * image. Swapped while the graphics thread can't be drawing it. */
+	const uint8_t *bits = image.constBits();
+	obs_enter_graphics();
+	gs_texture_t *texture = gs_texture_create(image.width(), image.height(), GS_BGRA, 1, &bits, 0);
+	if (overlay.texture)
+		gs_texture_destroy(overlay.texture);
+	overlay.texture = texture;
+	obs_leave_graphics();
+}
+
 void PTZViewControl::tick()
 {
 	auto index = device();
+	updateReadout(index);
+	/* The picture can move under a cursor that doesn't */
+	updateCursorReadout();
 	if ((m_wheelDelta || m_dragging) && !index.isValid())
 		trace("tick: no device for this source");
 	else if ((m_wheelDelta || m_dragging) && liveLocked(index))

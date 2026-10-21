@@ -76,6 +76,31 @@ public:
 	}
 };
 
+/**
+ * class sameSquareFilter - Event filter to keep several widgets as tall as
+ * the one being resized is wide
+ *
+ * For the pages of a tab widget: only the page showing is resized, so each
+ * page sets the height of all of them, and the tabs stay the same height
+ * whichever is showing.
+ */
+class sameSquareFilter : public QObject {
+public:
+	sameSquareFilter(QObject *parent, QList<QWidget *> widgets) : QObject(parent), widgets(widgets) {}
+	bool eventFilter(QObject *watched, QEvent *event) override
+	{
+		if (event->type() == QEvent::Resize) {
+			int height = static_cast<QResizeEvent *>(event)->size().width();
+			for (QWidget *widget : widgets)
+				widget->setMinimumHeight(height);
+		}
+		return false;
+	}
+
+private:
+	QList<QWidget *> widgets;
+};
+
 void PTZControls::autoselectDevice(OBSSource scene)
 {
 	auto active_src_cb = [](obs_source_t *, obs_source_t *child, void *data) {
@@ -297,8 +322,11 @@ PTZControls::PTZControls(QWidget *parent) : QFrame(parent), ui(new Ui::PTZContro
 
 	/* Install an event filter to keep buttons square */
 	auto filter = new squareResizeFilter(this);
-	ui->movementControlsWidget->installEventFilter(filter);
 	ui->pantiltStack->installEventFilter(filter);
+	/* The view control's tab is as tall as the controller's */
+	auto tabsFilter = new sameSquareFilter(this, {ui->movementControlsWidget, ui->viewControlTab});
+	ui->movementControlsWidget->installEventFilter(tabsFilter);
+	ui->viewControlTab->installEventFilter(tabsFilter);
 
 	obs_frontend_add_event_callback(onFrontendEvent, this);
 	obs_frontend_add_save_callback(onFrontendSaveEvent, this);
