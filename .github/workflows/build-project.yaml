@@ -303,6 +303,10 @@ jobs:
           signingPolicySlug: ${{ startsWith(github.ref, 'refs/tags/v') && 'release-signing' || 'test-signing' }}
           artifactName: ${{ steps.setup.outputs.pluginName }}-windows-${{ matrix.target }}-${{ needs.check-event.outputs.commitHash }}
           path: ${{ github.workspace }}/release/${{ needs.check-event.outputs.config }}
+          # TEMPORARY: SignPath's release certificate isn't issued yet, so release
+          # signing can only fail. Ship unsigned, with a warning, until it is;
+          # then drop this, here and on the installer, so that it fails again.
+          allowFailure: ${{ startsWith(github.ref, 'refs/tags/v') }}
 
       - name: Package Plugin 📀
         uses: ./.github/actions/package-plugin
@@ -336,9 +340,11 @@ jobs:
           artifactConfigurationSlug: windows-installer
           artifactName: ${{ steps.setup.outputs.pluginName }}-windows-${{ matrix.target }}-${{ needs.check-event.outputs.commitHash }}-installer
           path: ${{ github.workspace }}/release/installer
+          # TEMPORARY: see Sign Plugin Binary
+          allowFailure: ${{ startsWith(github.ref, 'refs/tags/v') }}
 
       - name: Replace Installer With Signed Installer 🔁
-        if: steps.sign-installer.outputs.haveSigningCredentials == 'true'
+        if: steps.sign-installer.outputs.signed == 'true'
         run: |
           # Replace Installer With Signed Installer 🔁
           Copy-Item -Path release/installer/*-Installer.exe -Destination release -Force

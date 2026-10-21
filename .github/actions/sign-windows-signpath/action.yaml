@@ -20,10 +20,19 @@ inputs:
   path:
     description: Directory tree containing binaries to sign (signed files overwrite in place)
     required: true
+  allowFailure:
+    description: >-
+      Leave the binaries unsigned, with a warning, if SignPath refuses or fails the
+      signing request, instead of failing the job
+    required: false
+    default: 'false'
 outputs:
   haveSigningCredentials:
     description: True if SignPath credentials were available
     value: ${{ steps.check.outputs.haveSigningCredentials }}
+  signed:
+    description: True if the binaries were signed, and the signed ones put in their place
+    value: ${{ steps.submit.outcome == 'success' }}
 runs:
   using: composite
   steps:
@@ -73,7 +82,9 @@ runs:
         Write-Warning "Artifact ${env:ARTIFACT_ID} still not listed after 60 seconds; submitting anyway"
 
     - name: Submit to SignPath ✍️
+      id: submit
       if: fromJSON(steps.check.outputs.haveSigningCredentials)
+      continue-on-error: ${{ inputs.allowFailure == 'true' }}
       uses: signpath/github-action-submit-signing-request@v2
       with:
         api-token: ${{ inputs.apiToken }}
@@ -86,8 +97,15 @@ runs:
         output-artifact-directory: ${{ inputs.path }}-signed
 
     - name: Replace With Signed Binaries 🔁
-      if: fromJSON(steps.check.outputs.haveSigningCredentials)
+      if: steps.submit.outcome == 'success'
       shell: pwsh
       run: |
         # Replace With Signed Binaries 🔁
         Copy-Item -Path "${{ inputs.path }}-signed/*" -Destination "${{ inputs.path }}" -Recurse -Force
+
+    - name: Warn Of Unsigned Binaries ⚠️
+      if: steps.submit.outcome == 'failure'
+      shell: pwsh
+      run: |
+        # Warn Of Unsigned Binaries ⚠️
+        Write-Output "::warning title=Not signed::SignPath did not sign ${{ inputs.artifactName }} with ${{ inputs.signingPolicySlug }}; its binaries are left unsigned"
