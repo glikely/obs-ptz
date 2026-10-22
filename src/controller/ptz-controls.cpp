@@ -478,8 +478,9 @@ PTZControls::PTZControls(QWidget *parent) : QFrame(parent), ui(new Ui::PTZContro
 	registerHotkey("PTZ.FocusAutoToggle", obs_module_text("PTZ.Action.FocusAutoToggle"), autofocustogglecb, this);
 	registerHotkey("PTZ.FocusAutoOn", obs_module_text("PTZ.Action.FocusAutoOn"), autofocusoncb, this);
 	registerHotkey("PTZ.FocusAutoOff", obs_module_text("PTZ.Action.FocusAutoOff"), autofocusoffcb, this);
-	registerHotkey("PTZ.FocusNear", obs_module_text("PTZ.Action.FocusNear"), cb, movementButton("focusButton_far"));
-	registerHotkey("PTZ.FocusFar", obs_module_text("PTZ.Action.FocusFar"), cb, movementButton("focusButton_near"));
+	registerHotkey("PTZ.FocusNear", obs_module_text("PTZ.Action.FocusNear"), cb,
+		       movementButton("focusButton_near"));
+	registerHotkey("PTZ.FocusFar", obs_module_text("PTZ.Action.FocusFar"), cb, movementButton("focusButton_far"));
 	registerHotkey("PTZ.FocusOneTouch", obs_module_text("PTZ.Action.FocusOneTouch"), cb,
 		       movementButton("focusButton_onetouch"));
 	registerHotkey("PTZ.SelectPrev", obs_module_text("PTZ.Action.SelectPrev"), prevcb, ui->deviceList);

@@ -129,6 +129,35 @@ def test_position_is_reported_in_the_units_of_the_movement_api(obs_world, backen
     assert state["focus"] == pytest.approx(clamp((state["focus_pos"] - 0x1000) / (0xf000 - 0x1000), 0.0), abs=1e-3)
 
 
+@pytest.mark.parametrize("axis", ["pan", "tilt", "zoom", "focus"])
+def test_a_positive_speed_raises_the_position(obs_world, axis):
+    """The speed of ptz_move and the position the state reports agree on which
+    way is up, whatever the camera's own protocol calls the ends: a driver that
+    turns the speed into a command is the one to turn it the right way"""
+    uuid = obs_world.device_uuid(obs_world.device_names["visca-tcp"])
+
+    def position():
+        return obs_world.ws.vendor("obs-ptz", "ptz_get_state", {"device": uuid})["state"][axis]
+
+    def drive(speed):
+        # a pan and a tilt are given together: one given takes the other as 0
+        data = {"device": uuid, axis: speed}
+        if axis in ("pan", "tilt"):
+            data.update({"pan": speed if axis == "pan" else 0, "tilt": speed if axis == "tilt" else 0})
+        obs_world.ws.vendor("obs-ptz", "ptz_move", data)
+
+    # to the bottom of the range, so that going up can be seen to
+    drive(-1.0)
+    time.sleep(1.5)
+    drive(0)
+    time.sleep(1.0)
+    low = position()
+    drive(1.0)
+    time.sleep(0.8)
+    drive(0)
+    obs_world.wait_for(lambda: position() > low + 0.02, timeout=5)
+
+
 @pytest.mark.parametrize("backend", ["pelco-d", "pelco-p"])
 def test_pelco_state_has_no_white_balance_or_position(obs_world, backend, tmp_path):
     state = obs_world.device_state(obs_world.device_names[backend], tmp_path / "state.json")["state"]

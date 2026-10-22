@@ -1114,7 +1114,9 @@ void PTZVisca::send_pending()
 			queue_action("zoom_drive", {scale_speed(zoom_speed, visca_zoom_speed_max + 1)});
 		} else if (focus_changed) {
 			focus_changed = false;
-			queue_action("focus_drive", {scale_speed(focus_speed, visca_focus_speed_max + 1)});
+			/* VISCA Focus drive direction is inverse from position; Send a positive speed
+			 * to decrease the focus position, and visa-versa */
+			queue_action("focus_drive", {-scale_speed(focus_speed, visca_focus_speed_max + 1)});
 		} else if (isConnected()) {
 			/* What the camera is decides what else to ask it for */
 			QStringList stale = stale_state.values();

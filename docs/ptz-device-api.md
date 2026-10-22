@@ -486,6 +486,9 @@ Reads:
 
 A zero stops that axis; an axis left out is left as it is.
 
+The sign of a speed is the way its axis's position goes, as the state reports it:
+a positive speed increases the position, a negative one decreases it.
+
 ### `void ptz_move_abs(float pan, float tilt, float zoom, float focus)`
 
 Moves to a position and stops there.
