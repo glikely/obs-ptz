@@ -1,9 +1,34 @@
 # Fedora packaging
 
 `obs-ptz.spec` builds the plugin against Fedora's `obs-studio-devel`. It builds,
-passes its unit tests and installs in containers, but has not been
+passes its unit tests and installs in containers (see below), but has not been
 run through `fedora-review`, and the packaged plugin has not been loaded in a
 real OBS; do both before submitting.
+
+## Test in Docker
+
+```
+packaging/fedora/docker-test.sh [fedora-version]   # default: rawhide
+packaging/fedora/install-test.sh [fedora-version]
+```
+
+`docker-test.sh` builds an image from `Dockerfile` (build dependencies are
+installed from the spec with `dnf builddep`), then builds the RPM from the
+upstream tag that `Source0` downloads (`v<upstream_version>`, read from the
+spec; set `SOURCE_REF=HEAD` to build your checkout with the same spec) and runs
+`rpmlint`. The spec itself is taken from your working copy. The RPMs end up in
+`packaging/fedora/rpms-out/`.
+
+`install-test.sh` then installs those RPMs into a clean Fedora container
+together with `obs-studio` and checks that `obs-ptz.so` lands in the same
+directory as OBS's own plugins (`%{_libdir}/obs-plugins`) and resolves all its
+symbols, and that the data directory (`/usr/share/obs/obs-plugins/obs-ptz`) is
+installed.
+
+Both default to the host's architecture. Set
+`PLATFORM=linux/amd64|linux/arm64|linux/ppc64le|linux/s390x` to build and test
+another one under emulation (slow). Set `BASE_IMAGE=docker.io/library/fedora`
+if `registry.fedoraproject.org` is not reachable.
 
 ## Test locally
 
