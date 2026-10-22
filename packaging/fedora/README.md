@@ -30,6 +30,23 @@ Both default to the host's architecture. Set
 another one under emulation (slow). Set `BASE_IMAGE=docker.io/library/fedora`
 if `registry.fedoraproject.org` is not reachable.
 
+## Load it in OBS
+
+```
+packaging/fedora/obs-load-test.sh [fedora-version]
+```
+
+Run after `docker-test.sh`. It installs `obs-studio` and the RPMs from
+`rpms-out/` into a clean container, runs OBS on a virtual display (Xvfb with
+openbox) and checks that OBS loads the plugin at the version in the spec, that
+the "PTZ Controls" dock exists and that the OBS log has no crash. Screenshots
+of OBS, with the dock enabled from the Docks menu, go to
+`packaging/fedora/load-test-out/`. Set `KEEP=1` to leave OBS running and watch
+it over VNC at `localhost:5901` (`open vnc://localhost:5901` on macOS; stop it
+with `docker rm -f obs-ptz-view`). It uses software GL, no cameras or other
+hardware, and the same `PLATFORM` and `BASE_IMAGE` settings as the other
+scripts.
+
 ## Test locally
 
 ```
@@ -41,8 +58,9 @@ fedpkg --release rawhide mockbuild   # or: mock -r fedora-rawhide-x86_64 --build
 fedora-review -b <bugzilla-id>       # once the review ticket exists
 ```
 
-Also run the plugin in OBS on Fedora: the dock appears, a camera can be added,
-and the joystick and USB camera paths load.
+The load test above covers loading and the dock. Also run the plugin in OBS on
+Fedora with real hardware: a camera can be added and controlled, and the
+joystick and USB camera paths work.
 
 ## Submit to Fedora
 
