@@ -18,7 +18,7 @@ fi
 ver=${1:-rawhide}
 base=${BASE_IMAGE:-registry.fedoraproject.org/fedora}
 name=obs-ptz-view
-want=$(sed -n 's/^%global upstream_version[[:space:]]*//p' obs-ptz.spec)
+want=$(sed -n 's/^%global upstream_version[[:space:]]*//p' obs-studio-plugin-ptz.spec)
 mkdir -p load-test-out
 dx() { docker exec "$name" bash -c "$1"; }
 shot() { dx "DISPLAY=:99 import -window root /tmp/$1.png" && docker cp "$name:/tmp/$1.png" load-test-out/"$1.png"; }

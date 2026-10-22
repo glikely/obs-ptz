@@ -1,4 +1,4 @@
-# Image for test-building obs-ptz.spec on Fedora. Build and run it with
+# Image for test-building obs-studio-plugin-ptz.spec on Fedora. Build and run it with
 # packaging/fedora/docker-test.sh, which feeds it the current checkout.
 ARG FEDORA_VERSION=rawhide
 ARG BASE_IMAGE=registry.fedoraproject.org/fedora
@@ -10,8 +10,8 @@ RUN dnf -y install --setopt=install_weak_deps=False \
     && dnf clean all
 
 # Build dependencies come from the spec itself, so the image stays in sync
-COPY obs-ptz.spec /tmp/obs-ptz.spec
-RUN dnf -y builddep --setopt=install_weak_deps=False /tmp/obs-ptz.spec \
+COPY obs-studio-plugin-ptz.spec /tmp/obs-studio-plugin-ptz.spec
+RUN dnf -y builddep --setopt=install_weak_deps=False /tmp/obs-studio-plugin-ptz.spec \
     && dnf clean all
 
 RUN useradd -m builder

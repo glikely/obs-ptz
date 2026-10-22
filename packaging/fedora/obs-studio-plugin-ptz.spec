@@ -2,8 +2,12 @@
 # Version: <next>~<pre>, which sorts before the final release. When v1.0.0 is
 # tagged: set upstream_version and Version to 1.0.0.
 %global upstream_version 0.20.0-pre7
+# Upstream calls the project obs-ptz; the package follows Fedora's naming for
+# OBS Studio plugins (obs-studio-plugin-*). The plugin file and data directory
+# keep the upstream name, which OBS knows it by.
+%global upstream_name obs-ptz
 
-Name:           obs-ptz
+Name:           obs-studio-plugin-ptz
 Version:        0.20.0~pre7
 Release:        %autorelease
 Summary:        PTZ camera control plugin for OBS Studio
@@ -19,7 +23,7 @@ Summary:        PTZ camera control plugin for OBS Studio
 # multi-licensed) is not built on Linux.
 License:        GPL-2.0-or-later AND MIT AND Zlib
 URL:            https://github.com/glikely/obs-ptz
-Source0:        %{url}/archive/refs/tags/v%{upstream_version}/%{name}-%{upstream_version}.tar.gz
+Source0:        %{url}/archive/refs/tags/v%{upstream_version}/%{upstream_name}-%{upstream_version}.tar.gz
 
 # Same as obs-studio, which this plugin loads into
 ExcludeArch:    %{ix86}
@@ -52,6 +56,7 @@ Requires:       obs-studio%{?_isa}
 #   shared/qjoysticks/SDL/Database.txt
 #                        SDL_GameControllerDB data file (no upstream release)
 # SDL2 itself is linked dynamically and needs no entry.
+Provides:       %{upstream_name} = %{version}-%{release}
 Provides:       bundled(qjoysticks) = 0^20250424gitccc0f53
 Provides:       bundled(obs-studio) = 32.2.1
 Provides:       bundled(SDL_GameControllerDB)
@@ -63,7 +68,7 @@ VISCA over IP (UDP and TCP) and serial, Pelco, ONVIF, Sony discovery and USB
 filter, and optional joystick and game controller control.
 
 %prep
-%autosetup -p1 -n %{name}-%{upstream_version}
+%autosetup -p1 -n %{upstream_name}-%{upstream_version}
 
 %global ptz_cmake_options -DENABLE_FRONTEND_API=ON -DENABLE_QT=ON -DENABLE_SERIALPORT=ON -DENABLE_JOYSTICK=ON -DENABLE_USB_CAM=ON -DENABLE_ONVIF=ON
 

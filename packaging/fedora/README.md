@@ -1,6 +1,6 @@
 # Fedora packaging
 
-`obs-ptz.spec` builds the plugin against Fedora's `obs-studio-devel`. It builds,
+`obs-studio-plugin-ptz.spec` builds the plugin against Fedora's `obs-studio-devel`. It builds,
 passes its unit tests and installs in containers (see below), but has not been
 run through `fedora-review`, and the packaged plugin has not been loaded in a
 real OBS; do both before submitting.
@@ -52,8 +52,8 @@ scripts.
 ```
 sudo dnf install fedora-packager fedora-review rpmlint mock
 sudo usermod -aG mock $USER   # log out and back in
-spectool -g obs-ptz.spec      # downloads Source0 (the v<version> tag must exist)
-rpmlint obs-ptz.spec
+spectool -g obs-studio-plugin-ptz.spec  # downloads Source0 (the v<version> tag must exist)
+rpmlint obs-studio-plugin-ptz.spec
 fedpkg --release rawhide mockbuild   # or: mock -r fedora-rawhide-x86_64 --buildsrpm ...
 fedora-review -b <bugzilla-id>       # once the review ticket exists
 ```
@@ -80,9 +80,9 @@ joystick and USB camera paths work.
    "I need a sponsor".
 5. Address the reviewer's findings (`fedora-review` output is a good checklist).
    When approved, the review bug gets `fedora-review+`.
-6. Request the repo: `fedpkg request-repo obs-ptz <review-bug-id>`, then
+6. Request the repo: `fedpkg request-repo obs-studio-plugin-ptz <review-bug-id>`, then
    `fedpkg request-branches` for the release branches you want.
-7. `fedpkg clone obs-ptz`, import the spec and sources (`fedpkg new-sources`),
+7. `fedpkg clone obs-studio-plugin-ptz`, import the spec and sources (`fedpkg new-sources`),
    `fedpkg build` on rawhide, then submit updates for stable branches in Bodhi.
 8. For each new upstream release: bump `Version`, upload the new tarball, build,
    and file the Bodhi update.
@@ -92,6 +92,14 @@ joystick and USB camera paths work.
 - **Bundled code.** `Provides: bundled(...)` lists what is copied into the
   plugin. Confirm the entries and licenses against the review guidelines, or
   patch the build to use system copies where Fedora ships them.
+- **Package name.** Upstream is `obs-ptz`, but the package is
+  `obs-studio-plugin-ptz`, matching the other OBS Studio plugins in Fedora
+  (`obs-studio-plugin-vkcapture`, `-vaapi`, `-pwvideo` and `-droidcam` are
+  separate packages that use the prefix, as do `obs-studio`'s own `-browser`
+  and `-vlc-video`). `%global upstream_name obs-ptz` keeps the tarball and its
+  directory right, `Provides: obs-ptz` keeps `dnf install obs-ptz` working, and
+  the installed plugin (`obs-ptz.so`) and data directory
+  (`obs-plugins/obs-ptz/`) keep the upstream name, which OBS identifies it by.
 - **Version and pre-releases.** The spec packages the tag `v0.20.0-pre7` as
   `Version: 0.20.0~pre7` (`%global upstream_version` holds the tag spelling;
   the tilde sorts it before the final release). For v1.0.0 set both to `1.0.0`.

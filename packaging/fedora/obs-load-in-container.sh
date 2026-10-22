@@ -6,11 +6,11 @@ exec > /tmp/setup.log 2>&1
 set -x
 
 dnf -y install --setopt=install_weak_deps=False obs-studio \
-    $(ls /rpms/obs-ptz-[0-9]*.rpm | grep -v -e src.rpm -e debug) \
+    $(ls /rpms/obs-studio-plugin-ptz-[0-9]*.rpm | grep -v -e src.rpm -e debug) \
     xorg-x11-server-Xvfb openbox x11vnc xdotool ImageMagick mesa-dri-drivers \
     mesa-libGL dbus-x11 dejavu-sans-fonts glibc-langpack-en procps-ng \
     || { echo SETUP-FAILED > /tmp/state; exit 1; }
-rpm -q obs-studio obs-ptz
+rpm -q obs-studio obs-studio-plugin-ptz
 
 useradd -m obs
 # Skip OBS's first-run auto-configuration wizard

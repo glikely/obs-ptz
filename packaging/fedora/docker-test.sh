@@ -1,5 +1,5 @@
 #!/bin/bash
-# Build obs-ptz.spec (the working copy's) in a Fedora container. RPMs land in
+# Build obs-studio-plugin-ptz.spec (the working copy's) in a Fedora container. RPMs land in
 # ./rpms-out.
 #   packaging/fedora/docker-test.sh [fedora-version]   (default: rawhide)
 # PLATFORM=linux/amd64|linux/arm64|linux/ppc64le|linux/s390x builds for another
@@ -23,7 +23,7 @@ image=obs-ptz-fedora-$ver-${PLATFORM//\//-}
 docker build --platform "$PLATFORM" --build-arg FEDORA_VERSION="$ver" ${BASE_IMAGE:+--build-arg BASE_IMAGE="$BASE_IMAGE"} -t "$image" .
 mkdir -p rpms-out && chmod 777 rpms-out
 # Tarball is made on the host: a worktree's .git file points outside the mount
-upstream_version=$(sed -n 's/^%global upstream_version[[:space:]]*//p' obs-ptz.spec)
+upstream_version=$(sed -n 's/^%global upstream_version[[:space:]]*//p' obs-studio-plugin-ptz.spec)
 ref=${SOURCE_REF:-v$upstream_version}
 srcdir=$(mktemp -d)
 trap 'rm -rf "$srcdir"' EXIT
