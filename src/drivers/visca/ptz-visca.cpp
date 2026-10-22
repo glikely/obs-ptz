@@ -726,10 +726,9 @@ PTZDevice::Features PTZVisca::features() const
 {
 	Features features = Diagnostics;
 	const QList<QPair<const char *, Feature>> actions = {
-		{"pantilt_drive", PanTilt},  {"pantilt_abs", PanTiltAbs},
-		{"pantilt_rel", PanTiltRel}, {"pantilt_home", Home},
-		{"zoom_drive", Zoom},        {"zoom_abs", ZoomAbs},
-		{"focus_drive", Focus},      {"focus_onetouch", FocusOneTouch},
+		{"pantilt_drive", PanTilt}, {"pantilt_abs", PanTiltAbs}, {"pantilt_rel", PanTiltRel},
+		{"pantilt_home", Home},     {"zoom_drive", Zoom},        {"zoom_abs", ZoomAbs},
+		{"focus_drive", Focus},     {"focus_abs", FocusAbs},     {"focus_onetouch", FocusOneTouch},
 		{"memory_recall", Presets},
 	};
 	for (const auto &[action, feature] : actions) {
@@ -1189,6 +1188,12 @@ void PTZVisca::zoom_abs(double pos_)
 {
 	int pos = std::clamp(pos_, 0.0, 1.0) * visca_zoom_range;
 	send_action("zoom_abs", {pos});
+}
+
+void PTZVisca::focus_abs(double pos_)
+{
+	int pos = visca_focus_far + std::clamp(pos_, 0.0, 1.0) * (visca_focus_near - visca_focus_far);
+	send_action("focus_abs", {pos & 0xffff});
 }
 
 void PTZVisca::set_autofocus(bool enabled)

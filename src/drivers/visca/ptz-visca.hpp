@@ -249,6 +249,7 @@ public:
 	void pantilt_abs(double pan, double tilt) override;
 	void pantilt_home() override;
 	void zoom_abs(double pos) override;
+	void focus_abs(double pos) override;
 	void set_autofocus(bool enabled) override;
 	void focus_onetouch() override;
 	void memory_reset(int i) override;

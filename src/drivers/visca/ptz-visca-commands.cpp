@@ -701,6 +701,7 @@ static const QMap<QString, PTZCmd> visca_actions = {
 	{"zoom_drive", VISCA_CAM_Zoom_drive},
 	{"zoom_abs", moving(VISCA_CAM_Zoom_Direct)},
 	{"focus_drive", VISCA_CAM_Focus_drive},
+	{"focus_abs", moving(VISCA_CAM_FocusPos)},
 	{"focus_onetouch", VISCA_CAM_Focus_OneTouch},
 	{"zoom_focus_abs", moving(VISCA_CAM_ZoomFocus_Direct)},
 	/* the preset number */
