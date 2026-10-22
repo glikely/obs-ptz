@@ -438,6 +438,12 @@ class ViscaCameraLogic:
         self.state.set_focus_speed(to_shared_signed(speed, ZF_SPEED_RANGE))
         self.cmd_ack()
 
+    def cmd010448(self, dg):
+        '''CAM_Focus-Direct (absolute)'''
+        focus = self.decode_s16(dg[4:8]) & 0xffff
+        self.state.set_position(focus=to_shared_unsigned(focus, ZF_POS_RANGE))
+        self.cmd_ack(('focus',))
+
     def cmd010447(self, dg):
         '''CAM_Zoom-Direct (absolute)'''
         zoom = self.decode_s16(dg[4:8])
