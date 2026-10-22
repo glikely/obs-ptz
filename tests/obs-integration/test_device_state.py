@@ -129,6 +129,17 @@ def test_position_is_reported_in_the_units_of_the_movement_api(obs_world, backen
     assert state["focus"] == pytest.approx(clamp((state["focus_pos"] - 0x1000) / (0xf000 - 0x1000), 0.0), abs=1e-3)
 
 
+def test_focus_goes_to_a_position_a_percent_apart(obs_world):
+    """A VISCA camera focuses to a position, as ptz_move_abs asks: to a percent of
+    its range, which is what a dial's click is"""
+    uuid = obs_world.device_uuid(obs_world.device_names["visca-tcp"])
+    for target in (0.30, 0.31, 0.70):
+        obs_world.ws.vendor("obs-ptz", "ptz_move_abs", {"device": uuid, "focus": target})
+        obs_world.wait_for(
+            lambda: abs(obs_world.ws.vendor("obs-ptz", "ptz_get_state", {"device": uuid})["state"]["focus"] - target)
+            < 0.002, timeout=5)
+
+
 @pytest.mark.parametrize("axis", ["pan", "tilt", "zoom", "focus"])
 def test_a_positive_speed_raises_the_position(obs_world, axis):
     """The speed of ptz_move and the position the state reports agree on which

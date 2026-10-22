@@ -339,8 +339,8 @@ def test_a_local_preset_saves_every_value(obs_world, made):
 
     preset = presets_by_id(obs_world, device)[preset_id]
     assert {"pan", "tilt", "zoom", "focus"} <= set(preset["values"])
-    # VISCA can't go to a focus position, but it can turn autofocus on and off
-    assert set(preset["values"]["focus"]) == {"af_enabled"}
+    # VISCA goes to a focus position, and turns autofocus on and off
+    assert set(preset["values"]["focus"]) == {"af_enabled", "position"}
 
 
 def test_recall_applies_the_values_a_preset_has(obs_world, made):
