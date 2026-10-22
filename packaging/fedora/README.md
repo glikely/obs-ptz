@@ -69,8 +69,12 @@ joystick and USB camera paths work.
 2. Read the Packaging Guidelines and "Joining the Package Collection
    Maintainers". A first-time packager needs a **sponsor**: say so in the
    review request and introduce yourself on the Fedora devel list.
-3. Push the spec and an SRPM somewhere public (a COPR project is easiest:
-   `copr-cli build`), and confirm it builds for all supported Fedora releases.
+3. Push the spec and an SRPM somewhere public (a COPR project is easiest), and
+   confirm it builds for all supported Fedora releases. `make-srpm.sh` builds
+   the SRPM into `srpm-out/` from the real GitHub tarball (so its checksum
+   matches upstream's), and `copr-cli build <project> srpm-out/<srpm>` builds
+   it in COPR. The `.fc46` in the SRPM's file name is only the container's
+   release tag; COPR sets it per chroot for the binary RPMs.
 4. File a **Package Review** request in Bugzilla (product Fedora, component
    Package Review) with the spec and SRPM URLs, a short description, and
    "I need a sponsor".
