@@ -5,11 +5,14 @@
 
 #include <algorithm>
 #include <cmath>
+#include <optional>
 #include <obs-module.h>
 #include <obs.hpp>
+#include <QClipboard>
 #include <QFontDatabase>
 #include <QFontInfo>
 #include <QFontMetrics>
+#include <QGuiApplication>
 #include <QImage>
 #include <QPainter>
 #include <QMouseEvent>
@@ -74,17 +77,18 @@ PTZViewControl::~PTZViewControl()
 	obs_leave_graphics();
 }
 
-/* Semi-transparent gray, as 0xAARRGGBB */
-static constexpr uint32_t overlayColor = 0x80c0c0c0;
+/* Opaque white, as 0xAARRGGBB */
+static constexpr uint32_t overlayColor = 0xffffffff;
 
 /* A rectangle along the edges of where the source is drawn, a circle 4
- * pixels across in its middle, and lines from the circle at 45 degrees to the
- * rectangle's sides. In display pixels. */
+ * pixels across in its middle, lines from the circle at 45 degrees to the
+ * rectangle's sides, and short ones from it straight up, down, left and
+ * right. In display pixels. */
 static void drawOverlay(uint32_t cx, uint32_t cy, int x, int y, int width, int height, float pixelRatio)
 {
 	constexpr float pi = 3.14159265358979f;
 	constexpr int circleSegments = 16;
-	const float radius = 2.0f * pixelRatio;
+	const float radius = 4.0f * pixelRatio;
 	/* Lines on the middle of the edge pixels, so all of them shows */
 	const float left = x + 0.5f, top = y + 0.5f;
 	const float right = x + width - 0.5f, bottom = y + height - 0.5f;
@@ -128,6 +132,19 @@ static void drawOverlay(uint32_t cx, uint32_t cy, int x, int y, int width, int h
 				gs_vertex2f(x0 + reach * dx, y0 + reach * dy);
 			}
 		}
+		gs_render_stop(GS_LINES);
+
+		/* 3 pixels long, from the circle's edge */
+		const float tick = radius + 5.0f * pixelRatio;
+		gs_render_start(false);
+		gs_vertex2f(x0, y0 - radius);
+		gs_vertex2f(x0, y0 - tick);
+		gs_vertex2f(x0, y0 + radius);
+		gs_vertex2f(x0, y0 + tick);
+		gs_vertex2f(x0 - radius, y0);
+		gs_vertex2f(x0 - tick, y0);
+		gs_vertex2f(x0 + radius, y0);
+		gs_vertex2f(x0 + tick, y0);
 		gs_render_stop(GS_LINES);
 	}
 
@@ -370,6 +387,10 @@ void PTZViewControl::mousePressEvent(QMouseEvent *event)
 	m_dragging = true;
 	m_dragMoved = false;
 	m_dragStart = m_dragPos = event->position();
+	/* What the readouts show the difference from, until it is let go */
+	m_pressSource = sourcePixel(event->position());
+	updateReadout(index);
+	updateCursorReadout();
 }
 
 void PTZViewControl::mouseMoveEvent(QMouseEvent *event)
@@ -400,7 +421,32 @@ void PTZViewControl::mouseReleaseEvent(QMouseEvent *event)
 	m_dragPos = event->position();
 	m_dragMoved = true;
 	tick();
+	copyReadout();
 	m_dragging = false;
+	updateReadout(device());
+	updateCursorReadout();
+}
+
+/* For pasting where the movement is worked out, separated by tabs: pan, tilt
+ * and zoom as the readout shows them as it is let go, then X and Y from where
+ * the mouse was pressed to the middle of the source, in its pixels */
+void PTZViewControl::copyReadout()
+{
+	auto number = [](std::optional<double> value) {
+		return value ? QString::asprintf("%.3f", *value) : QString();
+	};
+	QString x, y;
+	OBSSourceAutoRelease source;
+	{
+		QMutexLocker locker(&m_sourceMutex);
+		source = obs_weak_source_get_source(m_source);
+	}
+	if (source && m_pressSource) {
+		x = QString::number((int)obs_source_get_width(source) / 2 - m_pressSource->x());
+		y = QString::number((int)obs_source_get_height(source) / 2 - m_pressSource->y());
+	}
+	QGuiApplication::clipboard()->setText(
+		QStringList{number(m_shownPan), number(m_shownTilt), number(m_shownZoom), x, y}.join('\t'));
 }
 
 void PTZViewControl::wheelEvent(QWheelEvent *event)
@@ -411,27 +457,37 @@ void PTZViewControl::wheelEvent(QWheelEvent *event)
 }
 
 /* Where the camera says it is pointing, in the units of the movement API,
- * each value always as wide as -x.xxx so that none of them moves */
+ * each value always as wide as -x.xxx so that none of them moves; while the
+ * mouse is pressed, pan and tilt are how far they are from where they were
+ * when it was */
 void PTZViewControl::updateReadout(const QModelIndex &index)
 {
 	OBSDataAutoRelease state = obs_data_create();
 	if (index.isValid())
 		ptzDeviceList->saveState(index, state.Get());
-	auto value = [&](const char *key) {
-		return obs_data_has_user_value(state, key) ? QString::asprintf("% .3f", obs_data_get_double(state, key))
-							   : QString(6, ' ');
+	auto read = [&](const char *key, double from) -> std::optional<double> {
+		if (!obs_data_has_user_value(state, key))
+			return std::nullopt;
+		return obs_data_get_double(state, key) - from;
+	};
+	/* Pan and tilt from where they were when the mouse was pressed */
+	m_shownPan = read("pan", m_dragging ? m_panStart : 0.0);
+	m_shownTilt = read("tilt", m_dragging ? m_tiltStart : 0.0);
+	m_shownZoom = read("zoom", 0.0);
+	auto value = [](std::optional<double> value) {
+		return value ? QString::asprintf("% .3f", *value) : QString(6, ' ');
 	};
 	QString text = QString("%1:%2 %3:%4 %5:%6")
-			       .arg(obs_module_text("PTZ.Device.State.Pan"), value("pan"),
-				    obs_module_text("PTZ.Device.State.Tilt"), value("tilt"),
-				    obs_module_text("PTZ.Device.State.Zoom"), value("zoom"));
+			       .arg(obs_module_text("PTZ.Device.State.Pan"), value(m_shownPan),
+				    obs_module_text("PTZ.Device.State.Tilt"), value(m_shownTilt),
+				    obs_module_text("PTZ.Device.State.Zoom"), value(m_shownZoom));
 	setText(m_positionReadout, text);
 }
 
-/* Where the cursor is on the picture, in the source's pixels: 0, 0 at its top
- * left and the source's width and height at its bottom right. Blank when the
- * cursor isn't over the picture. */
-void PTZViewControl::updateCursorReadout()
+/* Where `pos` is on the picture, in the source's pixels: 0, 0 at its top left
+ * and the source's width and height at its bottom right. Nothing when it
+ * isn't over the picture. */
+std::optional<QPoint> PTZViewControl::sourcePixel(const QPointF &pos) const
 {
 	OBSSourceAutoRelease source;
 	{
@@ -439,18 +495,30 @@ void PTZViewControl::updateCursorReadout()
 		source = obs_weak_source_get_source(m_source);
 	}
 	const QRectF rect = sourceRect();
-	QString x(5, ' '), y(5, ' ');
-	if (source && m_cursorOver && !rect.isEmpty() && rect.contains(m_cursorPos)) {
-		/* The last pixel across is the source's width, the last down its height */
-		double sourceCx = obs_source_get_width(source);
-		double sourceCy = obs_source_get_height(source);
-		double across = std::max(1.0, rect.width() - 1.0), down = std::max(1.0, rect.height() - 1.0);
-		int sx = (int)std::lround(std::clamp((m_cursorPos.x() - rect.left()) / across, 0.0, 1.0) * sourceCx);
-		int sy = (int)std::lround(std::clamp((m_cursorPos.y() - rect.top()) / down, 0.0, 1.0) * sourceCy);
-		x = QString::asprintf("%5d", sx);
-		y = QString::asprintf("%5d", sy);
-	}
-	setText(m_cursorReadout, QString("X:%1, Y:%2").arg(x, y));
+	if (!source || rect.isEmpty() || !rect.contains(pos))
+		return std::nullopt;
+	/* The last pixel across is the source's width, the last down its height */
+	double sourceCx = obs_source_get_width(source);
+	double sourceCy = obs_source_get_height(source);
+	double across = std::max(1.0, rect.width() - 1.0), down = std::max(1.0, rect.height() - 1.0);
+	return QPoint((int)std::lround(std::clamp((pos.x() - rect.left()) / across, 0.0, 1.0) * sourceCx),
+		      (int)std::lround(std::clamp((pos.y() - rect.top()) / down, 0.0, 1.0) * sourceCy));
+}
+
+/* Where the cursor is on the picture, in the source's pixels, blank when it
+ * isn't over it; while the mouse is pressed, how far it is from where it was
+ * pressed */
+void PTZViewControl::updateCursorReadout()
+{
+	std::optional<QPoint> at = m_cursorOver ? sourcePixel(m_cursorPos) : std::nullopt;
+	if (at && m_dragging)
+		at = m_pressSource ? std::optional<QPoint>(*at - *m_pressSource) : std::nullopt;
+	m_shownX = at ? std::optional<int>(at->x()) : std::nullopt;
+	m_shownY = at ? std::optional<int>(at->y()) : std::nullopt;
+	auto value = [](std::optional<int> value) {
+		return value ? QString::asprintf("%5d", *value) : QString(5, ' ');
+	};
+	setText(m_cursorReadout, QString("X:%1, Y:%2").arg(value(m_shownX), value(m_shownY)));
 }
 
 /* Paints `text` with Qt into a new texture for `overlay`, if it changed. Drawn

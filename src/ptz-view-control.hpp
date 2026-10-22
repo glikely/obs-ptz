@@ -7,7 +7,9 @@
 #include <atomic>
 #include <obs.hpp>
 #include <QElapsedTimer>
+#include <optional>
 #include <QModelIndex>
+#include <QPoint>
 #include <QMutex>
 #include <QPointF>
 #include <QTimer>
@@ -72,6 +74,13 @@ private:
 	TextOverlay m_cursorReadout;
 	void setText(TextOverlay &overlay, const QString &text);
 	void updateCursorReadout();
+	std::optional<QPoint> sourcePixel(const QPointF &pos) const;
+	void copyReadout();
+	/* What the readouts show, for copying when the mouse is let go */
+	std::optional<double> m_shownPan, m_shownTilt, m_shownZoom;
+	std::optional<int> m_shownX, m_shownY;
+	/* Where on the picture the mouse was pressed, in the source's pixels */
+	std::optional<QPoint> m_pressSource;
 	QPointF m_cursorPos;
 	bool m_cursorOver = false;
 	/* Display pixels per widget pixel, for the draw callback */
