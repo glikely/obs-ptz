@@ -31,6 +31,7 @@ constexpr uint8_t CT_FOCUS_ABSOLUTE = 0x06;
 constexpr uint8_t CT_FOCUS_AUTO = 0x08;
 constexpr uint8_t CT_ZOOM_ABSOLUTE = 0x0B;
 constexpr uint8_t CT_PANTILT_ABSOLUTE = 0x0D;
+constexpr uint8_t CT_PANTILT_RELATIVE = 0x0E;
 
 /* Payload sizes. Pan and tilt share one 8 byte control; there is no way to set
  * just one axis. */
@@ -38,6 +39,9 @@ constexpr uint16_t PANTILT_LEN = 8;
 constexpr uint16_t ZOOM_LEN = 2;
 constexpr uint16_t FOCUS_LEN = 2;
 constexpr uint16_t FOCUS_AUTO_LEN = 1;
+/* Relative pan/tilt starts and stops the motors: a direction and a speed for
+ * each axis. bPanRelative, bPanSpeed, bTiltRelative, bTiltSpeed. */
+constexpr uint16_t PANTILT_REL_LEN = 4;
 
 inline void put_le16(uint8_t *p, uint16_t v)
 {
@@ -60,6 +64,20 @@ inline int32_t get_le32(const uint8_t *p)
 	for (int i = 0; i < 4; i++)
 		u |= static_cast<uint32_t>(p[i]) << (8 * i);
 	return static_cast<int32_t>(u);
+}
+
+/* Encode a relative pan/tilt as signed speeds: positive pans clockwise (seen
+ * from above, so right) and tilts up, negative the other way, zero stops that
+ * axis. The magnitude is the camera's speed, up to 255. */
+inline void put_pantilt_relative(uint8_t *p, long pan, long tilt)
+{
+	auto axis = [](uint8_t *q, long speed) {
+		q[0] = speed > 0 ? 0x01 : speed < 0 ? 0xff : 0x00;
+		long magnitude = speed < 0 ? -speed : speed;
+		q[1] = static_cast<uint8_t>(magnitude > 0xff ? 0xff : magnitude);
+	};
+	axis(p, pan);
+	axis(p + 2, tilt);
 }
 
 /* wIndex for a control request: the entity id in the high byte and the

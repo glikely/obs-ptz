@@ -202,6 +202,24 @@ private:
 		has_pantilt_ = max.pan > min.pan || max.tilt > min.tilt;
 	}
 
+	/* Relative pan/tilt, which moves the camera at a speed until it is told
+	 * to stop. The speeds are bytes 1 (pan) and 3 (tilt). A camera that
+	 * answers GET_CUR but not GET_MIN/GET_MAX has it, with no speeds to
+	 * choose from. */
+	void probe_pantilt_speed()
+	{
+		uint8_t lo[uvc::PANTILT_REL_LEN] = {}, hi[uvc::PANTILT_REL_LEN] = {};
+		if (request(true, uvc::GET_MIN, uvc::CT_PANTILT_RELATIVE, lo, uvc::PANTILT_REL_LEN, true) &&
+		    request(true, uvc::GET_MAX, uvc::CT_PANTILT_RELATIVE, hi, uvc::PANTILT_REL_LEN, true)) {
+			speeds = {lo[1], hi[1], lo[3], hi[3]};
+			has_pantilt_speed = true;
+			return;
+		}
+		uint8_t cur[uvc::PANTILT_REL_LEN];
+		has_pantilt_speed =
+			request(true, uvc::GET_CUR, uvc::CT_PANTILT_RELATIVE, cur, uvc::PANTILT_REL_LEN, true);
+	}
+
 	bool probe_u16(uint8_t selector, long *lo, long *hi, long *res)
 	{
 		uint8_t l[uvc::ZOOM_LEN], h[uvc::ZOOM_LEN], r[uvc::ZOOM_LEN];
@@ -287,6 +305,7 @@ public:
 		valid_ = true;
 
 		probe_pantilt();
+		probe_pantilt_speed();
 		has_zoom_ = probe_u16(uvc::CT_ZOOM_ABSOLUTE, &min.zoom, &max.zoom, &step.zoom);
 		has_focus_ = probe_u16(uvc::CT_FOCUS_ABSOLUTE, &min.focus, &max.focus, &step.focus);
 		uint8_t autofocus = 0;
@@ -296,10 +315,14 @@ public:
 
 		blog(LOG_INFO,
 		     "UVC PTZ ranges: pan=%ld..%ld step=%ld, tilt=%ld..%ld step=%ld, zoom=%ld..%ld step=%ld, "
-		     "focus=%ld..%ld step=%ld (%s%s%s%s)",
+		     "focus=%ld..%ld step=%ld, pan/tilt speed=%ld..%ld/%ld..%ld (%s%s%s%s%s)",
 		     min.pan, max.pan, step.pan, min.tilt, max.tilt, step.tilt, min.zoom, max.zoom, step.zoom,
-		     min.focus, max.focus, step.focus, has_pantilt_ ? "pan/tilt " : "", has_zoom_ ? "zoom " : "",
-		     has_focus_ ? "focus " : "", has_focus_auto_ ? "autofocus" : "");
+		     min.focus, max.focus, step.focus, speeds.pan_min, speeds.pan_max, speeds.tilt_min, speeds.tilt_max,
+		     has_pantilt_ ? "pan/tilt " : "", has_pantilt_speed ? "pan/tilt-speed " : "",
+		     has_zoom_ ? "zoom " : "", has_focus_ ? "focus " : "", has_focus_auto_ ? "autofocus" : "");
+		if (usesPanTiltSpeed())
+			blog(LOG_INFO, "USB camera %s: pan/tilt is driven by speed (relative pan/tilt)",
+			     device_path.c_str());
 	}
 
 	~IOKitUVCControl() override
@@ -324,6 +347,12 @@ public:
 			return false;
 		tilt_ = static_cast<int32_t>(value);
 		return send_pantilt();
+	}
+	bool internal_pantilt_speed(long pan, long tilt) override
+	{
+		uint8_t data[uvc::PANTILT_REL_LEN];
+		uvc::put_pantilt_relative(data, pan, tilt);
+		return request(false, uvc::SET_CUR, uvc::CT_PANTILT_RELATIVE, data, uvc::PANTILT_REL_LEN);
 	}
 	bool internal_zoom(long value) override { return has_zoom_ && set_u16(uvc::CT_ZOOM_ABSOLUTE, value); }
 	bool internal_focus(bool auto_focus, long value) override

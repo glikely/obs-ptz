@@ -155,6 +155,25 @@ TEST_CASE("control payloads are little endian", "[uvc]")
 	CHECK(uvc::get_le16(zoom) == 0x1234);
 }
 
+TEST_CASE("a relative pan/tilt is a direction and a speed for each axis", "[uvc]")
+{
+	uint8_t data[uvc::PANTILT_REL_LEN];
+	uvc::put_pantilt_relative(data, 3, -7);
+	CHECK(data[0] == 0x01); /* clockwise: right */
+	CHECK(data[1] == 3);
+	CHECK(data[2] == 0xff); /* down */
+	CHECK(data[3] == 7);
+
+	uvc::put_pantilt_relative(data, -1, 0);
+	CHECK(data[0] == 0xff);
+	CHECK(data[1] == 1);
+	CHECK(data[2] == 0x00); /* stopped */
+	CHECK(data[3] == 0);
+
+	uvc::put_pantilt_relative(data, 1000, 0);
+	CHECK(data[1] == 0xff); /* as fast as the payload can say */
+}
+
 TEST_CASE("a control request addresses its entity and selector", "[uvc]")
 {
 	/* wIndex: the entity in the high byte, the interface in the low; wValue: the selector in the high byte */
@@ -162,4 +181,5 @@ TEST_CASE("a control request addresses its entity and selector", "[uvc]")
 	CHECK(uvc::control_index(1, 2) == 0x0102);
 	CHECK(uvc::control_value(uvc::CT_PANTILT_ABSOLUTE) == 0x0d00);
 	CHECK(uvc::control_value(uvc::CT_ZOOM_ABSOLUTE) == 0x0b00);
+	CHECK(uvc::control_value(uvc::CT_PANTILT_RELATIVE) == 0x0e00);
 }
