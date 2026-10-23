@@ -27,8 +27,8 @@ PTZUSBCam::PTZUSBCam(OBSData config, obs_source_t *source)
 	connect(worker_.get(), &PTZUsbWorker::connectedChanged, this,
 		[this](bool connected) { setConnected(connected); });
 	connect(worker_.get(), &PTZUsbWorker::stateCaptured, this,
-		[this](PtzUsbCamPos pos, bool hasPan, bool hasTilt, bool hasZoom, bool hasFocus) {
-			report_state(pos, hasPan, hasTilt, hasZoom, hasFocus);
+		[this](PtzUsbCamPos pos, bool hasPan, bool hasTilt, bool hasPanTiltSpeed, bool hasZoom, bool hasFocus) {
+			report_state(pos, hasPan, hasTilt, hasPanTiltSpeed, hasZoom, hasFocus);
 		});
 
 	connect(&device_id_timer_, &QTimer::timeout, this, &PTZUSBCam::refreshDeviceId);
@@ -122,9 +122,11 @@ obs_properties_t *PTZUSBCam::get_obs_properties()
 /* pos's axes are meaningful only where the matching hasX is true -- an axis
  * the camera has no range for (a fixed-focus camera's focus, say) is left
  * out of the state entirely, rather than reported as a position of 0. */
-void PTZUSBCam::report_state(PtzUsbCamPos pos, bool hasPan, bool hasTilt, bool hasZoom, bool hasFocus)
+void PTZUSBCam::report_state(PtzUsbCamPos pos, bool hasPan, bool hasTilt, bool hasPanTiltSpeed, bool hasZoom,
+			     bool hasFocus)
 {
 	has_pantilt = hasPan || hasTilt;
+	has_pantilt_speed = hasPanTiltSpeed;
 	has_zoom = hasZoom;
 	has_focus = hasFocus;
 	featuresChanged();
@@ -186,12 +188,15 @@ void PTZUSBCam::pantilt_rel(double pan, double tilt)
 
 /* What the camera has a control for. Its presets are the device's local ones,
  * of the positions it was last sent to. Nothing until it has said: a webcam
- * often has no pan or tilt. */
+ * often has no pan or tilt. A camera that pans and tilts only at a speed has
+ * no pan/tilt position to go to, so its presets keep only zoom and focus. */
 PTZDevice::Features PTZUSBCam::features() const
 {
 	Features features;
 	if (has_pantilt)
 		features |= PanTilt | PanTiltAbs | PanTiltRel | Home;
+	if (has_pantilt_speed)
+		features |= PanTilt;
 	if (has_zoom)
 		features |= Zoom | ZoomAbs;
 	if (has_focus)

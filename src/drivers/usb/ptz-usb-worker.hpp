@@ -45,7 +45,9 @@ public:
 	void setDeviceId(const std::string &device_id);
 
 	/* Speeds of a continuous move, in the range of PTZDevice's pan_speed etc.
-	 * and per second of the axis' range. All zero stops. */
+	 * and per second of the axis' range. All zero stops. A camera whose
+	 * pan/tilt is driven by speed (PTZUsbBackend::usesPanTiltSpeed()) is
+	 * told the pan and tilt speeds as they change, instead. */
 	void setSpeeds(double pan, double tilt, double zoom, double focus);
 
 	void pantiltAbs(double pan, double tilt);
@@ -67,8 +69,10 @@ signals:
 	void positionCaptured(int id, double pan, double tilt, double zoom, bool focusAuto, double focus);
 	/* pos's pan/tilt/zoom/focus are meaningful only where the matching hasX
 	 * is true -- an axis the camera has no range for is left out, not
-	 * reported as a position of 0 */
-	void stateCaptured(PtzUsbCamPos pos, bool hasPan, bool hasTilt, bool hasZoom, bool hasFocus);
+	 * reported as a position of 0. hasPanTiltSpeed is a camera that can
+	 * only be panned and tilted at a speed, with no position. */
+	void stateCaptured(PtzUsbCamPos pos, bool hasPan, bool hasTilt, bool hasPanTiltSpeed, bool hasZoom,
+			   bool hasFocus);
 
 private:
 	/* Runs fn on the worker's thread, after everything posted before it */
@@ -80,6 +84,7 @@ private:
 	/* The rest only runs on the worker's thread */
 	PTZUsbBackend *backend();
 	void tick();
+	void sendPanTiltSpeed(PTZUsbBackend *b);
 	void refreshConnection();
 	void updateTimer();
 	bool moving() const { return pan_speed_ != 0 || tilt_speed_ != 0 || zoom_speed_ != 0 || focus_speed_ != 0; }

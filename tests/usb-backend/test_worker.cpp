@@ -34,10 +34,11 @@ struct Camera {
 	std::vector<Call> calls;
 	std::set<QThread *> threads; /* every thread that created, used or destroyed a backend */
 	int alive = 0;
-	std::atomic<bool> present{true};   /* false while the camera is unplugged */
-	std::atomic<int> probes{0};        /* how often the backend was asked if it's still there */
-	std::atomic<int> delay_ms{0};      /* how long each request takes */
-	std::atomic<bool> no_focus{false}; /* like a fixed-focus camera: no focus range */
+	std::atomic<bool> present{true};     /* false while the camera is unplugged */
+	std::atomic<int> probes{0};          /* how often the backend was asked if it's still there */
+	std::atomic<int> delay_ms{0};        /* how long each request takes */
+	std::atomic<bool> no_focus{false};   /* like a fixed-focus camera: no focus range */
+	std::atomic<bool> speed_only{false}; /* like a Logitech PTZ Pro 2: pan/tilt by speed, no position */
 
 	size_t count()
 	{
@@ -86,9 +87,14 @@ public:
 	FakeBackend(Camera &camera, const std::string &id) : camera_(camera), alive_(camera.present)
 	{
 		device_path = id;
-		min = {-100, -100, 0, 0};
-		max = {100, 100, 100, camera.no_focus ? 0 : 100};
+		bool speed_only = camera.speed_only;
+		min = {speed_only ? 0 : -100, speed_only ? 0 : -100, 0, 0};
+		max = {speed_only ? 0 : 100, speed_only ? 0 : 100, 100, camera.no_focus ? 0 : 100};
 		step = {1, 1, 1, 1};
+		if (speed_only) {
+			has_pantilt_speed = true;
+			speeds = {1, 10, 1, 10};
+		}
 		std::lock_guard<std::mutex> lock(camera_.m);
 		camera_.alive++;
 		camera_.threads.insert(QThread::currentThread());
@@ -103,6 +109,10 @@ public:
 	bool internal_pan(long v) override { return record("pan", v); }
 	bool internal_tilt(long v) override { return record("tilt", v); }
 	bool internal_zoom(long v) override { return record("zoom", v); }
+	bool internal_pantilt_speed(long p, long t) override
+	{
+		return record("pan-speed", p) && record("tilt-speed", t);
+	}
 	bool internal_focus(bool auto_focus, long v) override { return record(auto_focus ? "autofocus" : "focus", v); }
 	bool isValid() const override { return alive_; }
 	bool checkAlive() override
@@ -359,7 +369,7 @@ TEST_CASE("the worker reports its state, for the axes the camera has", "[usb-bac
 	} answer;
 	bool answered = false;
 	QObject::connect(&worker, &PTZUsbWorker::stateCaptured, &context,
-			 [&](PtzUsbCamPos pos, bool hasPan, bool hasTilt, bool hasZoom, bool hasFocus) {
+			 [&](PtzUsbCamPos pos, bool hasPan, bool hasTilt, bool, bool hasZoom, bool hasFocus) {
 				 answer = {pos, hasPan, hasTilt, hasZoom, hasFocus};
 				 answered = true;
 			 });
@@ -391,7 +401,7 @@ TEST_CASE("a camera without a focus range reports no focus in its state", "[usb-
 	bool answered = false;
 	QObject context;
 	QObject::connect(&worker, &PTZUsbWorker::stateCaptured, &context,
-			 [&](PtzUsbCamPos, bool, bool, bool, bool focus) {
+			 [&](PtzUsbCamPos, bool, bool, bool, bool, bool focus) {
 				 hasFocus = focus;
 				 answered = true;
 			 });
@@ -410,13 +420,59 @@ TEST_CASE("captureState does nothing without a camera", "[usb-backend][worker]")
 	bool answered = false;
 	QObject context;
 	QObject::connect(&worker, &PTZUsbWorker::stateCaptured, &context,
-			 [&](PtzUsbCamPos, bool, bool, bool, bool) { answered = true; });
+			 [&](PtzUsbCamPos, bool, bool, bool, bool, bool) { answered = true; });
 
 	/* no setDeviceId(): there is no camera to ask */
 	worker.captureState();
 	QThread::msleep(100);
 	QCoreApplication::processEvents();
 	CHECK_FALSE(answered);
+}
+
+TEST_CASE("a camera with no pan/tilt position is told each change of speed, once", "[usb-backend][worker]")
+{
+	Camera camera;
+	camera.speed_only = true;
+	PTZUsbWorker worker(factoryFor(camera));
+	worker.setDeviceId("cam");
+
+	worker.setSpeeds(0.5, -1.0, 0, 0);
+	REQUIRE(waitFor([&] { return camera.count() >= 2; }));
+	CHECK(camera.last("pan-speed") == 6); /* halfway from 1 to 10 */
+	CHECK(camera.last("tilt-speed") == -10);
+
+	settle(300); /* the camera keeps itself moving: nothing more is sent */
+	CHECK(camera.count() == 2);
+	CHECK(camera.last("pan") == -1000); /* and no position */
+
+	worker.setSpeeds(0, 0, 0, 0);
+	REQUIRE(waitFor([&] { return camera.count() >= 4; }));
+	CHECK(camera.last("pan-speed") == 0);
+	CHECK(camera.last("tilt-speed") == 0);
+}
+
+TEST_CASE("a camera with no pan/tilt position reports pan/tilt by speed, and no position", "[usb-backend][worker]")
+{
+	Camera camera;
+	camera.speed_only = true;
+	PTZUsbWorker worker(factoryFor(camera));
+
+	bool answered = false, hasPan = true, hasTilt = true, hasSpeed = false;
+	QObject context;
+	QObject::connect(&worker, &PTZUsbWorker::stateCaptured, &context,
+			 [&](PtzUsbCamPos, bool pan, bool tilt, bool speed, bool, bool) {
+				 hasPan = pan;
+				 hasTilt = tilt;
+				 hasSpeed = speed;
+				 answered = true;
+			 });
+
+	worker.setDeviceId("cam");
+	worker.captureState();
+	REQUIRE(waitFor([&] { return answered; }));
+	CHECK_FALSE(hasPan);
+	CHECK_FALSE(hasTilt);
+	CHECK(hasSpeed);
 }
 
 TEST_CASE("a saved position is recalled axis by axis", "[usb-backend][worker]")

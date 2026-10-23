@@ -72,6 +72,8 @@ void PTZUsbWorker::setSpeeds(double pan, double tilt, double zoom, double focus)
 		focus_speed_ = focus;
 		if (moving() && !was_moving)
 			since_tick_.restart(); /* don't count the time spent standing still */
+		if (auto *b = backend())
+			sendPanTiltSpeed(b);
 		updateTimer();
 	});
 }
@@ -152,8 +154,9 @@ void PTZUsbWorker::captureState()
 		if (!b)
 			return;
 		PtzUsbCamLimits min = b->getMin(), max = b->getMax();
-		emit stateCaptured(b->getPosition(), max.pan > min.pan, max.tilt > min.tilt, max.zoom > min.zoom,
-				   max.focus > min.focus);
+		bool speed = b->usesPanTiltSpeed();
+		emit stateCaptured(b->getPosition(), !speed && max.pan > min.pan, !speed && max.tilt > min.tilt, speed,
+				   max.zoom > min.zoom, max.focus > min.focus);
 	});
 }
 
@@ -191,7 +194,11 @@ void PTZUsbWorker::tick()
 		return;
 
 	double step = std::min(elapsed, MAX_STEP_SECONDS);
-	if (pan_speed_ != 0 || tilt_speed_ != 0) {
+	if (b->usesPanTiltSpeed()) {
+		/* The camera keeps itself moving; this only matters if it has
+		 * just come back, and not yet been told */
+		sendPanTiltSpeed(b);
+	} else if (pan_speed_ != 0 || tilt_speed_ != 0) {
 		b->pan(b->getPan() + pan_speed_ * step);
 		b->tilt(b->getTilt() + tilt_speed_ * step);
 	}
@@ -199,6 +206,13 @@ void PTZUsbWorker::tick()
 		b->zoom(b->getZoom() + zoom_speed_ * step);
 	if (focus_speed_ != 0)
 		b->focus(b->getFocus() + focus_speed_ * step);
+}
+
+/* The backend sends only what changed */
+void PTZUsbWorker::sendPanTiltSpeed(PTZUsbBackend *b)
+{
+	if (b->usesPanTiltSpeed())
+		b->pantiltSpeed(pan_speed_, tilt_speed_);
 }
 
 void PTZUsbWorker::updateTimer()

@@ -10,6 +10,8 @@
 #pragma once
 
 #include <algorithm>
+#include <cmath>
+#include <cstdlib>
 #include <memory>
 #include <string>
 
@@ -19,6 +21,15 @@ struct PtzUsbCamLimits {
 	long zoom = 0;
 	long focus = 0;
 	// long temperature = 0;
+};
+
+/* The speeds a camera moves pan and tilt at when told to keep moving (relative
+ * pan/tilt), slowest and fastest, as the camera counts them */
+struct PtzUsbCamSpeeds {
+	long pan_min = 0;
+	long pan_max = 0;
+	long tilt_min = 0;
+	long tilt_max = 0;
 };
 
 struct PtzUsbCamPos {
@@ -38,6 +49,10 @@ protected:
 	/* DirectShow/UVC controls may only accept values at a fixed increment. */
 	PtzUsbCamLimits step{1, 1, 1, 1};
 	PtzUsbCamPos now_pos;
+	/* Set by a backend whose camera can start and stop its pan/tilt motors
+	 * (see pantiltSpeed()), with the speeds it can do */
+	bool has_pantilt_speed = false;
+	PtzUsbCamSpeeds speeds;
 
 	/* A camera that lacks a control reports no range for it (max == min, usually
 	 * both 0), and there is nothing to move. */
@@ -52,6 +67,19 @@ protected:
 	/* Increments below 1 mean the camera didn't say; any value is accepted. */
 	static long valid_step(long increment) { return increment > 1 ? increment : 1; }
 
+	/* A signed speed in the camera's units for a speed of -1..1: zero
+	 * stops, anything else is at least the camera's slowest */
+	static long camera_speed(double value, long slowest, long fastest)
+	{
+		if (value == 0)
+			return 0;
+		slowest = std::max(slowest, 1L);
+		fastest = std::max(fastest, slowest);
+		double magnitude = std::min(std::fabs(value), 1.0);
+		long speed = slowest + std::lround(magnitude * (fastest - slowest));
+		return value < 0 ? -speed : speed;
+	}
+
 	static long clamp_to_step(long value, long minimum, long maximum, long increment)
 	{
 		value = std::clamp(value, minimum, maximum);
@@ -64,12 +92,57 @@ protected:
 		return std::clamp(rounded, minimum, maximum);
 	}
 
+private:
+	bool sent_pantilt_speed_ = false;
+	long last_pan_speed_ = 0, last_tilt_speed_ = 0;
+
 public:
 	virtual ~PTZUsbBackend() {}
+
+	/* Start, change or stop a relative pan/tilt: signed speeds in the
+	 * camera's units (see PtzUsbCamSpeeds), positive pans right and tilts
+	 * up, zero stops that axis */
+	virtual bool internal_pantilt_speed(long pan, long tilt)
+	{
+		(void)pan;
+		(void)tilt;
+		return false;
+	}
+	/* Whether pan and tilt are driven by speed, with pantiltSpeed(), rather
+	 * than moved to a position. Only for a camera that has no position to
+	 * go to, such as Logitech's PTZ Pro 2: where a camera has both, moving
+	 * to positions does more (presets, home, moves by a distance). Setting
+	 * PTZ_USB_PANTILT_SPEED in the environment uses speed on any camera
+	 * that has it, to try it out. */
+	bool usesPanTiltSpeed() const
+	{
+		if (!has_pantilt_speed)
+			return false;
+		static const bool forced = std::getenv("PTZ_USB_PANTILT_SPEED") != nullptr;
+		return forced || !(has_range(min.pan, max.pan) || has_range(min.tilt, max.tilt));
+	}
+	/* Keep pan and tilt moving at speeds of -1..1, until told 0. Only sends
+	 * the camera what has changed in its own units, since a camera can be
+	 * slow to take a command. */
+	bool pantiltSpeed(double pan, double tilt)
+	{
+		if (!usesPanTiltSpeed())
+			return false;
+		long p = camera_speed(pan, speeds.pan_min, speeds.pan_max);
+		long t = camera_speed(tilt, speeds.tilt_min, speeds.tilt_max);
+		if (sent_pantilt_speed_ && p == last_pan_speed_ && t == last_tilt_speed_)
+			return true;
+		sent_pantilt_speed_ = internal_pantilt_speed(p, t);
+		last_pan_speed_ = p;
+		last_tilt_speed_ = t;
+		return sent_pantilt_speed_;
+	}
+	PtzUsbCamSpeeds getSpeeds() const { return speeds; }
+
 	virtual bool internal_pan(long value) = 0;
 	bool pan(double value)
 	{
-		if (!has_range(min.pan, max.pan))
+		if (!has_range(min.pan, max.pan) || usesPanTiltSpeed())
 			return false;
 		now_pos.pan = std::clamp(value, -1.0, 1.0);
 		long pan = clamp_to_step(static_cast<long>(now_pos.pan * max.pan), min.pan, max.pan, step.pan);
@@ -79,7 +152,7 @@ public:
 	virtual bool internal_tilt(long value) = 0;
 	bool tilt(double value)
 	{
-		if (!has_range(min.tilt, max.tilt))
+		if (!has_range(min.tilt, max.tilt) || usesPanTiltSpeed())
 			return false;
 		now_pos.tilt = std::clamp(value, -1.0, 1.0);
 		long tilt = clamp_to_step(static_cast<long>(now_pos.tilt * max.tilt), min.tilt, max.tilt, step.tilt);

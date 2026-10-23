@@ -51,6 +51,21 @@ public:
 	}
 	bool isValid() const override { return true; }
 
+	int speed_calls = 0;
+	long pan_speed = 0, tilt_speed = 0;
+	bool internal_pantilt_speed(long p, long t) override
+	{
+		speed_calls++;
+		pan_speed = p;
+		tilt_speed = t;
+		return true;
+	}
+	void setPanTiltSpeeds(PtzUsbCamSpeeds s)
+	{
+		has_pantilt_speed = true;
+		speeds = s;
+	}
+
 	static double ratioOf(long value, long maximum) { return ratio(value, maximum); }
 	static long stepOf(long increment) { return valid_step(increment); }
 };
@@ -172,4 +187,76 @@ TEST_CASE("values are rounded onto the camera's step", "[usb-backend]")
 		CHECK(cam.focus(0.5));
 		CHECK(cam.focus_value % 5 == 0);
 	}
+}
+
+TEST_CASE("a camera with no pan/tilt position is driven by speed", "[usb-backend]")
+{
+	FakeBackend b({0, 0, 0, 0}, {0, 0, 100, 0});
+	b.setPanTiltSpeeds({1, 7, 1, 3});
+	REQUIRE(b.usesPanTiltSpeed());
+
+	CHECK(b.pantiltSpeed(0.5, -1.0));
+	CHECK(b.pan_speed == 4); /* halfway from 1 to 7 */
+	CHECK(b.tilt_speed == -3);
+
+	CHECK(b.pantiltSpeed(0.01, 0));
+	CHECK(b.pan_speed == 1); /* moving at all is at least the slowest */
+	CHECK(b.tilt_speed == 0);
+
+	CHECK(b.pantiltSpeed(-2.0, 0));
+	CHECK(b.pan_speed == -7);
+
+	CHECK(b.pantiltSpeed(0, 0));
+	CHECK(b.pan_speed == 0);
+	CHECK(b.tilt_speed == 0);
+
+	/* and it has no position to be sent to */
+	int calls = b.calls;
+	CHECK_FALSE(b.pan(0.5));
+	CHECK_FALSE(b.tilt(0.5));
+	CHECK(b.calls == calls);
+}
+
+TEST_CASE("only a change of speed the camera can tell apart is sent", "[usb-backend]")
+{
+	FakeBackend b;
+	b.setPanTiltSpeeds({1, 1, 1, 1}); /* one speed: just a direction */
+
+	CHECK(b.pantiltSpeed(0.2, 0));
+	CHECK(b.pantiltSpeed(0.9, 0));
+	CHECK(b.speed_calls == 1);
+	CHECK(b.pan_speed == 1);
+
+	CHECK(b.pantiltSpeed(-0.3, 0));
+	CHECK(b.speed_calls == 2);
+	CHECK(b.pan_speed == -1);
+}
+
+TEST_CASE("a camera that doesn't give its speeds still moves", "[usb-backend]")
+{
+	FakeBackend b;
+	b.setPanTiltSpeeds({0, 0, 0, 0});
+
+	CHECK(b.pantiltSpeed(1.0, -0.5));
+	CHECK(b.pan_speed == 1);
+	CHECK(b.tilt_speed == -1);
+}
+
+TEST_CASE("a camera that can go to a position is not driven by speed", "[usb-backend]")
+{
+	FakeBackend b({-100, -100, 0, 0}, {100, 100, 0, 0});
+	b.setPanTiltSpeeds({1, 7, 1, 7});
+
+	CHECK_FALSE(b.usesPanTiltSpeed());
+	CHECK_FALSE(b.pantiltSpeed(1.0, 0));
+	CHECK(b.speed_calls == 0);
+	CHECK(b.pan(0.5));
+}
+
+TEST_CASE("a camera without relative pan/tilt is not driven by speed", "[usb-backend]")
+{
+	FakeBackend b;
+	CHECK_FALSE(b.usesPanTiltSpeed());
+	CHECK_FALSE(b.pantiltSpeed(1.0, 0));
+	CHECK(b.speed_calls == 0);
 }
