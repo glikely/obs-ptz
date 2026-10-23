@@ -390,6 +390,14 @@ VISCA_PROFILES = {
             "reads": [{"cmd": "81097e7e00ff", "results": [{"type": "u16", "offset": 2}]}],
         }],
         "triggers": {"user_home": "81010604ff"},
+        # what its axes mean: a pan that steps by 4 counts and is 100 degrees at
+        # the ends of its range, and a focus that is nothing at its far end
+        # (infinity) and a centimetre at its near end
+        "resolution": {"pan": 4},
+        "scale": {
+            "pan": {"unit": "deg", "points": [{"count": -5120, "value": -100}, {"count": 5120, "value": 100}]},
+            "focus": {"unit": "m", "points": [{"count": 4096}, {"count": 61440, "value": 0.01}]},
+        },
     },
     # One that extends another, read before it
     "a-extended.json": {

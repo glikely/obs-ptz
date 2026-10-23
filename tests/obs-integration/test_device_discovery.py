@@ -252,7 +252,7 @@ def test_discovery_through_websocket(obs_world, onvif_sim, sony_sim):
     assert set(instances.values()) == DISCOVERY_KINDS
     for uuid, kind in instances.items():
         version = obs_world.ws.vendor("obs-ptz", "ptz_get_api_version", {"device": uuid})
-        assert (version["major"], version["minor"]) == (0, 5), kind
+        assert (version["major"], version["minor"]) == (0, 6), kind
         said = [event for event, data in result["said"] if data["device"] == uuid]
         assert said.count("ptz_discovery_finished") == 1, kind
         assert "ptz_device_found" not in said[said.index("ptz_discovery_finished"):], f"{kind} found after finishing"

@@ -201,6 +201,21 @@ def test_a_polled_camera_says_only_what_changed(obs_world, backend):
         known.update(changed)
 
 
+@pytest.mark.parametrize("backend", VISCA_BACKENDS)
+def test_axes_say_the_step_of_each_position(obs_world, backend, tmp_path):
+    """The smallest step of each axis, in the units of its position: a VISCA camera
+    has one count of the range its positions are scaled by, unless its profile
+    says it steps by more. Nothing says what a position is in degrees or metres,
+    which only a camera's profile knows"""
+    state = obs_world.wait_for_device_state(
+        obs_world.device_names[backend], tmp_path / "state.json",
+        lambda r: {"pan", "tilt", "zoom", "focus", "axes"} <= set(r["state"]), timeout=10)["state"]
+    axes = state["axes"]
+    assert set(axes) == {"pan", "tilt", "zoom", "focus"}
+    assert all(0 < axis["step"] <= 0.01 for axis in axes.values()), axes
+    assert not any("unit" in axis or "points" in axis for axis in axes.values()), axes
+
+
 @pytest.mark.parametrize("backend", ["pelco-d", "pelco-p"])
 def test_pelco_state_has_no_white_balance_or_position(obs_world, backend, tmp_path):
     state = obs_world.device_state(obs_world.device_names[backend], tmp_path / "state.json")["state"]

@@ -97,6 +97,23 @@ def test_a_user_state_value_is_read_and_set(request, obs_world, tmp_path):
     camera.wait_for_state(lambda s: s.get("user_wb") == 5, timeout=5)
 
 
+def test_a_command_set_says_what_its_axes_mean(request, obs_world, tmp_path):
+    """Its counts, which are the camera's, are turned into the position's units: a
+    pan of 5120 counts is the end of its range, 1.0, and a pan with no scale of its
+    own steps by a count of its range"""
+    camera = Camera(request, obs_world, tmp_path, "0123:0001")
+    axes = camera.wait_for_state(lambda s: {"pan", "tilt", "focus", "axes"} <= set(s))["axes"]
+    assert axes["pan"]["step"] == 4 / 0x1400
+    assert axes["pan"]["unit"] == "deg"
+    assert axes["pan"]["points"] == [{"position": -1.0, "value": -100.0}, {"position": 1.0, "value": 100.0}]
+    # infinity at the far end has no value
+    assert axes["focus"]["unit"] == "m"
+    assert axes["focus"]["points"] == [{"position": 0.0}, {"position": 1.0, "value": 0.01}]
+    # an axis it says nothing of has its step, and no unit
+    assert axes["tilt"]["step"] == 1 / 0x500
+    assert "unit" not in axes["tilt"]
+
+
 def test_a_user_trigger_is_sent(request, obs_world, tmp_path):
     camera = Camera(request, obs_world, tmp_path, "0123:0001")
     camera.wait_for_state(lambda s: "pan" in s)
