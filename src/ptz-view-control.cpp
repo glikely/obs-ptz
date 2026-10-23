@@ -2,7 +2,6 @@
  *
  * SPDX-License-Identifier: GPLv2
  */
-
 #include <algorithm>
 #include <cmath>
 #include <optional>
@@ -214,15 +213,14 @@ void PTZViewControl::drawCallback(void *param, uint32_t cx, uint32_t cy)
 	gs_projection_pop();
 
 	drawOverlay(cx, cy, (cx - width) / 2, (cy - height) / 2, width, height, view->m_pixelRatio);
-	/* The position just below the picture and the cursor just above it, or
-	 * as near as they fit in the display */
+	/* Inside the picture: the cursor just below its top edge and the
+	 * position just above its bottom edge */
 	const int x = (cx - width) / 2, y = (cy - height) / 2;
 	const int gap = (int)(2 * view->m_pixelRatio);
 	if (gs_texture_t *text = view->m_positionReadout.texture)
-		drawText(text, cx, cy, x, width,
-			 std::min(y + height + gap, (int)cy - (int)gs_texture_get_height(text)));
+		drawText(text, cx, cy, x, width, y + height - gap - (int)gs_texture_get_height(text));
 	if (gs_texture_t *text = view->m_cursorReadout.texture)
-		drawText(text, cx, cy, x, width, std::max(y - gap - (int)gs_texture_get_height(text), 0));
+		drawText(text, cx, cy, x, width, y + gap);
 }
 
 void PTZViewControl::createDisplay()
@@ -331,6 +329,45 @@ static QString describe(const QModelIndex &index)
 		       .arg(QString::fromUtf8(obs_data_get_json(OBSDataAutoRelease(obs_data_get_obj(state, "statistics")))));
 }
 
+/* One calibration measurement: pressing on a point dx, dy source pixels from
+ * the middle of the picture and dragging it there moved the camera by pan and
+ * tilt, in the units of the movement API, at zoom */
+struct ViewCalibration {
+	double pan;
+	double tilt;
+	double zoom;
+	int dx;
+	int dy;
+};
+
+/* Measured on an OBSBOT Tail Air, in order of zoom */
+static constexpr ViewCalibration viewCalibration[] = {
+	{-0.040, 0.163, 0.300, -442, -412},
+	{-0.023, 0.106, 0.600, -468, -476},
+	{-0.014, 0.056, 1.000, -452, -479},
+};
+
+bool quadratic_coefficients(double x1, double y1, double x2, double y2, double x3, double y3, double *a, double *b,
+			    double *c)
+{
+	double d1 = (x1 - x2) * (x1 - x3);
+	double d2 = (x2 - x1) * (x2 - x3);
+	double d3 = (x3 - x1) * (x3 - x2);
+
+	// A quadratic cannot be uniquely determined if
+	// any two x-coordinates are equal.
+	if (x1 == x2 || x1 == x3 || x2 == x3)
+		return false;
+
+	*a = y1 / d1 + y2 / d2 + y3 / d3;
+
+	*b = -y1 * (x2 + x3) / d1 - y2 * (x1 + x3) / d2 - y3 * (x1 + x2) / d3;
+
+	*c = y1 * x2 * x3 / d1 + y2 * x1 * x3 / d2 + y3 * x1 * x2 / d3;
+
+	return true;
+}
+
 void PTZViewControl::setSource(obs_source_t *source)
 {
 	QMutexLocker locker(&m_sourceMutex);
@@ -340,6 +377,20 @@ void PTZViewControl::setSource(obs_source_t *source)
 	m_dragging = false;
 	m_wheelDelta = 0;
 	m_lastZoom.invalidate();
+
+	// Development work
+	if (std::size(viewCalibration) >= 3) {
+		quadratic_coefficients(viewCalibration[0].zoom, viewCalibration[0].pan / viewCalibration[0].dx,
+				       viewCalibration[1].zoom, viewCalibration[1].pan / viewCalibration[1].dx,
+				       viewCalibration[2].zoom, viewCalibration[2].pan / viewCalibration[2].dx, &pa,
+				       &pb, &pc);
+
+		quadratic_coefficients(viewCalibration[0].zoom, viewCalibration[0].tilt / viewCalibration[0].dy,
+				       viewCalibration[1].zoom, viewCalibration[1].tilt / viewCalibration[1].dy,
+				       viewCalibration[2].zoom, viewCalibration[2].tilt / viewCalibration[2].dy, &ta,
+				       &tb, &tc);
+		trace(QString("coef: pan %1 %2 %3 tilt %4 %5 %6").arg(pa).arg(pb).arg(pc).arg(ta).arg(tb).arg(tc));
+	}
 }
 
 void PTZViewControl::resizeEvent(QResizeEvent *event)
@@ -403,6 +454,44 @@ void PTZViewControl::mouseMoveEvent(QMouseEvent *event)
 		return;
 	m_dragPos = event->position();
 	m_dragMoved = true;
+}
+
+/* Moves the camera so that what was double clicked is in the middle of the
+ * picture: as far as dragging it there would, at this zoom. Not passed on, so
+ * that it doesn't start a drag as a second press. */
+void PTZViewControl::mouseDoubleClickEvent(QMouseEvent *event)
+{
+	if (event->button() != Qt::LeftButton)
+		return;
+	m_dragging = false;
+	auto index = device();
+	if (!index.isValid() || liveLocked(index) || !PTZListModel::hasFeature(index, "pantilt_abs"))
+		return;
+	std::optional<QPoint> clicked = sourcePixel(event->position());
+	OBSSourceAutoRelease source;
+	{
+		QMutexLocker locker(&m_sourceMutex);
+		source = obs_weak_source_get_source(m_source);
+	}
+	double pan, tilt, zoom;
+	if (!clicked || !source || !readPosition(index, pan, tilt, zoom))
+		return;
+
+	/* From where it was clicked to the middle, in the source's pixels, as
+	 * the calibration has them */
+	double dx = obs_source_get_width(source) / 2.0 - clicked->x();
+	double dy = obs_source_get_height(source) / 2.0 - clicked->y();
+	double panPerPixel = pa * zoom * zoom + pb * zoom + pc;
+	double tiltPerPixel = ta * zoom * zoom + tb * zoom + tc;
+	pan = std::clamp(pan + dx * panPerPixel, -1.0, 1.0);
+	tilt = std::clamp(tilt + dy * tiltPerPixel, -1.0, 1.0);
+
+	trace(QString("double click: pan/tilt to %1, %2").arg(pan).arg(tilt));
+	calldata_t cd = {};
+	calldata_set_float(&cd, "pan", pan);
+	calldata_set_float(&cd, "tilt", tilt);
+	ptzDeviceList->callDevice(index, "ptz_move_abs", &cd);
+	calldata_free(&cd);
 }
 
 void PTZViewControl::leaveEvent(QEvent *event)
@@ -542,7 +631,7 @@ void PTZViewControl::setText(TextOverlay &overlay, const QString &text)
 	{
 		QPainter painter(&image);
 		painter.setFont(mono);
-		painter.setPen(QColor(0xc0, 0xc0, 0xc0));
+		painter.setPen(Qt::white);
 		painter.drawText(0, metrics.ascent(), text);
 	}
 
@@ -601,17 +690,27 @@ void PTZViewControl::tick()
 	if (m_dragging && m_dragMoved) {
 		m_dragMoved = false;
 		QRectF rect = sourceRect();
-		if (rect.isEmpty()) {
+		OBSSourceAutoRelease source;
+		{
+			QMutexLocker locker(&m_sourceMutex);
+			source = obs_weak_source_get_source(m_source);
+		}
+		if (rect.isEmpty() || !source) {
 			trace("tick: source has no size");
 			return;
 		}
-		/* The camera turns the way the mouse moves, by as much of its
-		 * field of view as the mouse moved across the picture */
-		double magnification = 1.0 + (m_config.maxMagnification - 1.0) * m_dragZoom;
-		double dx = (m_dragPos.x() - m_dragStart.x()) / rect.width();
-		double dy = (m_dragStart.y() - m_dragPos.y()) / rect.height();
-		double pan = std::clamp(m_panStart + dx * m_config.panPerWidth / magnification, -1.0, 1.0);
-		double tilt = std::clamp(m_tiltStart + dy * m_config.tiltPerHeight / magnification, -1.0, 1.0);
+		/* How far the mouse moved, in the source's pixels, scaled as the
+		 * cursor readout has them: Y is down, as it is in the source */
+		double dx = (m_dragPos.x() - m_dragStart.x()) * obs_source_get_width(source) /
+			    std::max(1.0, rect.width() - 1.0);
+		double dy = (m_dragPos.y() - m_dragStart.y()) * obs_source_get_height(source) /
+			    std::max(1.0, rect.height() - 1.0);
+		/* Pan and tilt for each pixel at this zoom, from the calibration */
+		double z = m_dragZoom;
+		double panPerPixel = pa * z * z + pb * z + pc;
+		double tiltPerPixel = ta * z * z + tb * z + tc;
+		double pan = std::clamp(m_panStart + dx * panPerPixel, -1.0, 1.0);
+		double tilt = std::clamp(m_tiltStart + dy * tiltPerPixel, -1.0, 1.0);
 
 		trace(QString("tick: pan/tilt to %1, %2").arg(pan).arg(tilt));
 		calldata_t cd = {};

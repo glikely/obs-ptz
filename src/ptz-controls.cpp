@@ -101,6 +101,27 @@ private:
 	QList<QWidget *> widgets;
 };
 
+/**
+ * class squareRowFilter - Event filter to keep a row of buttons square
+ *
+ * Makes the row as tall as each button in it is wide, the buttons sharing its
+ * width less the spacing between them.
+ */
+class squareRowFilter : public QObject {
+public:
+	squareRowFilter(QObject *parent) : QObject(parent) {}
+	bool eventFilter(QObject *watched, QEvent *event) override
+	{
+		auto row = qobject_cast<QWidget *>(watched);
+		if (!row || !row->layout() || event->type() != QEvent::Resize)
+			return false;
+		int count = std::max(1, row->layout()->count());
+		int width = static_cast<QResizeEvent *>(event)->size().width();
+		row->setFixedHeight((width - row->layout()->spacing() * (count - 1)) / count);
+		return false;
+	}
+};
+
 void PTZControls::autoselectDevice(OBSSource scene)
 {
 	auto active_src_cb = [](obs_source_t *, obs_source_t *child, void *data) {
@@ -274,7 +295,8 @@ PTZControls::PTZControls(QWidget *parent) : QFrame(parent), ui(new Ui::PTZContro
 	for (QWidget *w :
 	     {ui->panTiltButton_upleft, ui->panTiltButton_up, ui->panTiltButton_upright, ui->panTiltButton_left,
 	      ui->panTiltButton_right, ui->panTiltButton_downleft, ui->panTiltButton_down, ui->panTiltButton_downright,
-	      ui->zoomButton_wide, ui->zoomButton_tele, ui->focusButton_near, ui->focusButton_far})
+	      ui->zoomButton_wide, ui->zoomButton_tele, ui->focusButton_near, ui->focusButton_far,
+	      ui->viewZoomButton_wide, ui->viewZoomButton_tele, ui->viewFocusButton_near, ui->viewFocusButton_far})
 		w->setToolTip(w->toolTip() + "\n" + modifierHint);
 
 	/* Compatability: Before OBS Studio 31.1.0 the theme had left and right
@@ -308,6 +330,19 @@ PTZControls::PTZControls(QWidget *parent) : QFrame(parent), ui(new Ui::PTZContro
 
 	connect(ui->panTiltTouch, &TouchControl::positionChanged, [this](double p, double t) { setPanTilt(p, t); });
 
+	/* The view control's buttons do what the controller's do */
+	connect(ui->viewZoomButton_tele, &QToolButton::pressed, this, &PTZControls::on_zoomButton_tele_pressed);
+	connect(ui->viewZoomButton_tele, &QToolButton::released, this, &PTZControls::on_zoomButton_tele_released);
+	connect(ui->viewZoomButton_wide, &QToolButton::pressed, this, &PTZControls::on_zoomButton_wide_pressed);
+	connect(ui->viewZoomButton_wide, &QToolButton::released, this, &PTZControls::on_zoomButton_wide_released);
+	connect(ui->viewFocusButton_auto, &QToolButton::clicked, this, &PTZControls::on_focusButton_auto_clicked);
+	connect(ui->viewFocusButton_near, &QToolButton::pressed, this, &PTZControls::on_focusButton_near_pressed);
+	connect(ui->viewFocusButton_near, &QToolButton::released, this, &PTZControls::on_focusButton_near_released);
+	connect(ui->viewFocusButton_far, &QToolButton::pressed, this, &PTZControls::on_focusButton_far_pressed);
+	connect(ui->viewFocusButton_far, &QToolButton::released, this, &PTZControls::on_focusButton_far_released);
+	connect(ui->viewFocusButton_onetouch, &QToolButton::clicked, this,
+		&PTZControls::on_focusButton_onetouch_clicked);
+
 	/* Right-click on the dock's Home button → "Save current position as
 	 * Home" (only shown for a device whose features have "home_set").
 	 * Single-click still triggers GotoHome; the context menu is purely
@@ -327,6 +362,7 @@ PTZControls::PTZControls(QWidget *parent) : QFrame(parent), ui(new Ui::PTZContro
 	auto tabsFilter = new sameSquareFilter(this, {ui->movementControlsWidget, ui->viewControlTab});
 	ui->movementControlsWidget->installEventFilter(tabsFilter);
 	ui->viewControlTab->installEventFilter(tabsFilter);
+	ui->viewButtonsWidget->installEventFilter(new squareRowFilter(this));
 
 	obs_frontend_add_event_callback(onFrontendEvent, this);
 	obs_frontend_add_save_callback(onFrontendSaveEvent, this);
@@ -1070,6 +1106,7 @@ void PTZControls::on_focusButton_onetouch_clicked()
 void PTZControls::setAutofocusEnabled(bool autofocus_on)
 {
 	ui->focusButton_auto->setChecked(autofocus_on);
+	ui->viewFocusButton_auto->setChecked(autofocus_on);
 	updateFocusControls();
 }
 
@@ -1082,6 +1119,10 @@ void PTZControls::updateFocusControls()
 	ui->focusButton_near->setEnabled(manual && PTZListModel::hasFeature(device, "focus"));
 	ui->focusButton_far->setEnabled(manual && PTZListModel::hasFeature(device, "focus"));
 	ui->focusButton_onetouch->setEnabled(manual && PTZListModel::hasFeature(device, "focus_onetouch"));
+	ui->viewFocusButton_auto->setEnabled(ui->focusButton_auto->isEnabled());
+	ui->viewFocusButton_near->setEnabled(ui->focusButton_near->isEnabled());
+	ui->viewFocusButton_far->setEnabled(ui->focusButton_far->isEnabled());
+	ui->viewFocusButton_onetouch->setEnabled(ui->focusButton_onetouch->isEnabled());
 }
 
 void PTZControls::updateMoveControls()
@@ -1090,6 +1131,7 @@ void PTZControls::updateMoveControls()
 	bool is_locked = liveMoveLockActive() && device.data(PTZListModel::IsLockedRole).toBool();
 
 	ui->movementControlsWidget->setEnabled(!is_locked);
+	ui->viewButtonsWidget->setEnabled(!is_locked);
 	ui->deviceList->update();
 	ui->presetListView->setEnabled(!is_locked && PTZListModel::hasFeature(device, "presets"));
 
@@ -1105,6 +1147,8 @@ void PTZControls::updateMoveControls()
 	ui->panTiltButton_home->setEnabled(PTZListModel::hasFeature(device, "home"));
 	ui->zoomButton_tele->setEnabled(PTZListModel::hasFeature(device, "zoom"));
 	ui->zoomButton_wide->setEnabled(PTZListModel::hasFeature(device, "zoom"));
+	ui->viewZoomButton_tele->setEnabled(PTZListModel::hasFeature(device, "zoom"));
+	ui->viewZoomButton_wide->setEnabled(PTZListModel::hasFeature(device, "zoom"));
 	presetUpdateActions();
 
 	/* The view control shows the camera's own source, named as it is */

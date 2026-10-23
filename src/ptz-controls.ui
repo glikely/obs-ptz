@@ -464,7 +464,7 @@
         <attribute name="title">
          <string>PTZ.Dock.Tab.ViewControl</string>
         </attribute>
-        <layout class="QVBoxLayout" name="viewControlTabVerticalLayout">
+        <layout class="QVBoxLayout" name="viewControlTabVerticalLayout" stretch="1,0">
          <property name="leftMargin">
           <number>0</number>
          </property>
@@ -479,6 +479,131 @@
          </property>
          <item>
           <widget class="PTZViewControl" name="viewControl" native="true"/>
+         </item>
+         <item>
+          <widget class="QWidget" name="viewButtonsWidget" native="true">
+           <layout class="QHBoxLayout" name="viewButtonsLayout">
+            <property name="spacing">
+             <number>4</number>
+            </property>
+            <property name="leftMargin">
+             <number>0</number>
+            </property>
+            <property name="topMargin">
+             <number>0</number>
+            </property>
+            <property name="rightMargin">
+             <number>0</number>
+            </property>
+            <property name="bottomMargin">
+             <number>0</number>
+            </property>
+           <item>
+            <widget class="SquareToolButton" name="viewZoomButton_tele">
+             <property name="sizePolicy">
+              <sizepolicy hsizetype="Expanding" vsizetype="Expanding">
+               <horstretch>0</horstretch>
+               <verstretch>0</verstretch>
+              </sizepolicy>
+             </property>
+             <property name="toolTip">
+              <string>PTZ.Action.ZoomTele.Tooltip</string>
+             </property>
+             <property name="icon">
+              <iconset resource="ptz-controls.qrc">
+               <normaloff>:/icons/icons/zoom_in.svg</normaloff>:/icons/icons/zoom_in.svg</iconset>
+             </property>
+            </widget>
+           </item>
+           <item>
+            <widget class="SquareToolButton" name="viewZoomButton_wide">
+             <property name="sizePolicy">
+              <sizepolicy hsizetype="Expanding" vsizetype="Expanding">
+               <horstretch>0</horstretch>
+               <verstretch>0</verstretch>
+              </sizepolicy>
+             </property>
+             <property name="toolTip">
+              <string>PTZ.Action.ZoomWide.Tooltip</string>
+             </property>
+             <property name="icon">
+              <iconset resource="ptz-controls.qrc">
+               <normaloff>:/icons/icons/zoom_out.svg</normaloff>:/icons/icons/zoom_out.svg</iconset>
+             </property>
+            </widget>
+           </item>
+           <item>
+            <widget class="SquareToolButton" name="viewFocusButton_auto">
+             <property name="sizePolicy">
+              <sizepolicy hsizetype="Expanding" vsizetype="Expanding">
+               <horstretch>0</horstretch>
+               <verstretch>0</verstretch>
+              </sizepolicy>
+             </property>
+             <property name="toolTip">
+              <string>PTZ.Action.FocusAutoToggle.Tooltip</string>
+             </property>
+             <property name="icon">
+              <iconset resource="ptz-controls.qrc">
+               <normaloff>:/icons/icons/focus_auto.svg</normaloff>:/icons/icons/focus_auto.svg</iconset>
+             </property>
+             <property name="checkable">
+              <bool>true</bool>
+             </property>
+            </widget>
+           </item>
+           <item>
+            <widget class="SquareToolButton" name="viewFocusButton_near">
+             <property name="sizePolicy">
+              <sizepolicy hsizetype="Expanding" vsizetype="Expanding">
+               <horstretch>0</horstretch>
+               <verstretch>0</verstretch>
+              </sizepolicy>
+             </property>
+             <property name="toolTip">
+              <string>PTZ.Action.FocusNear.Tooltip</string>
+             </property>
+             <property name="icon">
+              <iconset resource="ptz-controls.qrc">
+               <normaloff>:/icons/icons/focus_near.svg</normaloff>:/icons/icons/focus_near.svg</iconset>
+             </property>
+            </widget>
+           </item>
+           <item>
+            <widget class="SquareToolButton" name="viewFocusButton_far">
+             <property name="sizePolicy">
+              <sizepolicy hsizetype="Expanding" vsizetype="Expanding">
+               <horstretch>0</horstretch>
+               <verstretch>0</verstretch>
+              </sizepolicy>
+             </property>
+             <property name="toolTip">
+              <string>PTZ.Action.FocusFar.Tooltip</string>
+             </property>
+             <property name="icon">
+              <iconset resource="ptz-controls.qrc">
+               <normaloff>:/icons/icons/focus_far.svg</normaloff>:/icons/icons/focus_far.svg</iconset>
+             </property>
+            </widget>
+           </item>
+           <item>
+            <widget class="SquareToolButton" name="viewFocusButton_onetouch">
+             <property name="sizePolicy">
+              <sizepolicy hsizetype="Expanding" vsizetype="Expanding">
+               <horstretch>0</horstretch>
+               <verstretch>0</verstretch>
+              </sizepolicy>
+             </property>
+             <property name="toolTip">
+              <string>PTZ.Action.FocusOneTouch.Tooltip</string>
+             </property>
+             <property name="class" stdset="0">
+              <string notr="true">icon-touch</string>
+             </property>
+            </widget>
+           </item>
+           </layout>
+          </widget>
          </item>
         </layout>
        </widget>

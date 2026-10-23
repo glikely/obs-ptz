@@ -45,6 +45,7 @@ protected:
 	void mouseMoveEvent(QMouseEvent *event) override;
 	void leaveEvent(QEvent *event) override;
 	void mouseReleaseEvent(QMouseEvent *event) override;
+	void mouseDoubleClickEvent(QMouseEvent *event) override;
 	void wheelEvent(QWheelEvent *event) override;
 
 private:
@@ -103,4 +104,6 @@ private:
 	int m_wheelDelta = 0;
 	double m_zoomTarget = 0.0;
 	QElapsedTimer m_lastZoom;
+	double pa, pb, pc;
+	double ta, tb, tc;
 };
