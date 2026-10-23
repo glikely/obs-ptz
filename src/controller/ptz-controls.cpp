@@ -84,6 +84,70 @@ static QModelIndex deviceIndexForSource(obs_source_t *source)
 	return index;
 }
 
+/**
+ * class sameSquareFilter - Event filter to keep several widgets as tall as
+ * the one being resized is wide
+ *
+ * For the pages of a tab widget: only the page showing is resized, so each
+ * page sets the height of all of them, and the tabs stay the same height
+ * whichever is showing.
+ */
+class sameSquareFilter : public QObject {
+public:
+	sameSquareFilter(QObject *parent, QList<QWidget *> widgets) : QObject(parent), widgets(widgets) {}
+	bool eventFilter(QObject *watched, QEvent *event) override
+	{
+		if (event->type() == QEvent::Resize) {
+			int height = static_cast<QResizeEvent *>(event)->size().width();
+			for (QWidget *widget : widgets)
+				widget->setMinimumHeight(height);
+		}
+		return false;
+	}
+
+private:
+	QList<QWidget *> widgets;
+};
+
+/**
+ * class squareRowFilter - Event filter to keep a row of buttons square
+ *
+ * Makes the row as tall as each button in it is wide, the buttons sharing its
+ * width less the spacing between them.
+ */
+class squareRowFilter : public QObject {
+public:
+	squareRowFilter(QObject *parent) : QObject(parent) {}
+	bool eventFilter(QObject *watched, QEvent *event) override
+	{
+		auto row = qobject_cast<QWidget *>(watched);
+		if (!row || !row->layout() || event->type() != QEvent::Resize)
+			return false;
+		int count = std::max(1, row->layout()->count());
+		int width = static_cast<QResizeEvent *>(event)->size().width();
+		row->setFixedHeight((width - row->layout()->spacing() * (count - 1)) / count);
+		return false;
+	}
+};
+
+/**
+ * class followEnabledFilter - Event filter to keep a button enabled when, and
+ * only when, the one it watches is
+ */
+class followEnabledFilter : public QObject {
+public:
+	followEnabledFilter(QAbstractButton *follower) : QObject(follower), follower(follower) {}
+	bool eventFilter(QObject *watched, QEvent *event) override
+	{
+		if (event->type() == QEvent::EnabledChange)
+			follower->setEnabled(static_cast<QWidget *>(watched)->isEnabled());
+		return false;
+	}
+
+private:
+	QAbstractButton *follower;
+};
+
 void PTZControls::autoselectDevice(OBSSource scene)
 {
 	QModelIndex index = deviceIndexForSource(scene);
@@ -360,6 +424,40 @@ PTZControls::PTZControls(QWidget *parent) : QFrame(parent), ui(new Ui::PTZContro
 	/* The dock has the one context menu: the movement controls' own would
 	 * keep it from seeing right-clicks there */
 	ui->movementControlsWidget->setOwnContextMenu(false);
+
+	/* The view control's tab is as tall as the controller's, and its row of
+	 * buttons square */
+	auto tabsFilter = new sameSquareFilter(this, {ui->movementControlsWidget, ui->viewControlTab});
+	ui->movementControlsWidget->installEventFilter(tabsFilter);
+	ui->viewControlTab->installEventFilter(tabsFilter);
+	ui->viewButtonsWidget->installEventFilter(new squareRowFilter(this));
+
+	/* The view control's buttons are the controller's: each presses, or
+	 * clicks, the one it stands for, which does what it does, and is
+	 * enabled and checked when that one is */
+	const QList<QPair<QAbstractButton *, const char *>> viewButtons = {
+		{ui->viewZoomButton_tele, "zoomButton_tele"},   {ui->viewZoomButton_wide, "zoomButton_wide"},
+		{ui->viewFocusButton_auto, "focusButton_auto"}, {ui->viewFocusButton_near, "focusButton_near"},
+		{ui->viewFocusButton_far, "focusButton_far"},   {ui->viewFocusButton_onetouch, "focusButton_onetouch"},
+	};
+	for (const auto &[view, name] : viewButtons) {
+		auto button = ui->movementControlsWidget->findChild<QAbstractButton *>(QString::fromLatin1(name));
+		if (!button)
+			continue;
+		if (button->isCheckable() || view == ui->viewFocusButton_onetouch) {
+			connect(view, &QAbstractButton::clicked, button, &QAbstractButton::click);
+		} else {
+			connect(view, &QAbstractButton::pressed, button, &QAbstractButton::pressed);
+			connect(view, &QAbstractButton::released, button, &QAbstractButton::released);
+		}
+		if (button->isCheckable()) {
+			view->setChecked(button->isChecked());
+			connect(button, &QAbstractButton::toggled, view, &QAbstractButton::setChecked);
+		}
+		view->setToolTip(button->toolTip());
+		view->setEnabled(button->isEnabled());
+		button->installEventFilter(new followEnabledFilter(view));
+	}
 	connect(this, &QWidget::customContextMenuRequested, this, &PTZControls::showContextMenu);
 	ui->splitter->handle(1)->installEventFilter(this);
 	presetZoomSlider = new QSlider(Qt::Horizontal, ui->presetToolbar);
@@ -757,6 +855,7 @@ void PTZControls::SaveConfig()
 	obs_data_set_bool(savedata, "refresh_thumbnail_on_recall", refresh_thumbnail_on_recall);
 	obs_data_set_int(savedata, "preset_grid_zoom", presetDelegate->gridZoom());
 	obs_data_set_bool(savedata, "preset_grid_view", ui->actionPresetGridView->isChecked());
+	obs_data_set_int(savedata, "control_tab", ui->controlTabs->currentIndex());
 	obs_data_set_bool(savedata, "preset_default_camera", actionPresetDefaultCamera->isChecked());
 	obs_data_set_bool(savedata, "joystick_enable", m_joystick_enable);
 	obs_data_set_int(savedata, "joystick_id", m_joystick_id);
@@ -851,6 +950,7 @@ void PTZControls::LoadConfig()
 	refresh_thumbnail_on_recall = obs_data_get_bool(loaddata, "refresh_thumbnail_on_recall");
 	presetZoomSlider->setValue((int)obs_data_get_int(loaddata, "preset_grid_zoom"));
 	ui->actionPresetGridView->setChecked(obs_data_get_bool(loaddata, "preset_grid_view"));
+	ui->controlTabs->setCurrentIndex((int)obs_data_get_int(loaddata, "control_tab"));
 	actionPresetDefaultCamera->setChecked(obs_data_get_bool(loaddata, "preset_default_camera"));
 	m_joystick_enable = obs_data_get_bool(loaddata, "joystick_enable");
 	m_joystick_id = (int)obs_data_get_int(loaddata, "joystick_id");
@@ -1019,6 +1119,11 @@ void PTZControls::updateMoveControls()
 
 	/* The movement controls, here and in the settings dialog, follow */
 	emit moveControlsChanged();
+
+	/* The view control shows the camera's own source, named as it is */
+	OBSSourceAutoRelease source =
+		device.isValid() ? obs_get_source_by_name(QT_TO_UTF8(device.data(Qt::DisplayRole).toString())) : nullptr;
+	ui->viewControl->setSource(source);
 }
 
 /* The camera selected is the one a websocket client means by "selected" */
