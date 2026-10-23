@@ -64,7 +64,7 @@ if [ "$SKIP_BUILD" -eq 0 ]; then
 fi
 [ -d "$PLUGIN_BUILD" ] || die "no plugin at $PLUGIN_BUILD"
 [ -x "$POSITION_TOOL" ] || die "no $POSITION_TOOL (configure with -DENABLE_USB_TESTS=ON)"
-strings -a "$PLUGIN_BUILD/Contents/MacOS/obs-ptz" | grep -q 'UVC PTZ ranges' || die "the built plugin has no USB camera support"
+strings -a "$PLUGIN_BUILD/Contents/MacOS/obs-ptz" | grep -q 'UVC camera %s can move' || die "the built plugin has no USB camera support"
 
 if ! "$VENV/bin/python" -c "import websockets" >/dev/null 2>&1; then
     echo "==> Setting up the Python environment"

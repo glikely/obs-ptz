@@ -65,6 +65,7 @@ public:
 		has_pantilt_speed = true;
 		speeds = s;
 	}
+	void setAutofocus() { has_autofocus = true; }
 
 	static double ratioOf(long value, long maximum) { return ratio(value, maximum); }
 	static long stepOf(long increment) { return valid_step(increment); }
@@ -259,4 +260,31 @@ TEST_CASE("a camera without relative pan/tilt is not driven by speed", "[usb-bac
 	CHECK_FALSE(b.usesPanTiltSpeed());
 	CHECK_FALSE(b.pantiltSpeed(1.0, 0));
 	CHECK(b.speed_calls == 0);
+}
+
+TEST_CASE("the movement modes say what the camera can do, and how pan/tilt is driven", "[usb-backend]")
+{
+	FakeBackend b({-170, -30, 0, 0}, {170, 90, 16384, 0}, {3600, 3600, 1, 1});
+	CHECK(b.movementModes() == "pan/tilt to a position (pan -170..170 step 3600, tilt -30..90 step 3600), "
+				   "zoom to a position (0..16384); pan/tilt is driven to positions");
+
+	b.setPanTiltSpeeds({1, 7, 1, 7});
+	b.setAutofocus();
+	CHECK(b.movementModes() == "pan/tilt to a position (pan -170..170 step 3600, tilt -30..90 step 3600), "
+				   "pan/tilt at a speed (pan 1..7, tilt 1..7), zoom to a position (0..16384), "
+				   "autofocus; pan/tilt is driven to positions");
+}
+
+TEST_CASE("the movement modes of a camera with no pan/tilt position", "[usb-backend]")
+{
+	FakeBackend b({0, 0, 100, 0}, {0, 0, 1000, 255});
+	b.setPanTiltSpeeds({1, 1, 1, 1});
+	CHECK(b.movementModes() == "pan/tilt at a speed (pan 1..1, tilt 1..1), zoom to a position (100..1000), "
+				   "focus to a position (0..255); pan/tilt is driven at a speed");
+}
+
+TEST_CASE("the movement modes of a camera that can't move", "[usb-backend]")
+{
+	FakeBackend b;
+	CHECK(b.movementModes() == "no pan, tilt, zoom or focus");
 }

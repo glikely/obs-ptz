@@ -53,6 +53,8 @@ protected:
 	 * (see pantiltSpeed()), with the speeds it can do */
 	bool has_pantilt_speed = false;
 	PtzUsbCamSpeeds speeds;
+	/* Set by a backend whose camera can focus by itself */
+	bool has_autofocus = false;
 
 	/* A camera that lacks a control reports no range for it (max == min, usually
 	 * both 0), and there is nothing to move. */
@@ -138,6 +140,43 @@ public:
 		return sent_pantilt_speed_;
 	}
 	PtzUsbCamSpeeds getSpeeds() const { return speeds; }
+
+	/* How the camera can be moved, as the backend found out when it opened
+	 * it, and which way pan/tilt is driven: for the log, to debug a camera
+	 * that doesn't move as it should */
+	std::string movementModes() const
+	{
+		auto range = [](long lo, long hi, long increment) {
+			std::string r = std::to_string(lo) + ".." + std::to_string(hi);
+			if (increment > 1)
+				r += " step " + std::to_string(increment);
+			return r;
+		};
+		bool position = has_range(min.pan, max.pan) || has_range(min.tilt, max.tilt);
+		std::string modes;
+		auto add = [&](const std::string &mode) {
+			modes += (modes.empty() ? "" : ", ") + mode;
+		};
+		if (position)
+			add("pan/tilt to a position (pan " + range(min.pan, max.pan, step.pan) + ", tilt " +
+			    range(min.tilt, max.tilt, step.tilt) + ")");
+		if (has_pantilt_speed)
+			add("pan/tilt at a speed (pan " + range(speeds.pan_min, speeds.pan_max, 1) + ", tilt " +
+			    range(speeds.tilt_min, speeds.tilt_max, 1) + ")");
+		if (has_range(min.zoom, max.zoom))
+			add("zoom to a position (" + range(min.zoom, max.zoom, step.zoom) + ")");
+		if (has_range(min.focus, max.focus))
+			add("focus to a position (" + range(min.focus, max.focus, step.focus) + ")");
+		if (has_autofocus)
+			add("autofocus");
+		if (modes.empty())
+			return "no pan, tilt, zoom or focus";
+		if (usesPanTiltSpeed())
+			modes += "; pan/tilt is driven at a speed";
+		else if (position)
+			modes += "; pan/tilt is driven to positions";
+		return modes;
+	}
 
 	virtual bool internal_pan(long value) = 0;
 	bool pan(double value)
