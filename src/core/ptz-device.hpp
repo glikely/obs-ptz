@@ -6,6 +6,11 @@
  */
 #pragma once
 
+#include <map>
+#include <optional>
+#include <string>
+#include <vector>
+
 #include <functional>
 #include <QImage>
 #include <QJsonObject>
@@ -206,8 +211,9 @@ protected:
 	 * where the last recall sent it: says so for that recall, if it is
 	 * still the last thing the device was told to do */
 	void moveFinished();
-	OBSData state;        /* Transient state of the camera. Isn't saved */
-	OBSData stateChanged; /* changed state to be sent via the notify signal */
+	OBSData state;                                 /* Transient state of the camera. Isn't saved */
+	OBSData stateChanged;                          /* changed state to be sent via the notify signal */
+	std::map<std::string, std::string> axisScales; /* what setAxisScale() last said, by axis, as JSON */
 	OBSData statistics;
 	QSet<QString> stale_state;
 	void incrementStatistic(const char *name, int amount = 1);
@@ -231,6 +237,20 @@ protected:
 	 * several at once with the notifyStateChanged() it makes anyway. A change
 	 * too small to show is not a change; says whether there was one. */
 	bool setPosition(const char *axis, double value);
+	/* What an axis's position means and how finely it is set, which a driver
+	 * that knows says in the state, under "axes" and the axis, and in what
+	 * changed: `step`, the smallest change of the position the camera makes, in
+	 * its units; and `unit` and `points`, which turn a position into a unit a
+	 * person knows (degrees, metres, a zoom multiplier) by interpolating between
+	 * the points. A step of 0 or less, or no points, is not known, and is left
+	 * out. Don't notify; say whether there was a change. */
+	struct AxisPoint {
+		double position;
+		/* A value of infinity, as a focus distance far enough is, has none */
+		std::optional<double> value;
+	};
+	bool setAxisStep(const char *axis, double step);
+	bool setAxisScale(const char *axis, const char *unit, const std::vector<AxisPoint> &points);
 	bool wrongThread(const char *method) const;
 	/* A driver whose features() change once it is made, as it finds out
 	 * what the camera has, calls this to report them */

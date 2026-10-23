@@ -21,5 +21,9 @@
       "key": "tally_on",
       "reads": []
     }
-  ]
+  ],
+  "resolution": {
+    "pan": 3,
+    "zoom": 19
+  }
 }

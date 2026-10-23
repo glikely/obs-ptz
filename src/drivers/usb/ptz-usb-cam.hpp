@@ -33,8 +33,8 @@ private:
 	/* Ask the worker where the camera is a few times a second, for the
 	 * device's transient state, and report what it says (report_state()) */
 	QTimer state_timer_;
-	void report_state(PtzUsbCamPos pos, bool hasPan, bool hasTilt, bool hasPanTiltSpeed, bool hasZoom,
-			  bool hasFocus);
+	void report_state(PtzUsbCamPos pos, PtzUsbCamPos resolution, bool hasPan, bool hasTilt, bool hasPanTiltSpeed,
+			  bool hasZoom, bool hasFocus);
 	/* Which controls the camera has, as it last said */
 	bool has_pantilt = false;
 	bool has_pantilt_speed = false;

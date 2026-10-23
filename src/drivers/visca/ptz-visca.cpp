@@ -454,6 +454,30 @@ void PTZVisca::update_position(OBSData decoded)
 	if (has("focus_pos"))
 		setPosition("focus", (obs_data_get_int(state, "focus_pos") - visca_focus_far) /
 					     (double)(visca_focus_near - visca_focus_far));
+	/* How the axes are set, in the same units: the step is one count of the range
+	 * or what the camera's profile says it makes, and the scale is what the
+	 * profile says its counts are worth */
+	struct Axis {
+		const char *axis, *pos;
+		int range, offset;
+	};
+	for (const Axis &a : {Axis{"pan", "pan_pos", visca_pan_range, 0}, Axis{"tilt", "tilt_pos", visca_tilt_range, 0},
+			      Axis{"zoom", "zoom_pos", visca_zoom_range, 0},
+			      Axis{"focus", "focus_pos", visca_focus_near - visca_focus_far, visca_focus_far}}) {
+		if (!has(a.pos))
+			continue;
+		const int range = std::max(a.range, 1);
+		setAxisStep(a.axis, profile->resolution.value(a.axis, 1.0) / range);
+		auto scale = profile->scale.constFind(a.axis);
+		if (scale == profile->scale.constEnd())
+			continue;
+		std::vector<AxisPoint> points;
+		for (const auto &point : scale->points)
+			points.push_back({(point.count - a.offset) / range, point.value});
+		std::sort(points.begin(), points.end(),
+			  [](const AxisPoint &x, const AxisPoint &y) { return x.position < y.position; });
+		setAxisScale(a.axis, QT_TO_UTF8(scale->unit), points);
+	}
 }
 
 void PTZVisca::send(PTZCmd cmd)

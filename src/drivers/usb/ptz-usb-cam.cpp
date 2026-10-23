@@ -27,8 +27,9 @@ PTZUSBCam::PTZUSBCam(OBSData config, obs_source_t *source)
 	connect(worker_.get(), &PTZUsbWorker::connectedChanged, this,
 		[this](bool connected) { setConnected(connected); });
 	connect(worker_.get(), &PTZUsbWorker::stateCaptured, this,
-		[this](PtzUsbCamPos pos, bool hasPan, bool hasTilt, bool hasPanTiltSpeed, bool hasZoom, bool hasFocus) {
-			report_state(pos, hasPan, hasTilt, hasPanTiltSpeed, hasZoom, hasFocus);
+		[this](PtzUsbCamPos pos, PtzUsbCamPos resolution, bool hasPan, bool hasTilt, bool hasPanTiltSpeed,
+		       bool hasZoom, bool hasFocus) {
+			report_state(pos, resolution, hasPan, hasTilt, hasPanTiltSpeed, hasZoom, hasFocus);
 		});
 
 	connect(&device_id_timer_, &QTimer::timeout, this, &PTZUSBCam::refreshDeviceId);
@@ -122,8 +123,8 @@ obs_properties_t *PTZUSBCam::get_obs_properties()
 /* pos's axes are meaningful only where the matching hasX is true -- an axis
  * the camera has no range for (a fixed-focus camera's focus, say) is left
  * out of the state entirely, rather than reported as a position of 0. */
-void PTZUSBCam::report_state(PtzUsbCamPos pos, bool hasPan, bool hasTilt, bool hasPanTiltSpeed, bool hasZoom,
-			     bool hasFocus)
+void PTZUSBCam::report_state(PtzUsbCamPos pos, PtzUsbCamPos resolution, bool hasPan, bool hasTilt, bool hasPanTiltSpeed,
+			     bool hasZoom, bool hasFocus)
 {
 	has_pantilt = hasPan || hasTilt;
 	has_pantilt_speed = hasPanTiltSpeed;
@@ -132,14 +133,22 @@ void PTZUSBCam::report_state(PtzUsbCamPos pos, bool hasPan, bool hasTilt, bool h
 	featuresChanged();
 
 	bool changed = false;
-	if (hasPan)
+	if (hasPan) {
 		changed |= setPosition("pan", pos.pan);
-	if (hasTilt)
+		changed |= setAxisStep("pan", resolution.pan);
+	}
+	if (hasTilt) {
 		changed |= setPosition("tilt", pos.tilt);
-	if (hasZoom)
+		changed |= setAxisStep("tilt", resolution.tilt);
+	}
+	if (hasZoom) {
 		changed |= setPosition("zoom", pos.zoom);
-	if (hasFocus)
+		changed |= setAxisStep("zoom", resolution.zoom);
+	}
+	if (hasFocus) {
 		changed |= setPosition("focus", pos.focus);
+		changed |= setAxisStep("focus", resolution.focus);
+	}
 	if (changed)
 		notifyStateChanged();
 }

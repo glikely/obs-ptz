@@ -155,8 +155,19 @@ void PTZUsbWorker::captureState()
 			return;
 		PtzUsbCamLimits min = b->getMin(), max = b->getMax();
 		bool speed = b->usesPanTiltSpeed();
-		emit stateCaptured(b->getPosition(), !speed && max.pan > min.pan, !speed && max.tilt > min.tilt, speed,
-				   max.zoom > min.zoom, max.focus > min.focus);
+		/* A step of each control, in the units of its position, which is its
+		 * value over its maximum */
+		PtzUsbCamLimits step = b->getStep();
+		auto over = [](long step, long max) {
+			return max > 0 ? (double)step / max : 0.0;
+		};
+		PtzUsbCamPos resolution;
+		resolution.pan = over(step.pan, max.pan);
+		resolution.tilt = over(step.tilt, max.tilt);
+		resolution.zoom = over(step.zoom, max.zoom);
+		resolution.focus = over(step.focus, max.focus);
+		emit stateCaptured(b->getPosition(), resolution, !speed && max.pan > min.pan,
+				   !speed && max.tilt > min.tilt, speed, max.zoom > min.zoom, max.focus > min.focus);
 	});
 }
 

@@ -1,5 +1,6 @@
 #include "ptz-state-view.hpp"
 
+#include <cmath>
 #include <functional>
 #include <QCheckBox>
 #include <QComboBox>
@@ -685,6 +686,30 @@ void PTZStateView::applyData(obs_data_t *data, bool all)
 		}
 	}
 
+	/* What each axis means, of which a report has only what changed */
+	if (has("axes")) {
+		OBSDataAutoRelease axes = obs_data_get_obj(data, "axes");
+		if (!m_axes) {
+			/* OBSData takes a reference of its own */
+			OBSDataAutoRelease fresh = obs_data_create();
+			m_axes = fresh.Get();
+		}
+		for (obs_data_item_t *item = obs_data_first(axes); item; obs_data_item_next(&item)) {
+			const char *name = obs_data_item_get_name(item);
+			OBSDataAutoRelease entry = obs_data_item_get_obj(item);
+			OBSDataAutoRelease known = obs_data_get_obj(m_axes, name);
+			if (!known) {
+				known = obs_data_create();
+				obs_data_set_obj(m_axes, name, known);
+			}
+			obs_data_apply(known, entry);
+		}
+		changed = true;
+	} else if (all && m_axes) {
+		m_axes = nullptr;
+		changed = true;
+	}
+
 	if (has("wb_mode")) {
 		int mode = (int)obs_data_get_int(data, "wb_mode");
 		if (m_reportedWhiteBalance != mode) {
@@ -790,6 +815,62 @@ void PTZStateView::setStatistics(OBSData stats)
 	}
 }
 
+/* A value in its unit for showing: 12.5°, 4.2×, 1.5 m, 15 cm, or ∞ */
+static QString formatAxisValue(const QString &unit, double value)
+{
+	if (unit == "deg")
+		return QString("%1%2\u00b0").arg(value > 0 ? "+" : "").arg(value, 0, 'f', 1);
+	if (unit == "x")
+		return QString("\u00d7%1").arg(value, 0, 'f', 1);
+	if (unit == "m") {
+		if (!std::isfinite(value))
+			return QString::fromUtf8("\u221e");
+		if (value < 1.0)
+			return QString("%1 cm").arg(value * 100.0, 0, 'f', value < 0.1 ? 1 : 0);
+		return QString("%1 m").arg(value, 0, 'f', value < 10.0 ? 1 : 0);
+	}
+	return QString::asprintf("%.3f", value);
+}
+
+QString PTZStateView::axisText(int axis) const
+{
+	const double position = *m_axis[axis];
+	OBSDataAutoRelease info = m_axes ? obs_data_get_obj(m_axes, m_axisKeys[axis]) : nullptr;
+	OBSDataArrayAutoRelease points = info ? obs_data_get_array(info, "points") : nullptr;
+	const QString unit = info ? QString::fromUtf8(obs_data_get_string(info, "unit")) : QString();
+	const size_t count = points ? obs_data_array_count(points) : 0;
+	/* A focus distance goes by its inverse, as a lens's focus does, so that
+	 * infinity, a point with no value, is a distance that is far enough */
+	const bool inverse = unit == "m";
+	auto valueAt = [&](obs_data_t *point) {
+		if (!obs_data_has_user_value(point, "value"))
+			return inverse ? 0.0 : std::nan("");
+		double value = obs_data_get_double(point, "value");
+		return inverse ? 1.0 / value : value;
+	};
+	for (size_t i = 1; !unit.isEmpty() && i < count; i++) {
+		OBSDataAutoRelease a = obs_data_array_item(points, i - 1);
+		OBSDataAutoRelease b = obs_data_array_item(points, i);
+		const double pa = obs_data_get_double(a, "position"), pb = obs_data_get_double(b, "position");
+		if (position < pa || position > pb)
+			continue;
+		const double t = pb == pa ? 0.0 : (position - pa) / (pb - pa);
+		const double va = valueAt(a), vb = valueAt(b);
+		if (std::isnan(va) || std::isnan(vb))
+			break;
+		double value = va + t * (vb - va);
+		if (inverse)
+			value = value > 0.0 ? 1.0 / value : INFINITY;
+		return formatAxisValue(unit, value);
+	}
+	/* Not said what it is: the position, with a sign for what has two sides */
+	return QString("%1%2")
+		.arg(m_axisKeys[axis] == QByteArray("pan") || m_axisKeys[axis] == QByteArray("tilt")
+			     ? (position > 0 ? "+" : "")
+			     : "")
+		.arg(position, 0, 'f', 3);
+}
+
 QVariantMap PTZStateView::shownValues() const
 {
 	QVariantMap shown;
@@ -803,8 +884,10 @@ QVariantMap PTZStateView::shownValues() const
 	if (!m_tallyPreview->isHidden())
 		shown["tally_preview"] = m_tallyPreview->isChecked();
 	for (int i = 0; i < AxisCount; i++)
-		if (m_axis[i])
+		if (m_axis[i]) {
 			shown[m_axisKeys[i]] = *m_axis[i];
+			shown[QString("%1_text").arg(m_axisKeys[i])] = axisText(i);
+		}
 	if (m_reportedWhiteBalance >= 0)
 		shown["wb_mode"] = m_whiteBalanceMode->currentData().toInt();
 	for (const auto &field : m_fields) {

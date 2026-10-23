@@ -1057,7 +1057,7 @@ public:
 		const QString id = json["id"].toString();
 		if (!only(json,
 			  {"id", "name", "extends", "source", "models", "ranges", "remove", "remove_inquiries",
-			   "controls", "actions", "triggers", "standby_reads"},
+			   "controls", "actions", "triggers", "standby_reads", "resolution", "scale"},
 			  "the command set"))
 			return nullptr;
 		if (!idChars.match(id).hasMatch()) {
@@ -1085,6 +1085,43 @@ public:
 				return nullptr;
 			}
 			profile->models.append(vendor << 16 | model);
+		}
+		const QJsonObject resolution = json["resolution"].toObject();
+		for (auto i = resolution.begin(); i != resolution.end(); i++) {
+			static const QStringList axes = {"pan", "tilt", "zoom", "focus"};
+			if (!axes.contains(i.key()) || !(i.value().toDouble() > 0.0)) {
+				fail(QString("\"resolution\" has \"%1\", which isn't a pan, tilt, zoom or focus count above 0")
+					     .arg(i.key()));
+				return nullptr;
+			}
+			profile->resolution[i.key()] = i.value().toDouble();
+		}
+		const QJsonObject scales = json["scale"].toObject();
+		for (auto i = scales.begin(); i != scales.end(); i++) {
+			static const QStringList axes = {"pan", "tilt", "zoom", "focus"};
+			const QJsonObject entry = i.value().toObject();
+			const QString unit = entry["unit"].toString();
+			const QJsonArray points = entry["points"].toArray();
+			if (!axes.contains(i.key()) || unit.isEmpty() || points.size() < 2) {
+				fail(QString("\"scale\" has \"%1\", which isn't a pan, tilt, zoom or focus with a \"unit\" and "
+					     "two \"points\" or more")
+					     .arg(i.key()));
+				return nullptr;
+			}
+			ViscaProfile::Scale scale;
+			scale.unit = unit;
+			for (const auto point : points) {
+				const QJsonObject p = point.toObject();
+				if (!p["count"].isDouble()) {
+					fail(QString("a point of the \"scale\" of \"%1\" has no \"count\"")
+						     .arg(i.key()));
+					return nullptr;
+				}
+				scale.points.append({p["count"].toDouble(),
+						     p.contains("value") ? std::optional<double>(p["value"].toDouble())
+									 : std::nullopt});
+			}
+			profile->scale[i.key()] = scale;
 		}
 		for (const auto value : json["remove"].toArray()) {
 			const QString name = value.toString();

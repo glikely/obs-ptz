@@ -4,12 +4,159 @@
   "models": [
     "0001:0511"
   ],
-  "source": "Generated from the protocol tables in Bitfocus' Sony VISCA Companion module (github.com/bitfocus/companion-module-sony-visca, protocol/Sony_SRG-120DH.html, MIT licensed), not yet verified against a camera.",
+  "source": "Generated from the protocol tables in Bitfocus' Sony VISCA Companion module (github.com/bitfocus/companion-module-sony-visca, protocol/Sony_SRG-120DH.html, MIT licensed), not yet verified against a camera. Its scale is from Sony's SRG-120DH command list (AES71001M): pan and tilt are 51.2 counts a degree, the zoom counts are its optical ratios, and the focus counts are its near limit settings, which Sony says are approximate.",
   "remove_inquiries": [
     "81097e010aff"
   ],
   "remove": [
     "tally_on",
     "tally_preview"
-  ]
+  ],
+  "resolution": {
+    "pan": 3,
+    "tilt": 9,
+    "zoom": 16,
+    "focus": 46
+  },
+  "scale": {
+    "pan": {
+      "unit": "deg",
+      "points": [
+        {
+          "count": -5120,
+          "value": -100
+        },
+        {
+          "count": 5120,
+          "value": 100
+        }
+      ]
+    },
+    "tilt": {
+      "unit": "deg",
+      "points": [
+        {
+          "count": -1280,
+          "value": -25
+        },
+        {
+          "count": 1280,
+          "value": 25
+        }
+      ]
+    },
+    "zoom": {
+      "unit": "x",
+      "points": [
+        {
+          "count": 0,
+          "value": 1
+        },
+        {
+          "count": 6512,
+          "value": 2
+        },
+        {
+          "count": 9372,
+          "value": 3
+        },
+        {
+          "count": 11103,
+          "value": 4
+        },
+        {
+          "count": 12320,
+          "value": 5
+        },
+        {
+          "count": 13252,
+          "value": 6
+        },
+        {
+          "count": 14007,
+          "value": 7
+        },
+        {
+          "count": 14639,
+          "value": 8
+        },
+        {
+          "count": 15181,
+          "value": 9
+        },
+        {
+          "count": 15646,
+          "value": 10
+        },
+        {
+          "count": 16045,
+          "value": 11
+        },
+        {
+          "count": 16384,
+          "value": 12
+        }
+      ]
+    },
+    "focus": {
+      "unit": "m",
+      "points": [
+        {
+          "count": 4096
+        },
+        {
+          "count": 8192,
+          "value": 10
+        },
+        {
+          "count": 12288,
+          "value": 5
+        },
+        {
+          "count": 16384,
+          "value": 3.3
+        },
+        {
+          "count": 20480,
+          "value": 2.5
+        },
+        {
+          "count": 24576,
+          "value": 2
+        },
+        {
+          "count": 28672,
+          "value": 1.7
+        },
+        {
+          "count": 32768,
+          "value": 1.5
+        },
+        {
+          "count": 36864,
+          "value": 1
+        },
+        {
+          "count": 40960,
+          "value": 0.5
+        },
+        {
+          "count": 45056,
+          "value": 0.3
+        },
+        {
+          "count": 49152,
+          "value": 0.15
+        },
+        {
+          "count": 53248,
+          "value": 0.06
+        },
+        {
+          "count": 57344,
+          "value": 0.01
+        }
+      ]
+    }
+  }
 }

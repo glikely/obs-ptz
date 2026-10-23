@@ -946,7 +946,9 @@ void PTZSettings::updateHeader()
 			if (shown.contains(axis))
 				position << QString("%1&nbsp;%2")
 						    .arg(QString(axis).left(1).toUpper(),
-							 QString::asprintf("%.3f", shown.value(axis).toDouble()));
+							 shown.value(QString("%1_text").arg(axis))
+								 .toString()
+								 .toHtmlEscaped());
 	if (!position.isEmpty())
 		parts << position.join("&nbsp;&nbsp;");
 

@@ -71,8 +71,8 @@ signals:
 	 * is true -- an axis the camera has no range for is left out, not
 	 * reported as a position of 0. hasPanTiltSpeed is a camera that can
 	 * only be panned and tilted at a speed, with no position. */
-	void stateCaptured(PtzUsbCamPos pos, bool hasPan, bool hasTilt, bool hasPanTiltSpeed, bool hasZoom,
-			   bool hasFocus);
+	void stateCaptured(PtzUsbCamPos pos, PtzUsbCamPos resolution, bool hasPan, bool hasTilt, bool hasPanTiltSpeed,
+			   bool hasZoom, bool hasFocus);
 
 private:
 	/* Runs fn on the worker's thread, after everything posted before it */

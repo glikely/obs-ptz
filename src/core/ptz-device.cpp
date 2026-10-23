@@ -648,6 +648,63 @@ bool PTZDevice::setPosition(const char *axis, double value)
 	return true;
 }
 
+/* One axis's entry of "axes", in the state or in what changed, made if it isn't there */
+static OBSData axisEntry(obs_data_t *parent, const char *axis)
+{
+	OBSDataAutoRelease axes = obs_data_get_obj(parent, "axes");
+	if (!axes) {
+		axes = obs_data_create();
+		obs_data_set_obj(parent, "axes", axes);
+	}
+	OBSDataAutoRelease entry = obs_data_get_obj(axes, axis);
+	if (!entry) {
+		entry = obs_data_create();
+		obs_data_set_obj(axes, axis, entry);
+	}
+	return OBSData(entry.Get());
+}
+
+bool PTZDevice::setAxisStep(const char *axis, double step)
+{
+	if (!(step > 0.0))
+		return false;
+	step = std::min(step, 1.0);
+	OBSData now = axisEntry(state, axis);
+	if (obs_data_has_user_value(now, "step") && fabs(obs_data_get_double(now, "step") - step) <= step * 1e-6)
+		return false;
+	obs_data_set_double(now, "step", step);
+	obs_data_set_double(axisEntry(stateChanged, axis), "step", step);
+	return true;
+}
+
+bool PTZDevice::setAxisScale(const char *axis, const char *unit, const std::vector<AxisPoint> &points)
+{
+	if (!unit || !*unit || points.size() < 2)
+		return false;
+	OBSDataArrayAutoRelease array = obs_data_array_create();
+	for (const AxisPoint &point : points) {
+		OBSDataAutoRelease item = obs_data_create();
+		obs_data_set_double(item, "position", point.position);
+		if (point.value)
+			obs_data_set_double(item, "value", *point.value);
+		obs_data_array_push_back(array, item);
+	}
+	/* Said again only when it differs, by how it is written: its JSON */
+	OBSDataAutoRelease written = obs_data_create();
+	obs_data_set_string(written, "unit", unit);
+	obs_data_set_array(written, "points", array);
+	std::string json = obs_data_get_json(written);
+	if (axisScales[axis] == json)
+		return false;
+	axisScales[axis] = json;
+	for (obs_data_t *where : {state.Get(), stateChanged.Get()}) {
+		OBSData entry = axisEntry(where, axis);
+		obs_data_set_string(entry, "unit", unit);
+		obs_data_set_array(entry, "points", array);
+	}
+	return true;
+}
+
 /**
  * Asks for the values in the caller's "state" object, passed to
  * requestState(); only the keys present are acted on.

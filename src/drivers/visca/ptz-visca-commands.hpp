@@ -53,6 +53,22 @@ struct ViscaProfile {
 	QList<ViscaControl> controls;
 	QMap<QString, PTZCmd> actions;
 	QMap<QString, PTZCmd> triggers;
+	/* The smallest change of each of "pan", "tilt", "zoom" and "focus" the
+	 * camera makes, in the counts of its position, where that is more than
+	 * the one count the protocol can say. An axis it doesn't name is one. */
+	QMap<QString, double> resolution;
+	/* What an axis's position means, as its unit and the values the camera has at
+	 * counts of its position: a unit a person knows (degrees, metres, a zoom
+	 * multiplier). A point with no value is infinity. */
+	struct ScalePoint {
+		double count;
+		std::optional<double> value;
+	};
+	struct Scale {
+		QString unit;
+		QList<ScalePoint> points;
+	};
+	QMap<QString, Scale> scale;
 
 	const ViscaControl *control(const QString &key) const;
 	ViscaControl *control(const QString &key);
