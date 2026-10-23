@@ -13,6 +13,8 @@
 #include "ptz-usb-backend.hpp"
 #include <windows.h>
 #include <dshow.h>
+#include <ks.h>
+#include <ksmedia.h>
 #pragma comment(lib, "strmiids.lib") // Linka com DirectShow no Windows
 
 class DirectShowControl : public PTZUsbBackend {
@@ -161,6 +163,19 @@ private:
 		return true;
 	}
 
+	/* Relative pan/tilt (UVC's CT_PANTILT_RELATIVE) through IAMCameraControl:
+	 * a signed speed per axis, 0 to stop. A camera that has it without a
+	 * range can still be started and stopped, at a speed of 1. */
+	long probe_speed(long property)
+	{
+		long lo, hi, increment, default_value, flags, value;
+		if (SUCCEEDED(cam_control_->GetRange(property, &lo, &hi, &increment, &default_value, &flags)))
+			return hi > 1 ? hi : 1;
+		if (SUCCEEDED(cam_control_->Get(property, &value, &flags)))
+			return 1;
+		return 0;
+	}
+
 public:
 	DirectShowControl(const std::string &device, bool report)
 	{
@@ -207,11 +222,21 @@ public:
 		probe(CameraControl_Tilt, &min.tilt, &max.tilt, &step.tilt, &now_pos.tilt);
 		probe(CameraControl_Zoom, &min.zoom, &max.zoom, &step.zoom, &now_pos.zoom);
 		probe(CameraControl_Focus, &min.focus, &max.focus, &step.focus, &now_pos.focus, &now_pos.focusAuto);
+		long pan_speed = probe_speed(KSPROPERTY_CAMERACONTROL_PAN_RELATIVE);
+		long tilt_speed = probe_speed(KSPROPERTY_CAMERACONTROL_TILT_RELATIVE);
+		if (pan_speed > 0 && tilt_speed > 0) {
+			has_pantilt_speed = true;
+			speeds = {1, pan_speed, 1, tilt_speed};
+		}
 		blog(LOG_INFO,
 		     "UVC PTZ ranges: pan=%ld..%ld step=%ld, tilt=%ld..%ld step=%ld, zoom=%ld..%ld step=%ld, "
-		     "focus=%ld..%ld step=%ld",
+		     "focus=%ld..%ld step=%ld, pan/tilt speed=%ld..%ld/%ld..%ld",
 		     min.pan, max.pan, step.pan, min.tilt, max.tilt, step.tilt, min.zoom, max.zoom, step.zoom,
-		     min.focus, max.focus, step.focus);
+		     min.focus, max.focus, step.focus, speeds.pan_min, speeds.pan_max, speeds.tilt_min,
+		     speeds.tilt_max);
+		if (usesPanTiltSpeed())
+			blog(LOG_INFO, "USB camera %s: pan/tilt is driven by speed (relative pan/tilt)",
+			     device_path.c_str());
 	}
 	bool internal_pan(long value) override
 	{
@@ -233,6 +258,21 @@ public:
 		if (FAILED(hr)) {
 			if (!camera_lost(hr))
 				blog(LOG_ERROR, "Failed to set Tilt: %ld (mapped value: %ld)", hr, value);
+			return false;
+		}
+		return true;
+	}
+	bool internal_pantilt_speed(long pan, long tilt) override
+	{
+		if (!cam_control_)
+			return false;
+		HRESULT hr = cam_control_->Set(KSPROPERTY_CAMERACONTROL_PAN_RELATIVE, pan, CameraControl_Flags_Manual);
+		if (SUCCEEDED(hr))
+			hr = cam_control_->Set(KSPROPERTY_CAMERACONTROL_TILT_RELATIVE, tilt,
+					       CameraControl_Flags_Manual);
+		if (FAILED(hr)) {
+			if (!camera_lost(hr))
+				blog(LOG_ERROR, "Failed to set pan/tilt speed: %ld (%ld, %ld)", hr, pan, tilt);
 			return false;
 		}
 		return true;
