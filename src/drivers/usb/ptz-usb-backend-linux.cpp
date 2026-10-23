@@ -97,12 +97,24 @@ public:
 			now_pos.zoom = ratio(get_ctrl(V4L2_CID_ZOOM_ABSOLUTE), max.zoom);
 		if (query_ctrl(V4L2_CID_FOCUS_ABSOLUTE, &min.focus, &max.focus, &step.focus))
 			now_pos.focus = ratio(get_ctrl(V4L2_CID_FOCUS_ABSOLUTE), max.focus);
+		/* uvcvideo's relative pan/tilt: a signed speed per axis, from
+		 * minus the camera's fastest to its fastest, 0 to stop */
+		long pan_lo, pan_hi, tilt_lo, tilt_hi;
+		if (query_ctrl(V4L2_CID_PAN_SPEED, &pan_lo, &pan_hi, nullptr) &&
+		    query_ctrl(V4L2_CID_TILT_SPEED, &tilt_lo, &tilt_hi, nullptr)) {
+			has_pantilt_speed = true;
+			speeds = {1, pan_hi, 1, tilt_hi};
+		}
 		long auto_min, auto_max;
 		has_focus_auto_ = query_ctrl(V4L2_CID_FOCUS_AUTO, &auto_min, &auto_max, nullptr);
 		now_pos.focusAuto = has_focus_auto_ && get_ctrl(V4L2_CID_FOCUS_AUTO) != 0;
 	}
 	bool internal_pan(long value) override { return set_ctrl(V4L2_CID_PAN_ABSOLUTE, value); }
 	bool internal_tilt(long value) override { return set_ctrl(V4L2_CID_TILT_ABSOLUTE, value); }
+	bool internal_pantilt_speed(long pan, long tilt) override
+	{
+		return set_ctrl(V4L2_CID_PAN_SPEED, pan) && set_ctrl(V4L2_CID_TILT_SPEED, tilt);
+	}
 	bool internal_zoom(long value) override { return set_ctrl(V4L2_CID_ZOOM_ABSOLUTE, value); }
 	bool internal_focus(bool auto_focus, long value) override
 	{
