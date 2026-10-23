@@ -36,7 +36,7 @@ changes in the camera.
 
 ## API version
 
-This is version **0.5** of the PTZ API.
+This is version **0.6** of the PTZ API.
 The API is in a pre-release state, published as an RFC.
 It is subject to change at any time.
 Please provide feedback on the [API discussion
@@ -766,13 +766,44 @@ that changed.
 | `features` | object | always | What the device can do, with each [feature](#features) it has `true` and none for one it hasn't. It can change while the device runs, as it finds out what its camera has |
 | `pan`, `tilt` | number | when known | Position, -1.0 to 1.0, as the camera last reported it. Absent until it has |
 | `zoom`, `focus` | number | when known | Position, 0.0 to 1.0, as above |
+| `axes` | object | when known | What each of `pan`, `tilt`, `zoom` and `focus` means and how finely it is set, as an object for each axis that a driver knows something of: see [Axes](#axes) |
 | `focus_af_enabled` | bool | when known | Autofocus is on. Can be changed with `ptz_request_state` |
 | `camera_report` | object | when known | Progress of a `camera_report` trigger while one is running |
 
 A position isn't in the camera's own units: a driver scales it to these ranges,
 and clamps what a camera reports outside them.
 
-Keys that start with `user_` are a user's own, for a camera given commands the
+### Axes
+
+A position is normalized: -1.0 to 1.0 for pan and tilt and 0.0 to 1.0 for zoom and
+focus, whatever the camera's own units. `axes` says what it means in the units a
+person knows, and how finely the camera sets it, for a client that shows or steps
+a position. Each axis it names has these keys, all optional, and a client falls
+back to the normalized position, or to a step of its own, for what is missing:
+
+- `step` (number): the smallest change of the position that the camera makes, in
+  the units of the position. A position moved by less than this may not move at
+  all, so a client that steps a position, as a dial does, steps it by at least this.
+- `unit` (string): what `points` are in: `deg` for a pan or a tilt, `x` for a zoom
+  multiplier (`x` of 4.2 is a zoom of 4.2 times) and `m` for a focus distance in
+  metres.
+- `points` (array): at least two objects, in order of `position`, each with the
+  `position` and the `value` the camera has there, in `unit`. A client finds the
+  value of a position between two points by interpolating linearly, and does not
+  extrapolate outside them. A point with no `value` is infinity, as the far end of a
+  focus is. A lens is not linear, so a camera's points can be as many as it
+  takes: two are enough for a pan or a tilt.
+
+```json
+"axes": {
+	"pan": { "step": 0.00058, "unit": "deg", "points": [{ "position": -1, "value": -170 }, { "position": 1, "value": 170 }] },
+	"focus": { "unit": "m", "points": [{ "position": 0, "value": 0.01 }, { "position": 0.5, "value": 0.6 }, { "position": 1 }] }
+}
+```
+
+They are state, as they can change (`discover_limits` changes where a VISCA camera's
+ends are), and `ptz_state_changed` carries only what changed of them.
+, for a camera given commands the
 plugin doesn't have, and are never ones the plugin has.
 
 ## Presets
