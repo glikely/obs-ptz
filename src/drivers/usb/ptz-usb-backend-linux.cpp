@@ -108,6 +108,8 @@ public:
 		long auto_min, auto_max;
 		has_focus_auto_ = query_ctrl(V4L2_CID_FOCUS_AUTO, &auto_min, &auto_max, nullptr);
 		now_pos.focusAuto = has_focus_auto_ && get_ctrl(V4L2_CID_FOCUS_AUTO) != 0;
+		has_autofocus = has_focus_auto_;
+		blog(LOG_INFO, "UVC camera %s can move: %s", device_path.c_str(), movementModes().c_str());
 	}
 	bool internal_pan(long value) override { return set_ctrl(V4L2_CID_PAN_ABSOLUTE, value); }
 	bool internal_tilt(long value) override { return set_ctrl(V4L2_CID_TILT_ABSOLUTE, value); }

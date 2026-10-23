@@ -313,16 +313,8 @@ public:
 			request(true, uvc::GET_CUR, uvc::CT_FOCUS_AUTO, &autofocus, uvc::FOCUS_AUTO_LEN, true);
 		read_position();
 
-		blog(LOG_INFO,
-		     "UVC PTZ ranges: pan=%ld..%ld step=%ld, tilt=%ld..%ld step=%ld, zoom=%ld..%ld step=%ld, "
-		     "focus=%ld..%ld step=%ld, pan/tilt speed=%ld..%ld/%ld..%ld (%s%s%s%s%s)",
-		     min.pan, max.pan, step.pan, min.tilt, max.tilt, step.tilt, min.zoom, max.zoom, step.zoom,
-		     min.focus, max.focus, step.focus, speeds.pan_min, speeds.pan_max, speeds.tilt_min, speeds.tilt_max,
-		     has_pantilt_ ? "pan/tilt " : "", has_pantilt_speed ? "pan/tilt-speed " : "",
-		     has_zoom_ ? "zoom " : "", has_focus_ ? "focus " : "", has_focus_auto_ ? "autofocus" : "");
-		if (usesPanTiltSpeed())
-			blog(LOG_INFO, "USB camera %s: pan/tilt is driven by speed (relative pan/tilt)",
-			     device_path.c_str());
+		has_autofocus = has_focus_auto_;
+		blog(LOG_INFO, "UVC camera %s can move: %s", device_path.c_str(), movementModes().c_str());
 	}
 
 	~IOKitUVCControl() override
