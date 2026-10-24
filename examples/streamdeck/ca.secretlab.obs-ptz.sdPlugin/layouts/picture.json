@@ -1,0 +1,9 @@
+{
+	"id": "ca.secretlab.obs-ptz.picture",
+	"items": [
+		{ "key": "icon", "type": "pixmap", "rect": [10, 8, 24, 24] },
+		{ "key": "title", "type": "text", "rect": [40, 8, 60, 24], "font": { "size": 16, "weight": 600 }, "alignment": "left" },
+		{ "key": "value", "type": "text", "rect": [4, 42, 96, 30], "font": { "size": 18, "weight": 700 }, "alignment": "center" },
+		{ "key": "gauge", "type": "pixmap", "rect": [104, 4, 92, 92] }
+	]
+}

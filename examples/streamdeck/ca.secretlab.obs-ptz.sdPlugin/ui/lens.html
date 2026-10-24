@@ -18,8 +18,8 @@
 				<option value="focus">Focus (push toggles autofocus)</option>
 			</sdpi-select>
 		</sdpi-item>
-		<sdpi-item label="Step">
-			<sdpi-range setting="step" min="1" max="10" step="1" default="2" showlabels></sdpi-range>
+		<sdpi-item label="Step (% of range per click; pan and tilt a tenth; at least one camera step, which 0 is)">
+			<sdpi-range setting="stepPercent" min="0" max="10" step="0.05" default="0.25" showlabels></sdpi-range>
 		</sdpi-item>
 
 		<sdpi-heading>OBS</sdpi-heading>

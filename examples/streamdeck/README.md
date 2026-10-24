@@ -24,11 +24,20 @@ It has six actions:
   through `ptz_request_state` with `power_on`, which needs the `power` feature
   (VISCA has it) though the API's description of that proc names only
   `focus_af_enabled`.
-- **Camera status**: shows the camera's pan, tilt and zoom as its title, and goes
+- **Camera status**: shows the camera's pan, tilt, zoom and focus as its title, in
+  degrees, a zoom multiplier and a focus distance where the camera says what its
+  positions are in (the `axes` of its state), and as the position, from -1.0 or 0.0
+  to 1.0, where it doesn't, and goes
   red when the camera's link is down or OBS can't be reached.
 - **Axis**: a dial for a Stream Deck +, for pan, tilt, zoom or focus. Turning it moves the
-  camera, by a step you set for each tick, and the LCD shows where the lens is as
-  a bar. Pushing a focus dial turns the camera's autofocus on or off. A camera
+  camera, by a step you set for each tick (a tenth of it for pan and tilt, and more the faster the dial is turned), and the
+  LCD shows where the axis is. A tilt dial turned clockwise tilts down. A pan is the camera from above, with the range it
+  can pan round it and a wedge of where it looks; a tilt is the same from the
+  side. A zoom or focus is a marker on a track, with a focus near on the left and
+  infinity on the right, and a clockwise turn goes toward infinity. The value shown is in the same units as the status key.
+  The wedge narrows as the camera zooms in. The degrees of the pictures are
+  nominal (pan 120 to either side, tilt 45, a view of 70 degrees wide to 7 at
+  tele), only there to draw the range. Pushing a focus dial turns the camera's autofocus on or off. A camera
   with the `pantilt_abs`, `zoom_abs` or `focus_abs` feature is sent positions; one without is
   moved at a speed while the dial turns.
 

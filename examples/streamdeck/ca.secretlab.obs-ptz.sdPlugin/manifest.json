@@ -60,7 +60,7 @@
 			"Controllers": ["Encoder"],
 			"SupportedInMultiActions": false,
 			"Encoder": {
-				"layout": "$B1",
+				"layout": "layouts/track.json",
 				"Icon": "imgs/actions/lens/icon",
 				"TriggerDescription": {
 					"Rotate": "Move the axis",

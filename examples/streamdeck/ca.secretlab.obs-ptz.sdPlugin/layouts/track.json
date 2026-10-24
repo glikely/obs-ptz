@@ -1,0 +1,9 @@
+{
+	"id": "ca.secretlab.obs-ptz.track",
+	"items": [
+		{ "key": "icon", "type": "pixmap", "rect": [10, 8, 24, 24] },
+		{ "key": "title", "type": "text", "rect": [40, 8, 150, 24], "font": { "size": 16, "weight": 600 }, "alignment": "left" },
+		{ "key": "value", "type": "text", "rect": [10, 36, 180, 26], "font": { "size": 20, "weight": 700 }, "alignment": "center" },
+		{ "key": "gauge", "type": "pixmap", "rect": [12, 68, 176, 26] }
+	]
+}

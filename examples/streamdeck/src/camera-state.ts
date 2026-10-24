@@ -28,7 +28,15 @@ class CameraStates {
 	changed(device: string, changed: Data): void {
 		const state = this.#states.get(device);
 		if (state) {
-			Object.assign(state, changed);
+			// What changed of each axis is only what changed of it
+			const { axes, ...rest } = changed;
+			Object.assign(state, rest);
+			if (axes) {
+				const known = (state.axes ??= {}) as Record<string, object>;
+				for (const [axis, info] of Object.entries(axes as Record<string, object>)) {
+					known[axis] = { ...known[axis], ...info };
+				}
+			}
 		}
 	}
 

@@ -28,6 +28,7 @@ import streamDeck, {
 
 import { Data, ptz, SELECTED } from "../obs-ptz";
 import { cameraOf, InspectorRequest, sendCameras } from "./inspector";
+import { Axes, AxisInfo, show } from "../units";
 
 type Axis = "pan" | "tilt" | "zoom" | "focus";
 
@@ -42,8 +43,12 @@ type LensSettings = {
 	/** The camera's UUID, or SELECTED (or nothing) for the one selected in the dock */
 	device?: string;
 	axis?: Axis;
-	/** Percent of the axis's whole range that a tick of the dial moves it */
-	step?: number;
+	/**
+	 * Percent of the axis's whole range that a click of the dial moves it, a tenth of
+	 * it for a pan or a tilt, and at least the smallest step the camera makes: 0 is
+	 * that step, one click for one
+	 */
+	stepPercent?: number;
 };
 
 /** What is known of a camera's lens */
@@ -53,6 +58,8 @@ type Lens = {
 	zoom?: number;
 	focus?: number;
 	autofocus?: boolean;
+	/** What the camera says of each axis: its step, and what its position is in a unit a person knows */
+	axes: Axes;
 	features: Data;
 };
 
@@ -66,6 +73,19 @@ const SETTLE_MS = 1500;
 // and stopped when the dial has been left alone this long
 const SPEED = 0.4;
 const STOP_MS = 200;
+
+// Acceleration: a click moves farther the faster the dial is being turned. The
+// speed is clicks a second, from the time since the last event, and the step
+// is multiplied by 1 + (speed / ACCEL_KNEE) ^ ACCEL_POWER, to at most ACCEL_MAX:
+// slow clicks are the step, and a fast spin, of 30 a second, is about 8 times it.
+const ACCEL_KNEE = 8;
+const ACCEL_POWER = 1.5;
+const ACCEL_MAX = 50;
+// Clicks closer than this are taken to be this far apart, so that two events
+// that were sent together don't count as an infinite speed
+const ACCEL_MIN_MS = 15;
+// A turn left alone this long starts from the step again
+const ACCEL_IDLE_MS = 400;
 
 type Turn = {
 	device: string;
@@ -102,6 +122,103 @@ function pictograph(axis: Axis, autofocus: boolean): string {
 	return `data:image/svg+xml;charset=utf8,${encodeURIComponent(svg)}`;
 }
 
+const svgUri = (w: number, h: number, body: string): string =>
+	`data:image/svg+xml;charset=utf8,${encodeURIComponent(
+		`<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}" viewBox="0 0 ${w} ${h}">${body}</svg>`,
+	)}`;
+
+// A pan or a tilt is drawn as the camera looks. The degrees are only nominal, to
+// draw the range from: a position of -1.0 or 1.0 is the end of the camera's range
+const PAN_DEGREES = 120;
+const TILT_DEGREES = 45;
+// The view's width, nominally, from wide to tele, as degrees across: it goes
+// down by the same factor for each step of the zoom, as a lens does. A tilt's
+// is as wide as a 16:9 picture is high.
+const FOV_WIDE = 70;
+const FOV_TELE = 7;
+
+/** The wedge of the view, to either side of where the camera points, at a zoom of 0.0 (wide) to 1.0 (tele) */
+const halfFov = (zoom: number | undefined, vertical: boolean): number => {
+	const across = FOV_WIDE * Math.pow(FOV_TELE / FOV_WIDE, zoom ?? 0);
+	return ((vertical ? (across * 9) / 16 : across) / 2) || 1;
+};
+
+// The pictures are drawn a little smaller than their area, so that they sit in it
+const PICTURE_SCALE = 0.9;
+const picture = (body: string): string =>
+	svgUri(92, 92, `<g transform="translate(${(92 * (1 - PICTURE_SCALE)) / 2} ${(92 * (1 - PICTURE_SCALE)) / 2}) scale(${PICTURE_SCALE})">${body}</g>`);
+const GREEN = "#3ddc84";
+const DIM = "#667";
+
+/** A point `radius` from (cx, cy) at `angle` degrees clockwise from straight up */
+const polar = (cx: number, cy: number, radius: number, angle: number): [number, number] => [
+	cx + radius * Math.sin((angle * Math.PI) / 180),
+	cy - radius * Math.cos((angle * Math.PI) / 180),
+];
+
+/** A wedge from (cx, cy) of `radius`, from `from` to `to` degrees clockwise from straight up */
+function wedge(cx: number, cy: number, radius: number, from: number, to: number, fill: string): string {
+	const [x1, y1] = polar(cx, cy, radius, from);
+	const [x2, y2] = polar(cx, cy, radius, to);
+	return `<path d="M${cx} ${cy}L${x1} ${y1}A${radius} ${radius} 0 0 1 ${x2} ${y2}Z" fill="${fill}"/>`;
+}
+
+/** A stroke along an arc of the range, with a tick at each end and one at its middle */
+function arc(cx: number, cy: number, radius: number, from: number, to: number): string {
+	const [x1, y1] = polar(cx, cy, radius, from);
+	const [x2, y2] = polar(cx, cy, radius, to);
+	const tick = (angle: number) => {
+		const [ax, ay] = polar(cx, cy, radius - 4, angle);
+		const [bx, by] = polar(cx, cy, radius + 4, angle);
+		return `<line x1="${ax}" y1="${ay}" x2="${bx}" y2="${by}"/>`;
+	};
+	const large = to - from > 180 ? 1 : 0;
+	return (
+		`<g fill="none" stroke="${DIM}" stroke-width="2" stroke-linecap="round">` +
+		`<path d="M${x1} ${y1}A${radius} ${radius} 0 ${large} 1 ${x2} ${y2}"/>${tick(from)}${tick(to)}${tick((from + to) / 2)}</g>`
+	);
+}
+
+/** The camera drawn from above, or from the side, pointing `angle` degrees clockwise from straight up */
+const camera = (cx: number, cy: number, angle: number): string =>
+	`<g transform="rotate(${angle} ${cx} ${cy})" fill="#fff">` +
+	`<rect x="${cx - 8}" y="${cy - 8}" width="16" height="18" rx="3"/>` +
+	`<path d="M${cx - 5} ${cy - 8}L${cx - 8} ${cy - 15}H${cx + 8}L${cx + 5} ${cy - 8}Z"/></g>`;
+
+/**
+ * The picture of a dial's axis, in its layout's gauge. A pan is the camera from
+ * above, in a circle with the range it can pan round it and a wedge of where it
+ * looks; a tilt is the same from the side, looking to the right, with the wedge
+ * up and down. A zoom or a focus is a marker on a track from one end of its
+ * range to the other, with ticks at the ends.
+ */
+function gauge(axis: Axis, position: number | undefined, zoom: number | undefined): string {
+	if (axis === "pan") {
+		const angle = (position ?? 0) * PAN_DEGREES;
+		const fov = halfFov(zoom, false);
+		const view = position === undefined ? "" : wedge(46, 46, 38, angle - fov, angle + fov, GREEN + "cc");
+		return picture(arc(46, 46, 40, -PAN_DEGREES, PAN_DEGREES) + view + camera(46, 46, angle));
+	}
+	if (axis === "tilt") {
+		// From the side the camera looks to the right: 90 degrees clockwise from up, and up is anticlockwise
+		const angle = 90 - (position ?? 0) * TILT_DEGREES;
+		const fov = halfFov(zoom, true);
+		const view = position === undefined ? "" : wedge(18, 46, 54, angle - fov, angle + fov, GREEN + "cc");
+		return picture(arc(18, 46, 56, 90 - TILT_DEGREES, 90 + TILT_DEGREES) + view + camera(18, 46, angle));
+	}
+	const pad = 12;
+	const at = (f: number) => pad + f * (176 - 2 * pad);
+	const line = (x: number, half: number) =>
+		`<line x1="${x}" y1="${13 - half}" x2="${x}" y2="${13 + half}" stroke="#fff" stroke-width="2" stroke-linecap="round"/>`;
+	let svg = `<line x1="${at(0)}" y1="13" x2="${at(1)}" y2="13" stroke="#fff" stroke-width="2" stroke-linecap="round"/>`;
+	svg += line(at(0), 6) + line(at(1), 6);
+	if (position !== undefined) {
+		// A focus position is 1.0 at near, which is drawn on the left: far is on the right
+		svg += `<circle cx="${at(axis === "focus" ? 1 - position : position)}" cy="13" r="7" fill="${GREEN}"/>`;
+	}
+	return svgUri(176, 26, svg);
+}
+
 const clamp = (axis: Axis, v: number) => Math.min(1, Math.max(AXES[axis].min, v));
 
 @action({ UUID: "ca.secretlab.obs-ptz.lens" })
@@ -110,6 +227,10 @@ export class LensAction extends SingletonAction<LensSettings> {
 	#lenses = new Map<string, Lens>();
 	// The dials being turned, by the dial's id
 	#turns = new Map<string, Turn>();
+	// When each dial was last turned, by the dial's id
+	#turned = new Map<string, number>();
+	// The layout each dial has, by the dial's id
+	#layouts = new Map<string, string>();
 
 	override async onWillAppear(ev: WillAppearEvent<LensSettings>): Promise<void> {
 		if (ev.action.isDial()) {
@@ -129,7 +250,9 @@ export class LensAction extends SingletonAction<LensSettings> {
 	}
 
 	override async onDialRotate(ev: DialRotateEvent<LensSettings>): Promise<void> {
-		const { axis = "zoom", step = 2 } = ev.payload.settings;
+		const { axis = "zoom", stepPercent = 0.25 } = ev.payload.settings;
+		// A pan or a tilt is a tenth of the step, for the same turn of the dial
+		const configured = axis === "pan" || axis === "tilt" ? stepPercent / 10 : stepPercent;
 		const device = this.#deviceOf(ev.payload.settings);
 		try {
 			if (!device) {
@@ -137,14 +260,25 @@ export class LensAction extends SingletonAction<LensSettings> {
 			}
 			const lens = await this.#lens(device);
 			const turn = this.#turns.get(ev.action.id);
-			const ticks = ev.payload.ticks;
+			// A tilt dial turned clockwise tilts down, so that it turns the way the
+			// picture does, and a focus dial turned clockwise goes toward far, as the
+			// picture of it, near on the left and infinity on the right, does
+			const ticks = axis === "tilt" || axis === "focus" ? -ev.payload.ticks : ev.payload.ticks;
+			const now = Date.now();
+			const since = now - (this.#turned.get(ev.action.id) ?? -Infinity);
+			this.#turned.set(ev.action.id, now);
+			const speed = since > ACCEL_IDLE_MS ? 0 : (Math.abs(ticks) * 1000) / Math.max(since, ACCEL_MIN_MS);
+			const accel = Math.min(ACCEL_MAX, 1 + Math.pow(speed / ACCEL_KNEE, ACCEL_POWER));
 			if (lens.features[AXES[axis].absFeature]) {
 				const base = turn?.device === device ? turn.value : lens[axis];
 				if (base === undefined) {
 					throw new Error(`the camera has not reported its ${axis}`);
 				}
 				const span = 1 - AXES[axis].min;
-				this.#turn(ev.action, device, axis, clamp(axis, base + (ticks * step * span) / 100));
+				// A click is never less than the camera can move by: where it says
+				// what that is, it is the least a click moves, and the step 0 is it
+				const step = Math.max((configured * span) / 100, lens.axes[axis]?.step ?? 0);
+				this.#turn(ev.action, device, axis, clamp(axis, base + ticks * accel * step));
 			} else if (lens.features[AXES[axis].feature]) {
 				await this.#nudge(ev.action.id, device, axis, ticks);
 			} else {
@@ -213,6 +347,11 @@ export class LensAction extends SingletonAction<LensSettings> {
 			if (changed.features) {
 				lens.features = changed.features as Data;
 			}
+			if (changed.axes) {
+				for (const [axis, info] of Object.entries(changed.axes as Axes)) {
+					lens.axes[axis] = { ...lens.axes[axis], ...info };
+				}
+			}
 		} else {
 			return;
 		}
@@ -234,6 +373,7 @@ export class LensAction extends SingletonAction<LensSettings> {
 				zoom: typeof state.zoom === "number" ? state.zoom : undefined,
 				focus: typeof state.focus === "number" ? state.focus : undefined,
 				autofocus: state.focus_af_enabled === true,
+				axes: structuredClone((state.axes ?? {}) as Axes),
 				features: (state.features ?? {}) as Data,
 			};
 			// A state_changed that came while it was being read is newer
@@ -267,7 +407,11 @@ export class LensAction extends SingletonAction<LensSettings> {
 				ptz.call("ptz_move_abs", position).catch((e) => streamDeck.logger.warn(String(e)));
 			}, SEND_MS);
 		}
-		dial.getSettings().then((s) => this.#show(dial, s, value)).catch(() => {});
+		dial.getSettings()
+			.then((s) =>
+				this.#show(dial, s, value, undefined, false, this.#lenses.get(device)?.zoom, this.#lenses.get(device)?.axes[axis]),
+			)
+			.catch(() => {});
 	}
 
 	/** Moves a camera that can only move at a speed, in the direction of the turn, until the dial is left alone */
@@ -313,16 +457,20 @@ export class LensAction extends SingletonAction<LensSettings> {
 		const device = ptz.connected ? this.#deviceOf(settings) : "";
 		let position: number | undefined;
 		let af = false;
+		let zoom: number | undefined;
+		let info: AxisInfo | undefined;
 		if (device) {
 			try {
 				const lens = await this.#lens(device);
 				position = lens[settings.axis ?? "zoom"];
 				af = settings.axis === "focus" && lens.autofocus === true;
+				zoom = lens.zoom;
+				info = lens.axes[settings.axis ?? "zoom"];
 			} catch (e) {
 				streamDeck.logger.warn(String(e));
 			}
 		}
-		await this.#show(dial, settings, position, ptz.connected ? undefined : "No OBS", af);
+		await this.#show(dial, settings, position, ptz.connected ? undefined : "No OBS", af, zoom, info);
 	}
 
 	async #show(
@@ -331,17 +479,24 @@ export class LensAction extends SingletonAction<LensSettings> {
 		position: number | undefined,
 		note?: string,
 		af = false,
+		zoom?: number,
+		info?: AxisInfo,
 	): Promise<void> {
 		const axis = settings.axis ?? "zoom";
 		const { name, min } = AXES[axis];
-		const fraction = position === undefined ? 0 : (position - min) / (1 - min);
-		// A pan or a tilt is shown from the middle of its range: +25% is a quarter of the way to the end
-		const shown = position === undefined ? "-" : `${min < 0 ? Math.round(position * 100) : Math.round(fraction * 100)}%`;
+		// A pan and a tilt are drawn as a picture, and the others as a track; the layout is only set when it changes
+		const layout = axis === "pan" || axis === "tilt" ? "layouts/picture.json" : "layouts/track.json";
+		if (this.#layouts.get(dial.id) !== layout) {
+			this.#layouts.set(dial.id, layout);
+			await dial.setFeedbackLayout(layout);
+		}
+		// In the axis's unit, where the camera says what it is, and as the position if not
+		const shown = position === undefined ? "-" : show(info, position, min < 0);
 		await dial.setFeedback({
 			title: af ? `${name} (AF)` : name,
 			icon: pictograph(axis, af),
 			value: note ?? shown,
-			indicator: { value: Math.round(fraction * 100) },
+			gauge: gauge(axis, position, zoom),
 		});
 	}
 }

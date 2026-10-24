@@ -1,5 +1,5 @@
 /*
- * A key that shows where a camera is: its pan, tilt and zoom as its title,
+ * A key that shows where a camera is: its pan, tilt, zoom and focus as its title,
  * from the positions the camera reports, and whether the camera is there to
  * ask at all: it goes red, and says so, when the camera's link is down or OBS
  * can't be reached. The camera is the one selected in the PTZ dock, unless the
@@ -22,6 +22,7 @@ import { cameraStates } from "../camera-state";
 import { Data, ptz, SELECTED } from "../obs-ptz";
 import { GROUND, INK, keyPicture, OFFLINE_GROUND } from "../pictures";
 import { cameraOf, InspectorRequest, sendCameras } from "./inspector";
+import { Axes, show } from "../units";
 
 type StatusSettings = {
 	/** The camera's UUID, or SELECTED (or nothing) for the one selected in the dock */
@@ -30,10 +31,6 @@ type StatusSettings = {
 
 const LIVE = keyPicture("", GROUND, INK);
 const OFFLINE = keyPicture("", OFFLINE_GROUND, INK);
-
-/** A position as a signed percent of its range for pan and tilt, and as a percent for zoom */
-const percent = (v: unknown, signed: boolean): string =>
-	typeof v === "number" ? `${signed && v > 0 ? "+" : ""}${Math.round(v * 100)}` : "-";
 
 @action({ UUID: "ca.secretlab.obs-ptz.status" })
 export class StatusAction extends SingletonAction<StatusSettings> {
@@ -98,7 +95,14 @@ export class StatusAction extends SingletonAction<StatusSettings> {
 				const state = await cameraStates.get(device);
 				live = state.connected !== false;
 				title = live
-					? `Pan ${percent(state.pan, true)}\nTilt ${percent(state.tilt, true)}\nZoom ${percent(state.zoom, false)}`
+					? ["Pan", "Tilt", "Zoom", "Focus"]
+							.map((name) => {
+								const axis = name.toLowerCase();
+								const position = state[axis];
+								const text = typeof position === "number" ? show((state.axes as Axes | undefined)?.[axis], position, axis === "pan" || axis === "tilt") : "-";
+								return `${name} ${text}`;
+							})
+							.join("\n")
 					: "Camera\noffline";
 			} catch {
 				title = "No camera";
