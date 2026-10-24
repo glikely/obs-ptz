@@ -1778,6 +1778,11 @@ void PTZDevice::signalDevice(const char *name, calldata_t *cd)
 
 void PTZDevice::notifyStateChanged()
 {
+	/* Nothing changed is nothing to say, as a camera that is polled gives */
+	obs_data_item_t *first = obs_data_first(stateChanged);
+	if (!first)
+		return;
+	obs_data_item_release(&first);
 	calldata_t cd = {};
 	calldata_set_ptr(&cd, "changed", stateChanged);
 	signalDevice("ptz_state_changed", &cd);

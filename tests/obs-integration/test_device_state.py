@@ -174,6 +174,33 @@ def test_a_positive_speed_raises_the_position(obs_world, axis):
         go_to_the_middle()
 
 
+@pytest.mark.parametrize("backend", VISCA_BACKENDS)
+def test_a_polled_camera_says_only_what_changed(obs_world, backend):
+    """A camera that is polled gives the same answers again and again: a
+    ptz_state_changed says the keys whose value is not what it was, and there is
+    none when nothing is"""
+    from obsws import Client
+    uuid = obs_world.device_uuid(obs_world.device_names[backend])
+    client = Client(obs_world.ws_url, password=obs_world.ws_password, event_subscriptions=1 << 9)
+    try:
+        known = dict(client.vendor("obs-ptz", "ptz_get_state", {"device": uuid})["state"])
+        time.sleep(3)  # until it has read all it reads
+        client.take("VendorEvent")
+        client.vendor("obs-ptz", "ptz_get_state", {"device": uuid})
+        time.sleep(4)
+        said = [e["eventData"]["eventData"] for e in client.take("VendorEvent")
+                if e["eventData"].get("eventType") == "ptz_state_changed"
+                and e["eventData"]["eventData"].get("device") == uuid]
+    finally:
+        client.close()
+    for event in said:
+        changed = event["changed"]
+        # not one that says nothing, and not one that says only what is already so
+        assert changed, event
+        assert any(known.get(key) != value for key, value in changed.items()), event
+        known.update(changed)
+
+
 @pytest.mark.parametrize("backend", ["pelco-d", "pelco-p"])
 def test_pelco_state_has_no_white_balance_or_position(obs_world, backend, tmp_path):
     state = obs_world.device_state(obs_world.device_names[backend], tmp_path / "state.json")["state"]

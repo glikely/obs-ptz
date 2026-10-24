@@ -388,6 +388,58 @@ obs_properties_t *PTZVisca::get_obs_properties()
  * commands use, so a position that is shown is one that can be moved back
  * to. Every camera has its own range, so these are the plugin's
  * assumptions, and clamped. */
+/* Whether the state already has the value of `item` */
+static bool sameAsKnown(obs_data_t *state, obs_data_item_t *item)
+{
+	const char *name = obs_data_item_get_name(item);
+	if (!obs_data_has_user_value(state, name))
+		return false;
+	switch (obs_data_item_gettype(item)) {
+	case OBS_DATA_BOOLEAN:
+		return obs_data_get_bool(state, name) == obs_data_item_get_bool(item);
+	case OBS_DATA_NUMBER:
+		if (obs_data_item_numtype(item) == OBS_DATA_NUM_INT)
+			return obs_data_get_int(state, name) == obs_data_item_get_int(item);
+		return obs_data_get_double(state, name) == obs_data_item_get_double(item);
+	case OBS_DATA_STRING:
+		return !strcmp(obs_data_get_string(state, name), obs_data_item_get_string(item));
+	default:
+		return false; /* an object or an array is taken to have changed */
+	}
+}
+
+/* The value of `item`, put in `to` under its name */
+static void copyItem(obs_data_t *to, obs_data_item_t *item)
+{
+	const char *name = obs_data_item_get_name(item);
+	switch (obs_data_item_gettype(item)) {
+	case OBS_DATA_BOOLEAN:
+		obs_data_set_bool(to, name, obs_data_item_get_bool(item));
+		break;
+	case OBS_DATA_NUMBER:
+		if (obs_data_item_numtype(item) == OBS_DATA_NUM_INT)
+			obs_data_set_int(to, name, obs_data_item_get_int(item));
+		else
+			obs_data_set_double(to, name, obs_data_item_get_double(item));
+		break;
+	case OBS_DATA_STRING:
+		obs_data_set_string(to, name, obs_data_item_get_string(item));
+		break;
+	case OBS_DATA_OBJECT: {
+		OBSDataAutoRelease object = obs_data_item_get_obj(item);
+		obs_data_set_obj(to, name, object);
+		break;
+	}
+	case OBS_DATA_ARRAY: {
+		OBSDataArrayAutoRelease array = obs_data_item_get_array(item);
+		obs_data_set_array(to, name, array);
+		break;
+	}
+	default:
+		break;
+	}
+}
+
 void PTZVisca::update_position(OBSData decoded)
 {
 	auto has = [decoded](const char *key) {
@@ -841,8 +893,14 @@ void PTZVisca::receive(const QByteArray &msg)
 			 * commands complete immediately. Only decode
 			 * response if the payload size is non-zero */
 			obs_data_t *rslt_props = active_cmd[0].value().decode(msg);
+			/* What was read is what changed only where it differs from what was
+			 * known: a camera that is polled says the same again and again */
+			OBSDataAutoRelease differs = obs_data_create();
+			for (auto item = obs_data_first(rslt_props); item; obs_data_item_next(&item))
+				if (!sameAsKnown(state, item))
+					copyItem(differs, item);
 			obs_data_apply(state, rslt_props);
-			obs_data_apply(stateChanged, rslt_props);
+			obs_data_apply(stateChanged, differs);
 			update_position(rslt_props);
 
 			/* The camera says what it is: use its command set */
