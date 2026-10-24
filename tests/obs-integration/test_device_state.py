@@ -146,9 +146,14 @@ def test_a_positive_speed_raises_the_position(obs_world, axis):
     way is up, whatever the camera's own protocol calls the ends: a driver that
     turns the speed into a command is the one to turn it the right way"""
     uuid = obs_world.device_uuid(obs_world.device_names["visca-tcp"])
+    middle = {"pan": 0.0, "tilt": 0.0, "zoom": 0.5, "focus": 0.5}
 
     def position():
         return obs_world.ws.vendor("obs-ptz", "ptz_get_state", {"device": uuid})["state"][axis]
+
+    def go_to_the_middle():
+        obs_world.ws.vendor("obs-ptz", "ptz_move_abs", {"device": uuid, **middle})
+        obs_world.wait_for(lambda: abs(position() - middle[axis]) < 0.02, timeout=15)
 
     def drive(speed):
         # a pan and a tilt are given together: one given takes the other as 0
@@ -157,16 +162,16 @@ def test_a_positive_speed_raises_the_position(obs_world, axis):
             data.update({"pan": speed if axis == "pan" else 0, "tilt": speed if axis == "tilt" else 0})
         obs_world.ws.vendor("obs-ptz", "ptz_move", data)
 
-    # to the bottom of the range, so that going up can be seen to
-    drive(-1.0)
-    time.sleep(1.5)
-    drive(0)
-    time.sleep(1.0)
-    low = position()
-    drive(1.0)
-    time.sleep(0.8)
-    drive(0)
-    obs_world.wait_for(lambda: position() > low + 0.02, timeout=5)
+    # from the middle of the range, so that neither end is in the way
+    go_to_the_middle()
+    try:
+        drive(0.5)
+        time.sleep(0.6)
+        drive(0)
+        obs_world.wait_for(lambda: position() > middle[axis] + 0.01, timeout=5)
+    finally:
+        drive(0)
+        go_to_the_middle()
 
 
 @pytest.mark.parametrize("backend", ["pelco-d", "pelco-p"])
