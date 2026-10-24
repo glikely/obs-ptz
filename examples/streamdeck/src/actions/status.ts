@@ -64,7 +64,9 @@ export class StatusAction extends SingletonAction<StatusSettings> {
 
 	/** Called with each of obs-ptz's events, after cameraStates has them */
 	async event(name: string, data: Data): Promise<void> {
-		if (name === "ptz_state_changed" || name === "ptz_device_removed") {
+		// Only what the key shows: the camera says much besides
+		const shown = ["pan", "tilt", "zoom", "focus", "axes", "connected"];
+		if (name === "ptz_device_removed" || (name === "ptz_state_changed" && shown.some((key) => key in (data.changed as Data)))) {
 			await this.#refreshAll(data.device as string);
 		}
 	}

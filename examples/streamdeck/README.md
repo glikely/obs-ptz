@@ -37,7 +37,9 @@ It has six actions:
   infinity on the right, and a clockwise turn goes toward infinity. The value shown is in the same units as the status key.
   The wedge narrows as the camera zooms in. The degrees of the pictures are
   nominal (pan 120 to either side, tilt 45, a view of 70 degrees wide to 7 at
-  tele), only there to draw the range. Pushing a focus dial turns the camera's autofocus on or off. A camera
+  tele), only there to draw the range. Pushing a focus dial turns the camera's autofocus on or off. While
+  autofocus is on the focus dial is dimmed, and turning it shows a red forbidden
+  sign for a third of a second and moves nothing. A camera
   with the `pantilt_abs`, `zoom_abs` or `focus_abs` feature is sent positions; one without is
   moved at a speed while the dial turns.
 

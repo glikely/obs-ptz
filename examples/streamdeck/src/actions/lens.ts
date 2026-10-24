@@ -219,6 +219,21 @@ function gauge(axis: Axis, position: number | undefined, zoom: number | undefine
 	return svgUri(176, 26, svg);
 }
 
+// The keys of a camera's state that a dial shows or acts on
+const RELEVANT = ["pan", "tilt", "zoom", "focus", "focus_af_enabled", "features", "axes"];
+
+// How dim a dial is while autofocus has the camera's focus, and how long it shows
+// that it can't be turned
+const DIMMED = 0.3;
+const FORBIDDEN_MS = 300;
+// A red "forbidden" sign, in a track's gauge
+const FORBIDDEN = svgUri(
+	176,
+	26,
+	'<circle cx="88" cy="13" r="11" fill="none" stroke="#e74c3c" stroke-width="3"/>' +
+		'<line x1="80" y1="5" x2="96" y2="21" stroke="#e74c3c" stroke-width="3" stroke-linecap="round"/>',
+);
+
 const clamp = (axis: Axis, v: number) => Math.min(1, Math.max(AXES[axis].min, v));
 
 @action({ UUID: "ca.secretlab.obs-ptz.lens" })
@@ -229,6 +244,8 @@ export class LensAction extends SingletonAction<LensSettings> {
 	#turns = new Map<string, Turn>();
 	// When each dial was last turned, by the dial's id
 	#turned = new Map<string, number>();
+	// The timers that put a dial back after it showed that it can't be turned, by the dial's id
+	#forbidden = new Map<string, NodeJS.Timeout>();
 	// The layout each dial has, by the dial's id
 	#layouts = new Map<string, string>();
 
@@ -259,6 +276,11 @@ export class LensAction extends SingletonAction<LensSettings> {
 				throw new Error("no camera is selected");
 			}
 			const lens = await this.#lens(device);
+			// A camera focusing by itself is not to be focused by hand: the dial says so
+			if (axis === "focus" && lens.autofocus && lens.features.autofocus) {
+				await this.#forbid(ev.action, ev.payload.settings);
+				return;
+			}
 			const turn = this.#turns.get(ev.action.id);
 			// A tilt dial turned clockwise tilts down, so that it turns the way the
 			// picture does, and a focus dial turned clockwise goes toward far, as the
@@ -336,6 +358,11 @@ export class LensAction extends SingletonAction<LensSettings> {
 				return; // read in full when a dial first needs it
 			}
 			const changed = data.changed as Data;
+			// A camera says much that a dial doesn't show (its exposure, say): the
+			// dial is drawn again only for what it does
+			if (!RELEVANT.some((key) => key in changed)) {
+				return;
+			}
 			for (const axis of Object.keys(AXES) as Axis[]) {
 				if (typeof changed[axis] === "number") {
 					lens[axis] = changed[axis] as number;
@@ -445,8 +472,10 @@ export class LensAction extends SingletonAction<LensSettings> {
 			const settings = await dial.getSettings();
 			if (device === undefined || this.#deviceOf(settings) === device) {
 				// A dial being turned shows what it asked for, not what the camera
-				// reported on the way there
-				if (!this.#turns.has(dial.id)) {
+				// reported on the way there, and one that is saying it can't be turned
+				// says so until its time is up, however much the camera reports (a
+				// camera focusing by itself reports all the time)
+				if (!this.#turns.has(dial.id) && !this.#forbidden.has(dial.id)) {
 					await this.#refresh(dial, settings);
 				}
 			}
@@ -492,11 +521,29 @@ export class LensAction extends SingletonAction<LensSettings> {
 		}
 		// In the axis's unit, where the camera says what it is, and as the position if not
 		const shown = position === undefined ? "-" : show(info, position, min < 0);
+		// With autofocus on the dial is dimmed: it can't be turned
+		const opacity = af ? DIMMED : 1;
 		await dial.setFeedback({
-			title: af ? `${name} (AF)` : name,
-			icon: pictograph(axis, af),
-			value: note ?? shown,
-			gauge: gauge(axis, position, zoom),
+			title: { value: af ? `${name} (AF)` : name, opacity },
+			icon: { value: pictograph(axis, af), opacity },
+			value: { value: note ?? shown, opacity },
+			gauge: { value: gauge(axis, position, zoom), opacity },
 		});
+	}
+
+	/** Says that the dial is not turned, for a moment: a red "forbidden" sign, where the picture of the axis is */
+	async #forbid(dial: DialAction<LensSettings>, settings: LensSettings): Promise<void> {
+		clearTimeout(this.#forbidden.get(dial.id));
+		await dial.setFeedback({
+			value: { value: "Autofocus is on", opacity: 1 },
+			gauge: { value: FORBIDDEN, opacity: 1 },
+		});
+		this.#forbidden.set(
+			dial.id,
+			setTimeout(() => {
+				this.#forbidden.delete(dial.id);
+				this.#refresh(dial, settings).catch(() => {});
+			}, FORBIDDEN_MS),
+		);
 	}
 }
