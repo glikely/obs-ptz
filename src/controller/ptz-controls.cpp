@@ -457,6 +457,12 @@ PTZControls::PTZControls(QWidget *parent) : QFrame(parent), ui(new Ui::PTZContro
 		view->setToolTip(button->toolTip());
 		view->setEnabled(button->isEnabled());
 		button->installEventFilter(new followEnabledFilter(view));
+		/* And has its icon, which follows the theme. One the theme's
+		 * stylesheet gives instead (one-push focus) is left to it. */
+		if (!button->icon().isNull()) {
+			view->setIcon(button->icon());
+			connect(this, &PTZControls::themeRefreshed, view, [view, button]() { view->setIcon(button->icon()); });
+		}
 	}
 	connect(this, &QWidget::customContextMenuRequested, this, &PTZControls::showContextMenu);
 	ui->splitter->handle(1)->installEventFilter(this);
