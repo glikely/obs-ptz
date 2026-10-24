@@ -73,6 +73,13 @@ Instead, it treats the TCP socket as a UART port and uses exactly the same frami
 The controller establishes a TCP connection with the device in the normal way.
 Once the TCP socket is established is uses the UART protocol init sequence to initialize the device.
 
+### Datavideo DVIP
+
+Datavideo's cameras have VISCA over TCP on port 5002, with each packet, both ways,
+after its length in 2 bytes, big endian, the length's own 2 bytes included:
+`00 07 81 09 04 47 ff` is the zoom position inquiry.
+That is how Bitfocus' Datavideo VISCA Companion module sends them; it hasn't been tried with a camera here.
+
 ## Command Sets
 
 Cameras don't all have the same commands and inquiries, and not every camera
