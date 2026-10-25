@@ -13,6 +13,7 @@ and a source with a VISCA filter on it, so that the device follows the
 source's scenes. ptzsim reports the lamps in its debug state.
 """
 
+import itertools
 import json
 import subprocess
 import sys
@@ -25,7 +26,10 @@ from obsws import ObsWebSocketError
 from conftest import REPO_ROOT, free_port, output_log, wait_for_port
 
 FILTER_KIND = "ca.secretlab.obs-ptz.visca"
-SOURCE = "tally-cam"
+# Each test's source has a name of its own. OBS 32.0 can keep an audio source
+# alive after RemoveInput (its audio mixer holds on to it), and the name with
+# it, so a name used again would find the last test's source still there.
+_source_numbers = itertools.count(1)
 
 
 class TallySim:
@@ -75,18 +79,19 @@ class Tally:
     def __init__(self, world, sim, tmp_path, tally_auto=True, profile="auto"):
         self.world = world
         self.sim = sim
+        self.source = f"tally-cam-{next(_source_numbers)}"
         # OBS starts in whichever mode it was last left in
         self.studio(False)
         self.scene = world.create_scene()
         self.other = world.create_scene()
         world.ws.call("CreateInput", {
             "sceneName": self.scene,
-            "inputName": SOURCE,
+            "inputName": self.source,
             "inputKind": "ffmpeg_source",
             "inputSettings": {"is_local_file": True, "local_file": ""},
         })
         world.ws.call("CreateSourceFilter", {
-            "sourceName": SOURCE,
+            "sourceName": self.source,
             "filterName": "PTZ",
             "filterKind": FILTER_KIND,
             "filterSettings": {
@@ -98,7 +103,7 @@ class Tally:
             },
         })
         out = tmp_path / "device.json"
-        self.device_name = world.wait_for_device_by_name(SOURCE, out, lambda r: r["found"] and r["bound"])["uuid"]
+        self.device_name = world.wait_for_device_by_name(self.source, out, lambda r: r["found"] and r["bound"])["uuid"]
         world.wait_for_device_status(self.device_name, tmp_path / "status.json", lambda s: s["connected"], timeout=10)
         self.tmp_path = tmp_path
         self.program(self.other)
@@ -128,7 +133,7 @@ class Tally:
     def cleanup(self):
         try:
             self.studio(False)
-            self.world.ws.call("RemoveInput", {"inputName": SOURCE})
+            self.world.ws.call("RemoveInput", {"inputName": self.source})
         except ObsWebSocketError:
             pass
 
@@ -238,7 +243,7 @@ def test_no_lamps_are_lit_with_tally_auto_off(request, obs_world, tmp_path):
 
 def set_tally_auto(tally, enabled):
     tally.world.ws.call("SetSourceFilterSettings", {
-        "sourceName": SOURCE,
+        "sourceName": tally.source,
         "filterName": "PTZ",
         "filterSettings": {"tally_auto": enabled},
     })
