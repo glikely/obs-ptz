@@ -35,14 +35,13 @@ def test_a_device_thread_request_times_out_when_the_main_thread_is_held(obs_worl
     hold_main_thread(obs_world, MAIN_THREAD_WAIT + 2)
     started = time.time()
     with pytest.raises(ObsWebSocketError) as raised:
-        obs_world.ws.vendor(VENDOR, "ptz_get_state", {"device": uuid}, timeout=MAIN_THREAD_WAIT + 4)
+        obs_world.ws.vendor(VENDOR, "ptz_get_statistics", {"device": uuid}, timeout=MAIN_THREAD_WAIT + 4)
     waited = time.time() - started
     assert raised.value.status.get("error") == "timeout"
     assert MAIN_THREAD_WAIT - 0.5 < waited < MAIN_THREAD_WAIT + 1
     # and once the main thread is free again, it is answered as ever
-    obs_world.wait_for(
-        lambda: obs_world.ws.vendor(VENDOR, "ptz_get_state", {"device": uuid})["state"]["connected"] is True,
-        timeout=10)
+    obs_world.wait_for(lambda: "statistics" in obs_world.ws.vendor(VENDOR, "ptz_get_statistics", {"device": uuid}),
+                       timeout=10)
 
 
 def test_an_any_thread_request_is_not_held_by_the_main_thread(obs_world):
@@ -54,6 +53,26 @@ def test_an_any_thread_request_is_not_held_by_the_main_thread(obs_world):
     assert obs_world.ws.vendor(VENDOR, "ptz_list_devices")["devices"]
     assert time.time() - started < 1
     time.sleep(3)
+
+
+def test_the_state_is_read_while_the_main_thread_is_held(obs_world):
+    """ptz_get_state may be called from any thread: with the main thread busy it
+    is answered at once, and with the state of the device, not an empty one"""
+    uuid = device(obs_world, "visca-tcp")
+    before = obs_world.ws.vendor(VENDOR, "ptz_get_state", {"device": uuid})["state"]
+    assert before["connected"] is True
+    log_before = len(obs_world.obs_log().read_text(errors="replace"))
+    hold_main_thread(obs_world, 3)
+    started = time.time()
+    held = obs_world.ws.vendor(VENDOR, "ptz_get_state", {"device": uuid})["state"]
+    assert time.time() - started < 1
+    time.sleep(3)
+    # the same keys, as it was last said, and nothing was refused for its thread
+    assert held["connected"] is True
+    assert set(before) <= set(held) | {"axes"}
+    assert held["features"] == before["features"]
+    log = obs_world.obs_log().read_text(errors="replace")[log_before:]
+    assert "called from wrong thread; ignored" not in log
 
 
 def test_concurrent_clients_all_get_answers(obs_world, cameras):  # noqa: F811
@@ -147,8 +166,9 @@ def test_obs_quits_while_clients_ask_for_the_main_thread(obs_world):
     def ask(client):
         while True:
             try:
-                answer = client.vendor(VENDOR, "ptz_get_state", {"device": uuid}, timeout=30)
-                outcome = "state" if "state" in answer else f"odd: {answer}"
+                # a proc that needs the main thread, which ptz_get_state no longer does
+                answer = client.vendor(VENDOR, "ptz_get_statistics", {"device": uuid}, timeout=30)
+                outcome = "answered" if "statistics" in answer else f"odd: {answer}"
             except ObsWebSocketError as e:
                 # obs-websocket itself refuses a request once OBS has begun to close
                 # ...and the binding takes its requests away then, so there is none by that name
@@ -173,9 +193,11 @@ def test_obs_quits_while_clients_ask_for_the_main_thread(obs_world):
         thread.join(timeout=60)
     assert not any(thread.is_alive() for thread in threads), "a client was never answered"
     assert outcomes.count("closed") == 4
-    assert set(outcomes) <= {"state", "closed", "not_ready", "gone", "unavailable", "timeout",
-                             "unknown_device"}, sorted(set(outcomes))
-    assert outcomes.count("state") > 0
+    # "forbidden" is what a request is told when the access setting changes under
+    # it, as it does as the binding takes its requests away on closing
+    assert set(outcomes) <= {"answered", "closed", "not_ready", "gone", "unavailable", "timeout", "unknown_device",
+                             "forbidden"}, sorted(set(outcomes))
+    assert outcomes.count("answered") > 0
     obs_world.wait_for(
         lambda: obs_world.ws.vendor(VENDOR, "ptz_get_state", {"device": device(obs_world, "visca-tcp")})["state"],
         timeout=20)

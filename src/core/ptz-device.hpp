@@ -215,6 +215,11 @@ protected:
 	OBSData stateChanged;                          /* changed state to be sent via the notify signal */
 	std::map<std::string, std::string> axisScales; /* what setAxisScale() last said, by axis, as JSON */
 	OBSData statistics;
+	/* The state as it was last announced, as JSON, for ptz_get_state from a
+	 * thread that is not the device's. Text, so that a reader has a copy of
+	 * its own and shares no obs_data_t with the device or with another reader. */
+	mutable QMutex m_stateSnapshotMutex;
+	std::string m_stateSnapshot;
 	QSet<QString> stale_state;
 	void incrementStatistic(const char *name, int amount = 1);
 
@@ -543,6 +548,12 @@ public:
 	 * bound to anything OBS persists, and changes many times a second.
 	 */
 	virtual void saveState(OBSData state) const;
+	/* Makes the copy of the state that ptz_get_state gives to a caller on
+	 * another thread, as saveState() has it now: before each
+	 * ptz_state_changed, so that a listener that has heard one and reads gets
+	 * what it said or newer, and when the device is made. The device's thread
+	 * only, as saveState() is. */
+	void refreshStateSnapshot();
 	/* Fills an OBSData with the device's statistics, see ptz_get_statistics.
 	 * A driver that has rates works them out here, from what it has
 	 * counted since the last time. */

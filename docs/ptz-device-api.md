@@ -36,7 +36,7 @@ changes in the camera.
 
 ## API version
 
-This is version **0.6** of the PTZ API.
+This is version **0.7** of the PTZ API.
 The API is in a pre-release state, published as an RFC.
 It is subject to change at any time.
 Please provide feedback on the [API discussion
@@ -97,6 +97,16 @@ static void use_device(obs_source_t *source, void *data)
 {
 	signal_handler_t *sh = obs_source_get_signal_handler(source);
 	signal_handler_connect(sh, "ptz_state_changed", device_state_changed, data);
+
+	/* Then read the state as it is: the signal says only what changes, and
+	 * a device that is not changing says nothing. Any thread may. */
+	obs_data_t *state = obs_data_create();
+	calldata_t cd = {0};
+	calldata_set_ptr(&cd, "state", state);
+	proc_handler_call(obs_source_get_proc_handler(source), "ptz_get_state", &cd);
+	calldata_free(&cd);
+	/* ...use it, and release it with obs_data_release(state) */
+
 	/* keep a weak reference to the source, for as long as it exists */
 }
 
@@ -178,10 +188,23 @@ if (source) {
 - **Threads.** A proc that moves the camera or recalls a preset can be called
   from any thread: it queues the work for the device's own thread, which is the
   one OBS made the device on (the Qt main thread).
-  A proc that reads or changes the device's data, or returns something, must be
-  called from that thread.
+  So can `ptz_get_state`, which gives a copy of the state that the device
+  makes as it announces it.
+  A proc that reads or changes the device's other data, or returns something,
+  must be called from that thread.
   From another it logs an error and does nothing.
   Each proc below says which it is.
+- **Reading the state.** `ptz_state_changed` says only what changed, and a
+  device that is not changing says nothing, so a listener that has just found
+  a device does not know what it is like.
+  It reads the whole state once with `ptz_get_state`, and keeps it up to date
+  from the signals.
+  Connect to the signal first and read after: what is read is the state as the
+  device last announced it, or newer, so it is at least as new as every signal
+  the listener has heard, and a change that came between the two is in it and
+  is announced as well, which does no harm, as a change is a value and not a
+  difference.
+  Read first and connect after, and a change in between is lost.
 - **Ownership.** A `ptr` the caller passes in (the `state`, `config` and
   `statistics` objects) is the caller's: the device fills it in.
   A `ptr` a proc returns as `return` is a new reference or object that the
@@ -516,7 +539,13 @@ Reads:
 
 Fills in the `state` object the caller owns with the device's whole transient
 state: see [State keys](#state-keys).
-Device thread.
+Any thread.
+On the device's own thread that is the state as it is.
+On another it is the copy made when the state was last announced with
+`ptz_state_changed`, which the device makes before it says so, so it is never
+older than a signal the caller has heard, and can be a moment behind a change
+that has not been announced yet.
+The caller's object shares nothing with the device or with another caller.
 Access: read.
 
 ### `ptr ptz_get_statistics(ptr statistics)`
@@ -758,6 +787,8 @@ caller ignores keys it doesn't know and checks that one is there, with
 State is transient: it describes the device right now, and is never saved.
 Changes to it are announced by `ptz_state_changed`, which carries only the keys
 that changed.
+A listener reads the whole of it once, as [Rules for
+calling](#rules-for-calling) says.
 
 | Key | Type | Present | Meaning |
 | --- | --- | --- | --- |

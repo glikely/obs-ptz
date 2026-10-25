@@ -16,8 +16,11 @@ import json
 import pytest
 from conftest import OBS_MAIN, PTZ_DOCK
 from obsws import ObsWebSocketError
+from test_api_version import declared_version
 
 VENDOR = "obs-ptz"
+# The version src/ptz.h declares, which every device of the plugin answers with
+API_VERSION = dict(zip(("major", "minor"), declared_version()))
 # obs-websocket's RequestStatus::ResourceNotFound, which it answers for a
 # vendor request that nothing has registered
 NOT_FOUND = 600
@@ -57,12 +60,11 @@ def test_list_devices_has_every_configured_device(obs_world):
         assert name in listed, backend
         entry = listed[name]
         assert entry["device"] and entry["name"], backend
-        assert entry["api"] == {"major": 0, "minor": 6}, backend
+        assert entry["api"] == API_VERSION, backend
 
 
 def test_ptz_get_api_version_over_the_wire(obs_world):
-    assert obs_world.ws.vendor(VENDOR, "ptz_get_api_version", {"device": device(obs_world, "visca-tcp")}) == {
-        "major": 0, "minor": 6}
+    assert obs_world.ws.vendor(VENDOR, "ptz_get_api_version", {"device": device(obs_world, "visca-tcp")}) == API_VERSION
 
 
 def test_move_reaches_the_camera(obs_world):
@@ -200,7 +202,7 @@ def test_list_discovery_has_an_instance_of_each_kind(obs_world):
 
 def test_a_discovery_instance_is_called_as_a_device_is(obs_world):
     instance = obs_world.ws.vendor(VENDOR, "ptz_list_discovery")["instances"][0]["device"]
-    assert obs_world.ws.vendor(VENDOR, "ptz_get_api_version", {"device": instance}) == {"major": 0, "minor": 6}
+    assert obs_world.ws.vendor(VENDOR, "ptz_get_api_version", {"device": instance}) == API_VERSION
     assert obs_world.ws.vendor(VENDOR, "ptz_discovery_start", {"device": instance}) == {}
     assert obs_world.ws.vendor(VENDOR, "ptz_discovery_stop", {"device": instance}) == {}
 

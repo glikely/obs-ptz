@@ -187,7 +187,7 @@ PTZDevice::PTZDevice(OBSData config, obs_source_t *filter) : QObject()
 	addProc("void ptz_preset_capture_thumbnail(string id, bool if_arrived)",
 		ptz_ph_lambda(preset_capture_thumbnail), this, PTZ_THREAD_ANY);
 
-	addProc("ptr ptz_get_state(ptr state)", ptz_ph_lambda(get_state), this, PTZ_THREAD_DEVICE, PTZ_ACCESS_READ);
+	addProc("ptr ptz_get_state(ptr state)", ptz_ph_lambda(get_state), this, PTZ_THREAD_ANY, PTZ_ACCESS_READ);
 	addProc("ptr ptz_get_statistics(ptr statistics)", ptz_ph_lambda(get_statistics), this, PTZ_THREAD_DEVICE,
 		PTZ_ACCESS_READ);
 	addProc("ptr ptz_get_parent_source()", ptz_ph_lambda(get_parent_source), this, PTZ_THREAD_ANY, PTZ_ACCESS_NONE);
@@ -753,17 +753,42 @@ void PTZDevice::preset_capture_thumbnail(calldata_t *cd)
 	}
 }
 
+void PTZDevice::refreshStateSnapshot()
+{
+	OBSDataAutoRelease whole = obs_data_create();
+	saveState(whole.Get());
+	std::string json = obs_data_get_json(whole);
+	QMutexLocker locker(&m_stateSnapshotMutex);
+	m_stateSnapshot = std::move(json);
+}
+
 /**
- * Fills the caller-owned obs_data_t with the device's whole transient state
+ * Fills the caller-owned obs_data_t with the device's whole transient state.
+ * On the device's own thread that is the state itself. On any other, which
+ * must not touch it, it is the copy made when the state was last announced,
+ * which is as new as anything a listener has been told.
  */
 void PTZDevice::get_state(calldata_t *cd) const
 {
-	if (wrongThread("ptz_get_state"))
-		return;
 	auto state = static_cast<obs_data_t *>(calldata_ptr(cd, "state"));
 	if (!state)
 		return;
-	saveState(state);
+	if (QThread::currentThread() == thread()) {
+		saveState(state);
+		return;
+	}
+
+	std::string json;
+	{
+		QMutexLocker locker(&m_stateSnapshotMutex);
+		json = m_stateSnapshot;
+	}
+	/* Read back as text, so that what the caller has shares nothing with the
+	 * device's state, or with another caller's: nested objects are shared by
+	 * obs_data_apply(), and the caller may change what it was given */
+	OBSDataAutoRelease copy = json.empty() ? nullptr : obs_data_create_from_json(json.c_str());
+	if (copy)
+		obs_data_apply(state, copy);
 }
 
 /**
@@ -1157,6 +1182,9 @@ void *ptz_filter_create(const std::function<PTZDevice *()> &make)
 	PTZDevice *ptz = nullptr;
 	auto build = [&]() {
 		ptz = make();
+		/* So that there is state to give to another thread from the first */
+		if (ptz)
+			ptz->refreshStateSnapshot();
 	};
 	/* Creating the device must happen on the main thread */
 	if (QThread::currentThread() != qApp->thread())
@@ -1840,6 +1868,9 @@ void PTZDevice::notifyStateChanged()
 	if (!first)
 		return;
 	obs_data_item_release(&first);
+	/* Before it is said, so that a listener that reads on hearing it gets what
+	 * it said, or something newer, from any thread */
+	refreshStateSnapshot();
 	calldata_t cd = {};
 	calldata_set_ptr(&cd, "changed", stateChanged);
 	signalDevice("ptz_state_changed", &cd);

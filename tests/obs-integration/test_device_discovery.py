@@ -31,6 +31,7 @@ import pytest
 from obsws import ObsWebSocketError
 
 from conftest import REPO_ROOT, free_port, free_udp_port, output_log, wait_for_port
+from test_api_version import declared_version
 
 SONY_VISCA_PORT = 52381
 
@@ -252,7 +253,7 @@ def test_discovery_through_websocket(obs_world, onvif_sim, sony_sim):
     assert set(instances.values()) == DISCOVERY_KINDS
     for uuid, kind in instances.items():
         version = obs_world.ws.vendor("obs-ptz", "ptz_get_api_version", {"device": uuid})
-        assert (version["major"], version["minor"]) == (0, 6), kind
+        assert (version["major"], version["minor"]) == declared_version(), kind
         said = [event for event, data in result["said"] if data["device"] == uuid]
         assert said.count("ptz_discovery_finished") == 1, kind
         assert "ptz_device_found" not in said[said.index("ptz_discovery_finished"):], f"{kind} found after finishing"
