@@ -47,7 +47,8 @@ Go to the releases page to find the latest binary release for your platform.
 Binaries are created for Windows (x64 and arm64), MacOS (Universal), and
 Ubuntu Linux 26.04 (x86_64 and aarch64).
 Download the package for your platform and install it.
-The plugin needs OBS Studio 31 or later.
+The Windows and macOS builds need OBS Studio 32.0 or later. The Ubuntu
+packages need Ubuntu 26.04's own OBS Studio, or a newer one.
 Ubuntu 24.04's own `obs-studio` package is version 30, which is too old: there,
 install OBS Studio from the obsproject PPA, which has x86_64 builds only.
 If you need support for a different platform or distro then you'll need
