@@ -21,6 +21,14 @@
 #include <QDeadlineTimer>
 #include <QEvent>
 #include <QElapsedTimer>
+#include <QLoggingCategory>
+
+// Q_STATIC_LOGGING_CATEGORY came in Qt 6.9; the Qt 6.8 in OBS 32.0's
+// obs-deps doesn't have it. A static Q_LOGGING_CATEGORY is the same thing
+// there.
+#ifndef Q_STATIC_LOGGING_CATEGORY
+#define Q_STATIC_LOGGING_CATEGORY(name, ...) static Q_LOGGING_CATEGORY(name, __VA_ARGS__)
+#endif
 
 #include <cerrno>
 #include <fcntl.h>
