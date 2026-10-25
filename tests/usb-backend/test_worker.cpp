@@ -369,7 +369,8 @@ TEST_CASE("the worker reports its state, for the axes the camera has", "[usb-bac
 	} answer;
 	bool answered = false;
 	QObject::connect(&worker, &PTZUsbWorker::stateCaptured, &context,
-			 [&](PtzUsbCamPos pos, bool hasPan, bool hasTilt, bool, bool hasZoom, bool hasFocus) {
+			 [&](PtzUsbCamPos pos, PtzUsbCamPos, bool hasPan, bool hasTilt, bool, bool hasZoom,
+			     bool hasFocus) {
 				 answer = {pos, hasPan, hasTilt, hasZoom, hasFocus};
 				 answered = true;
 			 });
@@ -401,7 +402,7 @@ TEST_CASE("a camera without a focus range reports no focus in its state", "[usb-
 	bool answered = false;
 	QObject context;
 	QObject::connect(&worker, &PTZUsbWorker::stateCaptured, &context,
-			 [&](PtzUsbCamPos, bool, bool, bool, bool, bool focus) {
+			 [&](PtzUsbCamPos, PtzUsbCamPos, bool, bool, bool, bool, bool focus) {
 				 hasFocus = focus;
 				 answered = true;
 			 });
@@ -420,7 +421,7 @@ TEST_CASE("captureState does nothing without a camera", "[usb-backend][worker]")
 	bool answered = false;
 	QObject context;
 	QObject::connect(&worker, &PTZUsbWorker::stateCaptured, &context,
-			 [&](PtzUsbCamPos, bool, bool, bool, bool, bool) { answered = true; });
+			 [&](PtzUsbCamPos, PtzUsbCamPos, bool, bool, bool, bool, bool) { answered = true; });
 
 	/* no setDeviceId(): there is no camera to ask */
 	worker.captureState();
@@ -460,7 +461,7 @@ TEST_CASE("a camera with no pan/tilt position reports pan/tilt by speed, and no 
 	bool answered = false, hasPan = true, hasTilt = true, hasSpeed = false;
 	QObject context;
 	QObject::connect(&worker, &PTZUsbWorker::stateCaptured, &context,
-			 [&](PtzUsbCamPos, bool pan, bool tilt, bool speed, bool, bool) {
+			 [&](PtzUsbCamPos, PtzUsbCamPos, bool pan, bool tilt, bool speed, bool, bool) {
 				 hasPan = pan;
 				 hasTilt = tilt;
 				 hasSpeed = speed;
