@@ -418,6 +418,47 @@ def duplicating_studio_mode(obs_world):
     set_edit_properties_mode(obs_world, False)
 
 
+def device_uuids(world):
+    return {entry["device"] for entry in world.ws.vendor("obs-ptz", "ptz_list_devices")["devices"]}
+
+
+def test_studio_mode_copies_of_its_source_leave_it_alone(obs_world, duplicating_studio_mode, tmp_path):
+    """Each copy of the source has a filter of its own, a passive copy that is
+    no device to a user, and the source's own filter keeps drawing. Before,
+    OBS put the same filter on the copy, and freeing the copy took the filter's
+    parent and target away from under the source still drawing it, which
+    crashed OBS (#428)"""
+    image = tmp_path / "quadrants.png"
+    write_quadrant_png(image)
+    source = f"soft-ptz-cam-{next(_names)}"
+    cam_scene = obs_world.create_scene()
+    other_scene = obs_world.create_scene()
+    obs_world.ws.call("CreateInput", {
+        "sceneName": cam_scene, "inputName": source, "inputKind": "image_source",
+        "inputSettings": {"file": str(image)},
+    })
+    obs_world.ws.call("CreateSourceFilter", {
+        "sourceName": source, "filterName": "Soft PTZ", "filterKind": FILTER_KIND,
+        "filterSettings": {"max_zoom": 4.0, "recall_seconds": 0.2},
+    })
+    obs_world.wait_for_device_by_name(source, tmp_path / "device.json", lambda r: r["found"] and r["bound"],
+                                      timeout=10)
+    move(obs_world, source, pan=0.75, tilt=0.75, zoom=1.0)
+    wait_for_position(obs_world, source, tmp_path, pan=0.75, tilt=0.75, zoom=1.0)
+    devices = device_uuids(obs_world)
+
+    # Each transition sends a new copy of the scene to program and frees the last
+    for scene in (cam_scene, other_scene) * 3:
+        obs_world.ws.call("SetCurrentPreviewScene", {"sceneName": scene})
+        obs_world.ws.call("TriggerStudioModeTransition")
+        time.sleep(1)
+        assert device_uuids(obs_world) == devices, "a copy of the source is listed as a device"
+
+    # Still drawing, and the source's own picture is still the device's
+    wait_for_corners(obs_world, source, {"tl": GREEN, "tr": GREEN, "bl": GREEN, "br": GREEN})
+    obs_world.ws.call("RemoveInput", {"inputName": source})
+
+
 # ------------------------------------------------- beyond the source's bounds
 
 

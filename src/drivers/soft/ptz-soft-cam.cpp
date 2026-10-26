@@ -254,6 +254,12 @@ static void softCamRender(void *data, gs_effect_t *)
 	OBSSourceAutoRelease filter = cam->filterSource();
 	if (!filter)
 		return;
+	/* Both are there while drawing, as OBS documents, but not for a filter
+	 * OBS has put on a copy of its source as well, as it does with one that
+	 * may not be duplicated, once the copy is freed: nothing to draw, nor to
+	 * skip to */
+	if (!obs_filter_get_parent(filter) || !obs_filter_get_target(filter))
+		return;
 	uint32_t cx, cy;
 	softCamTargetSize(cam, &cx, &cy);
 	if (cx == 0 || cy == 0) {
@@ -305,7 +311,13 @@ void ptz_soft_cam_register_filter()
 	struct obs_source_info info = {};
 	info.id = "ca.secretlab.obs-ptz.soft-ptz";
 	info.type = OBS_SOURCE_TYPE_FILTER;
-	info.output_flags = OBS_SOURCE_VIDEO | OBS_SOURCE_DO_NOT_DUPLICATE;
+	/* A copy of the source has a filter of its own, made from this one's
+	 * settings, so it starts where this one last came to rest. On a private
+	 * copy, as Studio Mode's "Duplicate Sources" sends to program, it is a
+	 * passive copy, which the controller leaves out. Not one that may not be
+	 * duplicated: OBS would put this filter on the copy as well, and freeing
+	 * the copy leaves it with no parent or target. */
+	info.output_flags = OBS_SOURCE_VIDEO;
 	info.get_name = [](void *) -> const char * {
 		return "Soft PTZ Control";
 	};
