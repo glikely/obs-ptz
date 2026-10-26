@@ -349,6 +349,60 @@ obs_source_t *PTZDevice::filterSource() const
 	return m_filter ? obs_weak_source_get_source(m_filter) : nullptr;
 }
 
+/* OBS duplicates a source's filters when it copies the source, as Studio
+ * Mode's "Duplicate Sources" does with each scene it sends to program. One
+ * that may not be duplicated, as a hardware device's may not, it puts on the
+ * copy as it is, so that the same filter is on both, until the copy is freed.
+ * The device stays on its own source: the first it was put on that isn't
+ * private, as a copy is, or the first if there is none. */
+OBSWeakSource PTZDevice::chooseFilterSourceLocked() const
+{
+	OBSWeakSource first;
+	for (const OBSWeakSource &weak : m_filterSources) {
+		OBSSourceAutoRelease source = obs_weak_source_get_source(weak);
+		if (!source)
+			continue;
+		if (!obs_obj_is_private(source))
+			return weak;
+		if (!first)
+			first = weak;
+	}
+	return first;
+}
+
+void PTZDevice::filterAdded(obs_source_t *source)
+{
+	if (!source)
+		return;
+	OBSSourceAutoRelease chosen;
+	{
+		QMutexLocker locker(&m_parentSourceMutex);
+		m_filterSources.push_back(OBSGetWeakRef(source));
+		chosen = OBSGetStrongRef(chooseFilterSourceLocked());
+		if (chosen && obs_weak_source_references_source(m_parentSource, chosen))
+			return;
+	}
+	setParentSource(chosen);
+}
+
+void PTZDevice::filterRemoved(obs_source_t *source)
+{
+	OBSSourceAutoRelease chosen;
+	{
+		QMutexLocker locker(&m_parentSourceMutex);
+		auto taken = std::find_if(m_filterSources.begin(), m_filterSources.end(),
+					  [source](const OBSWeakSource &weak) {
+						  return obs_weak_source_references_source(weak, source);
+					  });
+		if (taken != m_filterSources.end())
+			m_filterSources.erase(taken);
+		chosen = OBSGetStrongRef(chooseFilterSourceLocked());
+		if (chosen && obs_weak_source_references_source(m_parentSource, chosen))
+			return;
+	}
+	setParentSource(chosen);
+}
+
 void PTZDevice::setParentSource(obs_source_t *source)
 {
 	{
@@ -1171,16 +1225,16 @@ void ptz_filter_add(void *data, obs_source_t *parent)
 	auto ptz = static_cast<PTZDevice *>(data);
 	if (!ptz)
 		return;
-	ptz->setParentSource(parent);
+	ptz->filterAdded(parent);
 	/* Attaching to a source doesn't fire a scene change, so force a refresh */
 	QMetaObject::invokeMethod(ptz, [ptz]() { ptz->onSceneChanged(); }, Qt::QueuedConnection);
 }
 
-void ptz_filter_remove(void *data, obs_source_t *)
+void ptz_filter_remove(void *data, obs_source_t *parent)
 {
 	auto ptz = static_cast<PTZDevice *>(data);
 	if (ptz)
-		ptz->setParentSource(nullptr);
+		ptz->filterRemoved(parent);
 }
 
 void ptz_filter_destroy(void *data)

@@ -126,12 +126,14 @@ static void backup_on(obs_source_t *filter, obs_source_t *parent)
 	backup_filter(filter, name);
 }
 
-/* "source_filter_add": its name, for when it is destroyed without one */
+/* "source_filter_add": its name, for when it is destroyed without one. Not on a
+ * private source: a copy OBS made, of the source and of its filter (see
+ * ptz_device_on_private_source()), which goes with nobody having removed it. */
 static void filter_added_cb(void *, calldata_t *cd)
 {
 	auto parent = static_cast<obs_source_t *>(calldata_ptr(cd, "source"));
 	auto filter = static_cast<obs_source_t *>(calldata_ptr(cd, "filter"));
-	if (!parent || !filter || !ptz_source_is_device(filter))
+	if (!parent || !filter || obs_obj_is_private(parent) || !ptz_source_is_device(filter))
 		return;
 	QMutexLocker locker(&backup_mutex);
 	filter_sources.insert(QT_UTF8(obs_source_get_uuid(filter)), QT_UTF8(obs_source_get_name(parent)));
@@ -140,8 +142,10 @@ static void filter_added_cb(void *, calldata_t *cd)
 /* "source_filter_remove": taken off its source by hand */
 static void filter_removed_cb(void *, calldata_t *cd)
 {
-	backup_on(static_cast<obs_source_t *>(calldata_ptr(cd, "filter")),
-		  static_cast<obs_source_t *>(calldata_ptr(cd, "source")));
+	auto parent = static_cast<obs_source_t *>(calldata_ptr(cd, "source"));
+	if (parent && obs_obj_is_private(parent))
+		return;
+	backup_on(static_cast<obs_source_t *>(calldata_ptr(cd, "filter")), parent);
 }
 
 /* "source_remove": the source is being deleted, and will take its filters
@@ -172,6 +176,9 @@ static void source_destroyed_cb(void *, calldata_t *cd)
 	obs_source_t *parent = obs_filter_get_parent(source);
 	if (parent)
 		name = QT_UTF8(obs_source_get_name(parent));
+	/* Never on a source of its own, as a copy's filter is not: nothing to restore */
+	if (name.isEmpty())
+		return;
 	backup_filter(source, name);
 }
 

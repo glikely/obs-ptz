@@ -642,7 +642,7 @@ std::vector<OBSSource> allSources()
  * if it is a device or a discovery instance. Main thread. */
 void considerSource(obs_source_t *source)
 {
-	if (!source || !ptz_source_is_device(source))
+	if (!source || !ptz_source_is_device(source) || ptz_device_on_private_source(source))
 		return;
 	auto procs = procsOf(source);
 	bool discovery = isDiscovery(procs);
@@ -706,7 +706,8 @@ void listDevices(obs_data_t *, obs_data_t *response, void *)
 	 * and what was queued for the main thread when it did has not run */
 	auto unknown = std::make_shared<std::vector<OBSSource>>();
 	for (const OBSSource &source : allSources()) {
-		if (!ptz_source_is_device(source) || isDiscovery(procsOf(source)))
+		if (!ptz_source_is_device(source) || isDiscovery(procsOf(source)) ||
+		    ptz_device_on_private_source(source))
 			continue;
 		{
 			std::lock_guard<std::mutex> lock(connectedMutex);

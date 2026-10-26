@@ -26,6 +26,19 @@ bool ptz_source_is_device(obs_source_t *source)
 	return usable;
 }
 
+bool ptz_device_on_private_source(obs_source_t *device)
+{
+	proc_handler_t *ph = device ? obs_source_get_proc_handler(device) : nullptr;
+	if (!ph)
+		return false;
+	calldata_t cd = {};
+	OBSSourceAutoRelease parent;
+	if (proc_handler_call(ph, "ptz_get_parent_source", &cd))
+		parent = static_cast<obs_source_t *>(calldata_ptr(&cd, "return"));
+	calldata_free(&cd);
+	return parent && obs_obj_is_private(parent);
+}
+
 obs_source_t *ptz_device_create_filter(obs_source_t *parent, obs_data_t *config)
 {
 	const char *kind = obs_data_get_string(config, "kind");

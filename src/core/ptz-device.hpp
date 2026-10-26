@@ -152,6 +152,13 @@ protected:
 	mutable OBSWeakSource m_parentSource;
 	QString m_parentSourceName;
 	mutable QMutex m_parentSourceMutex;
+	/* The sources the filter is on, as filter_add and filter_remove say, in
+	 * the order it went on them: more than one only while OBS has the same
+	 * filter on a copy of its source too (see filterAdded()). Under
+	 * m_parentSourceMutex. */
+	std::vector<OBSWeakSource> m_filterSources;
+	/* Of those, the one the device is on */
+	OBSWeakSource chooseFilterSourceLocked() const;
 	void watchParentSource(const OBSWeakSource &weak, bool watch) const;
 	/* Network drivers use this as the camera's host when their own Host
 	 * setting is empty; see parentSourceHost(). Checked when the parent
@@ -277,6 +284,10 @@ public:
 	 * filter is gone. */
 	obs_source_t *filterSource() const;
 	void setParentSource(obs_source_t *source);
+	/* The filter has been added to, or taken off, a source: filter_add and
+	 * filter_remove, on whatever thread OBS calls them */
+	void filterAdded(obs_source_t *source);
+	void filterRemoved(obs_source_t *source);
 	/* The hostname or IP address the parent source reports for the device
 	 * it receives from, or "" if it doesn't or there is no parent. Read
 	 * from the settings of a DistroAV NDI source ("web_control_url") or
@@ -563,7 +574,7 @@ void *ptz_filter_create(const std::function<PTZDevice *()> &make);
 obs_properties_t *ptz_filter_get_properties(void *data);
 void ptz_filter_update(void *data, obs_data_t *settings);
 void ptz_filter_add(void *data, obs_source_t *parent);
-void ptz_filter_remove(void *data, obs_source_t *);
+void ptz_filter_remove(void *data, obs_source_t *parent);
 void ptz_filter_destroy(void *data);
 void ptz_filter_save(void *data, obs_data_t *settings);
 

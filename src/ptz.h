@@ -55,6 +55,11 @@ extern obs_source_t *ptz_device_create_filter(obs_source_t *parent, obs_data_t *
  * the same major version as this plugin's and a minor version at least
  * PTZ_API_VERSION_MINOR_NEEDED (see docs/ptz-device-api.md). Nothing about its id says so. */
 extern bool ptz_source_is_device(obs_source_t *source);
+/* Whether a device is on a private source, as it says (ptz_get_parent_source):
+ * one whose filter OBS made for a copy of its source, as Studio Mode's
+ * "Duplicate Sources" does with each scene it sends to program. Nothing a user
+ * sees or reaches, and no device of its own to them. */
+extern bool ptz_device_on_private_source(obs_source_t *device);
 
 /* Whether `source` is `scene` or one of the sources it shows. Inline, as both
  * the controller and the devices use it. */

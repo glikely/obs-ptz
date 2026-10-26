@@ -19,6 +19,7 @@ they check:
 """
 
 import base64
+import configparser
 import itertools
 import json
 import struct
@@ -382,6 +383,39 @@ def test_obs_quits_cleanly_after_a_zoomed_picture(obs_world, soft_cam, tmp_path)
 
     obs_world.restart_obs()
     assert obs_world.exit_code == 0, f"OBS exited with {obs_world.exit_code}"
+
+
+# ------------------------------------------------------------ Studio Mode
+
+
+def set_edit_properties_mode(world, enabled):
+    """Studio Mode's "Duplicate Sources" (OBS's editPropertiesMode), which OBS
+    reads from user.ini as it starts: restarts OBS with it so"""
+    user_ini = world.config_dir.parent.parent / "user.ini"
+
+    def edit():
+        config = configparser.ConfigParser(strict=False, interpolation=None)
+        config.optionxform = str
+        config.read(user_ini, encoding="utf-8-sig")
+        if not config.has_section("BasicWindow"):
+            config.add_section("BasicWindow")
+        config.set("BasicWindow", "EditPropertiesMode", "true" if enabled else "false")
+        with open(user_ini, "w", encoding="utf-8") as f:
+            config.write(f, space_around_delimiters=False)
+
+    world.restart_obs(between=edit)
+
+
+@pytest.fixture
+def duplicating_studio_mode(obs_world):
+    """Studio Mode with "Duplicate Sources", in which each scene sent to program
+    is a private copy of it, with copies of its sources and their filters"""
+    set_edit_properties_mode(obs_world, True)
+    obs_world.ws.call("SetStudioModeEnabled", {"studioModeEnabled": True})
+    obs_world.wait_for(lambda: obs_world.ws.call("GetStudioModeEnabled")["studioModeEnabled"], timeout=5)
+    yield
+    obs_world.ws.call("SetStudioModeEnabled", {"studioModeEnabled": False})
+    set_edit_properties_mode(obs_world, False)
 
 
 # ------------------------------------------------- beyond the source's bounds
