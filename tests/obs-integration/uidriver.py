@@ -63,6 +63,10 @@ class UiDriver:
         """The text on the clipboard"""
         return self.call("clipboard")["text"]
 
+    def hold_source(self, name):
+        """Keeps the source by that name until the driver unloads, in OBS's own shutdown"""
+        self.call("hold_source", name=name)
+
     def set(self, *path, **properties):
         """Sets the properties given, of the object `path` names"""
         self.call("set", path=list(path), properties=properties)

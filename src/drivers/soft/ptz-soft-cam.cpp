@@ -44,11 +44,19 @@ PTZSoftCam::PTZSoftCam(OBSData config, obs_source_t *filter) : PTZDevice(config,
 PTZSoftCam::~PTZSoftCam()
 {
 	m_reportTimer.stop();
-	if (m_texrender) {
-		obs_enter_graphics();
-		gs_texrender_destroy(m_texrender);
-		obs_leave_graphics();
-	}
+}
+
+/* The filter is gone, and nothing draws with the texture any more. Not left to
+ * the destructor: that is a deleteLater(), which at quit runs after OBS has
+ * shut its graphics down. */
+void PTZSoftCam::releaseGraphics()
+{
+	if (!m_texrender)
+		return;
+	obs_enter_graphics();
+	gs_texrender_destroy(m_texrender);
+	obs_leave_graphics();
+	m_texrender = nullptr;
 }
 
 void PTZSoftCam::defaults(obs_data_t *settings)
@@ -304,7 +312,11 @@ void ptz_soft_cam_register_filter()
 	info.create = [](obs_data_t *settings, obs_source_t *source) -> void * {
 		return ptz_filter_create([&]() -> PTZDevice * { return new PTZSoftCam(settings, source); });
 	};
-	info.destroy = ptz_filter_destroy;
+	info.destroy = [](void *data) {
+		if (data)
+			static_cast<PTZSoftCam *>(data)->releaseGraphics();
+		ptz_filter_destroy(data);
+	};
 	info.get_defaults = [](obs_data_t *settings) {
 		ptz_filter_defaults_mark(settings);
 		obs_data_set_default_string(settings, "type", "soft-ptz");
