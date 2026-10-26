@@ -215,6 +215,36 @@ void obs_module_post_load(void)
 		heldSources.emplace_back(source.Get());
 		return QJsonObject{};
 	});
+	addRequest("filter_links", [](const QJsonObject &request) {
+		OBSSourceAutoRelease source = obs_get_source_by_name(request["name"].toString().toUtf8().constData());
+		if (!source)
+			return error("not_found", QString("no source is named %1").arg(request["name"].toString()));
+		OBSSourceAutoRelease filter =
+			obs_source_get_filter_by_name(source, request["filter"].toString().toUtf8().constData());
+		if (!filter)
+			return error("not_found",
+				     QString("the source has no filter %1").arg(request["filter"].toString()));
+		auto describe = [](obs_source_t *linked) -> QJsonValue {
+			if (!linked)
+				return QJsonValue::Null;
+			return QJsonObject{{"uuid", obs_source_get_uuid(linked)},
+					   {"name", obs_source_get_name(linked)},
+					   {"private", obs_obj_is_private(linked)}};
+		};
+		/* What a PTZ device says it is on, if the filter is one */
+		QJsonValue device = QJsonValue::Null;
+		proc_handler_t *procs = obs_source_get_proc_handler(filter);
+		calldata_t cd = {};
+		if (procs && proc_handler_call(procs, "ptz_get_parent_source", &cd)) {
+			OBSSourceAutoRelease parent = static_cast<obs_source_t *>(calldata_ptr(&cd, "return"));
+			device = describe(parent);
+		}
+		calldata_free(&cd);
+		return QJsonObject{{"source", describe(source)},
+				   {"parent", describe(obs_filter_get_parent(filter))},
+				   {"target", describe(obs_filter_get_target(filter))},
+				   {"device_parent", device}};
+	});
 	addReadingRequests();
 	addActionRequests();
 	obs_frontend_add_event_callback(frontendEvent, nullptr);

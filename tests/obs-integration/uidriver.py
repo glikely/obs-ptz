@@ -67,6 +67,11 @@ class UiDriver:
         """Keeps the source by that name until the driver unloads, in OBS's own shutdown"""
         self.call("hold_source", name=name)
 
+    def filter_links(self, source, filter_name):
+        """The source, its filter's parent and target, and the source a PTZ
+        device's filter says it is on, each {"uuid", "name", "private"} or None"""
+        return self.call("filter_links", name=source, filter=filter_name)
+
     def set(self, *path, **properties):
         """Sets the properties given, of the object `path` names"""
         self.call("set", path=list(path), properties=properties)
