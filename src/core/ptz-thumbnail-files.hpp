@@ -37,3 +37,7 @@ QString ptz_thumbnail_write(const QImage &image);
 
 /* Deletes a thumbnail file, by the name kept in the preset */
 void ptz_thumbnail_remove(const QString &fileName);
+
+/* Copies a thumbnail file to a new unique name and returns that name, or an
+ * empty string if it could not be copied */
+QString ptz_thumbnail_copy(const QString &fileName);

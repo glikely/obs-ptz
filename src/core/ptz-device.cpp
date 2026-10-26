@@ -8,6 +8,7 @@
 #include <obs.hpp>
 #include <algorithm>
 #include <functional>
+#include <utility>
 #include <vector>
 #include <QByteArray>
 #include <QCoreApplication>
@@ -370,10 +371,39 @@ OBSWeakSource PTZDevice::chooseFilterSourceLocked() const
 	return first;
 }
 
+/* A filter OBS duplicated has its source's presets, and so the same thumbnail
+ * files, which deleting or replacing one of them, in either device, would
+ * take from the other. So a device given a source of its own copies the
+ * thumbnails another device also has. One on a private copy of a source only
+ * ever shows them. */
+void PTZDevice::claimThumbnails()
+{
+	QSet<QString> others;
+	for (PTZDevice *other : module_devices())
+		if (other != this)
+			for (const Preset &preset : other->m_presets)
+				others.insert(preset.thumbnail);
+	bool changed = false;
+	for (Preset &preset : m_presets) {
+		if (preset.thumbnail.isEmpty() || !others.contains(preset.thumbnail))
+			continue;
+		preset.thumbnail = ptz_thumbnail_copy(preset.thumbnail);
+		changed = true;
+		signalPresetThumbnail(preset.id);
+	}
+	if (changed)
+		persist();
+}
+
 void PTZDevice::filterAdded(obs_source_t *source)
 {
 	if (!source)
 		return;
+	if (!obs_obj_is_private(source))
+		QMetaObject::invokeMethod(this, [this]() {
+			if (!std::exchange(m_thumbnailsClaimed, true))
+				claimThumbnails();
+		});
 	OBSSourceAutoRelease chosen;
 	{
 		QMutexLocker locker(&m_parentSourceMutex);

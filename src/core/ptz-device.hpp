@@ -159,6 +159,9 @@ protected:
 	std::vector<OBSWeakSource> m_filterSources;
 	/* Of those, the one the device is on */
 	OBSWeakSource chooseFilterSourceLocked() const;
+	/* Its presets' thumbnails are its own: see claimThumbnails() */
+	bool m_thumbnailsClaimed = false;
+	void claimThumbnails();
 	void watchParentSource(const OBSWeakSource &weak, bool watch) const;
 	/* Network drivers use this as the camera's host when their own Host
 	 * setting is empty; see parentSourceHost(). Checked when the parent

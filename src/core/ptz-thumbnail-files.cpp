@@ -60,6 +60,15 @@ void ptz_thumbnail_remove(const QString &fileName)
 		QFile::remove(path);
 }
 
+QString ptz_thumbnail_copy(const QString &fileName)
+{
+	QString from = ptz_thumbnail_path(fileName);
+	if (from.isEmpty())
+		return QString();
+	QString name = QUuid::createUuid().toString(QUuid::WithoutBraces) + "." + QFileInfo(fileName).suffix();
+	return QFile::copy(from, ptz_thumbnail_path(name)) ? name : QString();
+}
+
 namespace {
 
 struct CaptureJob {
