@@ -19,6 +19,7 @@
 
 #include <obs-frontend-api.h>
 #include <obs-module.h>
+#include <obs.hpp>
 
 #include <QApplication>
 #include <QJsonDocument>
@@ -34,6 +35,7 @@
 #include <mutex>
 #include <string>
 #include <thread>
+#include <vector>
 
 #include "obs-websocket-api.h"
 #include "ui-driver-objects.hpp"
@@ -66,6 +68,11 @@ struct Request {
 
 /* Kept for as long as the module is loaded: obs-websocket holds a pointer to each */
 std::list<Request> requests;
+
+/* The sources hold_source keeps, till the module unloads: as a plugin with an
+ * output on a scene does, which keeps the sources in it past OBS clearing its
+ * scenes at exit. Main thread. */
+std::vector<OBSSource> heldSources;
 
 /* OBS is exiting, or the module unloading: nothing more is started */
 std::atomic<bool> closing{false};
@@ -201,6 +208,13 @@ void obs_module_post_load(void)
 	}
 	watchForSecrets();
 	addRequest("ping", [](const QJsonObject &) { return QJsonObject{{"driver", 1}}; });
+	addRequest("hold_source", [](const QJsonObject &request) {
+		OBSSourceAutoRelease source = obs_get_source_by_name(request["name"].toString().toUtf8().constData());
+		if (!source)
+			return error("not_found", QString("no source is named %1").arg(request["name"].toString()));
+		heldSources.emplace_back(source.Get());
+		return QJsonObject{};
+	});
 	addReadingRequests();
 	addActionRequests();
 	obs_frontend_add_event_callback(frontendEvent, nullptr);
@@ -222,4 +236,5 @@ void obs_module_unload(void)
 		std::this_thread::sleep_for(std::chrono::milliseconds(5));
 	if (inFlight.load() > 0)
 		blog(LOG_WARNING, "[obs-ui-driver] %d requests were still running at unload", inFlight.load());
+	heldSources.clear();
 }

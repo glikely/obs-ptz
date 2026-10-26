@@ -55,6 +55,7 @@ that could not be done answers `{"error": code, "message": text}`:
 | `key` | `{"path", "key"}` | `{}`. Presses and releases a key in the widget, as typed: the first key of a key sequence's text, `Escape`, `Return` or `Ctrl+A`, say |
 | `watch` | `{"path", "signal"}` | `{"watch": id}`. Counts how often the object sends the signal, by its name, from now. Watching it again counts again from nothing, under the same id |
 | `count` | `{"watch"}` | `{"count"}`, or `not_found` once the object watched has gone |
+| `hold_source` | `{"name"}` | `{}`. Keeps a reference to the source by that name until the driver unloads, inside OBS's own shutdown, as a plugin with an output on a scene does: the source outlives OBS clearing its scenes as it exits |
 
 ### Paths
 
