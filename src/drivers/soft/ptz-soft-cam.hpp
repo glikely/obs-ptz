@@ -35,7 +35,7 @@ private:
 	SoftPosition m_persisted;
 	/* What the picture is drawn to, before it is drawn to the scene, so that
 	 * the zoomed picture cannot be drawn outside the source's own size. Only
-	 * the graphics thread, and the destructor, touch it. */
+	 * the graphics thread, and releaseGraphics(), touch it. */
 	gs_texrender_t *m_texrender = nullptr;
 
 public:
@@ -61,6 +61,8 @@ public:
 	SoftRect visibleRect() const;
 	/* The texture the picture is drawn to, made when it is first wanted */
 	gs_texrender_t *texrender();
+	/* Frees the texture, as the filter is destroyed */
+	void releaseGraphics();
 };
 
 void ptz_soft_cam_register_filter();

@@ -368,6 +368,22 @@ def test_zoomed_in_on_the_middle_shows_where_the_quadrants_meet(obs_world, soft_
     wait_for_corners(obs_world, soft_cam, {"tl": RED, "tr": GREEN, "bl": BLUE, "br": YELLOW})
 
 
+def test_obs_quits_cleanly_after_a_zoomed_picture(obs_world, soft_cam, tmp_path):
+    """A zoomed picture is drawn to a texture of the filter's own, which is
+    freed as the filter is destroyed, with the graphics there still. The device
+    itself goes later: for a source something keeps past OBS clearing its
+    scenes, as an NDI output does, after OBS has shut its graphics down, and
+    freeing the texture then crashed OBS (#428)"""
+    obs_world.need_ui_driver()
+    obs_world.ui.hold_source(soft_cam)
+    move(obs_world, soft_cam, pan=0.75, tilt=0.75, zoom=1.0)
+    wait_for_position(obs_world, soft_cam, tmp_path, pan=0.75, tilt=0.75, zoom=1.0)
+    wait_for_corners(obs_world, soft_cam, {"tl": GREEN, "tr": GREEN, "bl": GREEN, "br": GREEN})
+
+    obs_world.restart_obs()
+    assert obs_world.exit_code == 0, f"OBS exited with {obs_world.exit_code}"
+
+
 # ------------------------------------------------- beyond the source's bounds
 
 
