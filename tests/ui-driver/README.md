@@ -56,6 +56,7 @@ that could not be done answers `{"error": code, "message": text}`:
 | `watch` | `{"path", "signal"}` | `{"watch": id}`. Counts how often the object sends the signal, by its name, from now. Watching it again counts again from nothing, under the same id |
 | `count` | `{"watch"}` | `{"count"}`, or `not_found` once the object watched has gone |
 | `hold_source` | `{"name"}` | `{}`. Keeps a reference to the source by that name until the driver unloads, inside OBS's own shutdown, as a plugin with an output on a scene does: the source outlives OBS clearing its scenes as it exits |
+| `duplicate_source` | `{"name", "new_name", "scene"}` | `{"uuid"}`. Makes a copy of the source by that name, with copies of its filters, as OBS's Paste (Duplicate) does (`obs_source_duplicate()`, not private), and adds it to the scene |
 | `filter_links` | `{"name", "filter"}` | `{"source", "parent", "target", "device_parent"}`, each `{"uuid", "name", "private"}` or `null`: the source by that name, its filter by that name's parent and target as libobs has them, and, for a PTZ device's filter, the source its `ptz_get_parent_source` says |
 
 ### Paths

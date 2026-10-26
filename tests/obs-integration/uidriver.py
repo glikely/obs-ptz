@@ -67,6 +67,11 @@ class UiDriver:
         """Keeps the source by that name until the driver unloads, in OBS's own shutdown"""
         self.call("hold_source", name=name)
 
+    def duplicate_source(self, source, new_name, scene):
+        """Copies the source, and its filters, as OBS's Paste (Duplicate) does, into
+        scene, and returns the copy's uuid"""
+        return self.call("duplicate_source", name=source, new_name=new_name, scene=scene)["uuid"]
+
     def filter_links(self, source, filter_name):
         """The source, its filter's parent and target, and the source a PTZ
         device's filter says it is on, each {"uuid", "name", "private"} or None"""
