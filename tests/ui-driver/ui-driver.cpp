@@ -21,7 +21,12 @@
 #include <obs-module.h>
 #include <obs.hpp>
 
+#include <graphics/graphics.h>
+#include <graphics/vec4.h>
+
 #include <QApplication>
+#include <QBuffer>
+#include <QImage>
 #include <QJsonDocument>
 #include <QJsonObject>
 #include <QThread>
@@ -29,6 +34,7 @@
 #include <atomic>
 #include <chrono>
 #include <condition_variable>
+#include <cstring>
 #include <functional>
 #include <list>
 #include <memory>
@@ -214,6 +220,97 @@ void obs_module_post_load(void)
 			return error("not_found", QString("no source is named %1").arg(request["name"].toString()));
 		heldSources.emplace_back(source.Get());
 		return QJsonObject{};
+	});
+	addRequest("duplicate_source", [](const QJsonObject &request) {
+		OBSSourceAutoRelease source = obs_get_source_by_name(request["name"].toString().toUtf8().constData());
+		OBSSourceAutoRelease sceneSource =
+			obs_get_source_by_name(request["scene"].toString().toUtf8().constData());
+		obs_scene_t *scene = obs_scene_from_source(sceneSource);
+		if (!source || !scene)
+			return error("not_found", "no such source, or no such scene");
+		OBSSourceAutoRelease copy =
+			obs_source_duplicate(source, request["new_name"].toString().toUtf8().constData(), false);
+		if (!copy)
+			return error("bad_value", "OBS made no copy of the source");
+		obs_scene_add(scene, copy);
+		return QJsonObject{{"uuid", obs_source_get_uuid(copy)}};
+	});
+	addRequest("filter_links", [](const QJsonObject &request) {
+		OBSSourceAutoRelease source = obs_get_source_by_name(request["name"].toString().toUtf8().constData());
+		if (!source)
+			return error("not_found", QString("no source is named %1").arg(request["name"].toString()));
+		OBSSourceAutoRelease filter =
+			obs_source_get_filter_by_name(source, request["filter"].toString().toUtf8().constData());
+		if (!filter)
+			return error("not_found",
+				     QString("the source has no filter %1").arg(request["filter"].toString()));
+		auto describe = [](obs_source_t *linked) -> QJsonValue {
+			if (!linked)
+				return QJsonValue::Null;
+			return QJsonObject{{"uuid", obs_source_get_uuid(linked)},
+					   {"name", obs_source_get_name(linked)},
+					   {"private", obs_obj_is_private(linked)}};
+		};
+		/* What a PTZ device says it is on, if the filter is one */
+		QJsonValue device = QJsonValue::Null;
+		proc_handler_t *procs = obs_source_get_proc_handler(filter);
+		calldata_t cd = {};
+		if (procs && proc_handler_call(procs, "ptz_get_parent_source", &cd)) {
+			OBSSourceAutoRelease parent = static_cast<obs_source_t *>(calldata_ptr(&cd, "return"));
+			device = describe(parent);
+		}
+		calldata_free(&cd);
+		return QJsonObject{{"source", describe(source)},
+				   {"parent", describe(obs_filter_get_parent(filter))},
+				   {"target", describe(obs_filter_get_target(filter))},
+				   {"device_parent", device}};
+	});
+	addRequest("output_screenshot", [](const QJsonObject &request) {
+		/* What OBS outputs, as its program shows it: in Studio Mode with
+		 * "Duplicate Sources", the private copy of the scene, which no
+		 * source screenshot can be had of */
+		int width = request["width"].toInt(), height = request["height"].toInt();
+		if (width <= 0 || height <= 0)
+			return error("bad_value", "width and height must be more than 0");
+		OBSSourceAutoRelease output = obs_get_output_source(0);
+		obs_video_info ovi = {};
+		if (!output || !obs_get_video_info(&ovi))
+			return error("not_found", "OBS outputs nothing");
+		QImage image(width, height, QImage::Format_RGBA8888);
+		bool drawn = false;
+		obs_enter_graphics();
+		gs_texrender_t *texrender = gs_texrender_create(GS_RGBA, GS_ZS_NONE);
+		gs_stagesurf_t *stage = gs_stagesurface_create(width, height, GS_RGBA);
+		if (gs_texrender_begin(texrender, width, height)) {
+			vec4 clear;
+			vec4_zero(&clear);
+			gs_clear(GS_CLEAR_COLOR, &clear, 0.0f, 0);
+			gs_ortho(0.0f, (float)ovi.base_width, 0.0f, (float)ovi.base_height, -100.0f, 100.0f);
+			gs_blend_state_push();
+			gs_blend_function(GS_BLEND_ONE, GS_BLEND_ZERO);
+			obs_source_video_render(output);
+			gs_blend_state_pop();
+			gs_texrender_end(texrender);
+			gs_stage_texture(stage, gs_texrender_get_texture(texrender));
+			uint8_t *data;
+			uint32_t linesize;
+			if (gs_stagesurface_map(stage, &data, &linesize)) {
+				for (int y = 0; y < height; y++)
+					memcpy(image.scanLine(y), data + (size_t)y * linesize, (size_t)width * 4);
+				gs_stagesurface_unmap(stage);
+				drawn = true;
+			}
+		}
+		gs_stagesurface_destroy(stage);
+		gs_texrender_destroy(texrender);
+		obs_leave_graphics();
+		if (!drawn)
+			return error("unavailable", "OBS could not draw its output");
+		QByteArray png;
+		QBuffer buffer(&png);
+		buffer.open(QIODevice::WriteOnly);
+		image.save(&buffer, "PNG");
+		return QJsonObject{{"png", QString::fromLatin1(png.toBase64())}};
 	});
 	addReadingRequests();
 	addActionRequests();

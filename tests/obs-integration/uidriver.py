@@ -9,6 +9,7 @@ Copyright 2026 Grant Likely <grant.likely@secretlab.ca>
 SPDX-License-Identifier: GPL-2.0-or-later
 """
 
+import base64
 import json
 
 from obsws import ObsWebSocketError
@@ -66,6 +67,20 @@ class UiDriver:
     def hold_source(self, name):
         """Keeps the source by that name until the driver unloads, in OBS's own shutdown"""
         self.call("hold_source", name=name)
+
+    def duplicate_source(self, source, new_name, scene):
+        """Copies the source, and its filters, as OBS's Paste (Duplicate) does, into
+        scene, and returns the copy's uuid"""
+        return self.call("duplicate_source", name=source, new_name=new_name, scene=scene)["uuid"]
+
+    def filter_links(self, source, filter_name):
+        """The source, its filter's parent and target, and the source a PTZ
+        device's filter says it is on, each {"uuid", "name", "private"} or None"""
+        return self.call("filter_links", name=source, filter=filter_name)
+
+    def output_screenshot(self, width, height):
+        """What OBS outputs, as program shows it, as PNG bytes of that size"""
+        return base64.b64decode(self.call("output_screenshot", width=width, height=height)["png"])
 
     def set(self, *path, **properties):
         """Sets the properties given, of the object `path` names"""
