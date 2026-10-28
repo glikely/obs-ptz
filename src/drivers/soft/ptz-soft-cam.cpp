@@ -254,6 +254,12 @@ static void softCamRender(void *data, gs_effect_t *)
 	OBSSourceAutoRelease filter = cam->filterSource();
 	if (!filter)
 		return;
+	/* Both are there while drawing, as OBS documents, but not for a filter
+	 * OBS has put on a copy of its source as well, as it does with one that
+	 * may not be duplicated, once the copy is freed: nothing to draw, nor to
+	 * skip to */
+	if (!obs_filter_get_parent(filter) || !obs_filter_get_target(filter))
+		return;
 	uint32_t cx, cy;
 	softCamTargetSize(cam, &cx, &cy);
 	if (cx == 0 || cy == 0) {

@@ -19,6 +19,7 @@ they check:
 """
 
 import base64
+import configparser
 import itertools
 import json
 import struct
@@ -382,6 +383,73 @@ def test_obs_quits_cleanly_after_a_zoomed_picture(obs_world, soft_cam, tmp_path)
 
     obs_world.restart_obs()
     assert obs_world.exit_code == 0, f"OBS exited with {obs_world.exit_code}"
+
+
+# ------------------------------------------------------------ Studio Mode
+
+
+def set_edit_properties_mode(world, enabled):
+    """Studio Mode's "Duplicate Sources" (OBS's editPropertiesMode), which OBS
+    reads from user.ini as it starts: restarts OBS with it so"""
+    user_ini = world.config_dir.parent.parent / "user.ini"
+
+    def edit():
+        config = configparser.ConfigParser(strict=False, interpolation=None)
+        config.optionxform = str
+        config.read(user_ini, encoding="utf-8-sig")
+        if not config.has_section("BasicWindow"):
+            config.add_section("BasicWindow")
+        config.set("BasicWindow", "EditPropertiesMode", "true" if enabled else "false")
+        with open(user_ini, "w", encoding="utf-8") as f:
+            config.write(f, space_around_delimiters=False)
+
+    world.restart_obs(between=edit)
+
+
+@pytest.fixture
+def duplicating_studio_mode(obs_world):
+    """Studio Mode with "Duplicate Sources", in which each scene sent to program
+    is a private copy of it, with copies of its sources and their filters"""
+    set_edit_properties_mode(obs_world, True)
+    obs_world.ws.call("SetStudioModeEnabled", {"studioModeEnabled": True})
+    obs_world.wait_for(lambda: obs_world.ws.call("GetStudioModeEnabled")["studioModeEnabled"], timeout=5)
+    yield
+    obs_world.ws.call("SetStudioModeEnabled", {"studioModeEnabled": False})
+    set_edit_properties_mode(obs_world, False)
+
+
+def test_studio_mode_copies_of_its_source_dont_crash_obs(obs_world, duplicating_studio_mode, tmp_path):
+    """OBS puts the source's filter on each copy of the source it sends to
+    program as well, as the filter may not be duplicated, and freeing the copy
+    takes the filter's parent and target away from under the source still
+    drawing it. Drawing it then crashed OBS (#428): now it draws nothing. The
+    source shows nothing from then on, until the filter is added again."""
+    image = tmp_path / "quadrants.png"
+    write_quadrant_png(image)
+    source = f"soft-ptz-cam-{next(_names)}"
+    cam_scene = obs_world.create_scene()
+    other_scene = obs_world.create_scene()
+    obs_world.ws.call("CreateInput", {
+        "sceneName": cam_scene, "inputName": source, "inputKind": "image_source",
+        "inputSettings": {"file": str(image)},
+    })
+    obs_world.ws.call("CreateSourceFilter", {
+        "sourceName": source, "filterName": "Soft PTZ", "filterKind": FILTER_KIND,
+        "filterSettings": {"max_zoom": 4.0, "recall_seconds": 0.2},
+    })
+    obs_world.wait_for_device_by_name(source, tmp_path / "device.json", lambda r: r["found"] and r["bound"],
+                                      timeout=10)
+    move(obs_world, source, pan=0.75, tilt=0.75, zoom=1.0)
+    wait_for_position(obs_world, source, tmp_path, pan=0.75, tilt=0.75, zoom=1.0)
+
+    # Each transition sends a new copy of the scene to program and frees the last
+    for scene in (cam_scene, other_scene) * 3:
+        obs_world.ws.call("SetCurrentPreviewScene", {"sceneName": scene})
+        obs_world.ws.call("TriggerStudioModeTransition")
+        time.sleep(1)
+        # OBS is still there, drawing the source
+        screenshot(obs_world, source)
+    obs_world.ws.call("RemoveInput", {"inputName": source})
 
 
 # ------------------------------------------------- beyond the source's bounds
