@@ -210,11 +210,15 @@ if (source) {
   A `ptr` a proc returns as `return` is a new reference or object that the
   caller releases, and each proc below says with what.
   A `ptr` in a signal belongs to the plugin.
-- **Fields.** A proc reads the calldata fields named under it, which are the
-  ones its declared signature lists.
-  A field a caller leaves out is taken as not given, not as zero, unless a proc
-  says otherwise: a signature says what a proc can be given, and not that it
-  has to be.
+- **Fields.** A declaration lists every field a proc can be given, and not
+  which ones it has to be: libobs has no way to declare a parameter optional.
+  So each proc below marks each field it reads *required* or *optional*.
+  An optional field a caller leaves out is not given, and not zero: the proc
+  says what it does without it, as the move procs leave an axis that isn't
+  given as it is.
+  A proc that is not given a required field does nothing, unless it says
+  otherwise.
+  An `out` field is the proc's to set, and not the caller's to give.
 - **Units.** A speed is -1.0 to 1.0 and a position is -1.0 to 1.0 for pan and
   tilt and 0.0 to 1.0 for zoom and focus, whatever the camera's own units.
 
@@ -448,6 +452,9 @@ outside OBS at all.
 A proc with no such line controls the device.
 `ptz_get_api_info` gives both, for each proc.
 
+Each field a proc reads is marked *required* or *optional*, which its
+declaration can't say: see Fields in [Rules for calling](#rules-for-calling).
+
 ### `void ptz_get_api_version(out int major, out int minor)`
 
 Returns the version of the PTZ API this device implements.
@@ -497,15 +504,17 @@ Any thread.
 Moves at a speed, until told otherwise or stopped.
 Needs the `pantilt`, `zoom` and `focus` features, for each axis it moves.
 Any thread.
-Reads:
+Reads, each optional:
 
-- `pan`, `tilt` (float, -1.0 to 1.0): the speed.
+- `pan`, `tilt` (float, optional, -1.0 to 1.0): the speed.
   If either is given the other is taken as 0, so a caller moving only one axis
   gives both.
   The sign is the direction, after the `pan_invert` and `tilt_invert` settings,
   and the speed is capped by `pantilt_speed_max`.
-- `zoom` (float, -1.0 to 1.0): the zoom speed, capped by `zoom_speed_max`.
-- `focus` (float, -1.0 to 1.0): the focus speed, capped by `focus_speed_max`.
+- `zoom` (float, optional, -1.0 to 1.0): the zoom speed, capped by
+  `zoom_speed_max`.
+- `focus` (float, optional, -1.0 to 1.0): the focus speed, capped by
+  `focus_speed_max`.
 
 A zero stops that axis; an axis left out is left as it is.
 
@@ -518,27 +527,28 @@ Moves to a position and stops there.
 Needs the `pantilt_abs`, `zoom_abs` and `focus_abs` features, for each axis it
 moves.
 Any thread.
-Reads:
+Reads, each optional:
 
-- `pan`, `tilt` (float, -1.0 to 1.0): the position.
+- `pan`, `tilt` (float, optional, -1.0 to 1.0): the position.
   As for `ptz_move`, if either is given the other is taken as 0.
-- `zoom`, `focus` (float, 0.0 to 1.0): the position.
+- `zoom`, `focus` (float, optional, 0.0 to 1.0): the position.
 
 ### `void ptz_move_rel(float pan, float tilt)`
 
 Moves by a distance.
 Needs the `pantilt_rel` feature.
 Any thread.
-Reads:
+Reads, each optional:
 
-- `pan`, `tilt` (float, -1.0 to 1.0): how far, as a fraction of the axis's
-  whole travel.
+- `pan`, `tilt` (float, optional, -1.0 to 1.0): how far, as a fraction of the
+  axis's whole travel.
   If either is given the other is taken as 0.
 
 ### `ptr ptz_get_state(ptr state)`
 
 Fills in the `state` object the caller owns with the device's whole transient
 state: see [State keys](#state-keys).
+Reads `state` (ptr, required).
 Any thread.
 On the device's own thread that is the state as it is.
 On another it is the copy made when the state was last announced with
@@ -553,6 +563,7 @@ Access: read.
 Fills in the `statistics` object the caller owns with what the device has
 counted of its own working, such as how much it has sent to the camera and how
 fast it answers, as numbers under names that the driver gives them.
+Reads `statistics` (ptr, required).
 It isn't state: it is read when wanted and never announced as changing, and a
 rate in it is over the time since it was last read.
 Device thread.
@@ -571,6 +582,7 @@ Access: none.
 
 Asks the device to change some of its state, which is never saved: the keys in
 the `state` object the caller owns that the device acts on.
+Reads `state` (ptr, required).
 Only `focus_af_enabled` is one so far, and the rest are ignored.
 The state then changes when the camera reports it has, and not before.
 Device thread.
@@ -579,7 +591,7 @@ Device thread.
 
 Runs a one-shot action on the camera, which isn't state: see
 [Triggers](#triggers).
-Reads `name` (string).
+Reads `name` (string, required).
 An unknown name is logged and otherwise ignored.
 Any thread.
 
@@ -617,6 +629,7 @@ Access: read.
 ### `void ptz_preset_save(string id)`
 
 Saves the current position into the preset `id`, replacing what it held.
+Reads `id` (string, required).
 A preset of the camera store is written to the camera, and a thumbnail of the
 device's source is taken.
 A preset of the local store captures every value the device reports, see
@@ -627,6 +640,7 @@ Any thread.
 ### `void ptz_preset_recall(string id)`
 
 Goes to the preset `id`.
+Reads `id` (string, required).
 A preset of the camera store is the camera's to recall.
 One of the local store's goes to the pan, tilt, zoom and focus it has.
 Announces `ptz_preset_recalled` when the camera has arrived, unless a newer
@@ -640,7 +654,9 @@ Returns the image of the thumbnail of the preset `id`, for a caller that can't
 read the file whose path `ptz_preset_get_list` gives, as one outside the
 machine OBS runs on can't: its type as `mime`, `image/jpeg` or `image/png`, and
 the file's bytes, base64 encoded, as `data`.
-Both are "" if the preset has no thumbnail, or the device hasn't the preset.
+Reads `id` (string, required).
+Both are "" if the preset has no thumbnail, the device hasn't the preset, or
+`id` is left out.
 A thumbnail is small, a few kilobytes, and a caller asks for it again when
 `ptz_preset_changed` says `thumbnail` changed.
 Device thread.
@@ -650,6 +666,7 @@ Access: read.
 
 Takes a thumbnail of the device's source for the preset `id`, replacing the one
 it had, and announces it with `ptz_preset_changed`.
+Reads `id` (string, required) and `if_arrived` (bool, optional).
 Saving a preset takes one already; this is for a caller that wants one once a
 recall has arrived, after `ptz_preset_recalled`.
 With `if_arrived` true it does so only if `id` is the preset the last
@@ -673,20 +690,25 @@ Until then there is no `id`; the preset is announced by `ptz_preset_added`
 as it is made.
 A camera may also be full without saying so, which a caller finds out from
 the signal: the list has no count of how many a camera keeps.
-The `name` is the user's, and "" for none.
+Reads `name` (string, optional) and `store` (string, required).
+The `name` is the user's, and "" or left out for none.
+Left out, `store` is no store the device has, and the request is refused.
 Device thread.
 
 ### `void ptz_preset_delete(string id)`
 
 Removes the preset `id`: clears its slot on the camera, or drops its record,
 and its thumbnail.
+Reads `id` (string, required).
 Announces `ptz_preset_removed`.
 Device thread.
 
 ### `void ptz_preset_update(string id, ptr changes)`
 
 Changes the preset `id` by the keys that are in the `changes` object the caller
-owns, and leaves the others as they are:
+owns, and leaves the others as they are.
+Reads `id` (string, required) and `changes` (ptr, required), whose keys are
+each optional:
 
 - `name` (string): the user's name for it. On a camera that keeps names it is
   sent to the camera.
@@ -701,6 +723,8 @@ Device thread.
 
 Moves the preset `id` to display `index` in `order`, counting from 0 in the list
 as it is once it has been taken out of its old place.
+Reads `id` (string, required) and `index` (int, required).
+Left out, `index` is taken as 0.
 Announces `ptz_preset_order_changed`.
 Device thread.
 
