@@ -31,9 +31,21 @@ QString ptz_thumbnail_path(const QString &fileName);
  * has nothing to show. Safe to call from any thread. */
 void ptz_capture_source_thumbnail(obs_source_t *source, QObject *context, std::function<void(QImage)> callback);
 
-/* Writes the image into the thumbnail directory under a new unique name and
- * returns that name, or an empty string if it could not be written */
-QString ptz_thumbnail_write(const QImage &image);
+/* A new unique file name for a thumbnail of the filter whose uuid is `owner`,
+ * with that suffix: "<owner>_<random uuid>.<suffix>". A name says who it is
+ * for, so a filter OBS duplicated, which has a uuid of its own and its
+ * source's presets, can tell which of their thumbnails it was given. An empty
+ * owner gives a name with no owner, as every name was before. */
+QString ptz_thumbnail_new_name(const QString &owner, const QString &suffix);
+
+/* The uuid of the filter a thumbnail's file name says it is for, or "" if
+ * the name says none */
+QString ptz_thumbnail_owner(const QString &fileName);
+
+/* Writes the image into the thumbnail directory under a new unique name for
+ * the filter `owner` and returns that name, or an empty string if it could
+ * not be written */
+QString ptz_thumbnail_write(const QImage &image, const QString &owner);
 
 /* Deletes a thumbnail file, by the name kept in the preset */
 void ptz_thumbnail_remove(const QString &fileName);

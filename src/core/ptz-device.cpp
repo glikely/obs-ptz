@@ -1467,13 +1467,15 @@ void PTZDevice::signalPresetThumbnail(const QString &id)
 }
 
 /* Replace the preset's thumbnail image, removing the old file. Each image
- * gets a fresh file name so nothing caching the old one can go stale. */
+ * gets a fresh file name so nothing caching the old one can go stale, which
+ * names the device's filter (see ptz_thumbnail_new_name()). */
 void PTZDevice::setPresetThumbnail(const QString &id, const QImage &image)
 {
 	int index = presetIndex(id);
 	if (index < 0)
 		return;
-	QString name = ptz_thumbnail_write(image);
+	OBSSourceAutoRelease filter = filterSource();
+	QString name = ptz_thumbnail_write(image, filter ? QString::fromUtf8(obs_source_get_uuid(filter)) : QString());
 	if (name.isEmpty())
 		return;
 	ptz_thumbnail_remove(m_presets[index].thumbnail);

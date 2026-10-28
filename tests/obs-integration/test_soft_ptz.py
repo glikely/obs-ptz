@@ -452,6 +452,37 @@ def test_studio_mode_copies_of_its_source_dont_crash_obs(obs_world, duplicating_
     obs_world.ws.call("RemoveInput", {"inputName": source})
 
 
+# ----------------------------------------------------- preset thumbnails
+
+
+def preset_thumbnails(world, device):
+    presets = world.call_proc(device, "ptz_preset_get_list", returns="data")["return"].get("presets", {})
+    return {preset_id: preset.get("thumbnail", "") for preset_id, preset in presets.items()}
+
+
+def thumbnail_name(path):
+    """The file name of a thumbnail the preset list gives the path of, on any OS"""
+    return path.replace("\\", "/").rsplit("/", 1)[-1]
+
+
+def thumbnail_image(world, device, preset_id):
+    """The preset's thumbnail as the device reads it from its file: b"" if it has none,
+    or its file is gone. Not the file itself, whose path is OBS's, relative to where OBS runs."""
+    answer = world.ws.vendor("obs-ptz", "ptz_preset_get_thumbnail",
+                             {"device": world.device_uuid(device), "id": preset_id})
+    return base64.b64decode(answer["data"])
+
+
+def test_a_thumbnail_is_named_for_its_filter(obs_world, soft_cam):
+    """A preset's thumbnail file is named "<filter uuid>_<random uuid>", so a
+    copy of the filter, with a uuid of its own, can tell the thumbnails it was
+    given from its own"""
+    preset = obs_world.create_preset(soft_cam, "pictured", store="local")
+    obs_world.wait_for(lambda: thumbnail_image(obs_world, soft_cam, preset), timeout=10)
+    name = thumbnail_name(preset_thumbnails(obs_world, soft_cam)[preset])
+    assert name.startswith(obs_world.device_uuid(soft_cam) + "_"), name
+
+
 # ------------------------------------------------- beyond the source's bounds
 
 

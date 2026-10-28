@@ -37,15 +37,26 @@ QString ptz_thumbnail_path(const QString &fileName)
 	return dir.isEmpty() ? QString() : QDir(dir).filePath(fileName);
 }
 
-QString ptz_thumbnail_write(const QImage &image)
+QString ptz_thumbnail_new_name(const QString &owner, const QString &suffix)
+{
+	QString name = QUuid::createUuid().toString(QUuid::WithoutBraces) + "." + suffix;
+	return owner.isEmpty() ? name : owner + "_" + name;
+}
+
+QString ptz_thumbnail_owner(const QString &fileName)
+{
+	int end = fileName.indexOf('_');
+	return end < 0 ? QString() : fileName.left(end);
+}
+
+QString ptz_thumbnail_write(const QImage &image, const QString &owner)
 {
 	if (image.isNull())
 		return QString();
 	QDir().mkpath(ptz_thumbnail_dir());
-	QString base = QUuid::createUuid().toString(QUuid::WithoutBraces);
 	/* JPEG is much smaller, but not every Qt build ships the plugin */
 	for (const char *ext : {"jpg", "png"}) {
-		QString name = base + "." + ext;
+		QString name = ptz_thumbnail_new_name(owner, ext);
 		QString path = ptz_thumbnail_path(name);
 		if (!path.isEmpty() && image.save(path, ext, 85))
 			return name;
