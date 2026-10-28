@@ -90,6 +90,28 @@ def test_driving_tilt_alone_leaves_pan_moving(obs_world, backend):
         obs_world.wait_for_state(lambda s: s["pan_speed"] == 0 and s["tilt_speed"] == 0, timeout=5)
 
 
+@pytest.mark.parametrize("backend", DRIVE_BACKENDS)
+@pytest.mark.parametrize("other", ["zoom", "focus"])
+def test_driving_pan_leaves_the_lens_moving(obs_world, backend, other):
+    """Pelco's command word says how every axis moves, so one that leaves an
+    axis out stops it"""
+    if backend == "onvif" and other == "focus":
+        pytest.skip("ptzsim's ONVIF has no imaging service to focus with")
+    device = obs_world.device_names[backend]
+    speed = f"{other}_speed"
+    try:
+        obs_world.call_proc(device, "ptz_move", {other: 0.5})
+        obs_world.wait_for_state(lambda s: s[speed] != 0, timeout=5)
+
+        obs_world.call_proc(device, "ptz_move", {"pan": 0.3})
+        obs_world.wait_for_state(lambda s: s["pan_speed"] != 0, timeout=5)
+        time.sleep(0.5)
+        assert obs_world.state()[speed] != 0
+    finally:
+        obs_world.call_proc(device, "ptz_stop")
+        obs_world.wait_for_state(lambda s: s["pan_speed"] == 0 and s[speed] == 0, timeout=5)
+
+
 @pytest.fixture
 def unconnected_camera(obs_world):
     """A VISCA device whose camera never answers, so its state never says where

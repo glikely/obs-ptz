@@ -6,6 +6,7 @@
  * SPDX-License-Identifier: GPL-2.0-or-later
  */
 
+#include <cmath>
 #include "ptz-pelco.hpp"
 #include "ptz.h"
 
@@ -190,48 +191,39 @@ obs_properties_t *PTZPelco::get_obs_properties()
 	return ptz_props;
 }
 
+/* The command word says how every axis moves, and one left out of it stops, so
+ * each has them all. A zoom or focus speed is a command of its own, sent as it
+ * changes. */
 void PTZPelco::moveDrive(OBSData speeds)
 {
 	QByteArray msg = QByteArray::fromHex("00000000");
-	bool send_update = false;
 	const double pan_speed = speed("pan"), tilt_speed = speed("tilt");
 	const double zoom_speed = speed("zoom"), focus_speed = speed("focus");
 
-	if (obs_data_has_user_value(speeds, "pan") || obs_data_has_user_value(speeds, "tilt")) {
-		if (tilt_speed) {
-			msg[1] = msg[1] | (tilt_speed > 0.0 ? (1 << 3) : (1 << 4));
-			msg[3] = abs(tilt_speed) * 0x3f;
-		}
-		if (pan_speed) {
-			msg[1] = msg[1] | (pan_speed > 0.0 ? (1 << 1) : (1 << 2));
-			msg[2] = abs(pan_speed) * 0x3f;
-		}
-		send_update = true;
+	if (tilt_speed) {
+		msg[1] = msg[1] | (tilt_speed > 0.0 ? (1 << 3) : (1 << 4));
+		msg[3] = std::abs(tilt_speed) * 0x3f;
 	}
-
-	if (obs_data_has_user_value(speeds, "zoom")) {
-		if (zoom_speed) {
+	if (pan_speed) {
+		msg[1] = msg[1] | (pan_speed > 0.0 ? (1 << 1) : (1 << 2));
+		msg[2] = std::abs(pan_speed) * 0x3f;
+	}
+	if (zoom_speed) {
+		if (obs_data_has_user_value(speeds, "zoom"))
 			zoom_speed_set(std::abs(zoom_speed));
-			msg[1] = msg[1] | (zoom_speed > 0.0 ? (1 << 5) : (1 << 6));
-		}
-		send_update = true;
+		msg[1] = msg[1] | (zoom_speed > 0.0 ? (1 << 5) : (1 << 6));
 	}
-
-	if (obs_data_has_user_value(speeds, "focus")) {
-		if (focus_speed) {
+	if (focus_speed) {
+		if (obs_data_has_user_value(speeds, "focus"))
 			focus_speed_set(std::abs(focus_speed));
-			if (focus_speed > 0.0)
-				msg[0] = msg[0] | (1 << 0);
-			else
-				msg[1] = msg[1] | (1 << 7);
-		}
-		send_update = true;
+		if (focus_speed > 0.0)
+			msg[0] = msg[0] | (1 << 0);
+		else
+			msg[1] = msg[1] | (1 << 7);
 	}
 
-	if (send_update) {
-		ptz_debug("pan %f, tilt %f, zoom %f, focus %f", pan_speed, tilt_speed, zoom_speed, focus_speed);
-		send(msg);
-	}
+	ptz_debug("pan %f, tilt %f, zoom %f, focus %f", pan_speed, tilt_speed, zoom_speed, focus_speed);
+	send(msg);
 }
 
 void PTZPelco::pantilt_home()
