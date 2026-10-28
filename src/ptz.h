@@ -92,7 +92,7 @@ static inline bool ptz_scene_is_source_active(obs_source_t *scene, obs_source_t 
  * (something removed, renamed or changing meaning). Then update the doc,
  * which states it. */
 #define PTZ_API_VERSION_MAJOR 0
-#define PTZ_API_VERSION_MINOR 7
+#define PTZ_API_VERSION_MINOR 8
 /* The minor version the controller needs of a device, of this plugin or of any
  * other: the newest it uses something of. It is not PTZ_API_VERSION_MINOR, which
  * goes up with what this plugin's devices offer, and would shut out a device

@@ -36,7 +36,7 @@ changes in the camera.
 
 ## API version
 
-This is version **0.7** of the PTZ API.
+This is version **0.8** of the PTZ API.
 The API is in a pre-release state, published as an RFC.
 It is subject to change at any time.
 Please provide feedback on the [API discussion
@@ -504,11 +504,11 @@ Any thread.
 Moves at a speed, until told otherwise or stopped.
 Needs the `pantilt`, `zoom` and `focus` features, for each axis it moves.
 Any thread.
-Reads, each optional:
+Reads, each optional, so that a caller gives only the axes it changes:
 
 - `pan`, `tilt` (float, optional, -1.0 to 1.0): the speed.
-  If either is given the other is taken as 0, so a caller moving only one axis
-  gives both.
+  Each is an axis of its own: one given alone leaves the other at the speed it
+  has.
   The sign is the direction, after the `pan_invert` and `tilt_invert` settings,
   and the speed is capped by `pan_speed_max` and `tilt_speed_max`.
 - `zoom` (float, optional, -1.0 to 1.0): the zoom speed, capped by
@@ -527,22 +527,27 @@ Moves to a position and stops there.
 Needs the `pantilt_abs`, `zoom_abs` and `focus_abs` features, for each axis it
 moves.
 Any thread.
-Reads, each optional:
+Reads, each optional, so that a caller gives only the axes it moves:
 
 - `pan`, `tilt` (float, optional, -1.0 to 1.0): the position.
-  As for `ptz_move`, if either is given the other is taken as 0.
+  One given alone leaves the other where it is, which the device takes from
+  its state's `pan` or `tilt`.
+  If the state hasn't that, the device doesn't know where the other is, and
+  doesn't move either of them.
 - `zoom`, `focus` (float, optional, 0.0 to 1.0): the position.
+
+An axis left out is left where it is.
 
 ### `void ptz_move_rel(float pan, float tilt)`
 
 Moves by a distance.
 Needs the `pantilt_rel` feature.
 Any thread.
-Reads, each optional:
+Reads, each optional, so that a caller gives only the axes it moves:
 
 - `pan`, `tilt` (float, optional, -1.0 to 1.0): how far, as a fraction of the
   axis's whole travel.
-  If either is given the other is taken as 0.
+  One given alone leaves the other where it is.
 
 ### `ptr ptz_get_state(ptr state)`
 

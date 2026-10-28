@@ -424,14 +424,7 @@ export class LensAction extends SingletonAction<LensSettings> {
 		if (!turn.send) {
 			turn.send = setTimeout(() => {
 				turn.send = undefined;
-				// A pan or a tilt is sent with the other, which is taken as 0 if it is left out
-				const position: Data = { device, [axis]: turn.value };
-				const lens = this.#lenses.get(device);
-				if (axis === "pan" || axis === "tilt") {
-					const other = axis === "pan" ? "tilt" : "pan";
-					position[other] = lens?.[other] ?? 0;
-				}
-				ptz.call("ptz_move_abs", position).catch((e) => streamDeck.logger.warn(String(e)));
+				ptz.call("ptz_move_abs", { device, [axis]: turn.value }).catch((e) => streamDeck.logger.warn(String(e)));
 			}, SEND_MS);
 		}
 		dial.getSettings()
@@ -448,10 +441,10 @@ export class LensAction extends SingletonAction<LensSettings> {
 		clearTimeout(turn.stop);
 		turn.stop = setTimeout(() => {
 			this.#turns.delete(id);
-			ptz.call("ptz_move", { device, ...(axis === "pan" || axis === "tilt" ? { pan: 0, tilt: 0 } : { [axis]: 0 }) }).catch((e) => streamDeck.logger.warn(String(e)));
+			ptz.call("ptz_move", { device, [axis]: 0 }).catch((e) => streamDeck.logger.warn(String(e)));
 		}, STOP_MS);
 		const speed = Math.sign(ticks) * SPEED;
-		await ptz.call("ptz_move", { device, ...(axis === "pan" || axis === "tilt" ? { pan: 0, tilt: 0 } : {}), [axis]: speed });
+		await ptz.call("ptz_move", { device, [axis]: speed });
 	}
 
 	#endTurn(id: string): void {

@@ -147,8 +147,7 @@ private:
 	std::vector<Axis> m_axes;
 	Axis *axis(const char *name);
 	const Axis *axis(const char *name) const;
-	/* The values a move proc was called with, by axis. As the API has it, pan
-	 * and tilt go together: if either is given, the other is taken as 0. */
+	/* The values a move proc was called with, by axis: only those given */
 	OBSData moveValues(calldata_t *cd) const;
 	void finishRecall();
 	void cancelRecall();
@@ -217,6 +216,7 @@ protected:
 	 * what the device has reported */
 	OBSData captureValues() const;
 	void applyValues(const Preset &preset);
+	void pairPanTilt(obs_data_t *positions);
 	void signalPreset(const char *name, const QString &id);
 	void signalPresetChanged(const QString &id, obs_data_t *changed);
 	void signalPresetThumbnail(const QString &id);
@@ -420,7 +420,8 @@ protected:
 	 * focus: range[-1.0, 1.0], positive for near-end focus
 	 *
 	 * moveAbs(): move to a position. A 1.0 magnitude value means full range
-	 * of movement. Pan and tilt come together.
+	 * of movement. Pan and tilt come together, as most cameras take them: one
+	 * asked for alone is with the other where it is now (see pairPanTilt()).
 	 * pan, tilt: range[-1.0, 1.0], positive for clockwise, move to up/right
 	 * zoom: range[0.0, 1.0], 0.0 == wide angle, 1.0 == telephoto
 	 * focus: range[0.0, 1.0], 0.0 == far focus, 1.0 == near focus

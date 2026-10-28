@@ -541,10 +541,6 @@ OBSData PTZDevice::moveValues(calldata_t *cd) const
 	for (const Axis &a : m_axes)
 		if (calldata_get_float(cd, a.name, &v))
 			obs_data_set_double(values, a.name, v);
-	if (obs_data_has_user_value(values, "pan") || obs_data_has_user_value(values, "tilt")) {
-		obs_data_set_double(values, "pan", obs_data_get_double(values, "pan"));
-		obs_data_set_double(values, "tilt", obs_data_get_double(values, "tilt"));
-	}
 	return values.Get();
 }
 
@@ -568,6 +564,7 @@ void PTZDevice::move_abs(calldata_t *cd)
 	OBSData positions = moveValues(cd);
 	QMetaObject::invokeMethod(this, [this, positions] {
 		cancelRecall();
+		pairPanTilt(positions);
 		if (dataCount(positions))
 			moveAbs(positions);
 	});
@@ -1622,17 +1619,11 @@ void PTZDevice::applyValues(const Preset &preset)
 	};
 	Features f = features();
 	OBSDataAutoRelease positions = obs_data_create();
-	bool pan = restores("pan"), tilt = restores("tilt");
-	if ((pan || tilt) && (f & PanTiltAbs)) {
-		bool known = (pan || obs_data_has_user_value(state, "pan")) &&
-			     (tilt || obs_data_has_user_value(state, "tilt"));
-		if (known) {
-			obs_data_set_double(positions, "pan", obs_data_get_double(pan ? preset.values : state, "pan"));
-			obs_data_set_double(positions, "tilt",
-					    obs_data_get_double(tilt ? preset.values : state, "tilt"));
-		} else {
-			ptz_info("not restoring %s alone: where the camera is not known", pan ? "pan" : "tilt");
-		}
+	if (f & PanTiltAbs) {
+		for (const char *axis : {"pan", "tilt"})
+			if (restores(axis))
+				obs_data_set_double(positions, axis, obs_data_get_double(preset.values, axis));
+		pairPanTilt(positions.Get());
 	}
 	if (restores("zoom") && (f & ZoomAbs))
 		obs_data_set_double(positions, "zoom", obs_data_get_double(preset.values, "zoom"));
@@ -1646,6 +1637,23 @@ void PTZDevice::applyValues(const Preset &preset)
 	}
 	if (dataCount(positions))
 		moveAbs(positions.Get());
+}
+
+/* A camera goes to a pan and tilt together, so one of them alone in
+ * `positions` is with the other where it is now, or neither is there, if that
+ * isn't known */
+void PTZDevice::pairPanTilt(obs_data_t *positions)
+{
+	bool pan = obs_data_has_user_value(positions, "pan"), tilt = obs_data_has_user_value(positions, "tilt");
+	if (pan == tilt)
+		return;
+	const char *other = pan ? "tilt" : "pan";
+	if (obs_data_has_user_value(state, other)) {
+		obs_data_set_double(positions, other, obs_data_get_double(state, other));
+	} else {
+		ptz_info("not moving %s alone: where the camera is not known", pan ? "pan" : "tilt");
+		obs_data_erase(positions, pan ? "pan" : "tilt");
+	}
 }
 
 /* Not the same for two devices, since the listeners of several may be told apart by it alone */
