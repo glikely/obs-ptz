@@ -152,10 +152,32 @@ static std::vector<PTZDevice *> &module_devices()
 	return devices;
 }
 
+/* The axes a move can name, which each device has one of in m_axes, and the
+ * labels of the settings each has */
+struct AxisInfo {
+	const char *name;
+	const char *speedMaxText;
+	const char *invertText;
+};
+static constexpr AxisInfo kAxes[] = {
+	{"pan", "PTZ.Device.PanMaxSpeed", "PTZ.Device.PanInvertAxis"},
+	{"tilt", "PTZ.Device.TiltMaxSpeed", "PTZ.Device.TiltInvertAxis"},
+	{"zoom", "PTZ.Device.ZoomMaxSpeed", "PTZ.Device.ZoomInvertAxis"},
+	{"focus", "PTZ.Device.FocusMaxSpeed", "PTZ.Device.FocusInvertAxis"},
+};
+
+/* An axis's setting: "<axis>_<setting>", as "pan_speed_max" */
+static std::string settingKey(const char *axis, const char *setting)
+{
+	return std::string(axis) + "_" + setting;
+}
+
 PTZDevice::PTZDevice(OBSData config, obs_source_t *filter) : QObject()
 {
 	m_filter = OBSGetWeakRef(filter);
 	upgradeSettings(config);
+	for (const AxisInfo &info : kAxes)
+		m_axes.push_back({info.name});
 
 	/* proc_handers for calling into the device. Comes from its filter */
 	handler = obs_source_get_proc_handler(filter);
@@ -458,10 +480,30 @@ void PTZDevice::stop()
 	focus(0);
 }
 
+PTZDevice::Axis *PTZDevice::axis(const char *name)
+{
+	for (Axis &a : m_axes) {
+		if (!strcmp(a.name, name))
+			return &a;
+	}
+	return nullptr;
+}
+
+const PTZDevice::Axis *PTZDevice::axis(const char *name) const
+{
+	return const_cast<PTZDevice *>(this)->axis(name);
+}
+
+double PTZDevice::limitSpeed(const char *name, double speed) const
+{
+	const Axis *a = axis(name);
+	return a ? std::clamp(speed * (a->invert ? -1 : 1), -a->speedMax, a->speedMax) : 0;
+}
+
 void PTZDevice::pantilt(double pan, double tilt)
 {
-	pan = std::clamp(pan * (pan_invert ? -1 : 1), -pan_speed_max, pan_speed_max);
-	tilt = std::clamp(tilt * (tilt_invert ? -1 : 1), -tilt_speed_max, tilt_speed_max);
+	pan = limitSpeed("pan", pan);
+	tilt = limitSpeed("tilt", tilt);
 	if ((pan_speed == pan) && (tilt_speed == tilt))
 		return;
 	pan_speed = pan;
@@ -472,7 +514,7 @@ void PTZDevice::pantilt(double pan, double tilt)
 
 void PTZDevice::zoom(double speed)
 {
-	speed = std::clamp(speed * (zoom_invert ? -1 : 1), -zoom_speed_max, zoom_speed_max);
+	speed = limitSpeed("zoom", speed);
 	if (zoom_speed == speed)
 		return;
 	zoom_speed = speed;
@@ -482,7 +524,7 @@ void PTZDevice::zoom(double speed)
 
 void PTZDevice::focus(double speed)
 {
-	speed = std::clamp(speed * (focus_invert ? -1 : 1), -focus_speed_max, focus_speed_max);
+	speed = limitSpeed("focus", speed);
 	if (focus_speed == speed)
 		return;
 	focus_speed = speed;
@@ -665,22 +707,24 @@ static OBSData axisEntry(obs_data_t *parent, const char *axis)
 	return OBSData(entry.Get());
 }
 
-bool PTZDevice::setAxisStep(const char *axis, double step)
+bool PTZDevice::setAxisStep(const char *name, double step)
 {
-	if (!(step > 0.0))
+	Axis *a = axis(name);
+	if (!a || !(step > 0.0))
 		return false;
 	step = std::min(step, 1.0);
-	OBSData now = axisEntry(state, axis);
-	if (obs_data_has_user_value(now, "step") && fabs(obs_data_get_double(now, "step") - step) <= step * 1e-6)
+	if (fabs(a->step - step) <= step * 1e-6)
 		return false;
-	obs_data_set_double(now, "step", step);
-	obs_data_set_double(axisEntry(stateChanged, axis), "step", step);
+	a->step = step;
+	for (obs_data_t *where : {state.Get(), stateChanged.Get()})
+		obs_data_set_double(axisEntry(where, name), "step", step);
 	return true;
 }
 
-bool PTZDevice::setAxisScale(const char *axis, const char *unit, const std::vector<AxisPoint> &points)
+bool PTZDevice::setAxisScale(const char *name, const char *unit, const std::vector<AxisPoint> &points)
 {
-	if (!unit || !*unit || points.size() < 2)
+	Axis *a = axis(name);
+	if (!a || !unit || !*unit || points.size() < 2)
 		return false;
 	OBSDataArrayAutoRelease array = obs_data_array_create();
 	for (const AxisPoint &point : points) {
@@ -695,11 +739,11 @@ bool PTZDevice::setAxisScale(const char *axis, const char *unit, const std::vect
 	obs_data_set_string(written, "unit", unit);
 	obs_data_set_array(written, "points", array);
 	std::string json = obs_data_get_json(written);
-	if (axisScales[axis] == json)
+	if (a->scale == json)
 		return false;
-	axisScales[axis] = json;
+	a->scale = json;
 	for (obs_data_t *where : {state.Get(), stateChanged.Get()}) {
-		OBSData entry = axisEntry(where, axis);
+		OBSData entry = axisEntry(where, name);
 		obs_data_set_string(entry, "unit", unit);
 		obs_data_set_array(entry, "points", array);
 	}
@@ -974,14 +1018,10 @@ void PTZDevice::preset_refresh(calldata_t *)
 
 void PTZDevice::defaults(obs_data_t *config)
 {
-	obs_data_set_default_double(config, "pan_speed_max", 1.0);
-	obs_data_set_default_double(config, "tilt_speed_max", 1.0);
-	obs_data_set_default_double(config, "zoom_speed_max", 1.0);
-	obs_data_set_default_double(config, "focus_speed_max", 1.0);
-	obs_data_set_default_bool(config, "pan_invert", false);
-	obs_data_set_default_bool(config, "tilt_invert", false);
-	obs_data_set_default_bool(config, "zoom_invert", false);
-	obs_data_set_default_bool(config, "focus_invert", false);
+	for (const AxisInfo &info : kAxes) {
+		obs_data_set_default_double(config, settingKey(info.name, "speed_max").c_str(), 1.0);
+		obs_data_set_default_bool(config, settingKey(info.name, "invert").c_str(), false);
+	}
 	obs_data_set_default_bool(config, "tally_auto", true);
 }
 
@@ -1043,27 +1083,19 @@ void PTZDevice::update(OBSData config)
 	if (tally_auto && !was_tally_auto)
 		QMetaObject::invokeMethod(this, [this]() { onSceneChanged(); }, Qt::QueuedConnection);
 
-	pan_speed_max = obs_data_get_double(config, "pan_speed_max");
-	tilt_speed_max = obs_data_get_double(config, "tilt_speed_max");
-	zoom_speed_max = obs_data_get_double(config, "zoom_speed_max");
-	focus_speed_max = obs_data_get_double(config, "focus_speed_max");
-	pan_invert = obs_data_get_bool(config, "pan_invert");
-	tilt_invert = obs_data_get_bool(config, "tilt_invert");
-	zoom_invert = obs_data_get_bool(config, "zoom_invert");
-	focus_invert = obs_data_get_bool(config, "focus_invert");
+	for (Axis &a : m_axes) {
+		a.speedMax = obs_data_get_double(config, settingKey(a.name, "speed_max").c_str());
+		a.invert = obs_data_get_bool(config, settingKey(a.name, "invert").c_str());
+	}
 }
 
 void PTZDevice::save(OBSData config) const
 {
 	obs_data_set_string(config, "type", type.c_str());
-	obs_data_set_double(config, "pan_speed_max", pan_speed_max);
-	obs_data_set_double(config, "tilt_speed_max", tilt_speed_max);
-	obs_data_set_double(config, "zoom_speed_max", zoom_speed_max);
-	obs_data_set_double(config, "focus_speed_max", focus_speed_max);
-	obs_data_set_bool(config, "pan_invert", pan_invert);
-	obs_data_set_bool(config, "tilt_invert", tilt_invert);
-	obs_data_set_bool(config, "zoom_invert", zoom_invert);
-	obs_data_set_bool(config, "focus_invert", focus_invert);
+	for (const Axis &a : m_axes) {
+		obs_data_set_double(config, settingKey(a.name, "speed_max").c_str(), a.speedMax);
+		obs_data_set_bool(config, settingKey(a.name, "invert").c_str(), a.invert);
+	}
 	obs_data_set_bool(config, "tally_auto", tally_auto);
 	if (slotPresets())
 		obs_data_set_int(config, "preset_max", m_maxPresets);
@@ -1148,18 +1180,12 @@ obs_properties_t *PTZDevice::get_obs_properties()
 	if (slotPresets() && cameraPresets().available)
 		obs_properties_add_int_slider(speed, "preset_max", obs_module_text("PTZ.Device.MaxPresets"), 1, 0x80,
 					      1);
-	obs_properties_add_float_slider(speed, "pan_speed_max", obs_module_text("PTZ.Device.PanMaxSpeed"), 0.1, 1.0,
-					1.0 / 1024);
-	obs_properties_add_bool(speed, "pan_invert", obs_module_text("PTZ.Device.PanInvertAxis"));
-	obs_properties_add_float_slider(speed, "tilt_speed_max", obs_module_text("PTZ.Device.TiltMaxSpeed"), 0.1, 1.0,
-					1.0 / 1024);
-	obs_properties_add_bool(speed, "tilt_invert", obs_module_text("PTZ.Device.TiltInvertAxis"));
-	obs_properties_add_float_slider(speed, "zoom_speed_max", obs_module_text("PTZ.Device.ZoomMaxSpeed"), 0.1, 1.0,
-					1.0 / 1024);
-	obs_properties_add_bool(speed, "zoom_invert", obs_module_text("PTZ.Device.ZoomInvertAxis"));
-	obs_properties_add_float_slider(speed, "focus_speed_max", obs_module_text("PTZ.Device.FocusMaxSpeed"), 0.1, 1.0,
-					1.0 / 1024);
-	obs_properties_add_bool(speed, "focus_invert", obs_module_text("PTZ.Device.FocusInvertAxis"));
+	for (const AxisInfo &info : kAxes) {
+		obs_properties_add_float_slider(speed, settingKey(info.name, "speed_max").c_str(),
+						obs_module_text(info.speedMaxText), 0.1, 1.0, 1.0 / 1024);
+		obs_properties_add_bool(speed, settingKey(info.name, "invert").c_str(),
+					obs_module_text(info.invertText));
+	}
 	if (features().testFlag(TallyLight))
 		obs_properties_add_bool(speed, "tally_auto", obs_module_text("PTZ.Device.TallyAuto"));
 

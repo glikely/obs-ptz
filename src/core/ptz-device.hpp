@@ -110,18 +110,10 @@ protected:
 	bool connected = false;
 	double pan_speed = 0;
 	double tilt_speed = 0;
-	double pan_speed_max = 1.0;
-	double tilt_speed_max = 1.0;
-	bool pan_invert = false;
-	bool tilt_invert = false;
 	bool pantilt_changed = false;
 	double zoom_speed = 0;
-	double zoom_speed_max = 1.0;
-	bool zoom_invert = false;
 	bool zoom_changed = false;
 	double focus_speed = 0;
-	double focus_speed_max = 1.0;
-	bool focus_invert = false;
 	bool focus_changed = false;
 
 	/* How long a recall is taken to take, for a driver without MoveCompletion */
@@ -137,6 +129,26 @@ private:
 	QString m_recallPending;
 	/* The preset the last recall arrived at, until the camera is sent elsewhere */
 	QString m_arrivedId;
+	/* An axis a move can name, and what the device keeps of it. Made once,
+	 * with the device. Its position is in the state. */
+	struct Axis {
+		/* Its key, in the API and the settings */
+		const char *name;
+		/* The settings that cap and turn round a speed on it,
+		 * "<name>_speed_max" and "<name>_invert" */
+		double speedMax = 1.0;
+		bool invert = false;
+		/* What setAxisStep() and setAxisScale() last said of it: a step
+		 * of 0 is none, and the scale is its unit and points as JSON,
+		 * "" for none */
+		double step = 0;
+		std::string scale;
+	};
+	std::vector<Axis> m_axes;
+	Axis *axis(const char *name);
+	const Axis *axis(const char *name) const;
+	/* A speed asked for on an axis, after its cap and inversion */
+	double limitSpeed(const char *name, double speed) const;
 	void finishRecall();
 	void cancelRecall();
 	/* PTZLifecycle::Listener: the module's one frontend callback calls
@@ -212,9 +224,8 @@ protected:
 	 * where the last recall sent it: says so for that recall, if it is
 	 * still the last thing the device was told to do */
 	void moveFinished();
-	OBSData state;                                 /* Transient state of the camera. Isn't saved */
-	OBSData stateChanged;                          /* changed state to be sent via the notify signal */
-	std::map<std::string, std::string> axisScales; /* what setAxisScale() last said, by axis, as JSON */
+	OBSData state;        /* Transient state of the camera. Isn't saved */
+	OBSData stateChanged; /* changed state to be sent via the notify signal */
 	OBSData statistics;
 	/* The state as it was last announced, as JSON, for ptz_get_state from a
 	 * thread that is not the device's. Text, so that a reader has a copy of
