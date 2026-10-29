@@ -110,7 +110,8 @@ protected:
 	bool connected = false;
 	double pan_speed = 0;
 	double tilt_speed = 0;
-	double pantilt_speed_max = 1.0;
+	double pan_speed_max = 1.0;
+	double tilt_speed_max = 1.0;
 	bool pan_invert = false;
 	bool tilt_invert = false;
 	bool pantilt_changed = false;
@@ -524,6 +525,11 @@ public:
 	/* Remove the keys older versions kept in a filter's settings, "name" and
 	 * "id", which the filter does not need: it knows its own source */
 	static void stripIdentity(obs_data_t *settings);
+	/* Change the keys older versions wrote to a filter's settings into the
+	 * ones they are now: "pantilt_speed_max" into "pan_speed_max" and
+	 * "tilt_speed_max". To the settings themselves, so that they are saved
+	 * so. */
+	static void upgradeSettings(obs_data_t *settings);
 
 	/* Properties describe how to display the settings in a GUI dialog */
 	virtual obs_properties_t *get_obs_properties();

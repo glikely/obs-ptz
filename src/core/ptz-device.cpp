@@ -155,6 +155,7 @@ static std::vector<PTZDevice *> &module_devices()
 PTZDevice::PTZDevice(OBSData config, obs_source_t *filter) : QObject()
 {
 	m_filter = OBSGetWeakRef(filter);
+	upgradeSettings(config);
 
 	/* proc_handers for calling into the device. Comes from its filter */
 	handler = obs_source_get_proc_handler(filter);
@@ -459,8 +460,8 @@ void PTZDevice::stop()
 
 void PTZDevice::pantilt(double pan, double tilt)
 {
-	pan = std::clamp(pan * (pan_invert ? -1 : 1), -pantilt_speed_max, pantilt_speed_max);
-	tilt = std::clamp(tilt * (tilt_invert ? -1 : 1), -pantilt_speed_max, pantilt_speed_max);
+	pan = std::clamp(pan * (pan_invert ? -1 : 1), -pan_speed_max, pan_speed_max);
+	tilt = std::clamp(tilt * (tilt_invert ? -1 : 1), -tilt_speed_max, tilt_speed_max);
 	if ((pan_speed == pan) && (tilt_speed == tilt))
 		return;
 	pan_speed = pan;
@@ -973,7 +974,8 @@ void PTZDevice::preset_refresh(calldata_t *)
 
 void PTZDevice::defaults(obs_data_t *config)
 {
-	obs_data_set_default_double(config, "pantilt_speed_max", 1.0);
+	obs_data_set_default_double(config, "pan_speed_max", 1.0);
+	obs_data_set_default_double(config, "tilt_speed_max", 1.0);
 	obs_data_set_default_double(config, "zoom_speed_max", 1.0);
 	obs_data_set_default_double(config, "focus_speed_max", 1.0);
 	obs_data_set_default_bool(config, "pan_invert", false);
@@ -1009,6 +1011,20 @@ void PTZDevice::stripIdentity(obs_data_t *settings)
 	obs_data_erase(settings, "is-self-managed");
 }
 
+void PTZDevice::upgradeSettings(obs_data_t *settings)
+{
+	/* One cap for both, before each had its own. A cap set since is newer,
+	 * and kept. */
+	if (obs_data_has_user_value(settings, "pantilt_speed_max")) {
+		double max = obs_data_get_double(settings, "pantilt_speed_max");
+		for (const char *key : {"pan_speed_max", "tilt_speed_max"}) {
+			if (!obs_data_has_user_value(settings, key))
+				obs_data_set_double(settings, key, max);
+		}
+		obs_data_erase(settings, "pantilt_speed_max");
+	}
+}
+
 void PTZDevice::update(OBSData config)
 {
 	/* Clamp to the same range enforced by the properties slider; a corrupt
@@ -1027,7 +1043,8 @@ void PTZDevice::update(OBSData config)
 	if (tally_auto && !was_tally_auto)
 		QMetaObject::invokeMethod(this, [this]() { onSceneChanged(); }, Qt::QueuedConnection);
 
-	pantilt_speed_max = obs_data_get_double(config, "pantilt_speed_max");
+	pan_speed_max = obs_data_get_double(config, "pan_speed_max");
+	tilt_speed_max = obs_data_get_double(config, "tilt_speed_max");
 	zoom_speed_max = obs_data_get_double(config, "zoom_speed_max");
 	focus_speed_max = obs_data_get_double(config, "focus_speed_max");
 	pan_invert = obs_data_get_bool(config, "pan_invert");
@@ -1039,7 +1056,8 @@ void PTZDevice::update(OBSData config)
 void PTZDevice::save(OBSData config) const
 {
 	obs_data_set_string(config, "type", type.c_str());
-	obs_data_set_double(config, "pantilt_speed_max", pantilt_speed_max);
+	obs_data_set_double(config, "pan_speed_max", pan_speed_max);
+	obs_data_set_double(config, "tilt_speed_max", tilt_speed_max);
 	obs_data_set_double(config, "zoom_speed_max", zoom_speed_max);
 	obs_data_set_double(config, "focus_speed_max", focus_speed_max);
 	obs_data_set_bool(config, "pan_invert", pan_invert);
@@ -1130,9 +1148,11 @@ obs_properties_t *PTZDevice::get_obs_properties()
 	if (slotPresets() && cameraPresets().available)
 		obs_properties_add_int_slider(speed, "preset_max", obs_module_text("PTZ.Device.MaxPresets"), 1, 0x80,
 					      1);
-	obs_properties_add_float_slider(speed, "pantilt_speed_max", obs_module_text("PTZ.Device.PanTiltMaxSpeed"), 0.1,
-					1.0, 1.0 / 1024);
+	obs_properties_add_float_slider(speed, "pan_speed_max", obs_module_text("PTZ.Device.PanMaxSpeed"), 0.1, 1.0,
+					1.0 / 1024);
 	obs_properties_add_bool(speed, "pan_invert", obs_module_text("PTZ.Device.PanInvertAxis"));
+	obs_properties_add_float_slider(speed, "tilt_speed_max", obs_module_text("PTZ.Device.TiltMaxSpeed"), 0.1, 1.0,
+					1.0 / 1024);
 	obs_properties_add_bool(speed, "tilt_invert", obs_module_text("PTZ.Device.TiltInvertAxis"));
 	obs_properties_add_float_slider(speed, "zoom_speed_max", obs_module_text("PTZ.Device.ZoomMaxSpeed"), 0.1, 1.0,
 					1.0 / 1024);
@@ -1165,6 +1185,7 @@ void ptz_filter_update(void *data, obs_data_t *settings)
 	auto ptz = static_cast<PTZDevice *>(data);
 	if (!ptz)
 		return;
+	PTZDevice::upgradeSettings(settings);
 	/* .update can be called from any thread. We need it on PTZDevice's thread.
 	 * Copy the data and use invokeMethod to get to the right thread. The copy
 	 * starts from the defaults libobs put in the settings, made into values:

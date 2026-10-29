@@ -510,7 +510,7 @@ Reads, each optional:
   If either is given the other is taken as 0, so a caller moving only one axis
   gives both.
   The sign is the direction, after the `pan_invert` and `tilt_invert` settings,
-  and the speed is capped by `pantilt_speed_max`.
+  and the speed is capped by `pan_speed_max` and `tilt_speed_max`.
 - `zoom` (float, optional, -1.0 to 1.0): the zoom speed, capped by
   `zoom_speed_max`.
 - `focus` (float, optional, -1.0 to 1.0): the focus speed, capped by
@@ -970,7 +970,7 @@ writes them and calls `obs_source_update()` to say so.
 | Key | Type | Default | Meaning |
 | --- | --- | --- | --- |
 | `type` | string | - | The kind of device, such as `visca-over-ip`, `visca-over-tcp`, `pelco`, `onvif`, `usb-cam` or `soft-ptz`. Read-only |
-| `pantilt_speed_max`, `zoom_speed_max`, `focus_speed_max` | number | 1.0 | A cap on the speed a move asks for: a `ptz_move` speed above it is clamped to it, whichever way it points. 0.1 to 1.0 |
+| `pan_speed_max`, `tilt_speed_max`, `zoom_speed_max`, `focus_speed_max` | number | 1.0 | A cap on the speed a move asks for: a `ptz_move` speed above it is clamped to it, whichever way it points. 0.1 to 1.0. The `pantilt_speed_max` of an older version, one cap for both, becomes `pan_speed_max` and `tilt_speed_max` |
 | `pan_invert`, `tilt_invert`, `zoom_invert`, `focus_invert` | bool | false | Reverse the direction of the axis |
 | `tally_auto` | bool | true | Light the camera's tally lamps by itself, for a device with the `tally_light` feature: red while its source is in the program scene, green while it is in the preview scene (studio mode only) and not in the program scene. Turn it off for a camera whose tally something else drives. A device without the feature has the key and ignores it |
 | `presets` | array | empty | The presets the device keeps: each local preset in full, and for a camera's what the user added to it, an `id` with a `name` and `thumbnail`. Edit it with the `ptz_preset_*` procs rather than by writing it |
