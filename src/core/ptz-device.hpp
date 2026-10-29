@@ -63,39 +63,43 @@ public:
 	 * its state as "features": an object with each one's name (see
 	 * featureNames()) true. */
 	enum Feature : uint32_t {
-		/* Moving at a speed, by moveDrive() */
-		PanTilt = 1 << 0,
-		Zoom = 1 << 1,
-		Focus = 1 << 2,
-		/* Moving to a position, or by a distance */
-		PanTiltAbs = 1 << 3,
-		PanTiltRel = 1 << 4,
-		ZoomAbs = 1 << 5,
-		FocusAbs = 1 << 6,
+		/* Moving at a speed, by moveDrive(), each axis of its own */
+		Pan = 1 << 0,
+		Tilt = 1 << 1,
+		Zoom = 1 << 2,
+		Focus = 1 << 3,
+		/* Moving to a position, by moveAbs(), or by a distance, by
+		 * moveRel() */
+		PanAbs = 1 << 4,
+		TiltAbs = 1 << 5,
+		PanRel = 1 << 6,
+		TiltRel = 1 << 7,
+		ZoomAbs = 1 << 8,
+		FocusAbs = 1 << 9,
 		/* pantilt_home(), and pantilt_set_home() */
-		Home = 1 << 7,
-		HomeSet = 1 << 8,
+		Home = 1 << 10,
+		HomeSet = 1 << 11,
 		/* set_autofocus(), and the "focus_onetouch" trigger */
-		AutoFocus = 1 << 9,
-		FocusOneTouch = 1 << 10,
+		AutoFocus = 1 << 12,
+		FocusOneTouch = 1 << 13,
 		/* memory_set(), memory_recall() and memory_reset() */
-		Presets = 1 << 11,
+		Presets = 1 << 14,
 		/* The "power_on" state key */
-		Power = 1 << 12,
+		Power = 1 << 15,
 		/* The "wb_onepush" trigger */
-		WhiteBalanceOnePush = 1 << 13,
+		WhiteBalanceOnePush = 1 << 16,
 		/* The "camera_report" trigger, whose report the
 		 * ptz_get_camera_report proc hands back, for working out
 		 * what a camera supports */
-		Diagnostics = 1 << 14,
+		Diagnostics = 1 << 17,
 		/* The camera has tally lamps, which setTally() lights while the
 		 * "tally_auto" setting is on */
-		TallyLight = 1 << 15,
+		TallyLight = 1 << 18,
 		/* The driver knows when the camera has arrived at a recalled
 		 * preset, and says so with moveFinished(), or else
 		 * kRecallBackstopMs after the recall, in case it never hears;
 		 * without it the device guesses, kRecallSettleMs after */
-		MoveCompletion = 1 << 16,
+		MoveCompletion = 1 << 19,
 	};
 	Q_DECLARE_FLAGS(Features, Feature)
 	/* Each feature, and its name in the state's "features" */

@@ -126,7 +126,8 @@ obs_properties_t *PTZUSBCam::get_obs_properties()
 void PTZUSBCam::report_state(PtzUsbCamPos pos, PtzUsbCamPos resolution, bool hasPan, bool hasTilt, bool hasPanTiltSpeed,
 			     bool hasZoom, bool hasFocus)
 {
-	has_pantilt = hasPan || hasTilt;
+	has_pan = hasPan;
+	has_tilt = hasTilt;
 	has_pantilt_speed = hasPanTiltSpeed;
 	has_zoom = hasZoom;
 	has_focus = hasFocus;
@@ -206,10 +207,13 @@ void PTZUSBCam::moveRel(OBSData distances)
 PTZDevice::Features PTZUSBCam::features() const
 {
 	Features features;
-	if (has_pantilt)
-		features |= PanTilt | PanTiltAbs | PanTiltRel | Home;
+	if (has_pan)
+		features |= Pan | PanAbs | PanRel | Home;
+	if (has_tilt)
+		features |= Tilt | TiltAbs | TiltRel | Home;
+	/* The camera's speed control moves both */
 	if (has_pantilt_speed)
-		features |= PanTilt;
+		features |= Pan | Tilt;
 	if (has_zoom)
 		features |= Zoom | ZoomAbs;
 	if (has_focus)

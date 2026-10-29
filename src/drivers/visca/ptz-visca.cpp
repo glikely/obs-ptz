@@ -816,10 +816,17 @@ void PTZVisca::set_profile(std::shared_ptr<const ViscaProfile> new_profile)
 PTZDevice::Features PTZVisca::features() const
 {
 	Features features = Diagnostics;
-	const QList<QPair<const char *, Feature>> actions = {
-		{"pantilt_drive", PanTilt}, {"pantilt_abs", PanTiltAbs}, {"pantilt_rel", PanTiltRel},
-		{"pantilt_home", Home},     {"zoom_drive", Zoom},        {"zoom_abs", ZoomAbs},
-		{"focus_drive", Focus},     {"focus_abs", FocusAbs},     {"focus_onetouch", FocusOneTouch},
+	/* A VISCA pan/tilt command moves both axes */
+	const QList<QPair<const char *, Features>> actions = {
+		{"pantilt_drive", Pan | Tilt},
+		{"pantilt_abs", PanAbs | TiltAbs},
+		{"pantilt_rel", PanRel | TiltRel},
+		{"pantilt_home", Home},
+		{"zoom_drive", Zoom},
+		{"zoom_abs", ZoomAbs},
+		{"focus_drive", Focus},
+		{"focus_abs", FocusAbs},
+		{"focus_onetouch", FocusOneTouch},
 		{"memory_recall", Presets},
 	};
 	for (const auto &[action, feature] : actions) {

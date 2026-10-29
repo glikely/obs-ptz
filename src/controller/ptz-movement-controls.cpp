@@ -217,15 +217,20 @@ void PTZMovementControls::updateControls()
 	 * area still have to show. */
 	m_locked = is_locked;
 
-	/* Only what the camera can do, and only when it isn't locked */
-	bool pantilt = !is_locked && PTZListModel::hasFeature(index, "pantilt");
-	const QList<QWidget *> pantiltControls = {
-		ui->panTiltButton_upleft, ui->panTiltButton_up,        ui->panTiltButton_upright,
-		ui->panTiltButton_left,   ui->panTiltButton_right,     ui->panTiltButton_downleft,
-		ui->panTiltButton_down,   ui->panTiltButton_downright, ui->panTiltTouch,
-	};
-	for (QWidget *control : pantiltControls)
-		control->setEnabled(pantilt);
+	/* Only what the camera can do, and only when it isn't locked. A device
+	 * older than API 0.8 says "pantilt" for both. */
+	bool pantilt = PTZListModel::hasFeature(index, "pantilt");
+	bool pan = !is_locked && (pantilt || PTZListModel::hasFeature(index, "pan"));
+	bool tilt = !is_locked && (pantilt || PTZListModel::hasFeature(index, "tilt"));
+	ui->panTiltButton_left->setEnabled(pan);
+	ui->panTiltButton_right->setEnabled(pan);
+	ui->panTiltButton_up->setEnabled(tilt);
+	ui->panTiltButton_down->setEnabled(tilt);
+	for (QWidget *control : {ui->panTiltButton_upleft, ui->panTiltButton_upright, ui->panTiltButton_downleft,
+				 ui->panTiltButton_downright})
+		control->setEnabled(pan && tilt);
+	/* An axis the camera hasn't is sent too, and the device ignores it */
+	ui->panTiltTouch->setEnabled(pan || tilt);
 	ui->panTiltButton_home->setEnabled(!is_locked && PTZListModel::hasFeature(index, "home"));
 	ui->zoomButton_tele->setEnabled(!is_locked && PTZListModel::hasFeature(index, "zoom"));
 	ui->zoomButton_wide->setEnabled(!is_locked && PTZListModel::hasFeature(index, "zoom"));

@@ -5,7 +5,7 @@
  * camera reports in ptz_state_changed. Pressing a focus dial turns the camera's
  * autofocus on or off.
  *
- * A camera that can go to a position (the pantilt_abs, zoom_abs or focus_abs
+ * A camera that can go to a position (the pan_abs, tilt_abs, zoom_abs or focus_abs
  * feature) is sent one, a step for each tick from where the dial last put it;
  * one that can only move at a speed is moved a little for each tick instead. The camera is the one
  * selected in the PTZ dock, unless the dial names one.
@@ -33,8 +33,8 @@ import { Axes, AxisInfo, show } from "../units";
 type Axis = "pan" | "tilt" | "zoom" | "focus";
 
 const AXES: Record<Axis, { name: string; min: number; feature: string; absFeature: string }> = {
-	pan: { name: "Pan", min: -1, feature: "pantilt", absFeature: "pantilt_abs" },
-	tilt: { name: "Tilt", min: -1, feature: "pantilt", absFeature: "pantilt_abs" },
+	pan: { name: "Pan", min: -1, feature: "pan", absFeature: "pan_abs" },
+	tilt: { name: "Tilt", min: -1, feature: "tilt", absFeature: "tilt_abs" },
 	zoom: { name: "Zoom", min: 0, feature: "zoom", absFeature: "zoom_abs" },
 	focus: { name: "Focus", min: 0, feature: "focus", absFeature: "focus_abs" },
 };

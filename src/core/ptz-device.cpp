@@ -618,11 +618,14 @@ void PTZDevice::saveState(OBSData out) const
 const QList<QPair<PTZDevice::Feature, const char *>> &PTZDevice::featureNames()
 {
 	static const QList<QPair<Feature, const char *>> names = {
-		{PanTilt, "pantilt"},
+		{Pan, "pan"},
+		{Tilt, "tilt"},
 		{Zoom, "zoom"},
 		{Focus, "focus"},
-		{PanTiltAbs, "pantilt_abs"},
-		{PanTiltRel, "pantilt_rel"},
+		{PanAbs, "pan_abs"},
+		{TiltAbs, "tilt_abs"},
+		{PanRel, "pan_rel"},
+		{TiltRel, "tilt_rel"},
 		{ZoomAbs, "zoom_abs"},
 		{FocusAbs, "focus_abs"},
 		{Home, "home"},
@@ -647,8 +650,18 @@ void PTZDevice::saveFeatures(obs_data_t *data, Features features) const
 			obs_data_set_bool(names, name, true);
 	}
 	/* "presets" is either store: the local one needs only a position to go to */
-	if (features & (PanTiltAbs | ZoomAbs | FocusAbs))
+	if (features & (PanAbs | TiltAbs | ZoomAbs | FocusAbs))
 		obs_data_set_bool(names, "presets", true);
+	/* "pantilt" and the rest are both axes', as they were before each had its own */
+	const QList<QPair<Features, const char *>> pairs = {
+		{Pan | Tilt, "pantilt"},
+		{PanAbs | TiltAbs, "pantilt_abs"},
+		{PanRel | TiltRel, "pantilt_rel"},
+	};
+	for (const auto &[both, name] : pairs) {
+		if ((features & both) == both)
+			obs_data_set_bool(names, name, true);
+	}
 	obs_data_set_obj(data, "features", names);
 }
 
@@ -1565,15 +1578,17 @@ void PTZDevice::moveFinished()
 
 bool PTZDevice::localPresets() const
 {
-	return features() & (PanTiltAbs | ZoomAbs | FocusAbs);
+	return features() & (PanAbs | TiltAbs | ZoomAbs | FocusAbs);
 }
 
 QStringList PTZDevice::valueKeys() const
 {
 	QStringList keys;
 	Features f = features();
-	if (f & PanTiltAbs)
-		keys << QStringLiteral("pan") << QStringLiteral("tilt");
+	if (f & PanAbs)
+		keys << QStringLiteral("pan");
+	if (f & TiltAbs)
+		keys << QStringLiteral("tilt");
 	if (f & ZoomAbs)
 		keys << QStringLiteral("zoom");
 	/* Autofocus on or off, if not a position */
@@ -1619,12 +1634,11 @@ void PTZDevice::applyValues(const Preset &preset)
 	};
 	Features f = features();
 	OBSDataAutoRelease positions = obs_data_create();
-	if (f & PanTiltAbs) {
-		for (const char *axis : {"pan", "tilt"})
-			if (restores(axis))
-				obs_data_set_double(positions, axis, obs_data_get_double(preset.values, axis));
-		pairPanTilt(positions.Get());
-	}
+	if (restores("pan") && (f & PanAbs))
+		obs_data_set_double(positions, "pan", obs_data_get_double(preset.values, "pan"));
+	if (restores("tilt") && (f & TiltAbs))
+		obs_data_set_double(positions, "tilt", obs_data_get_double(preset.values, "tilt"));
+	pairPanTilt(positions.Get());
 	if (restores("zoom") && (f & ZoomAbs))
 		obs_data_set_double(positions, "zoom", obs_data_get_double(preset.values, "zoom"));
 	if (restores("focus") && (f & (FocusAbs | AutoFocus))) {

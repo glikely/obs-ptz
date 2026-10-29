@@ -502,7 +502,7 @@ Any thread.
 ### `void ptz_move(float pan, float tilt, float zoom, float focus)`
 
 Moves at a speed, until told otherwise or stopped.
-Needs the `pantilt`, `zoom` and `focus` features, for each axis it moves.
+Needs the `pan`, `tilt`, `zoom` and `focus` features, for each axis it moves.
 Any thread.
 Reads, each optional, so that a caller gives only the axes it changes:
 
@@ -524,8 +524,8 @@ a positive speed increases the position, a negative one decreases it.
 ### `void ptz_move_abs(float pan, float tilt, float zoom, float focus)`
 
 Moves to a position and stops there.
-Needs the `pantilt_abs`, `zoom_abs` and `focus_abs` features, for each axis it
-moves.
+Needs the `pan_abs`, `tilt_abs`, `zoom_abs` and `focus_abs` features, for each
+axis it moves.
 Any thread.
 Reads, each optional, so that a caller gives only the axes it moves:
 
@@ -541,7 +541,7 @@ An axis left out is left where it is.
 ### `void ptz_move_rel(float pan, float tilt)`
 
 Moves by a distance.
-Needs the `pantilt_rel` feature.
+Needs the `pan_rel` and `tilt_rel` features, for each axis it moves.
 Any thread.
 Reads, each optional, so that a caller gives only the axes it moves:
 
@@ -939,9 +939,10 @@ doesn't keep it.
 
 | Feature | The device can |
 | --- | --- |
-| `pantilt`, `zoom`, `focus` | Move on that axis at a speed: `ptz_move` |
-| `pantilt_abs`, `zoom_abs`, `focus_abs` | Go to a position: `ptz_move_abs` |
-| `pantilt_rel` | Move pan and tilt by a distance: `ptz_move_rel` |
+| `pan`, `tilt`, `zoom`, `focus` | Move on that axis at a speed: `ptz_move` |
+| `pan_abs`, `tilt_abs`, `zoom_abs`, `focus_abs` | Move that axis to a position: `ptz_move_abs` |
+| `pan_rel`, `tilt_rel` | Move that axis by a distance: `ptz_move_rel` |
+| `pantilt`, `pantilt_abs`, `pantilt_rel` | The `pan` and `tilt` features, `pan_abs` and `tilt_abs`, or `pan_rel` and `tilt_rel`, both. Older devices report these instead of a feature for each axis |
 | `home` | Go to its home position: `ptz_home_recall` |
 | `home_set` | Save its current position as home: `ptz_home_save` |
 | `autofocus` | Turn autofocus on and off, with the `focus_af_enabled` state key |

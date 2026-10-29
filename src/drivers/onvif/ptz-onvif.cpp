@@ -837,7 +837,8 @@ void PTZOnvif::sendDrive()
  * only be told once the camera has said whether it does */
 PTZDevice::Features PTZOnvif::features() const
 {
-	Features features = PanTilt | Zoom | PanTiltAbs | PanTiltRel | ZoomAbs | Home | HomeSet | Presets;
+	Features features = Pan | Tilt | Zoom | PanAbs | TiltAbs | PanRel | TiltRel | ZoomAbs | Home | HomeSet |
+			    Presets;
 	if (!m_imagingXAddr.isEmpty() && !m_selectedMedia.videoSourceToken.isEmpty())
 		features |= Focus | AutoFocus;
 	return features;

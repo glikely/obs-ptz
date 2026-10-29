@@ -130,7 +130,7 @@ obs_properties_t *PTZSoftCam::get_obs_properties()
  * absolute positions */
 PTZDevice::Features PTZSoftCam::features() const
 {
-	return PanTilt | Zoom | PanTiltAbs | PanTiltRel | ZoomAbs | Home | MoveCompletion;
+	return Pan | Tilt | Zoom | PanAbs | TiltAbs | PanRel | TiltRel | ZoomAbs | Home | MoveCompletion;
 }
 
 void PTZSoftCam::moveDrive(OBSData)

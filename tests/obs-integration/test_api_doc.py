@@ -335,8 +335,11 @@ def test_the_doc_lists_the_features_in_the_source():
     source = (REPO_ROOT / "src" / "core" / "ptz-device.cpp").read_text()
     table = re.search(r"PTZDevice::featureNames\(\)\s*\{.*?names = \{(.*?)\};", source, re.DOTALL).group(1)
     in_source = set(re.findall(r'\{\w+, "(\w+)"\}', table))
-    in_doc = {name for row in table_rows("Features") for name in names(row[0])}
     assert in_source, "found no features in the source"
+    # ...and the ones saveFeatures() says for two of them together
+    pairs = re.search(r"PTZDevice::saveFeatures\(.*?pairs = \{(.*?)\};", source, re.DOTALL).group(1)
+    in_source |= set(re.findall(r'\{\w+ \| \w+, "(\w+)"\}', pairs))
+    in_doc = {name for row in table_rows("Features") for name in names(row[0])}
     assert in_doc == in_source
 
 

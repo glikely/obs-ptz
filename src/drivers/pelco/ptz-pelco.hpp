@@ -62,7 +62,7 @@ public:
 
 	void moveDrive(OBSData speeds) override;
 	/* Pelco can only drive, go home and use presets */
-	Features features() const override { return PanTilt | Zoom | Focus | Home | Presets; }
+	Features features() const override { return Pan | Tilt | Zoom | Focus | Home | Presets; }
 	bool slotPresets() const override { return true; }
 	void pantilt_home() override;
 	void memory_reset(int i) override;
