@@ -583,7 +583,6 @@ Access: none.
 Asks the device to change some of its state, which is never saved: the keys in
 the `state` object the caller owns that the device acts on.
 Reads `state` (ptr, required).
-Only `focus_af_enabled` is one so far, and the rest are ignored.
 The state then changes when the camera reports it has, and not before.
 Device thread.
 
@@ -823,6 +822,7 @@ calling](#rules-for-calling) says.
 | `zoom`, `focus` | number | when known | Position, 0.0 to 1.0, as above |
 | `axes` | object | when known | What each of `pan`, `tilt`, `zoom` and `focus` means and how finely it is set, as an object for each axis that a driver knows something of: see [Axes](#axes) |
 | `focus_af_enabled` | bool | when known | Autofocus is on. Can be changed with `ptz_request_state` |
+| `power_on` | bool | when known | The camera is powered on, and not in standby. A camera in standby is still `connected`. Can be changed with `ptz_request_state` by a device with the `power` feature |
 | `camera_report` | object | when known | Progress of a `camera_report` trigger while one is running |
 
 A position isn't in the camera's own units: a driver scales it to these ranges,
@@ -942,7 +942,7 @@ doesn't keep it.
 | `autofocus` | Turn autofocus on and off, with the `focus_af_enabled` state key |
 | `focus_onetouch` | Focus once, with the `focus_onetouch` trigger |
 | `presets` | Save, recall and delete presets: the `ptz_preset_*` procs |
-| `power` | Be powered on and off, which `power_on` in the state reports |
+| `power` | Be powered on and off, with the `power_on` state key |
 | `wb_onepush` | Set white balance once, with the `wb_onepush` trigger |
 | `diagnostics` | Make a camera report, with the `camera_report` trigger |
 | `tally_light` | Light its camera's tally lamps, which the `tally_auto` setting has it do while its source is in the program or preview scene |
