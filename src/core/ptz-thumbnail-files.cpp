@@ -18,13 +18,15 @@
 #include <QUuid>
 #include "ptz-thumbnail-files.hpp"
 
-/* ptz-thumbnail-sweep.cpp's thumbnailDirectory() is the same directory */
+/* ptz-thumbnail-sweep.cpp's thumbnailDirectory() is the same directory.
+ * Absolute, as a thumbnail's path is given to callers in other processes,
+ * and a portable OBS gives a config path relative to its working directory. */
 QString ptz_thumbnail_dir()
 {
 	char *path = obs_module_config_path("thumbnails");
 	if (!path)
 		return QString();
-	QString dir = QString::fromUtf8(path);
+	QString dir = QDir(QString::fromUtf8(path)).absolutePath();
 	bfree(path);
 	return dir;
 }

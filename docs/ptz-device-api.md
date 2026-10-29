@@ -864,7 +864,7 @@ A preset in the list is an object with:
 | `store` | string | `camera` or `local` |
 | `name` | string | What to show: the name the user gave it, or if there is none the camera's own |
 | `camera_name` | string | What the camera calls it, "" if it doesn't |
-| `thumbnail` | string | The path of its thumbnail image, or "" |
+| `thumbnail` | string | The absolute path of its thumbnail image, or "" |
 | `values` | object | A local preset's saved values, below |
 
 The display order is the controller's, over both stores, and is `order` in
