@@ -1,6 +1,6 @@
 """End-to-end tests for absolute and relative pan/tilt/zoom moves --
-PTZDevice::move_abs()/move_rel(), landing on PTZVisca::pantilt_abs()/
-pantilt_rel()/zoom_abs() in src/drivers/visca/ptz-visca.cpp.
+PTZDevice::move_abs()/move_rel(), landing on PTZVisca::moveAbs()/
+moveRel() in src/drivers/visca/ptz-visca.cpp.
 
 There's no ptz_action_source action type for either of these -- its own
 PTZ_ACTION_* enum (src/controller/ptz-action-source.c) only covers continuous
@@ -8,14 +8,14 @@ pan/tilt, stop, presets and power -- so they're driven through the
 "ptz_move_abs"/"ptz_move_rel" procs over obs-websocket (World.move_device())
 instead of World.trigger_action().
 
-VISCA-only: Pelco never overrides pantilt_abs()/pantilt_rel()/zoom_abs()
+VISCA-only: Pelco never overrides moveAbs()/moveRel()
 (PTZDevice's own base implementations are empty no-ops -- see
 src/core/ptz-device.hpp), so those calls would be silent no-ops there.
 
 Pan-tiltDrive-AbsolutePosition/RelativePosition and CAM_Zoom-Direct
 encode their pan/tilt/zoom arguments over much smaller wire ranges
 (0x1400/0x500 for absolute, doubled for relative, 0x7ac0 for zoom -- see
-PTZVisca::pantilt_abs()/pantilt_rel()/zoom_abs()) than the range ptzsim
+PTZVisca::moveAbs()/moveRel()) than the range ptzsim
 decodes positions with (PT_POS_RANGE = 0x2800 and ZF_POS_RANGE = 0xe500, see
 scripts/ptzsim/backends/visca.py). Both sides read/write the same raw
 wire value the same way, so e.g. a pan=1.0 request only ever lands

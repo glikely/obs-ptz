@@ -135,7 +135,7 @@ TEST_CASE("SoftViewport eased moves", "[motion]")
 
 	SECTION("pan given before the zoom that makes room for it is kept")
 	{
-		/* What a preset recall does: pantilt_abs() then zoom_abs() */
+		/* What a preset recall does: PTZSoftCam::moveAbs() moves pan and tilt, then zoom */
 		SoftViewport vp = zoomedIn(0.0);
 		vp.movePanTiltTo(0.5, -0.25);
 		vp.moveZoomTo(1.0);

@@ -8,6 +8,7 @@
 
 #include <optional>
 #include <QObject>
+#include <QSet>
 #include <QTimer>
 #include <QElapsedTimer>
 #include "protocol-helpers.hpp"
@@ -121,6 +122,8 @@ protected:
 	 * period. A camera or link too slow to answer in the period is then not
 	 * asked again before it has, whatever the period. */
 	QTimer update_timer;
+	/* The axes whose speed changed, and is still to be sent */
+	QSet<QString> drive_pending;
 	unsigned int poll_next = 0;
 	bool poll_active = false;
 	QElapsedTimer poll_clock;
@@ -243,13 +246,11 @@ public:
 
 	void cmd_get_camera_info();
 
-	void do_update() override;
+	void moveDrive(OBSData speeds) override;
+	void moveRel(OBSData distances) override;
+	void moveAbs(OBSData positions) override;
 	void onParentHostChanged(const QString &host) override;
-	void pantilt_rel(double pan, double tilt) override;
-	void pantilt_abs(double pan, double tilt) override;
 	void pantilt_home() override;
-	void zoom_abs(double pos) override;
-	void focus_abs(double pos) override;
 	void set_autofocus(bool enabled) override;
 	void focus_onetouch() override;
 	void memory_reset(int i) override;

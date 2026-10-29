@@ -19,6 +19,7 @@
 #include <QEventLoop>
 #include <QTimer>
 #include <QList>
+#include <QSet>
 
 class MediaProfile {
 public:
@@ -32,6 +33,9 @@ class PTZOnvif : public PTZDevice {
 
 private:
 	bool m_isBusy = false;
+	/* The axes whose speed changed, and is still to be sent */
+	QSet<QString> m_drivePending;
+	void sendDrive();
 	QString host; /* configured; empty to follow the source's */
 	QString m_sourceHost;
 	QString effectiveHost() const { return host.isEmpty() ? m_sourceHost : host; }
@@ -138,13 +142,12 @@ public:
 
 	obs_properties_t *get_obs_properties() override;
 
-	void do_update() override;
-	void pantilt_rel(double pan, double tilt) override;
-	void pantilt_abs(double pan, double tilt) override;
+	void moveDrive(OBSData speeds) override;
+	void moveRel(OBSData distances) override;
+	void moveAbs(OBSData positions) override;
 	void pantilt_home() override;
 	void pantilt_set_home() override;
 	Features features() const override;
-	void zoom_abs(double pos) override;
 	void set_autofocus(bool enabled) override;
 	CameraPresets cameraPresets() const override;
 	bool cameraPresetCreate(const QString &request, const QString &name) override;

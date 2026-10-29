@@ -50,11 +50,10 @@ public:
 	obs_properties_t *get_obs_properties() override;
 
 	Features features() const override;
-	void do_update() override;
-	void pantilt_abs(double pan, double tilt) override;
-	void pantilt_rel(double pan, double tilt) override;
+	void moveDrive(OBSData speeds) override;
+	void moveAbs(OBSData positions) override;
+	void moveRel(OBSData distances) override;
 	void pantilt_home() override;
-	void zoom_abs(double pos) override;
 
 	/* For the filter's callbacks, on the graphics thread */
 	void tickViewport(double seconds);

@@ -190,13 +190,14 @@ obs_properties_t *PTZPelco::get_obs_properties()
 	return ptz_props;
 }
 
-void PTZPelco::do_update()
+void PTZPelco::moveDrive(OBSData speeds)
 {
 	QByteArray msg = QByteArray::fromHex("00000000");
 	bool send_update = false;
+	const double pan_speed = speed("pan"), tilt_speed = speed("tilt");
+	const double zoom_speed = speed("zoom"), focus_speed = speed("focus");
 
-	if (pantilt_changed) {
-		pantilt_changed = false;
+	if (obs_data_has_user_value(speeds, "pan") || obs_data_has_user_value(speeds, "tilt")) {
 		if (tilt_speed) {
 			msg[1] = msg[1] | (tilt_speed > 0.0 ? (1 << 3) : (1 << 4));
 			msg[3] = abs(tilt_speed) * 0x3f;
@@ -208,8 +209,7 @@ void PTZPelco::do_update()
 		send_update = true;
 	}
 
-	if (zoom_changed) {
-		zoom_changed = false;
+	if (obs_data_has_user_value(speeds, "zoom")) {
 		if (zoom_speed) {
 			zoom_speed_set(std::abs(zoom_speed));
 			msg[1] = msg[1] | (zoom_speed > 0.0 ? (1 << 5) : (1 << 6));
@@ -217,8 +217,7 @@ void PTZPelco::do_update()
 		send_update = true;
 	}
 
-	if (focus_changed) {
-		focus_changed = false;
+	if (obs_data_has_user_value(speeds, "focus")) {
 		if (focus_speed) {
 			focus_speed_set(std::abs(focus_speed));
 			if (focus_speed > 0.0)

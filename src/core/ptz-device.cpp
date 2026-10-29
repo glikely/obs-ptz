@@ -473,12 +473,7 @@ void PTZDevice::onSceneChanged()
 		setTally(Tally::Preview, green);
 }
 
-void PTZDevice::stop()
-{
-	pantilt(0, 0);
-	zoom(0);
-	focus(0);
-}
+static size_t dataCount(obs_data_t *data);
 
 PTZDevice::Axis *PTZDevice::axis(const char *name)
 {
@@ -494,42 +489,35 @@ const PTZDevice::Axis *PTZDevice::axis(const char *name) const
 	return const_cast<PTZDevice *>(this)->axis(name);
 }
 
-double PTZDevice::limitSpeed(const char *name, double speed) const
+double PTZDevice::speed(const char *name) const
 {
 	const Axis *a = axis(name);
-	return a ? std::clamp(speed * (a->invert ? -1 : 1), -a->speedMax, a->speedMax) : 0;
+	return a ? a->speed : 0;
 }
 
-void PTZDevice::pantilt(double pan, double tilt)
+void PTZDevice::stop()
 {
-	pan = limitSpeed("pan", pan);
-	tilt = limitSpeed("tilt", tilt);
-	if ((pan_speed == pan) && (tilt_speed == tilt))
-		return;
-	pan_speed = pan;
-	tilt_speed = tilt;
-	pantilt_changed = true;
-	do_update();
+	OBSDataAutoRelease speeds = obs_data_create();
+	for (const Axis &a : m_axes)
+		obs_data_set_double(speeds, a.name, 0);
+	drive(speeds.Get());
 }
 
-void PTZDevice::zoom(double speed)
+void PTZDevice::drive(OBSData speeds)
 {
-	speed = limitSpeed("zoom", speed);
-	if (zoom_speed == speed)
-		return;
-	zoom_speed = speed;
-	zoom_changed = true;
-	do_update();
-}
-
-void PTZDevice::focus(double speed)
-{
-	speed = limitSpeed("focus", speed);
-	if (focus_speed == speed)
-		return;
-	focus_speed = speed;
-	focus_changed = true;
-	do_update();
+	OBSDataAutoRelease changed = obs_data_create();
+	for (Axis &a : m_axes) {
+		if (!obs_data_has_user_value(speeds, a.name))
+			continue;
+		double s =
+			std::clamp(obs_data_get_double(speeds, a.name) * (a.invert ? -1 : 1), -a.speedMax, a.speedMax);
+		if (a.speed == s)
+			continue;
+		a.speed = s;
+		obs_data_set_double(changed, a.name, s);
+	}
+	if (dataCount(changed))
+		moveDrive(changed.Get());
 }
 
 /* Each movement proc drops a pending recall's report, queued ahead of the move
@@ -546,48 +534,53 @@ void PTZDevice::pantilt_home(calldata_t *)
 	QMetaObject::invokeMethod(this, "pantilt_home");
 }
 
+OBSData PTZDevice::moveValues(calldata_t *cd) const
+{
+	OBSDataAutoRelease values = obs_data_create();
+	double v;
+	for (const Axis &a : m_axes)
+		if (calldata_get_float(cd, a.name, &v))
+			obs_data_set_double(values, a.name, v);
+	if (obs_data_has_user_value(values, "pan") || obs_data_has_user_value(values, "tilt")) {
+		obs_data_set_double(values, "pan", obs_data_get_double(values, "pan"));
+		obs_data_set_double(values, "tilt", obs_data_get_double(values, "tilt"));
+	}
+	return values.Get();
+}
+
 void PTZDevice::move(calldata_t *cd)
 {
-	double p = 0, t = 0, z = 0, f = 0;
-	bool pantilt = calldata_get_float(cd, "pan", &p) + calldata_get_float(cd, "tilt", &t);
-	bool zoom = calldata_get_float(cd, "zoom", &z);
-	bool focus = calldata_get_float(cd, "focus", &f);
+	OBSData speeds = moveValues(cd);
 
 	/* Only a speed: a joystick says 0 over and over while it is idle, which
 	 * moves nothing. Stopping a real move cancelled with its start. */
-	if (p != 0 || t != 0 || z != 0 || f != 0)
+	bool moving = false;
+	for (obs_data_item_t *item = obs_data_first(speeds); item; obs_data_item_next(&item))
+		moving |= obs_data_item_get_double(item) != 0;
+	if (moving)
 		QMetaObject::invokeMethod(this, [this] { cancelRecall(); });
 
-	if (pantilt)
-		QMetaObject::invokeMethod(this, "pantilt", Q_ARG(double, p), Q_ARG(double, t));
-	if (zoom)
-		QMetaObject::invokeMethod(this, "zoom", Q_ARG(double, z));
-	if (focus)
-		QMetaObject::invokeMethod(this, "focus", Q_ARG(double, f));
+	QMetaObject::invokeMethod(this, [this, speeds] { drive(speeds); });
 }
 
 void PTZDevice::move_abs(calldata_t *cd)
 {
-	double p = 0, t = 0, z = 0, f = 0;
-	QMetaObject::invokeMethod(this, [this] { cancelRecall(); });
-
-	if (calldata_get_float(cd, "pan", &p) + calldata_get_float(cd, "tilt", &t))
-		QMetaObject::invokeMethod(this, "pantilt_abs", Q_ARG(double, p), Q_ARG(double, t));
-
-	if (calldata_get_float(cd, "zoom", &z))
-		QMetaObject::invokeMethod(this, "zoom_abs", Q_ARG(double, z));
-
-	if (calldata_get_float(cd, "focus", &f))
-		QMetaObject::invokeMethod(this, "focus_abs", Q_ARG(double, f));
+	OBSData positions = moveValues(cd);
+	QMetaObject::invokeMethod(this, [this, positions] {
+		cancelRecall();
+		if (dataCount(positions))
+			moveAbs(positions);
+	});
 }
 
 void PTZDevice::move_rel(calldata_t *cd)
 {
-	double p = 0, t = 0;
-	QMetaObject::invokeMethod(this, [this] { cancelRecall(); });
-
-	if (calldata_get_float(cd, "pan", &p) + calldata_get_float(cd, "tilt", &t))
-		QMetaObject::invokeMethod(this, "pantilt_rel", Q_ARG(double, p), Q_ARG(double, t));
+	OBSData distances = moveValues(cd);
+	QMetaObject::invokeMethod(this, [this, distances] {
+		cancelRecall();
+		if (dataCount(distances))
+			moveRel(distances);
+	});
 }
 
 /**
@@ -1628,26 +1621,31 @@ void PTZDevice::applyValues(const Preset &preset)
 		return obs_data_has_user_value(preset.values, key);
 	};
 	Features f = features();
+	OBSDataAutoRelease positions = obs_data_create();
 	bool pan = restores("pan"), tilt = restores("tilt");
 	if ((pan || tilt) && (f & PanTiltAbs)) {
 		bool known = (pan || obs_data_has_user_value(state, "pan")) &&
 			     (tilt || obs_data_has_user_value(state, "tilt"));
-		if (known)
-			pantilt_abs(obs_data_get_double(pan ? preset.values : state, "pan"),
-				    obs_data_get_double(tilt ? preset.values : state, "tilt"));
-		else
+		if (known) {
+			obs_data_set_double(positions, "pan", obs_data_get_double(pan ? preset.values : state, "pan"));
+			obs_data_set_double(positions, "tilt",
+					    obs_data_get_double(tilt ? preset.values : state, "tilt"));
+		} else {
 			ptz_info("not restoring %s alone: where the camera is not known", pan ? "pan" : "tilt");
+		}
 	}
 	if (restores("zoom") && (f & ZoomAbs))
-		zoom_abs(obs_data_get_double(preset.values, "zoom"));
+		obs_data_set_double(positions, "zoom", obs_data_get_double(preset.values, "zoom"));
 	if (restores("focus") && (f & (FocusAbs | AutoFocus))) {
 		OBSDataAutoRelease focus = obs_data_get_obj(preset.values, "focus");
 		bool autofocus = obs_data_has_user_value(focus, "af_enabled") && obs_data_get_bool(focus, "af_enabled");
 		if ((f & AutoFocus) && obs_data_has_user_value(focus, "af_enabled"))
 			set_autofocus(autofocus);
 		if (!autofocus && (f & FocusAbs) && obs_data_has_user_value(focus, "position"))
-			focus_abs(obs_data_get_double(focus, "position"));
+			obs_data_set_double(positions, "focus", obs_data_get_double(focus, "position"));
 	}
+	if (dataCount(positions))
+		moveAbs(positions.Get());
 }
 
 /* Not the same for two devices, since the listeners of several may be told apart by it alone */

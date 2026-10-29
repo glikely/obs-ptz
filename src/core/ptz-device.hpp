@@ -63,7 +63,7 @@ public:
 	 * its state as "features": an object with each one's name (see
 	 * featureNames()) true. */
 	enum Feature : uint32_t {
-		/* Moving at a speed: pantilt(), zoom() and focus() */
+		/* Moving at a speed, by moveDrive() */
 		PanTilt = 1 << 0,
 		Zoom = 1 << 1,
 		Focus = 1 << 2,
@@ -108,13 +108,10 @@ protected:
 	bool m_tallyProgram = false;
 	bool m_tallyPreview = false;
 	bool connected = false;
-	double pan_speed = 0;
-	double tilt_speed = 0;
-	bool pantilt_changed = false;
-	double zoom_speed = 0;
-	bool zoom_changed = false;
-	double focus_speed = 0;
-	bool focus_changed = false;
+
+	/* The speed an axis is being driven at, after its cap and inversion; 0
+	 * for one not moving */
+	double speed(const char *axis) const;
 
 	/* How long a recall is taken to take, for a driver without MoveCompletion */
 	static constexpr int kRecallSettleMs = 3000;
@@ -130,14 +127,17 @@ private:
 	/* The preset the last recall arrived at, until the camera is sent elsewhere */
 	QString m_arrivedId;
 	/* An axis a move can name, and what the device keeps of it. Made once,
-	 * with the device. Its position is in the state. */
+	 * with the device, so a name can be read from any thread; the rest is
+	 * the device thread's. Its position is in the state. */
 	struct Axis {
-		/* Its key, in the API and the settings */
+		/* Its key, in the API, the settings and the values a move hook is given */
 		const char *name;
 		/* The settings that cap and turn round a speed on it,
 		 * "<name>_speed_max" and "<name>_invert" */
 		double speedMax = 1.0;
 		bool invert = false;
+		/* What it is being driven at, after the cap and inversion */
+		double speed = 0;
 		/* What setAxisStep() and setAxisScale() last said of it: a step
 		 * of 0 is none, and the scale is its unit and points as JSON,
 		 * "" for none */
@@ -147,8 +147,9 @@ private:
 	std::vector<Axis> m_axes;
 	Axis *axis(const char *name);
 	const Axis *axis(const char *name) const;
-	/* A speed asked for on an axis, after its cap and inversion */
-	double limitSpeed(const char *name, double speed) const;
+	/* The values a move proc was called with, by axis. As the API has it, pan
+	 * and tilt go together: if either is given, the other is taken as 0. */
+	OBSData moveValues(calldata_t *cd) const;
 	void finishRecall();
 	void cancelRecall();
 	/* PTZLifecycle::Listener: the module's one frontend callback calls
@@ -397,52 +398,41 @@ public:
 	/* Grabs a frame of the device's source as the preset's thumbnail */
 	void capturePresetThumbnail(const QString &id);
 
-	/**
-	 * do_update() method is to be implemented by each driver as the way
-	 * to communicate movement commands to the camera. Since movement
-	 * speed is cached in the generic model, the backend driver can
-	 * throttle how many commands are actually sent to the device by
-	 * arranging to call itself back at a later time
-	 */
-	virtual void do_update() = 0;
-
-	/** Movement Methods
-	 * All movement commands are normalized to floating point ranges of
-	 * -1.0 to 1.0, or 0.0 to 1.0, as listed below.
+protected:
+	/** Movement hooks
+	 * Each is given an object of the values to move by, with a key for each
+	 * axis it moves (see Axis), and acts on only the keys there. A driver
+	 * leaves alone a key it has nothing to do with, so an axis can be added
+	 * without changing any of them. Each runs on the device's own thread.
 	 *
-	 * Drive commands. Starts a continuous move of the camera that
-	 * continues until told to stop, or the far limit of the camera is
-	 * reached. Values passed in are the speed of movement. 1.0 means full
-	 * speed, and 0.0 means stop. (continuous movement)
-	 * pantilt: range[-1.0, 1.0], positive for clockwise, move to up/right
+	 * moveDrive(): start each axis moving at a speed, until told otherwise
+	 * or the far limit of the camera is reached; 0.0 stops it. Has only the
+	 * axes whose speed changed, after the cap and inversion of the settings;
+	 * speed() has the rest. A driver that sends only so often keeps which
+	 * changed, and sends their speed() when it can.
+	 * pan, tilt: range[-1.0, 1.0], positive for clockwise, move to up/right
 	 * zoom: range[-1.0, 1.0], positive for TELE zoom
 	 * focus: range[-1.0, 1.0], positive for near-end focus
 	 *
-	 * Relative position commands. Perform a specific distance relative to
-	 * the current position of the camera. 1.0 == full range movement
-	 * pantilt: range[-1.0, 1.0], positive for clockwise, move to up/right
+	 * moveRel(): move a distance from where the camera is. 1.0 == full range
+	 * pan, tilt: range[-1.0, 1.0], positive for clockwise, move to up/right
 	 * zoom: range[-1.0, 1.0], positive for tele zoom
 	 * focus: range[-1.0, 1.0], positive for near-end focus
 	 *
-	 * Absolute position commands. A 1.0 magnitude value means full range
-	 * of movement
-	 * pantilt: range[-1.0, 1.0], positive for clockwise, move to up/right
+	 * moveAbs(): move to a position. A 1.0 magnitude value means full range
+	 * of movement. Pan and tilt come together.
+	 * pan, tilt: range[-1.0, 1.0], positive for clockwise, move to up/right
 	 * zoom: range[0.0, 1.0], 0.0 == wide angle, 1.0 == telephoto
 	 * focus: range[0.0, 1.0], 0.0 == far focus, 1.0 == near focus
 	 */
+	virtual void moveDrive(OBSData speeds) = 0;
+	virtual void moveRel(OBSData distances) { Q_UNUSED(distances); }
+	virtual void moveAbs(OBSData positions) { Q_UNUSED(positions); }
+
 protected slots:
 	void stop();
-	void pantilt(double pan, double tilt);
-	virtual void pantilt_rel(double pan, double tilt)
-	{
-		Q_UNUSED(pan);
-		Q_UNUSED(tilt);
-	}
-	virtual void pantilt_abs(double pan, double tilt)
-	{
-		Q_UNUSED(pan);
-		Q_UNUSED(tilt);
-	}
+	/* Drive at the speeds in `speeds`, by axis: an axis left out keeps its speed */
+	void drive(OBSData speeds);
 	virtual void pantilt_home() {}
 	/**
 	 * pantilt_set_home(): record the camera's *current* pan/tilt/zoom as
@@ -452,11 +442,7 @@ protected slots:
 	 * hide the action entirely instead of presenting a dead control.
 	 */
 	virtual void pantilt_set_home() {}
-	void zoom(double speed);
-	virtual void zoom_abs(double pos) { Q_UNUSED(pos); };
 	virtual void set_autofocus(bool enabled) { Q_UNUSED(enabled); };
-	void focus(double speed);
-	virtual void focus_abs(double pos) { Q_UNUSED(pos); }
 	virtual void focus_onetouch() {}
 	virtual void memory_set(int i) { Q_UNUSED(i); }
 	virtual void memory_recall(int i) { Q_UNUSED(i); }
@@ -494,9 +480,6 @@ protected slots:
 
 public:
 	bool isConnected() const { return connected; }
-	bool pantiltChanged() const { return pantilt_changed; }
-	bool zoomChanged() const { return zoom_changed; }
-	bool focusChanged() const { return focus_changed; }
 
 	/* Device configuration methods
 	 * These match the pattern used by sources in OBS studio with the following methods:

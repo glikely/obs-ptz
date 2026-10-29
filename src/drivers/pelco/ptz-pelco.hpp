@@ -60,7 +60,7 @@ public:
 	void save(OBSData config) const override;
 	obs_properties_t *get_obs_properties() override;
 
-	void do_update() override;
+	void moveDrive(OBSData speeds) override;
 	/* Pelco can only drive, go home and use presets */
 	Features features() const override { return PanTilt | Zoom | Focus | Home | Presets; }
 	bool slotPresets() const override { return true; }
