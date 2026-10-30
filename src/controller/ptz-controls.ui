@@ -62,7 +62,7 @@
          <property name="childrenCollapsible">
           <bool>true</bool>
          </property>
-      <widget class="QTabWidget" name="controlTabs">
+      <widget class="QStackedWidget" name="controlStack">
        <property name="sizePolicy">
         <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
          <horstretch>0</horstretch>
@@ -72,11 +72,8 @@
        <property name="currentIndex">
         <number>0</number>
        </property>
-       <widget class="QWidget" name="controllerTab">
-        <attribute name="title">
-         <string>PTZ.Dock.Tab.Controller</string>
-        </attribute>
-        <layout class="QVBoxLayout" name="controllerTabVerticalLayout">
+       <widget class="QWidget" name="controllerPage">
+        <layout class="QVBoxLayout" name="controllerPageVerticalLayout">
          <property name="leftMargin">
           <number>0</number>
          </property>
@@ -101,11 +98,8 @@
          </item>
         </layout>
        </widget>
-       <widget class="QWidget" name="viewControlTab">
-        <attribute name="title">
-         <string>PTZ.Dock.Tab.ViewControl</string>
-        </attribute>
-        <layout class="QVBoxLayout" name="viewControlTabVerticalLayout" stretch="1,0">
+       <widget class="QWidget" name="viewControlPage">
+        <layout class="QVBoxLayout" name="viewControlPageVerticalLayout" stretch="1,0">
          <property name="leftMargin">
           <number>0</number>
          </property>
