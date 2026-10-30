@@ -130,34 +130,42 @@ obs_properties_t *PTZSoftCam::get_obs_properties()
  * absolute positions */
 PTZDevice::Features PTZSoftCam::features() const
 {
-	return PanTilt | Zoom | PanTiltAbs | PanTiltRel | ZoomAbs | Home | MoveCompletion;
+	return Pan | Tilt | Zoom | PanAbs | TiltAbs | PanRel | TiltRel | ZoomAbs | Home | MoveCompletion;
 }
 
-void PTZSoftCam::do_update()
+void PTZSoftCam::moveDrive(OBSData)
 {
+	double pan = speed("pan"), tilt = speed("tilt"), zoom = speed("zoom");
 	{
 		std::lock_guard<std::mutex> lock(m_lock);
-		m_viewport.setSpeeds(pan_speed, tilt_speed, zoom_speed);
+		m_viewport.setSpeeds(pan, tilt, zoom);
 	}
-	if (pan_speed != 0 || tilt_speed != 0 || zoom_speed != 0)
+	if (pan != 0 || tilt != 0 || zoom != 0)
 		m_easeReported = true;
-	pantilt_changed = false;
-	zoom_changed = false;
-	focus_changed = false;
 }
 
-void PTZSoftCam::pantilt_abs(double pan, double tilt)
+/* Pan, tilt and zoom start together, in the one move that is reported finished */
+void PTZSoftCam::moveAbs(OBSData positions)
 {
+	bool pantilt = obs_data_has_user_value(positions, "pan") || obs_data_has_user_value(positions, "tilt");
+	bool zoom = obs_data_has_user_value(positions, "zoom");
+	if (!pantilt && !zoom)
+		return;
 	m_easeReported = false;
 	std::lock_guard<std::mutex> lock(m_lock);
-	m_viewport.movePanTiltTo(pan, tilt);
+	if (pantilt)
+		m_viewport.movePanTiltTo(obs_data_get_double(positions, "pan"), obs_data_get_double(positions, "tilt"));
+	if (zoom)
+		m_viewport.moveZoomTo(obs_data_get_double(positions, "zoom"));
 }
 
-void PTZSoftCam::pantilt_rel(double pan, double tilt)
+void PTZSoftCam::moveRel(OBSData distances)
 {
+	if (!obs_data_has_user_value(distances, "pan") && !obs_data_has_user_value(distances, "tilt"))
+		return;
 	m_easeReported = false;
 	std::lock_guard<std::mutex> lock(m_lock);
-	m_viewport.moveBy(pan, tilt);
+	m_viewport.moveBy(obs_data_get_double(distances, "pan"), obs_data_get_double(distances, "tilt"));
 }
 
 void PTZSoftCam::pantilt_home()
@@ -165,13 +173,6 @@ void PTZSoftCam::pantilt_home()
 	m_easeReported = false;
 	std::lock_guard<std::mutex> lock(m_lock);
 	m_viewport.home();
-}
-
-void PTZSoftCam::zoom_abs(double pos)
-{
-	m_easeReported = false;
-	std::lock_guard<std::mutex> lock(m_lock);
-	m_viewport.moveZoomTo(pos);
 }
 
 void PTZSoftCam::tickViewport(double seconds)

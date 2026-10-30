@@ -754,7 +754,7 @@ void PTZOnvif::requestFinished(QNetworkReply *reply)
 			setConnected(true);
 		handleResponse(reply->readAll());
 	}
-	do_update();
+	sendDrive();
 }
 
 PTZOnvif::PTZOnvif(OBSData config, obs_source_t *source) : PTZDevice(config, source)
@@ -791,8 +791,17 @@ void PTZOnvif::connectCamera()
 	getSystemDateAndTime();
 }
 
-void PTZOnvif::do_update()
+void PTZOnvif::moveDrive(OBSData speeds)
 {
+	for (obs_data_item_t *item = obs_data_first(speeds); item; obs_data_item_next(&item))
+		m_drivePending += QString::fromUtf8(obs_data_item_get_name(item));
+	sendDrive();
+}
+
+/* Pan, tilt and zoom go in one request, which waits for the last to be answered */
+void PTZOnvif::sendDrive()
+{
+	const double pan_speed = speed("pan"), tilt_speed = speed("tilt"), zoom_speed = speed("zoom");
 	/* Follow the position closely only while it is moving, and read it once
 	 * more as it stops, for where it ended up */
 	const bool moving = pan_speed != 0.0 || tilt_speed != 0.0 || zoom_speed != 0.0;
@@ -803,25 +812,24 @@ void PTZOnvif::do_update()
 			pollStatusSoon();
 	}
 
-	if (pantilt_changed || zoom_changed) {
-		if (pan_speed == 0.0 && tilt_speed == 0.0 && zoom_speed == 0.0) {
-			pantilt_changed = false;
-			zoom_changed = false;
+	const bool pantiltzoom = m_drivePending.contains("pan") || m_drivePending.contains("tilt") ||
+				 m_drivePending.contains("zoom");
+	if (pantiltzoom) {
+		if (!moving) {
+			m_drivePending -= {"pan", "tilt", "zoom"};
 			stop();
 		} else if (!m_isBusy) {
 			m_isBusy = true;
-			pantilt_changed = false;
-			zoom_changed = false;
+			m_drivePending -= {"pan", "tilt", "zoom"};
 			continuousMove(pan_speed * m_speed_boost, tilt_speed * m_speed_boost,
 				       zoom_speed * m_speed_boost);
 		}
 	}
-	if (focus_changed) {
-		focus_changed = false;
-		if (focus_speed == 0.0)
+	if (m_drivePending.remove("focus")) {
+		if (speed("focus") == 0.0)
 			imagingFocusStop();
 		else
-			imagingFocusMove(focus_speed * m_speed_boost);
+			imagingFocusMove(speed("focus") * m_speed_boost);
 	}
 }
 
@@ -829,7 +837,8 @@ void PTZOnvif::do_update()
  * only be told once the camera has said whether it does */
 PTZDevice::Features PTZOnvif::features() const
 {
-	Features features = PanTilt | Zoom | PanTiltAbs | PanTiltRel | ZoomAbs | Home | HomeSet | Presets;
+	Features features = Pan | Tilt | Zoom | PanAbs | TiltAbs | PanRel | TiltRel | ZoomAbs | Home | HomeSet |
+			    Presets;
 	if (!m_imagingXAddr.isEmpty() && !m_selectedMedia.videoSourceToken.isEmpty())
 		features |= Focus | AutoFocus;
 	return features;
@@ -840,26 +849,27 @@ void PTZOnvif::set_autofocus(bool enabled)
 	imagingSetAutoFocus(enabled);
 }
 
-void PTZOnvif::pantilt_abs(double pan, double tilt)
+/* Pan, tilt and zoom in one request: an axis left out is left where it is */
+void PTZOnvif::moveAbs(OBSData positions)
 {
-	/* Leaves the zoom where it is */
-	absoluteMove(pan, tilt, 0.0, true, false);
+	bool panTilt = obs_data_has_user_value(positions, "pan") || obs_data_has_user_value(positions, "tilt");
+	bool zoom = obs_data_has_user_value(positions, "zoom");
+	if (panTilt || zoom)
+		absoluteMove(obs_data_get_double(positions, "pan"), obs_data_get_double(positions, "tilt"),
+			     obs_data_get_double(positions, "zoom"), panTilt, zoom);
 }
 
-void PTZOnvif::pantilt_rel(double pan, double tilt)
+void PTZOnvif::moveRel(OBSData distances)
 {
-	relativeMove(pan, tilt, 0.0);
+	if (obs_data_has_user_value(distances, "pan") || obs_data_has_user_value(distances, "tilt") ||
+	    obs_data_has_user_value(distances, "zoom"))
+		relativeMove(obs_data_get_double(distances, "pan"), obs_data_get_double(distances, "tilt"),
+			     obs_data_get_double(distances, "zoom"));
 }
 
 void PTZOnvif::pantilt_home()
 {
 	goToHomePosition();
-}
-
-void PTZOnvif::zoom_abs(double pos)
-{
-	/* Leaves pan and tilt where they are */
-	absoluteMove(0.0, 0.0, pos, false, true);
 }
 
 void PTZOnvif::defaults(obs_data_t *config)

@@ -152,7 +152,7 @@ def test_the_dock_offers_only_what_a_command_set_has(request, obs_world, tmp_pat
     camera = Camera(request, obs_world, tmp_path, "0123:0001")
     # The device says what it can do before it has the camera's command set, as
     # the generic set has it, and then again: user_wb is the command set's own
-    state = camera.wait_for_state(lambda s: "user_wb" in s and s.get("features", {}).get("pantilt") is True)
+    state = camera.wait_for_state(lambda s: "user_wb" in s and s.get("features", {}).get("pan") is True)
     assert "zoom" not in state["features"]
     assert state["features"]["zoom_abs"] is True
     enabled = obs_world.wait_for_dock_controls(
@@ -166,7 +166,7 @@ def test_a_camera_without_presets_still_has_the_local_ones(request, obs_world, t
     but it goes to a position: the device has the presets feature for the
     local store, and the dock offers them"""
     camera = Camera(request, obs_world, tmp_path, "0123:0008")
-    state = camera.wait_for_state(lambda s: s.get("features", {}).get("pantilt_abs") is True)
+    state = camera.wait_for_state(lambda s: s.get("features", {}).get("pan_abs") is True)
     assert state["features"]["presets"] is True
     obs_world.wait_for_dock_controls(
         camera.device_name, tmp_path / "dock.json", lambda e: e["presetListView"])

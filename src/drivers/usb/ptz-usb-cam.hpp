@@ -36,7 +36,8 @@ private:
 	void report_state(PtzUsbCamPos pos, PtzUsbCamPos resolution, bool hasPan, bool hasTilt, bool hasPanTiltSpeed,
 			  bool hasZoom, bool hasFocus);
 	/* Which controls the camera has, as it last said */
-	bool has_pantilt = false;
+	bool has_pan = false;
+	bool has_tilt = false;
 	bool has_pantilt_speed = false;
 	bool has_zoom = false;
 	bool has_focus = false;
@@ -50,13 +51,11 @@ public:
 	void persistState(obs_data_t *settings) const override;
 	obs_properties_t *get_obs_properties() override;
 
-	void do_update() override;
-	void pantilt_rel(double pan, double tilt) override;
-	void pantilt_abs(double pan, double tilt) override;
+	void moveDrive(OBSData speeds) override;
+	void moveRel(OBSData distances) override;
+	void moveAbs(OBSData positions) override;
 	Features features() const override;
 	void pantilt_home() override;
-	void zoom_abs(double pos) override;
-	void focus_abs(double pos) override;
 	void set_autofocus(bool enabled) override;
 };
 

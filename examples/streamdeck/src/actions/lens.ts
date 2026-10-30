@@ -5,7 +5,7 @@
  * camera reports in ptz_state_changed. Pressing a focus dial turns the camera's
  * autofocus on or off.
  *
- * A camera that can go to a position (the pantilt_abs, zoom_abs or focus_abs
+ * A camera that can go to a position (the pan_abs, tilt_abs, zoom_abs or focus_abs
  * feature) is sent one, a step for each tick from where the dial last put it;
  * one that can only move at a speed is moved a little for each tick instead. The camera is the one
  * selected in the PTZ dock, unless the dial names one.
@@ -33,8 +33,8 @@ import { Axes, AxisInfo, show } from "../units";
 type Axis = "pan" | "tilt" | "zoom" | "focus";
 
 const AXES: Record<Axis, { name: string; min: number; feature: string; absFeature: string }> = {
-	pan: { name: "Pan", min: -1, feature: "pantilt", absFeature: "pantilt_abs" },
-	tilt: { name: "Tilt", min: -1, feature: "pantilt", absFeature: "pantilt_abs" },
+	pan: { name: "Pan", min: -1, feature: "pan", absFeature: "pan_abs" },
+	tilt: { name: "Tilt", min: -1, feature: "tilt", absFeature: "tilt_abs" },
 	zoom: { name: "Zoom", min: 0, feature: "zoom", absFeature: "zoom_abs" },
 	focus: { name: "Focus", min: 0, feature: "focus", absFeature: "focus_abs" },
 };
@@ -424,14 +424,7 @@ export class LensAction extends SingletonAction<LensSettings> {
 		if (!turn.send) {
 			turn.send = setTimeout(() => {
 				turn.send = undefined;
-				// A pan or a tilt is sent with the other, which is taken as 0 if it is left out
-				const position: Data = { device, [axis]: turn.value };
-				const lens = this.#lenses.get(device);
-				if (axis === "pan" || axis === "tilt") {
-					const other = axis === "pan" ? "tilt" : "pan";
-					position[other] = lens?.[other] ?? 0;
-				}
-				ptz.call("ptz_move_abs", position).catch((e) => streamDeck.logger.warn(String(e)));
+				ptz.call("ptz_move_abs", { device, [axis]: turn.value }).catch((e) => streamDeck.logger.warn(String(e)));
 			}, SEND_MS);
 		}
 		dial.getSettings()
@@ -448,10 +441,10 @@ export class LensAction extends SingletonAction<LensSettings> {
 		clearTimeout(turn.stop);
 		turn.stop = setTimeout(() => {
 			this.#turns.delete(id);
-			ptz.call("ptz_move", { device, ...(axis === "pan" || axis === "tilt" ? { pan: 0, tilt: 0 } : { [axis]: 0 }) }).catch((e) => streamDeck.logger.warn(String(e)));
+			ptz.call("ptz_move", { device, [axis]: 0 }).catch((e) => streamDeck.logger.warn(String(e)));
 		}, STOP_MS);
 		const speed = Math.sign(ticks) * SPEED;
-		await ptz.call("ptz_move", { device, ...(axis === "pan" || axis === "tilt" ? { pan: 0, tilt: 0 } : {}), [axis]: speed });
+		await ptz.call("ptz_move", { device, [axis]: speed });
 	}
 
 	#endTurn(id: string): void {

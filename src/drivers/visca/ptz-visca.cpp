@@ -618,7 +618,7 @@ void PTZVisca::update_timer_callback()
 	 * slowly: one inquiry a tick (a block inquiry reads many properties),
 	 * and not while the camera is being moved, so the controls never wait
 	 * behind more than the one request on the wire. */
-	if (!pan_speed && !tilt_speed && !zoom_speed && !focus_speed && pending_cmds.isEmpty()) {
+	if (!speed("pan") && !speed("tilt") && !speed("zoom") && !speed("focus") && pending_cmds.isEmpty()) {
 		const QStringList props = inquiry_poll_list();
 		if (!props.isEmpty())
 			stale_state += props[poll_next++ % props.size()];
@@ -693,16 +693,21 @@ void PTZVisca::discover_begin_step()
 	discover_last = (int)obs_data_get_int(state, axis.pos);
 	if (!strcmp(axis.pos, "focus_pos"))
 		discover_last &= 0xffff;
-	/* pantilt() and friends apply the axis' inversion, which only
-	 * swaps which end is first */
-	if (!strcmp(axis.pos, "pan_pos"))
-		pantilt(axis.dir, 0);
-	else if (!strcmp(axis.pos, "tilt_pos"))
-		pantilt(0, axis.dir);
-	else if (!strcmp(axis.pos, "zoom_pos"))
-		zoom(axis.dir);
-	else
-		focus(axis.dir);
+	/* drive() applies the axis' inversion, which only swaps which end is
+	 * first. Pan and tilt go together, so the other of them is held still. */
+	OBSDataAutoRelease speeds = obs_data_create();
+	if (!strcmp(axis.pos, "pan_pos")) {
+		obs_data_set_double(speeds, "pan", axis.dir);
+		obs_data_set_double(speeds, "tilt", 0);
+	} else if (!strcmp(axis.pos, "tilt_pos")) {
+		obs_data_set_double(speeds, "pan", 0);
+		obs_data_set_double(speeds, "tilt", axis.dir);
+	} else if (!strcmp(axis.pos, "zoom_pos")) {
+		obs_data_set_double(speeds, "zoom", axis.dir);
+	} else {
+		obs_data_set_double(speeds, "focus", axis.dir);
+	}
+	drive(speeds.Get());
 }
 
 void PTZVisca::discover_tick()
@@ -762,12 +767,16 @@ void PTZVisca::discover_finish()
 	auto start = [this](const char *key) {
 		return discover_start.value(key, 0);
 	};
-	if (discover_start.contains("pan_pos") && discover_start.contains("tilt_pos"))
-		pantilt_abs(start("pan_pos") / (double)visca_pan_range, start("tilt_pos") / (double)visca_tilt_range);
+	OBSDataAutoRelease positions = obs_data_create();
+	if (discover_start.contains("pan_pos") && discover_start.contains("tilt_pos")) {
+		obs_data_set_double(positions, "pan", start("pan_pos") / (double)visca_pan_range);
+		obs_data_set_double(positions, "tilt", start("tilt_pos") / (double)visca_tilt_range);
+	}
 	if (focused && discover_start.contains("zoom_pos"))
 		send_action("zoom_focus_abs", {start("zoom_pos"), start("focus_pos") & 0xffff});
 	else if (discover_start.contains("zoom_pos"))
-		zoom_abs(start("zoom_pos") / (double)visca_zoom_range);
+		obs_data_set_double(positions, "zoom", start("zoom_pos") / (double)visca_zoom_range);
+	moveAbs(positions.Get());
 
 	if (discover_af_was_on)
 		set_autofocus(true);
@@ -807,10 +816,17 @@ void PTZVisca::set_profile(std::shared_ptr<const ViscaProfile> new_profile)
 PTZDevice::Features PTZVisca::features() const
 {
 	Features features = Diagnostics;
-	const QList<QPair<const char *, Feature>> actions = {
-		{"pantilt_drive", PanTilt}, {"pantilt_abs", PanTiltAbs}, {"pantilt_rel", PanTiltRel},
-		{"pantilt_home", Home},     {"zoom_drive", Zoom},        {"zoom_abs", ZoomAbs},
-		{"focus_drive", Focus},     {"focus_abs", FocusAbs},     {"focus_onetouch", FocusOneTouch},
+	/* A VISCA pan/tilt command moves both axes */
+	const QList<QPair<const char *, Features>> actions = {
+		{"pantilt_drive", Pan | Tilt},
+		{"pantilt_abs", PanAbs | TiltAbs},
+		{"pantilt_rel", PanRel | TiltRel},
+		{"pantilt_home", Home},
+		{"zoom_drive", Zoom},
+		{"zoom_abs", ZoomAbs},
+		{"focus_drive", Focus},
+		{"focus_abs", FocusAbs},
+		{"focus_onetouch", FocusOneTouch},
 		{"memory_recall", Presets},
 	};
 	for (const auto &[action, feature] : actions) {
@@ -1191,19 +1207,16 @@ void PTZVisca::send_pending()
 	}
 
 	if (pending_cmds.isEmpty()) {
-		if (pantilt_changed) {
-			pantilt_changed = false;
-			int p = scale_speed(pan_speed, visca_pan_speed_max);
-			int t = -scale_speed(tilt_speed, visca_tilt_speed_max);
+		if (drive_pending.remove("pan") | drive_pending.remove("tilt")) {
+			int p = scale_speed(speed("pan"), visca_pan_speed_max);
+			int t = -scale_speed(speed("tilt"), visca_tilt_speed_max);
 			queue_action("pantilt_drive", {p, t});
-		} else if (zoom_changed) {
-			zoom_changed = false;
-			queue_action("zoom_drive", {scale_speed(zoom_speed, visca_zoom_speed_max + 1)});
-		} else if (focus_changed) {
-			focus_changed = false;
+		} else if (drive_pending.remove("zoom")) {
+			queue_action("zoom_drive", {scale_speed(speed("zoom"), visca_zoom_speed_max + 1)});
+		} else if (drive_pending.remove("focus")) {
 			/* VISCA Focus drive direction is inverse from position; Send a positive speed
 			 * to decrease the focus position, and visa-versa */
-			queue_action("focus_drive", {-scale_speed(focus_speed, visca_focus_speed_max + 1)});
+			queue_action("focus_drive", {-scale_speed(speed("focus"), visca_focus_speed_max + 1)});
 		} else if (isConnected()) {
 			/* What the camera is decides what else to ask it for */
 			QStringList stale = stale_state.values();
@@ -1248,40 +1261,44 @@ void PTZVisca::send_pending()
 	timeout_retry = 0;
 }
 
-void PTZVisca::do_update(void)
+/* Sent one at a time, as the link is free: see send_pending() */
+void PTZVisca::moveDrive(OBSData speeds)
 {
+	for (obs_data_item_t *item = obs_data_first(speeds); item; obs_data_item_next(&item))
+		drive_pending += QString::fromUtf8(obs_data_item_get_name(item));
 	send_pending();
 }
 
-void PTZVisca::pantilt_rel(double pan_, double tilt_)
+void PTZVisca::moveRel(OBSData distances)
 {
-	int pan = std::clamp(pan_, -1.0, 1.0) * visca_pan_range * 2;
-	int tilt = std::clamp(tilt_, -1.0, 1.0) * visca_tilt_range * 2;
-	send_action("pantilt_rel", {0x14, 0x14, pan, tilt});
+	if (obs_data_has_user_value(distances, "pan") || obs_data_has_user_value(distances, "tilt")) {
+		int pan = std::clamp(obs_data_get_double(distances, "pan"), -1.0, 1.0) * visca_pan_range * 2;
+		int tilt = std::clamp(obs_data_get_double(distances, "tilt"), -1.0, 1.0) * visca_tilt_range * 2;
+		send_action("pantilt_rel", {0x14, 0x14, pan, tilt});
+	}
 }
 
-void PTZVisca::pantilt_abs(double pan_, double tilt_)
+void PTZVisca::moveAbs(OBSData positions)
 {
-	int pan = std::clamp(pan_, -1.0, 1.0) * visca_pan_range;
-	int tilt = std::clamp(tilt_, -1.0, 1.0) * visca_tilt_range;
-	send_action("pantilt_abs", {0x0f, 0x0f, pan, tilt});
+	if (obs_data_has_user_value(positions, "pan") || obs_data_has_user_value(positions, "tilt")) {
+		int pan = std::clamp(obs_data_get_double(positions, "pan"), -1.0, 1.0) * visca_pan_range;
+		int tilt = std::clamp(obs_data_get_double(positions, "tilt"), -1.0, 1.0) * visca_tilt_range;
+		send_action("pantilt_abs", {0x0f, 0x0f, pan, tilt});
+	}
+	if (obs_data_has_user_value(positions, "zoom")) {
+		int pos = std::clamp(obs_data_get_double(positions, "zoom"), 0.0, 1.0) * visca_zoom_range;
+		send_action("zoom_abs", {pos});
+	}
+	if (obs_data_has_user_value(positions, "focus")) {
+		double f = std::clamp(obs_data_get_double(positions, "focus"), 0.0, 1.0);
+		int pos = visca_focus_far + f * (visca_focus_near - visca_focus_far);
+		send_action("focus_abs", {pos & 0xffff});
+	}
 }
 
 void PTZVisca::pantilt_home()
 {
 	send_action("pantilt_home");
-}
-
-void PTZVisca::zoom_abs(double pos_)
-{
-	int pos = std::clamp(pos_, 0.0, 1.0) * visca_zoom_range;
-	send_action("zoom_abs", {pos});
-}
-
-void PTZVisca::focus_abs(double pos_)
-{
-	int pos = visca_focus_far + std::clamp(pos_, 0.0, 1.0) * (visca_focus_near - visca_focus_far);
-	send_action("focus_abs", {pos & 0xffff});
 }
 
 void PTZVisca::set_autofocus(bool enabled)

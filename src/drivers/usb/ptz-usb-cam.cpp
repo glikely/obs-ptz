@@ -126,7 +126,8 @@ obs_properties_t *PTZUSBCam::get_obs_properties()
 void PTZUSBCam::report_state(PtzUsbCamPos pos, PtzUsbCamPos resolution, bool hasPan, bool hasTilt, bool hasPanTiltSpeed,
 			     bool hasZoom, bool hasFocus)
 {
-	has_pantilt = hasPan || hasTilt;
+	has_pan = hasPan;
+	has_tilt = hasTilt;
 	has_pantilt_speed = hasPanTiltSpeed;
 	has_zoom = hasZoom;
 	has_focus = hasFocus;
@@ -153,12 +154,9 @@ void PTZUSBCam::report_state(PtzUsbCamPos pos, PtzUsbCamPos resolution, bool has
 		notifyStateChanged();
 }
 
-void PTZUSBCam::do_update()
+void PTZUSBCam::moveDrive(OBSData)
 {
-	worker_->setSpeeds(pan_speed, tilt_speed, zoom_speed, focus_speed);
-	pantilt_changed = false;
-	zoom_changed = false;
-	focus_changed = false;
+	worker_->setSpeeds(speed("pan"), speed("tilt"), speed("zoom"), speed("focus"));
 }
 
 /* Find out which camera the source is set to, and tell the worker if that's
@@ -183,16 +181,23 @@ void PTZUSBCam::refreshDeviceId()
 	worker_->setDeviceId(device_id_);
 }
 
-void PTZUSBCam::pantilt_abs(double pan, double tilt)
+/* UVC has a control for each, so each goes on its own */
+void PTZUSBCam::moveAbs(OBSData positions)
 {
 	refreshDeviceId();
-	worker_->pantiltAbs(pan, tilt);
+	if (obs_data_has_user_value(positions, "pan") || obs_data_has_user_value(positions, "tilt"))
+		worker_->pantiltAbs(obs_data_get_double(positions, "pan"), obs_data_get_double(positions, "tilt"));
+	if (obs_data_has_user_value(positions, "zoom"))
+		worker_->zoomAbs(obs_data_get_double(positions, "zoom"));
+	if (obs_data_has_user_value(positions, "focus"))
+		worker_->focusAbs(obs_data_get_double(positions, "focus"));
 }
 
-void PTZUSBCam::pantilt_rel(double pan, double tilt)
+void PTZUSBCam::moveRel(OBSData distances)
 {
 	refreshDeviceId();
-	worker_->pantiltRel(pan, tilt);
+	if (obs_data_has_user_value(distances, "pan") || obs_data_has_user_value(distances, "tilt"))
+		worker_->pantiltRel(obs_data_get_double(distances, "pan"), obs_data_get_double(distances, "tilt"));
 }
 
 /* What the camera has a control for. Its presets are the device's local ones,
@@ -202,10 +207,13 @@ void PTZUSBCam::pantilt_rel(double pan, double tilt)
 PTZDevice::Features PTZUSBCam::features() const
 {
 	Features features;
-	if (has_pantilt)
-		features |= PanTilt | PanTiltAbs | PanTiltRel | Home;
+	if (has_pan)
+		features |= Pan | PanAbs | PanRel | Home;
+	if (has_tilt)
+		features |= Tilt | TiltAbs | TiltRel | Home;
+	/* The camera's speed control moves both */
 	if (has_pantilt_speed)
-		features |= PanTilt;
+		features |= Pan | Tilt;
 	if (has_zoom)
 		features |= Zoom | ZoomAbs;
 	if (has_focus)
@@ -215,19 +223,10 @@ PTZDevice::Features PTZUSBCam::features() const
 
 void PTZUSBCam::pantilt_home()
 {
-	pantilt_abs(0, 0);
-}
-
-void PTZUSBCam::zoom_abs(double pos)
-{
-	refreshDeviceId();
-	worker_->zoomAbs(pos);
-}
-
-void PTZUSBCam::focus_abs(double pos)
-{
-	refreshDeviceId();
-	worker_->focusAbs(pos);
+	OBSDataAutoRelease positions = obs_data_create();
+	obs_data_set_double(positions, "pan", 0);
+	obs_data_set_double(positions, "tilt", 0);
+	moveAbs(positions.Get());
 }
 
 void PTZUSBCam::set_autofocus(bool enabled)

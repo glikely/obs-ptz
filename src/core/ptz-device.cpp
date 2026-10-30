@@ -152,9 +152,32 @@ static std::vector<PTZDevice *> &module_devices()
 	return devices;
 }
 
+/* The axes a move can name, which each device has one of in m_axes, and the
+ * labels of the settings each has */
+struct AxisInfo {
+	const char *name;
+	const char *speedMaxText;
+	const char *invertText;
+};
+static constexpr AxisInfo kAxes[] = {
+	{"pan", "PTZ.Device.PanMaxSpeed", "PTZ.Device.PanInvertAxis"},
+	{"tilt", "PTZ.Device.TiltMaxSpeed", "PTZ.Device.TiltInvertAxis"},
+	{"zoom", "PTZ.Device.ZoomMaxSpeed", "PTZ.Device.ZoomInvertAxis"},
+	{"focus", "PTZ.Device.FocusMaxSpeed", "PTZ.Device.FocusInvertAxis"},
+};
+
+/* An axis's setting: "<axis>_<setting>", as "pan_speed_max" */
+static std::string settingKey(const char *axis, const char *setting)
+{
+	return std::string(axis) + "_" + setting;
+}
+
 PTZDevice::PTZDevice(OBSData config, obs_source_t *filter) : QObject()
 {
 	m_filter = OBSGetWeakRef(filter);
+	upgradeSettings(config);
+	for (const AxisInfo &info : kAxes)
+		m_axes.push_back({info.name});
 
 	/* proc_handers for calling into the device. Comes from its filter */
 	handler = obs_source_get_proc_handler(filter);
@@ -450,43 +473,51 @@ void PTZDevice::onSceneChanged()
 		setTally(Tally::Preview, green);
 }
 
+static size_t dataCount(obs_data_t *data);
+
+PTZDevice::Axis *PTZDevice::axis(const char *name)
+{
+	for (Axis &a : m_axes) {
+		if (!strcmp(a.name, name))
+			return &a;
+	}
+	return nullptr;
+}
+
+const PTZDevice::Axis *PTZDevice::axis(const char *name) const
+{
+	return const_cast<PTZDevice *>(this)->axis(name);
+}
+
+double PTZDevice::speed(const char *name) const
+{
+	const Axis *a = axis(name);
+	return a ? a->speed : 0;
+}
+
 void PTZDevice::stop()
 {
-	pantilt(0, 0);
-	zoom(0);
-	focus(0);
+	OBSDataAutoRelease speeds = obs_data_create();
+	for (const Axis &a : m_axes)
+		obs_data_set_double(speeds, a.name, 0);
+	drive(speeds.Get());
 }
 
-void PTZDevice::pantilt(double pan, double tilt)
+void PTZDevice::drive(OBSData speeds)
 {
-	pan = std::clamp(pan * (pan_invert ? -1 : 1), -pantilt_speed_max, pantilt_speed_max);
-	tilt = std::clamp(tilt * (tilt_invert ? -1 : 1), -pantilt_speed_max, pantilt_speed_max);
-	if ((pan_speed == pan) && (tilt_speed == tilt))
-		return;
-	pan_speed = pan;
-	tilt_speed = tilt;
-	pantilt_changed = true;
-	do_update();
-}
-
-void PTZDevice::zoom(double speed)
-{
-	speed = std::clamp(speed * (zoom_invert ? -1 : 1), -zoom_speed_max, zoom_speed_max);
-	if (zoom_speed == speed)
-		return;
-	zoom_speed = speed;
-	zoom_changed = true;
-	do_update();
-}
-
-void PTZDevice::focus(double speed)
-{
-	speed = std::clamp(speed * (focus_invert ? -1 : 1), -focus_speed_max, focus_speed_max);
-	if (focus_speed == speed)
-		return;
-	focus_speed = speed;
-	focus_changed = true;
-	do_update();
+	OBSDataAutoRelease changed = obs_data_create();
+	for (Axis &a : m_axes) {
+		if (!obs_data_has_user_value(speeds, a.name))
+			continue;
+		double s =
+			std::clamp(obs_data_get_double(speeds, a.name) * (a.invert ? -1 : 1), -a.speedMax, a.speedMax);
+		if (a.speed == s)
+			continue;
+		a.speed = s;
+		obs_data_set_double(changed, a.name, s);
+	}
+	if (dataCount(changed))
+		moveDrive(changed.Get());
 }
 
 /* Each movement proc drops a pending recall's report, queued ahead of the move
@@ -503,48 +534,50 @@ void PTZDevice::pantilt_home(calldata_t *)
 	QMetaObject::invokeMethod(this, "pantilt_home");
 }
 
+OBSData PTZDevice::moveValues(calldata_t *cd) const
+{
+	OBSDataAutoRelease values = obs_data_create();
+	double v;
+	for (const Axis &a : m_axes)
+		if (calldata_get_float(cd, a.name, &v))
+			obs_data_set_double(values, a.name, v);
+	return values.Get();
+}
+
 void PTZDevice::move(calldata_t *cd)
 {
-	double p = 0, t = 0, z = 0, f = 0;
-	bool pantilt = calldata_get_float(cd, "pan", &p) + calldata_get_float(cd, "tilt", &t);
-	bool zoom = calldata_get_float(cd, "zoom", &z);
-	bool focus = calldata_get_float(cd, "focus", &f);
+	OBSData speeds = moveValues(cd);
 
 	/* Only a speed: a joystick says 0 over and over while it is idle, which
 	 * moves nothing. Stopping a real move cancelled with its start. */
-	if (p != 0 || t != 0 || z != 0 || f != 0)
+	bool moving = false;
+	for (obs_data_item_t *item = obs_data_first(speeds); item; obs_data_item_next(&item))
+		moving |= obs_data_item_get_double(item) != 0;
+	if (moving)
 		QMetaObject::invokeMethod(this, [this] { cancelRecall(); });
 
-	if (pantilt)
-		QMetaObject::invokeMethod(this, "pantilt", Q_ARG(double, p), Q_ARG(double, t));
-	if (zoom)
-		QMetaObject::invokeMethod(this, "zoom", Q_ARG(double, z));
-	if (focus)
-		QMetaObject::invokeMethod(this, "focus", Q_ARG(double, f));
+	QMetaObject::invokeMethod(this, [this, speeds] { drive(speeds); });
 }
 
 void PTZDevice::move_abs(calldata_t *cd)
 {
-	double p = 0, t = 0, z = 0, f = 0;
-	QMetaObject::invokeMethod(this, [this] { cancelRecall(); });
-
-	if (calldata_get_float(cd, "pan", &p) + calldata_get_float(cd, "tilt", &t))
-		QMetaObject::invokeMethod(this, "pantilt_abs", Q_ARG(double, p), Q_ARG(double, t));
-
-	if (calldata_get_float(cd, "zoom", &z))
-		QMetaObject::invokeMethod(this, "zoom_abs", Q_ARG(double, z));
-
-	if (calldata_get_float(cd, "focus", &f))
-		QMetaObject::invokeMethod(this, "focus_abs", Q_ARG(double, f));
+	OBSData positions = moveValues(cd);
+	QMetaObject::invokeMethod(this, [this, positions] {
+		cancelRecall();
+		pairPanTilt(positions);
+		if (dataCount(positions))
+			moveAbs(positions);
+	});
 }
 
 void PTZDevice::move_rel(calldata_t *cd)
 {
-	double p = 0, t = 0;
-	QMetaObject::invokeMethod(this, [this] { cancelRecall(); });
-
-	if (calldata_get_float(cd, "pan", &p) + calldata_get_float(cd, "tilt", &t))
-		QMetaObject::invokeMethod(this, "pantilt_rel", Q_ARG(double, p), Q_ARG(double, t));
+	OBSData distances = moveValues(cd);
+	QMetaObject::invokeMethod(this, [this, distances] {
+		cancelRecall();
+		if (dataCount(distances))
+			moveRel(distances);
+	});
 }
 
 /**
@@ -585,11 +618,14 @@ void PTZDevice::saveState(OBSData out) const
 const QList<QPair<PTZDevice::Feature, const char *>> &PTZDevice::featureNames()
 {
 	static const QList<QPair<Feature, const char *>> names = {
-		{PanTilt, "pantilt"},
+		{Pan, "pan"},
+		{Tilt, "tilt"},
 		{Zoom, "zoom"},
 		{Focus, "focus"},
-		{PanTiltAbs, "pantilt_abs"},
-		{PanTiltRel, "pantilt_rel"},
+		{PanAbs, "pan_abs"},
+		{TiltAbs, "tilt_abs"},
+		{PanRel, "pan_rel"},
+		{TiltRel, "tilt_rel"},
 		{ZoomAbs, "zoom_abs"},
 		{FocusAbs, "focus_abs"},
 		{Home, "home"},
@@ -614,8 +650,18 @@ void PTZDevice::saveFeatures(obs_data_t *data, Features features) const
 			obs_data_set_bool(names, name, true);
 	}
 	/* "presets" is either store: the local one needs only a position to go to */
-	if (features & (PanTiltAbs | ZoomAbs | FocusAbs))
+	if (features & (PanAbs | TiltAbs | ZoomAbs | FocusAbs))
 		obs_data_set_bool(names, "presets", true);
+	/* "pantilt" and the rest are both axes', as they were before each had its own */
+	const QList<QPair<Features, const char *>> pairs = {
+		{Pan | Tilt, "pantilt"},
+		{PanAbs | TiltAbs, "pantilt_abs"},
+		{PanRel | TiltRel, "pantilt_rel"},
+	};
+	for (const auto &[both, name] : pairs) {
+		if ((features & both) == both)
+			obs_data_set_bool(names, name, true);
+	}
 	obs_data_set_obj(data, "features", names);
 }
 
@@ -664,22 +710,24 @@ static OBSData axisEntry(obs_data_t *parent, const char *axis)
 	return OBSData(entry.Get());
 }
 
-bool PTZDevice::setAxisStep(const char *axis, double step)
+bool PTZDevice::setAxisStep(const char *name, double step)
 {
-	if (!(step > 0.0))
+	Axis *a = axis(name);
+	if (!a || !(step > 0.0))
 		return false;
 	step = std::min(step, 1.0);
-	OBSData now = axisEntry(state, axis);
-	if (obs_data_has_user_value(now, "step") && fabs(obs_data_get_double(now, "step") - step) <= step * 1e-6)
+	if (fabs(a->step - step) <= step * 1e-6)
 		return false;
-	obs_data_set_double(now, "step", step);
-	obs_data_set_double(axisEntry(stateChanged, axis), "step", step);
+	a->step = step;
+	for (obs_data_t *where : {state.Get(), stateChanged.Get()})
+		obs_data_set_double(axisEntry(where, name), "step", step);
 	return true;
 }
 
-bool PTZDevice::setAxisScale(const char *axis, const char *unit, const std::vector<AxisPoint> &points)
+bool PTZDevice::setAxisScale(const char *name, const char *unit, const std::vector<AxisPoint> &points)
 {
-	if (!unit || !*unit || points.size() < 2)
+	Axis *a = axis(name);
+	if (!a || !unit || !*unit || points.size() < 2)
 		return false;
 	OBSDataArrayAutoRelease array = obs_data_array_create();
 	for (const AxisPoint &point : points) {
@@ -694,11 +742,11 @@ bool PTZDevice::setAxisScale(const char *axis, const char *unit, const std::vect
 	obs_data_set_string(written, "unit", unit);
 	obs_data_set_array(written, "points", array);
 	std::string json = obs_data_get_json(written);
-	if (axisScales[axis] == json)
+	if (a->scale == json)
 		return false;
-	axisScales[axis] = json;
+	a->scale = json;
 	for (obs_data_t *where : {state.Get(), stateChanged.Get()}) {
-		OBSData entry = axisEntry(where, axis);
+		OBSData entry = axisEntry(where, name);
 		obs_data_set_string(entry, "unit", unit);
 		obs_data_set_array(entry, "points", array);
 	}
@@ -973,13 +1021,10 @@ void PTZDevice::preset_refresh(calldata_t *)
 
 void PTZDevice::defaults(obs_data_t *config)
 {
-	obs_data_set_default_double(config, "pantilt_speed_max", 1.0);
-	obs_data_set_default_double(config, "zoom_speed_max", 1.0);
-	obs_data_set_default_double(config, "focus_speed_max", 1.0);
-	obs_data_set_default_bool(config, "pan_invert", false);
-	obs_data_set_default_bool(config, "tilt_invert", false);
-	obs_data_set_default_bool(config, "zoom_invert", false);
-	obs_data_set_default_bool(config, "focus_invert", false);
+	for (const AxisInfo &info : kAxes) {
+		obs_data_set_default_double(config, settingKey(info.name, "speed_max").c_str(), 1.0);
+		obs_data_set_default_bool(config, settingKey(info.name, "invert").c_str(), false);
+	}
 	obs_data_set_default_bool(config, "tally_auto", true);
 }
 
@@ -1009,6 +1054,20 @@ void PTZDevice::stripIdentity(obs_data_t *settings)
 	obs_data_erase(settings, "is-self-managed");
 }
 
+void PTZDevice::upgradeSettings(obs_data_t *settings)
+{
+	/* One cap for both, before each had its own. A cap set since is newer,
+	 * and kept. */
+	if (obs_data_has_user_value(settings, "pantilt_speed_max")) {
+		double max = obs_data_get_double(settings, "pantilt_speed_max");
+		for (const char *key : {"pan_speed_max", "tilt_speed_max"}) {
+			if (!obs_data_has_user_value(settings, key))
+				obs_data_set_double(settings, key, max);
+		}
+		obs_data_erase(settings, "pantilt_speed_max");
+	}
+}
+
 void PTZDevice::update(OBSData config)
 {
 	/* Clamp to the same range enforced by the properties slider; a corrupt
@@ -1027,25 +1086,19 @@ void PTZDevice::update(OBSData config)
 	if (tally_auto && !was_tally_auto)
 		QMetaObject::invokeMethod(this, [this]() { onSceneChanged(); }, Qt::QueuedConnection);
 
-	pantilt_speed_max = obs_data_get_double(config, "pantilt_speed_max");
-	zoom_speed_max = obs_data_get_double(config, "zoom_speed_max");
-	focus_speed_max = obs_data_get_double(config, "focus_speed_max");
-	pan_invert = obs_data_get_bool(config, "pan_invert");
-	tilt_invert = obs_data_get_bool(config, "tilt_invert");
-	zoom_invert = obs_data_get_bool(config, "zoom_invert");
-	focus_invert = obs_data_get_bool(config, "focus_invert");
+	for (Axis &a : m_axes) {
+		a.speedMax = obs_data_get_double(config, settingKey(a.name, "speed_max").c_str());
+		a.invert = obs_data_get_bool(config, settingKey(a.name, "invert").c_str());
+	}
 }
 
 void PTZDevice::save(OBSData config) const
 {
 	obs_data_set_string(config, "type", type.c_str());
-	obs_data_set_double(config, "pantilt_speed_max", pantilt_speed_max);
-	obs_data_set_double(config, "zoom_speed_max", zoom_speed_max);
-	obs_data_set_double(config, "focus_speed_max", focus_speed_max);
-	obs_data_set_bool(config, "pan_invert", pan_invert);
-	obs_data_set_bool(config, "tilt_invert", tilt_invert);
-	obs_data_set_bool(config, "zoom_invert", zoom_invert);
-	obs_data_set_bool(config, "focus_invert", focus_invert);
+	for (const Axis &a : m_axes) {
+		obs_data_set_double(config, settingKey(a.name, "speed_max").c_str(), a.speedMax);
+		obs_data_set_bool(config, settingKey(a.name, "invert").c_str(), a.invert);
+	}
 	obs_data_set_bool(config, "tally_auto", tally_auto);
 	if (slotPresets())
 		obs_data_set_int(config, "preset_max", m_maxPresets);
@@ -1130,16 +1183,12 @@ obs_properties_t *PTZDevice::get_obs_properties()
 	if (slotPresets() && cameraPresets().available)
 		obs_properties_add_int_slider(speed, "preset_max", obs_module_text("PTZ.Device.MaxPresets"), 1, 0x80,
 					      1);
-	obs_properties_add_float_slider(speed, "pantilt_speed_max", obs_module_text("PTZ.Device.PanTiltMaxSpeed"), 0.1,
-					1.0, 1.0 / 1024);
-	obs_properties_add_bool(speed, "pan_invert", obs_module_text("PTZ.Device.PanInvertAxis"));
-	obs_properties_add_bool(speed, "tilt_invert", obs_module_text("PTZ.Device.TiltInvertAxis"));
-	obs_properties_add_float_slider(speed, "zoom_speed_max", obs_module_text("PTZ.Device.ZoomMaxSpeed"), 0.1, 1.0,
-					1.0 / 1024);
-	obs_properties_add_bool(speed, "zoom_invert", obs_module_text("PTZ.Device.ZoomInvertAxis"));
-	obs_properties_add_float_slider(speed, "focus_speed_max", obs_module_text("PTZ.Device.FocusMaxSpeed"), 0.1, 1.0,
-					1.0 / 1024);
-	obs_properties_add_bool(speed, "focus_invert", obs_module_text("PTZ.Device.FocusInvertAxis"));
+	for (const AxisInfo &info : kAxes) {
+		obs_properties_add_float_slider(speed, settingKey(info.name, "speed_max").c_str(),
+						obs_module_text(info.speedMaxText), 0.1, 1.0, 1.0 / 1024);
+		obs_properties_add_bool(speed, settingKey(info.name, "invert").c_str(),
+					obs_module_text(info.invertText));
+	}
 	if (features().testFlag(TallyLight))
 		obs_properties_add_bool(speed, "tally_auto", obs_module_text("PTZ.Device.TallyAuto"));
 
@@ -1165,6 +1214,7 @@ void ptz_filter_update(void *data, obs_data_t *settings)
 	auto ptz = static_cast<PTZDevice *>(data);
 	if (!ptz)
 		return;
+	PTZDevice::upgradeSettings(settings);
 	/* .update can be called from any thread. We need it on PTZDevice's thread.
 	 * Copy the data and use invokeMethod to get to the right thread. The copy
 	 * starts from the defaults libobs put in the settings, made into values:
@@ -1528,15 +1578,17 @@ void PTZDevice::moveFinished()
 
 bool PTZDevice::localPresets() const
 {
-	return features() & (PanTiltAbs | ZoomAbs | FocusAbs);
+	return features() & (PanAbs | TiltAbs | ZoomAbs | FocusAbs);
 }
 
 QStringList PTZDevice::valueKeys() const
 {
 	QStringList keys;
 	Features f = features();
-	if (f & PanTiltAbs)
-		keys << QStringLiteral("pan") << QStringLiteral("tilt");
+	if (f & PanAbs)
+		keys << QStringLiteral("pan");
+	if (f & TiltAbs)
+		keys << QStringLiteral("tilt");
 	if (f & ZoomAbs)
 		keys << QStringLiteral("zoom");
 	/* Autofocus on or off, if not a position */
@@ -1581,25 +1633,40 @@ void PTZDevice::applyValues(const Preset &preset)
 		return obs_data_has_user_value(preset.values, key);
 	};
 	Features f = features();
-	bool pan = restores("pan"), tilt = restores("tilt");
-	if ((pan || tilt) && (f & PanTiltAbs)) {
-		bool known = (pan || obs_data_has_user_value(state, "pan")) &&
-			     (tilt || obs_data_has_user_value(state, "tilt"));
-		if (known)
-			pantilt_abs(obs_data_get_double(pan ? preset.values : state, "pan"),
-				    obs_data_get_double(tilt ? preset.values : state, "tilt"));
-		else
-			ptz_info("not restoring %s alone: where the camera is not known", pan ? "pan" : "tilt");
-	}
+	OBSDataAutoRelease positions = obs_data_create();
+	if (restores("pan") && (f & PanAbs))
+		obs_data_set_double(positions, "pan", obs_data_get_double(preset.values, "pan"));
+	if (restores("tilt") && (f & TiltAbs))
+		obs_data_set_double(positions, "tilt", obs_data_get_double(preset.values, "tilt"));
+	pairPanTilt(positions.Get());
 	if (restores("zoom") && (f & ZoomAbs))
-		zoom_abs(obs_data_get_double(preset.values, "zoom"));
+		obs_data_set_double(positions, "zoom", obs_data_get_double(preset.values, "zoom"));
 	if (restores("focus") && (f & (FocusAbs | AutoFocus))) {
 		OBSDataAutoRelease focus = obs_data_get_obj(preset.values, "focus");
 		bool autofocus = obs_data_has_user_value(focus, "af_enabled") && obs_data_get_bool(focus, "af_enabled");
 		if ((f & AutoFocus) && obs_data_has_user_value(focus, "af_enabled"))
 			set_autofocus(autofocus);
 		if (!autofocus && (f & FocusAbs) && obs_data_has_user_value(focus, "position"))
-			focus_abs(obs_data_get_double(focus, "position"));
+			obs_data_set_double(positions, "focus", obs_data_get_double(focus, "position"));
+	}
+	if (dataCount(positions))
+		moveAbs(positions.Get());
+}
+
+/* A camera goes to a pan and tilt together, so one of them alone in
+ * `positions` is with the other where it is now, or neither is there, if that
+ * isn't known */
+void PTZDevice::pairPanTilt(obs_data_t *positions)
+{
+	bool pan = obs_data_has_user_value(positions, "pan"), tilt = obs_data_has_user_value(positions, "tilt");
+	if (pan == tilt)
+		return;
+	const char *other = pan ? "tilt" : "pan";
+	if (obs_data_has_user_value(state, other)) {
+		obs_data_set_double(positions, other, obs_data_get_double(state, other));
+	} else {
+		ptz_info("not moving %s alone: where the camera is not known", pan ? "pan" : "tilt");
+		obs_data_erase(positions, pan ? "pan" : "tilt");
 	}
 }
 

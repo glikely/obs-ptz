@@ -19,7 +19,7 @@ Driven through tests/ui-harness/device-settings-test.cpp's
 import pytest
 
 # The filter fixtures live in test_filter_devices.py
-from test_filter_devices import camera_sim, cameras  # noqa: F401
+from test_filter_devices import FILTER_KIND, camera_sim, cameras  # noqa: F401
 
 IDENTITY_KEYS = {"id", "name"}
 
@@ -95,7 +95,8 @@ def test_filter_updated_with_one_setting_keeps_the_rest_at_their_defaults(obs_wo
     # nobody set these, and updating the one must not have lost their defaults
     saved = obs_world.device_settings(device_name, out)["saved"]
     assert saved["preset_max"] == 16
-    assert saved["pantilt_speed_max"] == 1.0
+    assert saved["pan_speed_max"] == 1.0
+    assert saved["tilt_speed_max"] == 1.0
 
 
 @pytest.mark.parametrize("model,has_camera_store", [("0123:0001", True), ("0123:0008", False)])
@@ -112,3 +113,34 @@ def test_max_presets_is_offered_for_a_camera_that_keeps_presets(request, obs_wor
     keys = obs_world.device_settings(camera.device_name, tmp_path / "settings.json")
     assert "preset_max" in keys["save_keys"]
     assert ("preset_max" in keys["property_keys"]) is has_camera_store
+
+
+@pytest.mark.parametrize("given,pan,tilt", [
+    ({"pantilt_speed_max": 0.5}, 0.5, 0.5),
+    ({"pantilt_speed_max": 0.5, "tilt_speed_max": 0.25}, 0.5, 0.25),
+])
+def test_an_older_pantilt_speed_max_becomes_pan_and_tilt(obs_world, cameras, tmp_path, given, pan,  # noqa: F811
+                                                          tilt):
+    """Older versions saved one cap for pan and tilt, pantilt_speed_max,
+    which a filter made with it takes as each's, but not over one of
+    them set since; and which it then saves as them, not as itself."""
+    cameras.add_source(obs_world.create_scene(), "old-speed-cam")
+    obs_world.ws.call("CreateSourceFilter", {
+        "sourceName": "old-speed-cam",
+        "filterName": "PTZ",
+        "filterKind": FILTER_KIND,
+        "filterSettings": {
+            "type": "visca-over-tcp",
+            "host": "127.0.0.1",
+            "tcp_port": cameras.sim.tcp_port,
+            **given,
+        },
+    })
+    out = tmp_path / "settings.json"
+    device_name = obs_world.wait_for_device_by_name("old-speed-cam", out, lambda r: r["found"] and r["bound"])["uuid"]
+
+    saved = obs_world.device_settings(device_name, out)["saved"]
+    assert (saved["pan_speed_max"], saved["tilt_speed_max"]) == (pan, tilt)
+    settings = obs_world.ws.call("GetSourceFilter", {"sourceName": "old-speed-cam", "filterName": "PTZ"})["filterSettings"]
+    assert "pantilt_speed_max" not in settings
+    assert (settings["pan_speed_max"], settings["tilt_speed_max"]) == (pan, tilt)
