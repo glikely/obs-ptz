@@ -26,6 +26,7 @@
 #include <functional>
 #include <QSlider>
 #include <QToolButton>
+#include <QActionGroup>
 #include <QMenu>
 #include <QFileDialog>
 #include <QMessageBox>
@@ -83,6 +84,32 @@ static QModelIndex deviceIndexForSource(obs_source_t *source)
 		obs_source_enum_active_sources(source, active_src_cb, &index);
 	return index;
 }
+
+/**
+ * class sameSquareFilter - Event filter to keep several widgets as tall as
+ * the one being resized is wide
+ *
+ * For the pages of a tab widget: only the page showing is resized, so each
+ * page sets the height of all of them, and the tabs stay the same height
+ * whichever is showing.
+ */
+class sameSquareFilter : public QObject {
+public:
+	sameSquareFilter(QObject *parent, QList<QWidget *> widgets) : QObject(parent), widgets(widgets) {}
+	bool eventFilter(QObject *watched, QEvent *event) override
+	{
+		Q_UNUSED(watched);
+		if (event->type() == QEvent::Resize) {
+			int height = static_cast<QResizeEvent *>(event)->size().width();
+			for (QWidget *widget : widgets)
+				widget->setMinimumHeight(height);
+		}
+		return false;
+	}
+
+private:
+	QList<QWidget *> widgets;
+};
 
 void PTZControls::autoselectDevice(OBSSource scene)
 {
@@ -360,6 +387,14 @@ PTZControls::PTZControls(QWidget *parent) : QFrame(parent), ui(new Ui::PTZContro
 	/* The dock has the one context menu: the movement controls' own would
 	 * keep it from seeing right-clicks there */
 	ui->movementControlsWidget->setOwnContextMenu(false);
+
+	/* The view control is as tall as the controller, whichever is shown. On
+	 * the widgets in the pages, not the pages: the stack takes its height
+	 * from what its pages' layouts ask for, which counts what is in them. */
+	auto pagesFilter = new sameSquareFilter(this, {ui->movementControlsWidget, ui->viewControl});
+	ui->movementControlsWidget->installEventFilter(pagesFilter);
+	ui->viewControl->installEventFilter(pagesFilter);
+
 	connect(this, &QWidget::customContextMenuRequested, this, &PTZControls::showContextMenu);
 	ui->splitter->handle(1)->installEventFilter(this);
 	presetZoomSlider = new QSlider(Qt::Horizontal, ui->presetToolbar);
@@ -757,6 +792,7 @@ void PTZControls::SaveConfig()
 	obs_data_set_bool(savedata, "refresh_thumbnail_on_recall", refresh_thumbnail_on_recall);
 	obs_data_set_int(savedata, "preset_grid_zoom", presetDelegate->gridZoom());
 	obs_data_set_bool(savedata, "preset_grid_view", ui->actionPresetGridView->isChecked());
+	obs_data_set_int(savedata, "control_mode", ui->controlStack->currentIndex());
 	obs_data_set_bool(savedata, "preset_default_camera", actionPresetDefaultCamera->isChecked());
 	obs_data_set_bool(savedata, "joystick_enable", m_joystick_enable);
 	obs_data_set_int(savedata, "joystick_id", m_joystick_id);
@@ -851,6 +887,8 @@ void PTZControls::LoadConfig()
 	refresh_thumbnail_on_recall = obs_data_get_bool(loaddata, "refresh_thumbnail_on_recall");
 	presetZoomSlider->setValue((int)obs_data_get_int(loaddata, "preset_grid_zoom"));
 	ui->actionPresetGridView->setChecked(obs_data_get_bool(loaddata, "preset_grid_view"));
+	ui->controlStack->setCurrentIndex(
+		std::clamp((int)obs_data_get_int(loaddata, "control_mode"), 0, ui->controlStack->count() - 1));
 	actionPresetDefaultCamera->setChecked(obs_data_get_bool(loaddata, "preset_default_camera"));
 	m_joystick_enable = obs_data_get_bool(loaddata, "joystick_enable");
 	m_joystick_id = (int)obs_data_get_int(loaddata, "joystick_id");
@@ -1019,6 +1057,9 @@ void PTZControls::updateMoveControls()
 
 	/* The movement controls, here and in the settings dialog, follow */
 	emit moveControlsChanged();
+
+	/* The view control shows the source the camera is on */
+	ui->viewControl->setSource(ptzDeviceList->parentSource(device));
 }
 
 /* The camera selected is the one a websocket client means by "selected" */
@@ -1272,7 +1313,21 @@ void PTZControls::showContextMenu(const QPoint &pos)
 	menu.addAction(ui->actionPresetGridView);
 	menu.addSeparator();
 
-	if (!ui->movementControlsWidget->isHidden() && !within(ui->movementControlsWidget)) {
+	/* What the controls area shows: the controller, or the view control */
+	auto *modes = new QActionGroup(&menu);
+	const char *modeNames[] = {"PTZ.Dock.Mode.Controller", "PTZ.Dock.Mode.ViewControl"};
+	for (int i = 0; i < ui->controlStack->count(); i++) {
+		QAction *mode = menu.addAction(obs_module_text(modeNames[i]));
+		mode->setCheckable(true);
+		mode->setChecked(ui->controlStack->currentIndex() == i);
+		modes->addAction(mode);
+		connect(mode, &QAction::triggered, ui->controlStack,
+			[this, i]() { ui->controlStack->setCurrentIndex(i); });
+	}
+	menu.addSeparator();
+
+	/* Only while the controller is what is shown */
+	if (ui->movementControlsWidget->isVisibleTo(this) && !within(ui->movementControlsWidget)) {
 		/* Over the controls the joystick toggle is already above */
 		QAction *joystickAction = menu.addAction(obs_module_text("PTZ.Dock.OnscreenJoystick"));
 		joystickAction->setCheckable(true);

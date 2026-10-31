@@ -62,6 +62,31 @@
          <property name="childrenCollapsible">
           <bool>true</bool>
          </property>
+      <widget class="QStackedWidget" name="controlStack">
+       <property name="sizePolicy">
+        <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
+         <horstretch>0</horstretch>
+         <verstretch>0</verstretch>
+        </sizepolicy>
+       </property>
+       <property name="currentIndex">
+        <number>0</number>
+       </property>
+       <widget class="QWidget" name="controllerPage">
+        <layout class="QVBoxLayout" name="controllerPageVerticalLayout">
+         <property name="leftMargin">
+          <number>0</number>
+         </property>
+         <property name="topMargin">
+          <number>0</number>
+         </property>
+         <property name="rightMargin">
+          <number>0</number>
+         </property>
+         <property name="bottomMargin">
+          <number>0</number>
+         </property>
+         <item>
       <widget class="PTZMovementControls" name="movementControlsWidget" native="true">
        <property name="sizePolicy">
         <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
@@ -69,6 +94,29 @@
          <verstretch>0</verstretch>
         </sizepolicy>
        </property>
+      </widget>
+         </item>
+        </layout>
+       </widget>
+       <widget class="QWidget" name="viewControlPage">
+        <layout class="QVBoxLayout" name="viewControlPageVerticalLayout">
+         <property name="leftMargin">
+          <number>0</number>
+         </property>
+         <property name="topMargin">
+          <number>0</number>
+         </property>
+         <property name="rightMargin">
+          <number>0</number>
+         </property>
+         <property name="bottomMargin">
+          <number>0</number>
+         </property>
+         <item>
+          <widget class="PTZViewControl" name="viewControl" native="true"/>
+         </item>
+        </layout>
+       </widget>
       </widget>
       <widget class="CircularListView" name="deviceList">
        <property name="sizePolicy">
@@ -280,6 +328,11 @@
    <extends>QWidget</extends>
    <header>ptz-movement-controls.hpp</header>
    <container>1</container>
+  </customwidget>
+  <customwidget>
+   <class>PTZViewControl</class>
+   <extends>QWidget</extends>
+   <header>ptz-view-control.hpp</header>
   </customwidget>
  </customwidgets>
  <resources>

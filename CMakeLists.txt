@@ -317,6 +317,7 @@ target_sources(
     src/controller/ptz-camera-report.cpp
     src/controller/ptz-state-view.cpp
     src/controller/ptz-source-display.cpp
+    src/controller/ptz-view-control.cpp
     src/controller/ptz-ws-decl.cpp
     src/controller/ptz-websocket.cpp
     src/controller/ptz-action-source.c
@@ -333,6 +334,7 @@ target_sources(
     src/controller/ptz-camera-report.hpp
     src/controller/ptz-state-view.hpp
     src/controller/ptz-source-display.hpp
+    src/controller/ptz-view-control.hpp
     src/controller/ptz-ws-decl.hpp
     src/controller/ptz-websocket.hpp
     src/controller/obs-websocket-api.h
