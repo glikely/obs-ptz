@@ -279,6 +279,7 @@ void ptz_pelco_register_filter()
 	};
 	info.get_properties = ptz_filter_get_properties;
 	info.update = ptz_filter_update;
+	info.video_render = ptz_filter_video_render;
 	info.save = ptz_filter_save;
 	info.filter_remove = ptz_filter_remove;
 	info.icon_type = OBS_ICON_TYPE_CAMERA;

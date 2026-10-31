@@ -578,6 +578,7 @@ Q_DECLARE_OPERATORS_FOR_FLAGS(PTZDevice::Features)
 void *ptz_filter_create(const std::function<PTZDevice *()> &make);
 obs_properties_t *ptz_filter_get_properties(void *data);
 void ptz_filter_update(void *data, obs_data_t *settings);
+void ptz_filter_video_render(void *data, gs_effect_t *);
 void ptz_filter_add(void *data, obs_source_t *parent);
 void ptz_filter_remove(void *data, obs_source_t *);
 void ptz_filter_destroy(void *data);

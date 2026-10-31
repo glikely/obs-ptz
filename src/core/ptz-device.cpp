@@ -1244,6 +1244,17 @@ void *ptz_filter_create(const std::function<PTZDevice *()> &make)
 	return ptz;
 }
 
+/* Without a video_render, libobs draws the filter's target with no effect, and
+ * an image, which leaves the effect to its caller, draws nothing */
+void ptz_filter_video_render(void *data, gs_effect_t *)
+{
+	OBSSourceAutoRelease filter = static_cast<PTZDevice *>(data)->filterSource();
+	/* OBS takes the parent of a filter that may not be duplicated away when
+	 * it frees a copy of the source: nothing to skip to, as in softCamRender */
+	if (filter && obs_filter_get_parent(filter) && obs_filter_get_target(filter))
+		obs_source_skip_video_filter(filter);
+}
+
 void ptz_filter_add(void *data, obs_source_t *parent)
 {
 	auto ptz = static_cast<PTZDevice *>(data);
