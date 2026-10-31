@@ -446,9 +446,7 @@ void PTZViewControl::updateReadout(const QModelIndex &index)
 		return value ? QString::asprintf("% .3f", *value) : QString(6, ' ');
 	};
 	QString text = QString("%1:%2 %3:%4 %5:%6")
-			       .arg("Pan", value(m_shownPan),
-				    "Tilt", value(m_shownTilt),
-				    "Zoom", value(m_shownZoom));
+			       .arg("Pan", value(m_shownPan), "Tilt", value(m_shownTilt), "Zoom", value(m_shownZoom));
 	setText(m_positionReadout, text);
 }
 

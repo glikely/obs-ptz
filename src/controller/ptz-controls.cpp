@@ -1321,7 +1321,8 @@ void PTZControls::showContextMenu(const QPoint &pos)
 		mode->setCheckable(true);
 		mode->setChecked(ui->controlStack->currentIndex() == i);
 		modes->addAction(mode);
-		connect(mode, &QAction::triggered, ui->controlStack, [this, i]() { ui->controlStack->setCurrentIndex(i); });
+		connect(mode, &QAction::triggered, ui->controlStack,
+			[this, i]() { ui->controlStack->setCurrentIndex(i); });
 	}
 	menu.addSeparator();
 
