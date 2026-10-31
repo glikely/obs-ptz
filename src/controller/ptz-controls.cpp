@@ -1220,8 +1220,7 @@ void PTZControls::showContextMenu(const QPoint &pos)
 	if (within(ui->deviceList))
 		device = ui->deviceList->indexAt(ui->deviceList->viewport()->mapFrom(this, pos));
 	if (device.isValid()) {
-		OBSDataAutoRelease state = obs_data_create();
-		ptzDeviceList->saveState(device, state.Get());
+		OBSData state = ptzDeviceList->deviceState(device);
 		power_on = obs_data_get_bool(state, "power_on");
 		if (PTZListModel::hasFeature(device, "power"))
 			powerAction = menu.addAction(

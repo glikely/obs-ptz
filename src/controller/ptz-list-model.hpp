@@ -181,7 +181,6 @@ public:
 	 * such device. For reading: the model and the device's own state are behind
 	 * it, and an object in it can change in place, so don't keep one. */
 	OBSData deviceState(const QModelIndex &index) const;
-	void saveState(const QModelIndex &index, OBSData state) const;
 	void setState(const QModelIndex &index, OBSData state);
 	void removeDevice(const QModelIndex &index);
 

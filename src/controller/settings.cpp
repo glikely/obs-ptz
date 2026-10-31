@@ -1008,9 +1008,7 @@ void PTZSettings::currentChanged(const QModelIndex &current, const QModelIndex &
 	 * keys, only without their values */
 	reloadSettings();
 
-	OBSDataAutoRelease state = obs_data_create();
-	ptzDeviceList->saveState(current, state.Get());
-	ui->stateView->setState(state.Get());
+	ui->stateView->setState(ptzDeviceList->deviceState(current));
 	updateHeader();
 	refreshStatistics();
 }

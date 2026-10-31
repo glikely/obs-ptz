@@ -236,9 +236,7 @@ void PTZMovementControls::updateControls()
 	ui->zoomButton_tele->setEnabled(!is_locked && PTZListModel::hasFeature(index, "zoom"));
 	ui->zoomButton_wide->setEnabled(!is_locked && PTZListModel::hasFeature(index, "zoom"));
 
-	OBSDataAutoRelease state = obs_data_create();
-	ptzDeviceList->saveState(index, state.Get());
-	showAutofocus(obs_data_get_bool(state, "focus_af_enabled"));
+	showAutofocus(obs_data_get_bool(ptzDeviceList->deviceState(index), "focus_af_enabled"));
 }
 
 bool PTZMovementControls::onscreenJoystick() const
