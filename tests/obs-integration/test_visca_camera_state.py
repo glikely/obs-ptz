@@ -20,6 +20,7 @@ device's state.
 
 import itertools
 import json
+import signal
 import subprocess
 import sys
 import urllib.request
@@ -27,7 +28,7 @@ import urllib.request
 import pytest
 from obsws import ObsWebSocketError
 
-from conftest import OBS_MAIN, PTZ_DOCK, REPO_ROOT, SETTINGS_DIALOG, free_port, output_log, wait_for_port
+from conftest import OBS_MAIN, PTZ_DOCK, REPO_ROOT, SETTINGS_DIALOG, free_port, header_pan, output_log, wait_for_port
 
 FILTER_KIND = "ca.secretlab.obs-ptz.visca"
 
@@ -114,7 +115,16 @@ class CameraSim:
         wait_for_port("127.0.0.1", self.debug_port, timeout=15)
         wait_for_port("127.0.0.1", self.tcp_port, timeout=15)
 
+    def freeze(self):
+        """Stops the camera answering anything, without closing its socket"""
+        self.proc.send_signal(signal.SIGSTOP)
+
+    def thaw(self):
+        self.proc.send_signal(signal.SIGCONT)
+
     def stop(self):
+        if sys.platform != "win32" and self.proc.poll() is None:
+            self.thaw()
         self.proc.terminate()
         try:
             self.proc.wait(timeout=5)
@@ -352,6 +362,34 @@ def test_preview_only_keeps_its_source_showing_while_it_can_be_seen(request, obs
 
     obs_world.ui.invoke(SETTINGS_DIALOG, method="show")
     obs_world.wait_for(lambda: source_showing(obs_world, camera.source), timeout=5)
+
+
+@pytest.mark.skipif(sys.platform == "win32", reason="needs SIGSTOP")
+def test_header_waits_for_the_camera_to_say_it_changed(request, obs_world, tmp_path):
+    camera = make_camera(request.addfinalizer, obs_world, tmp_path)
+    out, _ = open_dialog(obs_world, camera, tmp_path)
+    obs_world.wait_for_settings_dialog(out, lambda r: "Powered on" in r["header"])
+
+    camera.sim.freeze()
+    request.addfinalizer(camera.sim.thaw)
+    obs_world.edit_dialog_state(power_on=False)
+    # Anything that redraws the header will do, and this leaves it as it was
+    locked = obs_world.ui.get1(SETTINGS_DIALOG, "livemoveCheckBox", name="checked")
+    obs_world.set_live_move_lock(not locked)
+    obs_world.set_live_move_lock(locked)
+
+    dialog = obs_world.wait_for_settings_dialog(out, lambda r: r["shown"]["power_on"] is False)
+    assert "Powered on" in dialog["header"]
+
+
+def test_header_hides_where_a_camera_that_is_off_is(request, obs_world, tmp_path):
+    camera = make_camera(request.addfinalizer, obs_world, tmp_path)
+    out, _ = open_dialog(obs_world, camera, tmp_path)
+    obs_world.wait_for_settings_dialog(out, header_pan)
+
+    obs_world.set_device_state(camera.device_name, power_on=False)
+    dialog = obs_world.wait_for_settings_dialog(out, lambda r: "Powered off" in r["header"])
+    assert header_pan(dialog) is None
 
 
 def test_state_view_has_none_of_them_for_another_protocol(obs_world, tmp_path):

@@ -55,6 +55,7 @@
 #include "ptz-controls.hpp"
 #include "settings.hpp"
 #include "ptz-camera-report.hpp"
+#include "ptz-state-format.hpp"
 #include "ptz-state-view.hpp"
 #include "contributors-generated.hpp"
 #include "translators-generated.hpp"
@@ -239,7 +240,6 @@ PTZSettings::PTZSettings() : QWidget(nullptr), ui(new Ui_PTZSettings)
 	connect(ui->stateView, &PTZStateView::diagnosticsAvailableChanged, this, [this](bool available) {
 		ui->deviceTabs->setTabVisible(ui->deviceTabs->indexOf(ui->diagnosticsTab), available);
 	});
-	connect(ui->stateView, &PTZStateView::shownChanged, this, &PTZSettings::updateHeader);
 	updateHeader();
 
 	/* What the user asks of the camera in the state view is a request, not
@@ -908,24 +908,24 @@ void PTZSettings::matchVideoHeight()
  * showing, and while the rest of the group is hidden */
 void PTZSettings::updateHeader()
 {
-	const QVariantMap shown = ui->stateView->shownValues();
-	if (!ui->deviceList->currentIndex().isValid()) {
+	const QModelIndex current = ui->deviceList->currentIndex();
+	if (!current.isValid()) {
 		ui->deviceName->clear();
 		ui->statusHeader->clear();
 		updateAutofocusIcon(false, false);
 		return;
 	}
+	const OBSData state = ptzDeviceList->deviceState(current);
 
 	auto badge = [](const char *dot, const char *color, const QString &text) {
 		return QString("<span style='color:%1'>%2</span>&nbsp;%3").arg(color, dot, text.toHtmlEscaped());
 	};
 	QStringList parts;
-	if (shown.value("connected").toBool())
+	if (current.data(PTZListModel::IsConnectedRole).toBool())
 		parts << badge("\u25cf", "#3cb44b", obs_module_text("PTZ.Device.Status.Connected"));
 	else
 		parts << badge("\u25cb", "#e74c3c", obs_module_text("PTZ.Device.Status.Disconnected"));
 	/* Where the device's source is, and whether it is locked, are the device list's to say */
-	const QModelIndex current = ui->deviceList->currentIndex();
 	if (current.data(PTZListModel::IsLiveRole).toBool())
 		parts << badge("\u25cf", "#e74c3c", obs_module_text("PTZ.Settings.Header.Live"));
 	if (current.data(PTZListModel::IsPreviewRole).toBool())
@@ -936,8 +936,8 @@ void PTZSettings::updateHeader()
 
 	/* A camera that is switched off isn't anywhere in particular, so its
 	 * position isn't shown, whatever it last reported */
-	const bool powerKnown = shown.contains("power_on");
-	const bool poweredOff = powerKnown && !shown.value("power_on").toBool();
+	const bool powerKnown = obs_data_has_user_value(state, "power_on");
+	const bool poweredOff = powerKnown && !obs_data_get_bool(state, "power_on");
 	if (powerKnown) {
 		if (poweredOff)
 			parts << badge("\u25cb", "#999999", obs_module_text("PTZ.Settings.Header.PowerOff"));
@@ -948,19 +948,17 @@ void PTZSettings::updateHeader()
 	QStringList position;
 	if (!poweredOff)
 		for (const char *axis : {"pan", "tilt", "zoom", "focus"})
-			if (shown.contains(axis))
+			if (obs_data_has_user_value(state, axis))
 				position << QString("%1&nbsp;%2")
 						    .arg(QString(axis).left(1).toUpper(),
-							 shown.value(QString("%1_text").arg(axis))
-								 .toString()
-								 .toHtmlEscaped());
+							 ptzAxisText(state, axis).toHtmlEscaped());
 	if (!position.isEmpty())
 		parts << position.join("&nbsp;&nbsp;");
 
-	updateAutofocusIcon(!poweredOff && shown.contains("focus_af_enabled"),
-			    shown.value("focus_af_enabled").toBool());
+	updateAutofocusIcon(!poweredOff && obs_data_has_user_value(state, "focus_af_enabled"),
+			    obs_data_get_bool(state, "focus_af_enabled"));
 
-	ui->deviceName->setText(ui->deviceList->currentIndex().data(Qt::DisplayRole).toString());
+	ui->deviceName->setText(current.data(Qt::DisplayRole).toString());
 	ui->statusHeader->setText(parts.join("&nbsp;&nbsp;&nbsp;"));
 }
 

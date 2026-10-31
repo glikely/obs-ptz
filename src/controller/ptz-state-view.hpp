@@ -114,18 +114,14 @@ private:
 	QCheckBox *m_tally;
 	QCheckBox *m_tallyPreview;
 
-	/* Where the camera is. Not shown here: the settings dialog's status line
-	 * shows it, from shownValues(), so it is only kept, to 3 places, and
-	 * reported when it changes (shownChanged()). */
+	/* Where the camera is. Not shown here, so it is only kept, to 3 places,
+	 * for shownValues(). */
 	const char *m_axisKeys[AxisCount] = {"pan", "tilt", "zoom", "focus"};
 	std::optional<double> m_axis[AxisCount];
 	/* What the device says of each axis (its "axes" state: the step, and the unit
 	 * and points that turn its position into degrees, a zoom multiplier or a
 	 * focus distance), kept as it reports it. */
 	OBSData m_axes;
-	/* An axis's position as text, in its unit where the device says what it is,
-	 * and as the position, to 3 places, where not */
-	QString axisText(int axis) const;
 
 	QGroupBox *m_whiteBalanceGroup;
 	QComboBox *m_whiteBalanceMode;

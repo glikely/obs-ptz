@@ -258,6 +258,7 @@ void PTZListModel::refreshDeviceState(PTZDeviceEntry *entry)
 	calldata_set_ptr(&cd, "state", state.Get());
 	callEntry(*entry, "ptz_get_state", &cd);
 	calldata_free(&cd);
+	entry->state = state.Get();
 
 	if (obs_data_has_user_value(state, "source")) {
 		entry->name = QT_UTF8(obs_data_get_string(state, "source"));
@@ -823,6 +824,15 @@ void PTZListModel::update(const QModelIndex &index, OBSData settings)
 	OBSDataAutoRelease changes = obs_data_create();
 	obs_data_apply(changes, settings);
 	obs_source_update(source, changes);
+}
+
+OBSData PTZListModel::deviceState(const QModelIndex &index) const
+{
+	auto entry = entryAt(index);
+	if (entry)
+		return entry->state;
+	OBSDataAutoRelease none = obs_data_create();
+	return OBSData(none.Get());
 }
 
 /**

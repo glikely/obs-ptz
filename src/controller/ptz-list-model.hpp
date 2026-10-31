@@ -66,6 +66,9 @@ private:
 		/* The names in its state's "features", or nothing if it has none:
 		 * a device from before there were, which can do anything */
 		std::optional<QStringList> features;
+		/* The device's whole state, as ptz_get_state last gave it. Replaced,
+		 * never changed here. */
+		OBSData state;
 		QList<PresetEntry> presets;
 	};
 
@@ -174,6 +177,10 @@ public:
 	void save(const QModelIndex &index, OBSData settings) const;
 	void update(const QModelIndex &index, OBSData settings);
 	obs_properties_t *getProperties(const QModelIndex &index) const;
+	/* The device's state as last reported, or an empty object if there is no
+	 * such device. For reading: the model and the device's own state are behind
+	 * it, and an object in it can change in place, so don't keep one. */
+	OBSData deviceState(const QModelIndex &index) const;
 	void saveState(const QModelIndex &index, OBSData state) const;
 	void setState(const QModelIndex &index, OBSData state);
 	void removeDevice(const QModelIndex &index);

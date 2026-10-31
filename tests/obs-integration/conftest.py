@@ -165,6 +165,15 @@ OBS_MAIN = {"class": "OBSBasic"}
 PTZ_DOCK = {"class": "PTZControls"}
 SETTINGS_DIALOG = {"name": "PTZSettings"}
 STATE_VIEW = {"class": "PTZStateView"}
+
+
+def header_pan(dialog):
+    """Where the settings dialog's header says the camera has panned to, as the
+    text it gives, or None if it doesn't say"""
+    found = re.search(r"\bP&nbsp;([^&]+)", dialog["header"] or "")
+    return found.group(1) if found else None
+
+
 REPORT_DIALOG = {"class": "PTZCameraReportDialog"}
 # The dock's controls whose enabled state follows what the camera can do
 DOCK_CONTROLS = ("panTiltButton_up", "panTiltButton_home", "panTiltTouch", "zoomButton_tele", "zoomButton_wide",
