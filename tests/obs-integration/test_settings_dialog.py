@@ -155,8 +155,9 @@ def test_status_view_updates_in_place(obs_world, tmp_path):
     before = obs_world.wait_for_settings_dialog(out, lambda r: r["connected"] and "wb_mode" in r["state_keys"])
     assert before["wb_widget"], "the status view has no white balance list"
 
-    # What changes as a camera works: what it reports of itself, and where it is
-    for mode in (1, 2, 1):
+    # What changes as a camera works: what it reports of itself, and where it
+    # is, which it doesn't show
+    for mode in (1, 2, 1, 2):
         obs_world.set_device_state(device_name, wb_mode=mode)
         obs_world.wait_for_settings_dialog(out, lambda r, m=mode: r["wb_mode"] == m)
     obs_world.trigger_action(device_name, ACTION_PAN_TILT, pan_speed=0.6, tilt_speed=0.0)

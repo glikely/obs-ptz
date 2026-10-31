@@ -7,8 +7,8 @@
 #pragma once
 
 #include <memory>
-#include <optional>
 #include <vector>
+#include <QPersistentModelIndex>
 #include <QWidget>
 #include <QTimer>
 #include <QVariantMap>
@@ -22,9 +22,8 @@ class QLabel;
 class QPushButton;
 class QVBoxLayout;
 
-/* Shows what a device reports of itself (the "ptz_get_state" proc): whether it is
- * connected, live, in the preview and locked, and, for a camera
- * that reports them, its power, autofocus and tally
+/* Shows a device's state as the list model has it, following it as it changes:
+ * whether it is connected, and, for a camera that reports them, its power, autofocus and tally
  * lamps' state, its white balance, and the rest of what a VISCA camera reports
  * of its focus, exposure, picture, system and pan/tilt, most of which can be
  * changed. For a device that has them ("diagnostics" in its "features"),
@@ -49,18 +48,14 @@ public:
 	explicit PTZStateView(QWidget *parent = nullptr);
 	~PTZStateView() override;
 
-	/* Show all of a device's state, as PTZDevice::saveState() gives it. A
-	 * key that isn't in it isn't shown, and the rest is reset. */
-	void setState(OBSData state);
-	/* Fold in only what changed, the diff a device's ptz_state_changed signal
-	 * carries, leaving the rest as it was. */
-	void applyChanges(OBSData changed);
+	/* Follow this device, as the list model has it */
+	void setDevice(const QModelIndex &index);
 	/* Show a device's statistics, as PTZDevice::saveStatistics() gives
 	 * them: read from it now and then, not part of its state */
 	void setStatistics(OBSData statistics);
 
 	/* What is shown, key by key: the value of each row that is visible. For
-	 * tests, and anything else that wants to know what the user sees. */
+	 * tests: code that wants a device's state asks the list model. */
 	QVariantMap shownValues() const;
 	/* How many updates changed something that is shown */
 	int updateCount() const { return m_updateCount; }
@@ -86,15 +81,13 @@ signals:
 	void cameraReportRequested();
 
 private:
-	static constexpr int AxisCount = 4;
-
 	/* One state key's row, of the ones made from a table rather than by
 	 * hand: see ptz-state-view.cpp. Shown as a checkbox, a list to pick
 	 * from, a number, or text that can't be edited. */
 	struct Field;
 	enum FieldKind { FlagField, ChoiceField, NumberField, TextField };
 
-	void applyData(obs_data_t *data, bool all);
+	void showState(obs_data_t *data);
 	void showWhiteBalance(int mode);
 	void setRowVisible(QWidget *label, QWidget *field, bool visible);
 
@@ -103,6 +96,8 @@ private:
 	void requestField(Field *field, const QVariant &value);
 	bool showField(Field *field, const QVariant &value);
 	void showShutterSpeeds();
+
+	QPersistentModelIndex m_device;
 
 	QCheckBox *m_connected;
 
@@ -113,15 +108,6 @@ private:
 	QCheckBox *m_focusAuto;
 	QCheckBox *m_tally;
 	QCheckBox *m_tallyPreview;
-
-	/* Where the camera is. Not shown here, so it is only kept, to 3 places,
-	 * for shownValues(). */
-	const char *m_axisKeys[AxisCount] = {"pan", "tilt", "zoom", "focus"};
-	std::optional<double> m_axis[AxisCount];
-	/* What the device says of each axis (its "axes" state: the step, and the unit
-	 * and points that turn its position into degrees, a zoom multiplier or a
-	 * focus distance), kept as it reports it. */
-	OBSData m_axes;
 
 	QGroupBox *m_whiteBalanceGroup;
 	QComboBox *m_whiteBalanceMode;

@@ -6,6 +6,7 @@
 #include <QFormLayout>
 #include <QGridLayout>
 #include <QGroupBox>
+#include <QItemSelectionRange>
 #include <QLabel>
 #include <QLocale>
 #include <QPushButton>
@@ -14,6 +15,7 @@
 #include <QVBoxLayout>
 
 #include <obs-module.h>
+#include "ptz-list-model.hpp"
 
 /* What each white balance mode is called, in the order the camera numbers
  * them */
@@ -123,6 +125,12 @@ static QCheckBox *makeIndicator(const char *text)
 
 PTZStateView::PTZStateView(QWidget *parent) : QWidget(parent)
 {
+	connect(ptzDeviceList, &PTZListModel::dataChanged, this,
+		[this](const QModelIndex &topLeft, const QModelIndex &bottomRight) {
+			if (QItemSelectionRange(topLeft, bottomRight).contains(QModelIndex(m_device)))
+				showState(ptzDeviceList->deviceState(m_device));
+		});
+
 	auto page = new QVBoxLayout(this);
 	page->setContentsMargins(0, 0, 0, 0);
 
@@ -616,40 +624,30 @@ void PTZStateView::showWhiteBalance(int mode)
 		m_whiteBalanceMode->setCurrentIndex(at);
 }
 
-void PTZStateView::setState(OBSData state)
+void PTZStateView::setDevice(const QModelIndex &index)
 {
-	applyData(state, true);
+	m_device = index;
+	showState(ptzDeviceList->deviceState(index));
 }
 
-void PTZStateView::applyChanges(OBSData changed)
-{
-	applyData(changed, false);
-}
-
-/* `all` is a whole state, in which a key that isn't there means the device
- * doesn't report it; otherwise only what changed, and a key that isn't there
- * hasn't. Nothing is set that already has that value, so a widget is only
- * touched when there is something new to show in it. */
-void PTZStateView::applyData(obs_data_t *data, bool all)
+/* A key that isn't in the state means the device doesn't report it. Nothing is
+ * set that already has that value, so a widget is only touched when there is
+ * something new to show in it. */
+void PTZStateView::showState(obs_data_t *data)
 {
 	bool changed = false;
 	auto has = [data](const char *key) {
 		return obs_data_has_user_value(data, key);
 	};
-	auto setFlag = [&](QCheckBox *box, const char *key) {
-		if (!all && !has(key))
-			return;
-		bool value = obs_data_get_bool(data, key);
-		if (box->isChecked() != value) {
-			box->setChecked(value);
-			changed = true;
-		}
-	};
 
-	setFlag(m_connected, "connected");
+	bool connected = obs_data_get_bool(data, "connected");
+	if (m_connected->isChecked() != connected) {
+		m_connected->setChecked(connected);
+		changed = true;
+	}
 
-	/* Commandable, unlike the indicators above: shown only while the
-	 * device reports the key at all, like an axis row */
+	/* Commandable, unlike the indicator above: shown only while the
+	 * device reports the key at all */
 	auto setCommandableFlag = [&](QCheckBox *box, const char *key) {
 		bool shown = !box->isHidden();
 		if (has(key)) {
@@ -662,7 +660,7 @@ void PTZStateView::applyData(obs_data_t *data, bool all)
 				box->show();
 				changed = true;
 			}
-		} else if (all && shown) {
+		} else if (shown) {
 			box->hide();
 			changed = true;
 		}
@@ -672,44 +670,6 @@ void PTZStateView::applyData(obs_data_t *data, bool all)
 	setCommandableFlag(m_tally, "tally_on");
 	setCommandableFlag(m_tallyPreview, "tally_preview");
 
-	for (int i = 0; i < AxisCount; i++) {
-		const char *key = m_axisKeys[i];
-		if (has(key)) {
-			double value = QString::asprintf("%.3f", obs_data_get_double(data, key)).toDouble();
-			if (m_axis[i] != value) {
-				m_axis[i] = value;
-				changed = true;
-			}
-		} else if (all && m_axis[i]) {
-			m_axis[i].reset();
-			changed = true;
-		}
-	}
-
-	/* What each axis means, of which a report has only what changed */
-	if (has("axes")) {
-		OBSDataAutoRelease axes = obs_data_get_obj(data, "axes");
-		if (!m_axes) {
-			/* OBSData takes a reference of its own */
-			OBSDataAutoRelease fresh = obs_data_create();
-			m_axes = fresh.Get();
-		}
-		for (obs_data_item_t *item = obs_data_first(axes); item; obs_data_item_next(&item)) {
-			const char *name = obs_data_item_get_name(item);
-			OBSDataAutoRelease entry = obs_data_item_get_obj(item);
-			OBSDataAutoRelease known = obs_data_get_obj(m_axes, name);
-			if (!known) {
-				known = obs_data_create();
-				obs_data_set_obj(m_axes, name, known);
-			}
-			obs_data_apply(known, entry);
-		}
-		changed = true;
-	} else if (all && m_axes) {
-		m_axes = nullptr;
-		changed = true;
-	}
-
 	if (has("wb_mode")) {
 		int mode = (int)obs_data_get_int(data, "wb_mode");
 		if (m_reportedWhiteBalance != mode) {
@@ -717,7 +677,7 @@ void PTZStateView::applyData(obs_data_t *data, bool all)
 			showWhiteBalance(mode);
 			changed = true;
 		}
-	} else if (all && m_reportedWhiteBalance >= 0) {
+	} else if (m_reportedWhiteBalance >= 0) {
 		m_reportedWhiteBalance = -1;
 		changed = true;
 	}
@@ -744,7 +704,7 @@ void PTZStateView::applyData(obs_data_t *data, bool all)
 					field->widget->show();
 				changed = true;
 			}
-		} else if (all && shown) {
+		} else if (shown) {
 			field->reported = QVariant();
 			if (field->label)
 				setRowVisible(field->label, field->widget, false);
@@ -775,14 +735,12 @@ void PTZStateView::applyData(obs_data_t *data, bool all)
 		}
 	}
 
-	if (all || has("features")) {
-		OBSDataAutoRelease features = obs_data_get_obj(data, "features");
-		bool diagnostics = features && obs_data_get_bool(features, "diagnostics");
-		if (diagnostics == m_diagnosticsGroup->isHidden()) {
-			m_diagnosticsGroup->setVisible(diagnostics);
-			changed = true;
-			emit diagnosticsAvailableChanged(diagnostics);
-		}
+	OBSDataAutoRelease features = obs_data_get_obj(data, "features");
+	bool diagnostics = features && obs_data_get_bool(features, "diagnostics");
+	if (diagnostics == m_diagnosticsGroup->isHidden()) {
+		m_diagnosticsGroup->setVisible(diagnostics);
+		changed = true;
+		emit diagnosticsAvailableChanged(diagnostics);
 	}
 
 	if (changed) {
@@ -827,9 +785,6 @@ QVariantMap PTZStateView::shownValues() const
 		shown["tally_on"] = m_tally->isChecked();
 	if (!m_tallyPreview->isHidden())
 		shown["tally_preview"] = m_tallyPreview->isChecked();
-	for (int i = 0; i < AxisCount; i++)
-		if (m_axis[i])
-			shown[m_axisKeys[i]] = *m_axis[i];
 	if (m_reportedWhiteBalance >= 0)
 		shown["wb_mode"] = m_whiteBalanceMode->currentData().toInt();
 	for (const auto &field : m_fields) {

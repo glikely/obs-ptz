@@ -1104,7 +1104,7 @@ class World:
 
           settings_keys - the keys of the settings the settings view edits
           shown, state_keys - every value the state view shows, by key, and its keys
-          wb_mode, connected, pan, tilt, zoom, focus - some of those
+          wb_mode, connected - some of those
           header - the status line above the views, with its markup
           settings_refreshes, state_updates - how often the settings view
               redrew, and the state view changed, since it was opened
@@ -1148,8 +1148,6 @@ class World:
             "wb_widget": wb_widget,
             "diagnostics_visible": not ui.get1(SETTINGS_DIALOG, "diagnostics", name="hidden"),
         }
-        for axis in ("pan", "tilt", "zoom", "focus"):
-            dialog[axis] = shown.get(axis, 0.0)
         return dialog
 
     def edit_dialog_state(self, **fields):

@@ -392,6 +392,43 @@ def test_header_hides_where_a_camera_that_is_off_is(request, obs_world, tmp_path
     assert header_pan(dialog) is None
 
 
+def test_a_device_without_a_key_hides_its_row(obs_world, tmp_path):
+    out = tmp_path / "dialog.json"
+    obs_world.open_settings_dialog(obs_world.device_names["visca-tcp"])
+    obs_world.wait_for_settings_dialog(out, lambda r: "wb_mode" in r["state_keys"])
+
+    obs_world.open_settings_dialog(obs_world.device_names["pelco-d"])
+    obs_world.wait_for_settings_dialog(out, lambda r: "wb_mode" not in r["state_keys"])
+
+
+@pytest.mark.skipif(sys.platform == "win32", reason="needs SIGSTOP")
+def test_a_pending_edit_outlasts_a_report_of_something_else(request, obs_world, tmp_path):
+    camera = make_camera(request.addfinalizer, obs_world, tmp_path)
+    out, opened = open_dialog(obs_world, camera, tmp_path)
+    was = opened["shown"]["ae_mode"]
+
+    camera.sim.freeze()
+    request.addfinalizer(camera.sim.thaw)
+    obs_world.edit_dialog_state(ae_mode=0xb if was != 0xb else 0x3)
+    # A new "source" is a report that needs nothing of the camera
+    old_name, camera.source = camera.source, camera.source + "-renamed"
+    obs_world.ws.call("SetInputName", {"inputName": old_name, "newInputName": camera.source})
+
+    assert obs_world.settings_dialog(out)["shown"]["ae_mode"] != was
+    # ...and it settles back to what the camera last said
+    obs_world.wait_for_settings_dialog(out, lambda r: r["shown"]["ae_mode"] == was, timeout=5)
+
+
+def test_removing_the_device_shown_leaves_the_dialog_working(request, obs_world, tmp_path):
+    camera = make_camera(request.addfinalizer, obs_world, tmp_path)
+    out, _ = open_dialog(obs_world, camera, tmp_path)
+
+    camera.cleanup()
+
+    obs_world.open_settings_dialog(obs_world.device_names["visca-tcp"])
+    obs_world.wait_for_settings_dialog(out, lambda r: r["connected"] and "wb_mode" in r["state_keys"])
+
+
 def test_state_view_has_none_of_them_for_another_protocol(obs_world, tmp_path):
     obs_world.open_settings_dialog(obs_world.device_names["pelco-d"])
     dialog = obs_world.wait_for_settings_dialog(tmp_path / "dialog.json", lambda r: "connected" in r["state_keys"])

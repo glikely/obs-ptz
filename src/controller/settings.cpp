@@ -1008,7 +1008,7 @@ void PTZSettings::currentChanged(const QModelIndex &current, const QModelIndex &
 	 * keys, only without their values */
 	reloadSettings();
 
-	ui->stateView->setState(ptzDeviceList->deviceState(current));
+	ui->stateView->setDevice(current);
 	updateHeader();
 	refreshStatistics();
 }
@@ -1055,15 +1055,13 @@ void PTZSettings::deviceSettingsUpdated(const QString &uuid)
 	setSettingsDirty(false);
 }
 
-/* Fold in only what the device says changed. The state view changes just
- * the widgets that shows, in place, so it can take every change as it comes,
- * however often the camera's position does. */
+/* The state view follows the list model by itself: this is for what a change of
+ * state means here */
 void PTZSettings::deviceStateUpdated(const QString &uuid, OBSData changed)
 {
 	if (uuid != currentDeviceUuid())
 		return;
 
-	ui->stateView->applyChanges(changed);
 	/* What a device can do decides which settings it offers */
 	if (obs_data_has_user_value(changed, "features"))
 		QMetaObject::invokeMethod(propertiesView, "RefreshProperties", Qt::QueuedConnection);
