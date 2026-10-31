@@ -10,36 +10,28 @@
 #include <optional>
 #include <QModelIndex>
 #include <QPoint>
-#include <QMutex>
 #include <QPointF>
 #include <QTimer>
 #include <QWidget>
-
-/* How much of the camera's travel the picture spans at its widest, in the
- * units of the movement API (pan and tilt each span 2.0), and how many times
- * narrower it is at full zoom. Guesses, not measured on any camera. */
-struct PTZViewControlConfig {
-	double panPerWidth = 0.41;
-	double tiltPerHeight = 0.44;
-	double maxMagnification = 4.0;
-};
+#include "ptz-source-display.hpp"
 
 /* Shows a source, and moves the camera of the PTZ device that has it as its
  * source: drag to point the camera, and the wheel to zoom. Needs a device
- * that reads its position back and can move to one. */
-class PTZViewControl : public QWidget {
+ * that reads its position back and can move to one. The source is shown by
+ * PTZSourceDisplay, as the dock's other previews are; what is drawn over it
+ * is drawn here, after it. */
+class PTZViewControl : public PTZSourceDisplay {
 	Q_OBJECT
 
 public:
 	PTZViewControl(QWidget *parent = nullptr);
 	~PTZViewControl();
-	void setSource(obs_source_t *source);
-	/* Drawn by OBS, not Qt */
-	QPaintEngine *paintEngine() const override { return nullptr; }
+	/* As PTZSourceDisplay's, and starting again what was being done with
+	 * the source before */
+	void setSource(OBSSource source);
 
 protected:
 	void resizeEvent(QResizeEvent *event) override;
-	void showEvent(QShowEvent *event) override;
 	void hideEvent(QHideEvent *event) override;
 	void mousePressEvent(QMouseEvent *event) override;
 	void mouseMoveEvent(QMouseEvent *event) override;
@@ -49,8 +41,8 @@ protected:
 	void wheelEvent(QWheelEvent *event) override;
 
 private:
+	/* Draws over the source, after PTZSourceDisplay has drawn it */
 	static void drawCallback(void *param, uint32_t cx, uint32_t cy);
-	void createDisplay();
 	/* Where the source is drawn, in widget coordinates */
 	QRectF sourceRect() const;
 	QModelIndex device() const;
@@ -58,11 +50,7 @@ private:
 	bool readPosition(const QModelIndex &index, double &pan, double &tilt, double &zoom) const;
 	void tick();
 	void updateReadout(const QModelIndex &index);
-	/* Temporary: logs what the view control did, or why it did nothing */
-	void trace(const QString &what);
-	QString m_lastTrace;
 
-	obs_display_t *m_display = nullptr;
 	/* A line of text drawn over the picture, as an image Qt paints. The
 	 * texture is made, swapped and drawn only with the graphics context
 	 * entered. */
@@ -86,10 +74,6 @@ private:
 	bool m_cursorOver = false;
 	/* Display pixels per widget pixel, for the draw callback */
 	std::atomic<float> m_pixelRatio = 1.0f;
-	/* Read by the draw callback, on the graphics thread */
-	mutable QMutex m_sourceMutex;
-	OBSWeakSource m_source;
-	PTZViewControlConfig m_config;
 
 	/* Moves are sent at most once a tick, so a drag doesn't queue up more
 	 * than the camera can do */

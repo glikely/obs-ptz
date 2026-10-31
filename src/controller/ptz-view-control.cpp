@@ -16,12 +16,8 @@
 #include <QPainter>
 #include <QMouseEvent>
 #include <QWheelEvent>
-#include <QWindow>
-#if !defined(_WIN32) && !defined(__APPLE__)
-#include <obs-nix-platform.h>
-#endif
 #include "ptz-view-control.hpp"
-#include <qt-wrappers.hpp>
+#include "display-helpers.hpp"
 #include "ptz-controls.hpp"
 #include "ptz-list-model.hpp"
 
@@ -32,42 +28,28 @@ static constexpr double zoomPerNotch = 0.1;
  * rather than from where it was last sent */
 static constexpr qint64 zoomSettleMs = 1000;
 
-static bool toGSWindow(QWindow *window, gs_window &gswindow)
+PTZViewControl::PTZViewControl(QWidget *parent) : PTZSourceDisplay(parent)
 {
-#ifdef _WIN32
-	gswindow.hwnd = (void *)window->winId();
-#elif defined(__APPLE__)
-	gswindow.view = (id)window->winId();
-#else
-	/* Wayland needs Qt's private native interface; not supported here */
-	if (obs_get_nix_platform() != OBS_NIX_PLATFORM_X11_EGL)
-		return false;
-	gswindow.id = window->winId();
-	gswindow.display = obs_get_nix_platform_display();
-#endif
-	return true;
-}
-
-PTZViewControl::PTZViewControl(QWidget *parent) : QWidget(parent)
-{
-	setAttribute(Qt::WA_PaintOnScreen);
-	setAttribute(Qt::WA_NativeWindow);
-	setAttribute(Qt::WA_NoSystemBackground);
-	/* Or the dock it is in becomes a native window too */
-	setAttribute(Qt::WA_DontCreateNativeAncestors);
+	m_pixelRatio = (float)devicePixelRatioF();
 	/* Moves without a button down too, for the cursor readout */
 	setMouseTracking(true);
 	connect(&m_timer, &QTimer::timeout, this, &PTZViewControl::tick);
 	m_timer.start(tickMs);
+
+	/* The display is made, and made again on another screen, by
+	 * OBSQTDisplay. PTZSourceDisplay says to draw the source into each as it
+	 * is made, before this does, so this draws after it, over the source. */
+	connect(this, &OBSQTDisplay::DisplayCreated, this,
+		[this]() { obs_display_add_draw_callback(GetDisplay(), drawCallback, this); });
 }
 
 PTZViewControl::~PTZViewControl()
 {
-	if (m_display) {
-		obs_display_remove_draw_callback(m_display, drawCallback, this);
-		obs_display_destroy(m_display);
-		m_display = nullptr;
-	}
+	/* The display goes in PTZSourceDisplay's destructor, after this class's
+	 * members, which the draw callback reads, have gone: stop it drawing
+	 * first. Taking the callback away waits for a draw in progress. */
+	if (obs_display_t *display = GetDisplay())
+		obs_display_remove_draw_callback(display, drawCallback, this);
 	obs_enter_graphics();
 	for (TextOverlay *overlay : {&m_positionReadout, &m_cursorReadout}) {
 		if (overlay->texture)
@@ -182,16 +164,12 @@ static void drawText(gs_texture_t *text, uint32_t cx, uint32_t cy, int x, int wi
 	gs_projection_pop();
 }
 
-/* Runs on the graphics thread */
+/* Runs on the graphics thread, after PTZSourceDisplay has drawn the source */
 void PTZViewControl::drawCallback(void *param, uint32_t cx, uint32_t cy)
 {
 	auto view = static_cast<PTZViewControl *>(param);
-	OBSSourceAutoRelease source;
-	{
-		QMutexLocker locker(&view->m_sourceMutex);
-		source = obs_weak_source_get_source(view->m_source);
-	}
-	if (!source)
+	OBSSource source = view->source();
+	if (!source || !cx || !cy)
 		return;
 
 	uint32_t sourceCx = obs_source_get_width(source);
@@ -199,23 +177,16 @@ void PTZViewControl::drawCallback(void *param, uint32_t cx, uint32_t cy)
 	if (!sourceCx || !sourceCy)
 		return;
 
-	/* Fit the source in the display, keeping its aspect, centered */
-	float scale = std::min((float)cx / sourceCx, (float)cy / sourceCy);
-	int width = (int)(sourceCx * scale);
-	int height = (int)(sourceCy * scale);
+	/* Where PTZSourceDisplay drew the source, worked out as it does */
+	int x, y;
+	float scale;
+	GetScaleAndCenterPos(sourceCx, sourceCy, cx, cy, x, y, scale);
+	int width = int(scale * float(sourceCx));
+	int height = int(scale * float(sourceCy));
 
-	gs_projection_push();
-	gs_viewport_push();
-	gs_set_viewport((cx - width) / 2, (cy - height) / 2, width, height);
-	gs_ortho(0.0f, (float)sourceCx, 0.0f, (float)sourceCy, -100.0f, 100.0f);
-	obs_source_video_render(source);
-	gs_viewport_pop();
-	gs_projection_pop();
-
-	drawOverlay(cx, cy, (cx - width) / 2, (cy - height) / 2, width, height, view->m_pixelRatio);
+	drawOverlay(cx, cy, x, y, width, height, view->m_pixelRatio);
 	/* Inside the picture: the cursor just below its top edge and the
 	 * position just above its bottom edge */
-	const int x = (cx - width) / 2, y = (cy - height) / 2;
 	const int gap = (int)(2 * view->m_pixelRatio);
 	if (gs_texture_t *text = view->m_positionReadout.texture)
 		drawText(text, cx, cy, x, width, y + height - gap - (int)gs_texture_get_height(text));
@@ -223,37 +194,9 @@ void PTZViewControl::drawCallback(void *param, uint32_t cx, uint32_t cy)
 		drawText(text, cx, cy, x, width, y + gap);
 }
 
-void PTZViewControl::createDisplay()
-{
-	if (m_display)
-		return;
-	winId();
-	QWindow *window = windowHandle();
-	if (!window)
-		return;
-
-	m_pixelRatio = (float)devicePixelRatioF();
-	QSize size = this->size() * devicePixelRatioF();
-	gs_init_data info = {};
-	info.cx = size.width();
-	info.cy = size.height();
-	info.format = GS_BGRA;
-	info.zsformat = GS_ZS_NONE;
-	if (!toGSWindow(window, info.window))
-		return;
-
-	m_display = obs_display_create(&info, 0);
-	if (m_display)
-		obs_display_add_draw_callback(m_display, drawCallback, this);
-}
-
 QRectF PTZViewControl::sourceRect() const
 {
-	OBSSourceAutoRelease source;
-	{
-		QMutexLocker locker(&m_sourceMutex);
-		source = obs_weak_source_get_source(m_source);
-	}
+	OBSSource source = this->source();
 	if (!source)
 		return QRectF();
 	double sourceCx = obs_source_get_width(source);
@@ -269,11 +212,7 @@ QRectF PTZViewControl::sourceRect() const
  * after setSource(), or a renamed source, is still found. */
 QModelIndex PTZViewControl::device() const
 {
-	OBSSourceAutoRelease source;
-	{
-		QMutexLocker locker(&m_sourceMutex);
-		source = obs_weak_source_get_source(m_source);
-	}
+	OBSSource source = this->source();
 	if (!source || !ptzDeviceList)
 		return QModelIndex();
 	return ptzDeviceList->indexFromName(QString::fromUtf8(obs_source_get_name(source)));
@@ -298,35 +237,6 @@ bool PTZViewControl::readPosition(const QModelIndex &index, double &pan, double 
 	tilt = obs_data_get_double(state, "tilt");
 	zoom = obs_data_get_double(state, "zoom");
 	return true;
-}
-
-void PTZViewControl::trace(const QString &what)
-{
-	if (what == m_lastTrace)
-		return;
-	m_lastTrace = what;
-	blog(LOG_INFO, "[ptz] view control: %s", QT_TO_UTF8(what));
-}
-
-static QString describe(const QModelIndex &index)
-{
-	OBSDataAutoRelease state = obs_data_create();
-	ptzDeviceList->saveState(index, state.Get());
-	auto has = [&](const char *key) {
-		return obs_data_has_user_value(state, key) ? QString::number(obs_data_get_double(state, key))
-							   : QString("none");
-	};
-	return QString("device '%1' connected=%2 live=%3 locked=%4 pantilt_abs=%5 zoom_abs=%6 pan=%7 tilt=%8 zoom=%9")
-		.arg(index.data(Qt::DisplayRole).toString())
-		.arg(obs_data_get_bool(state, "connected"))
-		.arg(obs_data_get_bool(state, "live"))
-		.arg(obs_data_get_bool(state, "locked"))
-		.arg(PTZListModel::hasFeature(index, "pantilt_abs"))
-		.arg(PTZListModel::hasFeature(index, "zoom_abs"))
-		.arg(has("pan"), has("tilt"), has("zoom")) +
-	       QString(" pan_pos=%1 zoom_pos=%2 statistics=%3")
-		       .arg(has("pan_pos"), has("zoom_pos"))
-		       .arg(QString::fromUtf8(obs_data_get_json(OBSDataAutoRelease(obs_data_get_obj(state, "statistics")))));
 }
 
 /* One calibration measurement: pressing on a point dx, dy source pixels from
@@ -368,12 +278,11 @@ bool quadratic_coefficients(double x1, double y1, double x2, double y2, double x
 	return true;
 }
 
-void PTZViewControl::setSource(obs_source_t *source)
+void PTZViewControl::setSource(OBSSource source)
 {
-	QMutexLocker locker(&m_sourceMutex);
-	if (source ? obs_weak_source_references_source(m_source, source) : !m_source)
+	if (source.Get() == this->source().Get())
 		return;
-	m_source = OBSGetWeakRef(source);
+	PTZSourceDisplay::setSource(source);
 	m_dragging = false;
 	m_wheelDelta = 0;
 	m_lastZoom.invalidate();
@@ -389,34 +298,19 @@ void PTZViewControl::setSource(obs_source_t *source)
 				       viewCalibration[1].zoom, viewCalibration[1].tilt / viewCalibration[1].dy,
 				       viewCalibration[2].zoom, viewCalibration[2].tilt / viewCalibration[2].dy, &ta,
 				       &tb, &tc);
-		trace(QString("coef: pan %1 %2 %3 tilt %4 %5 %6").arg(pa).arg(pb).arg(pc).arg(ta).arg(tb).arg(tc));
 	}
 }
 
 void PTZViewControl::resizeEvent(QResizeEvent *event)
 {
-	QWidget::resizeEvent(event);
+	PTZSourceDisplay::resizeEvent(event);
 	m_pixelRatio = (float)devicePixelRatioF();
-	if (m_display) {
-		QSize size = this->size() * devicePixelRatioF();
-		obs_display_resize(m_display, size.width(), size.height());
-	}
 }
 
-void PTZViewControl::showEvent(QShowEvent *event)
-{
-	QWidget::showEvent(event);
-	createDisplay();
-	if (m_display)
-		obs_display_set_enabled(m_display, true);
-}
-
-/* Nothing to draw for while it can't be seen, as on another tab */
+/* A drag can't go on while it can't be seen */
 void PTZViewControl::hideEvent(QHideEvent *event)
 {
-	QWidget::hideEvent(event);
-	if (m_display)
-		obs_display_set_enabled(m_display, false);
+	PTZSourceDisplay::hideEvent(event);
 	m_dragging = false;
 }
 
@@ -426,12 +320,7 @@ void PTZViewControl::mousePressEvent(QMouseEvent *event)
 	if (event->button() != Qt::LeftButton)
 		return;
 	auto index = device();
-	if (!index.isValid()) {
-		trace("press: no device for this source");
-		return;
-	}
-	trace("press: " + describe(index));
-	if (liveLocked(index) || !PTZListModel::hasFeature(index, "pantilt_abs"))
+	if (!index.isValid() || liveLocked(index) || !PTZListModel::hasFeature(index, "pantilt_abs"))
 		return;
 	if (!readPosition(index, m_panStart, m_tiltStart, m_dragZoom))
 		return;
@@ -468,11 +357,7 @@ void PTZViewControl::mouseDoubleClickEvent(QMouseEvent *event)
 	if (!index.isValid() || liveLocked(index) || !PTZListModel::hasFeature(index, "pantilt_abs"))
 		return;
 	std::optional<QPoint> clicked = sourcePixel(event->position());
-	OBSSourceAutoRelease source;
-	{
-		QMutexLocker locker(&m_sourceMutex);
-		source = obs_weak_source_get_source(m_source);
-	}
+	OBSSource source = this->source();
 	double pan, tilt, zoom;
 	if (!clicked || !source || !readPosition(index, pan, tilt, zoom))
 		return;
@@ -486,7 +371,6 @@ void PTZViewControl::mouseDoubleClickEvent(QMouseEvent *event)
 	pan = std::clamp(pan + dx * panPerPixel, -1.0, 1.0);
 	tilt = std::clamp(tilt + dy * tiltPerPixel, -1.0, 1.0);
 
-	trace(QString("double click: pan/tilt to %1, %2").arg(pan).arg(tilt));
 	calldata_t cd = {};
 	calldata_set_float(&cd, "pan", pan);
 	calldata_set_float(&cd, "tilt", tilt);
@@ -525,11 +409,7 @@ void PTZViewControl::copyReadout()
 		return value ? QString::asprintf("%.3f", *value) : QString();
 	};
 	QString x, y;
-	OBSSourceAutoRelease source;
-	{
-		QMutexLocker locker(&m_sourceMutex);
-		source = obs_weak_source_get_source(m_source);
-	}
+	OBSSource source = this->source();
 	if (source && m_pressSource) {
 		x = QString::number((int)obs_source_get_width(source) / 2 - m_pressSource->x());
 		y = QString::number((int)obs_source_get_height(source) / 2 - m_pressSource->y());
@@ -541,7 +421,6 @@ void PTZViewControl::copyReadout()
 void PTZViewControl::wheelEvent(QWheelEvent *event)
 {
 	m_wheelDelta += event->angleDelta().y();
-	trace(QString("wheel: %1").arg(event->angleDelta().y()));
 	event->accept();
 }
 
@@ -578,11 +457,7 @@ void PTZViewControl::updateReadout(const QModelIndex &index)
  * isn't over the picture. */
 std::optional<QPoint> PTZViewControl::sourcePixel(const QPointF &pos) const
 {
-	OBSSourceAutoRelease source;
-	{
-		QMutexLocker locker(&m_sourceMutex);
-		source = obs_weak_source_get_source(m_source);
-	}
+	OBSSource source = this->source();
 	const QRectF rect = sourceRect();
 	if (!source || rect.isEmpty() || !rect.contains(pos))
 		return std::nullopt;
@@ -652,12 +527,6 @@ void PTZViewControl::tick()
 	updateReadout(index);
 	/* The picture can move under a cursor that doesn't */
 	updateCursorReadout();
-	if ((m_wheelDelta || m_dragging) && !index.isValid())
-		trace("tick: no device for this source");
-	else if ((m_wheelDelta || m_dragging) && liveLocked(index))
-		trace("tick: live locked");
-	else if (m_wheelDelta && !PTZListModel::hasFeature(index, "zoom_abs"))
-		trace("tick: no zoom_abs; " + describe(index));
 	if (!index.isValid() || liveLocked(index)) {
 		m_wheelDelta = 0;
 		m_dragging = false;
@@ -669,7 +538,6 @@ void PTZViewControl::tick()
 			OBSDataAutoRelease state = obs_data_create();
 			ptzDeviceList->saveState(index, state.Get());
 			if (!obs_data_has_user_value(state, "zoom")) {
-				trace("tick: no zoom position; " + describe(index));
 				m_wheelDelta = 0;
 				return;
 			}
@@ -680,7 +548,6 @@ void PTZViewControl::tick()
 		m_wheelDelta = 0;
 		m_lastZoom.start();
 
-		trace(QString("tick: zoom to %1").arg(m_zoomTarget));
 		calldata_t cd = {};
 		calldata_set_float(&cd, "zoom", m_zoomTarget);
 		ptzDeviceList->callDevice(index, "ptz_move_abs", &cd);
@@ -690,15 +557,9 @@ void PTZViewControl::tick()
 	if (m_dragging && m_dragMoved) {
 		m_dragMoved = false;
 		QRectF rect = sourceRect();
-		OBSSourceAutoRelease source;
-		{
-			QMutexLocker locker(&m_sourceMutex);
-			source = obs_weak_source_get_source(m_source);
-		}
-		if (rect.isEmpty() || !source) {
-			trace("tick: source has no size");
+		OBSSource source = this->source();
+		if (rect.isEmpty() || !source)
 			return;
-		}
 		/* How far the mouse moved, in the source's pixels, scaled as the
 		 * cursor readout has them: Y is down, as it is in the source */
 		double dx = (m_dragPos.x() - m_dragStart.x()) * obs_source_get_width(source) /
@@ -712,7 +573,6 @@ void PTZViewControl::tick()
 		double pan = std::clamp(m_panStart + dx * panPerPixel, -1.0, 1.0);
 		double tilt = std::clamp(m_tiltStart + dy * tiltPerPixel, -1.0, 1.0);
 
-		trace(QString("tick: pan/tilt to %1, %2").arg(pan).arg(tilt));
 		calldata_t cd = {};
 		calldata_set_float(&cd, "pan", pan);
 		calldata_set_float(&cd, "tilt", tilt);

@@ -98,6 +98,7 @@ public:
 	sameSquareFilter(QObject *parent, QList<QWidget *> widgets) : QObject(parent), widgets(widgets) {}
 	bool eventFilter(QObject *watched, QEvent *event) override
 	{
+		Q_UNUSED(watched);
 		if (event->type() == QEvent::Resize) {
 			int height = static_cast<QResizeEvent *>(event)->size().width();
 			for (QWidget *widget : widgets)
@@ -108,24 +109,6 @@ public:
 
 private:
 	QList<QWidget *> widgets;
-};
-
-/**
- * class followEnabledFilter - Event filter to keep a button enabled when, and
- * only when, the one it watches is
- */
-class followEnabledFilter : public QObject {
-public:
-	followEnabledFilter(QAbstractButton *follower) : QObject(follower), follower(follower) {}
-	bool eventFilter(QObject *watched, QEvent *event) override
-	{
-		if (event->type() == QEvent::EnabledChange)
-			follower->setEnabled(static_cast<QWidget *>(watched)->isEnabled());
-		return false;
-	}
-
-private:
-	QAbstractButton *follower;
 };
 
 void PTZControls::autoselectDevice(OBSSource scene)
@@ -405,55 +388,13 @@ PTZControls::PTZControls(QWidget *parent) : QFrame(parent), ui(new Ui::PTZContro
 	 * keep it from seeing right-clicks there */
 	ui->movementControlsWidget->setOwnContextMenu(false);
 
-	/* The view control is as tall as the controller, whichever is shown */
-	auto pagesFilter = new sameSquareFilter(this, {ui->movementControlsWidget, ui->viewControlPage});
+	/* The view control is as tall as the controller, whichever is shown. On
+	 * the widgets in the pages, not the pages: the stack takes its height
+	 * from what its pages' layouts ask for, which counts what is in them. */
+	auto pagesFilter = new sameSquareFilter(this, {ui->movementControlsWidget, ui->viewControl});
 	ui->movementControlsWidget->installEventFilter(pagesFilter);
-	ui->viewControlPage->installEventFilter(pagesFilter);
-	/* Each of the view control's buttons as tall as they are wide. They are
-	 * all as wide, so one says how tall the others are, and the row stretches
-	 * it to match. Not itself: growing it in its own resize would leave its
-	 * icon sized for the old height. */
-	auto buttonsFilter = new sameSquareFilter(this, {ui->viewZoomButton_wide, ui->viewFocusButton_auto,
-							 ui->viewFocusButton_near, ui->viewFocusButton_far,
-							 ui->viewFocusButton_onetouch});
-	ui->viewZoomButton_tele->installEventFilter(buttonsFilter);
+	ui->viewControl->installEventFilter(pagesFilter);
 
-	/* The view control's buttons are the controller's: each presses, or
-	 * clicks, the one it stands for, which does what it does, and is
-	 * enabled and checked when that one is */
-	const QList<QPair<QAbstractButton *, const char *>> viewButtons = {
-		{ui->viewZoomButton_tele, "zoomButton_tele"},   {ui->viewZoomButton_wide, "zoomButton_wide"},
-		{ui->viewFocusButton_auto, "focusButton_auto"}, {ui->viewFocusButton_near, "focusButton_near"},
-		{ui->viewFocusButton_far, "focusButton_far"},   {ui->viewFocusButton_onetouch, "focusButton_onetouch"},
-	};
-	/* Not a structured binding: the lambda below captures view, which C++17
-	 * can't do for one */
-	for (const auto &viewButton : viewButtons) {
-		QAbstractButton *view = viewButton.first;
-		const char *name = viewButton.second;
-		auto button = ui->movementControlsWidget->findChild<QAbstractButton *>(QString::fromLatin1(name));
-		if (!button)
-			continue;
-		if (button->isCheckable() || view == ui->viewFocusButton_onetouch) {
-			connect(view, &QAbstractButton::clicked, button, &QAbstractButton::click);
-		} else {
-			connect(view, &QAbstractButton::pressed, button, &QAbstractButton::pressed);
-			connect(view, &QAbstractButton::released, button, &QAbstractButton::released);
-		}
-		if (button->isCheckable()) {
-			view->setChecked(button->isChecked());
-			connect(button, &QAbstractButton::toggled, view, &QAbstractButton::setChecked);
-		}
-		view->setToolTip(button->toolTip());
-		view->setEnabled(button->isEnabled());
-		button->installEventFilter(new followEnabledFilter(view));
-		/* And has its icon, which follows the theme. One the theme's
-		 * stylesheet gives instead (one-push focus) is left to it. */
-		if (!button->icon().isNull()) {
-			view->setIcon(button->icon());
-			connect(this, &PTZControls::themeRefreshed, view, [view, button]() { view->setIcon(button->icon()); });
-		}
-	}
 	connect(this, &QWidget::customContextMenuRequested, this, &PTZControls::showContextMenu);
 	ui->splitter->handle(1)->installEventFilter(this);
 	presetZoomSlider = new QSlider(Qt::Horizontal, ui->presetToolbar);

@@ -99,7 +99,7 @@
         </layout>
        </widget>
        <widget class="QWidget" name="viewControlPage">
-        <layout class="QVBoxLayout" name="viewControlPageVerticalLayout" stretch="1,0">
+        <layout class="QVBoxLayout" name="viewControlPageVerticalLayout">
          <property name="leftMargin">
           <number>0</number>
          </property>
@@ -114,111 +114,6 @@
          </property>
          <item>
           <widget class="PTZViewControl" name="viewControl" native="true"/>
-         </item>
-         <item>
-          <widget class="QWidget" name="viewButtonsWidget" native="true">
-           <layout class="QHBoxLayout" name="viewButtonsLayout">
-            <property name="spacing">
-             <number>4</number>
-            </property>
-            <property name="leftMargin">
-             <number>0</number>
-            </property>
-            <property name="topMargin">
-             <number>0</number>
-            </property>
-            <property name="rightMargin">
-             <number>0</number>
-            </property>
-            <property name="bottomMargin">
-             <number>0</number>
-            </property>
-           <item>
-            <widget class="SquareToolButton" name="viewZoomButton_tele">
-             <property name="sizePolicy">
-              <sizepolicy hsizetype="Expanding" vsizetype="Expanding">
-               <horstretch>0</horstretch>
-               <verstretch>0</verstretch>
-              </sizepolicy>
-             </property>
-             <property name="toolTip">
-              <string>PTZ.Action.ZoomTele.Tooltip</string>
-             </property>
-            </widget>
-           </item>
-           <item>
-            <widget class="SquareToolButton" name="viewZoomButton_wide">
-             <property name="sizePolicy">
-              <sizepolicy hsizetype="Expanding" vsizetype="Expanding">
-               <horstretch>0</horstretch>
-               <verstretch>0</verstretch>
-              </sizepolicy>
-             </property>
-             <property name="toolTip">
-              <string>PTZ.Action.ZoomWide.Tooltip</string>
-             </property>
-            </widget>
-           </item>
-           <item>
-            <widget class="SquareToolButton" name="viewFocusButton_auto">
-             <property name="sizePolicy">
-              <sizepolicy hsizetype="Expanding" vsizetype="Expanding">
-               <horstretch>0</horstretch>
-               <verstretch>0</verstretch>
-              </sizepolicy>
-             </property>
-             <property name="toolTip">
-              <string>PTZ.Action.FocusAutoToggle.Tooltip</string>
-             </property>
-             <property name="checkable">
-              <bool>true</bool>
-             </property>
-            </widget>
-           </item>
-           <item>
-            <widget class="SquareToolButton" name="viewFocusButton_near">
-             <property name="sizePolicy">
-              <sizepolicy hsizetype="Expanding" vsizetype="Expanding">
-               <horstretch>0</horstretch>
-               <verstretch>0</verstretch>
-              </sizepolicy>
-             </property>
-             <property name="toolTip">
-              <string>PTZ.Action.FocusNear.Tooltip</string>
-             </property>
-            </widget>
-           </item>
-           <item>
-            <widget class="SquareToolButton" name="viewFocusButton_far">
-             <property name="sizePolicy">
-              <sizepolicy hsizetype="Expanding" vsizetype="Expanding">
-               <horstretch>0</horstretch>
-               <verstretch>0</verstretch>
-              </sizepolicy>
-             </property>
-             <property name="toolTip">
-              <string>PTZ.Action.FocusFar.Tooltip</string>
-             </property>
-            </widget>
-           </item>
-           <item>
-            <widget class="SquareToolButton" name="viewFocusButton_onetouch">
-             <property name="sizePolicy">
-              <sizepolicy hsizetype="Expanding" vsizetype="Expanding">
-               <horstretch>0</horstretch>
-               <verstretch>0</verstretch>
-              </sizepolicy>
-             </property>
-             <property name="toolTip">
-              <string>PTZ.Action.FocusOneTouch.Tooltip</string>
-             </property>
-             <property name="class" stdset="0">
-              <string notr="true">icon-touch</string>
-             </property>
-            </widget>
-           </item>
-           </layout>
-          </widget>
          </item>
         </layout>
        </widget>
