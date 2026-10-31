@@ -11,7 +11,7 @@
 
 /* Thread model: single-threaded. Every call is made on the Qt main thread,
  * where OBS sends frontend events and where a device is constructed (see
- * ptz_filter_create()) and destroyed (ptz_filter_destroy() deleteLater()s it).
+ * PTZFilter::buildDevice()) and destroyed (ptz_filter_destroy() deleteLater()s it).
  * No locking. A Listener must not add() or remove() from its own callback.
  *
  * Each module owns one of these, next to its one frontend callback, so the

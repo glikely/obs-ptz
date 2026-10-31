@@ -44,6 +44,7 @@ extern const char *ptz_legacy_kind_for_type(const char *type);
  * (see "Driver kinds" in docs/ptz-device-api.md), by the version of the PTZ
  * API it implements. Call it first. */
 extern void ptz_filter_defaults_mark(obs_data_t *defaults);
+
 /* Adds a PTZ Control filter, and so a device, to `parent`, with the settings
  * in `config`, of the filter kind in its "kind" or, without one, of its
  * "type" (see ptz_legacy_kind_for_type()). Returns a new reference to the

@@ -46,17 +46,15 @@ PTZSoftCam::~PTZSoftCam()
 	m_reportTimer.stop();
 }
 
-/* The filter is gone, and nothing draws with the texture any more. Not left to
- * the destructor: that is a deleteLater(), which at quit runs after OBS has
- * shut its graphics down. */
-void PTZSoftCam::releaseGraphics()
+/* Here, as the filter is destroyed, and not with the device: that is a
+ * deleteLater(), which at quit runs after OBS has shut its graphics down. */
+PTZSoftFilter::~PTZSoftFilter()
 {
 	if (!m_texrender)
 		return;
 	obs_enter_graphics();
 	gs_texrender_destroy(m_texrender);
 	obs_leave_graphics();
-	m_texrender = nullptr;
 }
 
 void PTZSoftCam::defaults(obs_data_t *settings)
@@ -187,7 +185,7 @@ SoftRect PTZSoftCam::visibleRect() const
 	return m_viewport.visibleRect();
 }
 
-gs_texrender_t *PTZSoftCam::texrender()
+gs_texrender_t *PTZSoftFilter::texrender()
 {
 	if (!m_texrender)
 		m_texrender = gs_texrender_create(GS_RGBA, GS_ZS_NONE);
@@ -225,12 +223,9 @@ void PTZSoftCam::reportPosition()
 /* The size of what the filter is on: its own is the same, whatever part of it
  * is shown. 0 if the filter has nothing to render, such as before its source
  * has a size. */
-static void softCamTargetSize(PTZSoftCam *cam, uint32_t *cx, uint32_t *cy)
+static void softCamTargetSize(obs_source_t *filter, uint32_t *cx, uint32_t *cy)
 {
 	*cx = *cy = 0;
-	OBSSourceAutoRelease filter = cam->filterSource();
-	if (!filter)
-		return;
 	obs_source_t *target = obs_filter_get_target(filter);
 	if (!target)
 		return;
@@ -251,30 +246,35 @@ static void softCamTargetSize(PTZSoftCam *cam, uint32_t *cx, uint32_t *cy)
  * what is scaled up would be drawn over everything around it. */
 static void softCamRender(void *data, gs_effect_t *)
 {
-	auto cam = static_cast<PTZSoftCam *>(data);
-	OBSSourceAutoRelease filter = cam->filterSource();
-	if (!filter)
-		return;
-	/* Both are there while drawing, as OBS documents, but not for a filter
-	 * OBS has put on a copy of its source as well, as it does with one that
-	 * may not be duplicated, once the copy is freed: nothing to draw, nor to
-	 * skip to */
-	if (!obs_filter_get_parent(filter) || !obs_filter_get_target(filter))
-		return;
+	auto soft = static_cast<PTZSoftFilter *>(data);
+	obs_source_t *filter = soft->source();
 	uint32_t cx, cy;
-	softCamTargetSize(cam, &cx, &cy);
+	softCamTargetSize(filter, &cx, &cy);
 	if (cx == 0 || cy == 0) {
 		obs_source_skip_video_filter(filter);
 		return;
 	}
-	SoftRect r = cam->visibleRect();
+	/* A copy's filter shows what the camera it is a copy of shows, and
+	 * nothing while that one is turned off */
+	PTZSoftCam *cam = soft->cam();
+	OBSSourceAutoRelease original = soft->originalFilter();
+	if (original) {
+		cam = static_cast<PTZSoftFilter *>(obs_obj_get_data(original))->cam();
+		if (!obs_source_enabled(original)) {
+			obs_source_skip_video_filter(filter);
+			return;
+		}
+	}
+	if (cam)
+		soft->lastRect = cam->visibleRect();
+	SoftRect r = soft->lastRect;
 	/* Showing all of it: nothing to scale, nor to render separately */
 	if (r.w >= 1.0 && r.h >= 1.0) {
 		obs_source_skip_video_filter(filter);
 		return;
 	}
 
-	gs_texrender_t *texrender = cam->texrender();
+	gs_texrender_t *texrender = soft->texrender();
 	gs_texrender_reset(texrender);
 	if (!gs_texrender_begin(texrender, cx, cy)) {
 		obs_source_skip_video_filter(filter);
@@ -312,18 +312,16 @@ void ptz_soft_cam_register_filter()
 	struct obs_source_info info = {};
 	info.id = "ca.secretlab.obs-ptz.soft-ptz";
 	info.type = OBS_SOURCE_TYPE_FILTER;
-	info.output_flags = OBS_SOURCE_VIDEO | OBS_SOURCE_DO_NOT_DUPLICATE;
+	info.output_flags = OBS_SOURCE_VIDEO;
 	info.get_name = [](void *) -> const char * {
 		return "Soft PTZ Control";
 	};
-	info.create = [](obs_data_t *settings, obs_source_t *source) -> void * {
-		return ptz_filter_create([&]() -> PTZDevice * { return new PTZSoftCam(settings, source); });
+	info.create = [](obs_data_t *, obs_source_t *source) -> void * {
+		return new PTZSoftFilter(source, [source](OBSData config) -> PTZDevice * {
+			return new PTZSoftCam(config, source);
+		});
 	};
-	info.destroy = [](void *data) {
-		if (data)
-			static_cast<PTZSoftCam *>(data)->releaseGraphics();
-		ptz_filter_destroy(data);
-	};
+	info.destroy = ptz_filter_destroy;
 	info.get_defaults = [](obs_data_t *settings) {
 		ptz_filter_defaults_mark(settings);
 		obs_data_set_default_string(settings, "type", "soft-ptz");
@@ -336,17 +334,18 @@ void ptz_soft_cam_register_filter()
 	info.icon_type = OBS_ICON_TYPE_CAMERA;
 	info.filter_add = ptz_filter_add;
 	info.video_tick = [](void *data, float seconds) {
-		static_cast<PTZSoftCam *>(data)->tickViewport(seconds);
+		if (PTZSoftCam *cam = static_cast<PTZSoftFilter *>(data)->cam())
+			cam->tickViewport(seconds);
 	};
 	info.video_render = softCamRender;
 	info.get_width = [](void *data) -> uint32_t {
 		uint32_t cx, cy;
-		softCamTargetSize(static_cast<PTZSoftCam *>(data), &cx, &cy);
+		softCamTargetSize(static_cast<PTZSoftFilter *>(data)->source(), &cx, &cy);
 		return cx;
 	};
 	info.get_height = [](void *data) -> uint32_t {
 		uint32_t cx, cy;
-		softCamTargetSize(static_cast<PTZSoftCam *>(data), &cx, &cy);
+		softCamTargetSize(static_cast<PTZSoftFilter *>(data)->source(), &cx, &cy);
 		return cy;
 	};
 	obs_register_source(&info);

@@ -8,7 +8,7 @@
 
 #include <mutex>
 #include <QTimer>
-#include <obs.h>
+#include <obs.hpp>
 #include "ptz-device.hpp"
 #include "ptz-soft-viewport.hpp"
 
@@ -33,10 +33,6 @@ private:
 	bool m_easeReported = true;
 	/* Where it was when it was last written to the settings */
 	SoftPosition m_persisted;
-	/* What the picture is drawn to, before it is drawn to the scene, so that
-	 * the zoomed picture cannot be drawn outside the source's own size. Only
-	 * the graphics thread, and releaseGraphics(), touch it. */
-	gs_texrender_t *m_texrender = nullptr;
 
 public:
 	PTZSoftCam(OBSData config, obs_source_t *filter);
@@ -58,10 +54,25 @@ public:
 	/* For the filter's callbacks, on the graphics thread */
 	void tickViewport(double seconds);
 	SoftRect visibleRect() const;
+};
+
+/* A filter on a private copy has no camera. It draws what its original's shows,
+ * as it moves, so it has what is needed to draw of its own. */
+class PTZSoftFilter : public PTZFilter {
+public:
+	using PTZFilter::PTZFilter;
+	~PTZSoftFilter() override;
+
+	PTZSoftCam *cam() const { return static_cast<PTZSoftCam *>(device()); }
 	/* The texture the picture is drawn to, made when it is first wanted */
 	gs_texrender_t *texrender();
-	/* Frees the texture, as the filter is destroyed */
-	void releaseGraphics();
+	/* What it last showed: all it has once its original is gone */
+	SoftRect lastRect = {0, 0, 1, 1};
+
+private:
+	/* So that the zoomed picture cannot be drawn outside the source's own
+	 * size. Only the graphics thread, and the destructor, touch it. */
+	gs_texrender_t *m_texrender = nullptr;
 };
 
 void ptz_soft_cam_register_filter();

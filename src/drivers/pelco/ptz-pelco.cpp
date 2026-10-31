@@ -264,12 +264,14 @@ void ptz_pelco_register_filter()
 	struct obs_source_info info = {};
 	info.id = "ca.secretlab.obs-ptz.pelco";
 	info.type = OBS_SOURCE_TYPE_FILTER;
-	info.output_flags = OBS_SOURCE_VIDEO | OBS_SOURCE_DO_NOT_DUPLICATE;
+	info.output_flags = OBS_SOURCE_VIDEO;
 	info.get_name = [](void *) -> const char * {
 		return "PELCO PTZ Control";
 	};
-	info.create = [](obs_data_t *settings, obs_source_t *source) -> void * {
-		return ptz_filter_create([&]() -> PTZDevice * { return new PTZPelco(settings, source); });
+	info.create = [](obs_data_t *, obs_source_t *source) -> void * {
+		return ptz_filter_create(source, [source](OBSData config) -> PTZDevice * {
+			return new PTZPelco(config, source);
+		});
 	};
 	info.destroy = ptz_filter_destroy;
 	info.get_defaults = [](obs_data_t *settings) {

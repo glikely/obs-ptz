@@ -26,6 +26,7 @@ its id by the plugin, not by the test's config file. What the tests check:
 """
 
 import json
+import shutil
 import subprocess
 import sys
 import time
@@ -35,7 +36,9 @@ import urllib.request
 import pytest
 from obsws import ObsWebSocketError
 
+import test_soft_ptz as soft_ptz
 from conftest import REPO_ROOT, free_port, output_log, wait_for_port
+from test_soft_ptz import duplicating_studio_mode  # noqa: F401
 
 FILTER_KIND = "ca.secretlab.obs-ptz.visca"
 
@@ -423,3 +426,74 @@ def test_each_filter_has_its_own_device(obs_world, cameras, tmp_path):
     cameras.remove_filter("filter-cam-a")
     obs_world.wait_for_device_by_name("filter-cam-a", out, lambda r: not r["found"], timeout=10)
     assert obs_world.device_by_name("filter-cam-b", out)["uuid"] == b["uuid"]
+
+
+def green_video(path):
+    """A short clip of solid green, for a media source that shows something"""
+    if shutil.which("ffmpeg") is None:
+        pytest.skip("needs ffmpeg, to make a clip for the media source to play")
+    subprocess.run(["ffmpeg", "-v", "error", "-y", "-f", "lavfi", "-i", "color=c=green:s=128x72:r=10",
+                    "-t", "2", "-pix_fmt", "yuv420p", str(path)], check=True)
+
+
+def is_green(world, source):
+    _, _, pixel = soft_ptz.screenshot(world, source)
+    r, g, b = pixel(96, 18)
+    return g > 100 and r < 80 and b < 80
+
+
+@pytest.mark.parametrize("kind", ["ffmpeg_source", "image_source"])
+def test_studio_mode_copies_of_its_source_leave_a_device_filter_alone(obs_world, cameras, duplicating_studio_mode,
+                                                                      tmp_path, kind):
+    """With Studio Mode's "Duplicate Sources", OBS sends a private copy of the
+    scene, and of its sources, to program. A filter that may not be duplicated,
+    as a device's may not, is copied by adding the same filter to the copy, and
+    freeing the copy leaves it with no parent or target (#428). The device stays
+    on its own source: a media source, which OBS never copies, and an image,
+    which it does. The media source keeps showing its picture; a VISCA filter
+    blanks an image anyway."""
+    if kind == "ffmpeg_source":
+        clip = tmp_path / "green.mp4"
+        green_video(clip)
+        settings = {"is_local_file": True, "local_file": str(clip), "looping": True, "restart_on_activate": False}
+    else:
+        # Green in its top right quarter, where is_green() looks
+        image = tmp_path / "quadrants.png"
+        soft_ptz.write_quadrant_png(image)
+        settings = {"file": str(image)}
+    out = tmp_path / "device.json"
+    cam_scene = obs_world.create_scene()
+    other_scene = obs_world.create_scene()
+    name = f"filter-cam-studio-copy-{kind}"
+    obs_world.ws.call("CreateInput", {
+        "sceneName": cam_scene, "inputName": name, "inputKind": kind, "inputSettings": settings,
+    })
+    cameras.names.add(name)
+    cameras.add_filter(name)
+    obs_world.wait_for_device_by_name(name, out, lambda r: r["found"] and r["bound"], timeout=10)
+    make_preview(obs_world, cam_scene)
+    if kind == "ffmpeg_source":
+        obs_world.wait_for(lambda: is_green(obs_world, name), timeout=10)
+
+    seen = {"before": obs_world.ui.filter_links(name, "PTZ")}
+    original = seen["before"]["source"]
+
+    def transition(scene, label):
+        obs_world.ws.call("SetCurrentPreviewScene", {"sceneName": scene})
+        obs_world.ws.call("TriggerStudioModeTransition")
+        time.sleep(1.5)
+        seen[label] = obs_world.ui.filter_links(name, "PTZ")
+
+    # The camera's scene goes to program as a copy, and then that copy is freed
+    transition(cam_scene, "copy in program")
+    transition(other_scene, "copy freed")
+    make_preview(obs_world, cam_scene)
+    time.sleep(1)
+    seen["green after"] = is_green(obs_world, name) if kind == "ffmpeg_source" else None
+
+    # Where libobs has the filter is not the plugin's to say, outside its callbacks
+    for label in ("copy in program", "copy freed"):
+        assert seen[label]["device_parent"] == original, \
+            f"{label}: the device says it is on {seen[label]['device_parent']}"
+    if kind == "ffmpeg_source":
+        assert seen["green after"], "the camera's source no longer shows its picture"

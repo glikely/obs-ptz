@@ -28,6 +28,8 @@ import zlib
 
 import pytest
 
+from conftest import OBS_MAIN, PTZ_DOCK
+
 FILTER_KIND = "ca.secretlab.obs-ptz.soft-ptz"
 # Removing a source is not at once, so each test makes its own by a new name
 _names = itertools.count(1)
@@ -166,8 +168,17 @@ def screenshot(world, source):
 
 
 def corners(world, source):
-    """What colour each corner of the source's picture, and its centre, is"""
-    width, height, pixel = screenshot(world, source)
+    """What colour each corner of the source's picture is"""
+    return corners_of(screenshot(world, source))
+
+
+def program_corners(world):
+    """What colour each corner of what OBS outputs, program in Studio Mode, is"""
+    return corners_of(decode_png(world.ui.output_screenshot(WIDTH, HEIGHT)))
+
+
+def corners_of(image):
+    width, height, pixel = image
     m = 4
     return {
         "tl": nearest(pixel(m, m)),
@@ -177,12 +188,14 @@ def corners(world, source):
     }
 
 
-def wait_for_corners(world, source, want, timeout=8):
+def wait_for_corners(world, source, want, timeout=8, look=corners):
+    """Until the source's picture, or with look=program_corners and no source,
+    OBS's output, has those colours at its corners"""
     seen = {}
 
     def matches():
         seen.clear()
-        seen.update(corners(world, source))
+        seen.update(look(world, source) if source else look(world))
         return seen == want
 
     try:
@@ -418,20 +431,42 @@ def duplicating_studio_mode(obs_world):
     set_edit_properties_mode(obs_world, False)
 
 
-def test_studio_mode_copies_of_its_source_dont_crash_obs(obs_world, duplicating_studio_mode, tmp_path):
-    """OBS puts the source's filter on each copy of the source it sends to
-    program as well, as the filter may not be duplicated, and freeing the copy
-    takes the filter's parent and target away from under the source still
-    drawing it. Drawing it then crashed OBS (#428): now it draws nothing. The
-    source shows nothing from then on, until the filter is added again."""
+def device_uuids(world):
+    return {entry["device"] for entry in world.ws.vendor("obs-ptz", "ptz_list_devices")["devices"]}
+
+
+def dock_uuids(world):
+    rows, _, _ = world.ui.rows(OBS_MAIN, PTZ_DOCK, "deviceList", roles=["uuid"])
+    return {row["uuid"] for row in rows}
+
+
+def all_of(colour):
+    return {"tl": colour, "tr": colour, "bl": colour, "br": colour}
+
+
+def test_studio_mode_copies_of_its_source_show_its_camera(obs_world, duplicating_studio_mode, tmp_path):
+    """Each copy of the source sent to program has a filter of its own, which
+    shows what the source's camera does, as it moves, and is no device to a
+    user. The source's own filter is never on a copy. Before, it was: freeing
+    a copy took the filter's parent and target away from under the source
+    still drawing it, which crashed OBS (#428), and then left the source
+    black once it had been to program and back."""
+    obs_world.need_ui_driver()
     image = tmp_path / "quadrants.png"
     write_quadrant_png(image)
     source = f"soft-ptz-cam-{next(_names)}"
     cam_scene = obs_world.create_scene()
     other_scene = obs_world.create_scene()
-    obs_world.ws.call("CreateInput", {
+    item = obs_world.ws.call("CreateInput", {
         "sceneName": cam_scene, "inputName": source, "inputKind": "image_source",
         "inputSettings": {"file": str(image)},
+    })["sceneItemId"]
+    # Filling the canvas, so that the corners of program are the source's
+    video = obs_world.ws.call("GetVideoSettings")
+    obs_world.ws.call("SetSceneItemTransform", {
+        "sceneName": cam_scene, "sceneItemId": item,
+        "sceneItemTransform": {"positionX": 0, "positionY": 0, "boundsType": "OBS_BOUNDS_STRETCH",
+                               "boundsWidth": video["baseWidth"], "boundsHeight": video["baseHeight"]},
     })
     obs_world.ws.call("CreateSourceFilter", {
         "sourceName": source, "filterName": "Soft PTZ", "filterKind": FILTER_KIND,
@@ -441,15 +476,53 @@ def test_studio_mode_copies_of_its_source_dont_crash_obs(obs_world, duplicating_
                                       timeout=10)
     move(obs_world, source, pan=0.75, tilt=0.75, zoom=1.0)
     wait_for_position(obs_world, source, tmp_path, pan=0.75, tilt=0.75, zoom=1.0)
+    devices = device_uuids(obs_world)
+    docked = dock_uuids(obs_world)
 
-    # Each transition sends a new copy of the scene to program and frees the last
-    for scene in (cam_scene, other_scene) * 3:
+    def transition_to(scene):
         obs_world.ws.call("SetCurrentPreviewScene", {"sceneName": scene})
         obs_world.ws.call("TriggerStudioModeTransition")
         time.sleep(1)
-        # OBS is still there, drawing the source
-        screenshot(obs_world, source)
+
+    # Each transition sends a new copy of the scene to program and frees the last
+    for scene in (cam_scene, other_scene) * 3:
+        transition_to(scene)
+        assert device_uuids(obs_world) == devices, "a copy of the source is listed as a device"
+        assert dock_uuids(obs_world) == docked, "a copy of the source is in the dock"
+        if scene == cam_scene:
+            wait_for_corners(obs_world, None, all_of(GREEN), look=program_corners)
+        # The source's own picture is still its camera's, after a copy of it has gone
+        wait_for_corners(obs_world, source, all_of(GREEN))
+
+    # Program follows the camera as it moves
+    transition_to(cam_scene)
+    move(obs_world, source, pan=-0.75, tilt=-0.75, zoom=1.0)
+    wait_for_position(obs_world, source, tmp_path, pan=-0.75, tilt=-0.75, zoom=1.0)
+    wait_for_corners(obs_world, None, all_of(BLUE), look=program_corners)
+    wait_for_corners(obs_world, source, all_of(BLUE))
+
+    links = obs_world.ui.filter_links(source, "Soft PTZ")
+    assert links["device_parent"] == links["source"]
+    transition_to(other_scene)
     obs_world.ws.call("RemoveInput", {"inputName": source})
+
+
+def test_a_copy_a_user_makes_is_a_camera_of_its_own(obs_world, soft_cam, tmp_path):
+    """A copy that isn't private, as Paste (Duplicate) makes, has a filter of
+    its own that is a device of its own, which moves without the source's"""
+    obs_world.need_ui_driver()
+    copy = f"{soft_cam}-copy"
+    obs_world.ui.duplicate_source(soft_cam, copy, obs_world.create_scene())
+    try:
+        obs_world.wait_for_device_by_name(copy, tmp_path / "copy.json", lambda r: r["found"] and r["bound"],
+                                          timeout=10)
+        assert obs_world.device_uuid(copy) != obs_world.device_uuid(soft_cam)
+        move(obs_world, copy, pan=0.75, tilt=0.75, zoom=1.0)
+        wait_for_position(obs_world, copy, tmp_path, pan=0.75, tilt=0.75, zoom=1.0)
+        wait_for_corners(obs_world, copy, all_of(GREEN))
+        wait_for_corners(obs_world, soft_cam, {"tl": RED, "tr": GREEN, "bl": BLUE, "br": YELLOW})
+    finally:
+        obs_world.ws.call("RemoveInput", {"inputName": copy})
 
 
 # ----------------------------------------------------- preset thumbnails

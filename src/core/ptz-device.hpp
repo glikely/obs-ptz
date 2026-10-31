@@ -6,7 +6,9 @@
  */
 #pragma once
 
+#include <atomic>
 #include <map>
+#include <mutex>
 #include <optional>
 #include <string>
 #include <vector>
@@ -574,8 +576,45 @@ public:
 
 Q_DECLARE_OPERATORS_FOR_FLAGS(PTZDevice::Features)
 
+/* What OBS holds as a filter's data. OBS copies a source's filters with it,
+ * and can't say in create whether a filter is one, so the device waits for
+ * filter_add, where the parent shows it:
+ *
+ * - On a source that isn't private, a filter has a device of its own. That
+ *   includes one a user copied, as Paste (Duplicate) does.
+ * - On a private copy, as Studio Mode's "Duplicate Sources" sends to program,
+ *   it has none, so nothing is connected twice and no copy is seen as a
+ *   camera. It only knows the filter it is a copy of, and holds it weakly: the
+ *   device's procs and signals are that filter's, and go with it. */
+class PTZFilter {
+public:
+	using Make = std::function<PTZDevice *(OBSData settings)>;
+
+	PTZFilter(obs_source_t *filter, Make make);
+	virtual ~PTZFilter();
+
+	/* Borrowed: it owns this */
+	obs_source_t *source() const { return m_filter; }
+	/* Any thread: nullptr before filter_add, and on a private copy */
+	PTZDevice *device() const { return m_device; }
+	/* On a private copy, the filter it is a copy of, a reference, or nullptr.
+	 * Any thread, and holding it keeps that filter's data and device. */
+	obs_source_t *originalFilter() const;
+
+private:
+	friend void ptz_filter_add(void *data, obs_source_t *parent);
+	void findOriginal(obs_source_t *parent);
+	void buildDevice();
+
+	obs_source_t *m_filter;
+	Make m_make;
+	std::atomic<PTZDevice *> m_device = nullptr;
+	mutable std::mutex m_lock;
+	OBSWeakSource m_original;
+};
+
 /* backend driver hooks that register themselves as an OBS filters */
-void *ptz_filter_create(const std::function<PTZDevice *()> &make);
+void *ptz_filter_create(obs_source_t *filter, PTZFilter::Make make);
 obs_properties_t *ptz_filter_get_properties(void *data);
 void ptz_filter_update(void *data, obs_data_t *settings);
 void ptz_filter_add(void *data, obs_source_t *parent);

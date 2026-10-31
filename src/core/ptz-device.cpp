@@ -7,6 +7,7 @@
 
 #include <obs.hpp>
 #include <algorithm>
+#include <cstring>
 #include <functional>
 #include <vector>
 #include <QByteArray>
@@ -1203,7 +1204,7 @@ void ptz_filter_defaults_mark(obs_data_t *defaults)
 
 obs_properties_t *ptz_filter_get_properties(void *data)
 {
-	auto ptz = static_cast<PTZDevice *>(data);
+	PTZDevice *ptz = data ? static_cast<PTZFilter *>(data)->device() : nullptr;
 	if (ptz)
 		return ptz->get_obs_properties();
 	return nullptr;
@@ -1211,7 +1212,7 @@ obs_properties_t *ptz_filter_get_properties(void *data)
 
 void ptz_filter_update(void *data, obs_data_t *settings)
 {
-	auto ptz = static_cast<PTZDevice *>(data);
+	PTZDevice *ptz = data ? static_cast<PTZFilter *>(data)->device() : nullptr;
 	if (!ptz)
 		return;
 	PTZDevice::upgradeSettings(settings);
@@ -1227,56 +1228,98 @@ void ptz_filter_update(void *data, obs_data_t *settings)
 	QMetaObject::invokeMethod(ptz, [ptz, snapshot]() { ptz->applySettings(snapshot); });
 }
 
-void *ptz_filter_create(const std::function<PTZDevice *()> &make)
+PTZFilter::PTZFilter(obs_source_t *filter, Make make) : m_filter(filter), m_make(std::move(make)) {}
+
+PTZFilter::~PTZFilter() {}
+
+/* The filter of the same name on the source of the same name: OBS gives a
+ * private copy its source's name, and a filter on it its original's. */
+void PTZFilter::findOriginal(obs_source_t *parent)
 {
-	PTZDevice *ptz = nullptr;
-	auto build = [&]() {
-		ptz = make();
+	OBSWeakSource original;
+	OBSSourceAutoRelease source = obs_get_source_by_name(obs_source_get_name(parent));
+	OBSSourceAutoRelease filter = source ? obs_source_get_filter_by_name(source, obs_source_get_name(m_filter))
+					     : nullptr;
+	if (filter && filter != m_filter && strcmp(obs_source_get_id(filter), obs_source_get_id(m_filter)) == 0)
+		original = OBSGetWeakRef(filter);
+	std::lock_guard<std::mutex> lock(m_lock);
+	m_original = original;
+}
+
+obs_source_t *PTZFilter::originalFilter() const
+{
+	std::lock_guard<std::mutex> lock(m_lock);
+	return m_original ? obs_weak_source_get_source(m_original) : nullptr;
+}
+
+void PTZFilter::buildDevice()
+{
+	auto build = [this]() {
+		OBSDataAutoRelease settings = obs_source_get_settings(m_filter);
+		PTZDevice *ptz = m_make(settings.Get());
 		/* So that there is state to give to another thread from the first */
 		if (ptz)
 			ptz->refreshStateSnapshot();
+		m_device = ptz;
 	};
 	/* Creating the device must happen on the main thread */
 	if (QThread::currentThread() != qApp->thread())
 		QMetaObject::invokeMethod(qApp, build, Qt::BlockingQueuedConnection);
 	else
 		build();
-	return ptz;
+}
+
+void *ptz_filter_create(obs_source_t *filter, PTZFilter::Make make)
+{
+	return new PTZFilter(filter, std::move(make));
 }
 
 void ptz_filter_add(void *data, obs_source_t *parent)
 {
-	auto ptz = static_cast<PTZDevice *>(data);
+	auto filter = static_cast<PTZFilter *>(data);
+	if (!filter || !parent)
+		return;
+	if (obs_obj_is_private(parent)) {
+		filter->findOriginal(parent);
+		return;
+	}
+	bool built = !filter->device();
+	if (built)
+		filter->buildDevice();
+	PTZDevice *ptz = filter->device();
 	if (!ptz)
 		return;
 	ptz->setParentSource(parent);
 	/* Attaching to a source doesn't fire a scene change, so force a refresh */
 	QMetaObject::invokeMethod(ptz, [ptz]() { ptz->onSceneChanged(); }, Qt::QueuedConnection);
-
-	OBSSourceAutoRelease source = ptz->filterSource();
+	if (!built)
+		return;
 	calldata_t cd = {};
-	calldata_set_ptr(&cd, "source", source);
+	calldata_set_ptr(&cd, "source", filter->source());
 	signal_handler_signal(obs_get_signal_handler(), "ptz_device_add", &cd);
 	calldata_free(&cd);
 }
 
 void ptz_filter_remove(void *data, obs_source_t *)
 {
-	auto ptz = static_cast<PTZDevice *>(data);
+	PTZDevice *ptz = data ? static_cast<PTZFilter *>(data)->device() : nullptr;
 	if (ptz)
 		ptz->setParentSource(nullptr);
 }
 
 void ptz_filter_destroy(void *data)
 {
-	auto ptz = static_cast<PTZDevice *>(data);
-	if (ptz)
+	auto filter = static_cast<PTZFilter *>(data);
+	if (!filter)
+		return;
+	if (PTZDevice *ptz = filter->device())
 		ptz->deleteLater();
+	delete filter;
 }
 
 void ptz_filter_save(void *data, obs_data_t *settings)
 {
-	auto ptz = static_cast<PTZDevice *>(data);
+	PTZDevice *ptz = data ? static_cast<PTZFilter *>(data)->device() : nullptr;
 	if (!ptz)
 		return;
 	/* The settings are the one copy of what the device saves, which it
