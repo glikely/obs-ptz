@@ -37,6 +37,9 @@ from obsws import ObsWebSocketError
 
 from conftest import REPO_ROOT, free_port, output_log, wait_for_port
 
+import test_soft_ptz as soft_ptz
+from test_soft_ptz import duplicating_studio_mode  # noqa: F401
+
 FILTER_KIND = "ca.secretlab.obs-ptz.visca"
 
 ACTION_PAN_TILT = 3
@@ -405,6 +408,49 @@ def test_removing_a_filter_removes_its_device(obs_world, cameras, tmp_path):
     obs_world.wait_for_device_by_name("filter-cam-remove", out, lambda r: not r["found"], timeout=10)
     # The source itself is untouched
     assert any(i["inputName"] == "filter-cam-remove" for i in obs_world.ws.call("GetInputList")["inputs"])
+
+
+def test_an_image_keeps_showing_under_a_device_filter(obs_world, cameras, tmp_path):
+    image = tmp_path / "quadrants.png"
+    soft_ptz.write_quadrant_png(image)
+    name = "filter-cam-image"
+    obs_world.ws.call("CreateInput", {
+        "sceneName": obs_world.create_scene(), "inputName": name, "inputKind": "image_source",
+        "inputSettings": {"file": str(image)},
+    })
+    cameras.names.add(name)
+    cameras.add_filter(name)
+    obs_world.wait_for_device_by_name(name, tmp_path / "device.json", lambda r: r["found"] and r["bound"], timeout=10)
+
+    soft_ptz.wait_for_corners(obs_world, name, {
+        "tl": soft_ptz.RED, "tr": soft_ptz.GREEN, "bl": soft_ptz.BLUE, "br": soft_ptz.YELLOW,
+    })
+
+
+def test_studio_mode_copies_of_an_image_dont_crash_obs(obs_world, cameras, duplicating_studio_mode, tmp_path):
+    """OBS puts the filter, which may not be duplicated, on each copy of the
+    image it sends to program, and freeing the copy takes the filter's parent
+    away. Passing the picture on from there would crash OBS, as in #428."""
+    image = tmp_path / "quadrants.png"
+    soft_ptz.write_quadrant_png(image)
+    name = "filter-cam-image-copied"
+    cam_scene = obs_world.create_scene()
+    other_scene = obs_world.create_scene()
+    obs_world.ws.call("CreateInput", {
+        "sceneName": cam_scene, "inputName": name, "inputKind": "image_source",
+        "inputSettings": {"file": str(image)},
+    })
+    cameras.names.add(name)
+    cameras.add_filter(name)
+    obs_world.wait_for_device_by_name(name, tmp_path / "device.json", lambda r: r["found"] and r["bound"], timeout=10)
+
+    for scene in (cam_scene, other_scene):
+        obs_world.ws.call("SetCurrentPreviewScene", {"sceneName": scene})
+        obs_world.ws.call("TriggerStudioModeTransition")
+        time.sleep(1.5)
+    make_preview(obs_world, cam_scene)
+    time.sleep(1)
+    soft_ptz.screenshot(obs_world, name)
 
 
 def test_each_filter_has_its_own_device(obs_world, cameras, tmp_path):
