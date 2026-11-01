@@ -101,14 +101,6 @@ private:
 
 	QCheckBox *m_connected;
 
-	/* Unlike the indicators above, these are commandable (PTZDevice::
-	 * requestState()): the user can click them, and the row hides while
-	 * the device doesn't report the key at all. */
-	QCheckBox *m_power;
-	QCheckBox *m_focusAuto;
-	QCheckBox *m_tally;
-	QCheckBox *m_tallyPreview;
-
 	QGroupBox *m_whiteBalanceGroup;
 	QComboBox *m_whiteBalanceMode;
 	QPushButton *m_onePush;

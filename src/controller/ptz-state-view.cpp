@@ -138,19 +138,6 @@ PTZStateView::PTZStateView(QWidget *parent) : QWidget(parent)
 	m_connected = makeIndicator("PTZ.Device.Status.Connected");
 	top->addRow(m_connected);
 
-	m_power = new QCheckBox(obs_module_text("PTZ.Device.State.Power"));
-	m_power->setObjectName("power_on");
-	m_focusAuto = new QCheckBox(obs_module_text("PTZ.Device.State.Autofocus"));
-	m_tally = new QCheckBox(obs_module_text("PTZ.Device.State.Tally"));
-	m_tallyPreview = new QCheckBox(obs_module_text("PTZ.Device.State.TallyPreview"));
-	top->addRow(m_power);
-	top->addRow(m_focusAuto);
-	top->addRow(m_tally);
-	top->addRow(m_tallyPreview);
-	m_power->hide();
-	m_focusAuto->hide();
-	m_tally->hide();
-	m_tallyPreview->hide();
 	page->addLayout(top);
 
 	/* The rest of what a camera reports, in rows made from these. A number
@@ -159,6 +146,10 @@ PTZStateView::PTZStateView(QWidget *parent) : QWidget(parent)
 	auto flag = [this](QFormLayout *form, const char *key, const char *label) {
 		return addField(form, key, FlagField, label);
 	};
+	flag(top, "power_on", "PTZ.Device.State.Power");
+	flag(top, "focus_af_enabled", "PTZ.Device.State.Autofocus");
+	flag(top, "tally_on", "PTZ.Device.State.Tally");
+	flag(top, "tally_preview", "PTZ.Device.State.TallyPreview");
 	auto indicator = [this](QFormLayout *form, const char *key, const char *label) {
 		Field *field = addField(form, key, FlagField, label);
 		field->widget->setAttribute(Qt::WA_TransparentForMouseEvents);
@@ -435,30 +426,6 @@ PTZStateView::PTZStateView(QWidget *parent) : QWidget(parent)
 	});
 	connect(m_onePush, &QPushButton::clicked, this, [this]() { emit actionRequested("wb_onepush"); });
 
-	/* clicked(), not toggled(): a programmatic setChecked() below (the
-	 * device catching up, or resetting to what it last reported) must not
-	 * feed back as a request */
-	connect(m_power, &QCheckBox::clicked, this, [this](bool checked) {
-		OBSDataAutoRelease requested = obs_data_create();
-		obs_data_set_bool(requested, "power_on", checked);
-		emit stateRequested(OBSData(requested.Get()));
-	});
-	connect(m_focusAuto, &QCheckBox::clicked, this, [this](bool checked) {
-		OBSDataAutoRelease requested = obs_data_create();
-		obs_data_set_bool(requested, "focus_af_enabled", checked);
-		emit stateRequested(OBSData(requested.Get()));
-	});
-	connect(m_tally, &QCheckBox::clicked, this, [this](bool checked) {
-		OBSDataAutoRelease requested = obs_data_create();
-		obs_data_set_bool(requested, "tally_on", checked);
-		emit stateRequested(OBSData(requested.Get()));
-	});
-	connect(m_tallyPreview, &QCheckBox::clicked, this, [this](bool checked) {
-		OBSDataAutoRelease requested = obs_data_create();
-		obs_data_set_bool(requested, "tally_preview", checked);
-		emit stateRequested(OBSData(requested.Get()));
-	});
-
 	/* The list follows the camera, not the user: if the camera hasn't taken
 	 * up what was asked for by now, show what it says it is doing */
 	m_whiteBalanceSettle.setSingleShot(true);
@@ -646,30 +613,6 @@ void PTZStateView::showState(obs_data_t *data)
 		changed = true;
 	}
 
-	/* Commandable, unlike the indicator above: shown only while the
-	 * device reports the key at all */
-	auto setCommandableFlag = [&](QCheckBox *box, const char *key) {
-		bool shown = !box->isHidden();
-		if (has(key)) {
-			bool value = obs_data_get_bool(data, key);
-			if (box->isChecked() != value) {
-				box->setChecked(value);
-				changed = true;
-			}
-			if (!shown) {
-				box->show();
-				changed = true;
-			}
-		} else if (shown) {
-			box->hide();
-			changed = true;
-		}
-	};
-	setCommandableFlag(m_power, "power_on");
-	setCommandableFlag(m_focusAuto, "focus_af_enabled");
-	setCommandableFlag(m_tally, "tally_on");
-	setCommandableFlag(m_tallyPreview, "tally_preview");
-
 	if (has("wb_mode")) {
 		int mode = (int)obs_data_get_int(data, "wb_mode");
 		if (m_reportedWhiteBalance != mode) {
@@ -777,14 +720,6 @@ QVariantMap PTZStateView::shownValues() const
 {
 	QVariantMap shown;
 	shown["connected"] = m_connected->isChecked();
-	if (!m_power->isHidden())
-		shown["power_on"] = m_power->isChecked();
-	if (!m_focusAuto->isHidden())
-		shown["focus_af_enabled"] = m_focusAuto->isChecked();
-	if (!m_tally->isHidden())
-		shown["tally_on"] = m_tally->isChecked();
-	if (!m_tallyPreview->isHidden())
-		shown["tally_preview"] = m_tallyPreview->isChecked();
 	if (m_reportedWhiteBalance >= 0)
 		shown["wb_mode"] = m_whiteBalanceMode->currentData().toInt();
 	for (const auto &field : m_fields) {
