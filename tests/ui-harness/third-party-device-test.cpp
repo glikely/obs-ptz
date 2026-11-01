@@ -25,11 +25,16 @@ struct ThirdPartyDevice {
 	obs_source_t *source;
 	int major;
 	int minor;
+	/* A setting of a source, which a controller has to hear of: it can't take
+	 * the procs back, and the source stays */
+	bool on;
 };
 
 void getApiVersion(void *data, calldata_t *cd)
 {
 	auto self = static_cast<ThirdPartyDevice *>(data);
+	if (!self->on)
+		return;
 	calldata_set_int(cd, "major", self->major);
 	calldata_set_int(cd, "minor", self->minor);
 }
@@ -52,11 +57,21 @@ void getState(void *data, calldata_t *cd)
 	obs_data_release(features);
 }
 
+/* All it takes to be found, and nothing of the plugin's: it says nothing if no
+ * controller has declared the signal */
+void announce(obs_source_t *source, const char *signal)
+{
+	calldata_t cd = {};
+	calldata_set_ptr(&cd, "source", source);
+	signal_handler_signal(obs_get_signal_handler(), signal, &cd);
+	calldata_free(&cd);
+}
+
 void *createDevice(obs_data_t *, obs_source_t *source)
 {
-	/* Written for version 0.3 of the API, as a plugin that has not been
-	 * changed since is: it has no ptz_get_api_info, which 0.4 added */
-	auto self = new ThirdPartyDevice{source, PTZ_API_VERSION_MAJOR, 3};
+	/* The oldest a controller takes, and only what that needs: it has no
+	 * ptz_get_api_info, say, as a device doesn't have to */
+	auto self = new ThirdPartyDevice{source, PTZ_API_VERSION_MAJOR, PTZ_API_VERSION_MINOR_NEEDED, true};
 	if (strcmp(obs_source_get_id(source), OTHER_VERSION_ID) == 0)
 		self->major++;
 
@@ -71,7 +86,26 @@ void *createDevice(obs_data_t *, obs_source_t *source)
 	signal_handler_add(sh, "void ptz_preset_order_changed(ptr source)");
 	signal_handler_add(sh, "void ptz_preset_changed(ptr source, string id, ptr changed)");
 	signal_handler_add(sh, "void ptz_preset_list_reset(ptr source)");
+
+	/* A source is ready now. A filter is once it is on a source */
+	if (obs_source_get_type(source) == OBS_SOURCE_TYPE_INPUT)
+		announce(source, "ptz_device_add");
 	return self;
+}
+
+void addedToSource(void *data, obs_source_t *)
+{
+	announce(static_cast<ThirdPartyDevice *>(data)->source, "ptz_device_add");
+}
+
+void updateDevice(void *data, obs_data_t *settings)
+{
+	auto self = static_cast<ThirdPartyDevice *>(data);
+	bool on = !obs_data_get_bool(settings, "ptz_off");
+	if (on == self->on)
+		return;
+	self->on = on;
+	announce(self->source, on ? "ptz_device_add" : "ptz_device_remove");
 }
 
 void destroyDevice(void *data)
@@ -135,6 +169,9 @@ void registerDevice(const char *id, obs_source_type type)
 	if (type == OBS_SOURCE_TYPE_INPUT) {
 		info.get_width = deviceSize;
 		info.get_height = deviceSize;
+		info.update = updateDevice;
+	} else {
+		info.filter_add = addedToSource;
 	}
 	obs_register_source(&info);
 }

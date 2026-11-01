@@ -46,37 +46,27 @@ static OBSSource defaultParentSource(const OBSWeakSource &weakSource)
 	return OBSSource(obs_filter_get_parent(source));
 }
 
-/* A source is a device of the PTZ API if it implements it, and that is all it takes,
- * whether it is a source or a filter and whichever plugin it is from.
+/* A device says so itself, through this signal on OBS's global handler. It is one
+ * of the PTZ API if it implements it, and that is all it takes, whether it is a
+ * source or a filter and whichever plugin it is from.
  *
  * It is lent for the duration of the call, and the source, and its handlers, may be
  * gone by the time the queued call runs, so make a weak reference first. */
-static void consider_source(PTZListModel *ptzlm, obs_source_t *source)
+static void device_added_cb(void *data, calldata_t *cd)
 {
+	auto ptzlm = static_cast<PTZListModel *>(data);
+	auto source = static_cast<obs_source_t *>(calldata_ptr(cd, "source"));
 	if (!source || !ptz_source_is_device(source))
 		return;
 	OBSWeakSource weakSource = OBSGetWeakRef(source);
 	QMetaObject::invokeMethod(ptzlm, [ptzlm, weakSource] { ptzlm->deviceCreated(weakSource); });
 }
 
-/* OBS says so, through its own global signal, every time a source is created:
- * a device that is a source. A source made private is not announced, and so is
- * not found. */
-static void source_create_cb(void *data, calldata_t *cd)
-{
-	consider_source(static_cast<PTZListModel *>(data), static_cast<obs_source_t *>(calldata_ptr(cd, "source")));
-}
-
-/* And every time a filter is added to a source: a device that is a filter. A
- * filter is always private, and so never announces itself as a source being
- * created. */
-static void filter_add_cb(void *data, calldata_t *cd)
-{
-	consider_source(static_cast<PTZListModel *>(data), static_cast<obs_source_t *>(calldata_ptr(cd, "filter")));
-}
-
 /* The source, and with it the device, is being destroyed: a source's own
- * "destroy" signal, whose calldata names the source as "source" */
+ * "destroy" signal, whose calldata names the source as "source". Or a device
+ * has stopped being one while its source goes on, which says so with
+ * "ptz_device_remove", the same calldata. Its other signals stay connected,
+ * with nothing to say, and OBS won't connect them twice if it comes back. */
 static void filter_destroy_cb(void *data, calldata_t *cd)
 {
 	auto ptzlm = static_cast<PTZListModel *>(data);
@@ -156,16 +146,16 @@ PTZListModel::PTZListModel() : QAbstractItemModel()
 {
 	/* Plugins are loaded before any source is, so there are no devices to look for yet */
 	signal_handler_t *global = obs_get_signal_handler();
-	signal_handler_connect(global, "source_create", source_create_cb, this);
-	signal_handler_connect(global, "source_filter_add", filter_add_cb, this);
+	signal_handler_connect(global, "ptz_device_add", device_added_cb, this);
+	signal_handler_connect(global, "ptz_device_remove", filter_destroy_cb, this);
 	ptz_backup_store_start();
 }
 
 PTZListModel::~PTZListModel()
 {
 	signal_handler_t *global = obs_get_signal_handler();
-	signal_handler_disconnect(global, "source_create", source_create_cb, this);
-	signal_handler_disconnect(global, "source_filter_add", filter_add_cb, this);
+	signal_handler_disconnect(global, "ptz_device_add", device_added_cb, this);
+	signal_handler_disconnect(global, "ptz_device_remove", filter_destroy_cb, this);
 	ptz_backup_store_stop();
 }
 

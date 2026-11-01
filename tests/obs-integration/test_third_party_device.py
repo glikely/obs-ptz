@@ -1,8 +1,7 @@
 """Covers devices from a plugin other than this one: the plugin lists a
 filter, or a source, as a device, with nothing of the plugin's own to say so,
-when OBS says it was added to a source or created and its proc_handler answers
-ptz_get_api_version with a version it can use, and stops listing it once it
-is gone (see "Providing a device" in docs/ptz-device-api.md).
+when it says ptz_device_add and its proc_handler answers ptz_get_api_version
+with a version it can use, and stops listing it once it is gone (see "Providing a device" in docs/ptz-device-api.md).
 
 tests/ui-harness/third-party-device-test.cpp registers filters and a source
 that stand in for such a plugin: a filter and a source at the plugin's own API
@@ -10,6 +9,7 @@ version, and a filter a major version later.
 """
 
 import pytest
+from conftest import OBS_MAIN, PTZ_DOCK
 from obsws import ObsWebSocketError
 
 GOOD_KIND = "ptz_test_third_party_device"
@@ -54,16 +54,15 @@ def test_a_filter_at_a_usable_version_is_a_device(obs_world, source, tmp_path):
 
 
 def test_a_device_of_an_older_minor_version_is_still_a_device(obs_world, source, tmp_path):
-    """The stand-in is written for 0.3, and the plugin's own devices are newer:
-    a caller written for a minor version works with any later one, and the
-    controller needs nothing of a device that 0.3 hasn't. Over obs-websocket it
-    is listed, with its version, and that is all: it hasn't ptz_get_api_info,
-    which is how the binding learns what a device has."""
+    """The stand-in is at the oldest version the controller takes, and has only
+    what that needs. Over obs-websocket it is listed, with its version, and that
+    is all: it hasn't ptz_get_api_info, which is how the binding learns what a
+    device has."""
     add_filter(obs_world, source, GOOD_KIND)
     obs_world.wait_for_device_by_name(source, tmp_path / "device.json", lambda r: r["found"])
 
     listed = {d["source"]: d for d in obs_world.ws.vendor("obs-ptz", "ptz_list_devices")["devices"]}
-    assert listed[source]["api"] == {"major": 0, "minor": 3}
+    assert listed[source]["api"] == {"major": 0, "minor": 9}
     with pytest.raises(ObsWebSocketError) as raised:
         obs_world.ws.vendor("obs-ptz", "ptz_get_state", {"device": listed[source]["device"]})
     assert raised.value.status.get("error") == "no_such_proc"
@@ -124,3 +123,51 @@ def test_a_source_at_a_usable_version_is_a_device(obs_world, tmp_path):
             pass
 
     obs_world.wait_for_device_by_name(name, out, lambda r: not r["found"], timeout=10)
+
+
+def test_a_source_can_stop_being_a_device_and_be_one_again(obs_world, tmp_path):
+    """Its PTZ is a setting, so the source outlives the device: nothing is destroyed,
+    and the device says so itself."""
+    obs_world.need_harness()
+    out = tmp_path / "device.json"
+    name = "third-party-switched-device"
+    scene = obs_world.create_scene()
+    item = obs_world.ws.call("CreateInput", {
+        "sceneName": scene,
+        "inputName": name,
+        "inputKind": SOURCE_KIND,
+        "inputSettings": {},
+    })["sceneItemId"]
+
+    def set_off(off):
+        obs_world.ws.call("SetInputSettings", {
+            "inputName": name,
+            "inputSettings": {"ptz_off": off},
+            "overlay": True,
+        })
+
+    def in_dock(uuid):
+        rows, _, _ = obs_world.ui.rows(OBS_MAIN, PTZ_DOCK, "deviceList", roles=["uuid"])
+        return uuid in [r["uuid"] for r in rows]
+
+    def removed(uuid):
+        return lambda e: (e.get("eventType") == "ptz_device_remove"
+                          and e.get("eventData", {}).get("device") == uuid)
+
+    try:
+        uuid = obs_world.wait_for_device_by_name(name, out, lambda r: r["found"])["uuid"]
+        for _ in range(2):
+            obs_world.wait_for(lambda: in_dock(uuid))
+            set_off(True)
+            obs_world.events.wait_event("VendorEvent", removed(uuid))
+            obs_world.wait_for(lambda: not in_dock(uuid))
+            assert uuid not in [d["device"] for d in obs_world.ws.vendor("obs-ptz", "ptz_list_devices")["devices"]]
+
+            set_off(False)
+            obs_world.wait_for_device_by_name(name, out, lambda r: r["found"])
+    finally:
+        obs_world.ws.call("RemoveSceneItem", {"sceneName": scene, "sceneItemId": item})
+        try:
+            obs_world.ws.call("RemoveInput", {"inputName": name})
+        except ObsWebSocketError:
+            pass

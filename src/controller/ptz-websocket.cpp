@@ -535,7 +535,22 @@ void signalRaised(void *data, calldata_t *cd)
 	emitEvent(link->name.c_str(), event);
 }
 
-/* A source whose signals are connected to is being destroyed */
+void sourceDestroyed(void *, calldata_t *cd);
+
+/* Lets go of a source's signals, if it is still there */
+void disconnectEntry(const Connected &entry)
+{
+	OBSSourceAutoRelease source = OBSGetStrongRef(entry.source);
+	if (!source)
+		return;
+	signal_handler_t *handler = obs_source_get_signal_handler(source);
+	for (SignalLink *link : entry.links)
+		signal_handler_disconnect(handler, link->name.c_str(), signalRaised, link);
+	signal_handler_disconnect(handler, "destroy", sourceDestroyed, nullptr);
+}
+
+/* A source whose signals are connected to is being destroyed, or has stopped
+ * being a device while it goes on: that device has gone */
 void sourceDestroyed(void *, calldata_t *cd)
 {
 	InFlight running;
@@ -543,18 +558,18 @@ void sourceDestroyed(void *, calldata_t *cd)
 	if (!source)
 		return;
 	std::string uuid = obs_source_get_uuid(source);
-	bool device = false;
+	Connected was;
 	{
 		std::lock_guard<std::mutex> lock(connectedMutex);
 		auto found = connected.find(uuid);
 		if (found == connected.end())
 			return;
-		device = !found->second.discovery;
+		was = found->second;
 		connected.erase(found);
 	}
-	if (!device)
+	disconnectEntry(was);
+	if (was.discovery)
 		return;
-	/* No signal of the API says a device has gone */
 	OBSDataAutoRelease event = obs_data_create();
 	obs_data_set_string(event, "device", uuid.c_str());
 	emitEvent("ptz_device_remove", event);
@@ -611,15 +626,8 @@ void disconnectSignals()
 		std::lock_guard<std::mutex> lock(connectedMutex);
 		were.swap(connected);
 	}
-	for (auto &entry : were) {
-		OBSSourceAutoRelease source = OBSGetStrongRef(entry.second.source);
-		if (!source)
-			continue;
-		signal_handler_t *handler = obs_source_get_signal_handler(source);
-		for (SignalLink *link : entry.second.links)
-			signal_handler_disconnect(handler, link->name.c_str(), signalRaised, link);
-		signal_handler_disconnect(handler, "destroy", sourceDestroyed, nullptr);
-	}
+	for (auto &entry : were)
+		disconnectEntry(entry.second);
 }
 
 /* --- finding devices ------------------------------------------------------------ */
@@ -656,25 +664,11 @@ void considerSource(obs_source_t *source)
 	connectSignals(source, discovery);
 }
 
-/* OBS's own signals that a source, or a filter on one, has been made: on
- * whatever thread made it */
-void sourceCreated(void *, calldata_t *cd)
+/* A device says it has been added: on whatever thread added it */
+void deviceAdded(void *, calldata_t *cd)
 {
 	auto source = static_cast<obs_source_t *>(calldata_ptr(cd, "source"));
 	OBSWeakSource weak = OBSGetWeakRef(source);
-	QMetaObject::invokeMethod(
-		qApp,
-		[weak]() {
-			OBSSourceAutoRelease strong = OBSGetStrongRef(weak);
-			considerSource(strong);
-		},
-		Qt::QueuedConnection);
-}
-
-void filterAdded(void *, calldata_t *cd)
-{
-	auto filter = static_cast<obs_source_t *>(calldata_ptr(cd, "filter"));
-	OBSWeakSource weak = OBSGetWeakRef(filter);
 	QMetaObject::invokeMethod(
 		qApp,
 		[weak]() {
@@ -906,8 +900,8 @@ void ptz_websocket_load(void)
 
 	/* No source has been loaded yet, but one that a module made is there */
 	signal_handler_t *global = obs_get_signal_handler();
-	signal_handler_connect(global, "source_create", sourceCreated, nullptr);
-	signal_handler_connect(global, "source_filter_add", filterAdded, nullptr);
+	signal_handler_connect(global, "ptz_device_add", deviceAdded, nullptr);
+	signal_handler_connect(global, "ptz_device_remove", sourceDestroyed, nullptr);
 	for (const OBSSource &source : allSources())
 		considerSource(source);
 	applyAccess();
@@ -921,8 +915,8 @@ void ptz_websocket_unload(void)
 		return;
 	loaded = false;
 	signal_handler_t *global = obs_get_signal_handler();
-	signal_handler_disconnect(global, "source_create", sourceCreated, nullptr);
-	signal_handler_disconnect(global, "source_filter_add", filterAdded, nullptr);
+	signal_handler_disconnect(global, "ptz_device_add", deviceAdded, nullptr);
+	signal_handler_disconnect(global, "ptz_device_remove", sourceDestroyed, nullptr);
 	obs_frontend_remove_event_callback(frontendEvent, nullptr);
 	/* obs-websocket may have been unloaded by now, and is not to be asked
 	 * anything: it was let go of when OBS said it was closing. If OBS never

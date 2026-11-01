@@ -32,6 +32,9 @@
 void ptz_load_devices()
 {
 	obs_frontend_add_event_callback(ptz_module_frontend_event, nullptr);
+	/* Before anything connects to them, which is what a controller has to do */
+	signal_handler_add(obs_get_signal_handler(), "void ptz_device_add(ptr source)");
+	signal_handler_add(obs_get_signal_handler(), "void ptz_device_remove(ptr source)");
 
 	/* Constructed here rather than as a plain static-storage global so
 	 * its constructor happens at a well-defined point in the module load

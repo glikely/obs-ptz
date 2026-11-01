@@ -36,7 +36,7 @@ changes in the camera.
 
 ## API version
 
-This is version **0.8** of the PTZ API.
+This is version **0.9** of the PTZ API.
 The API is in a pre-release state, published as an RFC.
 It is subject to change at any time.
 Please provide feedback on the [API discussion
@@ -128,14 +128,22 @@ static bool each_source(void *data, obs_source_t *source)
  * obs_enum_all_sources() has the private ones as well */
 ```
 
-To hear of devices added later, connect two of the global signals, on
-`obs_get_signal_handler()`: `source_create`, whose calldata has the `source`,
-for a device that is a source, and `source_filter_add`, whose calldata has the
-`source` and the `filter`, for one that is a filter.
+To hear of devices added later, declare [`ptz_device_add`](#finding-devices)
+on `obs_get_signal_handler()` when your plugin loads, and connect to it.
+Its calldata has the device as `source`, and it is the same for a device that
+is a source or a filter.
 Ask each for its version, as above.
-A private source never says it was created, so a device that is one is not
-heard of that way.
-The plugin does both.
+A device has gone when either its source's `destroy` signal says so, or
+[`ptz_device_remove`](#finding-devices) does.
+
+```c
+/* in obs_module_load(), before any source is loaded */
+signal_handler_t *global = obs_get_signal_handler();
+signal_handler_add(global, "void ptz_device_add(ptr source)");
+signal_handler_add(global, "void ptz_device_remove(ptr source)");
+signal_handler_connect(global, "ptz_device_add", device_added, data);
+signal_handler_connect(global, "ptz_device_remove", device_removed, data);
+```
 
 Then call procs on a device's handler by name, with the fields each one reads
 (they are listed under each proc below):
@@ -395,7 +403,7 @@ makes sources and is there only when the setting is `control`.
 
 | Event | |
 | --- | --- |
-| `ptz_device_remove` | `device`: a device has gone. No signal of the API says so, as there is no device left to say it |
+| `ptz_device_remove` | `device`: a device has gone, as its source was destroyed or it said [`ptz_device_remove`](#finding-devices) |
 | `ptz_selected_changed` | `device`: another camera is selected in the PTZ dock, by the user, a hotkey, or the dock following the scene; "" if none is |
 
 ## Providing a device
@@ -405,16 +413,63 @@ A device is a source, either a regular source (`OBS_SOURCE_TYPE_INPUT`) or a
 filter (`OBS_SOURCE_TYPE_FILTER`), whose proc_handler has the
 [procs below](#per-device-proc_handler) and whose signal_handler has the
 [signals](#per-device-signal_handler).
-It is found when OBS says a source was created, with the global `source_create`
-signal, or a filter was added to a source, with `source_filter_add`, and its
+It is found when it says [`ptz_device_add`](#finding-devices) and its
 proc_handler answers `ptz_get_api_version` with the same major version as the
 finder's and a minor version at least as new.
-A source made private is not announced by OBS, and so is not found.
 It needs the state keys that are "always" there, `source` among them, and the
 procs and signals for what it can do, which its `features` say.
 A proc a device doesn't have is read as something it can't do.
 Device configuration is managed the same way as any other source, via
 `save`, `update`, and `get_properties` in its `obs_source_info`.
+
+## Finding devices
+
+Two signals on OBS's global handler are used to say when a device is added or
+removed.
+
+These signals, `ptz_device_add` and `ptz_device_remove`, are
+added to the global handler by PTZ controller plugins at startup.
+In the case of multiple controller plugins, each one will add the
+signals and OBS will ignore the duplicate additions.
+e.g., adding the same signal multiple times does not create multiple
+signals.
+OBS will log the duplicate registration, but it does not cause an error
+or cause any harm.
+
+PTZ device plugins must not register the signals.
+In the case of no controller plugins loaded, the signals will not get
+added and signals from ptz devices will be safely ignored.
+
+### `void ptz_device_add(ptr source)`
+
+`source` is the device: the filter, for one that is a filter.
+
+A device calls this signal when it is ready to respond to PTZ Device API calls.
+It calls it with `signal_handler_signal()`, from any thread:
+
+```c
+calldata_t cd = {0};
+calldata_set_ptr(&cd, "source", source);
+signal_handler_signal(obs_get_signal_handler(), "ptz_device_add", &cd);
+calldata_free(&cd);
+```
+
+### `void ptz_device_remove(ptr source)`
+
+`source` is what was the device, which goes on as a source.
+
+OBS has no way to take a proc or a signal back, so a source that can turn its
+PTZ on and off, with a setting of its own, stays a source with those procs.
+A device that is destroyed needs to say nothing, as its `destroy` signal does.
+It turns it off in this order:
+
+1. `ptz_get_api_version` stops setting `major` and `minor`, which is not a
+   version a caller can use.
+2. It says `ptz_device_remove`.
+3. Its other procs do nothing, and its signals say nothing, until it is on again.
+
+To turn on again, it answers `ptz_get_api_version` and says `ptz_device_add`.
+A controller starts over, as with any device it hasn't seen.
 
 ## Driver kinds
 

@@ -126,12 +126,12 @@ static void backup_on(obs_source_t *filter, obs_source_t *parent)
 	backup_filter(filter, name);
 }
 
-/* "source_filter_add": its name, for when it is destroyed without one */
-static void filter_added_cb(void *, calldata_t *cd)
+/* "ptz_device_add": its source's name, for when it is destroyed without one */
+static void device_added_cb(void *, calldata_t *cd)
 {
-	auto parent = static_cast<obs_source_t *>(calldata_ptr(cd, "source"));
-	auto filter = static_cast<obs_source_t *>(calldata_ptr(cd, "filter"));
-	if (!parent || !filter || !ptz_source_is_device(filter))
+	auto filter = static_cast<obs_source_t *>(calldata_ptr(cd, "source"));
+	obs_source_t *parent = filter ? obs_filter_get_parent(filter) : nullptr;
+	if (!parent || !ptz_source_is_device(filter))
 		return;
 	QMutexLocker locker(&backup_mutex);
 	filter_sources.insert(QT_UTF8(obs_source_get_uuid(filter)), QT_UTF8(obs_source_get_name(parent)));
@@ -178,7 +178,7 @@ static void source_destroyed_cb(void *, calldata_t *cd)
 void ptz_backup_store_start()
 {
 	signal_handler_t *global = obs_get_signal_handler();
-	signal_handler_connect(global, "source_filter_add", filter_added_cb, nullptr);
+	signal_handler_connect(global, "ptz_device_add", device_added_cb, nullptr);
 	signal_handler_connect(global, "source_filter_remove", filter_removed_cb, nullptr);
 	signal_handler_connect(global, "source_remove", source_removed_cb, nullptr);
 	signal_handler_connect(global, "source_destroy", source_destroyed_cb, nullptr);
@@ -187,7 +187,7 @@ void ptz_backup_store_start()
 void ptz_backup_store_stop()
 {
 	signal_handler_t *global = obs_get_signal_handler();
-	signal_handler_disconnect(global, "source_filter_add", filter_added_cb, nullptr);
+	signal_handler_disconnect(global, "ptz_device_add", device_added_cb, nullptr);
 	signal_handler_disconnect(global, "source_filter_remove", filter_removed_cb, nullptr);
 	signal_handler_disconnect(global, "source_remove", source_removed_cb, nullptr);
 	signal_handler_disconnect(global, "source_destroy", source_destroyed_cb, nullptr);

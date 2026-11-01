@@ -1252,6 +1252,12 @@ void ptz_filter_add(void *data, obs_source_t *parent)
 	ptz->setParentSource(parent);
 	/* Attaching to a source doesn't fire a scene change, so force a refresh */
 	QMetaObject::invokeMethod(ptz, [ptz]() { ptz->onSceneChanged(); }, Qt::QueuedConnection);
+
+	OBSSourceAutoRelease source = ptz->filterSource();
+	calldata_t cd = {};
+	calldata_set_ptr(&cd, "source", source);
+	signal_handler_signal(obs_get_signal_handler(), "ptz_device_add", &cd);
+	calldata_free(&cd);
 }
 
 void ptz_filter_remove(void *data, obs_source_t *)
