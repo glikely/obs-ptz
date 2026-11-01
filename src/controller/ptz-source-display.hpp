@@ -8,6 +8,7 @@
 
 #include <mutex>
 #include <obs.hpp>
+#include <QImage>
 #include <QList>
 #include <QPersistentModelIndex>
 #include <QPointer>
@@ -25,16 +26,19 @@ class PTZSourceDisplay : public OBSQTDisplay {
 
 	/* For whatever reads widgets by their Qt properties, as tests do */
 	Q_PROPERTY(QString shownSource READ shownSource)
+	Q_PROPERTY(QString overlayText READ overlayText)
 
 public:
 	explicit PTZSourceDisplay(QWidget *parent = nullptr);
 	~PTZSourceDisplay() override;
 
-	/* Follow this device, as the list model has it, showing its source */
+	/* Follow this device, as the list model has it, showing its source with
+	 * its name and status over it */
 	void setDevice(const QModelIndex &index);
 
 	/* The name of the source being shown, empty if there is none */
 	QString shownSource() const;
+	QString overlayText() const { return m_overlayText; }
 
 	QSize sizeHint() const override;
 	QSize minimumSizeHint() const override;
@@ -55,6 +59,7 @@ private:
 	void syncNativeGeometry();
 
 	QPersistentModelIndex m_device;
+	QString m_overlayText;
 
 	/* Read by the graphics thread's draw callback as well as set here */
 	mutable std::mutex m_lock;
@@ -63,7 +68,15 @@ private:
 	 * reference: this must not keep a camera's source, and so its device,
 	 * alive after it is removed. */
 	bool m_showing = false;
+	/* What to draw over the video. draw() can't ask the model, which is the
+	 * main thread's, so the text is painted there and handed over like this. */
+	QImage m_overlayImage;
+	bool m_overlayChanged = false;
+	/* The graphics thread's, from m_overlayImage */
+	gs_texture_t *m_overlayTexture = nullptr;
 
+	void updateOverlay();
+	QImage paintOverlay(const QString &text) const;
 	/* The source to show, or none. Holds it weakly, but keeps it showing
 	 * (obs_source_inc_showing()) while this can be seen, so that it renders
 	 * even when it is in no scene on screen. */

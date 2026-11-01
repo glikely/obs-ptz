@@ -431,6 +431,21 @@ def test_preview_moves_on_when_its_device_goes(request, obs_world, tmp_path):
     obs_world.wait_for(lambda: preview_source(obs_world) not in ("", camera.source), timeout=5)
 
 
+def preview_overlay(obs_world):
+    """The lines of text over the settings dialog's preview"""
+    return obs_world.ui.get1(SETTINGS_DIALOG, "sourcePreview", name="overlayText").splitlines()
+
+
+def test_preview_overlay_names_the_camera_and_follows_its_status(request, obs_world, tmp_path):
+    camera = make_camera(request.addfinalizer, obs_world, tmp_path)
+    open_dialog(obs_world, camera, tmp_path)
+    assert preview_overlay(obs_world) == [camera.source, "Connected"]
+
+    obs_world.set_device_state(camera.device_name, power_on=False)
+
+    obs_world.wait_for(lambda: preview_overlay(obs_world) == [camera.source, "Camera is powered off"], timeout=5)
+
+
 def test_adding_a_device_keeps_the_one_shown(request, obs_world, tmp_path):
     device_name = obs_world.device_names["visca-tcp"]
     out = tmp_path / "dialog.json"
