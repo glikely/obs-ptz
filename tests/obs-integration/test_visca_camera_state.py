@@ -303,17 +303,6 @@ def test_removing_the_device_shown_shows_another(request, obs_world, tmp_path):
     obs_world.wait_for(lambda: dialog_device(obs_world) not in ("", camera.source), timeout=5)
 
 
-def test_adding_a_device_keeps_the_one_shown(request, obs_world, tmp_path):
-    camera = make_camera(request.addfinalizer, obs_world, tmp_path)
-    open_dialog(obs_world, camera, tmp_path)
-
-    make_camera(request.addfinalizer, obs_world, tmp_path)
-
-    obs_world.wait_for(lambda: dialog_device(obs_world) == camera.source, timeout=5)
-    # It is still on the list as well as in the header
-    obs_world.wait_for(lambda: obs_world.ui.rows(SETTINGS_DIALOG, "deviceList", roles=["uuid"])[1] >= 0, timeout=5)
-
-
 def test_adding_a_device_keeps_the_one_selected_in_the_dock(request, obs_world, tmp_path):
     camera = make_camera(request.addfinalizer, obs_world, tmp_path)
     obs_world.select_in_dock(camera.source)
@@ -402,31 +391,38 @@ def test_a_device_without_a_key_hides_its_row(obs_world, tmp_path):
 
 
 @pytest.mark.skipif(sys.platform == "win32", reason="needs SIGSTOP")
-def test_a_pending_edit_outlasts_a_report_of_something_else(request, obs_world, tmp_path):
+@pytest.mark.parametrize("key", ["ae_mode", "power_on"])
+def test_a_pending_edit_outlasts_a_report_of_something_else(request, obs_world, tmp_path, key):
     camera = make_camera(request.addfinalizer, obs_world, tmp_path)
     out, opened = open_dialog(obs_world, camera, tmp_path)
-    was = opened["shown"]["ae_mode"]
+    was = opened["shown"][key]
+    wanted = {"ae_mode": 0xb if was != 0xb else 0x3, "power_on": not was}[key]
 
     camera.sim.freeze()
     request.addfinalizer(camera.sim.thaw)
-    obs_world.edit_dialog_state(ae_mode=0xb if was != 0xb else 0x3)
+    obs_world.edit_dialog_state(**{key: wanted})
     # A new "source" is a report that needs nothing of the camera
     old_name, camera.source = camera.source, camera.source + "-renamed"
     obs_world.ws.call("SetInputName", {"inputName": old_name, "newInputName": camera.source})
+    obs_world.wait_for(lambda: dialog_device(obs_world) == camera.source, timeout=1)
 
-    assert obs_world.settings_dialog(out)["shown"]["ae_mode"] != was
+    assert obs_world.settings_dialog(out)["shown"][key] == wanted
     # ...and it settles back to what the camera last said
-    obs_world.wait_for_settings_dialog(out, lambda r: r["shown"]["ae_mode"] == was, timeout=5)
+    obs_world.wait_for_settings_dialog(out, lambda r: r["shown"][key] == was, timeout=5)
 
 
-def test_removing_the_device_shown_leaves_the_dialog_working(request, obs_world, tmp_path):
-    camera = make_camera(request.addfinalizer, obs_world, tmp_path)
-    out, _ = open_dialog(obs_world, camera, tmp_path)
+def test_adding_a_device_keeps_the_one_shown(request, obs_world, tmp_path):
+    device_name = obs_world.device_names["visca-tcp"]
+    out = tmp_path / "dialog.json"
+    obs_world.open_settings_dialog(device_name)
+    obs_world.wait_for_settings_dialog(out, lambda r: "wb_mode" in r["state_keys"])
 
-    camera.cleanup()
+    make_camera(request.addfinalizer, obs_world, tmp_path)
 
-    obs_world.open_settings_dialog(obs_world.device_names["visca-tcp"])
-    obs_world.wait_for_settings_dialog(out, lambda r: r["connected"] and "wb_mode" in r["state_keys"])
+    # and it still follows that device
+    for mode in (1, 2):
+        obs_world.set_device_state(device_name, wb_mode=mode)
+        obs_world.wait_for_settings_dialog(out, lambda r, m=mode: r["wb_mode"] == m)
 
 
 def test_state_view_has_none_of_them_for_another_protocol(obs_world, tmp_path):

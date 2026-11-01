@@ -108,9 +108,10 @@ void setDevice(const QModelIndex &index);
 - `stateRequested`, `actionRequested` and `cameraReportRequested` stay as they
   are. Writes still go through `PTZSettings` to `ptzDeviceList->setState()`.
 
-A removed device needs nothing new: the persistent index goes invalid and
-`currentChanged()` gives the view its next device, as it does the movement
-controls.
+The model resets when a device is added or removed, and a reset throws away the
+list's selection without `currentChanged()`. `PTZSettings` therefore remembers
+the device it shows, and after a reset goes back to it, or on to the first device
+if it has gone.
 
 ### PTZSettings
 
