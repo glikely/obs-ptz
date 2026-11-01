@@ -8,11 +8,13 @@
 #include <obs-module.h>
 #include <graphics/graphics.h>
 #include <graphics/matrix4.h>
+#include <QItemSelectionRange>
 #include <QTimer>
 #include <QWindow>
 
 #include "ptz-source-display.hpp"
 #include "display-helpers.hpp"
+#include "ptz-list-model.hpp"
 
 PTZSourceDisplay::PTZSourceDisplay(QWidget *parent) : OBSQTDisplay(parent)
 {
@@ -23,6 +25,13 @@ PTZSourceDisplay::PTZSourceDisplay(QWidget *parent) : OBSQTDisplay(parent)
 	 * draws into it */
 	connect(this, &OBSQTDisplay::DisplayCreated, this,
 		[this]() { obs_display_add_draw_callback(GetDisplay(), draw, this); });
+
+	/* A device can be moved to another source, which changes what it shows */
+	connect(ptzDeviceList, &PTZListModel::dataChanged, this,
+		[this](const QModelIndex &topLeft, const QModelIndex &bottomRight) {
+			if (QItemSelectionRange(topLeft, bottomRight).contains(QModelIndex(m_device)))
+				setSource(ptzDeviceList->parentSource(m_device));
+		});
 }
 
 PTZSourceDisplay::~PTZSourceDisplay()
@@ -140,6 +149,12 @@ void PTZSourceDisplay::releaseShowingLocked()
 		obs_source_dec_showing(source);
 }
 
+void PTZSourceDisplay::setDevice(const QModelIndex &index)
+{
+	m_device = index;
+	setSource(ptzDeviceList->parentSource(index));
+}
+
 void PTZSourceDisplay::setSource(OBSSource source)
 {
 	OBSWeakSource weak = OBSGetWeakRef(source);
@@ -151,10 +166,11 @@ void PTZSourceDisplay::setSource(OBSSource source)
 	holdShowingLocked();
 }
 
-OBSSource PTZSourceDisplay::source() const
+QString PTZSourceDisplay::shownSource() const
 {
 	std::lock_guard<std::mutex> guard(m_lock);
-	return OBSGetStrongRef(m_source);
+	OBSSource source = OBSGetStrongRef(m_source);
+	return QString::fromUtf8(obs_source_get_name(source));
 }
 
 /* The shape of the widget is the layout's to choose, not the source's: the

@@ -9,10 +9,12 @@
 #include <mutex>
 #include <obs.hpp>
 #include <QList>
+#include <QPersistentModelIndex>
 #include <QPointer>
+#include <QString>
 #include <OBSQTDisplay.hpp>
 
-/* Shows a source's video as OBS draws it, every frame, scaled to fit: an
+/* Shows a device's source's video as OBS draws it, every frame, scaled to fit: an
  * OBSQTDisplay (OBS Studio's own display widget, vendored in
  * shared/qt/display) with a draw callback that renders the source into it.
  * OBS's graphics thread draws the source into the widget's window, which is
@@ -21,15 +23,18 @@
 class PTZSourceDisplay : public OBSQTDisplay {
 	Q_OBJECT
 
+	/* For whatever reads widgets by their Qt properties, as tests do */
+	Q_PROPERTY(QString shownSource READ shownSource)
+
 public:
 	explicit PTZSourceDisplay(QWidget *parent = nullptr);
 	~PTZSourceDisplay() override;
 
-	/* The source to show, or none. Holds it weakly, but keeps it showing
-	 * (obs_source_inc_showing()) while this can be seen, so that it renders
-	 * even when it is in no scene on screen. */
-	void setSource(OBSSource source);
-	OBSSource source() const;
+	/* Follow this device, as the list model has it, showing its source */
+	void setDevice(const QModelIndex &index);
+
+	/* The name of the source being shown, empty if there is none */
+	QString shownSource() const;
 
 	QSize sizeHint() const override;
 	QSize minimumSizeHint() const override;
@@ -49,6 +54,8 @@ private:
 	void unwatchAncestors();
 	void syncNativeGeometry();
 
+	QPersistentModelIndex m_device;
+
 	/* Read by the graphics thread's draw callback as well as set here */
 	mutable std::mutex m_lock;
 	OBSWeakSource m_source;
@@ -57,6 +64,10 @@ private:
 	 * alive after it is removed. */
 	bool m_showing = false;
 
+	/* The source to show, or none. Holds it weakly, but keeps it showing
+	 * (obs_source_inc_showing()) while this can be seen, so that it renders
+	 * even when it is in no scene on screen. */
+	void setSource(OBSSource source);
 	void holdShowingLocked();
 	void releaseShowing();
 	void releaseShowingLocked();

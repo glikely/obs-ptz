@@ -261,6 +261,11 @@ def dialog_device(obs_world):
     return obs_world.ui.get1(SETTINGS_DIALOG, "deviceName", name="text")
 
 
+def preview_source(obs_world):
+    """The name of the source the settings dialog's preview is showing"""
+    return obs_world.ui.get1(SETTINGS_DIALOG, "sourcePreview", name="shownSource")
+
+
 def open_dialog(obs_world, camera, tmp_path):
     obs_world.open_settings_dialog(camera.device_name)
     out = tmp_path / "dialog.json"
@@ -409,6 +414,21 @@ def test_a_pending_edit_outlasts_a_report_of_something_else(request, obs_world, 
     assert obs_world.settings_dialog(out)["shown"][key] == wanted
     # ...and it settles back to what the camera last said
     obs_world.wait_for_settings_dialog(out, lambda r: r["shown"][key] == was, timeout=5)
+
+
+def test_preview_shows_the_source_of_the_device_shown(request, obs_world, tmp_path):
+    camera = make_camera(request.addfinalizer, obs_world, tmp_path)
+    open_dialog(obs_world, camera, tmp_path)
+    assert preview_source(obs_world) == camera.source
+
+
+def test_preview_moves_on_when_its_device_goes(request, obs_world, tmp_path):
+    camera = make_camera(request.addfinalizer, obs_world, tmp_path)
+    open_dialog(obs_world, camera, tmp_path)
+
+    obs_world.ws.call("RemoveSourceFilter", {"sourceName": camera.source, "filterName": "PTZ"})
+
+    obs_world.wait_for(lambda: preview_source(obs_world) not in ("", camera.source), timeout=5)
 
 
 def test_adding_a_device_keeps_the_one_shown(request, obs_world, tmp_path):

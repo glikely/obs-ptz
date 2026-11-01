@@ -139,13 +139,11 @@ PTZSettings::PTZSettings() : QWidget(nullptr), ui(new Ui_PTZSettings)
 
 	connect(ptzDeviceList, &PTZListModel::deviceSettingsUpdated, this, &PTZSettings::deviceSettingsUpdated);
 	connect(ptzDeviceList, &PTZListModel::deviceStateUpdated, this, &PTZSettings::deviceStateUpdated);
-	/* A device can be moved to another source, which changes what it shows */
 	connect(ptzDeviceList, &PTZListModel::dataChanged, this,
 		[this](const QModelIndex &topLeft, const QModelIndex &bottomRight) {
 			QModelIndex current = ui->deviceList->currentIndex();
 			if (!QItemSelectionRange(topLeft, bottomRight).contains(current))
 				return;
-			ui->sourcePreview->setSource(ptzDeviceList->parentSource(current));
 			/* The header says whether it is live, in the preview or locked */
 			updateHeader();
 		});
@@ -1002,7 +1000,7 @@ void PTZSettings::currentChanged(const QModelIndex &current, const QModelIndex &
 {
 	shownUuid = current.data(PTZListModel::DeviceUuidRole).toString();
 	ui->movementControls->setDevice(current);
-	ui->sourcePreview->setSource(ptzDeviceList->parentSource(current));
+	ui->sourcePreview->setDevice(current);
 
 	/* Start from nothing: obs_data_clear() would keep the last device's
 	 * keys, only without their values */
