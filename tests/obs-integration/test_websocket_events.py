@@ -73,8 +73,10 @@ def test_a_new_device_is_bridged_and_a_removed_one_is_announced(obs_world, camer
     forget_events(obs_world)
     cameras.add_source(scene, "ws-event-cam")
     cameras.add_filter("ws-event-cam")
+    added = obs_world.events.wait_event("VendorEvent", ptz_event("ptz_device_add"))
     obs_world.wait_for(lambda: "ws-event-cam" in devices(obs_world))
     uuid = devices(obs_world)["ws-event-cam"]["device"]
+    assert added["eventData"] == {"device": uuid}
     assert obs_world.ws.vendor(VENDOR, "ptz_get_api_version", {"device": uuid})["major"] == 0
     # what it says of itself as it starts is heard, without anything being asked of it
     obs_world.events.wait_event("VendorEvent", ptz_event("ptz_state_changed", device=uuid))

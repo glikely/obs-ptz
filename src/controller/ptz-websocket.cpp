@@ -614,8 +614,15 @@ void connectSignals(obs_source_t *source, bool discovery)
 	calldata_free(&cd);
 	signal_handler_connect(handler, "destroy", sourceDestroyed, nullptr);
 
-	std::lock_guard<std::mutex> lock(connectedMutex);
-	connected[uuid] = entry;
+	{
+		std::lock_guard<std::mutex> lock(connectedMutex);
+		connected[uuid] = entry;
+	}
+	if (discovery)
+		return;
+	OBSDataAutoRelease event = obs_data_create();
+	obs_data_set_string(event, "device", uuid.c_str());
+	emitEvent("ptz_device_add", event);
 }
 
 /* Lets go of every signal, of the sources that are still there. Main thread. */

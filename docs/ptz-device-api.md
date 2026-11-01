@@ -403,6 +403,7 @@ makes sources and is there only when the setting is `control`.
 
 | Event | |
 | --- | --- |
+| `ptz_device_add` | `device`: a device has come, as it said [`ptz_device_add`](#finding-devices). `ptz_list_devices` has it as well, so a client that listed the devices when it connected hears of the rest this way |
 | `ptz_device_remove` | `device`: a device has gone, as its source was destroyed or it said [`ptz_device_remove`](#finding-devices) |
 | `ptz_selected_changed` | `device`: another camera is selected in the PTZ dock, by the user, a hotkey, or the dock following the scene; "" if none is |
 

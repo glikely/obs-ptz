@@ -150,20 +150,20 @@ def test_a_source_can_stop_being_a_device_and_be_one_again(obs_world, tmp_path):
         rows, _, _ = obs_world.ui.rows(OBS_MAIN, PTZ_DOCK, "deviceList", roles=["uuid"])
         return uuid in [r["uuid"] for r in rows]
 
-    def removed(uuid):
-        return lambda e: (e.get("eventType") == "ptz_device_remove"
-                          and e.get("eventData", {}).get("device") == uuid)
+    def said(event, uuid):
+        return lambda e: e.get("eventType") == event and e.get("eventData", {}).get("device") == uuid
 
     try:
         uuid = obs_world.wait_for_device_by_name(name, out, lambda r: r["found"])["uuid"]
         for _ in range(2):
             obs_world.wait_for(lambda: in_dock(uuid))
             set_off(True)
-            obs_world.events.wait_event("VendorEvent", removed(uuid))
+            obs_world.events.wait_event("VendorEvent", said("ptz_device_remove", uuid))
             obs_world.wait_for(lambda: not in_dock(uuid))
             assert uuid not in [d["device"] for d in obs_world.ws.vendor("obs-ptz", "ptz_list_devices")["devices"]]
 
             set_off(False)
+            obs_world.events.wait_event("VendorEvent", said("ptz_device_add", uuid))
             obs_world.wait_for_device_by_name(name, out, lambda r: r["found"])
     finally:
         obs_world.ws.call("RemoveSceneItem", {"sceneName": scene, "sceneItemId": item})
