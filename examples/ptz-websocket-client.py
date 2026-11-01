@@ -187,7 +187,7 @@ class Prompt(cmd.Cmd):
     def event(self, name, data):
         """Called on the reading thread, for each of obs-ptz's events. Most are
         about the chosen camera, which this tells of; the rest are ignored"""
-        if name == "ptz_device_removed" and self.device and data["device"] == self.device["device"]:
+        if name == "ptz_device_remove" and self.device and data["device"] == self.device["device"]:
             print(f"\n[{self.device['source']} has gone]")
             self.device = None
             self.prompt = "ptz> "

@@ -29,7 +29,7 @@ ptz.onEvent = (name, data) => {
 	// The state the keys go by is brought up to date before they are told
 	if (name === "ptz_state_changed") {
 		cameraStates.changed(data.device as string, data.changed as Record<string, unknown>);
-	} else if (name === "ptz_device_removed") {
+	} else if (name === "ptz_device_remove") {
 		cameraStates.delete(data.device as string);
 	}
 	commands.event(name, data).catch(warn);

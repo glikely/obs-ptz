@@ -86,7 +86,7 @@ export class AutofocusAction extends SingletonAction<AutofocusSettings> {
 				return;
 			}
 			this.#on.set(device, on);
-		} else if (name === "ptz_device_removed") {
+		} else if (name === "ptz_device_remove") {
 			this.#on.delete(device);
 		} else {
 			return;

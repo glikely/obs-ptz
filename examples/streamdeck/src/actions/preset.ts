@@ -238,7 +238,7 @@ export class PresetAction extends SingletonAction<PresetSettings> {
 			case "ptz_preset_list_reset":
 				await this.#refreshAll(device);
 				break;
-			case "ptz_device_removed":
+			case "ptz_device_remove":
 				this.#at.delete(device);
 				await this.#refreshAll(device);
 				break;

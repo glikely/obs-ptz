@@ -350,7 +350,7 @@ export class LensAction extends SingletonAction<LensSettings> {
 	/** Called with each of obs-ptz's events */
 	async event(name: string, data: Data): Promise<void> {
 		const device = data.device as string;
-		if (name === "ptz_device_removed") {
+		if (name === "ptz_device_remove") {
 			this.#lenses.delete(device);
 		} else if (name === "ptz_state_changed") {
 			const lens = this.#lenses.get(device);

@@ -395,7 +395,7 @@ makes sources and is there only when the setting is `control`.
 
 | Event | |
 | --- | --- |
-| `ptz_device_removed` | `device`: a device has gone. No signal of the API says so, as there is no device left to say it |
+| `ptz_device_remove` | `device`: a device has gone. No signal of the API says so, as there is no device left to say it |
 | `ptz_selected_changed` | `device`: another camera is selected in the PTZ dock, by the user, a hotkey, or the dock following the scene; "" if none is |
 
 ## Providing a device

@@ -66,7 +66,7 @@ export class StatusAction extends SingletonAction<StatusSettings> {
 	async event(name: string, data: Data): Promise<void> {
 		// Only what the key shows: the camera says much besides
 		const shown = ["pan", "tilt", "zoom", "focus", "axes", "connected"];
-		if (name === "ptz_device_removed" || (name === "ptz_state_changed" && shown.some((key) => key in (data.changed as Data)))) {
+		if (name === "ptz_device_remove" || (name === "ptz_state_changed" && shown.some((key) => key in (data.changed as Data)))) {
 			await this.#refreshAll(data.device as string);
 		}
 	}

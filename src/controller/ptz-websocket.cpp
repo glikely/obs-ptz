@@ -557,7 +557,7 @@ void sourceDestroyed(void *, calldata_t *cd)
 	/* No signal of the API says a device has gone */
 	OBSDataAutoRelease event = obs_data_create();
 	obs_data_set_string(event, "device", uuid.c_str());
-	emitEvent("ptz_device_removed", event);
+	emitEvent("ptz_device_remove", event);
 }
 
 /* Connects to the signals the source says it has, if it hasn't been. Main thread. */

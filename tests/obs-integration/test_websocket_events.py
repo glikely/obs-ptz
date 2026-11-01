@@ -80,7 +80,7 @@ def test_a_new_device_is_bridged_and_a_removed_one_is_announced(obs_world, camer
     obs_world.events.wait_event("VendorEvent", ptz_event("ptz_state_changed", device=uuid))
 
     cameras.remove_filter("ws-event-cam")
-    removed = obs_world.events.wait_event("VendorEvent", ptz_event("ptz_device_removed", device=uuid))
+    removed = obs_world.events.wait_event("VendorEvent", ptz_event("ptz_device_remove", device=uuid))
     assert removed["eventData"] == {"device": uuid}
     obs_world.wait_for(lambda: "ws-event-cam" not in devices(obs_world))
 
