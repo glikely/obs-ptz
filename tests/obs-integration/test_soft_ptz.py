@@ -547,13 +547,37 @@ def thumbnail_image(world, device, preset_id):
 
 
 def test_a_thumbnail_is_named_for_its_filter(obs_world, soft_cam):
-    """A preset's thumbnail file is named "<filter uuid>_<random uuid>", so a
-    copy of the filter, with a uuid of its own, can tell the thumbnails it was
-    given from its own"""
+    """A preset's thumbnail file is named <filter uuid>_<random uuid>"""
     preset = obs_world.create_preset(soft_cam, "pictured", store="local")
     obs_world.wait_for(lambda: thumbnail_image(obs_world, soft_cam, preset), timeout=10)
     name = thumbnail_name(preset_thumbnails(obs_world, soft_cam)[preset])
     assert name.startswith(obs_world.device_uuid(soft_cam) + "_"), name
+
+
+def test_a_duplicated_source_has_a_device_without_its_thumbnails(obs_world, soft_cam, tmp_path):
+    """A copy a user makes, as Paste (Duplicate) does, is a device of its own,
+    with its source's presets but not their thumbnails, whose files stay the
+    original's: what the copy does to a preset leaves them alone."""
+    obs_world.need_ui_driver()
+    preset = obs_world.create_preset(soft_cam, "pictured", store="local")
+    obs_world.wait_for(lambda: thumbnail_image(obs_world, soft_cam, preset), timeout=10)
+    original = preset_thumbnails(obs_world, soft_cam)[preset]
+
+    copy = f"{soft_cam}-copy"
+    obs_world.ui.duplicate_source(soft_cam, copy, obs_world.create_scene())
+    try:
+        obs_world.wait_for_device_by_name(copy, tmp_path / "copy.json", lambda r: r["found"] and r["bound"],
+                                          timeout=10)
+        obs_world.wait_for(lambda: preset in preset_thumbnails(obs_world, copy), timeout=10)
+        assert not preset_thumbnails(obs_world, copy)[preset]
+
+        obs_world.call_proc(copy, "ptz_preset_delete", {"id": preset})
+        obs_world.wait_for(lambda: preset not in preset_thumbnails(obs_world, copy), timeout=10)
+        assert preset_thumbnails(obs_world, soft_cam)[preset] == original
+        assert thumbnail_image(obs_world, soft_cam, preset), \
+            "deleting the copy's preset deleted the original's thumbnail"
+    finally:
+        obs_world.ws.call("RemoveInput", {"inputName": copy})
 
 
 # ------------------------------------------------- beyond the source's bounds

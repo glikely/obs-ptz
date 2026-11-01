@@ -446,12 +446,10 @@ def is_green(world, source):
 def test_studio_mode_copies_of_its_source_leave_a_device_filter_alone(obs_world, cameras, duplicating_studio_mode,
                                                                       tmp_path, kind):
     """With Studio Mode's "Duplicate Sources", OBS sends a private copy of the
-    scene, and of its sources, to program. A filter that may not be duplicated,
-    as a device's may not, is copied by adding the same filter to the copy, and
-    freeing the copy leaves it with no parent or target (#428). The device stays
-    on its own source: a media source, which OBS never copies, and an image,
-    which it does. The media source keeps showing its picture; a VISCA filter
-    blanks an image anyway."""
+    scene, and of its sources, to program. The filter on the copy has no device,
+    so the device stays on its own source: a media source, which OBS never
+    copies, and an image, which it does (#428). The media source keeps showing
+    its picture; a VISCA filter blanks an image anyway, copied or not."""
     if kind == "ffmpeg_source":
         clip = tmp_path / "green.mp4"
         green_video(clip)
@@ -497,3 +495,66 @@ def test_studio_mode_copies_of_its_source_leave_a_device_filter_alone(obs_world,
             f"{label}: the device says it is on {seen[label]['device_parent']}"
     if kind == "ffmpeg_source":
         assert seen["green after"], "the camera's source no longer shows its picture"
+
+
+def add_image_camera(world, cameras, tmp_path, name):
+    """A camera on an image source, which OBS copies, as it never does a media source"""
+    image = tmp_path / "quadrants.png"
+    soft_ptz.write_quadrant_png(image)
+    world.ws.call("CreateInput", {
+        "sceneName": world.create_scene(), "inputName": name, "inputKind": "image_source",
+        "inputSettings": {"file": str(image)},
+    })
+    cameras.names.add(name)
+    cameras.add_filter(name)
+    return world.wait_for_device_by_name(name, tmp_path / "device.json", lambda r: r["found"] and r["bound"],
+                                         timeout=10)
+
+
+def filter_settings(world, source):
+    return world.ws.call("GetSourceFilter", {"sourceName": source, "filterName": "PTZ"})["filterSettings"]
+
+
+def test_a_copy_a_user_makes_of_a_camera_starts_from_the_defaults(obs_world, cameras, tmp_path):
+    """A copy that isn't private, as Paste (Duplicate) makes, is a device of its
+    own, but the camera it was copied from already has one: it isn't given that
+    camera's address or its presets, and the original keeps them."""
+    obs_world.need_ui_driver()
+    name = "filter-cam-pasted"
+    original = add_image_camera(obs_world, cameras, tmp_path, name)
+    preset = obs_world.create_preset(name, "kept", store="local")
+
+    copy = f"{name}-copy"
+    obs_world.ui.duplicate_source(name, copy, obs_world.create_scene())
+    cameras.names.add(copy)
+    pasted = obs_world.wait_for_device_by_name(copy, tmp_path / "copy.json", lambda r: r["found"] and r["bound"],
+                                               timeout=10)
+
+    assert pasted["uuid"] != original["uuid"]
+    settings = filter_settings(obs_world, copy)
+    assert "host" not in settings and "tcp_port" not in settings
+    assert soft_ptz.preset_thumbnails(obs_world, copy) == {}
+    assert filter_settings(obs_world, name)["tcp_port"] == cameras.sim.tcp_port
+    assert preset in soft_ptz.preset_thumbnails(obs_world, name)
+
+
+def test_a_camera_keeps_its_settings_when_it_is_loaded_again(obs_world, cameras, tmp_path):
+    """A filter loaded from a scene collection has the uuid its settings were
+    saved with, so it isn't taken for a copy"""
+    name = "filter-cam-reloaded"
+    add_image_camera(obs_world, cameras, tmp_path, name)
+    ws = obs_world.ws
+    original = ws.call("GetSceneCollectionList")["currentSceneCollectionName"]
+
+    def switch(collection):
+        ws.call("SetCurrentSceneCollection", {"sceneCollectionName": collection})
+        obs_world.wait_for(lambda: ws.call("GetSceneCollectionList")["currentSceneCollectionName"] == collection,
+                           timeout=15)
+
+    if "filter-reload-target" in ws.call("GetSceneCollectionList")["sceneCollections"]:
+        switch("filter-reload-target")
+    else:
+        ws.call("CreateSceneCollection", {"sceneCollectionName": "filter-reload-target"})
+    switch(original)
+    obs_world.wait_for_device_by_name(name, tmp_path / "device.json", lambda r: r["found"] and r["bound"], timeout=15)
+    assert filter_settings(obs_world, name)["tcp_port"] == cameras.sim.tcp_port

@@ -50,6 +50,7 @@ obs_source_t *ptz_device_create_filter(obs_source_t *parent, obs_data_t *config)
 	obs_data_erase(settings, "kind");
 	obs_data_erase(settings, PTZ_DEFAULTS_MAJOR_KEY);
 	obs_data_erase(settings, PTZ_DEFAULTS_MINOR_KEY);
+	obs_data_erase(settings, PTZ_FILTER_UUID_KEY);
 
 	QString base = QT_UTF8(obs_source_get_display_name(kind));
 	QString name = base;

@@ -1252,6 +1252,22 @@ obs_source_t *PTZFilter::originalFilter() const
 	return m_original ? obs_weak_source_get_source(m_original) : nullptr;
 }
 
+/* A filter's settings say whose they are. Another filter's mean this one is a
+ * copy of it, and a copy of a camera's settings is a second device on that
+ * camera, and its presets, so it goes back to the defaults. A filter from
+ * before this has none, and is no copy. */
+void PTZFilter::claimSettings()
+{
+	OBSDataAutoRelease settings = obs_source_get_settings(m_filter);
+	const char *self = obs_source_get_uuid(m_filter);
+	const char *owner = obs_data_get_string(settings, PTZ_FILTER_UUID_KEY);
+	if (*owner && strcmp(owner, self) != 0) {
+		blog(LOG_INFO, "[obs-ptz] filter '%s' is a copy of another", obs_source_get_name(m_filter));
+		settingsCopied(settings);
+	}
+	obs_data_set_string(settings, PTZ_FILTER_UUID_KEY, self);
+}
+
 void PTZFilter::buildDevice()
 {
 	auto build = [this]() {
@@ -1284,8 +1300,10 @@ void ptz_filter_add(void *data, obs_source_t *parent)
 		return;
 	}
 	bool built = !filter->device();
-	if (built)
+	if (built) {
+		filter->claimSettings();
 		filter->buildDevice();
+	}
 	PTZDevice *ptz = filter->device();
 	if (!ptz)
 		return;
@@ -1319,9 +1337,12 @@ void ptz_filter_destroy(void *data)
 
 void ptz_filter_save(void *data, obs_data_t *settings)
 {
-	PTZDevice *ptz = data ? static_cast<PTZFilter *>(data)->device() : nullptr;
+	auto filter = static_cast<PTZFilter *>(data);
+	PTZDevice *ptz = filter ? filter->device() : nullptr;
 	if (!ptz)
 		return;
+	/* Again, in case the settings were replaced since filter_add */
+	obs_data_set_string(settings, PTZ_FILTER_UUID_KEY, obs_source_get_uuid(filter->source()));
 	/* The settings are the one copy of what the device saves, which it
 	 * keeps current as it changes it. Writing the rest from the device here
 	 * would put the device's values over a change made to the settings that

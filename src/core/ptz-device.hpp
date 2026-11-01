@@ -580,8 +580,10 @@ Q_DECLARE_OPERATORS_FOR_FLAGS(PTZDevice::Features)
  * and can't say in create whether a filter is one, so the device waits for
  * filter_add, where the parent shows it:
  *
- * - On a source that isn't private, a filter has a device of its own. That
- *   includes one a user copied, as Paste (Duplicate) does.
+ * - On a source that isn't private, a filter has a device of its own. One a
+ *   user copied, as Paste (Duplicate) does, starts from the defaults: its
+ *   settings are the camera of the filter it was copied from, and that camera
+ *   already has a device.
  * - On a private copy, as Studio Mode's "Duplicate Sources" sends to program,
  *   it has none, so nothing is connected twice and no copy is seen as a
  *   camera. It only knows the filter it is a copy of, and holds it weakly: the
@@ -601,9 +603,15 @@ public:
 	 * Any thread, and holding it keeps that filter's data and device. */
 	obs_source_t *originalFilter() const;
 
+protected:
+	/* A copy a user makes goes back to the defaults. A driver with no camera
+	 * that a second device would share can keep what a copy may have. */
+	virtual void settingsCopied(obs_data_t *settings) { obs_data_clear(settings); }
+
 private:
 	friend void ptz_filter_add(void *data, obs_source_t *parent);
 	void findOriginal(obs_source_t *parent);
+	void claimSettings();
 	void buildDevice();
 
 	obs_source_t *m_filter;

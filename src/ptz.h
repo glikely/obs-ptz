@@ -45,6 +45,11 @@ extern const char *ptz_legacy_kind_for_type(const char *type);
  * API it implements. Call it first. */
 extern void ptz_filter_defaults_mark(obs_data_t *defaults);
 
+/* The setting a filter of this plugin keeps its own uuid in. A copy of a filter
+ * has a new uuid and the settings of the one it was copied from, so this is how
+ * it can tell (see PTZFilter). Not to be carried over to a new filter. */
+#define PTZ_FILTER_UUID_KEY "filter_uuid"
+
 /* Adds a PTZ Control filter, and so a device, to `parent`, with the settings
  * in `config`, of the filter kind in its "kind" or, without one, of its
  * "type" (see ptz_legacy_kind_for_type()). Returns a new reference to the

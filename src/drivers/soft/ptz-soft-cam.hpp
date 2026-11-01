@@ -69,6 +69,10 @@ public:
 	/* What it last showed: all it has once its original is gone */
 	SoftRect lastRect = {0, 0, 1, 1};
 
+protected:
+	/* There is no camera to share: a copy is a camera of its own */
+	void settingsCopied(obs_data_t *settings) override;
+
 private:
 	/* So that the zoomed picture cannot be drawn outside the source's own
 	 * size. Only the graphics thread, and the destructor, touch it. */

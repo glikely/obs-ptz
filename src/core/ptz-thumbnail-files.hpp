@@ -38,10 +38,6 @@ void ptz_capture_source_thumbnail(obs_source_t *source, QObject *context, std::f
  * owner gives a name with no owner, as every name was before. */
 QString ptz_thumbnail_new_name(const QString &owner, const QString &suffix);
 
-/* The uuid of the filter a thumbnail's file name says it is for, or "" if
- * the name says none */
-QString ptz_thumbnail_owner(const QString &fileName);
-
 /* Writes the image into the thumbnail directory under a new unique name for
  * the filter `owner` and returns that name, or an empty string if it could
  * not be written */

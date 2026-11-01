@@ -45,12 +45,6 @@ QString ptz_thumbnail_new_name(const QString &owner, const QString &suffix)
 	return owner.isEmpty() ? name : owner + "_" + name;
 }
 
-QString ptz_thumbnail_owner(const QString &fileName)
-{
-	int end = fileName.indexOf('_');
-	return end < 0 ? QString() : fileName.left(end);
-}
-
 QString ptz_thumbnail_write(const QImage &image, const QString &owner)
 {
 	if (image.isNull())

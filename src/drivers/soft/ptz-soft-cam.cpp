@@ -185,6 +185,23 @@ SoftRect PTZSoftCam::visibleRect() const
 	return m_viewport.visibleRect();
 }
 
+/* A copy of a camera keeps its presets, but not their thumbnails: the files are
+ * the original's, and deleting a preset here would delete them. The array is a
+ * new one, as the original's settings hold the same one until they are saved. */
+void PTZSoftFilter::settingsCopied(obs_data_t *settings)
+{
+	OBSDataArrayAutoRelease presets = obs_data_get_array(settings, "presets");
+	OBSDataArrayAutoRelease own = obs_data_array_create();
+	for (size_t i = 0; i < obs_data_array_count(presets); i++) {
+		OBSDataAutoRelease preset = obs_data_array_item(presets, i);
+		OBSDataAutoRelease copy = obs_data_create();
+		obs_data_apply(copy, preset);
+		obs_data_erase(copy, "thumbnail");
+		obs_data_array_push_back(own, copy);
+	}
+	obs_data_set_array(settings, "presets", own);
+}
+
 gs_texrender_t *PTZSoftFilter::texrender()
 {
 	if (!m_texrender)
