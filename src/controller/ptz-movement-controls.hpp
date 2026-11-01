@@ -77,6 +77,9 @@ public:
 private:
 	std::unique_ptr<Ui::PTZMovementControls> ui;
 	QPersistentModelIndex m_device;
+	/* A reset of the list model invalidates m_device, and a camera that was
+	 * moving still has to be told to stop */
+	QString m_deviceUuid;
 
 	double pan_speed = 0.0;
 	double pan_accel = 0.0;

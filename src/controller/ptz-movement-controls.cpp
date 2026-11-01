@@ -178,7 +178,7 @@ void PTZMovementControls::stop()
 {
 	accel_timer.stop();
 	if (pantiltingFlag || zoomingFlag || focusingFlag)
-		ptzDeviceList->callDevice(device(), "ptz_stop");
+		ptzDeviceList->callDevice(ptzDeviceList->indexFromUuid(m_deviceUuid), "ptz_stop");
 	pantiltingFlag = false;
 	zoomingFlag = false;
 	focusingFlag = false;
@@ -192,6 +192,7 @@ void PTZMovementControls::setDevice(const QModelIndex &index)
 {
 	stop();
 	m_device = index;
+	m_deviceUuid = index.data(PTZListModel::DeviceUuidRole).toString();
 	updateControls();
 }
 

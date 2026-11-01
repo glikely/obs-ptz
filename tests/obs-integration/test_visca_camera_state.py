@@ -27,7 +27,7 @@ import urllib.request
 import pytest
 from obsws import ObsWebSocketError
 
-from conftest import REPO_ROOT, SETTINGS_DIALOG, free_port, output_log, wait_for_port
+from conftest import OBS_MAIN, PTZ_DOCK, REPO_ROOT, SETTINGS_DIALOG, free_port, output_log, wait_for_port
 
 FILTER_KIND = "ca.secretlab.obs-ptz.visca"
 
@@ -121,9 +121,12 @@ class CameraSim:
         except subprocess.TimeoutExpired:
             self.proc.kill()
 
-    def settings(self):
+    def state(self):
         with urllib.request.urlopen(f"http://127.0.0.1:{self.debug_port}/state", timeout=5) as resp:
-            return json.load(resp)["visca"]
+            return json.load(resp)
+
+    def settings(self):
+        return self.state()["visca"]
 
 
 class Camera:
@@ -308,6 +311,21 @@ def test_adding_a_device_keeps_the_one_selected_in_the_dock(request, obs_world, 
     make_camera(request.addfinalizer, obs_world, tmp_path)
 
     obs_world.wait_for(lambda: obs_world.dock_selected(camera.source), timeout=5)
+
+
+def test_adding_a_device_stops_the_camera_being_moved(request, obs_world, tmp_path):
+    camera = make_camera(request.addfinalizer, obs_world, tmp_path)
+    obs_world.select_in_dock(camera.source)
+    obs_world.wait_for(lambda: obs_world.ui.get1(OBS_MAIN, PTZ_DOCK, "movementControlsWidget", "panTiltButton_right",
+                                                 name="enabled"), timeout=5)
+
+    # Held down, as nothing lets go of the button
+    obs_world.ui.invoke(OBS_MAIN, PTZ_DOCK, "movementControlsWidget", method="on_panTiltButton_right_pressed")
+    obs_world.wait_for(lambda: camera.sim.state()["pan_speed"] != 0, timeout=5)
+
+    make_camera(request.addfinalizer, obs_world, tmp_path)
+
+    obs_world.wait_for(lambda: camera.sim.state()["pan_speed"] == 0, timeout=5)
 
 
 def test_state_view_has_none_of_them_for_another_protocol(obs_world, tmp_path):
