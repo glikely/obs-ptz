@@ -227,7 +227,7 @@ def test_dialog_survives_its_device_going_away(obs_world, cameras, tmp_path):  #
     cameras.remove_filter("dialog-gone-cam")
     obs_world.wait_for_device_by_name("dialog-gone-cam", out, lambda r: not r["found"], timeout=10)
 
-    # still there, and still answering, with nothing to show
+    # still there, and still answering, on to the next device
     obs_world.edit_dialog_state(wb_mode=1)
     obs_world.settings_dialog(tmp_path / "dialog.json")
     assert_obs_alive(obs_world)

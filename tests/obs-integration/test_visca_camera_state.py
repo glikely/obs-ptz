@@ -27,7 +27,7 @@ import urllib.request
 import pytest
 from obsws import ObsWebSocketError
 
-from conftest import REPO_ROOT, free_port, output_log, wait_for_port
+from conftest import REPO_ROOT, SETTINGS_DIALOG, free_port, output_log, wait_for_port
 
 FILTER_KIND = "ca.secretlab.obs-ptz.visca"
 
@@ -243,6 +243,11 @@ DIALOG_EDITS = {
 }
 
 
+def dialog_device(obs_world):
+    """The name of the device the settings dialog is showing"""
+    return obs_world.ui.get1(SETTINGS_DIALOG, "deviceName", name="text")
+
+
 def open_dialog(obs_world, camera, tmp_path):
     obs_world.open_settings_dialog(camera.device_name)
     out = tmp_path / "dialog.json"
@@ -273,6 +278,27 @@ def test_state_view_changes_a_setting(request, obs_world, tmp_path, key):
     obs_world.wait_for(lambda: camera.sim.settings()[key] == value, timeout=5)
     # and the view follows the camera to it
     obs_world.wait_for_settings_dialog(out, lambda r: r["shown"].get(key) == value, timeout=5)
+
+
+def test_removing_the_device_shown_shows_another(request, obs_world, tmp_path):
+    camera = make_camera(request.addfinalizer, obs_world, tmp_path)
+    open_dialog(obs_world, camera, tmp_path)
+
+    # Its filter, as RemoveInput doesn't destroy a source while its dialog is open
+    obs_world.ws.call("RemoveSourceFilter", {"sourceName": camera.source, "filterName": "PTZ"})
+
+    obs_world.wait_for(lambda: dialog_device(obs_world) not in ("", camera.source), timeout=5)
+
+
+def test_adding_a_device_keeps_the_one_shown(request, obs_world, tmp_path):
+    camera = make_camera(request.addfinalizer, obs_world, tmp_path)
+    open_dialog(obs_world, camera, tmp_path)
+
+    make_camera(request.addfinalizer, obs_world, tmp_path)
+
+    obs_world.wait_for(lambda: dialog_device(obs_world) == camera.source, timeout=5)
+    # It is still on the list as well as in the header
+    obs_world.wait_for(lambda: obs_world.ui.rows(SETTINGS_DIALOG, "deviceList", roles=["uuid"])[1] >= 0, timeout=5)
 
 
 def test_adding_a_device_keeps_the_one_selected_in_the_dock(request, obs_world, tmp_path):

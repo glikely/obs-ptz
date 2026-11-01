@@ -59,6 +59,9 @@ private:
 	 * actually scrolls. */
 	OBSData settings;
 	OBSPropertiesView *propertiesView = nullptr;
+	/* The device shown, kept apart from the selection, which a reset of the
+	 * list model throws away without saying so */
+	QString shownUuid;
 	QString autofocusIconKey;
 	bool settingsDirty = false;
 	/* What the settings view held when it last matched the device, to tell
@@ -120,6 +123,7 @@ public slots:
 	void on_revertButton_clicked();
 
 	void currentChanged(const QModelIndex &current, const QModelIndex &previous);
+	void reselectDevice();
 	void deviceSettingsUpdated(const QString &uuid);
 	void deviceStateUpdated(const QString &uuid, OBSData changed);
 	obs_properties_t *getProperties(void);

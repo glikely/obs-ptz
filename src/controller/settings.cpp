@@ -200,6 +200,11 @@ PTZSettings::PTZSettings() : QWidget(nullptr), ui(new Ui_PTZSettings)
 
 	QItemSelectionModel *selectionModel = ui->deviceList->selectionModel();
 	connect(selectionModel, &QItemSelectionModel::currentChanged, this, &PTZSettings::currentChanged);
+	/* A reset loses the selection without a word, so the dialog would go on
+	 * showing a device it no longer follows. Queued, so that it happens after
+	 * the list has dealt with the reset. */
+	connect(ptzDeviceList, &QAbstractItemModel::modelReset, this, &PTZSettings::reselectDevice,
+		Qt::QueuedConnection);
 
 	auto reload_cb = [](void *obj) {
 		return static_cast<PTZSettings *>(obj)->getProperties();
@@ -997,6 +1002,7 @@ void PTZSettings::updateAutofocusIcon(bool known, bool on)
 
 void PTZSettings::currentChanged(const QModelIndex &current, const QModelIndex &)
 {
+	shownUuid = current.data(PTZListModel::DeviceUuidRole).toString();
 	ui->movementControls->setDevice(current);
 	ui->sourcePreview->setSource(ptzDeviceList->parentSource(current));
 
@@ -1009,6 +1015,20 @@ void PTZSettings::currentChanged(const QModelIndex &current, const QModelIndex &
 	ui->stateView->setState(state.Get());
 	updateHeader();
 	refreshStatistics();
+}
+
+/* Back to the device that was shown, or on to the first if it has gone */
+void PTZSettings::reselectDevice()
+{
+	if (shownUuid.isEmpty() || ui->deviceList->currentIndex().isValid())
+		return;
+	QModelIndex index = ptzDeviceList->indexFromUuid(shownUuid);
+	if (!index.isValid())
+		index = ptzDeviceList->index(0, 0);
+	if (index.isValid())
+		ui->deviceList->setCurrentIndex(index);
+	else
+		currentChanged(QModelIndex(), QModelIndex());
 }
 
 void PTZSettings::refreshStatistics()
