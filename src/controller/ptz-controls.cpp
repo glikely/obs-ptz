@@ -384,9 +384,8 @@ PTZControls::PTZControls(QWidget *parent) : QFrame(parent), ui(new Ui::PTZContro
 	connect(ptzDeviceList, &QAbstractItemModel::modelReset, this, &PTZControls::updatePresetList,
 		Qt::QueuedConnection);
 	/* Nor does the selection that a reset throws away say it has changed */
-	connect(
-		ptzDeviceList, &QAbstractItemModel::modelReset, this,
-		[this]() { publishSelection(ui->deviceList->currentIndex()); }, Qt::QueuedConnection);
+	connect(ptzDeviceList, &QAbstractItemModel::modelReset, this, &PTZControls::reselectDevice,
+		Qt::QueuedConnection);
 
 	joystickSetup();
 
@@ -1027,8 +1026,21 @@ void PTZControls::publishSelection(const QModelIndex &current)
 	ptz_websocket_set_selected(QT_TO_UTF8(current.data(PTZListModel::DeviceUuidRole).toString()));
 }
 
+/* Back to the device that was selected, or to none if it has gone */
+void PTZControls::reselectDevice()
+{
+	QModelIndex current = ui->deviceList->currentIndex();
+	if (!current.isValid())
+		current = ptzDeviceList->indexFromUuid(currentUuid);
+	if (current.isValid() && current != ui->deviceList->currentIndex())
+		ui->deviceList->setCurrentIndex(current);
+	else
+		currentChanged(current, QModelIndex());
+}
+
 void PTZControls::currentChanged(QModelIndex current, QModelIndex)
 {
+	currentUuid = current.data(PTZListModel::DeviceUuidRole).toString();
 	/* Stops the camera that was being moved, if one was */
 	ui->movementControlsWidget->setDevice(current);
 	publishSelection(current);

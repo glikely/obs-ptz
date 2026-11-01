@@ -88,6 +88,8 @@ private:
 	uint32_t legacy_current_selected = 0;
 	/* The UUID of the filter of the device to select, once it is there */
 	QString selected_uuid;
+	/* The device selected, for after a model reset throws the selection away */
+	QString currentUuid;
 
 	void setCurrent(unsigned int index);
 	QString presetIndexToId(QModelIndex index) const;
@@ -113,6 +115,7 @@ public slots:
 private slots:
 	void updateMoveControls();
 	void currentChanged(QModelIndex current, QModelIndex previous);
+	void reselectDevice();
 	void settingsChanged(const QModelIndex &topleft, const QModelIndex &bottomRight);
 	void presetRecalled(const QString &uuid, const QString &id);
 

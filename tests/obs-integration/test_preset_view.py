@@ -70,32 +70,53 @@ def test_preset_list_is_blank_again_once_the_selection_is_cleared(obs_world, tmp
     assert cleared[0]["rows"] == []
 
 
-def test_preset_list_is_blank_after_the_model_resets(obs_world, tmp_path):
-    """Adding a device resets the model, which clears the camera list's
-    selection without saying so, and the preset list's root."""
-    out = tmp_path / "view.json"
-    obs_world.preset_view(out, select=obs_world.device_names["visca-tcp"])
-
+def add_extra_device(obs_world, name):
     # A device is a filter on a source, here a source in a scene of its own,
     # which OBS holds as it holds any other
     obs_world.ws.call("CreateInput", {
         "sceneName": obs_world.create_scene(),
-        "inputName": "preset-view-extra",
+        "inputName": name,
         "inputKind": "ffmpeg_source",
         "inputSettings": {"is_local_file": True, "local_file": ""},
     })
+    obs_world.ws.call("CreateSourceFilter", {
+        "sourceName": name,
+        "filterName": "PTZ",
+        "filterKind": "ca.secretlab.obs-ptz.visca",
+        "filterSettings": {"type": "visca-over-ip", "host": "127.0.0.1"},
+    })
+
+
+def test_preset_list_stays_on_its_camera_through_a_model_reset(obs_world, tmp_path):
+    """Adding a device resets the model, which clears the camera list's
+    selection without saying so, and the preset list's root."""
+    out = tmp_path / "view.json"
+    before = obs_world.preset_view(out, select=obs_world.device_names["visca-tcp"])
+
     try:
-        obs_world.ws.call("CreateSourceFilter", {
-            "sourceName": "preset-view-extra",
-            "filterName": "PTZ",
-            "filterKind": "ca.secretlab.obs-ptz.visca",
-            "filterSettings": {"type": "visca-over-ip", "host": "127.0.0.1"},
-        })
+        add_extra_device(obs_world, "preset-view-extra")
         # The dock puts the preset list right in a call queued after the
         # reset, so a look between the two can still see the cameras
         view = obs_world.wait_for_preset_view(
-            out, lambda v: "preset-view-extra" in {d["text"] for d in v["device_names"]} and not cameras_listed(v))
-        assert view["selected"] is False
-        assert view["rows"] == []
+            out, lambda v: "preset-view-extra" in {d["text"] for d in v["device_names"]} and v["selected"]
+            and not cameras_listed(v))
+        assert view["rows"] == before["rows"]
     finally:
         obs_world.ws.call("RemoveInput", {"inputName": "preset-view-extra"})
+
+
+def test_preset_list_is_blank_when_its_camera_goes(obs_world, tmp_path):
+    out = tmp_path / "view.json"
+    try:
+        add_extra_device(obs_world, "preset-view-gone")
+        obs_world.wait_for_preset_view(out, lambda v: "preset-view-gone" in {d["text"] for d in v["device_names"]})
+        obs_world.select_in_dock("preset-view-gone")
+
+        obs_world.ws.call("RemoveSourceFilter", {"sourceName": "preset-view-gone", "filterName": "PTZ"})
+
+        view = obs_world.wait_for_preset_view(
+            out, lambda v: "preset-view-gone" not in {d["text"] for d in v["device_names"]} and not v["selected"]
+            and not cameras_listed(v))
+        assert view["rows"] == []
+    finally:
+        obs_world.ws.call("RemoveInput", {"inputName": "preset-view-gone"})

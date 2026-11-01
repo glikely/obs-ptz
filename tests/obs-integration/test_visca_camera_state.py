@@ -275,6 +275,15 @@ def test_state_view_changes_a_setting(request, obs_world, tmp_path, key):
     obs_world.wait_for_settings_dialog(out, lambda r: r["shown"].get(key) == value, timeout=5)
 
 
+def test_adding_a_device_keeps_the_one_selected_in_the_dock(request, obs_world, tmp_path):
+    camera = make_camera(request.addfinalizer, obs_world, tmp_path)
+    obs_world.select_in_dock(camera.source)
+
+    make_camera(request.addfinalizer, obs_world, tmp_path)
+
+    obs_world.wait_for(lambda: obs_world.dock_selected(camera.source), timeout=5)
+
+
 def test_state_view_has_none_of_them_for_another_protocol(obs_world, tmp_path):
     obs_world.open_settings_dialog(obs_world.device_names["pelco-d"])
     dialog = obs_world.wait_for_settings_dialog(tmp_path / "dialog.json", lambda r: "connected" in r["state_keys"])
