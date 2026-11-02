@@ -17,7 +17,8 @@ ViscaTCPTransport::ViscaTCPTransport(bool dvip) : dvip(dvip), port(default_port(
 
 void ViscaTCPTransport::connectSocket()
 {
-	if (!effectiveHost().isEmpty())
+	/* The reconnect timer can outlast the connection that started it */
+	if (!effectiveHost().isEmpty() && visca_socket.state() == QAbstractSocket::UnconnectedState)
 		visca_socket.connectToHost(effectiveHost(), port);
 }
 
@@ -133,6 +134,8 @@ void ViscaTCPTransport::setSourceHost(const QString &new_host)
 
 void ViscaTCPTransport::update(OBSData config)
 {
+	QString old_host = effectiveHost();
+	int old_port = port;
 	host = obs_data_get_string(config, "host");
 	port = (int)obs_data_get_int(config, "tcp_port");
 	if (!port)
@@ -140,6 +143,8 @@ void ViscaTCPTransport::update(OBSData config)
 	if (!port)
 		port = default_port();
 
+	if (effectiveHost() != old_host || port != old_port)
+		visca_socket.abort();
 	connectSocket();
 }
 

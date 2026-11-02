@@ -585,6 +585,8 @@ class World:
         self.exit_code = None
         # Set by obs_world: the file the running OBS's output goes to
         self.obs_log = None
+        # Set by obs_world: the running OBS's process id
+        self.obs_pid = None
         # Somewhere for the small files a test asks the harness to write
         self.scratch = Path(tempfile.mkdtemp(prefix="ptz-world-"))
         self._scene_counter = 0
@@ -2161,6 +2163,7 @@ def obs_world(request, tmp_path_factory, ptzsim_process, sony_ptzsim, birddog_pt
         world.config_dir = obs_config_root(home) / "plugin_config" / "obs-ptz"
         world.restart_obs = restart_obs
         world.obs_log = lambda: running["log"]
+        world.obs_pid = lambda: running["proc"].pid
         world.first_run_leaks = first_run
         # Settled before a test can end the session, as restart_obs() does for
         # a restart: an OBS that quits before its camera has been turned on
