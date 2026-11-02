@@ -15,7 +15,7 @@
 #include "ptz-list-model.hpp"
 #include "ptz-legacy-migration.hpp"
 #include "ptz-visca.hpp"
-#include "ptz-soft-cam.hpp"
+#include "ptz-virtual.hpp"
 #include "ptz.h"
 
 /* The optional drivers' headers are only on the include path when they are built */
@@ -53,7 +53,7 @@ void ptz_load_devices()
 	ptz_usb_cam_register_filter();
 #endif /* ENABLE_USB_CAM */
 	/* The Add Device dialog lists the kinds in the order they register */
-	ptz_soft_cam_register_filter();
+	ptz_virtual_register_filter();
 }
 
 void ptz_unload_devices(void)

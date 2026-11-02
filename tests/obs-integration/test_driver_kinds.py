@@ -18,7 +18,7 @@ import pytest
 from obsws import ObsWebSocketError
 
 PREFIX = "ca.secretlab.obs-ptz."
-KINDS = {PREFIX + name for name in ("visca", "onvif", "pelco", "usb-cam", "soft-ptz")}
+KINDS = {PREFIX + name for name in ("visca", "onvif", "pelco", "usb-cam", "virtual-ptz")}
 PELCO_KIND = PREFIX + "pelco"
 # Defaults of a kind, never settings of a filter
 NOT_SETTINGS = {"ptz_api_version_major", "ptz_api_version_minor"}

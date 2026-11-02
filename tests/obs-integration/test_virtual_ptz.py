@@ -1,4 +1,4 @@
-"""Covers the "Soft PTZ Control" filter (src/drivers/soft/ptz-soft-cam.cpp): a PTZ device
+"""Covers the "Virtual PTZ Control" filter (src/drivers/virtual/ptz-virtual.cpp): a PTZ device
 with no camera, which pans, tilts and zooms by showing a part of the source it
 is on.
 
@@ -30,7 +30,7 @@ import pytest
 
 from conftest import OBS_MAIN, PTZ_DOCK
 
-FILTER_KIND = "ca.secretlab.obs-ptz.soft-ptz"
+FILTER_KIND = "ca.secretlab.obs-ptz.virtual-ptz"
 # Removing a source is not at once, so each test makes its own by a new name
 _names = itertools.count(1)
 
@@ -119,10 +119,10 @@ def nearest(rgb):
 
 
 @pytest.fixture
-def soft_cam(obs_world, tmp_path):
+def virtual_cam(obs_world, tmp_path):
     image = tmp_path / "quadrants.png"
     write_quadrant_png(image)
-    source = f"soft-ptz-cam-{next(_names)}"
+    source = f"virtual-ptz-cam-{next(_names)}"
     scene = obs_world.create_scene()
     obs_world.ws.call("CreateInput", {
         "sceneName": scene,
@@ -132,7 +132,7 @@ def soft_cam(obs_world, tmp_path):
     })
     obs_world.ws.call("CreateSourceFilter", {
         "sourceName": source,
-        "filterName": "Soft PTZ",
+        "filterName": "Virtual PTZ",
         "filterKind": FILTER_KIND,
         "filterSettings": {"max_zoom": 4.0, "recall_seconds": 0.2},
     })
@@ -207,44 +207,44 @@ def wait_for_corners(world, source, want, timeout=8, look=corners):
 # ------------------------------------------------------------- the device
 
 
-def test_an_absolute_move_converges(obs_world, soft_cam, tmp_path):
-    move(obs_world, soft_cam, zoom=1.0)
-    wait_for_position(obs_world, soft_cam, tmp_path, zoom=1.0)
+def test_an_absolute_move_converges(obs_world, virtual_cam, tmp_path):
+    move(obs_world, virtual_cam, zoom=1.0)
+    wait_for_position(obs_world, virtual_cam, tmp_path, zoom=1.0)
 
-    move(obs_world, soft_cam, pan=0.5, tilt=-0.5)
-    wait_for_position(obs_world, soft_cam, tmp_path, pan=0.5, tilt=-0.5, zoom=1.0)
+    move(obs_world, virtual_cam, pan=0.5, tilt=-0.5)
+    wait_for_position(obs_world, virtual_cam, tmp_path, pan=0.5, tilt=-0.5, zoom=1.0)
 
 
-def test_pan_and_tilt_are_kept_in_the_frame_at_the_zoom_there_is(obs_world, soft_cam, tmp_path):
+def test_pan_and_tilt_are_kept_in_the_frame_at_the_zoom_there_is(obs_world, virtual_cam, tmp_path):
     # Zoomed in all the way, at most 1 - 1/4 of the way to the edge
-    move(obs_world, soft_cam, pan=1.0, tilt=-1.0, zoom=1.0)
-    wait_for_position(obs_world, soft_cam, tmp_path, pan=0.75, tilt=-0.75, zoom=1.0)
+    move(obs_world, virtual_cam, pan=1.0, tilt=-1.0, zoom=1.0)
+    wait_for_position(obs_world, virtual_cam, tmp_path, pan=0.75, tilt=-0.75, zoom=1.0)
 
     # and zooming out takes the centre back in with it
-    move(obs_world, soft_cam, zoom=0.0)
-    wait_for_position(obs_world, soft_cam, tmp_path, pan=0.0, tilt=0.0, zoom=0.0)
+    move(obs_world, virtual_cam, zoom=0.0)
+    wait_for_position(obs_world, virtual_cam, tmp_path, pan=0.0, tilt=0.0, zoom=0.0)
 
 
-def test_a_relative_move_adds(obs_world, soft_cam, tmp_path):
-    move(obs_world, soft_cam, pan=0.2, tilt=0.0, zoom=1.0)
-    wait_for_position(obs_world, soft_cam, tmp_path, pan=0.2, tilt=0.0, zoom=1.0)
+def test_a_relative_move_adds(obs_world, virtual_cam, tmp_path):
+    move(obs_world, virtual_cam, pan=0.2, tilt=0.0, zoom=1.0)
+    wait_for_position(obs_world, virtual_cam, tmp_path, pan=0.2, tilt=0.0, zoom=1.0)
 
-    move(obs_world, soft_cam, mode="rel", pan=0.1, tilt=0.0)
-    wait_for_position(obs_world, soft_cam, tmp_path, pan=0.3, tilt=0.0)
+    move(obs_world, virtual_cam, mode="rel", pan=0.1, tilt=0.0)
+    wait_for_position(obs_world, virtual_cam, tmp_path, pan=0.3, tilt=0.0)
 
 
-def test_a_local_preset_round_trips(obs_world, soft_cam, tmp_path):
+def test_a_local_preset_round_trips(obs_world, virtual_cam, tmp_path):
     # Pan before zoom is the order a recall applies them in, from the whole frame
-    move(obs_world, soft_cam, pan=0.5, tilt=-0.25, zoom=0.75)
-    wait_for_position(obs_world, soft_cam, tmp_path, pan=0.5, tilt=-0.25, zoom=0.75)
-    preset = obs_world.create_preset(soft_cam, "somewhere", store="local")
+    move(obs_world, virtual_cam, pan=0.5, tilt=-0.25, zoom=0.75)
+    wait_for_position(obs_world, virtual_cam, tmp_path, pan=0.5, tilt=-0.25, zoom=0.75)
+    preset = obs_world.create_preset(virtual_cam, "somewhere", store="local")
     assert preset
 
-    move(obs_world, soft_cam, pan=0.0, tilt=0.0, zoom=0.0)
-    wait_for_position(obs_world, soft_cam, tmp_path, pan=0.0, tilt=0.0, zoom=0.0)
+    move(obs_world, virtual_cam, pan=0.0, tilt=0.0, zoom=0.0)
+    wait_for_position(obs_world, virtual_cam, tmp_path, pan=0.0, tilt=0.0, zoom=0.0)
 
-    obs_world.call_proc(soft_cam, "ptz_preset_recall", {"id": preset})
-    wait_for_position(obs_world, soft_cam, tmp_path, pan=0.5, tilt=-0.25, zoom=0.75)
+    obs_world.call_proc(virtual_cam, "ptz_preset_recall", {"id": preset})
+    wait_for_position(obs_world, virtual_cam, tmp_path, pan=0.5, tilt=-0.25, zoom=0.75)
 
 
 # How long the eased moves of the tests of arrival take
@@ -268,27 +268,27 @@ def eased_preset(world, source, tmp_path):
     move(world, source, pan=0.0, tilt=0.0, zoom=0.0)
     wait_for_position(world, source, tmp_path, pan=0.0, tilt=0.0, zoom=0.0)
     world.ws.call("SetSourceFilterSettings", {
-        "sourceName": source, "filterName": "Soft PTZ", "filterSettings": {"recall_seconds": EASE_SECONDS},
+        "sourceName": source, "filterName": "Virtual PTZ", "filterSettings": {"recall_seconds": EASE_SECONDS},
     })
     return preset
 
 
-def test_it_says_it_can_tell_when_it_has_arrived(obs_world, soft_cam):
-    state = obs_world.call_proc(soft_cam, "ptz_get_state", {"state": {}})["args"]["state"]
+def test_it_says_it_can_tell_when_it_has_arrived(obs_world, virtual_cam):
+    state = obs_world.call_proc(virtual_cam, "ptz_get_state", {"state": {}})["args"]["state"]
     assert "move_completion" in state["features"]
 
 
-def test_soft_recall_reports_arrival_when_ease_ends(obs_world, soft_cam, tmp_path):
-    preset = eased_preset(obs_world, soft_cam, tmp_path)
-    obs_world.record_preset_signals(soft_cam)
+def test_virtual_recall_reports_arrival_when_ease_ends(obs_world, virtual_cam, tmp_path):
+    preset = eased_preset(obs_world, virtual_cam, tmp_path)
+    obs_world.record_preset_signals(virtual_cam)
 
-    called = obs_world.call_proc(soft_cam, "ptz_preset_recall", {"id": preset})
+    called = obs_world.call_proc(virtual_cam, "ptz_preset_recall", {"id": preset})
     obs_world.wait_for(lambda: recalled_events(obs_world), timeout=3)
     elapsed = recalled_events(obs_world)[0]["ms"] - called["ms"]
     # once the ease has ended, within a report and a few frames of it, and
     # well before the 3 s a device that can't tell waits
     assert EASE_SECONDS * 1000 - 50 <= elapsed <= EASE_SECONDS * 1000 + 500, elapsed
-    state = state_of(obs_world, soft_cam, tmp_path)
+    state = state_of(obs_world, virtual_cam, tmp_path)
     assert abs(state["pan"] - 0.5) < 0.01 and abs(state["zoom"] - 0.75) < 0.01
     # and once: past when the 3 s timer would have said so too. The backstop's
     # 15 s timer finds nothing pending once a recall has been reported, as
@@ -297,16 +297,16 @@ def test_soft_recall_reports_arrival_when_ease_ends(obs_world, soft_cam, tmp_pat
     assert [e["id"] for e in recalled_events(obs_world)] == [preset]
 
 
-def test_a_recall_that_moves_nothing_is_reported_by_the_backstop(obs_world, soft_cam, tmp_path):
+def test_a_recall_that_moves_nothing_is_reported_by_the_backstop(obs_world, virtual_cam, tmp_path):
     """A preset of nothing it has (focus): the viewport never moves, so only
     PTZDevice::kRecallBackstopMs says it has arrived. The one slow test here."""
-    preset = obs_world.create_preset(soft_cam, "focus only", store="local")
+    preset = obs_world.create_preset(virtual_cam, "focus only", store="local")
     assert preset
-    obs_world.call_proc(soft_cam, "ptz_preset_update",
+    obs_world.call_proc(virtual_cam, "ptz_preset_update",
                         {"id": preset, "changes": {"values": {"focus": {"position": 0.5}}}})
-    obs_world.record_preset_signals(soft_cam)
+    obs_world.record_preset_signals(virtual_cam)
 
-    called = obs_world.call_proc(soft_cam, "ptz_preset_recall", {"id": preset})
+    called = obs_world.call_proc(virtual_cam, "ptz_preset_recall", {"id": preset})
     time.sleep(RECALL_SETTLE + 0.5)
     assert recalled_events(obs_world) == []
     obs_world.wait_for(lambda: recalled_events(obs_world), timeout=RECALL_BACKSTOP + 3)
@@ -315,27 +315,27 @@ def test_a_recall_that_moves_nothing_is_reported_by_the_backstop(obs_world, soft
     assert [e["id"] for e in recalled_events(obs_world)] == [preset]
 
 
-def test_soft_speed_move_stop_is_not_arrival(obs_world, soft_cam, tmp_path):
+def test_virtual_speed_move_stop_is_not_arrival(obs_world, virtual_cam, tmp_path):
     """A recall a speed has ended, then stopped with a zero speed, which cancels
     nothing itself: it never arrived. A recall after it still says so."""
-    preset = eased_preset(obs_world, soft_cam, tmp_path)
-    obs_world.record_preset_signals(soft_cam)
+    preset = eased_preset(obs_world, virtual_cam, tmp_path)
+    obs_world.record_preset_signals(virtual_cam)
 
-    obs_world.call_proc(soft_cam, "ptz_preset_recall", {"id": preset})
+    obs_world.call_proc(virtual_cam, "ptz_preset_recall", {"id": preset})
     time.sleep(0.3)
-    obs_world.call_proc(soft_cam, "ptz_move", {"pan": 0.5, "tilt": 0.0})
+    obs_world.call_proc(virtual_cam, "ptz_move", {"pan": 0.5, "tilt": 0.0})
     time.sleep(0.3)
-    obs_world.call_proc(soft_cam, "ptz_move", {"pan": 0.0, "tilt": 0.0})
+    obs_world.call_proc(virtual_cam, "ptz_move", {"pan": 0.0, "tilt": 0.0})
     time.sleep(EASE_SECONDS + 3.5)
     assert recalled_events(obs_world) == []
 
-    obs_world.call_proc(soft_cam, "ptz_preset_recall", {"id": preset})
+    obs_world.call_proc(virtual_cam, "ptz_preset_recall", {"id": preset})
     obs_world.wait_for(lambda: recalled_events(obs_world), timeout=3)
     assert [e["id"] for e in recalled_events(obs_world)] == [preset]
 
 
 def test_a_source_with_no_video_still_answers(obs_world, tmp_path):
-    empty = f"soft-ptz-empty-{next(_names)}"
+    empty = f"virtual-ptz-empty-{next(_names)}"
     scene = obs_world.create_scene()
     obs_world.ws.call("CreateInput", {
         "sceneName": scene, "inputName": empty, "inputKind": "image_source",
@@ -343,7 +343,7 @@ def test_a_source_with_no_video_still_answers(obs_world, tmp_path):
     })
     try:
         obs_world.ws.call("CreateSourceFilter", {
-            "sourceName": empty, "filterName": "Soft PTZ", "filterKind": FILTER_KIND,
+            "sourceName": empty, "filterName": "Virtual PTZ", "filterKind": FILTER_KIND,
             "filterSettings": {"recall_seconds": 0.2},
         })
         out = tmp_path / "device.json"
@@ -360,8 +360,8 @@ def test_a_source_with_no_video_still_answers(obs_world, tmp_path):
 # ------------------------------------------------------------ the picture
 
 
-def test_the_whole_frame_is_shown_at_zoom_0(obs_world, soft_cam):
-    wait_for_corners(obs_world, soft_cam, {"tl": RED, "tr": GREEN, "bl": BLUE, "br": YELLOW})
+def test_the_whole_frame_is_shown_at_zoom_0(obs_world, virtual_cam):
+    wait_for_corners(obs_world, virtual_cam, {"tl": RED, "tr": GREEN, "bl": BLUE, "br": YELLOW})
 
 
 @pytest.mark.parametrize("pan,tilt,colour", [
@@ -370,29 +370,29 @@ def test_the_whole_frame_is_shown_at_zoom_0(obs_world, soft_cam):
     (-0.75, -0.75, BLUE),
     (0.75, -0.75, YELLOW),
 ])
-def test_the_picture_is_the_part_the_position_says(obs_world, soft_cam, tmp_path, pan, tilt, colour):
-    move(obs_world, soft_cam, pan=pan, tilt=tilt, zoom=1.0)
-    wait_for_position(obs_world, soft_cam, tmp_path, pan=pan, tilt=tilt, zoom=1.0)
-    wait_for_corners(obs_world, soft_cam, {"tl": colour, "tr": colour, "bl": colour, "br": colour})
+def test_the_picture_is_the_part_the_position_says(obs_world, virtual_cam, tmp_path, pan, tilt, colour):
+    move(obs_world, virtual_cam, pan=pan, tilt=tilt, zoom=1.0)
+    wait_for_position(obs_world, virtual_cam, tmp_path, pan=pan, tilt=tilt, zoom=1.0)
+    wait_for_corners(obs_world, virtual_cam, {"tl": colour, "tr": colour, "bl": colour, "br": colour})
 
 
-def test_zoomed_in_on_the_middle_shows_where_the_quadrants_meet(obs_world, soft_cam, tmp_path):
-    move(obs_world, soft_cam, pan=0.0, tilt=0.0, zoom=1.0)
-    wait_for_position(obs_world, soft_cam, tmp_path, pan=0.0, tilt=0.0, zoom=1.0)
-    wait_for_corners(obs_world, soft_cam, {"tl": RED, "tr": GREEN, "bl": BLUE, "br": YELLOW})
+def test_zoomed_in_on_the_middle_shows_where_the_quadrants_meet(obs_world, virtual_cam, tmp_path):
+    move(obs_world, virtual_cam, pan=0.0, tilt=0.0, zoom=1.0)
+    wait_for_position(obs_world, virtual_cam, tmp_path, pan=0.0, tilt=0.0, zoom=1.0)
+    wait_for_corners(obs_world, virtual_cam, {"tl": RED, "tr": GREEN, "bl": BLUE, "br": YELLOW})
 
 
-def test_obs_quits_cleanly_after_a_zoomed_picture(obs_world, soft_cam, tmp_path):
+def test_obs_quits_cleanly_after_a_zoomed_picture(obs_world, virtual_cam, tmp_path):
     """A zoomed picture is drawn to a texture of the filter's own, which is
     freed as the filter is destroyed, with the graphics there still. The device
     itself goes later: for a source something keeps past OBS clearing its
     scenes, as an NDI output does, after OBS has shut its graphics down, and
     freeing the texture then crashed OBS (#428)"""
     obs_world.need_ui_driver()
-    obs_world.ui.hold_source(soft_cam)
-    move(obs_world, soft_cam, pan=0.75, tilt=0.75, zoom=1.0)
-    wait_for_position(obs_world, soft_cam, tmp_path, pan=0.75, tilt=0.75, zoom=1.0)
-    wait_for_corners(obs_world, soft_cam, {"tl": GREEN, "tr": GREEN, "bl": GREEN, "br": GREEN})
+    obs_world.ui.hold_source(virtual_cam)
+    move(obs_world, virtual_cam, pan=0.75, tilt=0.75, zoom=1.0)
+    wait_for_position(obs_world, virtual_cam, tmp_path, pan=0.75, tilt=0.75, zoom=1.0)
+    wait_for_corners(obs_world, virtual_cam, {"tl": GREEN, "tr": GREEN, "bl": GREEN, "br": GREEN})
 
     obs_world.restart_obs()
     assert obs_world.exit_code == 0, f"OBS exited with {obs_world.exit_code}"
@@ -454,7 +454,7 @@ def test_studio_mode_copies_of_its_source_show_its_camera(obs_world, duplicating
     obs_world.need_ui_driver()
     image = tmp_path / "quadrants.png"
     write_quadrant_png(image)
-    source = f"soft-ptz-cam-{next(_names)}"
+    source = f"virtual-ptz-cam-{next(_names)}"
     cam_scene = obs_world.create_scene()
     other_scene = obs_world.create_scene()
     item = obs_world.ws.call("CreateInput", {
@@ -469,7 +469,7 @@ def test_studio_mode_copies_of_its_source_show_its_camera(obs_world, duplicating
                                "boundsWidth": video["baseWidth"], "boundsHeight": video["baseHeight"]},
     })
     obs_world.ws.call("CreateSourceFilter", {
-        "sourceName": source, "filterName": "Soft PTZ", "filterKind": FILTER_KIND,
+        "sourceName": source, "filterName": "Virtual PTZ", "filterKind": FILTER_KIND,
         "filterSettings": {"max_zoom": 4.0, "recall_seconds": 0.2},
     })
     obs_world.wait_for_device_by_name(source, tmp_path / "device.json", lambda r: r["found"] and r["bound"],
@@ -501,26 +501,26 @@ def test_studio_mode_copies_of_its_source_show_its_camera(obs_world, duplicating
     wait_for_corners(obs_world, None, all_of(BLUE), look=program_corners)
     wait_for_corners(obs_world, source, all_of(BLUE))
 
-    links = obs_world.ui.filter_links(source, "Soft PTZ")
+    links = obs_world.ui.filter_links(source, "Virtual PTZ")
     assert links["device_parent"] == links["source"]
     transition_to(other_scene)
     obs_world.ws.call("RemoveInput", {"inputName": source})
 
 
-def test_a_copy_a_user_makes_is_a_camera_of_its_own(obs_world, soft_cam, tmp_path):
+def test_a_copy_a_user_makes_is_a_camera_of_its_own(obs_world, virtual_cam, tmp_path):
     """A copy that isn't private, as Paste (Duplicate) makes, has a filter of
     its own that is a device of its own, which moves without the source's"""
     obs_world.need_ui_driver()
-    copy = f"{soft_cam}-copy"
-    obs_world.ui.duplicate_source(soft_cam, copy, obs_world.create_scene())
+    copy = f"{virtual_cam}-copy"
+    obs_world.ui.duplicate_source(virtual_cam, copy, obs_world.create_scene())
     try:
         obs_world.wait_for_device_by_name(copy, tmp_path / "copy.json", lambda r: r["found"] and r["bound"],
                                           timeout=10)
-        assert obs_world.device_uuid(copy) != obs_world.device_uuid(soft_cam)
+        assert obs_world.device_uuid(copy) != obs_world.device_uuid(virtual_cam)
         move(obs_world, copy, pan=0.75, tilt=0.75, zoom=1.0)
         wait_for_position(obs_world, copy, tmp_path, pan=0.75, tilt=0.75, zoom=1.0)
         wait_for_corners(obs_world, copy, all_of(GREEN))
-        wait_for_corners(obs_world, soft_cam, {"tl": RED, "tr": GREEN, "bl": BLUE, "br": YELLOW})
+        wait_for_corners(obs_world, virtual_cam, {"tl": RED, "tr": GREEN, "bl": BLUE, "br": YELLOW})
     finally:
         obs_world.ws.call("RemoveInput", {"inputName": copy})
 
@@ -546,25 +546,25 @@ def thumbnail_image(world, device, preset_id):
     return base64.b64decode(answer["data"])
 
 
-def test_a_thumbnail_is_named_for_its_filter(obs_world, soft_cam):
+def test_a_thumbnail_is_named_for_its_filter(obs_world, virtual_cam):
     """A preset's thumbnail file is named <filter uuid>_<random uuid>"""
-    preset = obs_world.create_preset(soft_cam, "pictured", store="local")
-    obs_world.wait_for(lambda: thumbnail_image(obs_world, soft_cam, preset), timeout=10)
-    name = thumbnail_name(preset_thumbnails(obs_world, soft_cam)[preset])
-    assert name.startswith(obs_world.device_uuid(soft_cam) + "_"), name
+    preset = obs_world.create_preset(virtual_cam, "pictured", store="local")
+    obs_world.wait_for(lambda: thumbnail_image(obs_world, virtual_cam, preset), timeout=10)
+    name = thumbnail_name(preset_thumbnails(obs_world, virtual_cam)[preset])
+    assert name.startswith(obs_world.device_uuid(virtual_cam) + "_"), name
 
 
-def test_a_duplicated_source_has_a_device_without_its_thumbnails(obs_world, soft_cam, tmp_path):
+def test_a_duplicated_source_has_a_device_without_its_thumbnails(obs_world, virtual_cam, tmp_path):
     """A copy a user makes, as Paste (Duplicate) does, is a device of its own,
     with its source's presets but not their thumbnails, whose files stay the
     original's: what the copy does to a preset leaves them alone."""
     obs_world.need_ui_driver()
-    preset = obs_world.create_preset(soft_cam, "pictured", store="local")
-    obs_world.wait_for(lambda: thumbnail_image(obs_world, soft_cam, preset), timeout=10)
-    original = preset_thumbnails(obs_world, soft_cam)[preset]
+    preset = obs_world.create_preset(virtual_cam, "pictured", store="local")
+    obs_world.wait_for(lambda: thumbnail_image(obs_world, virtual_cam, preset), timeout=10)
+    original = preset_thumbnails(obs_world, virtual_cam)[preset]
 
-    copy = f"{soft_cam}-copy"
-    obs_world.ui.duplicate_source(soft_cam, copy, obs_world.create_scene())
+    copy = f"{virtual_cam}-copy"
+    obs_world.ui.duplicate_source(virtual_cam, copy, obs_world.create_scene())
     try:
         obs_world.wait_for_device_by_name(copy, tmp_path / "copy.json", lambda r: r["found"] and r["bound"],
                                           timeout=10)
@@ -573,8 +573,8 @@ def test_a_duplicated_source_has_a_device_without_its_thumbnails(obs_world, soft
 
         obs_world.call_proc(copy, "ptz_preset_delete", {"id": preset})
         obs_world.wait_for(lambda: preset not in preset_thumbnails(obs_world, copy), timeout=10)
-        assert preset_thumbnails(obs_world, soft_cam)[preset] == original
-        assert thumbnail_image(obs_world, soft_cam, preset), \
+        assert preset_thumbnails(obs_world, virtual_cam)[preset] == original
+        assert thumbnail_image(obs_world, virtual_cam, preset), \
             "deleting the copy's preset deleted the original's thumbnail"
     finally:
         obs_world.ws.call("RemoveInput", {"inputName": copy})
@@ -596,7 +596,7 @@ def test_a_zoomed_picture_stays_inside_its_source_in_the_scene(obs_world, tmp_pa
     camera is, mustn't have what is zoomed in on spill over the rest"""
     image = tmp_path / "quadrants.png"
     write_quadrant_png(image)
-    name = f"soft-ptz-pip-{next(_names)}"
+    name = f"virtual-ptz-pip-{next(_names)}"
     scene = obs_world.create_scene()
     obs_world.ws.call("CreateInput", {
         "sceneName": scene, "inputName": name, "inputKind": "image_source",
@@ -604,7 +604,7 @@ def test_a_zoomed_picture_stays_inside_its_source_in_the_scene(obs_world, tmp_pa
     })
     try:
         obs_world.ws.call("CreateSourceFilter", {
-            "sourceName": name, "filterName": "Soft PTZ", "filterKind": FILTER_KIND,
+            "sourceName": name, "filterName": "Virtual PTZ", "filterKind": FILTER_KIND,
             "filterSettings": {"max_zoom": 4.0, "recall_seconds": 0.2},
         })
         out = tmp_path / "device.json"
@@ -638,7 +638,7 @@ def filter_kinds(world, source):
 
 @pytest.fixture
 def plain_source(obs_world):
-    name = f"soft-ptz-plain-{next(_names)}"
+    name = f"virtual-ptz-plain-{next(_names)}"
     scene = obs_world.create_scene()
     obs_world.ws.call("CreateInput", {
         "sceneName": scene, "inputName": name, "inputKind": "image_source", "inputSettings": {"file": ""},
@@ -648,14 +648,14 @@ def plain_source(obs_world):
 
 
 def test_the_add_dialog_offers_it(obs_world, plain_source, tmp_path):
-    run_add_device(obs_world, tmp_path / "add.json", plain_source, type="soft-ptz")
+    run_add_device(obs_world, tmp_path / "add.json", plain_source, type="virtual-ptz")
     obs_world.wait_for(lambda: filter_kinds(obs_world, plain_source) == [FILTER_KIND])
     obs_world.wait_for_device_by_name(plain_source, tmp_path / "device.json", lambda r: r["found"] and r["bound"])
 
 
 def test_a_removed_one_is_offered_back_with_its_presets(obs_world, plain_source, tmp_path):
     obs_world.ws.call("CreateSourceFilter", {
-        "sourceName": plain_source, "filterName": "Soft PTZ", "filterKind": FILTER_KIND,
+        "sourceName": plain_source, "filterName": "Virtual PTZ", "filterKind": FILTER_KIND,
         "filterSettings": {"recall_seconds": 0.2},
     })
     obs_world.wait_for_device_by_name(plain_source, tmp_path / "device.json", lambda r: r["found"] and r["bound"])
@@ -677,7 +677,7 @@ def test_a_removed_one_is_offered_back_with_its_presets(obs_world, plain_source,
 
 def test_where_it_is_looking_is_kept_with_its_settings(obs_world, plain_source, tmp_path):
     obs_world.ws.call("CreateSourceFilter", {
-        "sourceName": plain_source, "filterName": "Soft PTZ", "filterKind": FILTER_KIND,
+        "sourceName": plain_source, "filterName": "Virtual PTZ", "filterKind": FILTER_KIND,
         "filterSettings": {"recall_seconds": 0.2, "max_zoom": 4.0},
     })
     obs_world.wait_for_device_by_name(plain_source, tmp_path / "device.json", lambda r: r["found"] and r["bound"])
@@ -685,7 +685,7 @@ def test_where_it_is_looking_is_kept_with_its_settings(obs_world, plain_source, 
     wait_for_position(obs_world, plain_source, tmp_path, pan=0.5, tilt=-0.25, zoom=0.75)
 
     def kept():
-        settings = obs_world.ws.call("GetSourceFilter", {"sourceName": plain_source, "filterName": "Soft PTZ"})
+        settings = obs_world.ws.call("GetSourceFilter", {"sourceName": plain_source, "filterName": "Virtual PTZ"})
         pose = settings["filterSettings"].get("viewport") or {}
         return abs(pose.get("pan", 9) - 0.5) < 0.01 and abs(pose.get("tilt", 9) + 0.25) < 0.01 \
             and abs(pose.get("zoom", 9) - 0.75) < 0.01
@@ -697,7 +697,7 @@ def test_it_starts_where_it_was_left(obs_world, plain_source, tmp_path):
     """What a restart, or a scene collection that is loaded again, does: makes the
     filter from its saved settings"""
     obs_world.ws.call("CreateSourceFilter", {
-        "sourceName": plain_source, "filterName": "Soft PTZ", "filterKind": FILTER_KIND,
+        "sourceName": plain_source, "filterName": "Virtual PTZ", "filterKind": FILTER_KIND,
         "filterSettings": {"recall_seconds": 0.2, "max_zoom": 4.0,
                            "viewport": {"pan": 0.5, "tilt": -0.25, "zoom": 0.75}},
     })

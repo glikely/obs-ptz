@@ -1,4 +1,4 @@
-/* Pan Tilt Zoom Controls - a soft PTZ camera: a viewport on any source
+/* Pan Tilt Zoom Controls - a virtual PTZ camera: a viewport on any source
  *
  * Copyright 2026 Grant Likely <grant.likely@secretlab.ca>
  *
@@ -10,21 +10,21 @@
 #include <QTimer>
 #include <obs.hpp>
 #include "ptz-device.hpp"
-#include "ptz-soft-viewport.hpp"
+#include "ptz-virtual-viewport.hpp"
 
 /* A "camera" with no hardware: it pans, tilts and zooms by showing a part of
  * the source its filter is on, scaled up to fill the source's own size. It is
- * driven like any camera, and it moves like one (see SoftViewport).
+ * driven like any camera, and it moves like one (see VirtualViewport).
  *
  * The device is on the Qt thread, and its filter's video_tick and
  * video_render are on OBS's graphics thread, so what they share, the
  * viewport, is behind m_lock. */
-class PTZSoftCam : public PTZDevice {
+class PTZVirtual : public PTZDevice {
 	Q_OBJECT
 
 private:
 	mutable std::mutex m_lock;
-	SoftViewport m_viewport;
+	VirtualViewport m_viewport;
 	/* Where the viewport is, for the device's state, a few times a second */
 	QTimer m_reportTimer;
 	void reportPosition();
@@ -32,11 +32,11 @@ private:
 	 * says the device has arrived. A speed ends it with no arrival. Qt thread. */
 	bool m_easeReported = true;
 	/* Where it was when it was last written to the settings */
-	SoftPosition m_persisted;
+	VirtualPosition m_persisted;
 
 public:
-	PTZSoftCam(OBSData config, obs_source_t *filter);
-	~PTZSoftCam();
+	PTZVirtual(OBSData config, obs_source_t *filter);
+	~PTZVirtual();
 
 	static void defaults(obs_data_t *settings);
 	void update(OBSData config) override;
@@ -53,21 +53,21 @@ public:
 
 	/* For the filter's callbacks, on the graphics thread */
 	void tickViewport(double seconds);
-	SoftRect visibleRect() const;
+	VirtualRect visibleRect() const;
 };
 
 /* A filter on a private copy has no camera. It draws what its original's shows,
  * as it moves, so it has what is needed to draw of its own. */
-class PTZSoftFilter : public PTZFilter {
+class PTZVirtualFilter : public PTZFilter {
 public:
 	using PTZFilter::PTZFilter;
-	~PTZSoftFilter() override;
+	~PTZVirtualFilter() override;
 
-	PTZSoftCam *cam() const { return static_cast<PTZSoftCam *>(device()); }
+	PTZVirtual *cam() const { return static_cast<PTZVirtual *>(device()); }
 	/* The texture the picture is drawn to, made when it is first wanted */
 	gs_texrender_t *texrender();
 	/* What it last showed: all it has once its original is gone */
-	SoftRect lastRect = {0, 0, 1, 1};
+	VirtualRect lastRect = {0, 0, 1, 1};
 
 protected:
 	/* There is no camera to share: a copy is a camera of its own */
@@ -79,4 +79,4 @@ private:
 	gs_texrender_t *m_texrender = nullptr;
 };
 
-void ptz_soft_cam_register_filter();
+void ptz_virtual_register_filter();

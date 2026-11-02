@@ -24,7 +24,7 @@ from obsws import ObsWebSocketError
 from conftest import free_port
 
 FILTER_KIND = "ca.secretlab.obs-ptz.visca"
-SOFT_KIND = "ca.secretlab.obs-ptz.soft-ptz"
+VIRTUAL_KIND = "ca.secretlab.obs-ptz.virtual-ptz"
 
 PRESETS = [{"id": 0, "name": "Wide"}, {"id": 1, "name": "Close"}]
 
@@ -52,11 +52,11 @@ class Sources:
         self.world.ws.call("RemoveInput", {"inputName": name})
         self.names.discard(name)
 
-    def add_soft_filter(self, source):
+    def add_virtual_filter(self, source):
         self.world.ws.call("CreateSourceFilter", {
             "sourceName": source,
-            "filterName": "Soft PTZ",
-            "filterKind": SOFT_KIND,
+            "filterName": "Virtual PTZ",
+            "filterKind": VIRTUAL_KIND,
             "filterSettings": {},
         })
 
@@ -265,19 +265,19 @@ def test_parent_with_two_filters_backs_up_both(obs_world, sources, tmp_path):
     two differ in type, so neither replaces the other)"""
     sources.add("backup-cam-two")
     sources.add_filter("backup-cam-two")
-    sources.add_soft_filter("backup-cam-two")
+    sources.add_virtual_filter("backup-cam-two")
 
     sources.remove("backup-cam-two")
 
     out = tmp_path / "backups.json"
 
     def both():
-        return {b["kind"] for b in backups_named(obs_world, out, "backup-cam-two")} == {FILTER_KIND, SOFT_KIND}
+        return {b["kind"] for b in backups_named(obs_world, out, "backup-cam-two")} == {FILTER_KIND, VIRTUAL_KIND}
 
     obs_world.wait_for(both)
     entries = backups_named(obs_world, out, "backup-cam-two")
     assert len(entries) == 2
-    assert {b["type"] for b in entries} == {"visca-over-tcp", "soft-ptz"}
+    assert {b["type"] for b in entries} == {"visca-over-tcp", "virtual-ptz"}
 
 
 def test_filter_removed_by_hand_is_backed_up(obs_world, sources, tmp_path):
@@ -322,7 +322,7 @@ def test_entry_without_kind_still_restores(obs_world, sources, tmp_path):
 
 
 # Backups made by switching scene collection with four devices, three on a
-# source each and one source with two (visca and soft): what the
+# source each and one source with two (visca and virtual): what the
 # implementation that backed up from inside the device made. See the commit
 # that introduced src/controller/ptz-backup-store.cpp.
 COLLECTION_SWITCH_BACKUPS = 5
@@ -337,7 +337,7 @@ def test_collection_switch_backs_up_no_more_than_before(obs_world, sources, tmp_
         sources.add_filter(name)
     sources.add("switch-cam-pair")
     sources.add_filter("switch-cam-pair")
-    sources.add_soft_filter("switch-cam-pair")
+    sources.add_virtual_filter("switch-cam-pair")
     for name in names + ["switch-cam-pair"]:
         obs_world.wait_for_device_by_name(name, tmp_path / "device.json", lambda r: r["found"])
     out = tmp_path / "backups.json"

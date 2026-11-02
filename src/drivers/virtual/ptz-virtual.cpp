@@ -1,4 +1,4 @@
-/* Pan Tilt Zoom Controls - a soft PTZ camera: a viewport on any source
+/* Pan Tilt Zoom Controls - a virtual PTZ camera: a viewport on any source
  *
  * Copyright 2026 Grant Likely <grant.likely@secretlab.ca>
  *
@@ -9,7 +9,7 @@
 #include <obs-module.h>
 #include <graphics/graphics.h>
 #include <graphics/vec4.h>
-#include "ptz-soft-cam.hpp"
+#include "ptz-virtual.hpp"
 #include "ptz.h"
 
 /* What a setting is limited to, in properties and in update() both */
@@ -17,17 +17,17 @@ static constexpr double MaxZoomMin = 1.1, MaxZoomMax = 10.0;
 static constexpr double RateMin = 0.05, RateMax = 2.0;
 static constexpr double RecallMax = 5.0;
 
-PTZSoftCam::PTZSoftCam(OBSData config, obs_source_t *filter) : PTZDevice(config, filter)
+PTZVirtual::PTZVirtual(OBSData config, obs_source_t *filter) : PTZDevice(config, filter)
 {
-	type = "soft-ptz";
+	type = "virtual-ptz";
 	update(config);
 
 	/* Where it was left: only now, not in update(), which a change of
 	 * another setting calls with a pose that may be out of date */
 	OBSDataAutoRelease pose = obs_data_get_obj(config, "viewport");
 	if (pose) {
-		SoftPosition saved{obs_data_get_double(pose, "pan"), obs_data_get_double(pose, "tilt"),
-				   obs_data_get_double(pose, "zoom")};
+		VirtualPosition saved{obs_data_get_double(pose, "pan"), obs_data_get_double(pose, "tilt"),
+				      obs_data_get_double(pose, "zoom")};
 		std::lock_guard<std::mutex> lock(m_lock);
 		m_viewport.jumpTo(saved);
 		m_persisted = m_viewport.position();
@@ -36,19 +36,19 @@ PTZSoftCam::PTZSoftCam(OBSData config, obs_source_t *filter) : PTZDevice(config,
 	/* There is no link to lose, so it is never shown as disconnected */
 	setConnected(true);
 
-	connect(&m_reportTimer, &QTimer::timeout, this, &PTZSoftCam::reportPosition);
+	connect(&m_reportTimer, &QTimer::timeout, this, &PTZVirtual::reportPosition);
 	m_reportTimer.start(66);
 	reportPosition();
 }
 
-PTZSoftCam::~PTZSoftCam()
+PTZVirtual::~PTZVirtual()
 {
 	m_reportTimer.stop();
 }
 
 /* Here, as the filter is destroyed, and not with the device: that is a
  * deleteLater(), which at quit runs after OBS has shut its graphics down. */
-PTZSoftFilter::~PTZSoftFilter()
+PTZVirtualFilter::~PTZVirtualFilter()
 {
 	if (!m_texrender)
 		return;
@@ -57,7 +57,7 @@ PTZSoftFilter::~PTZSoftFilter()
 	obs_leave_graphics();
 }
 
-void PTZSoftCam::defaults(obs_data_t *settings)
+void PTZVirtual::defaults(obs_data_t *settings)
 {
 	PTZDevice::defaults(settings);
 	obs_data_set_default_double(settings, "max_zoom", 4.0);
@@ -66,11 +66,11 @@ void PTZSoftCam::defaults(obs_data_t *settings)
 	obs_data_set_default_double(settings, "recall_seconds", 1.0);
 }
 
-void PTZSoftCam::update(OBSData config)
+void PTZVirtual::update(OBSData config)
 {
 	PTZDevice::update(config);
 
-	SoftViewportConfig viewport;
+	VirtualViewportConfig viewport;
 	viewport.maxZoom = std::clamp(obs_data_get_double(config, "max_zoom"), MaxZoomMin, MaxZoomMax);
 	viewport.panTiltRate = std::clamp(obs_data_get_double(config, "pantilt_rate"), RateMin, RateMax);
 	viewport.zoomRate = std::clamp(obs_data_get_double(config, "zoom_rate"), RateMin, RateMax);
@@ -79,21 +79,21 @@ void PTZSoftCam::update(OBSData config)
 	m_viewport.setConfig(viewport);
 }
 
-void PTZSoftCam::save(OBSData config) const
+void PTZVirtual::save(OBSData config) const
 {
 	PTZDevice::save(config);
 	std::lock_guard<std::mutex> lock(m_lock);
-	const SoftViewportConfig &viewport = m_viewport.config();
+	const VirtualViewportConfig &viewport = m_viewport.config();
 	obs_data_set_double(config, "max_zoom", viewport.maxZoom);
 	obs_data_set_double(config, "pantilt_rate", viewport.panTiltRate);
 	obs_data_set_double(config, "zoom_rate", viewport.zoomRate);
 	obs_data_set_double(config, "recall_seconds", viewport.recallSeconds);
 }
 
-void PTZSoftCam::persistState(obs_data_t *settings) const
+void PTZVirtual::persistState(obs_data_t *settings) const
 {
 	PTZDevice::persistState(settings);
-	SoftPosition pos;
+	VirtualPosition pos;
 	{
 		std::lock_guard<std::mutex> lock(m_lock);
 		pos = m_viewport.position();
@@ -105,33 +105,33 @@ void PTZSoftCam::persistState(obs_data_t *settings) const
 	obs_data_set_obj(settings, "viewport", pose);
 }
 
-obs_properties_t *PTZSoftCam::get_obs_properties()
+obs_properties_t *PTZVirtual::get_obs_properties()
 {
 	obs_properties_t *props = PTZDevice::get_obs_properties();
 	/* There is no connection to set up */
 	obs_properties_remove_by_name(props, "interface");
 
 	obs_properties_t *general = obs_property_group_content(obs_properties_get(props, "general"));
-	obs_properties_add_float_slider(general, "max_zoom", obs_module_text("PTZ.Device.SoftPtz.MaxZoom"), MaxZoomMin,
-					MaxZoomMax, 0.1);
-	obs_properties_add_float_slider(general, "pantilt_rate", obs_module_text("PTZ.Device.SoftPtz.PanTiltRate"),
+	obs_properties_add_float_slider(general, "max_zoom", obs_module_text("PTZ.Device.VirtualPtz.MaxZoom"),
+					MaxZoomMin, MaxZoomMax, 0.1);
+	obs_properties_add_float_slider(general, "pantilt_rate", obs_module_text("PTZ.Device.VirtualPtz.PanTiltRate"),
 					RateMin, RateMax, 0.05);
-	obs_properties_add_float_slider(general, "zoom_rate", obs_module_text("PTZ.Device.SoftPtz.ZoomRate"), RateMin,
-					RateMax, 0.05);
-	obs_properties_add_float_slider(general, "recall_seconds", obs_module_text("PTZ.Device.SoftPtz.RecallSeconds"),
-					0.0, RecallMax, 0.05);
+	obs_properties_add_float_slider(general, "zoom_rate", obs_module_text("PTZ.Device.VirtualPtz.ZoomRate"),
+					RateMin, RateMax, 0.05);
+	obs_properties_add_float_slider(general, "recall_seconds",
+					obs_module_text("PTZ.Device.VirtualPtz.RecallSeconds"), 0.0, RecallMax, 0.05);
 	return props;
 }
 
 /* Moves to a position, and by a distance, with the speed commands and Home;
  * no focus, and no presets of its own, the local ones follow from the
  * absolute positions */
-PTZDevice::Features PTZSoftCam::features() const
+PTZDevice::Features PTZVirtual::features() const
 {
 	return Pan | Tilt | Zoom | PanAbs | TiltAbs | PanRel | TiltRel | ZoomAbs | Home | MoveCompletion;
 }
 
-void PTZSoftCam::moveDrive(OBSData)
+void PTZVirtual::moveDrive(OBSData)
 {
 	double pan = speed("pan"), tilt = speed("tilt"), zoom = speed("zoom");
 	{
@@ -143,7 +143,7 @@ void PTZSoftCam::moveDrive(OBSData)
 }
 
 /* Pan, tilt and zoom start together, in the one move that is reported finished */
-void PTZSoftCam::moveAbs(OBSData positions)
+void PTZVirtual::moveAbs(OBSData positions)
 {
 	bool pantilt = obs_data_has_user_value(positions, "pan") || obs_data_has_user_value(positions, "tilt");
 	bool zoom = obs_data_has_user_value(positions, "zoom");
@@ -157,7 +157,7 @@ void PTZSoftCam::moveAbs(OBSData positions)
 		m_viewport.moveZoomTo(obs_data_get_double(positions, "zoom"));
 }
 
-void PTZSoftCam::moveRel(OBSData distances)
+void PTZVirtual::moveRel(OBSData distances)
 {
 	if (!obs_data_has_user_value(distances, "pan") && !obs_data_has_user_value(distances, "tilt"))
 		return;
@@ -166,20 +166,20 @@ void PTZSoftCam::moveRel(OBSData distances)
 	m_viewport.moveBy(obs_data_get_double(distances, "pan"), obs_data_get_double(distances, "tilt"));
 }
 
-void PTZSoftCam::pantilt_home()
+void PTZVirtual::pantilt_home()
 {
 	m_easeReported = false;
 	std::lock_guard<std::mutex> lock(m_lock);
 	m_viewport.home();
 }
 
-void PTZSoftCam::tickViewport(double seconds)
+void PTZVirtual::tickViewport(double seconds)
 {
 	std::lock_guard<std::mutex> lock(m_lock);
 	m_viewport.tick(seconds);
 }
 
-SoftRect PTZSoftCam::visibleRect() const
+VirtualRect PTZVirtual::visibleRect() const
 {
 	std::lock_guard<std::mutex> lock(m_lock);
 	return m_viewport.visibleRect();
@@ -188,7 +188,7 @@ SoftRect PTZSoftCam::visibleRect() const
 /* A copy of a camera keeps its presets, but not their thumbnails: the files are
  * the original's, and deleting a preset here would delete them. The array is a
  * new one, as the original's settings hold the same one until they are saved. */
-void PTZSoftFilter::settingsCopied(obs_data_t *settings)
+void PTZVirtualFilter::settingsCopied(obs_data_t *settings)
 {
 	OBSDataArrayAutoRelease presets = obs_data_get_array(settings, "presets");
 	OBSDataArrayAutoRelease own = obs_data_array_create();
@@ -202,16 +202,16 @@ void PTZSoftFilter::settingsCopied(obs_data_t *settings)
 	obs_data_set_array(settings, "presets", own);
 }
 
-gs_texrender_t *PTZSoftFilter::texrender()
+gs_texrender_t *PTZVirtualFilter::texrender()
 {
 	if (!m_texrender)
 		m_texrender = gs_texrender_create(GS_RGBA, GS_ZS_NONE);
 	return m_texrender;
 }
 
-void PTZSoftCam::reportPosition()
+void PTZVirtual::reportPosition()
 {
-	SoftPosition pos;
+	VirtualPosition pos;
 	bool moving;
 	{
 		std::lock_guard<std::mutex> lock(m_lock);
@@ -240,7 +240,7 @@ void PTZSoftCam::reportPosition()
 /* The size of what the filter is on: its own is the same, whatever part of it
  * is shown. 0 if the filter has nothing to render, such as before its source
  * has a size. */
-static void softCamTargetSize(obs_source_t *filter, uint32_t *cx, uint32_t *cy)
+static void virtualTargetSize(obs_source_t *filter, uint32_t *cx, uint32_t *cy)
 {
 	*cx = *cy = 0;
 	obs_source_t *target = obs_filter_get_target(filter);
@@ -261,37 +261,37 @@ static void softCamTargetSize(obs_source_t *filter, uint32_t *cx, uint32_t *cy)
  * drawn to the scene: a source that is not drawn to a texture of its own, as
  * when it has no crop or scale filter, is drawn straight onto the scene, and
  * what is scaled up would be drawn over everything around it. */
-static void softCamRender(void *data, gs_effect_t *)
+static void virtualRender(void *data, gs_effect_t *)
 {
-	auto soft = static_cast<PTZSoftFilter *>(data);
-	obs_source_t *filter = soft->source();
+	auto virt = static_cast<PTZVirtualFilter *>(data);
+	obs_source_t *filter = virt->source();
 	uint32_t cx, cy;
-	softCamTargetSize(filter, &cx, &cy);
+	virtualTargetSize(filter, &cx, &cy);
 	if (cx == 0 || cy == 0) {
 		obs_source_skip_video_filter(filter);
 		return;
 	}
 	/* A copy's filter shows what the camera it is a copy of shows, and
 	 * nothing while that one is turned off */
-	PTZSoftCam *cam = soft->cam();
-	OBSSourceAutoRelease original = soft->originalFilter();
+	PTZVirtual *cam = virt->cam();
+	OBSSourceAutoRelease original = virt->originalFilter();
 	if (original) {
-		cam = static_cast<PTZSoftFilter *>(obs_obj_get_data(original))->cam();
+		cam = static_cast<PTZVirtualFilter *>(obs_obj_get_data(original))->cam();
 		if (!obs_source_enabled(original)) {
 			obs_source_skip_video_filter(filter);
 			return;
 		}
 	}
 	if (cam)
-		soft->lastRect = cam->visibleRect();
-	SoftRect r = soft->lastRect;
+		virt->lastRect = cam->visibleRect();
+	VirtualRect r = virt->lastRect;
 	/* Showing all of it: nothing to scale, nor to render separately */
 	if (r.w >= 1.0 && r.h >= 1.0) {
 		obs_source_skip_video_filter(filter);
 		return;
 	}
 
-	gs_texrender_t *texrender = soft->texrender();
+	gs_texrender_t *texrender = virt->texrender();
 	gs_texrender_reset(texrender);
 	if (!gs_texrender_begin(texrender, cx, cy)) {
 		obs_source_skip_video_filter(filter);
@@ -324,25 +324,25 @@ static void softCamRender(void *data, gs_effect_t *)
 		gs_draw_sprite(texture, 0, cx, cy);
 }
 
-void ptz_soft_cam_register_filter()
+void ptz_virtual_register_filter()
 {
 	struct obs_source_info info = {};
-	info.id = "ca.secretlab.obs-ptz.soft-ptz";
+	info.id = "ca.secretlab.obs-ptz.virtual-ptz";
 	info.type = OBS_SOURCE_TYPE_FILTER;
 	info.output_flags = OBS_SOURCE_VIDEO;
 	info.get_name = [](void *) -> const char * {
-		return "Soft PTZ Control";
+		return "Virtual PTZ Control";
 	};
 	info.create = [](obs_data_t *, obs_source_t *source) -> void * {
-		return new PTZSoftFilter(source, [source](OBSData config) -> PTZDevice * {
-			return new PTZSoftCam(config, source);
+		return new PTZVirtualFilter(source, [source](OBSData config) -> PTZDevice * {
+			return new PTZVirtual(config, source);
 		});
 	};
 	info.destroy = ptz_filter_destroy;
 	info.get_defaults = [](obs_data_t *settings) {
 		ptz_filter_defaults_mark(settings);
-		obs_data_set_default_string(settings, "type", "soft-ptz");
-		PTZSoftCam::defaults(settings);
+		obs_data_set_default_string(settings, "type", "virtual-ptz");
+		PTZVirtual::defaults(settings);
 	};
 	info.get_properties = ptz_filter_get_properties;
 	info.update = ptz_filter_update;
@@ -351,18 +351,18 @@ void ptz_soft_cam_register_filter()
 	info.icon_type = OBS_ICON_TYPE_CAMERA;
 	info.filter_add = ptz_filter_add;
 	info.video_tick = [](void *data, float seconds) {
-		if (PTZSoftCam *cam = static_cast<PTZSoftFilter *>(data)->cam())
+		if (PTZVirtual *cam = static_cast<PTZVirtualFilter *>(data)->cam())
 			cam->tickViewport(seconds);
 	};
-	info.video_render = softCamRender;
+	info.video_render = virtualRender;
 	info.get_width = [](void *data) -> uint32_t {
 		uint32_t cx, cy;
-		softCamTargetSize(static_cast<PTZSoftFilter *>(data)->source(), &cx, &cy);
+		virtualTargetSize(static_cast<PTZVirtualFilter *>(data)->source(), &cx, &cy);
 		return cx;
 	};
 	info.get_height = [](void *data) -> uint32_t {
 		uint32_t cx, cy;
-		softCamTargetSize(static_cast<PTZSoftFilter *>(data)->source(), &cx, &cy);
+		virtualTargetSize(static_cast<PTZVirtualFilter *>(data)->source(), &cx, &cy);
 		return cy;
 	};
 	obs_register_source(&info);

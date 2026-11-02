@@ -1,4 +1,4 @@
-/* SoftViewport: speeds, and eased moves.
+/* VirtualViewport: speeds, and eased moves.
  *
  * SPDX-License-Identifier: GPL-2.0-or-later
  */
@@ -7,7 +7,7 @@
 #include <cmath>
 #include <limits>
 
-#include "ptz-soft-viewport.hpp"
+#include "ptz-virtual-viewport.hpp"
 
 using Catch::Approx;
 
@@ -16,10 +16,10 @@ namespace {
 /* maxZoom 4, 0.5 pan units a second at full speed, a second per eased move.
  * Starts fully zoomed in: the frame has no pan or tilt range at zoom 0, so
  * nothing moves there. */
-SoftViewport zoomedIn(double zoom = 1.0)
+VirtualViewport zoomedIn(double zoom = 1.0)
 {
-	SoftViewport vp;
-	SoftViewportConfig config;
+	VirtualViewport vp;
+	VirtualViewportConfig config;
 	config.maxZoom = 4.0;
 	config.panTiltRate = 0.5;
 	config.zoomRate = 0.5;
@@ -31,11 +31,11 @@ SoftViewport zoomedIn(double zoom = 1.0)
 
 } // namespace
 
-TEST_CASE("SoftViewport speeds", "[motion]")
+TEST_CASE("VirtualViewport speeds", "[motion]")
 {
 	SECTION("integrate the speed and the rate")
 	{
-		SoftViewport vp = zoomedIn(1.0);
+		VirtualViewport vp = zoomedIn(1.0);
 		vp.setSpeeds(1, 0, 0);
 		vp.tick(0.1);
 		/* 0.5 a second, over the scale of 4 */
@@ -45,8 +45,8 @@ TEST_CASE("SoftViewport speeds", "[motion]")
 
 	SECTION("pan and tilt slow as the zoom goes in")
 	{
-		SoftViewport wide = zoomedIn(0.5);
-		SoftViewport tight = zoomedIn(1.0);
+		VirtualViewport wide = zoomedIn(0.5);
+		VirtualViewport tight = zoomedIn(1.0);
 		wide.setSpeeds(1, 0, 0);
 		tight.setSpeeds(1, 0, 0);
 		wide.tick(0.1);
@@ -57,7 +57,7 @@ TEST_CASE("SoftViewport speeds", "[motion]")
 
 	SECTION("zoom moves by its own rate, over the frame's whole range")
 	{
-		SoftViewport vp = zoomedIn(0.0);
+		VirtualViewport vp = zoomedIn(0.0);
 		vp.setSpeeds(0, 0, 1);
 		vp.tick(0.1);
 		CHECK(vp.position().zoom == Approx(0.5 * 0.1));
@@ -68,7 +68,7 @@ TEST_CASE("SoftViewport speeds", "[motion]")
 
 	SECTION("stop on the edge, and do not wind up there")
 	{
-		SoftViewport vp = zoomedIn(1.0);
+		VirtualViewport vp = zoomedIn(1.0);
 		vp.setSpeeds(1, 0, 0);
 		for (int i = 0; i < 100; i++)
 			vp.tick(0.1);
@@ -80,7 +80,7 @@ TEST_CASE("SoftViewport speeds", "[motion]")
 
 	SECTION("a stalled frame is not a jump")
 	{
-		SoftViewport a = zoomedIn(1.0), b = zoomedIn(1.0);
+		VirtualViewport a = zoomedIn(1.0), b = zoomedIn(1.0);
 		a.setSpeeds(1, 0, 0);
 		b.setSpeeds(1, 0, 0);
 		a.tick(5000);
@@ -90,11 +90,11 @@ TEST_CASE("SoftViewport speeds", "[motion]")
 
 	SECTION("stop ends them")
 	{
-		SoftViewport vp = zoomedIn(1.0);
+		VirtualViewport vp = zoomedIn(1.0);
 		vp.setSpeeds(1, 1, 0);
 		vp.tick(0.1);
 		vp.stop();
-		SoftPosition at = vp.position();
+		VirtualPosition at = vp.position();
 		vp.tick(0.1);
 		CHECK(vp.position().pan == at.pan);
 		CHECK(vp.position().tilt == at.tilt);
@@ -102,11 +102,11 @@ TEST_CASE("SoftViewport speeds", "[motion]")
 	}
 }
 
-TEST_CASE("SoftViewport eased moves", "[motion]")
+TEST_CASE("VirtualViewport eased moves", "[motion]")
 {
 	SECTION("ease in and out of the target over the recall time")
 	{
-		SoftViewport vp = zoomedIn(1.0);
+		VirtualViewport vp = zoomedIn(1.0);
 		vp.moveTo({0.5, 0, 1});
 		CHECK(vp.moving());
 		vp.tick(0.25);
@@ -122,7 +122,7 @@ TEST_CASE("SoftViewport eased moves", "[motion]")
 
 	SECTION("a retarget carries on from where it is")
 	{
-		SoftViewport vp = zoomedIn(1.0);
+		VirtualViewport vp = zoomedIn(1.0);
 		vp.moveTo({0.7, 0, 1});
 		vp.tick(0.3);
 		double before = vp.position().pan;
@@ -135,12 +135,12 @@ TEST_CASE("SoftViewport eased moves", "[motion]")
 
 	SECTION("pan given before the zoom that makes room for it is kept")
 	{
-		/* What a preset recall does: PTZSoftCam::moveAbs() moves pan and tilt, then zoom */
-		SoftViewport vp = zoomedIn(0.0);
+		/* What a preset recall does: PTZVirtual::moveAbs() moves pan and tilt, then zoom */
+		VirtualViewport vp = zoomedIn(0.0);
 		vp.movePanTiltTo(0.5, -0.25);
 		vp.moveZoomTo(1.0);
 		vp.tick(1.0);
-		SoftPosition p = vp.position();
+		VirtualPosition p = vp.position();
 		CHECK(p.pan == Approx(0.5));
 		CHECK(p.tilt == Approx(-0.25));
 		CHECK(p.zoom == Approx(1.0));
@@ -149,10 +149,10 @@ TEST_CASE("SoftViewport eased moves", "[motion]")
 
 	SECTION("a long stall finishes the move, and no further")
 	{
-		SoftViewport vp = zoomedIn(1.0);
+		VirtualViewport vp = zoomedIn(1.0);
 		vp.moveTo({0.5, -0.5, 0.75});
 		vp.tick(5000);
-		SoftPosition p = vp.position();
+		VirtualPosition p = vp.position();
 		CHECK(p.pan == Approx(0.5));
 		CHECK(p.tilt == Approx(-0.5));
 		CHECK(p.zoom == Approx(0.75));
@@ -160,8 +160,8 @@ TEST_CASE("SoftViewport eased moves", "[motion]")
 
 	SECTION("a zero recall time goes at once")
 	{
-		SoftViewport vp = zoomedIn(1.0);
-		SoftViewportConfig config = vp.config();
+		VirtualViewport vp = zoomedIn(1.0);
+		VirtualViewportConfig config = vp.config();
 		config.recallSeconds = 0;
 		vp.setConfig(config);
 		vp.moveTo({0.5, 0, 1});
@@ -172,7 +172,7 @@ TEST_CASE("SoftViewport eased moves", "[motion]")
 
 	SECTION("a relative move is from where the viewport is shown")
 	{
-		SoftViewport vp = zoomedIn(1.0);
+		VirtualViewport vp = zoomedIn(1.0);
 		vp.jumpTo({0.2, 0, 1});
 		vp.moveBy(0.1, -0.1);
 		vp.tick(1.0);
@@ -184,7 +184,7 @@ TEST_CASE("SoftViewport eased moves", "[motion]")
 	{
 		/* A second nudge, one frame after the first, is from where the first
 		 * is going to, not from where it has got to */
-		SoftViewport vp = zoomedIn(1.0);
+		VirtualViewport vp = zoomedIn(1.0);
 		vp.moveBy(0.1, 0);
 		vp.tick(0.016);
 		vp.moveBy(0.1, 0);
@@ -194,7 +194,7 @@ TEST_CASE("SoftViewport eased moves", "[motion]")
 
 	SECTION("a nudge past the edge goes no further than the edge")
 	{
-		SoftViewport vp = zoomedIn(1.0);
+		VirtualViewport vp = zoomedIn(1.0);
 		vp.jumpTo({0.7, 0, 1});
 		vp.moveBy(0.2, 0);
 		vp.tick(0.016);
@@ -205,22 +205,22 @@ TEST_CASE("SoftViewport eased moves", "[motion]")
 
 	SECTION("home is the whole frame")
 	{
-		SoftViewport vp = zoomedIn(1.0);
+		VirtualViewport vp = zoomedIn(1.0);
 		vp.jumpTo({0.4, 0.4, 1});
 		vp.home();
 		vp.tick(1.0);
-		SoftPosition p = vp.position();
+		VirtualPosition p = vp.position();
 		CHECK(p.pan == Approx(0.0));
 		CHECK(p.tilt == Approx(0.0));
 		CHECK(p.zoom == Approx(0.0));
 	}
 }
 
-TEST_CASE("SoftViewport commands that take each other over", "[motion]")
+TEST_CASE("VirtualViewport commands that take each other over", "[motion]")
 {
 	SECTION("a speed ends an eased move")
 	{
-		SoftViewport vp = zoomedIn(1.0);
+		VirtualViewport vp = zoomedIn(1.0);
 		vp.moveTo({0.7, 0, 1});
 		vp.tick(0.2);
 		vp.setSpeeds(-1, 0, 0);
@@ -234,7 +234,7 @@ TEST_CASE("SoftViewport commands that take each other over", "[motion]")
 
 	SECTION("an eased move ends the speeds")
 	{
-		SoftViewport vp = zoomedIn(1.0);
+		VirtualViewport vp = zoomedIn(1.0);
 		vp.setSpeeds(1, 0, 0);
 		vp.moveTo({-0.25, 0, 1});
 		vp.tick(1.0);
@@ -246,7 +246,7 @@ TEST_CASE("SoftViewport commands that take each other over", "[motion]")
 
 	SECTION("a speed of nothing leaves an eased move alone")
 	{
-		SoftViewport vp = zoomedIn(1.0);
+		VirtualViewport vp = zoomedIn(1.0);
 		vp.moveTo({0.5, 0, 1});
 		vp.setSpeeds(0, 0, 0);
 		CHECK(vp.moving());
@@ -255,19 +255,19 @@ TEST_CASE("SoftViewport commands that take each other over", "[motion]")
 	}
 }
 
-TEST_CASE("SoftViewport setConfig and bad input", "[motion]")
+TEST_CASE("VirtualViewport setConfig and bad input", "[motion]")
 {
 	SECTION("a lower max zoom keeps the viewport in the frame")
 	{
-		SoftViewport vp = zoomedIn(1.0);
+		VirtualViewport vp = zoomedIn(1.0);
 		vp.jumpTo({0.7, -0.7, 1});
-		SoftViewportConfig config = vp.config();
+		VirtualViewportConfig config = vp.config();
 		config.maxZoom = 2.0;
 		vp.setConfig(config);
-		SoftPosition p = vp.position();
+		VirtualPosition p = vp.position();
 		CHECK(p.pan <= 0.5 + 1e-9);
 		CHECK(p.tilt >= -0.5 - 1e-9);
-		SoftRect r = vp.visibleRect();
+		VirtualRect r = vp.visibleRect();
 		CHECK(r.x >= -1e-9);
 		CHECK(r.y >= -1e-9);
 		CHECK(r.x + r.w <= 1.0 + 1e-9);
@@ -276,8 +276,8 @@ TEST_CASE("SoftViewport setConfig and bad input", "[motion]")
 
 	SECTION("a max zoom out of range is brought into it")
 	{
-		SoftViewport vp;
-		SoftViewportConfig config;
+		VirtualViewport vp;
+		VirtualViewportConfig config;
 		config.maxZoom = 100;
 		vp.setConfig(config);
 		CHECK(vp.config().maxZoom == Approx(10.0));
@@ -290,7 +290,7 @@ TEST_CASE("SoftViewport setConfig and bad input", "[motion]")
 	{
 		const double nan = std::numeric_limits<double>::quiet_NaN();
 		const double inf = std::numeric_limits<double>::infinity();
-		SoftViewport vp = zoomedIn(1.0);
+		VirtualViewport vp = zoomedIn(1.0);
 		vp.jumpTo({0.3, 0, 1});
 		vp.moveTo({nan, 0, 0});
 		vp.moveBy(nan, 0);

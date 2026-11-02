@@ -282,12 +282,15 @@ endif()
 unset(_usb_backend_sources)
 unset(_usb_backend_libs)
 
-ptz_add_library(ptz-driver-soft OBJECT)
-target_include_directories(ptz-driver-soft PUBLIC "${CMAKE_SOURCE_DIR}/src/drivers/soft")
-target_link_libraries(ptz-driver-soft PUBLIC ptz-device-core)
+ptz_add_library(ptz-driver-virtual OBJECT)
+target_include_directories(ptz-driver-virtual PUBLIC "${CMAKE_SOURCE_DIR}/src/drivers/virtual")
+target_link_libraries(ptz-driver-virtual PUBLIC ptz-device-core)
 target_sources(
-  ptz-driver-soft
-  PRIVATE src/drivers/soft/ptz-soft-cam.cpp src/drivers/soft/ptz-soft-cam.hpp src/drivers/soft/ptz-soft-viewport.hpp
+  ptz-driver-virtual
+  PRIVATE
+    src/drivers/virtual/ptz-virtual.cpp
+    src/drivers/virtual/ptz-virtual.hpp
+    src/drivers/virtual/ptz-virtual-viewport.hpp
 )
 
 # The controller, and the one file that loads it and the drivers together
@@ -381,15 +384,15 @@ if(ENABLE_USB_TESTS)
 endif()
 
 option(
-  ENABLE_SOFT_PTZ_TESTS
-  "Build the unit tests for the soft PTZ viewport model (needs no OBS, Qt, camera or serial port)"
+  ENABLE_VIRTUAL_PTZ_TESTS
+  "Build the unit tests for the virtual PTZ viewport model (needs no OBS, Qt, camera or serial port)"
   OFF
 )
-if(ENABLE_SOFT_PTZ_TESTS)
+if(ENABLE_VIRTUAL_PTZ_TESTS)
   if(NOT TARGET catch2_amalgamated)
     add_subdirectory(shared/catch2)
   endif()
-  add_subdirectory(tests/soft-ptz)
+  add_subdirectory(tests/virtual-ptz)
 endif()
 
 option(ENABLE_UNIT_TESTS "Build the unit tests for OBS- and Qt-free code in src/ (ptz-unit-tests), run by ctest" OFF)

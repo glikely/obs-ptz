@@ -36,9 +36,9 @@ import urllib.request
 import pytest
 from obsws import ObsWebSocketError
 
-import test_soft_ptz as soft_ptz
+import test_virtual_ptz as virtual_ptz
 from conftest import REPO_ROOT, free_port, output_log, wait_for_port
-from test_soft_ptz import duplicating_studio_mode  # noqa: F401
+from test_virtual_ptz import duplicating_studio_mode  # noqa: F401
 
 FILTER_KIND = "ca.secretlab.obs-ptz.visca"
 
@@ -437,7 +437,7 @@ def green_video(path):
 
 
 def is_green(world, source):
-    _, _, pixel = soft_ptz.screenshot(world, source)
+    _, _, pixel = virtual_ptz.screenshot(world, source)
     r, g, b = pixel(96, 18)
     return g > 100 and r < 80 and b < 80
 
@@ -457,7 +457,7 @@ def test_studio_mode_copies_of_its_source_leave_a_device_filter_alone(obs_world,
     else:
         # Green in its top right quarter, where is_green() looks
         image = tmp_path / "quadrants.png"
-        soft_ptz.write_quadrant_png(image)
+        virtual_ptz.write_quadrant_png(image)
         settings = {"file": str(image)}
     out = tmp_path / "device.json"
     cam_scene = obs_world.create_scene()
@@ -500,7 +500,7 @@ def test_studio_mode_copies_of_its_source_leave_a_device_filter_alone(obs_world,
 def add_image_camera(world, cameras, tmp_path, name):
     """A camera on an image source, which OBS copies, as it never does a media source"""
     image = tmp_path / "quadrants.png"
-    soft_ptz.write_quadrant_png(image)
+    virtual_ptz.write_quadrant_png(image)
     world.ws.call("CreateInput", {
         "sceneName": world.create_scene(), "inputName": name, "inputKind": "image_source",
         "inputSettings": {"file": str(image)},
@@ -533,9 +533,9 @@ def test_a_copy_a_user_makes_of_a_camera_starts_from_the_defaults(obs_world, cam
     assert pasted["uuid"] != original["uuid"]
     settings = filter_settings(obs_world, copy)
     assert "host" not in settings and "tcp_port" not in settings
-    assert soft_ptz.preset_thumbnails(obs_world, copy) == {}
+    assert virtual_ptz.preset_thumbnails(obs_world, copy) == {}
     assert filter_settings(obs_world, name)["tcp_port"] == cameras.sim.tcp_port
-    assert preset in soft_ptz.preset_thumbnails(obs_world, name)
+    assert preset in virtual_ptz.preset_thumbnails(obs_world, name)
 
 
 def test_a_camera_keeps_its_settings_when_it_is_loaded_again(obs_world, cameras, tmp_path):

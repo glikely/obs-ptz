@@ -1008,7 +1008,7 @@ doesn't keep it.
 | `wb_onepush` | Set white balance once, with the `wb_onepush` trigger |
 | `diagnostics` | Make a camera report, with the `camera_report` trigger |
 | `tally_light` | Light its camera's tally lamps, which the `tally_auto` setting has it do while its source is in the program or preview scene |
-| `move_completion` | Say when its camera has arrived at a recalled preset because the camera said so, with `ptz_preset_recalled`, and after a longer backstop time if it never hears; without it, that signal comes after a fixed time. A VISCA device has it once its camera has completed a move (one that only ACKs, as a BirdDog does, never has it); an ONVIF device once its camera's status has said whether it is moving (`MoveStatus` `IDLE` or `MOVING`; many cameras don't say, and their devices never have it); a Soft PTZ device always |
+| `move_completion` | Say when its camera has arrived at a recalled preset because the camera said so, with `ptz_preset_recalled`, and after a longer backstop time if it never hears; without it, that signal comes after a fixed time. A VISCA device has it once its camera has completed a move (one that only ACKs, as a BirdDog does, never has it); an ONVIF device once its camera's status has said whether it is moving (`MoveStatus` `IDLE` or `MOVING`; many cameras don't say, and their devices never have it); a Virtual PTZ device always |
 
 Asking for something a device doesn't have the feature for isn't an error a
 caller can detect, and what happens isn't promised: check `features` first.
@@ -1031,7 +1031,7 @@ writes them and calls `obs_source_update()` to say so.
 
 | Key | Type | Default | Meaning |
 | --- | --- | --- | --- |
-| `type` | string | - | The kind of device, such as `visca-over-ip`, `visca-over-tcp`, `pelco`, `onvif`, `usb-cam` or `soft-ptz`. Read-only |
+| `type` | string | - | The kind of device, such as `visca-over-ip`, `visca-over-tcp`, `pelco`, `onvif`, `usb-cam` or `virtual-ptz`. Read-only |
 | `pan_speed_max`, `tilt_speed_max`, `zoom_speed_max`, `focus_speed_max` | number | 1.0 | A cap on the speed a move asks for: a `ptz_move` speed above it is clamped to it, whichever way it points. 0.1 to 1.0. The `pantilt_speed_max` of an older version, one cap for both, becomes `pan_speed_max` and `tilt_speed_max` |
 | `pan_invert`, `tilt_invert`, `zoom_invert`, `focus_invert` | bool | false | Reverse the direction of the axis |
 | `tally_auto` | bool | true | Light the camera's tally lamps by itself, for a device with the `tally_light` feature: red while its source is in the program scene, green while it is in the preview scene (studio mode only) and not in the program scene. Turn it off for a camera whose tally something else drives. A device without the feature has the key and ignores it |

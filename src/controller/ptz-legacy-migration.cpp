@@ -48,7 +48,7 @@ const char *ptz_legacy_kind_for_type(const char *type)
 		{"usb-cam", "ca.secretlab.obs-ptz.usb-cam"},
 		/* Written by this plugin, not by the old backend, for a backup
 		 * or a detected device that has no "kind" */
-		{"soft-ptz", "ca.secretlab.obs-ptz.soft-ptz"},
+		{"virtual-ptz", "ca.secretlab.obs-ptz.virtual-ptz"},
 	};
 	for (const auto &entry : kinds)
 		if (type && strcmp(type, entry.type) == 0) {

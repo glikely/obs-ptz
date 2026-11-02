@@ -6,7 +6,7 @@
 
 # macOS's cmake/macos/xcode.cmake sets CMAKE_SKIP_RPATH TRUE project-wide, which
 # would make any RPATH setting a no-op. Re-enable it, scoped to this
-# subdirectory (same as tests/soft-ptz). No-op elsewhere.
+# subdirectory (same as tests/virtual-ptz). No-op elsewhere.
 set(CMAKE_SKIP_RPATH FALSE)
 
 add_executable(
@@ -27,7 +27,7 @@ target_link_libraries(ptz-unit-tests PRIVATE catch2_amalgamated)
 set_target_properties(ptz-unit-tests PROPERTIES CXX_STANDARD 17)
 
 # The Xcode generator signs targets ad-hoc with the hardened runtime, which a
-# plain test executable isn't shipped with (see tests/soft-ptz/CMakeLists.txt)
+# plain test executable isn't shipped with (see tests/virtual-ptz/CMakeLists.txt)
 if(APPLE)
   set_target_properties(ptz-unit-tests PROPERTIES XCODE_ATTRIBUTE_ENABLE_HARDENED_RUNTIME NO)
 endif()
