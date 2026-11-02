@@ -34,8 +34,9 @@ static void sweepThumbnails(QString thumbnailDir, QString configDir)
 		return;
 
 	/* Everything that could name a thumbnail: the scene collections, which
-	 * hold every filter's settings, and our own config for the devices that
-	 * aren't filters. The names are UUIDs, so searching the raw text for
+	 * hold every filter's settings, our own config for the devices that
+	 * aren't filters, and the backups of devices that have gone away, with
+	 * the copies a safe save leaves. The names are UUIDs, so searching the raw text for
 	 * them is enough, and needs no knowledge of the files' layout. */
 	QDir scenes(QDir(configDir).filePath("../../basic/scenes"));
 	QFileInfoList sources = scenes.entryInfoList({"*.json*"}, QDir::Files);
@@ -44,6 +45,7 @@ static void sweepThumbnails(QString thumbnailDir, QString configDir)
 		return;
 	}
 	sources.append(QFileInfo(QDir(configDir).filePath("config.json")));
+	sources.append(QDir(configDir).entryInfoList({"device-backups.json*"}, QDir::Files));
 
 	QByteArray text;
 	for (const QFileInfo &info : sources) {

@@ -16,6 +16,7 @@ pointed at a port nothing listens on: none of this needs a camera.
 """
 
 import json
+import os
 import time
 
 import pytest
@@ -355,3 +356,28 @@ def test_collection_switch_backs_up_no_more_than_before(obs_world, sources, tmp_
         obs_world.wait_for(lambda: ws.call("GetSceneCollectionList")["currentSceneCollectionName"] == original,
                            timeout=20)
     assert count == COLLECTION_SWITCH_BACKUPS
+
+
+def test_thumbnails_of_a_backup_outlast_the_sweep(obs_world):
+    """A removed camera's presets are only in the backup until it is restored,
+    and a backup's safe-save copies are as good as the backup"""
+    thumbnails = obs_world.config_dir / "thumbnails"
+    backup = obs_world.config_dir / "device-backups.json"
+    names = {suffix: f"backup{suffix}.jpg" for suffix in ("", ".bak", ".tmp")}
+    unused = thumbnails / "unused.jpg"
+    old = time.time() - 3 * 24 * 60 * 60
+
+    def set_up():
+        thumbnails.mkdir(exist_ok=True)
+        for path in [unused] + [thumbnails / name for name in names.values()]:
+            path.write_bytes(b"not looked at")
+            os.utime(path, (old, old))
+        for suffix, name in names.items():
+            with_name = json.loads(backup.read_text()) if backup.exists() and not suffix else {"devices": []}
+            with_name["thumbnail"] = name
+            (backup.parent / (backup.name + suffix)).write_text(json.dumps(with_name))
+
+    obs_world.restart_obs(between=set_up)
+
+    obs_world.wait_for(lambda: not unused.exists(), timeout=10)
+    assert {name for name in names.values() if (thumbnails / name).exists()} == set(names.values())
