@@ -64,12 +64,15 @@ void PTZSourceDisplay::showEvent(QShowEvent *event)
 	OBSQTDisplay::showEvent(event);
 	watchAncestors();
 	syncNativeGeometry();
+	std::lock_guard<std::mutex> guard(m_lock);
+	holdShowingLocked();
 }
 
 void PTZSourceDisplay::hideEvent(QHideEvent *event)
 {
 	OBSQTDisplay::hideEvent(event);
 	unwatchAncestors();
+	releaseShowing();
 }
 
 bool PTZSourceDisplay::eventFilter(QObject *watched, QEvent *event)
@@ -106,6 +109,19 @@ void PTZSourceDisplay::syncNativeGeometry()
 	window->setGeometry(wanted);
 }
 
+/* Keeping a source showing isn't free: a network camera's source only connects
+ * while it is, so one that nothing can see is left alone */
+void PTZSourceDisplay::holdShowingLocked()
+{
+	if (m_showing || !isVisible())
+		return;
+	OBSSourceAutoRelease source = obs_weak_source_get_source(m_source);
+	if (!source)
+		return;
+	obs_source_inc_showing(source);
+	m_showing = true;
+}
+
 void PTZSourceDisplay::releaseShowing()
 {
 	std::lock_guard<std::mutex> guard(m_lock);
@@ -132,10 +148,7 @@ void PTZSourceDisplay::setSource(OBSSource source)
 		return;
 	releaseShowingLocked();
 	m_source = weak;
-	if (source) {
-		obs_source_inc_showing(source);
-		m_showing = true;
-	}
+	holdShowingLocked();
 }
 
 OBSSource PTZSourceDisplay::source() const

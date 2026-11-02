@@ -328,6 +328,32 @@ def test_adding_a_device_stops_the_camera_being_moved(request, obs_world, tmp_pa
     obs_world.wait_for(lambda: camera.sim.state()["pan_speed"] == 0, timeout=5)
 
 
+def source_showing(obs_world, source):
+    return obs_world.ws.call("GetSourceActive", {"sourceName": source})["videoShowing"]
+
+
+def test_preview_only_keeps_its_source_showing_while_it_can_be_seen(request, obs_world, tmp_path):
+    camera = make_camera(request.addfinalizer, obs_world, tmp_path)
+    assert not source_showing(obs_world, camera.source)
+    open_dialog(obs_world, camera, tmp_path)
+    assert source_showing(obs_world, camera.source)
+
+    tabs = obs_world.ui.get1(SETTINGS_DIALOG, "tabWidget", name="tabs")
+    other = next(i for i, tab in enumerate(tabs) if tab["page"] != "devicesTab")
+    obs_world.ui.set(SETTINGS_DIALOG, "tabWidget", currentIndex=other)
+    obs_world.wait_for(lambda: not source_showing(obs_world, camera.source), timeout=5)
+
+    obs_world.ui.set(SETTINGS_DIALOG, "tabWidget", currentIndex=[t["page"] for t in tabs].index("devicesTab"))
+    obs_world.wait_for(lambda: source_showing(obs_world, camera.source), timeout=5)
+
+    # Closing the dialog only hides it: it stays there for the next time
+    obs_world.ui.invoke(SETTINGS_DIALOG, method="close")
+    obs_world.wait_for(lambda: not source_showing(obs_world, camera.source), timeout=5)
+
+    obs_world.ui.invoke(SETTINGS_DIALOG, method="show")
+    obs_world.wait_for(lambda: source_showing(obs_world, camera.source), timeout=5)
+
+
 def test_state_view_has_none_of_them_for_another_protocol(obs_world, tmp_path):
     obs_world.open_settings_dialog(obs_world.device_names["pelco-d"])
     dialog = obs_world.wait_for_settings_dialog(tmp_path / "dialog.json", lambda r: "connected" in r["state_keys"])

@@ -26,8 +26,8 @@ public:
 	~PTZSourceDisplay() override;
 
 	/* The source to show, or none. Holds it weakly, but keeps it showing
-	 * (obs_source_inc_showing()) so that it renders even when it is in no
-	 * scene on screen. */
+	 * (obs_source_inc_showing()) while this can be seen, so that it renders
+	 * even when it is in no scene on screen. */
 	void setSource(OBSSource source);
 	OBSSource source() const;
 
@@ -57,6 +57,7 @@ private:
 	 * alive after it is removed. */
 	bool m_showing = false;
 
+	void holdShowingLocked();
 	void releaseShowing();
 	void releaseShowingLocked();
 	static void draw(void *param, uint32_t cx, uint32_t cy);
