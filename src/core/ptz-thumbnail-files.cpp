@@ -92,6 +92,14 @@ QImage renderSource(obs_source_t *source)
 	obs_enter_graphics();
 	gs_texrender_t *texrender = gs_texrender_create(GS_BGRA, GS_ZS_NONE);
 	gs_stagesurf_t *stage = gs_stagesurface_create(width, height, GS_BGRA);
+	if (!texrender || !stage) {
+		blog(LOG_WARNING, "[obs-ptz] no memory to capture a %ux%u thumbnail", width, height);
+		if (stage)
+			gs_stagesurface_destroy(stage);
+		gs_texrender_destroy(texrender);
+		obs_leave_graphics();
+		return image;
+	}
 
 	gs_texrender_reset(texrender);
 	if (gs_texrender_begin(texrender, width, height)) {
@@ -118,6 +126,9 @@ QImage renderSource(obs_source_t *source)
 			image = QImage(data, width, height, linesize, QImage::Format_ARGB32)
 					.convertToFormat(QImage::Format_RGB32);
 			gs_stagesurface_unmap(stage);
+		} else {
+			blog(LOG_WARNING, "[obs-ptz] could not read back a thumbnail of '%s'",
+			     obs_source_get_name(source));
 		}
 	}
 	gs_stagesurface_destroy(stage);

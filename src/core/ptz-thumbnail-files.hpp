@@ -28,7 +28,8 @@ QString ptz_thumbnail_path(const QString &fileName);
  * PTZ_THUMBNAIL_MAX_EDGE on its longest edge. The rendering happens on OBS's
  * graphics thread and the callback is then run on context's thread, and not
  * at all if context is destroyed first. The callback gets a null image if the
- * source has nothing to show. Safe to call from any thread. */
+ * source has nothing to show or the capture failed, which leaves a thumbnail
+ * the preset has in place. Safe to call from any thread. */
 void ptz_capture_source_thumbnail(obs_source_t *source, QObject *context, std::function<void(QImage)> callback);
 
 /* A new unique file name for a thumbnail of the filter whose uuid is `owner`,
