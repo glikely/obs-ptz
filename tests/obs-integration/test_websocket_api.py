@@ -188,6 +188,12 @@ def test_bad_type(obs_world):
                     {"device": uuid, "id": "camera:1", "if_arrived": "yes"}) == "bad_type"
 
 
+@pytest.mark.parametrize("index", [1e300, -1e300, float(2**63), -float(2**64)])
+def test_an_integer_out_of_range_is_a_bad_type(obs_world, index):
+    uuid = device(obs_world, "visca-tcp")
+    assert error_of(obs_world, "ptz_preset_move", {"device": uuid, "id": "camera:1", "index": index}) == "bad_type"
+
+
 def test_list_discovery_has_an_instance_of_each_kind(obs_world):
     """Which a client can't make itself, so the binding does, and keeps them"""
     instances = obs_world.ws.vendor(VENDOR, "ptz_list_discovery")["instances"]

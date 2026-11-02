@@ -40,6 +40,7 @@
 
 #include <atomic>
 #include <chrono>
+#include <cmath>
 #include <condition_variable>
 #include <cstring>
 #include <functional>
@@ -312,13 +313,16 @@ bool fillCalldata(const ptzws::Decl &decl, obs_data_t *request, calldata_t *cd, 
 			break;
 		case ptzws::Type::Float:
 			/* A whole number is one too: JSON has no way to say 1.0 */
-			ok = type == OBS_DATA_NUMBER;
+			ok = type == OBS_DATA_NUMBER && std::isfinite(obs_data_item_get_double(item));
 			if (ok)
 				calldata_set_float(cd, key.c_str(), obs_data_item_get_double(item));
 			break;
 		case ptzws::Type::Int: {
 			double value = type == OBS_DATA_NUMBER ? obs_data_item_get_double(item) : 0.5;
-			ok = type == OBS_DATA_NUMBER && value == (double)(long long)value;
+			/* The range first, as converting a double outside it is undefined.
+			 * It also leaves out NaN. 2^63 isn't in it: LLONG_MAX isn't a double. */
+			ok = type == OBS_DATA_NUMBER && value >= -0x1p63 && value < 0x1p63 &&
+			     value == (double)(long long)value;
 			if (ok)
 				calldata_set_int(cd, key.c_str(), (long long)value);
 			break;
