@@ -138,6 +138,7 @@ PTZSettings::PTZSettings() : QWidget(nullptr), ui(new Ui_PTZSettings)
 
 	connect(ptzDeviceList, &PTZListModel::deviceSettingsUpdated, this, &PTZSettings::deviceSettingsUpdated);
 	connect(ptzDeviceList, &PTZListModel::deviceStateUpdated, this, &PTZSettings::deviceStateUpdated);
+	connect(ui->tryIesvFixCheckBox, &QCheckBox::toggled, ui->sourcePreview, &PTZSourceDisplay::setResetDrawState);
 	/* A device can be moved to another source, which changes what it shows */
 	connect(ptzDeviceList, &PTZListModel::dataChanged, this,
 		[this](const QModelIndex &topLeft, const QModelIndex &bottomRight) {

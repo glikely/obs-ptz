@@ -30,6 +30,11 @@ def frame(world, **request):
     return found
 
 
+def try_fix(world, wanted):
+    if world.ui.get1(SETTINGS_DIALOG, "tryIesvFixCheckBox", name="checked") != wanted:
+        world.ui.invoke(SETTINGS_DIALOG, "tryIesvFixCheckBox", method="click")
+
+
 @pytest.fixture
 def previewed_text(obs_world):
     """White text with nothing behind it, on Virtual PTZ, in the settings dialog."""
@@ -50,6 +55,7 @@ def previewed_text(obs_world):
     obs_world.wait_for(lambda: obs_world.device_uuid(source))
     obs_world.open_settings_dialog(source)
     yield source
+    try_fix(obs_world, False)
     obs_world.ui.invoke(SETTINGS_DIALOG, method="hide")
     obs_world.ws.call("RemoveInput", {"inputName": source})
 
@@ -60,7 +66,14 @@ def test_transparent_text_is_not_a_white_block(obs_world, previewed_text):
     assert 0.001 < pixels["white"] < 0.5, pixels
 
 
+def test_without_the_fix_it_shows_what_was_drawn_before_it(obs_world, previewed_text):
+    clean = frame(obs_world)
+    littered = frame(obs_world, litter=True)
+    assert littered["dark"] != pytest.approx(clean["dark"], abs=0.02), (clean, littered)
+
+
 def test_it_draws_the_same_whatever_was_drawn_before_it(obs_world, previewed_text):
+    try_fix(obs_world, True)
     clean = frame(obs_world)
     littered = frame(obs_world, litter=True)
     assert littered["white"] == pytest.approx(clean["white"], abs=0.02), (clean, littered)
