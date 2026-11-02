@@ -71,7 +71,7 @@ char PTZPelco::checkSum(QByteArray &data)
 		/* Pelco-D checksum */
 		for (char c : data)
 			sum += c;
-		sum = sum % 100;
+		sum = sum % 0x100;
 	} else {
 		/* Pelco-P checksum */
 		for (char c : data)

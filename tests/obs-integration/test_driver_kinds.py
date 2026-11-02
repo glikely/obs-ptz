@@ -14,7 +14,13 @@ test_device_discovery.py.) Expects the kinds of a build with every driver
 enabled, as scripts/macos-dev.sh makes one.
 """
 
+import itertools
+import os
+import time
+import tty
+
 import pytest
+from conftest import IS_WINDOWS
 from obsws import ObsWebSocketError
 
 PREFIX = "ca.secretlab.obs-ptz."
@@ -69,6 +75,57 @@ def test_driver_kinds_listed(obs_world):
 def saved_settings(obs_world, source, tmp_path):
     device = obs_world.wait_for_device_by_name(source, tmp_path / "device.json", lambda r: r["found"])
     return obs_world.device_settings(device["uuid"], tmp_path / "settings.json")
+
+
+@pytest.fixture
+def pelco_frames(obs_world, sources):
+    """Makes a Pelco filter on a pty, and gives what it sends as its camera is
+    told to move and stop"""
+    opened = []
+
+    def frames(settings, size):
+        source = f"kinds-pelco-frames-{len(opened)}"
+        sources(source)
+        camera, device = os.openpty()
+        opened.extend([camera, device])
+        tty.setraw(camera)
+        tty.setraw(device)
+        os.set_blocking(camera, False)
+        obs_world.ws.call("CreateSourceFilter", {
+            "sourceName": source,
+            "filterName": "PTZ",
+            "filterKind": PELCO_KIND,
+            "filterSettings": {**settings, "serial_port": os.ttyname(device)},
+        })
+        sent = bytearray()
+        speeds = itertools.cycle([1.0, 0.0])
+
+        def read_frames():
+            # The port might not be open yet, and a speed it has is no change
+            speed = next(speeds)
+            obs_world.ws.vendor("obs-ptz", "ptz_move",
+                                {"device": obs_world.device_uuid(source), "pan": speed, "tilt": speed})
+            time.sleep(0.1)
+            try:
+                sent.extend(os.read(camera, 64))
+            except BlockingIOError:
+                pass
+            return len(sent) >= 2 * size
+
+        obs_world.wait_for(read_frames, timeout=5)
+        return [bytes(sent[i:i + size]) for i in range(0, len(sent) - size + 1, size)]
+
+    yield frames
+    for fd in opened:
+        os.close(fd)
+
+
+@pytest.mark.skipif(IS_WINDOWS, reason="no pty to stand in for a serial port")
+def test_pelco_d_checksum_on_the_wire(pelco_frames):
+    frames = pelco_frames({"use_pelco_d": True, "address": 15}, 7)
+    move = max(frames, key=lambda frame: sum(frame[1:6]))
+    assert sum(move[1:6]) > 100
+    assert move[6] == sum(move[1:6]) % 256
 
 
 def test_pelco_filter_that_does_not_say_speaks_pelco_p(obs_world, sources, tmp_path):

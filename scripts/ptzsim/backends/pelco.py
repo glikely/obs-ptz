@@ -5,10 +5,11 @@ UART, so this backend does too. Framing auto-detects the variant from
 the leading sync byte, so one link speaks both:
 
 - Pelco-D: FF, ADDR, D1, D2, D3, D4, CHECKSUM (7 bytes).
-  Checksum is sum(ADDR..D4) % 100, matching PTZPelco::checkSum() exactly
-  (not the usual mod-256 Pelco-D checksum -- this driver's own quirk).
+  Checksum is sum(ADDR..D4) modulo 256.
 - Pelco-P: A0, ADDR-1, D1, D2, D3, D4, AF, CHECKSUM (8 bytes).
   Checksum is XOR of every byte before it.
+
+A frame with the wrong checksum is ignored, as a camera would.
 
 The command payload (D1..D4) is decoded the same way for both variants,
 matching PTZPelco::do_update()/pantilt_home()/memory_*() bit-for-bit:
@@ -79,9 +80,10 @@ class PelcoCameraLogic:
     def _handle_d(self, frame):
         addr = frame[1]
         body = frame[1:6]
-        checksum = sum(body) % 100 & 0xff
+        checksum = sum(body) & 0xff
         if frame[6] != checksum:
             print(f"[pelco-d] checksum mismatch {frame.hex()}")
+            return
         self._dispatch(addr, frame[2:6])
 
     def _handle_p(self, frame):
@@ -92,6 +94,7 @@ class PelcoCameraLogic:
             checksum ^= b
         if frame[7] != checksum:
             print(f"[pelco-p] checksum mismatch {frame.hex()}")
+            return
         self._dispatch(addr, frame[2:6])
 
     def _dispatch(self, addr, data):
