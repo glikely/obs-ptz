@@ -759,6 +759,8 @@ void PTZOnvif::requestFinished(QNetworkReply *reply)
 
 PTZOnvif::PTZOnvif(OBSData config, obs_source_t *source) : PTZDevice(config, source)
 {
+	/* requestFinished() reads the reply, nothing keeps it after that */
+	m_networkManager.setAutoDeleteReplies(true);
 	// for digest authenticaton request
 	connect(&m_networkManager, &QNetworkAccessManager::authenticationRequired, this, &PTZOnvif::authRequired);
 	connect(&m_networkManager, &QNetworkAccessManager::finished, this, &PTZOnvif::requestFinished);
