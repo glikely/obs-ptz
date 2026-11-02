@@ -194,12 +194,19 @@ void PTZSourceDisplay::draw(void *param, uint32_t cx, uint32_t cy)
 
 	gs_viewport_push();
 	gs_projection_push();
+	/* What a pass before this left behind is no part of this picture */
+	gs_matrix_push();
+	gs_matrix_identity();
+	gs_blend_state_push();
+	gs_reset_blend_state();
 	/* As OBS's own previews do, or the colors come out wrong */
 	const bool previous = gs_set_linear_srgb(true);
 	gs_ortho(0.0f, float(sourceCX), 0.0f, float(sourceCY), -100.0f, 100.0f);
 	gs_set_viewport(x, y, newCX, newCY);
 	obs_source_video_render(source);
 	gs_set_linear_srgb(previous);
+	gs_blend_state_pop();
+	gs_matrix_pop();
 	gs_projection_pop();
 	gs_viewport_pop();
 }
