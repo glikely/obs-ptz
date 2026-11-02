@@ -1,16 +1,29 @@
-"""Covers what ViscaTCPTransport does with its connection, seen from the other
-end of it: a plain listening socket instead of ptzsim, as this is about what
-the camera's end sees, not about VISCA.
+"""Covers what ViscaTCPTransport and ViscaUART do with their connection, seen
+from the other end of it: a plain listening socket or a pty instead of ptzsim,
+as these are about what the camera's end sees and sends, not about VISCA.
 """
 
+import os
 import socket
+import subprocess
 import threading
 import time
+import tty
 
 import pytest
 
+from conftest import IS_WINDOWS
+
 VISCA_FILTER = "ca.secretlab.obs-ptz.visca"
 SOURCE = "visca-transport-cam"
+
+# Well over the memory a transport should need for a packet
+FLOOD = 256 * 1024 * 1024
+MAX_GROWTH = 64 * 1024 * 1024
+
+# As much as a transport keeps of a packet, and an ack to come after it
+RX_LIMIT = 256
+ACK = bytes([0x90, 0x41, 0xff])
 
 
 class FakeCamera:
@@ -100,6 +113,14 @@ def set_settings(world, settings):
     })
 
 
+def recv_count(world):
+    return world.device_state(SOURCE)["state"]["statistics"].get("visca_recv_count", 0)
+
+
+def rss(pid):
+    return int(subprocess.check_output(["ps", "-o", "rss=", "-p", str(pid)])) * 1024
+
+
 def test_changing_the_port_moves_the_connection(obs_world, camera_source, fake_cameras):
     first, second = fake_cameras(), fake_cameras()
     add_filter(obs_world, tcp_settings(first.port))
@@ -139,3 +160,67 @@ def test_other_settings_leave_the_connection_alone(obs_world, camera_source, fak
     time.sleep(0.5)
     assert len(camera.connections) == 1
     assert not camera.closed_by_peer(camera.connections[0])
+
+
+def test_tcp_starts_again_at_the_limit(obs_world, camera_source, fake_cameras):
+    camera = fake_cameras()
+    add_filter(obs_world, tcp_settings(camera.port))
+    obs_world.wait_for(lambda: camera.connections, timeout=10)
+
+    camera.connections[0].sendall(bytes(RX_LIMIT) + ACK)
+
+    obs_world.wait_for(lambda: recv_count(obs_world) == 1, timeout=5)
+
+
+@pytest.mark.skipif(IS_WINDOWS, reason="no pty to stand in for a serial port")
+def test_uart_starts_again_at_the_limit(obs_world, camera_source):
+    camera, device = os.openpty()
+    tty.setraw(camera)
+    tty.setraw(device)
+    add_filter(obs_world, {"type": "visca", "serial_port": os.ttyname(device), "baud_rate": 9600})
+    time.sleep(1)
+
+    os.write(camera, bytes(RX_LIMIT) + ACK)
+
+    obs_world.wait_for(lambda: recv_count(obs_world) == 1, timeout=5)
+    os.close(camera)
+    os.close(device)
+
+
+@pytest.mark.skipif(IS_WINDOWS, reason="no ps to read the size of a process with")
+def test_tcp_stream_without_a_terminator_is_not_kept(obs_world, camera_source, fake_cameras):
+    camera = fake_cameras()
+    add_filter(obs_world, tcp_settings(camera.port))
+    obs_world.wait_for(lambda: camera.connections, timeout=10)
+    pid = obs_world.obs_pid()
+    before = rss(pid)
+
+    block = bytes(1024 * 1024)
+    camera.connections[0].settimeout(60)
+    for _ in range(FLOOD // len(block)):
+        camera.connections[0].sendall(block)
+
+    # Everything sent has been read once a request has been answered
+    obs_world.wait_for(lambda: obs_world.ws.call("GetVersion"), timeout=30)
+    assert rss(pid) - before < MAX_GROWTH
+
+
+@pytest.mark.skipif(IS_WINDOWS, reason="no pty to stand in for a serial port")
+def test_uart_stream_without_a_terminator_is_not_kept(obs_world, camera_source):
+    camera, device = os.openpty()
+    tty.setraw(camera)
+    tty.setraw(device)
+    add_filter(obs_world, {"type": "visca", "serial_port": os.ttyname(device), "baud_rate": 9600})
+    time.sleep(1)
+    pid = obs_world.obs_pid()
+    before = rss(pid)
+
+    block = bytes(4096)
+    os.set_blocking(camera, True)
+    for _ in range(FLOOD // len(block)):
+        os.write(camera, block)
+
+    obs_world.wait_for(lambda: obs_world.ws.call("GetVersion"), timeout=30)
+    assert rss(pid) - before < MAX_GROWTH
+    os.close(camera)
+    os.close(device)

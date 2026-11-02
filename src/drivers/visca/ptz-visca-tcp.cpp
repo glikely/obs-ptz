@@ -11,6 +11,7 @@
 ViscaTCPTransport::ViscaTCPTransport(bool dvip) : dvip(dvip), port(default_port())
 {
 	visca_socket.setSocketOption(QAbstractSocket::KeepAliveOption, 1);
+	visca_socket.setReadBufferSize(VISCA_RX_LIMIT);
 	connect(&visca_socket, &QTcpSocket::readyRead, this, &ViscaTCPTransport::poll);
 	connect(&visca_socket, &QTcpSocket::stateChanged, this, &ViscaTCPTransport::on_socket_stateChanged);
 }
@@ -112,6 +113,8 @@ void ViscaTCPTransport::poll()
 		return;
 	}
 	for (auto b : visca_socket.readAll()) {
+		if (rxbuffer.size() >= VISCA_RX_LIMIT)
+			rxbuffer.clear();
 		rxbuffer += b;
 		if ((b & 0xff) == 0xff) {
 			if (rxbuffer.size())

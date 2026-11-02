@@ -44,6 +44,10 @@ extern const PTZCmd VISCA_ENUMERATE;
  * PTZVisca::setInterface()), which is what lets a single PTZVisca class
  * represent a serial, UDP, or TCP connected camera.
  */
+/* Most of a packet a transport keeps waiting for its end: a plain VISCA stream
+ * might never send its 0xff. */
+static constexpr int VISCA_RX_LIMIT = 256;
+
 class ViscaTransport : public QObject {
 	Q_OBJECT
 
