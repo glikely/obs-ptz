@@ -174,8 +174,10 @@ private:
 	VirtualPosition m_from, m_to;
 	double m_elapsed = 0;
 
-	/* What an eased move in progress is going to, or where the viewport is shown */
-	VirtualPosition easeTarget() const { return m_easing ? m_to : position(); }
+	/* What an eased move in progress is going to, or where the viewport was
+	 * told to be: position() would lose a pan that waits for the zoom that
+	 * makes room for it, as an instant recall sends them one after the other */
+	VirtualPosition easeTarget() const { return m_easing ? m_to : m_pos; }
 	void ease(VirtualPosition target)
 	{
 		if (!std::isfinite(target.pan) || !std::isfinite(target.tilt) || !std::isfinite(target.zoom))

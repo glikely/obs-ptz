@@ -218,6 +218,22 @@ TEST_CASE("VirtualViewport eased moves", "[motion]")
 
 TEST_CASE("VirtualViewport commands that take each other over", "[motion]")
 {
+	SECTION("an instant pan survives the zoom that makes room for it")
+	{
+		VirtualViewport vp = zoomedIn(0.0);
+		VirtualViewportConfig config = vp.config();
+		config.recallSeconds = 0;
+		vp.setConfig(config);
+		vp.movePanTiltTo(0.6, -0.5);
+		CHECK(vp.position().pan == Approx(0.0));
+		CHECK(vp.position().tilt == Approx(0.0));
+		vp.moveZoomTo(1.0);
+		CHECK(vp.position().pan == Approx(0.6));
+		CHECK(vp.position().tilt == Approx(-0.5));
+		CHECK(vp.position().zoom == Approx(1.0));
+		CHECK_FALSE(vp.moving());
+	}
+
 	SECTION("a speed ends an eased move")
 	{
 		VirtualViewport vp = zoomedIn(1.0);
