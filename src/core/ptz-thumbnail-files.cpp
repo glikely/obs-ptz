@@ -83,8 +83,10 @@ QImage renderSource(obs_source_t *source)
 	if (!srcWidth || !srcHeight)
 		return QImage();
 
-	uint32_t width = qMin<uint32_t>(PTZ_THUMBNAIL_WIDTH, srcWidth);
-	uint32_t height = qMax<uint32_t>(1, (uint64_t)width * srcHeight / srcWidth);
+	uint32_t longest = qMax(srcWidth, srcHeight);
+	uint32_t edge = qMin<uint32_t>(PTZ_THUMBNAIL_MAX_EDGE, longest);
+	uint32_t width = qMax<uint32_t>(1, (uint64_t)srcWidth * edge / longest);
+	uint32_t height = qMax<uint32_t>(1, (uint64_t)srcHeight * edge / longest);
 
 	QImage image;
 	obs_enter_graphics();

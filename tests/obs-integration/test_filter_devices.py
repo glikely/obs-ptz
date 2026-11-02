@@ -27,6 +27,7 @@ its id by the plugin, not by the test's config file. What the tests check:
 
 import json
 import shutil
+import struct
 import subprocess
 import sys
 import time
@@ -509,6 +510,40 @@ def add_image_camera(world, cameras, tmp_path, name):
     cameras.add_filter(name)
     return world.wait_for_device_by_name(name, tmp_path / "device.json", lambda r: r["found"] and r["bound"],
                                          timeout=10)
+
+
+def image_size(data):
+    """(width, height) of the PNG or JPEG a thumbnail is"""
+    if data.startswith(b"\x89PNG"):
+        return struct.unpack(">II", data[16:24])
+    at = 2
+    while not 0xc0 <= data[at + 1] <= 0xc3:
+        at += 2 + struct.unpack(">H", data[at + 2:at + 4])[0]
+    height, width = struct.unpack(">HH", data[at + 5:at + 9])
+    return width, height
+
+
+@pytest.mark.parametrize("source,thumbnail", [
+    ((960, 240), (192, 48)),
+    ((240, 960), (48, 192)),
+    ((100, 50), (100, 50)),
+], ids=["wide", "tall", "small"])
+def test_a_thumbnail_fits_both_ways(obs_world, cameras, tmp_path, source, thumbnail):
+    name = "filter-cam-" + "x".join(map(str, source))
+    image = tmp_path / "picture.png"
+    virtual_ptz.write_quadrant_png(image, *source)
+    obs_world.ws.call("CreateInput", {
+        "sceneName": obs_world.create_scene(), "inputName": name, "inputKind": "image_source",
+        "inputSettings": {"file": str(image)},
+    })
+    cameras.names.add(name)
+    cameras.add_filter(name)
+    obs_world.wait_for_device_by_name(name, tmp_path / "device.json", lambda r: r["found"] and r["bound"], timeout=10)
+
+    preset = obs_world.create_preset(name, "sized", store="local")
+
+    obs_world.wait_for(lambda: virtual_ptz.thumbnail_image(obs_world, name, preset), timeout=10)
+    assert image_size(virtual_ptz.thumbnail_image(obs_world, name, preset)) == thumbnail
 
 
 def filter_settings(world, source):

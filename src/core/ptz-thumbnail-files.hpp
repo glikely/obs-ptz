@@ -12,9 +12,9 @@
 #include <QObject>
 #include <QString>
 
-/* Width in pixels of a stored preset thumbnail; the height follows the
+/* Longest edge in pixels of a stored preset thumbnail; the other follows the
  * captured source's aspect ratio */
-static constexpr int PTZ_THUMBNAIL_WIDTH = 192;
+static constexpr int PTZ_THUMBNAIL_MAX_EDGE = 192;
 
 /* Directory the thumbnail image files live in. Only created when a
  * thumbnail is first written. The controller's ptz_thumbnail_sweep()
@@ -25,10 +25,10 @@ QString ptz_thumbnail_dir();
 QString ptz_thumbnail_path(const QString &fileName);
 
 /* Renders one frame of the source into a QImage at most
- * PTZ_THUMBNAIL_WIDTH wide. The rendering happens on OBS's graphics thread
- * and the callback is then run on context's thread, and not at all if
- * context is destroyed first. The callback gets a null image if the source
- * has nothing to show. Safe to call from any thread. */
+ * PTZ_THUMBNAIL_MAX_EDGE on its longest edge. The rendering happens on OBS's
+ * graphics thread and the callback is then run on context's thread, and not
+ * at all if context is destroyed first. The callback gets a null image if the
+ * source has nothing to show. Safe to call from any thread. */
 void ptz_capture_source_thumbnail(obs_source_t *source, QObject *context, std::function<void(QImage)> callback);
 
 /* A new unique file name for a thumbnail of the filter whose uuid is `owner`,

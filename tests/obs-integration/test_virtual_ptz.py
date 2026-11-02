@@ -39,14 +39,14 @@ WIDTH, HEIGHT = 128, 72
 RED, GREEN, BLUE, YELLOW = (255, 0, 0), (0, 255, 0), (0, 0, 255), (255, 255, 0)
 
 
-def write_quadrant_png(path):
+def write_quadrant_png(path, width=WIDTH, height=HEIGHT):
     """red | green over blue | yellow, as an 8-bit RGB PNG"""
     rows = bytearray()
-    for y in range(HEIGHT):
+    for y in range(height):
         rows.append(0)
-        top = y < HEIGHT // 2
-        for x in range(WIDTH):
-            left = x < WIDTH // 2
+        top = y < height // 2
+        for x in range(width):
+            left = x < width // 2
             colour = (RED if left else GREEN) if top else (BLUE if left else YELLOW)
             rows.extend(colour)
 
@@ -55,7 +55,7 @@ def write_quadrant_png(path):
         return struct.pack(">I", len(data)) + body + struct.pack(">I", zlib.crc32(body))
 
     png = b"\x89PNG\r\n\x1a\n"
-    png += chunk(b"IHDR", struct.pack(">IIBBBBB", WIDTH, HEIGHT, 8, 2, 0, 0, 0))
+    png += chunk(b"IHDR", struct.pack(">IIBBBBB", width, height, 8, 2, 0, 0, 0))
     png += chunk(b"IDAT", zlib.compress(bytes(rows)))
     png += chunk(b"IEND", b"")
     path.write_bytes(png)
