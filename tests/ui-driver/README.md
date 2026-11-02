@@ -59,6 +59,7 @@ that could not be done answers `{"error": code, "message": text}`:
 | `duplicate_source` | `{"name", "new_name", "scene"}` | `{"uuid"}`. Makes a copy of the source by that name, with copies of its filters, as OBS's Paste (Duplicate) does (`obs_source_duplicate()`, not private), and adds it to the scene |
 | `filter_links` | `{"name", "filter"}` | `{"source", "parent", "target", "device_parent"}`, each `{"uuid", "name", "private"}` or `null`: the source by that name, its filter by that name's parent and target as libobs has them, and, for a PTZ device's filter, the source its `ptz_get_parent_source` says |
 | `output_screenshot` | `{"width", "height"}` | `{"png"}`, base64: what OBS outputs (output channel 0), drawn at that size. In Studio Mode it is program, which with "Duplicate Sources" is a private copy of the scene that no source screenshot can show |
+| `display_frame` | `{"path"}`, an `OBSQTDisplay`, and `"litter"` true to draw it with blending and the transform left as a careless render pass leaves them | `{"width", "height", "white", "dark"}`: the size of what the window itself drew, and the fraction of its pixels that are near white and that are dark. `no_frame` if it has no display, and `unsupported` but on OpenGL on Linux or macOS |
 
 ### Paths
 
