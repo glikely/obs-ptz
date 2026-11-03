@@ -6,7 +6,11 @@
  */
 #include "ui-test-harness.hpp"
 
+#include <obs.hpp>
 #include <obs-module.h>
+
+#include <atomic>
+#include <thread>
 
 #include "ptz.h"
 
@@ -28,6 +32,10 @@ struct ThirdPartyDevice {
 	/* A setting of a source, which a controller has to hear of: it can't take
 	 * the procs back, and the source stays */
 	bool on;
+	/* Turned off by a thread of the device's own, which says so from there, as
+	 * the API lets a device signal from any thread: read on whichever thread
+	 * asks for the state */
+	std::atomic<bool> poweredOff{false};
 };
 
 void getApiVersion(void *data, calldata_t *cd)
@@ -51,10 +59,30 @@ void getState(void *data, calldata_t *cd)
 				   ? obs_filter_get_parent(self->source)
 				   : self->source;
 	obs_data_set_bool(state, "connected", true);
+	obs_data_set_bool(state, "power_on", !self->poweredOff.load());
 	obs_data_set_string(state, "source", on ? obs_source_get_name(on) : "");
 	obs_data_t *features = obs_data_create();
 	obs_data_set_obj(state, "features", features);
 	obs_data_release(features);
+}
+
+/* A test's, not the API's: the device powers off on a thread of its own, and
+ * says so with ptz_state_changed from there. Not a setting, as changing one
+ * makes OBS say "update", which a controller also reads the state on */
+void powerOffFromThread(void *data, calldata_t *)
+{
+	auto self = static_cast<ThirdPartyDevice *>(data);
+	std::thread([self]() {
+		self->poweredOff.store(true);
+		obs_data_t *changed = obs_data_create();
+		obs_data_set_bool(changed, "power_on", false);
+		calldata_t cd = {};
+		calldata_set_ptr(&cd, "source", self->source);
+		calldata_set_ptr(&cd, "changed", changed);
+		signal_handler_signal(obs_source_get_signal_handler(self->source), "ptz_state_changed", &cd);
+		calldata_free(&cd);
+		obs_data_release(changed);
+	}).join();
 }
 
 /* All it takes to be found, and nothing of the plugin's: it says nothing if no
@@ -78,6 +106,7 @@ void *createDevice(obs_data_t *, obs_source_t *source)
 	proc_handler_t *ph = obs_source_get_proc_handler(source);
 	proc_handler_add(ph, "void ptz_get_api_version(out int major, out int minor)", getApiVersion, self);
 	proc_handler_add(ph, "ptr ptz_get_state(ptr state)", getState, self);
+	proc_handler_add(ph, "void ptz_test_power_off_from_thread()", powerOffFromThread, self);
 
 	signal_handler_t *sh = obs_source_get_signal_handler(source);
 	signal_handler_add(sh, "void ptz_state_changed(ptr source, ptr changed)");
@@ -176,14 +205,32 @@ void registerDevice(const char *id, obs_source_type type)
 	obs_register_source(&info);
 }
 
+/* On obs-websocket's thread, in the request: has the filter named "filter" on
+ * the source named "source" power off from a thread of its own */
+void runPowerOffFromThreadTest(const QMap<QString, QString> &params)
+{
+	OBSSourceAutoRelease parent = obs_get_source_by_name(qUtf8Printable(params.value(QStringLiteral("source"))));
+	OBSSourceAutoRelease filter =
+		parent ? obs_source_get_filter_by_name(parent, qUtf8Printable(params.value(QStringLiteral("filter"))))
+		       : nullptr;
+	calldata_t cd = {};
+	if (!filter || !proc_handler_call(obs_source_get_proc_handler(filter), "ptz_test_power_off_from_thread", &cd))
+		blog(LOG_INFO, "[ptz-ui-test] third_party_power_off_from_thread: no such filter");
+	calldata_free(&cd);
+}
+
 } // namespace
 
 /* Registers the kinds, "ptz_test_third_party_device" and
  * "ptz_test_third_party_device_other_version" for a filter, and
  * "ptz_test_third_party_source_device" for a source, for a test to add with
  * obs-websocket, and see whether the plugin lists a device */
-void registerThirdPartyDeviceTest(PTZUITestHarness *)
+void registerThirdPartyDeviceTest(PTZUITestHarness *harness)
 {
+	/* third_party_power_off_from_thread request params:
+	 *   source - the source the filter is on
+	 *   filter - the filter's name */
+	harness->registerInlineTest(QStringLiteral("third_party_power_off_from_thread"), &runPowerOffFromThreadTest);
 	registerDevice(GOOD_ID, OBS_SOURCE_TYPE_FILTER);
 	registerDevice(OTHER_VERSION_ID, OBS_SOURCE_TYPE_FILTER);
 	registerDevice(GOOD_SOURCE_ID, OBS_SOURCE_TYPE_INPUT);

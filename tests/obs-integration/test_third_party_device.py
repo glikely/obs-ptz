@@ -171,3 +171,20 @@ def test_a_source_can_stop_being_a_device_and_be_one_again(obs_world, tmp_path):
             obs_world.ws.call("RemoveInput", {"inputName": name})
         except ObsWebSocketError:
             pass
+
+
+def test_a_device_can_signal_from_a_thread_of_its_own(obs_world, source, tmp_path):
+    """A device may fire its signals from any thread. The stand-in powers off
+    on a thread it starts, and says so with ptz_state_changed from there: the
+    dock shows it powered off, as it would hear it from the main thread."""
+    obs_world.need_ui_driver()
+    add_filter(obs_world, source, GOOD_KIND)
+    uuid = obs_world.wait_for_device_by_name(source, tmp_path / "device.json", lambda r: r["found"])["uuid"]
+
+    def powered_off():
+        rows, _, _ = obs_world.ui.rows(OBS_MAIN, PTZ_DOCK, "deviceList", roles=["uuid", "poweredOff"])
+        return next((r["poweredOff"] for r in rows if r["uuid"] == uuid), None)
+
+    obs_world.wait_for(lambda: powered_off() is False)
+    obs_world.run_ui_test("third_party_power_off_from_thread", source=source, filter="Third party")
+    obs_world.wait_for(lambda: powered_off() is True)
