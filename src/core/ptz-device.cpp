@@ -639,6 +639,7 @@ const QList<QPair<PTZDevice::Feature, const char *>> &PTZDevice::featureNames()
 		{Diagnostics, "diagnostics"},
 		{TallyLight, "tally_light"},
 		{MoveCompletion, "move_completion"},
+		{AutoFraming, "auto_framing"},
 	};
 	return names;
 }

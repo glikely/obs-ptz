@@ -36,7 +36,7 @@ changes in the camera.
 
 ## API version
 
-This is version **0.10** of the PTZ API.
+This is version **0.11** of the PTZ API.
 The API is in a pre-release state, published as an RFC.
 It is subject to change at any time.
 Please provide feedback on the [API discussion
@@ -894,6 +894,7 @@ calling](#rules-for-calling) says.
 | `axes` | object | when known | What each of `pan`, `tilt`, `zoom` and `focus` means and how finely it is set, as an object for each axis that a driver knows something of: see [Axes](#axes) |
 | `focus_af_enabled` | bool | when known | Autofocus is on. Can be changed with `ptz_request_state` |
 | `power_on` | bool | when known | The camera is powered on, and not in standby. A camera in standby is still `connected`. Can be changed with `ptz_request_state` by a device with the `power` feature |
+| `auto_framing` | bool | when known | The camera is framing the people in its view by itself, as a Sony SRG-A12's PTZ Auto Framing does. Can be changed with `ptz_request_state` by a device with the `auto_framing` feature |
 | `camera_report` | object | when known | Progress of a `camera_report` trigger while one is running |
 
 A position isn't in the camera's own units: a driver scales it to these ranges,
@@ -1019,6 +1020,7 @@ doesn't keep it.
 | `diagnostics` | Make a camera report, with the `camera_report` trigger |
 | `tally_light` | Light its camera's tally lamps, which the `tally_auto` setting has it do while its source is in the program or preview scene |
 | `move_completion` | Say when its camera has arrived at a recalled preset because the camera said so, with `ptz_preset_recalled`, and after a longer backstop time if it never hears; without it, that signal comes after a fixed time. A VISCA device has it once its camera has completed a move (one that only ACKs, as a BirdDog does, never has it); an ONVIF device once its camera's status has said whether it is moving (`MoveStatus` `IDLE` or `MOVING`; many cameras don't say, and their devices never have it); a Virtual PTZ device always |
+| `auto_framing` | Have its camera frame the people in its view by itself, with the `auto_framing` state key. A VISCA device has it when its command set has a command for it |
 
 Asking for something a device doesn't have the feature for isn't an error a
 caller can detect, and what happens isn't promised: check `features` first.

@@ -97,6 +97,7 @@ private:
 	QString presetIdAtRow(int row) const;
 	void presetSet(const QString &id);
 	void presetRecall(const QString &id);
+	void setAutoFraming(const QModelIndex &device, int on);
 
 	bool callCurrentDevice(const char *method, calldata_t *cd = nullptr) const;
 	void publishSelection(const QModelIndex &current);
@@ -109,6 +110,8 @@ private:
 
 	QList<obs_hotkey_id> hotkeys;
 	QMap<obs_hotkey_id, int> preset_hotkey_map;
+	/* What each auto framing hotkey does: 1 on, 0 off, -1 toggle */
+	QMap<obs_hotkey_id, int> autoframing_hotkey_map;
 
 public slots:
 	void autoselectDevice(OBSSource scene);

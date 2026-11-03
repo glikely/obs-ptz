@@ -333,6 +333,7 @@ PTZStateView::PTZStateView(QWidget *parent) : QWidget(parent)
 					{2, "PTZ.Device.State.IRCondition.Unknown"}}));
 
 	QFormLayout *motion = addGroup(page, "PTZ.Device.State.Motion");
+	flag(motion, "auto_framing", "PTZ.Device.State.AutoFraming");
 	readOnly(motion, "pantilt_init_status", "PTZ.Device.State.PanTiltInit",
 		 named("pantilt_init_status", {{0, "PTZ.Device.State.PanTiltInit.None"},
 					       {1, "PTZ.Device.State.PanTiltInit.Running"},

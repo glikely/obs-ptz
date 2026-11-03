@@ -843,6 +843,8 @@ PTZDevice::Features PTZVisca::features() const
 		features |= Power;
 	if (settable("tally_on") || settable("tally_preview"))
 		features |= TallyLight;
+	if (settable("auto_framing"))
+		features |= AutoFraming;
 	if (profile->triggers.contains("wb_onepush"))
 		features |= WhiteBalanceOnePush;
 	if (completes_moves)

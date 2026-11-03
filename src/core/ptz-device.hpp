@@ -102,6 +102,9 @@ public:
 		 * kRecallBackstopMs after the recall, in case it never hears;
 		 * without it the device guesses, kRecallSettleMs after */
 		MoveCompletion = 1 << 19,
+		/* The "auto_framing" state key: the camera frames the people in
+		 * its view by itself */
+		AutoFraming = 1 << 20,
 	};
 	Q_DECLARE_FLAGS(Features, Feature)
 	/* Each feature, and its name in the state's "features" */

@@ -743,6 +743,11 @@ void ViscaProfile::remove(const QString &key)
 	triggers.remove(key);
 }
 
+/* State values the plugin knows, whose commands are a vendor's own, so the
+ * generic command set doesn't send them to every camera. A command set adds
+ * one for a camera that has it. */
+static const QStringList visca_optional_controls = {"auto_framing"};
+
 /* Everything above, for a camera nothing more is known about. What it
  * doesn't have, it answers with a syntax error. */
 std::shared_ptr<const ViscaProfile> visca_generic_profile()
@@ -950,7 +955,7 @@ public:
 		if (!only(json, {"key", "set", "set_to", "reads"}, QString("control \"%1\"").arg(key)))
 			return false;
 		ViscaControl *existing = profile.control(key);
-		if (!existing && !key.startsWith("user_")) {
+		if (!existing && !key.startsWith("user_") && !visca_optional_controls.contains(key)) {
 			fail(QString("\"%1\" is a new control, but doesn't start with \"user_\"").arg(key));
 			return false;
 		}

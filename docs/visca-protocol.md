@@ -160,6 +160,9 @@ For example (the auto tracking commands are made up):
   `"set": null` is for a value the camera can only be asked for, not set.
   A key the command set it extends doesn't have must start with `user_`,
   so it is never one the plugin has; it is in the device's state like any other.
+  The exception is `auto_framing`, which the plugin knows but the generic command set leaves out,
+  as its commands are a vendor's own: a command set adds it for a camera that has it,
+  and the PTZ dock then has it in the camera's menu, and its hotkeys work.
 - `actions`: commands for the driver, which must take as many arguments as the generic one's.
 - `triggers`: a name the command set it extends doesn't have must start with `user_`.
 

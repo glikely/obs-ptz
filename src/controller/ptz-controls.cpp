@@ -477,6 +477,18 @@ PTZControls::PTZControls(QWidget *parent) : QFrame(parent), ui(new Ui::PTZContro
 	registerHotkey("PTZ.FocusAutoToggle", obs_module_text("PTZ.Action.FocusAutoToggle"), autofocustogglecb, this);
 	registerHotkey("PTZ.FocusAutoOn", obs_module_text("PTZ.Action.FocusAutoOn"), autofocusoncb, this);
 	registerHotkey("PTZ.FocusAutoOff", obs_module_text("PTZ.Action.FocusAutoOff"), autofocusoffcb, this);
+	auto autoframingcb = [](void *ptz_data, obs_hotkey_id hotkey, obs_hotkey_t *, bool pressed) {
+		PTZControls *ptzctrl = static_cast<PTZControls *>(ptz_data);
+		if (pressed)
+			ptzctrl->setAutoFraming(ptzctrl->ui->deviceList->currentIndex(),
+						ptzctrl->autoframing_hotkey_map.value(hotkey, -1));
+	};
+	autoframing_hotkey_map[registerHotkey("PTZ.AutoFramingToggle", obs_module_text("PTZ.Action.AutoFramingToggle"),
+					      autoframingcb, this)] = -1;
+	autoframing_hotkey_map[registerHotkey("PTZ.AutoFramingOn", obs_module_text("PTZ.Action.AutoFramingOn"),
+					      autoframingcb, this)] = 1;
+	autoframing_hotkey_map[registerHotkey("PTZ.AutoFramingOff", obs_module_text("PTZ.Action.AutoFramingOff"),
+					      autoframingcb, this)] = 0;
 	registerHotkey("PTZ.FocusNear", obs_module_text("PTZ.Action.FocusNear"), cb,
 		       movementButton("focusButton_near"));
 	registerHotkey("PTZ.FocusFar", obs_module_text("PTZ.Action.FocusFar"), cb, movementButton("focusButton_far"));
@@ -1212,10 +1224,11 @@ void PTZControls::showContextMenu(const QPoint &pos)
 	};
 	QMenu menu;
 
-	/* A camera: its power and white balance */
+	/* A camera: its power, white balance and auto framing */
 	QModelIndex device;
 	QAction *powerAction = nullptr;
 	QAction *wbOnetouchAction = nullptr;
+	QAction *autoFramingAction = nullptr;
 	bool power_on = false;
 	if (within(ui->deviceList))
 		device = ui->deviceList->indexAt(ui->deviceList->viewport()->mapFrom(this, pos));
@@ -1231,7 +1244,12 @@ void PTZControls::showContextMenu(const QPoint &pos)
 		bool wb_onepush = (obs_data_get_int(state, "wb_mode") == 3);
 		if (wb_onepush && PTZListModel::hasFeature(device, "wb_onepush"))
 			wbOnetouchAction = menu.addAction(obs_module_text("PTZ.Action.WhiteBalance.OnePushTrigger"));
-		if (powerAction || wbOnetouchAction)
+		if (PTZListModel::hasFeature(device, "auto_framing")) {
+			autoFramingAction = menu.addAction(obs_module_text("PTZ.Action.AutoFraming"));
+			autoFramingAction->setCheckable(true);
+			autoFramingAction->setChecked(obs_data_get_bool(state, "auto_framing"));
+		}
+		if (powerAction || wbOnetouchAction || autoFramingAction)
 			menu.addSeparator();
 	}
 
@@ -1306,7 +1324,24 @@ void PTZControls::showContextMenu(const QPoint &pos)
 		calldata_set_string(&cd, "name", "wb_onepush");
 		ptzDeviceList->callDevice(device, "ptz_trigger", &cd);
 		calldata_free(&cd);
+	} else if (action == autoFramingAction) {
+		setAutoFraming(device, autoFramingAction->isChecked() ? 1 : 0);
 	}
+}
+
+/* Turns a camera's auto framing on (1), off (0) or over (-1), if it has it */
+void PTZControls::setAutoFraming(const QModelIndex &device, int on)
+{
+	if (!device.isValid() || !PTZListModel::hasFeature(device, "auto_framing"))
+		return;
+	if (on < 0) {
+		OBSDataAutoRelease state = obs_data_create();
+		ptzDeviceList->saveState(device, state.Get());
+		on = !obs_data_get_bool(state, "auto_framing");
+	}
+	OBSDataAutoRelease request = obs_data_create();
+	obs_data_set_bool(request, "auto_framing", on != 0);
+	ptzDeviceList->setState(device, request.Get());
 }
 
 void PTZControls::on_actionProperties_triggered()
