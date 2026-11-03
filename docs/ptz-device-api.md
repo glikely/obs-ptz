@@ -36,7 +36,7 @@ changes in the camera.
 
 ## API version
 
-This is version **0.9** of the PTZ API.
+This is version **0.10** of the PTZ API.
 The API is in a pre-release state, published as an RFC.
 It is subject to change at any time.
 Please provide feedback on the [API discussion
@@ -202,6 +202,13 @@ if (source) {
   must be called from that thread.
   From another it logs an error and does nothing.
   Each proc below says which it is.
+- **Signals can come from any thread.** A device may fire its signals, and a
+  discovery instance its own, from whichever thread it does the work on, so a
+  listener must not assume a thread. One that touches something tied to a
+  thread, as a Qt widget is, hands the work to that thread. A listener runs
+  inside the device's `signal_handler_signal()` call, on the thread that
+  fired it, so it should be quick, and a device should not fire a signal while
+  holding a lock that a listener's call back into it would need.
 - **Reading the state.** `ptz_state_changed` says only what changed, and a
   device that is not changing says nothing, so a listener that has just found
   a device does not know what it is like.
@@ -800,7 +807,10 @@ The device's own signal_handler: its source's, from
 `obs_source_get_signal_handler()`.
 All its signals start with `ptz_`, so they do not conflict with the signals OBS
 gives every source, such as `destroy` and `update`.
-A signal fires on the device's own thread.
+A signal fires on any thread (see [Rules for calling](#rules-for-calling)).
+A device keeps its signals in the order its changes happened: it fires them one
+at a time, never from two threads at once, so that a listener that hands each
+on to its own thread, in turn, hears them in order.
 Each carries `source`, the device's source as an `obs_source_t *`, lent for the
 call, for a listener that connects the same function to more than one device
 and needs to tell them apart.
@@ -1120,8 +1130,8 @@ Any thread.
 
 The signals on a discovery instance's own `signal_handler`, from
 `obs_source_get_signal_handler()`.
-A signal fires on the main thread, where the instance's driver does its
-work, whichever thread the instance was made on.
+A signal fires on any thread, as a device's does (see
+[Rules for calling](#rules-for-calling)).
 A listener may call the instance's procs from inside a signal: a
 `ptz_discovery_stop` from `ptz_device_found`, say, or a `ptz_discovery_start`
 from `ptz_discovery_finished` to look again.
