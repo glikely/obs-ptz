@@ -472,6 +472,8 @@ A device says this whenever it stops being a device, so that a controller can
 take it as the one signal that a device has gone:
 
 - its PTZ is turned off, by a setting of its own, while its source goes on;
+- a filter is disabled, with its checkbox in OBS's Filters dialog (the
+  filter's own `enable` signal, with `enabled` false);
 - a filter is taken off its source (`filter_remove` in its `obs_source_info`);
 - its source is deleted (the source's own `remove` signal), as a filter is
   only taken off it once the last reference to it goes, which can be much
@@ -501,8 +503,8 @@ It stops in this order:
    device again.
 
 To be a device again, it answers `ptz_get_api_version` and says
-`ptz_device_add`: a PTZ turned back on, or a filter put back on a source
-(`filter_add`).
+`ptz_device_add`: a PTZ turned back on, a filter enabled again, or a filter
+put back on a source (`filter_add`).
 So `ptz_device_add` and `ptz_device_remove` come in pairs.
 A controller starts over, as with any device it hasn't seen.
 

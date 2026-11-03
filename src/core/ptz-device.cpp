@@ -1250,7 +1250,19 @@ void ptz_filter_update(void *data, obs_data_t *settings)
 	QMetaObject::invokeMethod(ptz, [ptz, snapshot]() { ptz->applySettings(snapshot); });
 }
 
-PTZFilter::PTZFilter(obs_source_t *filter, Make make) : m_filter(filter), m_make(std::move(make)) {}
+/* The filter was enabled or disabled: a disabled filter is no device (see
+ * ptz_device_remove in docs/ptz-device-api.md) */
+void ptz_filter_enabled(void *data, calldata_t *cd)
+{
+	static_cast<PTZFilter *>(data)->setEnabled(calldata_bool(cd, "enabled"));
+}
+
+PTZFilter::PTZFilter(obs_source_t *filter, Make make) : m_filter(filter), m_make(std::move(make))
+{
+	/* OBS sets whether it is enabled only once it has made it: ptz_filter_add()
+	 * reads it */
+	signal_handler_connect(obs_source_get_signal_handler(filter), "enable", ptz_filter_enabled, this);
+}
 
 PTZFilter::~PTZFilter() {}
 
@@ -1318,7 +1330,7 @@ void *ptz_filter_create(obs_source_t *filter, PTZFilter::Make make)
 void PTZFilter::announce()
 {
 	PTZDevice *ptz = device();
-	bool isDevice = ptz && m_onSource;
+	bool isDevice = ptz && m_onSource && m_enabled;
 	if (isDevice == m_announced)
 		return;
 	m_announced = isDevice;
@@ -1336,6 +1348,13 @@ void PTZFilter::setOnSource(bool onSource)
 {
 	std::lock_guard<std::mutex> lock(m_announceLock);
 	m_onSource = onSource;
+	announce();
+}
+
+void PTZFilter::setEnabled(bool enabled)
+{
+	std::lock_guard<std::mutex> lock(m_announceLock);
+	m_enabled = enabled;
 	announce();
 }
 
@@ -1368,6 +1387,7 @@ void ptz_filter_add(void *data, obs_source_t *parent)
 	/* Not while holding m_announceLock: OBS holds the signal's lock as it
 	 * calls ptz_filter_parent_removed(), which takes it */
 	signal_handler_connect(obs_source_get_signal_handler(parent), "remove", ptz_filter_parent_removed, filter);
+	filter->setEnabled(obs_source_enabled(filter->source()));
 	filter->setOnSource(!obs_source_removed(parent));
 }
 
@@ -1389,6 +1409,9 @@ void ptz_filter_destroy(void *data)
 	auto filter = static_cast<PTZFilter *>(data);
 	if (!filter)
 		return;
+	/* Not while holding m_announceLock, as in ptz_filter_add() */
+	signal_handler_disconnect(obs_source_get_signal_handler(filter->source()), "enable", ptz_filter_enabled,
+				  filter);
 	/* It is taken off its source first, so this is for one that wasn't */
 	filter->setOnSource(false);
 	if (PTZDevice *ptz = filter->device())

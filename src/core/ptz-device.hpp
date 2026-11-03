@@ -621,11 +621,15 @@ private:
 	friend void ptz_filter_remove(void *data, obs_source_t *parent);
 	friend void ptz_filter_destroy(void *data);
 	friend void ptz_filter_parent_removed(void *data, calldata_t *cd);
+	friend void ptz_filter_enabled(void *data, calldata_t *cd);
 	void findOriginal(obs_source_t *parent);
 	void claimSettings();
 	void buildDevice();
 	/* Any thread: whether it is on a source that hasn't been deleted */
 	void setOnSource(bool onSource);
+	/* Any thread: whether the filter is enabled, as its checkbox in OBS's
+	 * Filters dialog says */
+	void setEnabled(bool enabled);
 	void announce();
 
 	obs_source_t *m_filter;
@@ -639,6 +643,7 @@ private:
 	std::mutex m_announceLock;
 	bool m_announced = false;
 	bool m_onSource = false;
+	bool m_enabled = true;
 };
 
 /* backend driver hooks that register themselves as an OBS filters */
