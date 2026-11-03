@@ -133,8 +133,10 @@ on `obs_get_signal_handler()` when your plugin loads, and connect to it.
 Its calldata has the device as `source`, and it is the same for a device that
 is a source or a filter.
 Ask each for its version, as above.
-A device has gone when either its source's `destroy` signal says so, or
-[`ptz_device_remove`](#finding-devices) does.
+A device has gone when it says [`ptz_device_remove`](#finding-devices), which
+it says whenever it stops being a device, so a controller needs no other
+signal.
+It may watch its source's `destroy` as well.
 
 ```c
 /* in obs_module_load(), before any source is loaded */
@@ -411,7 +413,7 @@ makes sources and is there only when the setting is `control`.
 | Event | |
 | --- | --- |
 | `ptz_device_add` | `device`: a device has come, as it said [`ptz_device_add`](#finding-devices). `ptz_list_devices` has it as well, so a client that listed the devices when it connected hears of the rest this way |
-| `ptz_device_remove` | `device`: a device has gone, as its source was destroyed or it said [`ptz_device_remove`](#finding-devices) |
+| `ptz_device_remove` | `device`: a device has gone, as it said [`ptz_device_remove`](#finding-devices), or its source was destroyed. Once for each `ptz_device_add` |
 | `ptz_selected_changed` | `device`: another camera is selected in the PTZ dock, by the user, a hotkey, or the dock following the scene; "" if none is |
 
 ## Providing a device
@@ -464,20 +466,50 @@ calldata_free(&cd);
 
 ### `void ptz_device_remove(ptr source)`
 
-`source` is what was the device, which goes on as a source.
+`source` is what was the device.
 
-OBS has no way to take a proc or a signal back, so a source that can turn its
-PTZ on and off, with a setting of its own, stays a source with those procs.
-A device that is destroyed needs to say nothing, as its `destroy` signal does.
-It turns it off in this order:
+A device says this whenever it stops being a device, so that a controller can
+take it as the one signal that a device has gone:
+
+- its PTZ is turned off, by a setting of its own, while its source goes on;
+- a filter is taken off its source (`filter_remove` in its `obs_source_info`);
+- its source is deleted (the source's own `remove` signal), as a filter is
+  only taken off it once the last reference to it goes, which can be much
+  later;
+- it is destroyed without having said it already (`destroy` in its
+  `obs_source_info`).
+
+A controller that holds a strong reference to a device, as one that keeps the
+sources it uses does, never hears its `destroy` while it holds it, which is
+why `destroy` is not enough.
+A controller may watch `destroy` as well, and so hear of a device's going
+twice, in either order: the second says nothing new.
+
+When a device says it from its `destroy`, OBS has already started tearing the
+source down, and taking a reference to it fails.
+A listener copies what it needs, such as the source's UUID, and doesn't keep
+the pointer.
+
+OBS has no way to take a proc or a signal back, so what was a device stays a
+source with those procs.
+It stops in this order:
 
 1. `ptz_get_api_version` stops setting `major` and `minor`, which is not a
    version a caller can use.
 2. It says `ptz_device_remove`.
-3. Its other procs do nothing, and its signals say nothing, until it is on again.
+3. Its other procs do nothing, and its signals say nothing, until it is a
+   device again.
 
-To turn on again, it answers `ptz_get_api_version` and says `ptz_device_add`.
+To be a device again, it answers `ptz_get_api_version` and says
+`ptz_device_add`: a PTZ turned back on, or a filter put back on a source
+(`filter_add`).
+So `ptz_device_add` and `ptz_device_remove` come in pairs.
 A controller starts over, as with any device it hasn't seen.
+
+Like any signal of a device's, it can come from any thread (see
+[Rules for calling](#rules-for-calling)).
+A device says its `ptz_device_add` and `ptz_device_remove` one at a time, in
+the order it became and stopped being a device.
 
 ## Driver kinds
 

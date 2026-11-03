@@ -166,6 +166,7 @@ private:
 protected:
 	/* The OBS filter instance that owns this device */
 	OBSWeakSource m_filter;
+	std::atomic<bool> m_isDevice = false;
 	/* The OBS source this device controls. Weak because the device
 	 * doesn't own the source and the user can delete it at any time. */
 	mutable OBSWeakSource m_parentSource;
@@ -301,6 +302,11 @@ public:
 	 * filter is gone. */
 	obs_source_t *filterSource() const;
 	void setParentSource(obs_source_t *source);
+	/* Whether it is a device of the PTZ API, as its filter says (see
+	 * PTZFilter::announce()). When it isn't, it answers no version, its
+	 * procs do nothing, and its signals say nothing. Any thread. */
+	bool isDevice() const { return m_isDevice.load(); }
+	void setIsDevice(bool isDevice) { m_isDevice.store(isDevice); }
 	/* The hostname or IP address the parent source reports for the device
 	 * it receives from, or "" if it doesn't or there is no parent. Read
 	 * from the settings of a DistroAV NDI source ("web_control_url") or
@@ -612,15 +618,27 @@ protected:
 
 private:
 	friend void ptz_filter_add(void *data, obs_source_t *parent);
+	friend void ptz_filter_remove(void *data, obs_source_t *parent);
+	friend void ptz_filter_destroy(void *data);
+	friend void ptz_filter_parent_removed(void *data, calldata_t *cd);
 	void findOriginal(obs_source_t *parent);
 	void claimSettings();
 	void buildDevice();
+	/* Any thread: whether it is on a source that hasn't been deleted */
+	void setOnSource(bool onSource);
+	void announce();
 
 	obs_source_t *m_filter;
 	Make m_make;
 	std::atomic<PTZDevice *> m_device = nullptr;
 	mutable std::mutex m_lock;
 	OBSWeakSource m_original;
+	/* What it says it is, by ptz_device_add and ptz_device_remove, and what
+	 * that follows; under m_announceLock, which it holds as it says them so
+	 * that they come one at a time, in order */
+	std::mutex m_announceLock;
+	bool m_announced = false;
+	bool m_onSource = false;
 };
 
 /* backend driver hooks that register themselves as an OBS filters */
@@ -628,7 +646,7 @@ void *ptz_filter_create(obs_source_t *filter, PTZFilter::Make make);
 obs_properties_t *ptz_filter_get_properties(void *data);
 void ptz_filter_update(void *data, obs_data_t *settings);
 void ptz_filter_add(void *data, obs_source_t *parent);
-void ptz_filter_remove(void *data, obs_source_t *);
+void ptz_filter_remove(void *data, obs_source_t *parent);
 void ptz_filter_destroy(void *data);
 void ptz_filter_save(void *data, obs_data_t *settings);
 

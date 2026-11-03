@@ -117,13 +117,17 @@ void PTZDevice::get_api_version(calldata_t *cd) const
 	calldata_set_int(cd, "minor", PTZ_API_VERSION_MINOR);
 }
 
-/* The device a proc is called on */
+/* The device a proc is called on, or nullptr if what it is called on has
+ * stopped being one, which answers nothing, its version included (see
+ * ptz_device_remove in docs/ptz-device-api.md) */
 static PTZDevice *ptz_proc_device(void *p)
 {
 	auto ptz = static_cast<PTZDevice *>(p);
-	if (!ptz)
+	if (!ptz) {
 		blog(LOG_ERROR, "PTZ proc_handler called without PTZDevice pointer");
-	return ptz;
+		return nullptr;
+	}
+	return ptz->isDevice() ? ptz : nullptr;
 }
 
 /**
@@ -1308,6 +1312,40 @@ void *ptz_filter_create(obs_source_t *filter, PTZFilter::Make make)
 	return new PTZFilter(filter, std::move(make));
 }
 
+/* Says ptz_device_add or ptz_device_remove, if it has become or stopped being
+ * a device since it last said either (see "Finding devices" in
+ * docs/ptz-device-api.md). Caller must hold m_announceLock. */
+void PTZFilter::announce()
+{
+	PTZDevice *ptz = device();
+	bool isDevice = ptz && m_onSource;
+	if (isDevice == m_announced)
+		return;
+	m_announced = isDevice;
+	/* A device answers its version before it says it is one, and stops before
+	 * it says it isn't */
+	if (ptz)
+		ptz->setIsDevice(isDevice);
+	calldata_t cd = {};
+	calldata_set_ptr(&cd, "source", m_filter);
+	signal_handler_signal(obs_get_signal_handler(), isDevice ? "ptz_device_add" : "ptz_device_remove", &cd);
+	calldata_free(&cd);
+}
+
+void PTZFilter::setOnSource(bool onSource)
+{
+	std::lock_guard<std::mutex> lock(m_announceLock);
+	m_onSource = onSource;
+	announce();
+}
+
+/* The source the filter is on has been deleted: OBS takes the filter off it
+ * only once the last reference to the source goes, which can be much later */
+void ptz_filter_parent_removed(void *data, calldata_t *)
+{
+	static_cast<PTZFilter *>(data)->setOnSource(false);
+}
+
 void ptz_filter_add(void *data, obs_source_t *parent)
 {
 	auto filter = static_cast<PTZFilter *>(data);
@@ -1317,8 +1355,7 @@ void ptz_filter_add(void *data, obs_source_t *parent)
 		filter->findOriginal(parent);
 		return;
 	}
-	bool built = !filter->device();
-	if (built) {
+	if (!filter->device()) {
 		filter->claimSettings();
 		filter->buildDevice();
 	}
@@ -1328,19 +1365,23 @@ void ptz_filter_add(void *data, obs_source_t *parent)
 	ptz->setParentSource(parent);
 	/* Attaching to a source doesn't fire a scene change, so force a refresh */
 	QMetaObject::invokeMethod(ptz, [ptz]() { ptz->onSceneChanged(); }, Qt::QueuedConnection);
-	if (!built)
-		return;
-	calldata_t cd = {};
-	calldata_set_ptr(&cd, "source", filter->source());
-	signal_handler_signal(obs_get_signal_handler(), "ptz_device_add", &cd);
-	calldata_free(&cd);
+	/* Not while holding m_announceLock: OBS holds the signal's lock as it
+	 * calls ptz_filter_parent_removed(), which takes it */
+	signal_handler_connect(obs_source_get_signal_handler(parent), "remove", ptz_filter_parent_removed, filter);
+	filter->setOnSource(!obs_source_removed(parent));
 }
 
-void ptz_filter_remove(void *data, obs_source_t *)
+void ptz_filter_remove(void *data, obs_source_t *parent)
 {
-	PTZDevice *ptz = data ? static_cast<PTZFilter *>(data)->device() : nullptr;
-	if (ptz)
-		ptz->setParentSource(nullptr);
+	auto filter = static_cast<PTZFilter *>(data);
+	PTZDevice *ptz = filter ? filter->device() : nullptr;
+	if (!ptz)
+		return;
+	if (parent)
+		signal_handler_disconnect(obs_source_get_signal_handler(parent), "remove", ptz_filter_parent_removed,
+					  filter);
+	filter->setOnSource(false);
+	ptz->setParentSource(nullptr);
 }
 
 void ptz_filter_destroy(void *data)
@@ -1348,6 +1389,8 @@ void ptz_filter_destroy(void *data)
 	auto filter = static_cast<PTZFilter *>(data);
 	if (!filter)
 		return;
+	/* It is taken off its source first, so this is for one that wasn't */
+	filter->setOnSource(false);
 	if (PTZDevice *ptz = filter->device())
 		ptz->deleteLater();
 	delete filter;
@@ -2010,6 +2053,8 @@ void PTZDevice::setConnected(bool _connected)
  * use-after-free. */
 void PTZDevice::signalDevice(const char *name, calldata_t *cd)
 {
+	if (!isDevice())
+		return;
 	OBSSourceAutoRelease filter = obs_weak_source_get_source(m_filter);
 	if (!filter)
 		return;
