@@ -85,6 +85,7 @@ obs_websocket_vendor ptzUITestVendor();
 
 /* Test registration hooks */
 void registerAppearanceRowSizingTest(PTZUITestHarness *harness);
+void registerDeviceLifecycleTest(PTZUITestHarness *harness);
 void registerDeviceSettingsTest(PTZUITestHarness *harness);
 void registerDiscoveryTest(PTZUITestHarness *harness);
 void registerThirdPartyDeviceTest(PTZUITestHarness *harness);

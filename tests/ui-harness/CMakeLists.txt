@@ -19,6 +19,7 @@ target_sources(
     ui-test-harness.cpp
     ui-test-harness.hpp
     appearance-row-sizing-test.cpp
+    device-lifecycle-test.cpp
     device-settings-test.cpp
     discovery-test.cpp
     third-party-device-test.cpp
