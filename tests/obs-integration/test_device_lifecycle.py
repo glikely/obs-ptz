@@ -141,3 +141,22 @@ def test_a_remove_and_then_destroy_leave_one_backup(obs_world, camera, tmp_path)
     assert len(after) == 1
     assert {k: v for k, v in after[0].items() if k != "backup_time"} == \
         {k: v for k, v in removed.items() if k != "backup_time"}
+
+
+def test_disabling_the_filter_removes_the_device_until_it_is_enabled(obs_world, camera, tmp_path):
+    """Its checkbox in OBS's Filters dialog: OBS says "enable", and not "update",
+    which the dock reads a device's state on"""
+    uuid = wait_for_device(obs_world, camera, tmp_path)
+
+    def set_enabled(enabled):
+        obs_world.ws.call("SetSourceFilterEnabled", {
+            "sourceName": camera["name"], "filterName": FILTER, "filterEnabled": enabled})
+
+    for _ in range(2):
+        set_enabled(False)
+        assert_gone(obs_world, uuid)
+
+        set_enabled(True)
+        obs_world.events.wait_event("VendorEvent", said("ptz_device_add", uuid))
+        obs_world.wait_for(lambda: in_dock(obs_world, uuid))
+        assert listed(obs_world, uuid)
