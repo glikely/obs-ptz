@@ -27,7 +27,8 @@ PROFILES = [
     ("sony-brc-x1000", "Sony BRC-X1000/H800/H780", ["0519", "051A", "051B"], "Sony_BRC-X1000.html", False,
      "without what it marks as not for the BRC-H780; "),
     ("sony-srg-x40uh", "Sony SRG-X40UH/H40UH", ["061F", "0620"], "Sony_SRG-X40UH.html", True, ""),
-    ("sony-srg-a40", "Sony SRG-A40/A12", ["0621", "0622"], "Sony_SRG-A40.html", True, ""),
+    ("sony-srg-a40", "Sony SRG-A40", ["0621"], "Sony_SRG-A40.html", True, ""),
+    ("sony-srg-a12", "Sony SRG-A12", ["0622"], "Sony_SRG-A40.html", True, ""),
     ("sony-ilme-fr7", "Sony ILME-FR7", ["051E"], "Sony_ILME-FR7.html", True, ""),
     ("sony-brc-am7", "Sony BRC-AM7", ["051F"], "Sony_BRC-AM7.html", True, ""),
 ]
