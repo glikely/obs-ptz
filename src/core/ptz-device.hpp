@@ -455,6 +455,8 @@ protected slots:
 	virtual void memory_recall(int i) { Q_UNUSED(i); }
 	virtual void memory_reset(int i) { Q_UNUSED(i); }
 
+	/* ptz_get_api_version: see docs/ptz-device-api.md */
+	void get_api_version(calldata_t *cd) const;
 	/* The movement procs, each of which cancels a recall's report */
 	void stop(calldata_t *);
 	void pantilt_home(calldata_t *);
@@ -641,8 +643,6 @@ void ptz_module_frontend_event(enum obs_frontend_event event, void *);
 void ptz_proc_add(const char *scope, proc_handler_t *handler, const char *decl, proc_handler_proc_t proc, void *data,
 		  PTZProcThread thread = PTZ_THREAD_DEVICE, PTZProcAccess access = PTZ_ACCESS_CONTROL);
 void ptz_signal_add(const char *scope, signal_handler_t *handler, const char *decl);
-/* ptz_get_api_version, for a device's or a discovery instance's proc_handler */
-void ptz_get_api_version_proc(void *, calldata_t *cd);
-/* ptz_get_api_info, for either: `data` is "device" or "discovery", a string
+/* ptz_get_api_info, for a device's or a discovery instance's proc_handler: `data` is "device" or "discovery", a string
  * that outlives the handler */
 void ptz_get_api_info_proc(void *data, calldata_t *cd);

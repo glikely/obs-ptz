@@ -111,34 +111,47 @@ void PTZDevice::addSignal(const char *decl)
 	ptz_signal_add("device-signal", sigs, decl);
 }
 
-void ptz_get_api_version_proc(void *, calldata_t *cd)
+void PTZDevice::get_api_version(calldata_t *cd) const
 {
 	calldata_set_int(cd, "major", PTZ_API_VERSION_MAJOR);
 	calldata_set_int(cd, "minor", PTZ_API_VERSION_MINOR);
 }
 
+/* The device a proc is called on */
+static PTZDevice *ptz_proc_device(void *p)
+{
+	auto ptz = static_cast<PTZDevice *>(p);
+	if (!ptz)
+		blog(LOG_ERROR, "PTZ proc_handler called without PTZDevice pointer");
+	return ptz;
+}
+
 /**
- * Lambda factory macro for the PTZ proc_handler methods. This macro
- * simplifies the registration of PTZDevice methods as targets for
- * proc_handler calls.
+ * A PTZDevice method as a proc_handler target, for addProc():
+ * ptz_device_proc<&PTZDevice::stop>.
  *
- * In this current implementation, the proc_handler can be called from
- * any thread, and the calldata method must decode the arguments and use
- * invokeMethod to call the real target. invokeMethod will check if it
- * was called from the object's thread. If it wasn't, and if the method
- * doesn't return anything, then the call is queued on the correct
- * thread. For methods that do return data, they aren't handled yet and
- * will log an error when calling from a different thread.
+ * The proc_handler can be called from any thread, and the method must decode
+ * the arguments and use invokeMethod to call the real target. invokeMethod
+ * will check if it was called from the object's thread. If it wasn't, and if
+ * the method doesn't return anything, then the call is queued on the correct
+ * thread. For methods that do return data, they aren't handled yet and will
+ * log an error when calling from a different thread.
+ *
+ * Typed, one for a method and one for a const method, rather than `auto`, so
+ * that a method with an overload of the same name (a slot of its own, such as
+ * stop()) is the one that takes calldata.
  */
-#define ptz_ph_lambda(_method) [](void *p, calldata_t *cd) \
-	{ \
-		auto ptz = static_cast<PTZDevice *>(p); \
-		if (!ptz) { \
-			blog(LOG_ERROR, "PTZ proc_handler called without PTZDevice pointer"); \
-			return; \
-		} \
-		ptz->_method(cd); \
-	}
+template<void (PTZDevice::*Method)(calldata_t *)> void ptz_device_proc(void *p, calldata_t *cd)
+{
+	if (PTZDevice *ptz = ptz_proc_device(p))
+		(ptz->*Method)(cd);
+}
+
+template<void (PTZDevice::*Method)(calldata_t *) const> void ptz_device_proc(void *p, calldata_t *cd)
+{
+	if (PTZDevice *ptz = ptz_proc_device(p))
+		(ptz->*Method)(cd);
+}
 
 /* This module's devices, for its one frontend callback below (main thread only) */
 static PTZLifecycle &module_lifecycle()
@@ -188,8 +201,8 @@ PTZDevice::PTZDevice(OBSData config, obs_source_t *filter) : QObject()
 	}
 
 	/* The device's own version: see docs/ptz-device-api.md */
-	addProc("void ptz_get_api_version(out int major, out int minor)", ptz_get_api_version_proc, nullptr,
-		PTZ_THREAD_ANY, PTZ_ACCESS_READ);
+	addProc("void ptz_get_api_version(out int major, out int minor)", ptz_device_proc<&PTZDevice::get_api_version>,
+		this, PTZ_THREAD_ANY, PTZ_ACCESS_READ);
 	/* And what it has, for a caller that can't know: see ptz_get_api_info_proc() */
 	addProc("ptr ptz_get_api_info()", ptz_get_api_info_proc, const_cast<char *>("device"), PTZ_THREAD_ANY,
 		PTZ_ACCESS_READ);
@@ -198,39 +211,44 @@ PTZDevice::PTZDevice(OBSData config, obs_source_t *filter) : QObject()
 	 * tests/obs-integration/test_api_doc.py holds to what is registered
 	 * here. All these functions are prefixed with 'ptz_' so that they can
 	 * be added to an existing proc_handler with low risk of conflicts */
-	addProc("void ptz_stop()", ptz_ph_lambda(stop), this, PTZ_THREAD_ANY);
-	addProc("void ptz_home_recall()", ptz_ph_lambda(pantilt_home), this, PTZ_THREAD_ANY);
-	addProc("void ptz_home_save()", ptz_ph_lambda(pantilt_set_home), this, PTZ_THREAD_ANY);
-	addProc("void ptz_move(float pan, float tilt, float zoom, float focus)", ptz_ph_lambda(move), this,
+	addProc("void ptz_stop()", ptz_device_proc<&PTZDevice::stop>, this, PTZ_THREAD_ANY);
+	addProc("void ptz_home_recall()", ptz_device_proc<&PTZDevice::pantilt_home>, this, PTZ_THREAD_ANY);
+	addProc("void ptz_home_save()", ptz_device_proc<&PTZDevice::pantilt_set_home>, this, PTZ_THREAD_ANY);
+	addProc("void ptz_move(float pan, float tilt, float zoom, float focus)", ptz_device_proc<&PTZDevice::move>,
+		this, PTZ_THREAD_ANY);
+	addProc("void ptz_move_abs(float pan, float tilt, float zoom, float focus)",
+		ptz_device_proc<&PTZDevice::move_abs>, this, PTZ_THREAD_ANY);
+	addProc("void ptz_move_rel(float pan, float tilt)", ptz_device_proc<&PTZDevice::move_rel>, this,
 		PTZ_THREAD_ANY);
-	addProc("void ptz_move_abs(float pan, float tilt, float zoom, float focus)", ptz_ph_lambda(move_abs), this,
-		PTZ_THREAD_ANY);
-	addProc("void ptz_move_rel(float pan, float tilt)", ptz_ph_lambda(move_rel), this, PTZ_THREAD_ANY);
-	addProc("void ptz_preset_save(string id)", ptz_ph_lambda(preset_save), this, PTZ_THREAD_ANY);
-	addProc("void ptz_preset_recall(string id)", ptz_ph_lambda(preset_recall), this, PTZ_THREAD_ANY);
+	addProc("void ptz_preset_save(string id)", ptz_device_proc<&PTZDevice::preset_save>, this, PTZ_THREAD_ANY);
+	addProc("void ptz_preset_recall(string id)", ptz_device_proc<&PTZDevice::preset_recall>, this, PTZ_THREAD_ANY);
 	addProc("void ptz_preset_capture_thumbnail(string id, bool if_arrived)",
-		ptz_ph_lambda(preset_capture_thumbnail), this, PTZ_THREAD_ANY);
+		ptz_device_proc<&PTZDevice::preset_capture_thumbnail>, this, PTZ_THREAD_ANY);
 
-	addProc("ptr ptz_get_state(ptr state)", ptz_ph_lambda(get_state), this, PTZ_THREAD_ANY, PTZ_ACCESS_READ);
-	addProc("ptr ptz_get_statistics(ptr statistics)", ptz_ph_lambda(get_statistics), this, PTZ_THREAD_DEVICE,
+	addProc("ptr ptz_get_state(ptr state)", ptz_device_proc<&PTZDevice::get_state>, this, PTZ_THREAD_ANY,
 		PTZ_ACCESS_READ);
-	addProc("ptr ptz_get_parent_source()", ptz_ph_lambda(get_parent_source), this, PTZ_THREAD_ANY, PTZ_ACCESS_NONE);
+	addProc("ptr ptz_get_statistics(ptr statistics)", ptz_device_proc<&PTZDevice::get_statistics>, this,
+		PTZ_THREAD_DEVICE, PTZ_ACCESS_READ);
+	addProc("ptr ptz_get_parent_source()", ptz_device_proc<&PTZDevice::get_parent_source>, this, PTZ_THREAD_ANY,
+		PTZ_ACCESS_NONE);
 
-	addProc("void ptz_request_state(ptr state)", ptz_ph_lambda(request_state), this);
+	addProc("void ptz_request_state(ptr state)", ptz_device_proc<&PTZDevice::request_state>, this);
 
-	addProc("void ptz_trigger(string name)", ptz_ph_lambda(trigger), this, PTZ_THREAD_ANY);
+	addProc("void ptz_trigger(string name)", ptz_device_proc<&PTZDevice::trigger>, this, PTZ_THREAD_ANY);
 
-	addProc("void ptz_get_camera_report(out string report)", ptz_ph_lambda(get_camera_report), this,
+	addProc("void ptz_get_camera_report(out string report)", ptz_device_proc<&PTZDevice::get_camera_report>, this,
 		PTZ_THREAD_DEVICE, PTZ_ACCESS_READ);
 
-	addProc("ptr ptz_preset_get_list()", ptz_ph_lambda(preset_get_list), this, PTZ_THREAD_DEVICE, PTZ_ACCESS_READ);
+	addProc("ptr ptz_preset_get_list()", ptz_device_proc<&PTZDevice::preset_get_list>, this, PTZ_THREAD_DEVICE,
+		PTZ_ACCESS_READ);
 	addProc("void ptz_preset_get_thumbnail(string id, out string mime, out string data)",
-		ptz_ph_lambda(preset_get_thumbnail), this, PTZ_THREAD_DEVICE, PTZ_ACCESS_READ);
-	addProc("string ptz_preset_create(string name, string store)", ptz_ph_lambda(preset_create), this);
-	addProc("void ptz_preset_delete(string id)", ptz_ph_lambda(preset_delete), this);
-	addProc("void ptz_preset_update(string id, ptr changes)", ptz_ph_lambda(preset_update), this);
-	addProc("void ptz_preset_move(string id, int index)", ptz_ph_lambda(preset_move), this);
-	addProc("void ptz_preset_refresh()", ptz_ph_lambda(preset_refresh), this);
+		ptz_device_proc<&PTZDevice::preset_get_thumbnail>, this, PTZ_THREAD_DEVICE, PTZ_ACCESS_READ);
+	addProc("string ptz_preset_create(string name, string store)", ptz_device_proc<&PTZDevice::preset_create>,
+		this);
+	addProc("void ptz_preset_delete(string id)", ptz_device_proc<&PTZDevice::preset_delete>, this);
+	addProc("void ptz_preset_update(string id, ptr changes)", ptz_device_proc<&PTZDevice::preset_update>, this);
+	addProc("void ptz_preset_move(string id, int index)", ptz_device_proc<&PTZDevice::preset_move>, this);
+	addProc("void ptz_preset_refresh()", ptz_device_proc<&PTZDevice::preset_refresh>, this);
 
 	/* Signal handler for notifying state & settings changes. Shared with
 	 * the filter, same as handler above. */

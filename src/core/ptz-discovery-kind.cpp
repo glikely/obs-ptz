@@ -54,13 +54,19 @@ void PTZDiscoveryReporter::detach()
 	weak = nullptr;
 }
 
+/* The same version as a device's: see docs/ptz-device-api.md */
+static void ptz_discovery_get_api_version_proc(void *, calldata_t *cd)
+{
+	calldata_set_int(cd, "major", PTZ_API_VERSION_MAJOR);
+	calldata_set_int(cd, "minor", PTZ_API_VERSION_MINOR);
+}
+
 void ptz_discovery_add_api(obs_source_t *source, proc_handler_proc_t start, proc_handler_proc_t stop, void *data)
 {
 	proc_handler_t *ph = obs_source_get_proc_handler(source);
 	signal_handler_t *sh = obs_source_get_signal_handler(source);
-	/* The same version as a device's: see docs/ptz-device-api.md */
 	ptz_proc_add("discovery-proc", ph, "void ptz_get_api_version(out int major, out int minor)",
-		     ptz_get_api_version_proc, nullptr, PTZ_THREAD_ANY, PTZ_ACCESS_READ);
+		     ptz_discovery_get_api_version_proc, nullptr, PTZ_THREAD_ANY, PTZ_ACCESS_READ);
 	ptz_proc_add("discovery-proc", ph, "ptr ptz_get_api_info()", ptz_get_api_info_proc,
 		     const_cast<char *>("discovery"), PTZ_THREAD_ANY, PTZ_ACCESS_READ);
 	ptz_proc_add("discovery-proc", ph, "void ptz_discovery_start()", start, data, PTZ_THREAD_ANY);
