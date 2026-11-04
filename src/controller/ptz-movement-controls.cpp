@@ -71,6 +71,22 @@ PTZMovementControls::PTZMovementControls(QWidget *parent) : QWidget(parent), ui(
 
 	refreshTheme();
 
+	/* Each pan/tilt button moves the camera its own way while it is held */
+	const struct {
+		QAbstractButton *button;
+		double pan, tilt;
+	} panTiltButtons[] = {
+		{ui->panTiltButton_upleft, -1, 1}, {ui->panTiltButton_up, 0, 1},
+		{ui->panTiltButton_upright, 1, 1}, {ui->panTiltButton_left, -1, 0},
+		{ui->panTiltButton_right, 1, 0},   {ui->panTiltButton_downleft, -1, -1},
+		{ui->panTiltButton_down, 0, -1},   {ui->panTiltButton_downright, 1, -1},
+	};
+	for (const auto &b : panTiltButtons) {
+		connect(b.button, &QAbstractButton::pressed, this,
+			[this, pan = b.pan, tilt = b.tilt] { keypressPanTilt(pan, tilt); });
+		connect(b.button, &QAbstractButton::released, this, [this] { keypressPanTilt(0, 0); });
+	}
+
 	connect(&accel_timer, &QTimer::timeout, this, &PTZMovementControls::accelTimerHandler);
 	connect(ui->panTiltTouch, &TouchControl::positionChanged, [this](double p, double t) { setPanTilt(p, t); });
 
@@ -384,33 +400,11 @@ void PTZMovementControls::setFocus(double focus)
 	callDevice("ptz_move", "focus", focus * speed);
 }
 
-/* The pan/tilt buttons are a large block of simple and mostly identical code.
- * Use C preprocessor macro to create all the duplicate functions */
-#define button_pantilt_actions(direction, x, y)                     \
-	void PTZMovementControls::on_panTiltButton_##direction##_pressed()  \
-	{                                                           \
-		keypressPanTilt(x, y);                              \
-	}                                                           \
-	void PTZMovementControls::on_panTiltButton_##direction##_released() \
-	{                                                           \
-		keypressPanTilt(0, 0);                              \
-	}
-
-button_pantilt_actions(up, 0, 1);
-button_pantilt_actions(upleft, -1, 1);
-button_pantilt_actions(upright, 1, 1);
-button_pantilt_actions(left, -1, 0);
-button_pantilt_actions(right, 1, 0);
-button_pantilt_actions(down, 0, -1);
-button_pantilt_actions(downleft, -1, -1);
-button_pantilt_actions(downright, 1, -1);
-
 void PTZMovementControls::on_panTiltButton_home_released()
 {
 	callDevice("ptz_home_recall");
 }
 
-/* There are fewer buttons for zoom or focus; so don't bother with macros */
 void PTZMovementControls::on_zoomButton_tele_pressed()
 {
 	setZoom(1);
