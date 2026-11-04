@@ -204,7 +204,9 @@ protected:
 	/* The slot each request in flight has taken, by request, which no other may have until
 	 * the preset is in the list */
 	QHash<QString, QString> m_creatingSlot;
-	QString newCreateRequest();
+	static QString newCreateRequest();
+	/* Starts making the preset that `request` asks for: false if it is refused at once */
+	bool startCreate(const QString &request, const QString &name, const QString &store);
 	void finishCreate(const QString &request, const QString &id);
 	/* The display order, as ids: apart from m_presets, which has no order of its
 	 * own. It can name a preset the camera has yet to say it has. */
@@ -240,6 +242,12 @@ protected:
 	 * its own and shares no obs_data_t with the device or with another reader. */
 	mutable QMutex m_stateSnapshotMutex;
 	std::string m_stateSnapshot;
+	/* Likewise the preset list as it was last announced, for ptz_preset_get_list
+	 * and the procs that read it from another thread */
+	mutable QMutex m_presetSnapshotMutex;
+	std::string m_presetSnapshot;
+	void savePresetList(obs_data_t *info) const;
+	obs_data_t *presetSnapshot() const;
 	QSet<QString> stale_state;
 	void incrementStatistic(const char *name, int amount = 1);
 
@@ -569,6 +577,10 @@ public:
 	 * what it said or newer, and when the device is made. The device's thread
 	 * only, as saveState() is. */
 	void refreshStateSnapshot();
+	/* Makes the copy of the preset list that ptz_preset_get_list gives to a
+	 * caller on another thread: before each preset signal, when the device is
+	 * made, and when what it has changes without one. The device's thread only. */
+	void refreshPresetSnapshot();
 	/* Fills an OBSData with the device's statistics, see ptz_get_statistics.
 	 * A driver that has rates works them out here, from what it has
 	 * counted since the last time. */

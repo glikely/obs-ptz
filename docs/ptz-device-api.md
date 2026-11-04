@@ -195,15 +195,25 @@ if (source) {
 
 ### Rules for calling
 
-- **Threads.** A proc that moves the camera or recalls a preset can be called
-  from any thread: it queues the work for the device's own thread, which is the
-  one OBS made the device on (the Qt main thread).
-  So can `ptz_get_state`, which gives a copy of the state that the device
-  makes as it announces it.
-  A proc that reads or changes the device's other data, or returns something,
-  must be called from that thread.
-  From another it logs an error and does nothing.
-  Each proc below says which it is.
+- **Threads.** A command, a proc that moves the camera, asks for state or
+  makes, changes or recalls a preset, can be called from any thread: it queues
+  the work for the device's own thread, which is the one OBS made the device on
+  (the Qt main thread), and returns.
+  Its result is the signal it says it announces.
+  The commands one thread calls are done in the order it called them, so a
+  delete called after a move is not done before it.
+  What a caller passes in, as the `state` of `ptz_request_state`, is copied
+  before the proc returns, and the caller may change or release it then.
+  `ptz_get_state` and `ptz_preset_get_list` can be called from any thread too:
+  on another than the device's they give a copy that the device makes before
+  it raises the matching signal, so it is never older than a signal the caller
+  has heard.
+  Only `ptz_get_statistics` and `ptz_get_camera_report`, which are for
+  diagnostics, must be called from the device's own thread.
+  From another they log an error and do nothing.
+  Each proc below says which it is, and `ptz_get_api_info` says it of each
+  proc as its `thread`, for a caller that has to know what a device that
+  isn't this plugin's lets it do.
 - **Signals can come from any thread.** A device may fire its signals, and a
   discovery instance its own, from whichever thread it does the work on, so a
   listener must not assume a thread. One that touches something tied to a
@@ -283,7 +293,10 @@ A proc that gives nothing back answers with nothing, `{}`.
 
 A client need not think about threads.
 A proc that is "Device thread" is run on OBS's main thread and waited for, for
-up to five seconds, and one that is "Any thread" is run at once.
+up to five seconds, and one that is "Any thread" is run at once, on
+obs-websocket's own thread: so only `ptz_get_statistics` and
+`ptz_get_camera_report` of a device's procs can be answered with `timeout`.
+The binding decides by the `thread` that `ptz_get_api_info` gives for each.
 Requests may be made at the same time, on one connection or on several, and
 each is answered when it is done: two that are sent one after the other are
 not always answered in that order.
@@ -685,8 +698,9 @@ Access: none.
 Asks the device to change some of its state, which is never saved: the keys in
 the `state` object the caller owns that the device acts on.
 Reads `state` (ptr, required).
-The state then changes when the camera reports it has, and not before.
-Device thread.
+The state then changes when the camera reports it has, and not before, and
+`ptz_state_changed` says so.
+Any thread.
 
 ### `void ptz_trigger(string name)`
 
@@ -724,7 +738,14 @@ Returns, as `return`, an `obs_data_t *` that the caller releases with
 - `value_keys` (object): what a local preset captures and a recall applies,
   each `true`.
 
-Device thread.
+Any thread.
+On the device's own thread that is the list as it is.
+On another it is the copy made when the list last changed, which the device
+makes before it raises `ptz_preset_added`, `ptz_preset_removed`,
+`ptz_preset_changed`, `ptz_preset_order_changed` or `ptz_preset_list_reset`,
+so it is never older than a signal the caller has heard, and can be a moment
+behind a change that has not been announced yet.
+The caller's object shares nothing with the device or with another caller.
 Access: read.
 
 ### `void ptz_preset_save(string id)`
@@ -760,7 +781,8 @@ Both are "" if the preset has no thumbnail, the device hasn't the preset, or
 `id` is left out.
 A thumbnail is small, a few kilobytes, and a caller asks for it again when
 `ptz_preset_changed` says `thumbnail` changed.
-Device thread.
+Any thread.
+It reads the file that `ptz_preset_get_list` names on the same thread.
 Access: read.
 
 ### `void ptz_preset_capture_thumbnail(string id, bool if_arrived)`
@@ -784,6 +806,9 @@ Any thread.
 Asks for a preset to be made in `store` from the current position, and returns the
 request as `return`, or "" if the device refuses at once: the store is not one the
 device has, or it knows it has no room for another.
+Called from a thread other than the device's, it refuses at once only a store
+that `stores` in `ptz_preset_get_list` doesn't have, and a camera with no room
+is said by `ptz_preset_create_done`, with no `id`.
 It does not wait for the camera, which may take a while to say it made the
 preset: how the request went is the `ptz_preset_create_done` signal's to say,
 which comes after this has returned, whatever the store.
@@ -794,7 +819,11 @@ the signal: the list has no count of how many a camera keeps.
 Reads `name` (string, optional) and `store` (string, required).
 The `name` is the user's, and "" or left out for none.
 Left out, `store` is no store the device has, and the request is refused.
-Device thread.
+Any thread.
+From another than the device's, the request is queued once it has been made,
+and the signal comes from the device's thread, so it can come before this
+returns only if the calling thread is held up between the two: a caller that
+must not miss it keeps what it hears until it has the request.
 
 ### `void ptz_preset_delete(string id)`
 
@@ -802,7 +831,7 @@ Removes the preset `id`: clears its slot on the camera, or drops its record,
 and its thumbnail.
 Reads `id` (string, required).
 Announces `ptz_preset_removed`.
-Device thread.
+Any thread.
 
 ### `void ptz_preset_update(string id, ptr changes)`
 
@@ -818,7 +847,8 @@ each optional:
   A local preset only.
 
 Announces `ptz_preset_changed`.
-Device thread.
+Any thread.
+`changes` is copied before this returns.
 
 ### `void ptz_preset_move(string id, int index)`
 
@@ -827,13 +857,13 @@ as it is once it has been taken out of its old place.
 Reads `id` (string, required) and `index` (int, required).
 Left out, `index` is taken as 0.
 Announces `ptz_preset_order_changed`.
-Device thread.
+Any thread.
 
 ### `void ptz_preset_refresh()`
 
 Asks the camera for its presets again.
 Announces `ptz_preset_list_reset` once it has them.
-Device thread.
+Any thread.
 
 ## Per-device signal_handler
 

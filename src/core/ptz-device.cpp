@@ -134,12 +134,13 @@ static PTZDevice *ptz_proc_device(void *p)
  * A PTZDevice method as a proc_handler target, for addProc():
  * ptz_device_proc<&PTZDevice::stop>.
  *
- * The proc_handler can be called from any thread, and the method must decode
- * the arguments and use invokeMethod to call the real target. invokeMethod
- * will check if it was called from the object's thread. If it wasn't, and if
- * the method doesn't return anything, then the call is queued on the correct
- * thread. For methods that do return data, they aren't handled yet and will
- * log an error when calling from a different thread.
+ * The proc_handler can be called from any thread. A method registered as
+ * PTZ_THREAD_ANY decodes the arguments, copies what the caller owns, and uses
+ * invokeMethod to call the real target: run at once on the device's thread,
+ * and queued for it from any other, in the order one caller asked. One that
+ * returns something answers from what is safe to read on any thread, such as
+ * a snapshot. One registered as PTZ_THREAD_DEVICE logs an error and does
+ * nothing when called from another thread (see wrongThread()).
  *
  * Typed, one for a method and one for a const method, rather than `auto`, so
  * that a method with an overload of the same name (a slot of its own, such as
@@ -236,23 +237,25 @@ PTZDevice::PTZDevice(OBSData config, obs_source_t *filter) : QObject()
 	addProc("ptr ptz_get_parent_source()", ptz_device_proc<&PTZDevice::get_parent_source>, this, PTZ_THREAD_ANY,
 		PTZ_ACCESS_NONE);
 
-	addProc("void ptz_request_state(ptr state)", ptz_device_proc<&PTZDevice::request_state>, this);
+	addProc("void ptz_request_state(ptr state)", ptz_device_proc<&PTZDevice::request_state>, this, PTZ_THREAD_ANY);
 
 	addProc("void ptz_trigger(string name)", ptz_device_proc<&PTZDevice::trigger>, this, PTZ_THREAD_ANY);
 
 	addProc("void ptz_get_camera_report(out string report)", ptz_device_proc<&PTZDevice::get_camera_report>, this,
 		PTZ_THREAD_DEVICE, PTZ_ACCESS_READ);
 
-	addProc("ptr ptz_preset_get_list()", ptz_device_proc<&PTZDevice::preset_get_list>, this, PTZ_THREAD_DEVICE,
+	addProc("ptr ptz_preset_get_list()", ptz_device_proc<&PTZDevice::preset_get_list>, this, PTZ_THREAD_ANY,
 		PTZ_ACCESS_READ);
 	addProc("void ptz_preset_get_thumbnail(string id, out string mime, out string data)",
-		ptz_device_proc<&PTZDevice::preset_get_thumbnail>, this, PTZ_THREAD_DEVICE, PTZ_ACCESS_READ);
-	addProc("string ptz_preset_create(string name, string store)", ptz_device_proc<&PTZDevice::preset_create>,
-		this);
-	addProc("void ptz_preset_delete(string id)", ptz_device_proc<&PTZDevice::preset_delete>, this);
-	addProc("void ptz_preset_update(string id, ptr changes)", ptz_device_proc<&PTZDevice::preset_update>, this);
-	addProc("void ptz_preset_move(string id, int index)", ptz_device_proc<&PTZDevice::preset_move>, this);
-	addProc("void ptz_preset_refresh()", ptz_device_proc<&PTZDevice::preset_refresh>, this);
+		ptz_device_proc<&PTZDevice::preset_get_thumbnail>, this, PTZ_THREAD_ANY, PTZ_ACCESS_READ);
+	addProc("string ptz_preset_create(string name, string store)", ptz_device_proc<&PTZDevice::preset_create>, this,
+		PTZ_THREAD_ANY);
+	addProc("void ptz_preset_delete(string id)", ptz_device_proc<&PTZDevice::preset_delete>, this, PTZ_THREAD_ANY);
+	addProc("void ptz_preset_update(string id, ptr changes)", ptz_device_proc<&PTZDevice::preset_update>, this,
+		PTZ_THREAD_ANY);
+	addProc("void ptz_preset_move(string id, int index)", ptz_device_proc<&PTZDevice::preset_move>, this,
+		PTZ_THREAD_ANY);
+	addProc("void ptz_preset_refresh()", ptz_device_proc<&PTZDevice::preset_refresh>, this, PTZ_THREAD_ANY);
 
 	/* Signal handler for notifying state & settings changes. Shared with
 	 * the filter, same as handler above. */
@@ -694,6 +697,8 @@ void PTZDevice::featuresChanged()
 	if (now == reportedFeatures)
 		return;
 	reportedFeatures = now;
+	/* The stores the list says it has follow from what the device can do */
+	refreshPresetSnapshot();
 	saveFeatures(stateChanged, now);
 	notifyStateChanged();
 	/* A camera found to have lamps is lit for what its source is in */
@@ -776,17 +781,27 @@ bool PTZDevice::setAxisScale(const char *name, const char *unit, const std::vect
 	return true;
 }
 
+/* A copy of what a caller owns, for the device's thread to have once the proc
+ * has returned: by its JSON, so that it shares no nested object with the
+ * caller's, which the caller may change or release */
+static OBSData ptz_data_copy(obs_data_t *data)
+{
+	OBSDataAutoRelease copy = obs_data_create_from_json(obs_data_get_json(data));
+	return OBSData(copy ? copy.Get() : nullptr);
+}
+
 /**
  * Asks for the values in the caller's "state" object, passed to
  * requestState(); only the keys present are acted on.
  */
 void PTZDevice::request_state(calldata_t *cd)
 {
-	if (wrongThread("ptz_request_state"))
-		return;
 	auto requested = static_cast<obs_data_t *>(calldata_ptr(cd, "state"));
-	if (requested)
-		requestState(OBSData(requested));
+	if (!requested)
+		return;
+	OBSData copy = ptz_data_copy(requested);
+	if (copy)
+		QMetaObject::invokeMethod(this, [this, copy] { requestState(copy); });
 }
 
 void PTZDevice::preset_save(calldata_t *cd)
@@ -911,16 +926,10 @@ void PTZDevice::get_parent_source(calldata_t *cd) const
 	calldata_set_ptr(cd, "return", parentSource());
 }
 
-/**
- * Returns, as "return", a caller-owned obs_data_t that describes the presets:
- * them in display order, and what stores and capabilities the device has. See
- * docs/ptz-device-api.md.
- */
-void PTZDevice::preset_get_list(calldata_t *cd) const
+/* Fills `info` with what describes the presets: them in display order, and
+ * what stores and capabilities the device has. See docs/ptz-device-api.md. */
+void PTZDevice::savePresetList(obs_data_t *info) const
 {
-	if (wrongThread("ptz_preset_get_list"))
-		return;
-	obs_data_t *info = obs_data_create();
 	obs_data_t *list = obs_data_create();
 	for (const Preset &preset : m_presets) {
 		obs_data_t *item = obs_data_create();
@@ -966,6 +975,45 @@ void PTZDevice::preset_get_list(calldata_t *cd) const
 	obs_data_release(values);
 	obs_data_set_bool(info, "names_on_camera", camera.namesOnCamera);
 	obs_data_set_bool(info, "enumerable", camera.enumerable);
+}
+
+void PTZDevice::refreshPresetSnapshot()
+{
+	OBSDataAutoRelease info = obs_data_create();
+	savePresetList(info);
+	std::string json = obs_data_get_json(info);
+	QMutexLocker locker(&m_presetSnapshotMutex);
+	m_presetSnapshot = std::move(json);
+}
+
+/* A new obs_data_t of the preset list as it was last announced, which is its
+ * own and shares nothing with the device or with another caller */
+obs_data_t *PTZDevice::presetSnapshot() const
+{
+	std::string json;
+	{
+		QMutexLocker locker(&m_presetSnapshotMutex);
+		json = m_presetSnapshot;
+	}
+	obs_data_t *info = json.empty() ? nullptr : obs_data_create_from_json(json.c_str());
+	return info ? info : obs_data_create();
+}
+
+/**
+ * Returns, as "return", a caller-owned obs_data_t that describes the presets
+ * (see savePresetList()). On the device's own thread that is the list itself.
+ * On any other, which must not touch it, it is the copy made before the last
+ * preset signal, which is as new as anything a listener has been told.
+ */
+void PTZDevice::preset_get_list(calldata_t *cd) const
+{
+	obs_data_t *info;
+	if (QThread::currentThread() == thread()) {
+		info = obs_data_create();
+		savePresetList(info);
+	} else {
+		info = presetSnapshot();
+	}
 	calldata_set_ptr(cd, "return", info);
 }
 
@@ -973,18 +1021,28 @@ void PTZDevice::preset_get_list(calldata_t *cd) const
  * Returns the image of a preset's thumbnail, for a caller that can't read the
  * file the list names: its type as "mime" and the file, base64 encoded, as
  * "data". Both are "" for a preset with no thumbnail or none that can be read.
+ * The file is the one the list names, as ptz_preset_get_list() gives it on the
+ * calling thread, so this needs the device's thread no more than that does.
  */
 void PTZDevice::preset_get_thumbnail(calldata_t *cd) const
 {
-	if (wrongThread("ptz_preset_get_thumbnail"))
-		return;
 	const char *id = nullptr;
 	calldata_get_string(cd, "id", &id);
+	QString path;
+	if (id && QThread::currentThread() == thread()) {
+		int index = presetIndex(QString::fromUtf8(id));
+		if (index >= 0)
+			path = ptz_thumbnail_path(m_presets.at(index).thumbnail);
+	} else if (id) {
+		OBSDataAutoRelease info = presetSnapshot();
+		OBSDataAutoRelease presets = obs_data_get_obj(info, "presets");
+		OBSDataAutoRelease preset = presets ? obs_data_get_obj(presets, id) : nullptr;
+		if (preset)
+			path = QString::fromUtf8(obs_data_get_string(preset, "thumbnail"));
+	}
 	QString mime;
 	QByteArray data;
-	int index = id ? presetIndex(QString::fromUtf8(id)) : -1;
-	if (index >= 0 && !m_presets.at(index).thumbnail.isEmpty()) {
-		QString path = ptz_thumbnail_path(m_presets.at(index).thumbnail);
+	if (!path.isEmpty()) {
 		QFile file(path);
 		if (file.open(QIODevice::ReadOnly)) {
 			data = file.readAll().toBase64();
@@ -995,51 +1053,74 @@ void PTZDevice::preset_get_thumbnail(calldata_t *cd) const
 	calldata_set_string(cd, "data", data.constData());
 }
 
+/* On the device's thread a request is refused at once for all that
+ * createPreset() refuses. On another, which can't ask the device, only for a
+ * store the list last announced doesn't have: the request is queued once it is
+ * made, and anything else that refuses it is said by ptz_preset_create_done,
+ * from the device's thread, which can't run it before the request is made. */
 void PTZDevice::preset_create(calldata_t *cd)
 {
-	if (wrongThread("ptz_preset_create"))
-		return;
 	const char *name = "";
 	const char *store = "";
 	calldata_get_string(cd, "name", &name);
 	calldata_get_string(cd, "store", &store);
-	QString request = createPreset(QString::fromUtf8(name ? name : ""), QString::fromUtf8(store ? store : ""));
+	QString presetName = QString::fromUtf8(name ? name : "");
+	QString presetStore = QString::fromUtf8(store ? store : "");
+	if (QThread::currentThread() == thread()) {
+		calldata_set_string(cd, "return", QT_TO_UTF8(createPreset(presetName, presetStore)));
+		return;
+	}
+	OBSDataAutoRelease info = presetSnapshot();
+	OBSDataAutoRelease stores = obs_data_get_obj(info, "stores");
+	if (presetStore.isEmpty() || !stores || !obs_data_get_bool(stores, QT_TO_UTF8(presetStore))) {
+		calldata_set_string(cd, "return", "");
+		return;
+	}
+	QString request = newCreateRequest();
+	QMetaObject::invokeMethod(
+		this,
+		[this, request, presetName, presetStore] {
+			if (!startCreate(request, presetName, presetStore))
+				finishCreate(request, QString());
+		},
+		Qt::QueuedConnection);
 	calldata_set_string(cd, "return", QT_TO_UTF8(request));
 }
 
 void PTZDevice::preset_delete(calldata_t *cd)
 {
-	if (wrongThread("ptz_preset_delete"))
-		return;
 	const char *id = nullptr;
-	if (calldata_get_string(cd, "id", &id) && id)
-		deletePreset(QString::fromUtf8(id));
+	if (calldata_get_string(cd, "id", &id) && id) {
+		QString preset = QString::fromUtf8(id);
+		QMetaObject::invokeMethod(this, [this, preset] { deletePreset(preset); });
+	}
 }
 
 void PTZDevice::preset_update(calldata_t *cd)
 {
-	if (wrongThread("ptz_preset_update"))
-		return;
 	const char *id = nullptr;
 	auto changes = static_cast<obs_data_t *>(calldata_ptr(cd, "changes"));
-	if (calldata_get_string(cd, "id", &id) && id && changes)
-		updatePreset(QString::fromUtf8(id), changes);
+	if (!calldata_get_string(cd, "id", &id) || !id || !changes)
+		return;
+	QString preset = QString::fromUtf8(id);
+	OBSData copy = ptz_data_copy(changes);
+	if (copy)
+		QMetaObject::invokeMethod(this, [this, preset, copy] { updatePreset(preset, copy); });
 }
 
 void PTZDevice::preset_move(calldata_t *cd)
 {
-	if (wrongThread("ptz_preset_move"))
-		return;
 	const char *id = nullptr;
-	if (calldata_get_string(cd, "id", &id) && id)
-		movePreset(QString::fromUtf8(id), (int)calldata_int(cd, "index"));
+	if (calldata_get_string(cd, "id", &id) && id) {
+		QString preset = QString::fromUtf8(id);
+		int index = (int)calldata_int(cd, "index");
+		QMetaObject::invokeMethod(this, [this, preset, index] { movePreset(preset, index); });
+	}
 }
 
 void PTZDevice::preset_refresh(calldata_t *)
 {
-	if (wrongThread("ptz_preset_refresh"))
-		return;
-	cameraPresetRefresh();
+	QMetaObject::invokeMethod(this, [this] { cameraPresetRefresh(); });
 }
 
 void PTZDevice::defaults(obs_data_t *config)
@@ -1100,6 +1181,7 @@ void PTZDevice::update(OBSData config)
 	OBSDataArrayAutoRelease preset_array = obs_data_get_array(config, "presets");
 	OBSDataArrayAutoRelease order_array = obs_data_get_array(config, "preset_order");
 	loadPresets(preset_array, order_array);
+	refreshPresetSnapshot();
 
 	bool was_tally_auto = tally_auto;
 	tally_auto = obs_data_get_bool(config, "tally_auto");
@@ -1308,8 +1390,10 @@ void PTZFilter::buildDevice()
 		OBSDataAutoRelease settings = obs_source_get_settings(m_filter);
 		PTZDevice *ptz = m_make(settings.Get());
 		/* So that there is state to give to another thread from the first */
-		if (ptz)
+		if (ptz) {
 			ptz->refreshStateSnapshot();
+			ptz->refreshPresetSnapshot();
+		}
 		m_device = ptz;
 	};
 	/* Creating the device must happen on the main thread */
@@ -1610,6 +1694,7 @@ void PTZDevice::reconcileOrder()
 
 void PTZDevice::signalOrderChanged()
 {
+	refreshPresetSnapshot();
 	calldata_t cd = {};
 	signalDevice("ptz_preset_order_changed", &cd);
 	calldata_free(&cd);
@@ -1638,13 +1723,17 @@ void PTZDevice::setCameraPresets(const QList<QPair<QString, QString>> &presets)
 		if (presetIndex(old.id) < 0)
 			ptz_thumbnail_remove(old.thumbnail);
 	persist();
+	refreshPresetSnapshot();
 	calldata_t cd = {};
 	signalDevice("ptz_preset_list_reset", &cd);
 	calldata_free(&cd);
 }
 
+/* Each of the preset signals takes a copy of the list first, so that a listener
+ * on another thread that reads it on hearing one gets what it said, or newer */
 void PTZDevice::signalPreset(const char *name, const QString &id)
 {
+	refreshPresetSnapshot();
 	calldata_t cd = {};
 	calldata_set_string(&cd, "id", QT_TO_UTF8(id));
 	signalDevice(name, &cd);
@@ -1653,6 +1742,7 @@ void PTZDevice::signalPreset(const char *name, const QString &id)
 
 void PTZDevice::signalPresetChanged(const QString &id, obs_data_t *changed)
 {
+	refreshPresetSnapshot();
 	calldata_t cd = {};
 	calldata_set_string(&cd, "id", QT_TO_UTF8(id));
 	calldata_set_ptr(&cd, "changed", changed);
@@ -1824,7 +1914,8 @@ void PTZDevice::pairPanTilt(obs_data_t *positions)
 	}
 }
 
-/* Not the same for two devices, since the listeners of several may be told apart by it alone */
+/* Not the same for two devices, since the listeners of several may be told
+ * apart by it alone. Any thread: it asks nothing of the device. */
 QString PTZDevice::newCreateRequest()
 {
 	return QStringLiteral("create-") + QUuid::createUuid().toString(QUuid::Id128).left(8);
@@ -1845,10 +1936,15 @@ void PTZDevice::finishCreate(const QString &request, const QString &id)
 
 QString PTZDevice::createPreset(const QString &name, const QString &store)
 {
+	QString request = newCreateRequest();
+	return startCreate(request, name, store) ? request : QString();
+}
+
+bool PTZDevice::startCreate(const QString &request, const QString &name, const QString &store)
+{
 	if (store == QStringLiteral("local")) {
 		if (!localPresets())
-			return QString();
-		QString request = newCreateRequest();
+			return false;
 		Preset preset;
 		preset.id = presetId(QStringLiteral("local"), QUuid::createUuid().toString(QUuid::Id128).left(8));
 		preset.name = name;
@@ -1861,19 +1957,18 @@ QString PTZDevice::createPreset(const QString &name, const QString &store)
 		m_creating.insert(request, name);
 		QMetaObject::invokeMethod(
 			this, [this, request, id = preset.id] { finishCreate(request, id); }, Qt::QueuedConnection);
-		return request;
+		return true;
 	}
 	if (store != QStringLiteral("camera"))
-		return QString();
+		return false;
 	if (!cameraPresets().available)
-		return QString();
-	QString request = newCreateRequest();
+		return false;
 	m_creating.insert(request, name);
 	if (!cameraPresetCreate(request, name)) {
 		m_creating.remove(request);
-		return QString();
+		return false;
 	}
-	return request;
+	return true;
 }
 
 /* What a driver says when the camera has made the preset, or has not */

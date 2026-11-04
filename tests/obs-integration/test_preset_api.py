@@ -255,7 +255,11 @@ def test_requests_made_together_are_made_in_different_slots(obs_world, made):
     assert len(set(made_ids)) == 3
 
 
-def test_a_request_the_device_refuses_at_once_gets_no_request_and_no_signal(obs_world, made):
+def test_a_request_the_device_refuses_gets_no_preset(obs_world, made):
+    """A store the device hasn't is refused at once, from any thread. A camera
+    with no room is too on the device's own thread; from obs-websocket's, which
+    can't ask the device, the request is made, and ptz_preset_create_done says it
+    made nothing"""
     device = obs_world.device_names["visca-tcp"]
     presets = made("visca-tcp")
     for n in range(16):
@@ -267,11 +271,13 @@ def test_a_request_the_device_refuses_at_once_gets_no_request_and_no_signal(obs_
     unknown = obs_world.call_proc(device, "ptz_preset_create", {"name": "Nowhere", "store": "cloud"},
                                   returns="string")
 
-    assert result["return"] == "" and unknown["return"] == ""
+    assert unknown["return"] == ""
     time.sleep(1)
     # (the thumbnails of the presets made above may still be arriving, which is not it)
     events = obs_world.preset_signals(with_create_done=True)
-    assert [e for e in events if e["signal"] in ("ptz_preset_added", "ptz_preset_create_done")] == []
+    assert [e for e in events if e["signal"] == "ptz_preset_added"] == []
+    done = [(e["request"], e["id"]) for e in events if e["signal"] == "ptz_preset_create_done"]
+    assert result["return"] and done == [(result["return"], "")]
 
 
 def test_an_onvif_camera_preset_has_its_token_in_its_id(obs_world, made):
