@@ -21,6 +21,7 @@ target_sources(
     appearance-row-sizing-test.cpp
     device-lifecycle-test.cpp
     device-settings-test.cpp
+    device-thread-procs-test.cpp
     discovery-test.cpp
     third-party-device-test.cpp
     vendor-event-test.cpp

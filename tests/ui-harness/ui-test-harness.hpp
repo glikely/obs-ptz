@@ -88,5 +88,6 @@ void registerAppearanceRowSizingTest(PTZUITestHarness *harness);
 void registerDeviceLifecycleTest(PTZUITestHarness *harness);
 void registerDeviceSettingsTest(PTZUITestHarness *harness);
 void registerDiscoveryTest(PTZUITestHarness *harness);
+void registerDeviceThreadProcsTest(PTZUITestHarness *harness);
 void registerThirdPartyDeviceTest(PTZUITestHarness *harness);
 void registerVendorEventTest(PTZUITestHarness *harness);
