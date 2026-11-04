@@ -34,20 +34,19 @@
  * instance exists to be asked, and only read from then on. */
 struct PTZApiEntry {
 	QByteArray decl;
-	PTZProcThread thread;
 	PTZProcAccess access;
 };
 static QMutex ptz_api_mutex;
 static QMap<QByteArray, QList<PTZApiEntry>> ptz_api_recorded;
 
-static void ptz_api_record(const char *scope, const char *decl, PTZProcThread thread, PTZProcAccess access)
+static void ptz_api_record(const char *scope, const char *decl, PTZProcAccess access)
 {
 	QMutexLocker locker(&ptz_api_mutex);
 	QList<PTZApiEntry> &entries = ptz_api_recorded[scope];
 	for (const PTZApiEntry &entry : entries)
 		if (entry.decl == decl)
 			return;
-	entries.append({decl, thread, access});
+	entries.append({decl, access});
 }
 
 /* The name in a declaration, "void ptz_stop()": what is before the bracket */
@@ -68,7 +67,10 @@ void ptz_get_api_info_proc(void *data, calldata_t *cd)
 		OBSDataAutoRelease item = obs_data_create();
 		obs_data_set_string(item, "name", ptz_api_decl_name(entry.decl).constData());
 		obs_data_set_string(item, "decl", entry.decl.constData());
-		obs_data_set_string(item, "thread", entry.thread == PTZ_THREAD_ANY ? "any" : "device");
+		/* Every proc may be called from any thread. Still said, for a caller
+		 * written when some had to be called on the device's: see "Threads"
+		 * in docs/ptz-device-api.md */
+		obs_data_set_string(item, "thread", "any");
 		obs_data_set_string(item, "access",
 				    entry.access == PTZ_ACCESS_READ   ? "read"
 				    : entry.access == PTZ_ACCESS_NONE ? "none"
@@ -88,22 +90,21 @@ void ptz_get_api_info_proc(void *data, calldata_t *cd)
 }
 
 void ptz_proc_add(const char *scope, proc_handler_t *handler, const char *decl, proc_handler_proc_t proc, void *data,
-		  PTZProcThread thread, PTZProcAccess access)
+		  PTZProcAccess access)
 {
-	ptz_api_record(scope, decl, thread, access);
+	ptz_api_record(scope, decl, access);
 	proc_handler_add(handler, decl, proc, data);
 }
 
 void ptz_signal_add(const char *scope, signal_handler_t *handler, const char *decl)
 {
-	ptz_api_record(scope, decl, PTZ_THREAD_DEVICE, PTZ_ACCESS_NONE);
+	ptz_api_record(scope, decl, PTZ_ACCESS_NONE);
 	signal_handler_add(handler, decl);
 }
 
-void PTZDevice::addProc(const char *decl, proc_handler_proc_t proc, void *data, PTZProcThread thread,
-			PTZProcAccess access)
+void PTZDevice::addProc(const char *decl, proc_handler_proc_t proc, void *data, PTZProcAccess access)
 {
-	ptz_proc_add("device-proc", handler, decl, proc, data, thread, access);
+	ptz_proc_add("device-proc", handler, decl, proc, data, access);
 }
 
 void PTZDevice::addSignal(const char *decl)
@@ -134,13 +135,12 @@ static PTZDevice *ptz_proc_device(void *p)
  * A PTZDevice method as a proc_handler target, for addProc():
  * ptz_device_proc<&PTZDevice::stop>.
  *
- * The proc_handler can be called from any thread. A method registered as
- * PTZ_THREAD_ANY decodes the arguments, copies what the caller owns, and uses
+ * The proc_handler can be called from any thread, and so can every method. A
+ * command decodes the arguments, copies what the caller owns, and uses
  * invokeMethod to call the real target: run at once on the device's thread,
  * and queued for it from any other, in the order one caller asked. One that
- * returns something answers from what is safe to read on any thread, such as
- * a snapshot. One registered as PTZ_THREAD_DEVICE logs an error and does
- * nothing when called from another thread (see wrongThread()).
+ * returns something answers from what is safe to read on any thread: a
+ * snapshot, or what a lock guards. None waits for another thread.
  *
  * Typed, one for a method and one for a const method, rather than `auto`, so
  * that a method with an overload of the same name (a slot of its own, such as
@@ -207,55 +207,48 @@ PTZDevice::PTZDevice(OBSData config, obs_source_t *filter) : QObject()
 
 	/* The device's own version: see docs/ptz-device-api.md */
 	addProc("void ptz_get_api_version(out int major, out int minor)", ptz_device_proc<&PTZDevice::get_api_version>,
-		this, PTZ_THREAD_ANY, PTZ_ACCESS_READ);
+		this, PTZ_ACCESS_READ);
 	/* And what it has, for a caller that can't know: see ptz_get_api_info_proc() */
-	addProc("ptr ptz_get_api_info()", ptz_get_api_info_proc, const_cast<char *>("device"), PTZ_THREAD_ANY,
-		PTZ_ACCESS_READ);
+	addProc("ptr ptz_get_api_info()", ptz_get_api_info_proc, const_cast<char *>("device"), PTZ_ACCESS_READ);
 
 	/* The PTZ Device API, which docs/ptz-device-api.md specifies and
 	 * tests/obs-integration/test_api_doc.py holds to what is registered
 	 * here. All these functions are prefixed with 'ptz_' so that they can
 	 * be added to an existing proc_handler with low risk of conflicts */
-	addProc("void ptz_stop()", ptz_device_proc<&PTZDevice::stop>, this, PTZ_THREAD_ANY);
-	addProc("void ptz_home_recall()", ptz_device_proc<&PTZDevice::pantilt_home>, this, PTZ_THREAD_ANY);
-	addProc("void ptz_home_save()", ptz_device_proc<&PTZDevice::pantilt_set_home>, this, PTZ_THREAD_ANY);
+	addProc("void ptz_stop()", ptz_device_proc<&PTZDevice::stop>, this);
+	addProc("void ptz_home_recall()", ptz_device_proc<&PTZDevice::pantilt_home>, this);
+	addProc("void ptz_home_save()", ptz_device_proc<&PTZDevice::pantilt_set_home>, this);
 	addProc("void ptz_move(float pan, float tilt, float zoom, float focus)", ptz_device_proc<&PTZDevice::move>,
-		this, PTZ_THREAD_ANY);
+		this);
 	addProc("void ptz_move_abs(float pan, float tilt, float zoom, float focus)",
-		ptz_device_proc<&PTZDevice::move_abs>, this, PTZ_THREAD_ANY);
-	addProc("void ptz_move_rel(float pan, float tilt)", ptz_device_proc<&PTZDevice::move_rel>, this,
-		PTZ_THREAD_ANY);
-	addProc("void ptz_preset_save(string id)", ptz_device_proc<&PTZDevice::preset_save>, this, PTZ_THREAD_ANY);
-	addProc("void ptz_preset_recall(string id)", ptz_device_proc<&PTZDevice::preset_recall>, this, PTZ_THREAD_ANY);
+		ptz_device_proc<&PTZDevice::move_abs>, this);
+	addProc("void ptz_move_rel(float pan, float tilt)", ptz_device_proc<&PTZDevice::move_rel>, this);
+	addProc("void ptz_preset_save(string id)", ptz_device_proc<&PTZDevice::preset_save>, this);
+	addProc("void ptz_preset_recall(string id)", ptz_device_proc<&PTZDevice::preset_recall>, this);
 	addProc("void ptz_preset_capture_thumbnail(string id, bool if_arrived)",
-		ptz_device_proc<&PTZDevice::preset_capture_thumbnail>, this, PTZ_THREAD_ANY);
+		ptz_device_proc<&PTZDevice::preset_capture_thumbnail>, this);
 
-	addProc("ptr ptz_get_state(ptr state)", ptz_device_proc<&PTZDevice::get_state>, this, PTZ_THREAD_ANY,
-		PTZ_ACCESS_READ);
+	addProc("ptr ptz_get_state(ptr state)", ptz_device_proc<&PTZDevice::get_state>, this, PTZ_ACCESS_READ);
 	addProc("ptr ptz_get_statistics(ptr statistics)", ptz_device_proc<&PTZDevice::get_statistics>, this,
-		PTZ_THREAD_ANY, PTZ_ACCESS_READ);
-	addProc("ptr ptz_get_parent_source()", ptz_device_proc<&PTZDevice::get_parent_source>, this, PTZ_THREAD_ANY,
-		PTZ_ACCESS_NONE);
+		PTZ_ACCESS_READ);
+	addProc("ptr ptz_get_parent_source()", ptz_device_proc<&PTZDevice::get_parent_source>, this, PTZ_ACCESS_NONE);
 
-	addProc("void ptz_request_state(ptr state)", ptz_device_proc<&PTZDevice::request_state>, this, PTZ_THREAD_ANY);
+	addProc("void ptz_request_state(ptr state)", ptz_device_proc<&PTZDevice::request_state>, this);
 
-	addProc("void ptz_trigger(string name)", ptz_device_proc<&PTZDevice::trigger>, this, PTZ_THREAD_ANY);
+	addProc("void ptz_trigger(string name)", ptz_device_proc<&PTZDevice::trigger>, this);
 
 	addProc("void ptz_get_camera_report(out string report)", ptz_device_proc<&PTZDevice::get_camera_report>, this,
-		PTZ_THREAD_ANY, PTZ_ACCESS_READ);
-
-	addProc("ptr ptz_preset_get_list()", ptz_device_proc<&PTZDevice::preset_get_list>, this, PTZ_THREAD_ANY,
 		PTZ_ACCESS_READ);
+
+	addProc("ptr ptz_preset_get_list()", ptz_device_proc<&PTZDevice::preset_get_list>, this, PTZ_ACCESS_READ);
 	addProc("void ptz_preset_get_thumbnail(string id, out string mime, out string data)",
-		ptz_device_proc<&PTZDevice::preset_get_thumbnail>, this, PTZ_THREAD_ANY, PTZ_ACCESS_READ);
-	addProc("string ptz_preset_create(string name, string store)", ptz_device_proc<&PTZDevice::preset_create>, this,
-		PTZ_THREAD_ANY);
-	addProc("void ptz_preset_delete(string id)", ptz_device_proc<&PTZDevice::preset_delete>, this, PTZ_THREAD_ANY);
-	addProc("void ptz_preset_update(string id, ptr changes)", ptz_device_proc<&PTZDevice::preset_update>, this,
-		PTZ_THREAD_ANY);
-	addProc("void ptz_preset_move(string id, int index)", ptz_device_proc<&PTZDevice::preset_move>, this,
-		PTZ_THREAD_ANY);
-	addProc("void ptz_preset_refresh()", ptz_device_proc<&PTZDevice::preset_refresh>, this, PTZ_THREAD_ANY);
+		ptz_device_proc<&PTZDevice::preset_get_thumbnail>, this, PTZ_ACCESS_READ);
+	addProc("string ptz_preset_create(string name, string store)", ptz_device_proc<&PTZDevice::preset_create>,
+		this);
+	addProc("void ptz_preset_delete(string id)", ptz_device_proc<&PTZDevice::preset_delete>, this);
+	addProc("void ptz_preset_update(string id, ptr changes)", ptz_device_proc<&PTZDevice::preset_update>, this);
+	addProc("void ptz_preset_move(string id, int index)", ptz_device_proc<&PTZDevice::preset_move>, this);
+	addProc("void ptz_preset_refresh()", ptz_device_proc<&PTZDevice::preset_refresh>, this);
 
 	/* Signal handler for notifying state & settings changes. Shared with
 	 * the filter, same as handler above. */

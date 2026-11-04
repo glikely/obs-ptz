@@ -66,11 +66,11 @@ void ptz_discovery_add_api(obs_source_t *source, proc_handler_proc_t start, proc
 	proc_handler_t *ph = obs_source_get_proc_handler(source);
 	signal_handler_t *sh = obs_source_get_signal_handler(source);
 	ptz_proc_add("discovery-proc", ph, "void ptz_get_api_version(out int major, out int minor)",
-		     ptz_discovery_get_api_version_proc, nullptr, PTZ_THREAD_ANY, PTZ_ACCESS_READ);
+		     ptz_discovery_get_api_version_proc, nullptr, PTZ_ACCESS_READ);
 	ptz_proc_add("discovery-proc", ph, "ptr ptz_get_api_info()", ptz_get_api_info_proc,
-		     const_cast<char *>("discovery"), PTZ_THREAD_ANY, PTZ_ACCESS_READ);
-	ptz_proc_add("discovery-proc", ph, "void ptz_discovery_start()", start, data, PTZ_THREAD_ANY);
-	ptz_proc_add("discovery-proc", ph, "void ptz_discovery_stop()", stop, data, PTZ_THREAD_ANY);
+		     const_cast<char *>("discovery"), PTZ_ACCESS_READ);
+	ptz_proc_add("discovery-proc", ph, "void ptz_discovery_start()", start, data);
+	ptz_proc_add("discovery-proc", ph, "void ptz_discovery_stop()", stop, data);
 	ptz_signal_add("discovery-signal", sh,
 		       "void ptz_device_found(ptr source, string kind, string id, string name, string address, "
 		       "ptr settings)");
