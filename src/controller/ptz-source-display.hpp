@@ -6,6 +6,7 @@
  */
 #pragma once
 
+#include <atomic>
 #include <mutex>
 #include <obs.hpp>
 #include <QList>
@@ -31,6 +32,10 @@ public:
 	void setSource(OBSSource source);
 	OBSSource source() const;
 
+	/* Whether to draw from the identity and OBS's default blending, or with
+	 * what the graphics thread was left with */
+	void setResetDrawState(bool reset) { m_resetDrawState = reset; }
+
 	QSize sizeHint() const override;
 	QSize minimumSizeHint() const override;
 
@@ -44,6 +49,8 @@ private:
 	 * syncNativeGeometry() */
 	QList<QPointer<QWidget>> m_watched;
 	bool m_syncQueued = false;
+	/* Read by the graphics thread's draw callback as well as set here */
+	std::atomic_bool m_resetDrawState = false;
 
 	void watchAncestors();
 	void unwatchAncestors();
