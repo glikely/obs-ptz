@@ -30,18 +30,18 @@ def hold_main_thread(obs_world, seconds):
     time.sleep(0.3)
 
 
-def test_a_device_thread_request_times_out_when_the_main_thread_is_held(obs_world):
-    uuid = device(obs_world, "visca-tcp")
+def test_a_main_thread_request_times_out_when_the_main_thread_is_held(obs_world):
+    """No proc of the plugin's devices needs the main thread, but the binding's
+    ptz_list_discovery, which makes the instances there, does"""
     hold_main_thread(obs_world, MAIN_THREAD_WAIT + 2)
     started = time.time()
     with pytest.raises(ObsWebSocketError) as raised:
-        obs_world.ws.vendor(VENDOR, "ptz_get_statistics", {"device": uuid}, timeout=MAIN_THREAD_WAIT + 4)
+        obs_world.ws.vendor(VENDOR, "ptz_list_discovery", timeout=MAIN_THREAD_WAIT + 4)
     waited = time.time() - started
     assert raised.value.status.get("error") == "timeout"
     assert MAIN_THREAD_WAIT - 0.5 < waited < MAIN_THREAD_WAIT + 1
     # and once the main thread is free again, it is answered as ever
-    obs_world.wait_for(lambda: "statistics" in obs_world.ws.vendor(VENDOR, "ptz_get_statistics", {"device": uuid}),
-                       timeout=10)
+    obs_world.wait_for(lambda: "instances" in obs_world.ws.vendor(VENDOR, "ptz_list_discovery"), timeout=10)
 
 
 def test_an_any_thread_request_is_not_held_by_the_main_thread(obs_world):

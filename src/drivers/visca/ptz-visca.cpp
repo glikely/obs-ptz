@@ -145,7 +145,7 @@ void PTZVisca::send_immediate(const QByteArray &msg)
  * visca_recv_packets_per_second, visca_sent_bytes_per_second and
  * visca_recv_bytes_per_second, and how many of the requests a second go wrong,
  * with an error for a reply (visca_error_count) or none in time:
- * visca_errors_per_second. */
+ * visca_errors_per_second. Called with m_statisticsMutex held. */
 void PTZVisca::sample_traffic()
 {
 	static const char *const counts[5] = {"visca_sent_count", "visca_recv_count", "visca_sent_bytes",
@@ -586,6 +586,7 @@ void PTZVisca::poll_done()
 		poll_active = false;
 		incrementStatistic("visca_poll_count");
 		auto average = [this](const char *name, double value) {
+			QMutexLocker locker(&m_statisticsMutex);
 			double last = obs_data_has_user_value(statistics, name) ? obs_data_get_double(statistics, name)
 										: value;
 			obs_data_set_double(statistics, name, last + (value - last) * VISCA_POLL_STAT_WEIGHT);
@@ -1587,7 +1588,10 @@ void PTZVisca::report_finish()
 	report["commands"] = commands;
 	report["buffer_full"] = report_buffer_full;
 	report["draft_command_set"] = report_draft(camera);
-	last_report = report;
+	{
+		QMutexLocker locker(&report_lock);
+		last_report = report;
+	}
 	report_next = -1;
 	ptz_info("camera report made");
 	report_progress();

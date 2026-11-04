@@ -237,6 +237,11 @@ protected:
 	OBSData state;        /* Transient state of the camera. Isn't saved */
 	OBSData stateChanged; /* changed state to be sent via the notify signal */
 	OBSData statistics;
+	/* Guards `statistics`, which ptz_get_statistics reads from any thread, and
+	 * whatever a driver keeps for working them out. Held while
+	 * saveStatistics() runs; a driver that writes `statistics` itself takes it,
+	 * and doesn't call incrementStatistic(), which takes it too, while it does. */
+	mutable QMutex m_statisticsMutex;
 	/* The state as it was last announced, as JSON, for ptz_get_state from a
 	 * thread that is not the device's. Text, so that a reader has a copy of
 	 * its own and shares no obs_data_t with the device or with another reader. */
@@ -327,7 +332,9 @@ public:
 	/* What the device found out about its camera with its "camera_report"
 	 * trigger, for its user to send in, so that cameras like it can be
 	 * given what they need: empty until there is a report. Only what
-	 * describes the camera, never what identifies it or where it is. */
+	 * describes the camera, never what identifies it or where it is.
+	 * Called from any thread, by ptz_get_camera_report: a driver that has a
+	 * report keeps it under a lock of its own, and gives a copy. */
 	virtual QJsonObject cameraReport() const { return {}; }
 	/* The tally lamps a camera can have: red while the device's source is in
 	 * the program scene, green while it is in the preview scene (Studio
@@ -583,7 +590,8 @@ public:
 	void refreshPresetSnapshot();
 	/* Fills an OBSData with the device's statistics, see ptz_get_statistics.
 	 * A driver that has rates works them out here, from what it has
-	 * counted since the last time. */
+	 * counted since the last time. Called with m_statisticsMutex held, on
+	 * whichever thread asked. */
 	virtual void saveStatistics(OBSData statistics);
 	virtual void requestState(OBSData requested);
 

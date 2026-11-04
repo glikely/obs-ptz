@@ -195,25 +195,24 @@ if (source) {
 
 ### Rules for calling
 
-- **Threads.** A command, a proc that moves the camera, asks for state or
-  makes, changes or recalls a preset, can be called from any thread: it queues
-  the work for the device's own thread, which is the one OBS made the device on
-  (the Qt main thread), and returns.
+- **Threads.** Every proc of a device can be called from any thread.
+  A command, a proc that moves the camera, asks for state or makes, changes or
+  recalls a preset, queues its work for the device's own thread, which for this
+  plugin's devices is the one OBS made the device on (the Qt main thread), and
+  returns.
   Its result is the signal it says it announces.
   The commands one thread calls are done in the order it called them, so a
   delete called after a move is not done before it.
   What a caller passes in, as the `state` of `ptz_request_state`, is copied
   before the proc returns, and the caller may change or release it then.
-  `ptz_get_state` and `ptz_preset_get_list` can be called from any thread too:
-  on another than the device's they give a copy that the device makes before
-  it raises the matching signal, so it is never older than a signal the caller
-  has heard.
-  Only `ptz_get_statistics` and `ptz_get_camera_report`, which are for
-  diagnostics, must be called from the device's own thread.
-  From another they log an error and do nothing.
-  Each proc below says which it is, and `ptz_get_api_info` says it of each
-  proc as its `thread`, for a caller that has to know what a device that
-  isn't this plugin's lets it do.
+  `ptz_get_state` and `ptz_preset_get_list` give, on another thread than the
+  device's, a copy that the device makes before it raises the matching signal,
+  so it is never older than a signal the caller has heard.
+  `ptz_get_statistics` and `ptz_get_camera_report` are read under a lock.
+  `ptz_get_api_info` still gives each proc a `thread`, which for a device of
+  this plugin is always `any`: it is kept for a caller written when some procs
+  had to be called on the device's thread, which another plugin's device of
+  this version may still ask, and that caller can check it there.
 - **Signals can come from any thread.** A device may fire its signals, and a
   discovery instance its own, from whichever thread it does the work on, so a
   listener must not assume a thread. One that touches something tied to a
@@ -292,11 +291,12 @@ the client passed in, as the proc left it.
 A proc that gives nothing back answers with nothing, `{}`.
 
 A client need not think about threads.
-A proc that is "Device thread" is run on OBS's main thread and waited for, for
-up to five seconds, and one that is "Any thread" is run at once, on
-obs-websocket's own thread: so only `ptz_get_statistics` and
-`ptz_get_camera_report` of a device's procs can be answered with `timeout`.
-The binding decides by the `thread` that `ptz_get_api_info` gives for each.
+A proc that `ptz_get_api_info` says may be called from any thread, as every
+proc of this plugin's devices is, is run at once, on obs-websocket's own thread.
+One that says `device`, as another plugin's device may, is run on OBS's main
+thread and waited for, for up to five seconds, as are the binding's own
+requests that make or list what is on the main thread, such as
+`ptz_list_discovery`.
 Requests may be made at the same time, on one connection or on several, and
 each is answered when it is done: two that are sent one after the other are
 not always answered in that order.
@@ -354,7 +354,7 @@ answer's data that has the error.
 | `unknown_field` | The request has a field that the proc doesn't have |
 | `bad_type` | A field is not of the type the proc declares for it |
 | `forbidden` | The proc is not allowed by the access setting, which was changed as the request was made |
-| `timeout` | A "Device thread" proc was not run within five seconds, as OBS's main thread was busy. It may still run |
+| `timeout` | A request that is run on OBS's main thread, such as a proc of another plugin's device whose `thread` is `device`, was not run within five seconds, as OBS's main thread was busy. It may still run |
 | `unavailable` | OBS is closing |
 
 A request for a proc that the access setting doesn't allow, or for one that no
@@ -442,6 +442,17 @@ finder's and a minor version at least as new.
 It needs the state keys that are "always" there, `source` among them, and the
 procs and signals for what it can do, which its `features` say.
 A proc a device doesn't have is read as something it can't do.
+
+Its procs can be called from any thread (see
+[Rules for calling](#rules-for-calling)), which asks this of the device:
+
+- A command queues its work for the thread the device does it on, and returns.
+- A query answers from a copy the device keeps for it, or under a lock.
+- No proc waits for another thread, OBS's main thread above all: the caller can
+  be a thread that the main thread is waiting for, and then neither goes on.
+  This plugin hung OBS on quit that way once.
+- `ptz_get_api_info`, if it has one, says `any` for each proc's `thread`.
+
 Device configuration is managed the same way as any other source, via
 `save`, `update`, and `get_properties` in its `obs_source_info`.
 
@@ -553,8 +564,8 @@ The following proc_handler calls are defined for PTZ Devices.
 All the procs start with `ptz_`, so they can be added to an existing
 proc_handler with low risk of conflicts.
 
-Each proc says which thread it may be called from, "Any thread." or "Device
-thread.", as [Rules for calling](#rules-for-calling) has it.
+Each proc says "Any thread.": every one may be called from any thread, as
+[Rules for calling](#rules-for-calling) has it.
 A proc with an "Access:" line is one that a caller outside OBS is treated
 differently for: `read` if it only reads the device, and so is let through
 where control of the camera is not, and `none` if it can't be called from
@@ -680,8 +691,8 @@ counted of its own working, such as how much it has sent to the camera and how
 fast it answers, as numbers under names that the driver gives them.
 Reads `statistics` (ptr, required).
 It isn't state: it is read when wanted and never announced as changing, and a
-rate in it is over the time since it was last read.
-Device thread.
+rate in it is over the time since it was last read, by any caller.
+Any thread.
 Access: read.
 
 ### `ptr ptz_get_parent_source()`
@@ -716,7 +727,7 @@ Returns, as `report`, the last report of what the camera has, which its
 `camera_report` trigger makes, as JSON, or "" if there isn't one.
 It is for the user to look at and send in themselves; nothing in it identifies
 the camera, the user, or where either is.
-Device thread.
+Any thread.
 Access: read.
 
 ### `ptr ptz_preset_get_list()`

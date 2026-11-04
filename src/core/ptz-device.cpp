@@ -233,7 +233,7 @@ PTZDevice::PTZDevice(OBSData config, obs_source_t *filter) : QObject()
 	addProc("ptr ptz_get_state(ptr state)", ptz_device_proc<&PTZDevice::get_state>, this, PTZ_THREAD_ANY,
 		PTZ_ACCESS_READ);
 	addProc("ptr ptz_get_statistics(ptr statistics)", ptz_device_proc<&PTZDevice::get_statistics>, this,
-		PTZ_THREAD_DEVICE, PTZ_ACCESS_READ);
+		PTZ_THREAD_ANY, PTZ_ACCESS_READ);
 	addProc("ptr ptz_get_parent_source()", ptz_device_proc<&PTZDevice::get_parent_source>, this, PTZ_THREAD_ANY,
 		PTZ_ACCESS_NONE);
 
@@ -242,7 +242,7 @@ PTZDevice::PTZDevice(OBSData config, obs_source_t *filter) : QObject()
 	addProc("void ptz_trigger(string name)", ptz_device_proc<&PTZDevice::trigger>, this, PTZ_THREAD_ANY);
 
 	addProc("void ptz_get_camera_report(out string report)", ptz_device_proc<&PTZDevice::get_camera_report>, this,
-		PTZ_THREAD_DEVICE, PTZ_ACCESS_READ);
+		PTZ_THREAD_ANY, PTZ_ACCESS_READ);
 
 	addProc("ptr ptz_preset_get_list()", ptz_device_proc<&PTZDevice::preset_get_list>, this, PTZ_THREAD_ANY,
 		PTZ_ACCESS_READ);
@@ -878,15 +878,17 @@ void PTZDevice::get_state(calldata_t *cd) const
 }
 
 /**
- * Fills the caller-owned obs_data_t with the device's statistics
+ * Fills the caller-owned obs_data_t with the device's statistics, from any
+ * thread: they are written and read under m_statisticsMutex, which
+ * saveStatistics() is called with
  */
 void PTZDevice::get_statistics(calldata_t *cd)
 {
-	if (wrongThread("ptz_get_statistics"))
-		return;
 	auto out = static_cast<obs_data_t *>(calldata_ptr(cd, "statistics"));
-	if (out)
-		saveStatistics(out);
+	if (!out)
+		return;
+	QMutexLocker locker(&m_statisticsMutex);
+	saveStatistics(out);
 }
 
 void PTZDevice::saveStatistics(OBSData out)
@@ -895,11 +897,10 @@ void PTZDevice::saveStatistics(OBSData out)
 }
 
 /* The driver's report, after what describes every report: what made it, on
- * which kind of computer, and what kind of device it is */
+ * which kind of computer, and what kind of device it is. Any thread: the
+ * driver's cameraReport() is, and the rest is fixed. */
 void PTZDevice::get_camera_report(calldata_t *cd) const
 {
-	if (wrongThread("ptz_get_camera_report"))
-		return;
 	QJsonObject report = cameraReport();
 	if (report.isEmpty()) {
 		calldata_set_string(cd, "report", "");
@@ -2150,6 +2151,7 @@ void PTZDevice::movePreset(const QString &id, int index)
 
 void PTZDevice::incrementStatistic(const char *name, int amount)
 {
+	QMutexLocker locker(&m_statisticsMutex);
 	obs_data_set_int(statistics, name, obs_data_get_int(statistics, name) + amount);
 }
 
