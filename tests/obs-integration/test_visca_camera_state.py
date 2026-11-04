@@ -20,6 +20,7 @@ device's state.
 
 import itertools
 import json
+import signal
 import subprocess
 import sys
 import urllib.request
@@ -27,7 +28,7 @@ import urllib.request
 import pytest
 from obsws import ObsWebSocketError
 
-from conftest import OBS_MAIN, PTZ_DOCK, REPO_ROOT, SETTINGS_DIALOG, free_port, output_log, wait_for_port
+from conftest import OBS_MAIN, PTZ_DOCK, REPO_ROOT, SETTINGS_DIALOG, free_port, header_pan, output_log, wait_for_port
 
 FILTER_KIND = "ca.secretlab.obs-ptz.visca"
 
@@ -114,7 +115,16 @@ class CameraSim:
         wait_for_port("127.0.0.1", self.debug_port, timeout=15)
         wait_for_port("127.0.0.1", self.tcp_port, timeout=15)
 
+    def freeze(self):
+        """Stops the camera answering anything, without closing its socket"""
+        self.proc.send_signal(signal.SIGSTOP)
+
+    def thaw(self):
+        self.proc.send_signal(signal.SIGCONT)
+
     def stop(self):
+        if sys.platform != "win32" and self.proc.poll() is None:
+            self.thaw()
         self.proc.terminate()
         try:
             self.proc.wait(timeout=5)
@@ -251,6 +261,11 @@ def dialog_device(obs_world):
     return obs_world.ui.get1(SETTINGS_DIALOG, "deviceName", name="text")
 
 
+def preview_source(obs_world):
+    """The name of the source the settings dialog's preview is showing"""
+    return obs_world.ui.get1(SETTINGS_DIALOG, "sourcePreview", name="shownSource")
+
+
 def open_dialog(obs_world, camera, tmp_path):
     obs_world.open_settings_dialog(camera.device_name)
     out = tmp_path / "dialog.json"
@@ -291,17 +306,6 @@ def test_removing_the_device_shown_shows_another(request, obs_world, tmp_path):
     obs_world.ws.call("RemoveSourceFilter", {"sourceName": camera.source, "filterName": "PTZ"})
 
     obs_world.wait_for(lambda: dialog_device(obs_world) not in ("", camera.source), timeout=5)
-
-
-def test_adding_a_device_keeps_the_one_shown(request, obs_world, tmp_path):
-    camera = make_camera(request.addfinalizer, obs_world, tmp_path)
-    open_dialog(obs_world, camera, tmp_path)
-
-    make_camera(request.addfinalizer, obs_world, tmp_path)
-
-    obs_world.wait_for(lambda: dialog_device(obs_world) == camera.source, timeout=5)
-    # It is still on the list as well as in the header
-    obs_world.wait_for(lambda: obs_world.ui.rows(SETTINGS_DIALOG, "deviceList", roles=["uuid"])[1] >= 0, timeout=5)
 
 
 def test_adding_a_device_keeps_the_one_selected_in_the_dock(request, obs_world, tmp_path):
@@ -352,6 +356,108 @@ def test_preview_only_keeps_its_source_showing_while_it_can_be_seen(request, obs
 
     obs_world.ui.invoke(SETTINGS_DIALOG, method="show")
     obs_world.wait_for(lambda: source_showing(obs_world, camera.source), timeout=5)
+
+
+@pytest.mark.skipif(sys.platform == "win32", reason="needs SIGSTOP")
+def test_header_waits_for_the_camera_to_say_it_changed(request, obs_world, tmp_path):
+    camera = make_camera(request.addfinalizer, obs_world, tmp_path)
+    out, _ = open_dialog(obs_world, camera, tmp_path)
+    obs_world.wait_for_settings_dialog(out, lambda r: "Powered on" in r["header"])
+
+    camera.sim.freeze()
+    request.addfinalizer(camera.sim.thaw)
+    obs_world.edit_dialog_state(power_on=False)
+    # Anything that redraws the header will do, and this leaves it as it was
+    locked = obs_world.ui.get1(SETTINGS_DIALOG, "livemoveCheckBox", name="checked")
+    obs_world.set_live_move_lock(not locked)
+    obs_world.set_live_move_lock(locked)
+
+    dialog = obs_world.wait_for_settings_dialog(out, lambda r: r["shown"]["power_on"] is False)
+    assert "Powered on" in dialog["header"]
+
+
+def test_header_hides_where_a_camera_that_is_off_is(request, obs_world, tmp_path):
+    camera = make_camera(request.addfinalizer, obs_world, tmp_path)
+    out, _ = open_dialog(obs_world, camera, tmp_path)
+    obs_world.wait_for_settings_dialog(out, header_pan)
+
+    obs_world.set_device_state(camera.device_name, power_on=False)
+    dialog = obs_world.wait_for_settings_dialog(out, lambda r: "Powered off" in r["header"])
+    assert header_pan(dialog) is None
+
+
+def test_a_device_without_a_key_hides_its_row(obs_world, tmp_path):
+    out = tmp_path / "dialog.json"
+    obs_world.open_settings_dialog(obs_world.device_names["visca-tcp"])
+    obs_world.wait_for_settings_dialog(out, lambda r: "wb_mode" in r["state_keys"])
+
+    obs_world.open_settings_dialog(obs_world.device_names["pelco-d"])
+    obs_world.wait_for_settings_dialog(out, lambda r: "wb_mode" not in r["state_keys"])
+
+
+@pytest.mark.skipif(sys.platform == "win32", reason="needs SIGSTOP")
+@pytest.mark.parametrize("key", ["ae_mode", "power_on"])
+def test_a_pending_edit_outlasts_a_report_of_something_else(request, obs_world, tmp_path, key):
+    camera = make_camera(request.addfinalizer, obs_world, tmp_path)
+    out, opened = open_dialog(obs_world, camera, tmp_path)
+    was = opened["shown"][key]
+    wanted = {"ae_mode": 0xb if was != 0xb else 0x3, "power_on": not was}[key]
+
+    camera.sim.freeze()
+    request.addfinalizer(camera.sim.thaw)
+    obs_world.edit_dialog_state(**{key: wanted})
+    # A new "source" is a report that needs nothing of the camera
+    old_name, camera.source = camera.source, camera.source + "-renamed"
+    obs_world.ws.call("SetInputName", {"inputName": old_name, "newInputName": camera.source})
+    obs_world.wait_for(lambda: dialog_device(obs_world) == camera.source, timeout=1)
+
+    assert obs_world.settings_dialog(out)["shown"][key] == wanted
+    # ...and it settles back to what the camera last said
+    obs_world.wait_for_settings_dialog(out, lambda r: r["shown"][key] == was, timeout=5)
+
+
+def test_preview_shows_the_source_of_the_device_shown(request, obs_world, tmp_path):
+    camera = make_camera(request.addfinalizer, obs_world, tmp_path)
+    open_dialog(obs_world, camera, tmp_path)
+    assert preview_source(obs_world) == camera.source
+
+
+def test_preview_moves_on_when_its_device_goes(request, obs_world, tmp_path):
+    camera = make_camera(request.addfinalizer, obs_world, tmp_path)
+    open_dialog(obs_world, camera, tmp_path)
+
+    obs_world.ws.call("RemoveSourceFilter", {"sourceName": camera.source, "filterName": "PTZ"})
+
+    obs_world.wait_for(lambda: preview_source(obs_world) not in ("", camera.source), timeout=5)
+
+
+def preview_overlay(obs_world):
+    """The lines of text over the settings dialog's preview"""
+    return obs_world.ui.get1(SETTINGS_DIALOG, "sourcePreview", name="overlayText").splitlines()
+
+
+def test_preview_overlay_names_the_camera_and_follows_its_status(request, obs_world, tmp_path):
+    camera = make_camera(request.addfinalizer, obs_world, tmp_path)
+    open_dialog(obs_world, camera, tmp_path)
+    assert preview_overlay(obs_world) == [camera.source, "Connected"]
+
+    obs_world.set_device_state(camera.device_name, power_on=False)
+
+    obs_world.wait_for(lambda: preview_overlay(obs_world) == [camera.source, "Camera is powered off"], timeout=5)
+
+
+def test_adding_a_device_keeps_the_one_shown(request, obs_world, tmp_path):
+    device_name = obs_world.device_names["visca-tcp"]
+    out = tmp_path / "dialog.json"
+    obs_world.open_settings_dialog(device_name)
+    obs_world.wait_for_settings_dialog(out, lambda r: "wb_mode" in r["state_keys"])
+
+    make_camera(request.addfinalizer, obs_world, tmp_path)
+
+    # and it still follows that device
+    for mode in (1, 2):
+        obs_world.set_device_state(device_name, wb_mode=mode)
+        obs_world.wait_for_settings_dialog(out, lambda r, m=mode: r["wb_mode"] == m)
 
 
 def test_state_view_has_none_of_them_for_another_protocol(obs_world, tmp_path):

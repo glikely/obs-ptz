@@ -1,12 +1,12 @@
 #include "ptz-state-view.hpp"
 
-#include <cmath>
 #include <functional>
 #include <QCheckBox>
 #include <QComboBox>
 #include <QFormLayout>
 #include <QGridLayout>
 #include <QGroupBox>
+#include <QItemSelectionRange>
 #include <QLabel>
 #include <QLocale>
 #include <QPushButton>
@@ -15,6 +15,7 @@
 #include <QVBoxLayout>
 
 #include <obs-module.h>
+#include "ptz-list-model.hpp"
 
 /* What each white balance mode is called, in the order the camera numbers
  * them */
@@ -124,6 +125,12 @@ static QCheckBox *makeIndicator(const char *text)
 
 PTZStateView::PTZStateView(QWidget *parent) : QWidget(parent)
 {
+	connect(ptzDeviceList, &PTZListModel::dataChanged, this,
+		[this](const QModelIndex &topLeft, const QModelIndex &bottomRight) {
+			if (QItemSelectionRange(topLeft, bottomRight).contains(QModelIndex(m_device)))
+				showState(ptzDeviceList->deviceState(m_device));
+		});
+
 	auto page = new QVBoxLayout(this);
 	page->setContentsMargins(0, 0, 0, 0);
 
@@ -131,18 +138,6 @@ PTZStateView::PTZStateView(QWidget *parent) : QWidget(parent)
 	m_connected = makeIndicator("PTZ.Device.Status.Connected");
 	top->addRow(m_connected);
 
-	m_power = new QCheckBox(obs_module_text("PTZ.Device.State.Power"));
-	m_focusAuto = new QCheckBox(obs_module_text("PTZ.Device.State.Autofocus"));
-	m_tally = new QCheckBox(obs_module_text("PTZ.Device.State.Tally"));
-	m_tallyPreview = new QCheckBox(obs_module_text("PTZ.Device.State.TallyPreview"));
-	top->addRow(m_power);
-	top->addRow(m_focusAuto);
-	top->addRow(m_tally);
-	top->addRow(m_tallyPreview);
-	m_power->hide();
-	m_focusAuto->hide();
-	m_tally->hide();
-	m_tallyPreview->hide();
 	page->addLayout(top);
 
 	/* The rest of what a camera reports, in rows made from these. A number
@@ -151,6 +146,10 @@ PTZStateView::PTZStateView(QWidget *parent) : QWidget(parent)
 	auto flag = [this](QFormLayout *form, const char *key, const char *label) {
 		return addField(form, key, FlagField, label);
 	};
+	flag(top, "power_on", "PTZ.Device.State.Power");
+	flag(top, "focus_af_enabled", "PTZ.Device.State.Autofocus");
+	flag(top, "tally_on", "PTZ.Device.State.Tally");
+	flag(top, "tally_preview", "PTZ.Device.State.TallyPreview");
 	auto indicator = [this](QFormLayout *form, const char *key, const char *label) {
 		Field *field = addField(form, key, FlagField, label);
 		field->widget->setAttribute(Qt::WA_TransparentForMouseEvents);
@@ -427,30 +426,6 @@ PTZStateView::PTZStateView(QWidget *parent) : QWidget(parent)
 	});
 	connect(m_onePush, &QPushButton::clicked, this, [this]() { emit actionRequested("wb_onepush"); });
 
-	/* clicked(), not toggled(): a programmatic setChecked() below (the
-	 * device catching up, or resetting to what it last reported) must not
-	 * feed back as a request */
-	connect(m_power, &QCheckBox::clicked, this, [this](bool checked) {
-		OBSDataAutoRelease requested = obs_data_create();
-		obs_data_set_bool(requested, "power_on", checked);
-		emit stateRequested(OBSData(requested.Get()));
-	});
-	connect(m_focusAuto, &QCheckBox::clicked, this, [this](bool checked) {
-		OBSDataAutoRelease requested = obs_data_create();
-		obs_data_set_bool(requested, "focus_af_enabled", checked);
-		emit stateRequested(OBSData(requested.Get()));
-	});
-	connect(m_tally, &QCheckBox::clicked, this, [this](bool checked) {
-		OBSDataAutoRelease requested = obs_data_create();
-		obs_data_set_bool(requested, "tally_on", checked);
-		emit stateRequested(OBSData(requested.Get()));
-	});
-	connect(m_tallyPreview, &QCheckBox::clicked, this, [this](bool checked) {
-		OBSDataAutoRelease requested = obs_data_create();
-		obs_data_set_bool(requested, "tally_preview", checked);
-		emit stateRequested(OBSData(requested.Get()));
-	});
-
 	/* The list follows the camera, not the user: if the camera hasn't taken
 	 * up what was asked for by now, show what it says it is doing */
 	m_whiteBalanceSettle.setSingleShot(true);
@@ -616,97 +591,25 @@ void PTZStateView::showWhiteBalance(int mode)
 		m_whiteBalanceMode->setCurrentIndex(at);
 }
 
-void PTZStateView::setState(OBSData state)
+void PTZStateView::setDevice(const QModelIndex &index)
 {
-	applyData(state, true);
+	m_device = index;
+	showState(ptzDeviceList->deviceState(index));
 }
 
-void PTZStateView::applyChanges(OBSData changed)
-{
-	applyData(changed, false);
-}
-
-/* `all` is a whole state, in which a key that isn't there means the device
- * doesn't report it; otherwise only what changed, and a key that isn't there
- * hasn't. Nothing is set that already has that value, so a widget is only
- * touched when there is something new to show in it. */
-void PTZStateView::applyData(obs_data_t *data, bool all)
+/* A key that isn't in the state means the device doesn't report it. Nothing is
+ * set that already has that value, so a widget is only touched when there is
+ * something new to show in it. */
+void PTZStateView::showState(obs_data_t *data)
 {
 	bool changed = false;
 	auto has = [data](const char *key) {
 		return obs_data_has_user_value(data, key);
 	};
-	auto setFlag = [&](QCheckBox *box, const char *key) {
-		if (!all && !has(key))
-			return;
-		bool value = obs_data_get_bool(data, key);
-		if (box->isChecked() != value) {
-			box->setChecked(value);
-			changed = true;
-		}
-	};
 
-	setFlag(m_connected, "connected");
-
-	/* Commandable, unlike the indicators above: shown only while the
-	 * device reports the key at all, like an axis row */
-	auto setCommandableFlag = [&](QCheckBox *box, const char *key) {
-		bool shown = !box->isHidden();
-		if (has(key)) {
-			bool value = obs_data_get_bool(data, key);
-			if (box->isChecked() != value) {
-				box->setChecked(value);
-				changed = true;
-			}
-			if (!shown) {
-				box->show();
-				changed = true;
-			}
-		} else if (all && shown) {
-			box->hide();
-			changed = true;
-		}
-	};
-	setCommandableFlag(m_power, "power_on");
-	setCommandableFlag(m_focusAuto, "focus_af_enabled");
-	setCommandableFlag(m_tally, "tally_on");
-	setCommandableFlag(m_tallyPreview, "tally_preview");
-
-	for (int i = 0; i < AxisCount; i++) {
-		const char *key = m_axisKeys[i];
-		if (has(key)) {
-			double value = QString::asprintf("%.3f", obs_data_get_double(data, key)).toDouble();
-			if (m_axis[i] != value) {
-				m_axis[i] = value;
-				changed = true;
-			}
-		} else if (all && m_axis[i]) {
-			m_axis[i].reset();
-			changed = true;
-		}
-	}
-
-	/* What each axis means, of which a report has only what changed */
-	if (has("axes")) {
-		OBSDataAutoRelease axes = obs_data_get_obj(data, "axes");
-		if (!m_axes) {
-			/* OBSData takes a reference of its own */
-			OBSDataAutoRelease fresh = obs_data_create();
-			m_axes = fresh.Get();
-		}
-		for (obs_data_item_t *item = obs_data_first(axes); item; obs_data_item_next(&item)) {
-			const char *name = obs_data_item_get_name(item);
-			OBSDataAutoRelease entry = obs_data_item_get_obj(item);
-			OBSDataAutoRelease known = obs_data_get_obj(m_axes, name);
-			if (!known) {
-				known = obs_data_create();
-				obs_data_set_obj(m_axes, name, known);
-			}
-			obs_data_apply(known, entry);
-		}
-		changed = true;
-	} else if (all && m_axes) {
-		m_axes = nullptr;
+	bool connected = obs_data_get_bool(data, "connected");
+	if (m_connected->isChecked() != connected) {
+		m_connected->setChecked(connected);
 		changed = true;
 	}
 
@@ -717,7 +620,7 @@ void PTZStateView::applyData(obs_data_t *data, bool all)
 			showWhiteBalance(mode);
 			changed = true;
 		}
-	} else if (all && m_reportedWhiteBalance >= 0) {
+	} else if (m_reportedWhiteBalance >= 0) {
 		m_reportedWhiteBalance = -1;
 		changed = true;
 	}
@@ -744,7 +647,7 @@ void PTZStateView::applyData(obs_data_t *data, bool all)
 					field->widget->show();
 				changed = true;
 			}
-		} else if (all && shown) {
+		} else if (shown) {
 			field->reported = QVariant();
 			if (field->label)
 				setRowVisible(field->label, field->widget, false);
@@ -775,14 +678,12 @@ void PTZStateView::applyData(obs_data_t *data, bool all)
 		}
 	}
 
-	if (all || has("features")) {
-		OBSDataAutoRelease features = obs_data_get_obj(data, "features");
-		bool diagnostics = features && obs_data_get_bool(features, "diagnostics");
-		if (diagnostics == m_diagnosticsGroup->isHidden()) {
-			m_diagnosticsGroup->setVisible(diagnostics);
-			changed = true;
-			emit diagnosticsAvailableChanged(diagnostics);
-		}
+	OBSDataAutoRelease features = obs_data_get_obj(data, "features");
+	bool diagnostics = features && obs_data_get_bool(features, "diagnostics");
+	if (diagnostics == m_diagnosticsGroup->isHidden()) {
+		m_diagnosticsGroup->setVisible(diagnostics);
+		changed = true;
+		emit diagnosticsAvailableChanged(diagnostics);
 	}
 
 	if (changed) {
@@ -815,79 +716,10 @@ void PTZStateView::setStatistics(OBSData stats)
 	}
 }
 
-/* A value in its unit for showing: 12.5°, 4.2×, 1.5 m, 15 cm, or ∞ */
-static QString formatAxisValue(const QString &unit, double value)
-{
-	if (unit == "deg")
-		return QString("%1%2\u00b0").arg(value > 0 ? "+" : "").arg(value, 0, 'f', 1);
-	if (unit == "x")
-		return QString("\u00d7%1").arg(value, 0, 'f', 1);
-	if (unit == "m") {
-		if (!std::isfinite(value))
-			return QString::fromUtf8("\u221e");
-		if (value < 1.0)
-			return QString("%1 cm").arg(value * 100.0, 0, 'f', value < 0.1 ? 1 : 0);
-		return QString("%1 m").arg(value, 0, 'f', value < 10.0 ? 1 : 0);
-	}
-	return QString::asprintf("%.3f", value);
-}
-
-QString PTZStateView::axisText(int axis) const
-{
-	const double position = *m_axis[axis];
-	OBSDataAutoRelease info = m_axes ? obs_data_get_obj(m_axes, m_axisKeys[axis]) : nullptr;
-	OBSDataArrayAutoRelease points = info ? obs_data_get_array(info, "points") : nullptr;
-	const QString unit = info ? QString::fromUtf8(obs_data_get_string(info, "unit")) : QString();
-	const size_t count = points ? obs_data_array_count(points) : 0;
-	/* A focus distance goes by its inverse, as a lens's focus does, so that
-	 * infinity, a point with no value, is a distance that is far enough */
-	const bool inverse = unit == "m";
-	auto valueAt = [&](obs_data_t *point) {
-		if (!obs_data_has_user_value(point, "value"))
-			return inverse ? 0.0 : std::nan("");
-		double value = obs_data_get_double(point, "value");
-		return inverse ? 1.0 / value : value;
-	};
-	for (size_t i = 1; !unit.isEmpty() && i < count; i++) {
-		OBSDataAutoRelease a = obs_data_array_item(points, i - 1);
-		OBSDataAutoRelease b = obs_data_array_item(points, i);
-		const double pa = obs_data_get_double(a, "position"), pb = obs_data_get_double(b, "position");
-		if (position < pa || position > pb)
-			continue;
-		const double t = pb == pa ? 0.0 : (position - pa) / (pb - pa);
-		const double va = valueAt(a), vb = valueAt(b);
-		if (std::isnan(va) || std::isnan(vb))
-			break;
-		double value = va + t * (vb - va);
-		if (inverse)
-			value = value > 0.0 ? 1.0 / value : INFINITY;
-		return formatAxisValue(unit, value);
-	}
-	/* Not said what it is: the position, with a sign for what has two sides */
-	return QString("%1%2")
-		.arg(m_axisKeys[axis] == QByteArray("pan") || m_axisKeys[axis] == QByteArray("tilt")
-			     ? (position > 0 ? "+" : "")
-			     : "")
-		.arg(position, 0, 'f', 3);
-}
-
 QVariantMap PTZStateView::shownValues() const
 {
 	QVariantMap shown;
 	shown["connected"] = m_connected->isChecked();
-	if (!m_power->isHidden())
-		shown["power_on"] = m_power->isChecked();
-	if (!m_focusAuto->isHidden())
-		shown["focus_af_enabled"] = m_focusAuto->isChecked();
-	if (!m_tally->isHidden())
-		shown["tally_on"] = m_tally->isChecked();
-	if (!m_tallyPreview->isHidden())
-		shown["tally_preview"] = m_tallyPreview->isChecked();
-	for (int i = 0; i < AxisCount; i++)
-		if (m_axis[i]) {
-			shown[m_axisKeys[i]] = *m_axis[i];
-			shown[QString("%1_text").arg(m_axisKeys[i])] = axisText(i);
-		}
 	if (m_reportedWhiteBalance >= 0)
 		shown["wb_mode"] = m_whiteBalanceMode->currentData().toInt();
 	for (const auto &field : m_fields) {

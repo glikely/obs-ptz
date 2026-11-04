@@ -17,7 +17,7 @@ ACTION_PAN_TILT = 3
 ACTION_STOP = 4
 
 # The filter fixtures live in test_filter_devices.py
-from conftest import SETTINGS_DIALOG
+from conftest import SETTINGS_DIALOG, header_pan
 from test_filter_devices import camera_sim, cameras, make_program, studio_mode  # noqa: F401
 
 
@@ -45,20 +45,32 @@ def test_status_view_shows_where_the_camera_is(obs_world, tmp_path):
     device_name = obs_world.device_names["visca-tcp"]
     out = tmp_path / "dialog.json"
     obs_world.open_settings_dialog(device_name)
-    obs_world.wait_for_settings_dialog(out, lambda r: {"pan", "tilt", "zoom", "focus"} <= r["state_keys"])
+    obs_world.wait_for_settings_dialog(out, header_pan)
 
     # from the middle of its range, not wherever earlier tests left it: the
     # device reads where the camera really is, and a short move from far
     # outside the range the plugin shows would not show
     obs_world.move_device(device_name, mode="abs", pan=0.0, tilt=0.0)
-    before = obs_world.wait_for_settings_dialog(out, lambda r: abs(r["pan"]) < 0.01, timeout=10)["pan"]
+    obs_world.wait_for_device_state(device_name, tmp_path / "state.json",
+                                    lambda r: abs(r["state"].get("pan", 1.0)) < 0.01, timeout=10)
+    time.sleep(0.5)  # for the header to hear of it
+    before = header_pan(obs_world.settings_dialog(out))
 
     obs_world.trigger_action(device_name, ACTION_PAN_TILT, pan_speed=0.6, tilt_speed=0.0)
     time.sleep(0.5)
     obs_world.trigger_action(device_name, ACTION_STOP)
 
     # where the camera then reports itself to be
-    obs_world.wait_for_settings_dialog(out, lambda r: r["pan"] != before, timeout=10)
+    obs_world.wait_for_settings_dialog(out, lambda r: header_pan(r) != before, timeout=10)
+
+
+def test_header_says_nothing_of_power_a_device_doesnt_report(obs_world, tmp_path):
+    device_name = obs_world.device_names["pelco-d"]
+    state = obs_world.wait_for_device_state(device_name, tmp_path / "state.json",
+                                            lambda r: r["state"].get("features"))["state"]
+    obs_world.open_settings_dialog(device_name)
+    dialog = obs_world.wait_for_settings_dialog(tmp_path / "dialog.json", lambda r: r["header"])
+    assert ("power_on" in state) == ("Powered" in dialog["header"])
 
 
 def test_settings_view_holds_only_settings(obs_world, tmp_path):
@@ -143,8 +155,9 @@ def test_status_view_updates_in_place(obs_world, tmp_path):
     before = obs_world.wait_for_settings_dialog(out, lambda r: r["connected"] and "wb_mode" in r["state_keys"])
     assert before["wb_widget"], "the status view has no white balance list"
 
-    # What changes as a camera works: what it reports of itself, and where it is
-    for mode in (1, 2, 1):
+    # What changes as a camera works: what it reports of itself, and where it
+    # is, which it doesn't show
+    for mode in (1, 2, 1, 2):
         obs_world.set_device_state(device_name, wb_mode=mode)
         obs_world.wait_for_settings_dialog(out, lambda r, m=mode: r["wb_mode"] == m)
     obs_world.trigger_action(device_name, ACTION_PAN_TILT, pan_speed=0.6, tilt_speed=0.0)

@@ -48,10 +48,7 @@ PTZCameraReportDialog::PTZCameraReportDialog(const QString &uuid, QWidget *paren
 
 	/* A camera that isn't connected can't be asked anything */
 	QModelIndex index = ptzDeviceList->indexFromUuid(deviceUuid);
-	OBSDataAutoRelease state = obs_data_create();
-	if (index.isValid())
-		ptzDeviceList->saveState(index, state.Get());
-	if (!obs_data_get_bool(state, "connected")) {
+	if (!index.data(PTZListModel::IsConnectedRole).toBool()) {
 		ui->progress->setRange(0, 1);
 		ui->status->setText(obs_module_text("PTZ.CameraReport.NotConnected"));
 		return;
