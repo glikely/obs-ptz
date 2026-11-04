@@ -24,10 +24,11 @@ and checks it against:
  * the source, for the feature and trigger names, which the plugin doesn't
    register anywhere it can be asked;
  * what the API says of itself, in ptz_get_api_info: the declarations, and for
-   each proc the thread it may be called from and what a remote caller needs to
-   be let do to call it, which are a line each in the proc's section,
-   "Any thread." or "Device thread.", and "Access: read." or "Access: none."
-   where it is not the control that most procs are.
+   each proc what a remote caller needs to be let do to call it, which is a
+   line in the proc's section, "Access: read." or "Access: none.", where it is
+   not the control that most procs are. Every proc may be called from any
+   thread, which "Rules for calling" says once, and no proc's section says
+   again.
 """
 
 import re
@@ -67,16 +68,13 @@ def documented_signatures():
 
 
 def documented_procs(title):
-    """{declaration: (thread, access)} for a proc_handler section, from each
-    proc's own "###" part of it: "any" or "device" by its "Any thread." or
-    "Device thread." line, None if it has neither, and "read", "none" or, with
-    no "Access:" line, "control"""
+    """{declaration: access} for a proc_handler section, from each proc's own
+    "###" part of it: "read", "none" or, with no "Access:" line, "control"""
     parts = re.split(r"^### `(.+)`$", sections()[title], flags=re.MULTILINE)
     found = {}
     for declaration, body in zip(parts[1::2], parts[2::2]):
-        thread = re.search(r"^(Any|Device) thread\.$", body, flags=re.MULTILINE)
         access = re.search(r"^Access: (read|none)\.$", body, flags=re.MULTILINE)
-        found[declaration] = (thread.group(1).lower() if thread else None, access.group(1) if access else "control")
+        found[declaration] = access.group(1) if access else "control"
     return found
 
 
@@ -192,10 +190,8 @@ def test_each_proc_is_tagged_as_the_doc_says(obs_world, kind, title):
     documented = documented_procs(title)
     info = api_infos(obs_world)[kind]
     for proc in info["procs"]:
-        thread, access = documented[proc["decl"]]
-        assert thread is not None, f"{proc['name']}: the doc doesn't say which thread"
-        assert proc["thread"] == thread, proc["name"]
-        assert proc["access"] == access, proc["name"]
+        assert proc["thread"] == "any", proc["name"]
+        assert proc["access"] == documented[proc["decl"]], proc["name"]
 
 
 def test_the_procs_a_remote_caller_may_only_read_with(obs_world):
@@ -232,7 +228,7 @@ def test_the_bridge_exposes_what_the_doc_lists(obs_world):
     for title, scope in SCOPES.items():
         if scope.endswith("-proc"):
             documented = {re.search(r" (\w+)\(", decl).group(1)
-                          for decl, (_, access) in documented_procs(title).items() if access != "none"}
+                          for decl, access in documented_procs(title).items() if access != "none"}
         else:
             documented = {re.search(r" (\w+)\(", decl).group(1) for decl in documented_signatures()[scope]}
         assert {entry["name"] for entry in exposed[scope]} == documented, scope

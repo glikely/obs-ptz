@@ -99,7 +99,7 @@ static void use_device(obs_source_t *source, void *data)
 	signal_handler_connect(sh, "ptz_state_changed", device_state_changed, data);
 
 	/* Then read the state as it is: the signal says only what changes, and
-	 * a device that is not changing says nothing. Any thread may. */
+	 * a device that is not changing says nothing. */
 	obs_data_t *state = obs_data_create();
 	calldata_t cd = {0};
 	calldata_set_ptr(&cd, "state", state);
@@ -195,7 +195,8 @@ if (source) {
 
 ### Rules for calling
 
-- **Threads.** Every proc of a device can be called from any thread.
+- **Threads.** Every proc of a device, and of a discovery instance, can be
+  called from any thread.
   A command, a proc that moves the camera, asks for state or makes, changes or
   recalls a preset, queues its work for the device's own thread, which for this
   plugin's devices is the one OBS made the device on (the Qt main thread), and
@@ -203,8 +204,9 @@ if (source) {
   Its result is the signal it says it announces.
   The commands one thread calls are done in the order it called them, so a
   delete called after a move is not done before it.
-  What a caller passes in, as the `state` of `ptz_request_state`, is copied
-  before the proc returns, and the caller may change or release it then.
+  What a caller passes in, as the `state` of `ptz_request_state` or the
+  `changes` of `ptz_preset_update`, is copied before the proc returns, and the
+  caller may change or release it then.
   `ptz_get_state` and `ptz_preset_get_list` give, on another thread than the
   device's, a copy that the device makes before it raises the matching signal,
   so it is never older than a signal the caller has heard.
@@ -479,7 +481,7 @@ added and signals from ptz devices will be safely ignored.
 `source` is the device: the filter, for one that is a filter.
 
 A device calls this signal when it is ready to respond to PTZ Device API calls.
-It calls it with `signal_handler_signal()`, from any thread:
+It calls it with `signal_handler_signal()`:
 
 ```c
 calldata_t cd = {0};
@@ -532,8 +534,6 @@ put back on a source (`filter_add`).
 So `ptz_device_add` and `ptz_device_remove` come in pairs.
 A controller starts over, as with any device it hasn't seen.
 
-Like any signal of a device's, it can come from any thread (see
-[Rules for calling](#rules-for-calling)).
 A device says its `ptz_device_add` and `ptz_device_remove` one at a time, in
 the order it became and stopped being a device.
 
@@ -564,8 +564,6 @@ The following proc_handler calls are defined for PTZ Devices.
 All the procs start with `ptz_`, so they can be added to an existing
 proc_handler with low risk of conflicts.
 
-Each proc says "Any thread.": every one may be called from any thread, as
-[Rules for calling](#rules-for-calling) has it.
 A proc with an "Access:" line is one that a caller outside OBS is treated
 differently for: `read` if it only reads the device, and so is let through
 where control of the camera is not, and `none` if it can't be called from
@@ -582,7 +580,6 @@ Returns the version of the PTZ API this device implements.
 Each device may implement a different version of the API.
 Controllers must not assume that all devices implement the same API version.
 A caller must check each device's own before relying on anything else in the API.
-Any thread.
 Access: read.
 
 ### `ptr ptz_get_api_info()`
@@ -593,38 +590,34 @@ caller has no other way to ask for: libobs calls a proc and connects a signal
 only by a name the caller already knows.
 
 - `procs` (array): each an object with the proc's `name`, the `decl` it is
-  declared with (`"void ptz_preset_recall(string id)"`), the `thread` it may be
-  called from, `"any"` or `"device"`, and the `access` a caller outside OBS
-  needs to call it, `"read"`, `"control"` or `"none"`.
+  declared with (`"void ptz_preset_recall(string id)"`), a `thread` that is
+  always `"any"` (see [Rules for calling](#rules-for-calling)), and the
+  `access` a caller outside OBS needs to call it, `"read"`, `"control"` or
+  `"none"`.
 - `signals` (array): each an object with the signal's `name` and `decl`.
 
 A caller takes a proc that has no `thread` as `"device"`, and one that has no
 `access` as `"control"`.
-Any thread.
 Access: read.
 
 ### `void ptz_stop()`
 
 Stops all movement: pan, tilt, zoom and focus.
-Any thread.
 
 ### `void ptz_home_recall()`
 
 Moves to the home position.
 Needs the `home` feature.
-Any thread.
 
 ### `void ptz_home_save()`
 
 Saves the current position as the home position.
 Needs the `home_set` feature.
-Any thread.
 
 ### `void ptz_move(float pan, float tilt, float zoom, float focus)`
 
 Moves at a speed, until told otherwise or stopped.
 Needs the `pan`, `tilt`, `zoom` and `focus` features, for each axis it moves.
-Any thread.
 Reads, each optional, so that a caller gives only the axes it changes:
 
 - `pan`, `tilt` (float, optional, -1.0 to 1.0): the speed.
@@ -647,7 +640,6 @@ a positive speed increases the position, a negative one decreases it.
 Moves to a position and stops there.
 Needs the `pan_abs`, `tilt_abs`, `zoom_abs` and `focus_abs` features, for each
 axis it moves.
-Any thread.
 Reads, each optional, so that a caller gives only the axes it moves:
 
 - `pan`, `tilt` (float, optional, -1.0 to 1.0): the position.
@@ -663,7 +655,6 @@ An axis left out is left where it is.
 
 Moves by a distance.
 Needs the `pan_rel` and `tilt_rel` features, for each axis it moves.
-Any thread.
 Reads, each optional, so that a caller gives only the axes it moves:
 
 - `pan`, `tilt` (float, optional, -1.0 to 1.0): how far, as a fraction of the
@@ -675,7 +666,6 @@ Reads, each optional, so that a caller gives only the axes it moves:
 Fills in the `state` object the caller owns with the device's whole transient
 state: see [State keys](#state-keys).
 Reads `state` (ptr, required).
-Any thread.
 On the device's own thread that is the state as it is.
 On another it is the copy made when the state was last announced with
 `ptz_state_changed`, which the device makes before it says so, so it is never
@@ -692,7 +682,6 @@ fast it answers, as numbers under names that the driver gives them.
 Reads `statistics` (ptr, required).
 It isn't state: it is read when wanted and never announced as changing, and a
 rate in it is over the time since it was last read, by any caller.
-Any thread.
 Access: read.
 
 ### `ptr ptz_get_parent_source()`
@@ -701,7 +690,6 @@ Returns, as `return`, the OBS source whose video the camera shows: for a device
 that is a filter the source it is on, and for one that is a source, itself.
 It is a new reference, which the caller releases with `obs_source_release()`,
 and it is null while the device has no source, or the source has been removed.
-Any thread.
 Access: none.
 
 ### `void ptz_request_state(ptr state)`
@@ -711,7 +699,6 @@ the `state` object the caller owns that the device acts on.
 Reads `state` (ptr, required).
 The state then changes when the camera reports it has, and not before, and
 `ptz_state_changed` says so.
-Any thread.
 
 ### `void ptz_trigger(string name)`
 
@@ -719,7 +706,6 @@ Runs a one-shot action on the camera, which isn't state: see
 [Triggers](#triggers).
 Reads `name` (string, required).
 An unknown name is logged and otherwise ignored.
-Any thread.
 
 ### `void ptz_get_camera_report(out string report)`
 
@@ -727,7 +713,6 @@ Returns, as `report`, the last report of what the camera has, which its
 `camera_report` trigger makes, as JSON, or "" if there isn't one.
 It is for the user to look at and send in themselves; nothing in it identifies
 the camera, the user, or where either is.
-Any thread.
 Access: read.
 
 ### `ptr ptz_preset_get_list()`
@@ -749,7 +734,6 @@ Returns, as `return`, an `obs_data_t *` that the caller releases with
 - `value_keys` (object): what a local preset captures and a recall applies,
   each `true`.
 
-Any thread.
 On the device's own thread that is the list as it is.
 On another it is the copy made when the list last changed, which the device
 makes before it raises `ptz_preset_added`, `ptz_preset_removed`,
@@ -768,7 +752,6 @@ device's source is taken.
 A preset of the local store captures every value the device reports, see
 [Presets](#presets).
 Needs the `presets` feature.
-Any thread.
 
 ### `void ptz_preset_recall(string id)`
 
@@ -779,7 +762,6 @@ One of the local store's goes to the pan, tilt, zoom and focus it has.
 Announces `ptz_preset_recalled` when the camera has arrived, unless a newer
 recall or a move comes first.
 Needs the `presets` feature.
-Any thread.
 
 ### `void ptz_preset_get_thumbnail(string id, out string mime, out string data)`
 
@@ -792,8 +774,6 @@ Both are "" if the preset has no thumbnail, the device hasn't the preset, or
 `id` is left out.
 A thumbnail is small, a few kilobytes, and a caller asks for it again when
 `ptz_preset_changed` says `thumbnail` changed.
-Any thread.
-It reads the file that `ptz_preset_get_list` names on the same thread.
 Access: read.
 
 ### `void ptz_preset_capture_thumbnail(string id, bool if_arrived)`
@@ -810,7 +790,6 @@ after the signal, for the video to catch up, gets no thumbnail of the camera on
 its way somewhere else.
 False or absent takes one regardless.
 Does nothing for a preset the device has not.
-Any thread.
 
 ### `string ptz_preset_create(string name, string store)`
 
@@ -830,7 +809,6 @@ the signal: the list has no count of how many a camera keeps.
 Reads `name` (string, optional) and `store` (string, required).
 The `name` is the user's, and "" or left out for none.
 Left out, `store` is no store the device has, and the request is refused.
-Any thread.
 From another than the device's, the request is queued once it has been made,
 and the signal comes from the device's thread, so it can come before this
 returns only if the calling thread is held up between the two: a caller that
@@ -842,7 +820,6 @@ Removes the preset `id`: clears its slot on the camera, or drops its record,
 and its thumbnail.
 Reads `id` (string, required).
 Announces `ptz_preset_removed`.
-Any thread.
 
 ### `void ptz_preset_update(string id, ptr changes)`
 
@@ -858,8 +835,6 @@ each optional:
   A local preset only.
 
 Announces `ptz_preset_changed`.
-Any thread.
-`changes` is copied before this returns.
 
 ### `void ptz_preset_move(string id, int index)`
 
@@ -868,13 +843,11 @@ as it is once it has been taken out of its old place.
 Reads `id` (string, required) and `index` (int, required).
 Left out, `index` is taken as 0.
 Announces `ptz_preset_order_changed`.
-Any thread.
 
 ### `void ptz_preset_refresh()`
 
 Asks the camera for its presets again.
 Announces `ptz_preset_list_reset` once it has them.
-Any thread.
 
 ## Per-device signal_handler
 
@@ -882,7 +855,6 @@ The device's own signal_handler: its source's, from
 `obs_source_get_signal_handler()`.
 All its signals start with `ptz_`, so they do not conflict with the signals OBS
 gives every source, such as `destroy` and `update`.
-A signal fires on any thread (see [Rules for calling](#rules-for-calling)).
 A device keeps its signals in the order its changes happened: it fires them one
 at a time, never from two threads at once, so that a listener that hands each
 on to its own thread, in turn, hears them in order.
@@ -1172,20 +1144,18 @@ stop it at once rather than when OBS gets round to destroying it.
 
 The procs on a discovery instance's own `proc_handler`, from
 `obs_source_get_proc_handler()`.
-Any thread: the instance does the work on the main thread.
+The instance does the work on the main thread.
 
 ### `void ptz_get_api_version(out int major, out int minor)`
 
 The version of the PTZ API the instance implements, as a device's
 `ptz_get_api_version` says it: one version covers both.
-Any thread.
 Access: read.
 
 ### `ptr ptz_get_api_info()`
 
 The procs and signals the instance has, as a device's `ptz_get_api_info` gives
 its own.
-Any thread.
 Access: read.
 
 ### `void ptz_discovery_start()`
@@ -1194,19 +1164,15 @@ Looks for devices for a while (a few seconds), saying `ptz_device_found` for
 each one it finds, then `ptz_discovery_finished`.
 While a search is running, it does nothing; after one, it looks again, and
 says again each device it finds.
-Any thread.
 
 ### `void ptz_discovery_stop()`
 
 Gives up the search, and says `ptz_discovery_finished` if one was running.
-Any thread.
 
 ## Per-discovery signal_handler
 
 The signals on a discovery instance's own `signal_handler`, from
 `obs_source_get_signal_handler()`.
-A signal fires on any thread, as a device's does (see
-[Rules for calling](#rules-for-calling)).
 A listener may call the instance's procs from inside a signal: a
 `ptz_discovery_stop` from `ptz_device_found`, say, or a `ptz_discovery_start`
 from `ptz_discovery_finished` to look again.
