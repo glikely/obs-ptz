@@ -249,21 +249,74 @@ void procsFromThread(OBSSource filter, bool keep)
 	     QJsonDocument(out).toJson(QJsonDocument::Compact).constData());
 }
 
+/* On a thread of its own, while the device is at work on its own: reads its
+ * statistics and its camera report, again and again, and how many times each
+ * was answered */
+void diagnosticsFromThread(OBSSource filter, int times)
+{
+	proc_handler_t *ph = obs_source_get_proc_handler(filter);
+	int statistics = 0, reports = 0;
+	QString report;
+	for (int i = 0; i < times; i++) {
+		OBSDataAutoRelease out = obs_data_create();
+		calldata_t cd = {};
+		calldata_set_ptr(&cd, "statistics", out.Get());
+		if (proc_handler_call(ph, "ptz_get_statistics", &cd) &&
+		    obs_data_has_user_value(out, "visca_sent_count"))
+			statistics++;
+		calldata_free(&cd);
+
+		calldata_t rcd = {};
+		const char *text = nullptr;
+		if (proc_handler_call(ph, "ptz_get_camera_report", &rcd) &&
+		    calldata_get_string(&rcd, "report", &text) && text) {
+			reports++;
+			report = QString::fromUtf8(text);
+		}
+		calldata_free(&rcd);
+		std::this_thread::sleep_for(std::chrono::milliseconds(2));
+	}
+	QJsonObject out;
+	out["times"] = times;
+	out["statistics"] = statistics;
+	out["reports"] = reports;
+	out["report"] = QJsonDocument::fromJson(report.toUtf8()).object().value("report").toString();
+	blog(LOG_INFO, "[ptz-ui-test] device_diagnostics_from_thread: %s",
+	     QJsonDocument(out).toJson(QJsonDocument::Compact).constData());
+}
+
+obs_source_t *findFilter(const QMap<QString, QString> &params, const char *test)
+{
+	OBSSourceAutoRelease parent = obs_get_source_by_name(qUtf8Printable(params.value(QStringLiteral("source"))));
+	obs_source_t *filter =
+		parent ? obs_source_get_filter_by_name(parent, qUtf8Printable(params.value(QStringLiteral("filter"))))
+		       : nullptr;
+	if (!filter)
+		blog(LOG_INFO, "[ptz-ui-test] %s: no such filter", test);
+	return filter;
+}
+
 /* On obs-websocket's thread, in the request: starts a thread that calls the
  * procs of the filter named "filter" on the source named "source", and logs
  * what it found as "device_procs_from_thread: <json>" */
 void runProcsFromThreadTest(const QMap<QString, QString> &params)
 {
-	OBSSourceAutoRelease parent = obs_get_source_by_name(qUtf8Printable(params.value(QStringLiteral("source"))));
-	OBSSourceAutoRelease filter =
-		parent ? obs_source_get_filter_by_name(parent, qUtf8Printable(params.value(QStringLiteral("filter"))))
-		       : nullptr;
-	if (!filter) {
-		blog(LOG_INFO, "[ptz-ui-test] device_procs_from_thread: no such filter");
+	OBSSourceAutoRelease filter = findFilter(params, "device_procs_from_thread");
+	if (!filter)
 		return;
-	}
 	bool keep = params.value(QStringLiteral("keep")) == QStringLiteral("1");
 	std::thread(procsFromThread, OBSSource(filter.Get()), keep).detach();
+}
+
+/* Likewise, the statistics and the camera report, logged as
+ * "device_diagnostics_from_thread: <json>" */
+void runDiagnosticsFromThreadTest(const QMap<QString, QString> &params)
+{
+	OBSSourceAutoRelease filter = findFilter(params, "device_diagnostics_from_thread");
+	if (!filter)
+		return;
+	int times = params.value(QStringLiteral("times"), QStringLiteral("200")).toInt();
+	std::thread(diagnosticsFromThread, OBSSource(filter.Get()), times).detach();
 }
 
 } // namespace
@@ -275,4 +328,8 @@ void registerDeviceThreadProcsTest(PTZUITestHarness *harness)
 	 *   filter - the filter's name
 	 *   keep   - "1" to leave the first preset made, renamed, for the dock to show */
 	harness->registerInlineTest(QStringLiteral("device_procs_from_thread"), &runProcsFromThreadTest);
+	/* device_diagnostics_from_thread request params:
+	 *   source, filter - as above
+	 *   times          - how many times to read each, 200 if not given */
+	harness->registerInlineTest(QStringLiteral("device_diagnostics_from_thread"), &runDiagnosticsFromThreadTest);
 }
