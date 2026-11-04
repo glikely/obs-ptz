@@ -259,6 +259,15 @@ def test_invoke_queued_answers_before_the_call_runs(obs_world, studio_mode_off):
     obs_world.wait_for(lambda: studio_mode(obs_world) is True)
 
 
+def test_invoke_sends_a_signal(obs_world, studio_mode_off):
+    obs_world.need_ui_driver()
+    watch = obs_world.ui.watch(MAIN, "modeSwitch", signal="pressed")
+    obs_world.ui.invoke(MAIN, "modeSwitch", method="pressed")
+    assert obs_world.ui.count(watch) == 1
+    # Only the signal is sent: nothing lets go of the button, so it isn't clicked
+    assert studio_mode(obs_world) is False
+
+
 def test_invoke_says_when_there_is_no_such_method(obs_world):
     obs_world.need_ui_driver()
     with pytest.raises(UiDriverError) as raised:

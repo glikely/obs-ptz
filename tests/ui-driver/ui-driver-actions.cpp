@@ -139,12 +139,14 @@ QJsonObject invokeRequest(const QJsonObject &request)
 	if (!object)
 		return failed;
 
-	/* The first slot, or invokable method, of that name that takes that many arguments */
+	/* The first slot, invokable method or signal of that name that takes that
+	 * many arguments. A signal invoked is sent, as the object sends it: a
+	 * button's pressed, say, with nothing to release it. */
 	const QMetaObject *meta = object->metaObject();
 	QMetaMethod method;
 	for (int i = 0; i < meta->methodCount(); i++) {
 		QMetaMethod candidate = meta->method(i);
-		if (candidate.methodType() != QMetaMethod::Slot && candidate.methodType() != QMetaMethod::Method)
+		if (candidate.methodType() == QMetaMethod::Constructor)
 			continue;
 		if (QString::fromUtf8(candidate.name()) == name && candidate.parameterCount() == args.size()) {
 			method = candidate;

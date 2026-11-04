@@ -320,7 +320,7 @@ def test_adding_a_device_stops_the_camera_being_moved(request, obs_world, tmp_pa
                                                  name="enabled"), timeout=5)
 
     # Held down, as nothing lets go of the button
-    obs_world.ui.invoke(OBS_MAIN, PTZ_DOCK, "movementControlsWidget", method="on_panTiltButton_right_pressed")
+    obs_world.ui.invoke(OBS_MAIN, PTZ_DOCK, "movementControlsWidget", "panTiltButton_right", method="pressed")
     obs_world.wait_for(lambda: camera.sim.state()["pan_speed"] != 0, timeout=5)
 
     make_camera(request.addfinalizer, obs_world, tmp_path)
