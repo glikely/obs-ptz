@@ -26,6 +26,7 @@ obs_websocket_vendor ptzUITestVendor()
 
 PTZUITestHarness::PTZUITestHarness(QObject *parent) : QObject(parent)
 {
+	registerApiTablesTest(this);
 	registerAppearanceRowSizingTest(this);
 	registerDeviceLifecycleTest(this);
 	registerDeviceSettingsTest(this);

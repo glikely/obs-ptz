@@ -295,10 +295,11 @@ Linux.
     UI driver.
 29. `test_api_doc.py` holds `docs/ptz-device-api.md`, the hand-written
     specification of the PTZ API, to the plugin: that its procs and signals are
-    exactly the ones the plugin registers (recorded by `ptz_proc_add()` and
-    `ptz_signal_add()` for `ptz_get_api_info`, which every device is asked over
-    the websocket binding, and a discovery instance of each kind, which the UI
-    harness's `discover` makes, is asked in OBS), that
+    exactly the ones in the plugin's tables of the API (`src/ptz-api.cpp`,
+    which the UI harness's `api_tables` gives, and of which the websocket
+    binding's `ptz_list_api` gives a device's), with the access each
+    proc's section says, that no device or discovery instance registers one
+    the tables haven't (`ptz_proc_add()` and `ptz_signal_add()` log it), that
     the state and config keys it lists are on real devices with the types it
     gives, and that its features and triggers are the ones in the source.
 

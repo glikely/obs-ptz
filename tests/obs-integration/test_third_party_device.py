@@ -55,16 +55,20 @@ def test_a_filter_at_a_usable_version_is_a_device(obs_world, source, tmp_path):
 
 def test_a_device_of_an_older_minor_version_is_still_a_device(obs_world, source, tmp_path):
     """The stand-in is at the oldest version the controller takes, and has only
-    what that needs. Over obs-websocket it is listed, with its version, and that
-    is all: it hasn't ptz_get_api_info, which is how the binding learns what a
-    device has."""
+    what that needs. Over obs-websocket it is listed, with its version, and the
+    procs of the API it has are requests: one it hasn't answers that the device
+    has no such proc."""
     add_filter(obs_world, source, GOOD_KIND)
     obs_world.wait_for_device_by_name(source, tmp_path / "device.json", lambda r: r["found"])
 
     listed = {d["source"]: d for d in obs_world.ws.vendor("obs-ptz", "ptz_list_devices")["devices"]}
     assert listed[source]["api"] == {"major": 0, "minor": 9}
+    uuid = listed[source]["device"]
+    # the stand-in fills in the state it is given, and returns nothing
+    state = obs_world.ws.vendor("obs-ptz", "ptz_get_state", {"device": uuid})["state"]
+    assert state["connected"] is True and state["source"] == source
     with pytest.raises(ObsWebSocketError) as raised:
-        obs_world.ws.vendor("obs-ptz", "ptz_get_state", {"device": listed[source]["device"]})
+        obs_world.ws.vendor("obs-ptz", "ptz_move", {"device": uuid, "pan": 0.5})
     assert raised.value.status.get("error") == "no_such_proc"
 
 

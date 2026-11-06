@@ -65,14 +65,12 @@ void ptz_discovery_add_api(obs_source_t *source, proc_handler_proc_t start, proc
 {
 	proc_handler_t *ph = obs_source_get_proc_handler(source);
 	signal_handler_t *sh = obs_source_get_signal_handler(source);
-	ptz_proc_add("discovery-proc", ph, "void ptz_get_api_version(out int major, out int minor)",
-		     ptz_discovery_get_api_version_proc, nullptr, PTZ_ACCESS_READ);
-	ptz_proc_add("discovery-proc", ph, "ptr ptz_get_api_info()", ptz_get_api_info_proc,
-		     const_cast<char *>("discovery"), PTZ_ACCESS_READ);
-	ptz_proc_add("discovery-proc", ph, "void ptz_discovery_start()", start, data);
-	ptz_proc_add("discovery-proc", ph, "void ptz_discovery_stop()", stop, data);
-	ptz_signal_add("discovery-signal", sh,
+	ptz_proc_add(ptz_api_discovery_procs(), ph, "void ptz_get_api_version(out int major, out int minor)",
+		     ptz_discovery_get_api_version_proc, nullptr);
+	ptz_proc_add(ptz_api_discovery_procs(), ph, "void ptz_discovery_start()", start, data);
+	ptz_proc_add(ptz_api_discovery_procs(), ph, "void ptz_discovery_stop()", stop, data);
+	ptz_signal_add(ptz_api_discovery_signals(), sh,
 		       "void ptz_device_found(ptr source, string kind, string id, string name, string address, "
 		       "ptr settings)");
-	ptz_signal_add("discovery-signal", sh, "void ptz_discovery_finished(ptr source)");
+	ptz_signal_add(ptz_api_discovery_signals(), sh, "void ptz_discovery_finished(ptr source)");
 }

@@ -106,10 +106,21 @@ def test_a_returned_object_and_a_returned_string(obs_world):
     assert isinstance(report["report"], str)
 
 
-def test_get_api_info_over_the_wire(obs_world):
-    info = obs_world.ws.vendor(VENDOR, "ptz_get_api_info", {"device": device(obs_world, "visca-tcp")})["return"]
-    assert "ptz_move" in {p["name"] for p in info["procs"]}
-    assert "ptz_state_changed" in {s["name"] for s in info["signals"]}
+def test_list_api_gives_the_declarations(obs_world):
+    """Without a device: what the API has is the same whatever devices there are"""
+    api = obs_world.ws.vendor(VENDOR, "ptz_list_api")
+    procs = {p["name"]: p for p in api["device-proc"]}
+    assert procs["ptz_move"] == {"name": "ptz_move", "access": "control",
+                                 "decl": "void ptz_move(float pan, float tilt, float zoom, float focus)"}
+    assert procs["ptz_get_state"]["access"] == "read"
+    signals = {s["name"]: s for s in api["device-signal"]}
+    assert signals["ptz_state_changed"] == {"name": "ptz_state_changed",
+                                            "decl": "void ptz_state_changed(ptr source, ptr changed)"}
+
+
+def test_api_info_is_no_proc_of_a_device(obs_world):
+    """It was one once: what the API has is ptz_list_api's to say"""
+    assert is_unknown_request(obs_world, "ptz_get_api_info", {"device": device(obs_world, "visca-tcp")})
 
 
 def test_unknown_device(obs_world):

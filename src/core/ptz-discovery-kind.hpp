@@ -53,8 +53,8 @@ private:
 	QByteArray kind;
 };
 
-/* Registers a discovery instance's procs and signals, in the scopes
- * "discovery-proc" and "discovery-signal" (see ptz_proc_add()) */
+/* Registers a discovery instance's procs and signals, which are in
+ * ptz_api_discovery_procs() and ptz_api_discovery_signals() (see ptz_proc_add()) */
 void ptz_discovery_add_api(obs_source_t *source, proc_handler_proc_t start, proc_handler_proc_t stop, void *data);
 
 namespace ptz_discovery_detail {

@@ -7,10 +7,13 @@
  * See "WebSocket binding" in docs/ptz-device-api.md for what a client sees.
  *
  * A request of the vendor is a proc of the PTZ API by the same name, on the
- * device whose UUID the request gives. Nothing here knows the API's procs: a
- * device says what it has in ptz_get_api_info, with the declaration of each,
- * and a request's JSON is turned into the proc's calldata by that. A discovery
- * instance is not on it: a client can neither make one nor call one.
+ * device whose UUID the request gives. Nothing here knows the API's procs: the
+ * tables of them (src/ptz-api.cpp) have the declaration of each, and a
+ * request's JSON is turned into the proc's calldata by that. There is a request
+ * for every proc of a device in the tables, and an event for every signal of
+ * one, whatever devices there are: a request for a proc the device hasn't is
+ * answered no_such_proc. A discovery instance is not on it: a client can
+ * neither make one nor call one.
  *
  * Threads. obs-websocket calls a request on any thread of its own pool, and
  * several at once. A request holds a reference to its device for as long as it
@@ -19,13 +22,13 @@
  * touches: obs-websocket keeps its own copy of what is registered, and hands a
  * request the entry it was registered with, which is never freed.
  *
- * A proc that has to be called on the main thread is sent there and waited for,
- * for no longer than kMainThreadWait: see onMainThread(). What it works on is
- * its own (a ProcCall), kept by whichever of the two threads is last to let go
- * of it, so that a request that gave up waiting leaves nothing behind for the
- * main thread to write to. No lock is held while a proc, or OBS, is called.
+ * A proc is called on obs-websocket's thread, as every proc of the API may be.
+ * The one thing sent to the main thread is ptz_list_devices' connecting to a
+ * device the binding hasn't come to know of yet, which is waited for, for no
+ * longer than kMainThreadWait: see onMainThread(). No lock is held while a
+ * proc, or OBS, is called.
  *
- * Signals. Each signal a device says it has is connected to, and sent on as an
+ * Signals. Each signal of the API is connected to, on every device, and sent on as an
  * event of the vendor, on whatever thread raised it: its calldata is read
  * and sent before the handler returns, and nothing of it is kept. Which
  * sources are connected to (`connected`) has a lock of its own, held only to
@@ -48,7 +51,6 @@
 #include <map>
 #include <memory>
 #include <mutex>
-#include <set>
 #include <string>
 #include <thread>
 #include <vector>
@@ -62,6 +64,7 @@
 #include <qt-wrappers.hpp>
 
 #include "ptz.h"
+#include "ptz-api.hpp"
 #include "ptz-controls.hpp"
 #include "ptz-ws-decl.hpp"
 
@@ -99,10 +102,6 @@ struct Request {
 /* Every request there has been cause to have, by name. Main thread. An entry
  * is never removed, as obs-websocket may be about to call it. */
 std::map<std::string, std::unique_ptr<Request>> requests;
-
-/* The names of the requests and events there are for the API, by the scope
- * docs/ptz-device-api.md has them in ("device-proc", ...). Main thread. */
-std::map<std::string, std::set<std::string>> exposed;
 
 /* The UUID of the camera selected in the dock, "" for none. Set on the main
  * thread as the selection changes, and read by a request on any. */
@@ -190,53 +189,18 @@ HopResult onMainThread(const std::function<void()> &work)
 	return closing.load() ? HopResult::Unavailable : HopResult::Timeout;
 }
 
-/* The answer to a request that the main thread didn't get to. True if it did. */
-bool hopDone(HopResult result, const std::string &what, obs_data_t *response)
+/* --- what a device has ---------------------------------------------------------- */
+
+/* A discovery instance is an input whose kind's id ends in ".discovery" (see
+ * "Discovery kinds" in docs/ptz-device-api.md). It has the same version proc as
+ * a device, and is not on the binding. Any thread. */
+bool isDiscovery(obs_source_t *source)
 {
-	if (result == HopResult::Timeout)
-		setError(response, "timeout", what + " was not run in time: OBS's main thread is busy");
-	else if (result == HopResult::Unavailable)
-		setError(response, "unavailable", "OBS is closing");
-	return result == HopResult::Done;
-}
-
-/* --- what a device says it has ------------------------------------------------- */
-
-struct ProcInfo {
-	std::string decl;
-	bool anyThread = false;
-	std::string access = "control";
-};
-
-/* What ptz_get_api_info says of the source's procs, by name: nothing if it
- * hasn't one */
-std::map<std::string, ProcInfo> procsOf(obs_source_t *source)
-{
-	std::map<std::string, ProcInfo> procs;
-	calldata_t cd = {};
-	if (proc_handler_call(obs_source_get_proc_handler(source), "ptz_get_api_info", &cd)) {
-		OBSDataAutoRelease info = static_cast<obs_data_t *>(calldata_ptr(&cd, "return"));
-		OBSDataArrayAutoRelease list = obs_data_get_array(info, "procs");
-		for (size_t i = 0; i < obs_data_array_count(list); i++) {
-			OBSDataAutoRelease item = obs_data_array_item(list, i);
-			ProcInfo proc;
-			proc.decl = obs_data_get_string(item, "decl");
-			/* One that doesn't say is taken as the device's thread only, and as control */
-			proc.anyThread = strcmp(obs_data_get_string(item, "thread"), "any") == 0;
-			if (obs_data_has_user_value(item, "access"))
-				proc.access = obs_data_get_string(item, "access");
-			procs[obs_data_get_string(item, "name")] = proc;
-		}
-	}
-	calldata_free(&cd);
-	return procs;
-}
-
-/* A discovery instance has the same version proc as a device, and is told
- * from one by what else it has. It is not on the binding. */
-bool isDiscovery(const std::map<std::string, ProcInfo> &procs)
-{
-	return procs.count("ptz_discovery_start") > 0;
+	static const char suffix[] = ".discovery";
+	const char *id = obs_source_get_id(source);
+	size_t length = id ? strlen(id) : 0;
+	return obs_source_get_type(source) == OBS_SOURCE_TYPE_INPUT && length >= sizeof(suffix) - 1 &&
+	       strcmp(id + length - (sizeof(suffix) - 1), suffix) == 0;
 }
 
 /* --- the requests there are ------------------------------------------------------ */
@@ -397,20 +361,6 @@ void readField(calldata_t *cd, const std::string &name, ptzws::Type type, bool o
 	}
 }
 
-/* A proc being called for a request: the device, which is held until the proc
- * has been called and what it returned read (which is what keeps its
- * proc_handler good), and what it is called with. It is the request's until
- * the proc is sent to the main thread, and from then whichever's lets go last. */
-struct ProcCall {
-	OBSSource source;
-	std::string name;
-	calldata_t cd = {};
-	std::vector<OBSData> held;
-	bool called = false;
-
-	~ProcCall() { calldata_free(&cd); }
-};
-
 /* A request for a proc of the API: obs-websocket calls it, on a thread of its own */
 void procRequest(obs_data_t *requestData, obs_data_t *response, void *priv)
 {
@@ -435,71 +385,74 @@ void procRequest(obs_data_t *requestData, obs_data_t *response, void *priv)
 	}
 
 	OBSSourceAutoRelease source = !uuid.empty() ? obs_get_source_by_uuid(uuid.c_str()) : nullptr;
-	if (!source || !ptz_source_is_device(source)) {
+	if (!source || !ptz_source_is_device(source) || isDiscovery(source)) {
 		setError(response, "unknown_device", "no PTZ device '" + uuid + "'");
 		return;
 	}
-	auto procs = procsOf(source);
-	if (isDiscovery(procs)) {
-		setError(response, "unknown_device", "no PTZ device '" + uuid + "'");
-		return;
-	}
-	auto found = procs.find(request->name);
-	if (found == procs.end()) {
+	const PTZApiProc *proc = ptz_api_device_procs().find(request->name.c_str());
+	if (!proc) {
 		setError(response, "no_such_proc", "the device has no " + request->name);
 		return;
 	}
-	const ProcInfo &proc = found->second;
 	/* The setting changed after obs-websocket found the request, or this
 	 * device's proc is not what the request was registered for */
-	if (!admits(accessLevel.load(), proc.access)) {
+	if (!admits(accessLevel.load(), ptz_api_access_name(proc->access))) {
 		setError(response, "forbidden", request->name + " is not allowed by the PTZ websocket access setting");
 		return;
 	}
-	auto decl = ptzws::parse_decl(proc.decl);
+	auto decl = ptzws::parse_decl(proc->decl);
 	if (!decl) {
-		setError(response, "no_such_proc", "can't read the declaration '" + proc.decl + "'");
+		setError(response, "no_such_proc", std::string("can't read the declaration '") + proc->decl + "'");
 		return;
 	}
 
-	auto call = std::make_shared<ProcCall>();
-	call->source = source.Get();
-	call->name = request->name;
-	if (!fillCalldata(*decl, requestData, &call->cd, call->held, response))
-		return;
-
-	auto work = [call]() {
-		call->called =
-			proc_handler_call(obs_source_get_proc_handler(call->source), call->name.c_str(), &call->cd);
-	};
-	if (proc.anyThread)
-		work();
-	else if (!hopDone(onMainThread(work), request->name, response))
-		return;
-	if (!call->called) {
-		setError(response, "no_such_proc", "the device has no " + request->name);
-		return;
+	/* The device is held, by `source`, until what the proc returned has been
+	 * read, which is what keeps its proc_handler good. Called on this thread,
+	 * as every proc of the API may be. */
+	calldata_t cd = {};
+	std::vector<OBSData> held;
+	if (fillCalldata(*decl, requestData, &cd, held, response)) {
+		if (proc_handler_call(obs_source_get_proc_handler(source), request->name.c_str(), &cd)) {
+			for (const ptzws::Param &param : decl->params)
+				if (param.out || param.type == ptzws::Type::Ptr)
+					readField(&cd, param.name, param.type, false, response);
+			if (decl->ret != ptzws::Type::Void)
+				readField(&cd, decl->retName, decl->ret, true, response);
+		} else {
+			setError(response, "no_such_proc", "the device has no " + request->name);
+		}
 	}
-
-	for (const ptzws::Param &param : decl->params)
-		if (param.out || param.type == ptzws::Type::Ptr)
-			readField(&call->cd, param.name, param.type, false, response);
-	if (decl->ret != ptzws::Type::Void)
-		readField(&call->cd, decl->retName, decl->ret, true, response);
+	calldata_free(&cd);
 }
 
 /* --- a signal, sent on as an event ----------------------------------------------- */
 
-/* A signal of the API, connected to on every source that has it: what its
- * calldata has, by its declaration. Never freed, as a signal may be about to
- * be raised with it. */
+/* A signal of the API, connected to on every device:
+ * what its calldata has, by its declaration. Never freed, as a signal may be
+ * about to be raised with it. */
 struct SignalLink {
 	std::string name;
 	ptzws::Decl decl;
 };
 
-/* By declaration. Main thread. */
-std::map<std::string, std::unique_ptr<SignalLink>> signalLinks;
+/* One for each signal of a device in the API's tables, made when the binding
+ * loads. Main thread. */
+std::vector<std::unique_ptr<SignalLink>> signalLinks;
+
+void makeSignalLinks()
+{
+	if (!signalLinks.empty())
+		return;
+	for (const PTZApiSignal &entry : ptz_api_device_signals()) {
+		auto decl = ptzws::parse_decl(entry.decl);
+		if (!decl)
+			continue;
+		auto link = std::make_unique<SignalLink>();
+		link->name = decl->name;
+		link->decl = *decl;
+		signalLinks.push_back(std::move(link));
+	}
+}
 
 /* A source whose signals are connected to */
 struct Connected {
@@ -577,7 +530,7 @@ void sourceDestroyed(void *, calldata_t *cd)
 	emitEvent("ptz_device_remove", event);
 }
 
-/* Connects to the signals the source says it has, if it hasn't been. Main thread. */
+/* Connects to the source's signals, if it hasn't been. Main thread. */
 void connectSignals(obs_source_t *source)
 {
 	std::string uuid = obs_source_get_uuid(source);
@@ -590,29 +543,12 @@ void connectSignals(obs_source_t *source)
 	entry.source = OBSGetWeakRef(source);
 	signal_handler_t *handler = obs_source_get_signal_handler(source);
 
-	calldata_t cd = {};
-	if (proc_handler_call(obs_source_get_proc_handler(source), "ptz_get_api_info", &cd)) {
-		OBSDataAutoRelease info = static_cast<obs_data_t *>(calldata_ptr(&cd, "return"));
-		OBSDataArrayAutoRelease list = obs_data_get_array(info, "signals");
-		for (size_t i = 0; i < obs_data_array_count(list); i++) {
-			OBSDataAutoRelease item = obs_data_array_item(list, i);
-			std::string text = obs_data_get_string(item, "decl");
-			if (!signalLinks.count(text)) {
-				auto decl = ptzws::parse_decl(text);
-				if (!decl)
-					continue;
-				auto link = std::make_unique<SignalLink>();
-				link->name = decl->name;
-				link->decl = *decl;
-				signalLinks[text] = std::move(link);
-			}
-			SignalLink *link = signalLinks[text].get();
-			signal_handler_connect(handler, link->name.c_str(), signalRaised, link);
-			entry.links.push_back(link);
-			exposed["device-signal"].insert(link->name);
-		}
+	/* A device of another plugin may not have every signal, and libobs
+	 * says so in the log for each one it hasn't */
+	for (const auto &link : signalLinks) {
+		signal_handler_connect(handler, link->name.c_str(), signalRaised, link.get());
+		entry.links.push_back(link.get());
 	}
-	calldata_free(&cd);
 	signal_handler_connect(handler, "destroy", sourceDestroyed, nullptr);
 
 	{
@@ -652,22 +588,11 @@ std::vector<OBSSource> allSources()
 	return sources;
 }
 
-/* Has a request for each proc the source says it has, and hears its signals,
- * if it is a device. Main thread. */
+/* Hears the source's signals, if it is a device. Main thread. */
 void considerSource(obs_source_t *source)
 {
-	if (!source || !ptz_source_is_device(source))
+	if (!source || !ptz_source_is_device(source) || isDiscovery(source))
 		return;
-	auto procs = procsOf(source);
-	if (isDiscovery(procs))
-		return;
-	for (const auto &proc : procs) {
-		if (proc.second.access != "read" && proc.second.access != "control")
-			continue;
-		addRequest(proc.first, proc.second.access, procRequest);
-		exposed["device-proc"].insert(proc.first);
-	}
-	applyAccess();
 	connectSignals(source);
 }
 
@@ -707,7 +632,7 @@ void listDevices(obs_data_t *, obs_data_t *response, void *)
 	 * and what was queued for the main thread when it did has not run */
 	auto unknown = std::make_shared<std::vector<OBSSource>>();
 	for (const OBSSource &source : allSources()) {
-		if (!ptz_source_is_device(source) || isDiscovery(procsOf(source)))
+		if (!ptz_source_is_device(source) || isDiscovery(source))
 			continue;
 		{
 			std::lock_guard<std::mutex> lock(connectedMutex);
@@ -761,25 +686,41 @@ void getSelected(obs_data_t *, obs_data_t *response, void *)
 	obs_data_set_string(response, "device", selectedDevice().c_str());
 }
 
-/* What there is a request or an event for, of the API's procs and signals */
+/* ptz_list_api's array of a proc table, under `key` */
+void listApiProcs(obs_data_t *response, const char *key, PTZApiProcs table)
+{
+	OBSDataArrayAutoRelease list = obs_data_array_create();
+	for (const PTZApiProc &entry : table) {
+		OBSDataAutoRelease item = obs_data_create();
+		obs_data_set_string(item, "name", entry.name);
+		obs_data_set_string(item, "decl", entry.decl);
+		obs_data_set_string(item, "access", ptz_api_access_name(entry.access));
+		obs_data_array_push_back(list, item);
+	}
+	obs_data_set_array(response, key, list);
+}
+
+/* ...and of a signal table */
+void listApiSignals(obs_data_t *response, const char *key, PTZApiSignals table)
+{
+	OBSDataArrayAutoRelease list = obs_data_array_create();
+	for (const PTZApiSignal &entry : table) {
+		OBSDataAutoRelease item = obs_data_create();
+		obs_data_set_string(item, "name", entry.name);
+		obs_data_set_string(item, "decl", entry.decl);
+		obs_data_array_push_back(list, item);
+	}
+	obs_data_set_array(response, key, list);
+}
+
+/* A device's procs and signals, from the API's tables: what there is a request
+ * or an event for, with its declaration and, for a proc, its access. It is the
+ * same whatever devices there are, so needs no main thread. */
 void listApi(obs_data_t *, obs_data_t *response, void *)
 {
 	InFlight running;
-	OBSDataAutoRelease made = obs_data_create();
-	OBSData api = made.Get();
-	auto work = [api]() {
-		for (const char *scope : {"device-proc", "device-signal"}) {
-			OBSDataArrayAutoRelease list = obs_data_array_create();
-			for (const std::string &name : exposed[scope]) {
-				OBSDataAutoRelease item = obs_data_create();
-				obs_data_set_string(item, "name", name.c_str());
-				obs_data_array_push_back(list, item);
-			}
-			obs_data_set_array(api, scope, list);
-		}
-	};
-	if (hopDone(onMainThread(work), "ptz_list_api", response))
-		obs_data_apply(response, api);
+	listApiProcs(response, "device-proc", ptz_api_device_procs());
+	listApiSignals(response, "device-signal", ptz_api_device_signals());
 }
 
 /* Stops anything more being started, and has whatever is waiting for the main
@@ -870,6 +811,11 @@ void ptz_websocket_load(void)
 	addRequest("ptz_list_devices", "read", listDevices);
 	addRequest("ptz_get_selected", "read", getSelected);
 	addRequest("ptz_list_api", "read", listApi);
+	/* A request for every proc of a device a client may call */
+	for (const PTZApiProc &entry : ptz_api_device_procs())
+		if (entry.access != PTZ_ACCESS_NONE)
+			addRequest(entry.name, ptz_api_access_name(entry.access), procRequest);
+	makeSignalLinks();
 
 	/* No source has been loaded yet, but one that a module made is there */
 	signal_handler_t *global = obs_get_signal_handler();

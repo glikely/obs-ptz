@@ -6,7 +6,7 @@
  *
  * A proc or signal is registered with libobs by a declaration,
  * "string ptz_preset_create(string name, string store)", which libobs reads
- * and keeps to itself. The PTZ API gives each back in ptz_get_api_info, and
+ * and keeps to itself. The API tables (src/ptz-api.cpp) have each, and
  * this reads one, for the websocket binding to know the type of each field.
  * It needs neither OBS nor Qt.
  */

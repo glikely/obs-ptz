@@ -140,9 +140,14 @@ function(ptz_add_library target type)
   target_link_libraries(${CMAKE_PROJECT_NAME} PRIVATE ${target})
 endfunction()
 
+# The PTZ API's tables, which the controller, the core and each driver may use
+ptz_add_library(ptz-api STATIC)
+target_sources(ptz-api PRIVATE src/ptz-api.cpp src/ptz-api.hpp)
+
 # The PTZDevice base class and what the drivers share with it
 ptz_add_library(ptz-device-core STATIC)
 target_include_directories(ptz-device-core PUBLIC "${CMAKE_SOURCE_DIR}/src/core")
+target_link_libraries(ptz-device-core PUBLIC ptz-api)
 target_sources(
   ptz-device-core
   PRIVATE

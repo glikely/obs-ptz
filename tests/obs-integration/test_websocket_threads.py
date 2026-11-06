@@ -1,9 +1,8 @@
 """Covers the threads the PTZ API's obs-websocket binding
 (src/controller/ptz-websocket.cpp) is called on: obs-websocket's own, several at
-once, while the procs that read a device have to run on OBS's main thread. A
-request that can't be run in time is answered so, one that needs no main thread
-is not held up by it, many at once are all answered, and OBS can still quit with
-one waiting.
+once, as every proc of the API may be called from any thread. A request is
+not held up by a busy main thread, many at once are all answered, and OBS can
+still quit with some coming.
 
 Copyright 2026 Grant Likely <grant.likely@secretlab.ca>
 SPDX-License-Identifier: GPL-2.0-or-later
@@ -20,28 +19,11 @@ from obsws import Client, ObsWebSocketError
 from test_filter_devices import camera_sim, cameras  # noqa: F401
 from test_websocket_api import VENDOR, device, devices
 
-# How long the binding waits for the main thread, in ptz-websocket.cpp
-MAIN_THREAD_WAIT = 5
-
 
 def hold_main_thread(obs_world, seconds):
     obs_world.run_ui_test("hold_main_thread", ms=int(seconds * 1000))
     # the request is only queued for the main thread: let it get there
     time.sleep(0.3)
-
-
-def test_a_main_thread_request_times_out_when_the_main_thread_is_held(obs_world):
-    """No proc of the plugin's devices needs the main thread, but the binding's
-    ptz_list_api, which reads what the main thread keeps, does"""
-    hold_main_thread(obs_world, MAIN_THREAD_WAIT + 2)
-    started = time.time()
-    with pytest.raises(ObsWebSocketError) as raised:
-        obs_world.ws.vendor(VENDOR, "ptz_list_api", timeout=MAIN_THREAD_WAIT + 4)
-    waited = time.time() - started
-    assert raised.value.status.get("error") == "timeout"
-    assert MAIN_THREAD_WAIT - 0.5 < waited < MAIN_THREAD_WAIT + 1
-    # and once the main thread is free again, it is answered as ever
-    obs_world.wait_for(lambda: "device-proc" in obs_world.ws.vendor(VENDOR, "ptz_list_api"), timeout=10)
 
 
 def test_an_any_thread_request_is_not_held_by_the_main_thread(obs_world):
@@ -51,6 +33,7 @@ def test_an_any_thread_request_is_not_held_by_the_main_thread(obs_world):
     assert obs_world.ws.vendor(VENDOR, "ptz_stop", {"device": uuid}) == {}
     assert obs_world.ws.vendor(VENDOR, "ptz_get_api_version", {"device": uuid})["major"] == 0
     assert obs_world.ws.vendor(VENDOR, "ptz_list_devices")["devices"]
+    assert obs_world.ws.vendor(VENDOR, "ptz_list_api")["device-proc"]
     assert time.time() - started < 1
     time.sleep(3)
 
@@ -141,7 +124,7 @@ def test_every_proc_is_run_on_a_thread_it_may_be_called_from(obs_world, cameras)
     uuid = devices(obs_world)["ws-every-proc"]["device"]
     log_before = len(obs_world.obs_log().read_text(errors="replace"))
 
-    procs = obs_world.ws.vendor(VENDOR, "ptz_get_api_info", {"device": uuid})["return"]["procs"]
+    procs = obs_world.ws.vendor(VENDOR, "ptz_list_api")["device-proc"]
     called = [p["name"] for p in procs if p["access"] != "none"]
     assert len(called) > 20
     for name in called:
@@ -195,7 +178,7 @@ def test_obs_quits_while_clients_ask_for_the_main_thread(obs_world):
     assert outcomes.count("closed") == 4
     # "forbidden" is what a request is told when the access setting changes under
     # it, as it does as the binding takes its requests away on closing
-    assert set(outcomes) <= {"answered", "closed", "not_ready", "gone", "unavailable", "timeout", "unknown_device",
+    assert set(outcomes) <= {"answered", "closed", "not_ready", "gone", "unavailable", "unknown_device",
                              "forbidden"}, sorted(set(outcomes))
     assert outcomes.count("answered") > 0
     obs_world.wait_for(

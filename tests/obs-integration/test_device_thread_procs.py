@@ -101,13 +101,6 @@ def test_statistics_and_the_camera_report_are_read_from_another_thread(request, 
     assert result == {"times": 200, "statistics": 200, "reports": 200, "report": "obs-ptz camera report"}
 
 
-def test_api_info_says_every_device_proc_may_be_called_from_any_thread(obs_world):
-    uuid = entry(obs_world)["device"]
-    procs = obs_world.ws.vendor(VENDOR, "ptz_get_api_info", {"device": uuid})["return"]["procs"]
-    assert len(procs) > 20
-    assert {p["name"]: p["thread"] for p in procs} == {p["name"]: "any" for p in procs}
-
-
 def test_the_preset_list_is_read_while_the_main_thread_is_held(obs_world):
     """The binding runs a proc that may be called from any thread on obs-websocket's
     own: the list is answered at once, with the main thread busy, and as it was"""

@@ -84,6 +84,7 @@ QStringList ptzUITestDiscoveryKinds();
 obs_websocket_vendor ptzUITestVendor();
 
 /* Test registration hooks */
+void registerApiTablesTest(PTZUITestHarness *harness);
 void registerAppearanceRowSizingTest(PTZUITestHarness *harness);
 void registerDeviceLifecycleTest(PTZUITestHarness *harness);
 void registerDeviceSettingsTest(PTZUITestHarness *harness);

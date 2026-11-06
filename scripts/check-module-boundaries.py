@@ -11,8 +11,8 @@ The rules, by directory under src/:
 - core/ includes neither controller/ nor drivers/
 - drivers/<name>/ includes core/ but not controller/ or another driver,
   except that drivers/visca/ and drivers/pelco/ include drivers/serial/
-- ptz.h, at the top of src/, may be included by anyone, and includes none
-  of them
+- ptz.h and ptz-api.hpp, at the top of src/, may be included by anyone,
+  and include none of them
 - ptz-module-all.cpp, which loads them all while they are still one module,
   may include anything
 
@@ -38,7 +38,7 @@ from pathlib import Path
 SOURCES = {".c", ".cpp", ".h", ".hpp", ".m", ".mm"}
 INCLUDE = re.compile(r'#\s*include\s*([<"])([^>"]+)[>"]')
 # Who may include them, and what they may include
-SHARED_HEADERS = {"ptz.h"}
+SHARED_HEADERS = {"ptz.h", "ptz-api.hpp"}
 INCLUDE_ANYTHING = {"ptz-module-all.cpp"}
 SERIAL_USERS = {"visca", "pelco"}
 # "..." includes that are made by the build, not found in the tree

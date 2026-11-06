@@ -6,8 +6,9 @@
 # SPDX-License-Identifier: GPL-2.0-or-later
 #
 # A plugin of its own, and not obs-ptz's: it uses nothing of obs-ptz's but
-# src/ptz.h, for the PTZ API's version, and finds devices as any controller
-# does. The template's set_target_properties_plugin() is for the one plugin a
+# src/ptz.h, for the PTZ API's version, and the API's tables
+# (src/ptz-api.cpp, static data that any module may link), and finds
+# devices as any controller does. The template's set_target_properties_plugin() is for the one plugin a
 # project makes, so what it sets for a plugin to load is set here instead, as
 # for tests/ui-driver/.
 
@@ -18,6 +19,8 @@ target_sources(
   PRIVATE
     ui-test-harness.cpp
     ui-test-harness.hpp
+    api-tables-test.cpp
+    "${CMAKE_SOURCE_DIR}/src/ptz-api.cpp"
     appearance-row-sizing-test.cpp
     device-lifecycle-test.cpp
     device-settings-test.cpp
@@ -27,7 +30,7 @@ target_sources(
     vendor-event-test.cpp
 )
 
-# ptz.h, and obs-websocket-api.h, which the UI driver vendors
+# ptz.h and ptz-api.hpp, and obs-websocket-api.h, which the UI driver vendors
 target_include_directories(obs-ptz-ui-harness PRIVATE "${CMAKE_SOURCE_DIR}/src" "${CMAKE_SOURCE_DIR}/tests/ui-driver")
 
 target_link_libraries(obs-ptz-ui-harness PRIVATE OBS::libobs OBS::obs-frontend-api Qt6::Core Qt6::Widgets)

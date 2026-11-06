@@ -26,6 +26,7 @@
 #include <qt-wrappers.hpp>
 #include <util/platform.h>
 #include "ptz.h"
+#include "ptz-api.hpp"
 #include "ptz-lifecycle.hpp"
 
 #define ptz_log(level, format, ...) \
@@ -49,12 +50,6 @@ struct PTZCameraPresets {
 	/* It can say what presets it has: see PTZDevice::setCameraPresets() */
 	bool enumerable = false;
 };
-
-/* What docs/ptz-device-api.md says of a proc, which ptz_get_api_info tells a
- * caller: what a caller from outside OBS has to be let do to call it, read the
- * device, control it, or nothing, for a proc that can't be called from there.
- * Every proc may be called from any thread. */
-enum PTZProcAccess { PTZ_ACCESS_CONTROL, PTZ_ACCESS_READ, PTZ_ACCESS_NONE };
 
 class PTZDevice : public QObject, public PTZLifecycle::Listener {
 	Q_OBJECT
@@ -262,7 +257,7 @@ protected:
 	signal_handler_t *sigs = nullptr;
 	/* Registers a proc or signal of the PTZ API on handler or sigs (see
 	 * ptz_proc_add()) */
-	void addProc(const char *decl, proc_handler_proc_t proc, void *data, PTZProcAccess access = PTZ_ACCESS_CONTROL);
+	void addProc(const char *decl, proc_handler_proc_t proc, void *data);
 	void addSignal(const char *decl);
 	void signalDevice(const char *name, calldata_t *cd);
 	void notifyStateChanged();
@@ -677,12 +672,8 @@ void ptz_filter_save(void *data, obs_data_t *settings);
  * lifecycle and scene changes. The module adds it when it loads. */
 void ptz_module_frontend_event(enum obs_frontend_event event, void *);
 
-/* Registers a proc or signal of the PTZ API on `handler`, in `scope`, recording
- * it for ptz_get_api_info (see ptz-device.cpp). `access` is what
- * docs/ptz-device-api.md says a remote caller has to be let do to call it. */
-void ptz_proc_add(const char *scope, proc_handler_t *handler, const char *decl, proc_handler_proc_t proc, void *data,
-		  PTZProcAccess access = PTZ_ACCESS_CONTROL);
-void ptz_signal_add(const char *scope, signal_handler_t *handler, const char *decl);
-/* ptz_get_api_info, for a device's or a discovery instance's proc_handler: `data` is "device" or "discovery", a string
- * that outlives the handler */
-void ptz_get_api_info_proc(void *data, calldata_t *cd);
+/* Registers a proc or signal of the PTZ API on `handler`, which has to be in
+ * `table`, one of src/ptz-api.hpp's, by the same declaration: one that
+ * isn't is logged as an error. */
+void ptz_proc_add(PTZApiProcs table, proc_handler_t *handler, const char *decl, proc_handler_proc_t proc, void *data);
+void ptz_signal_add(PTZApiSignals table, signal_handler_t *handler, const char *decl);

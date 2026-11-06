@@ -98,7 +98,7 @@ void announce(obs_source_t *source, const char *signal)
 void *createDevice(obs_data_t *, obs_source_t *source)
 {
 	/* The oldest a controller takes, and only what that needs: it has no
-	 * ptz_get_api_info, say, as a device doesn't have to */
+	 * ptz_move, say, as a device doesn't have to */
 	auto self = new ThirdPartyDevice{source, PTZ_API_VERSION_MAJOR, PTZ_API_VERSION_MINOR_NEEDED, true};
 	if (strcmp(obs_source_get_id(source), OTHER_VERSION_ID) == 0)
 		self->major++;

@@ -96,6 +96,20 @@ def test_the_shared_header_includes_no_side(tmp_path):
     assert result.stdout.splitlines() == ["src/ptz.h:1: includes ptz-device.hpp (src -> core)"]
 
 
+def test_the_api_tables_header_is_shared(tmp_path):
+    """ptz-api.hpp, the PTZ API's tables, may be included by every side, as
+    ptz.h may"""
+    files = dict(CLEAN)
+    files["src/ptz-api.hpp"] = "#pragma once\n"
+    files["src/ptz-api.cpp"] = '#include "ptz-api.hpp"\n'
+    files["src/controller/f.cpp"] = '#include "ptz-api.hpp"\n'
+    files["src/core/g.cpp"] = '#include "ptz-api.hpp"\n'
+    files["src/drivers/visca/h.cpp"] = '#include "ptz-api.hpp"\n'
+    result = check(tree(tmp_path, files))
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert result.stdout == ""
+
+
 def test_a_crossing_by_a_relative_path_fails(tmp_path):
     files = dict(CLEAN)
     files["src/controller/f.cpp"] = '#include "../core/ptz-device.hpp"\n'

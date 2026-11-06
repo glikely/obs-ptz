@@ -211,10 +211,6 @@ if (source) {
   device's, a copy that the device makes before it raises the matching signal,
   so it is never older than a signal the caller has heard.
   `ptz_get_statistics` and `ptz_get_camera_report` are read under a lock.
-  `ptz_get_api_info` still gives each proc a `thread`, which for a device of
-  this plugin is always `any`: it is kept for a caller written when some procs
-  had to be called on the device's thread, which another plugin's device of
-  this version may still ask, and that caller can check it there.
 - **Signals can come from any thread.** A device may fire its signals, and a
   discovery instance its own, from whichever thread it does the work on, so a
   listener must not assume a thread. One that touches something tied to a
@@ -295,17 +291,14 @@ the client passed in, as the proc left it.
 A proc that gives nothing back answers with nothing, `{}`.
 
 A client need not think about threads.
-A proc that `ptz_get_api_info` says may be called from any thread, as every
-proc of this plugin's devices is, is run at once, on obs-websocket's own thread.
-One that says `device`, as another plugin's device may, is run on OBS's main
-thread and waited for, for up to five seconds.
+A proc is run at once, on obs-websocket's own thread, as any proc may be.
 Requests may be made at the same time, on one connection or on several, and
 each is answered when it is done: two that are sent one after the other are
 not always answered in that order.
 
-A device from another plugin has requests and events if it has
-`ptz_get_api_info`, which is where the binding learns what a device has.
-One that has not is in `ptz_list_devices`, and that is all.
+The requests and events are the ones this document lists, whatever devices
+there are, and a device from another plugin has those of them it has procs and
+signals for: a request for a proc it hasn't is answered `no_such_proc`.
 
 ### The selected camera
 
@@ -356,7 +349,6 @@ answer's data that has the error.
 | `unknown_field` | The request has a field that the proc doesn't have |
 | `bad_type` | A field is not of the type the proc declares for it |
 | `forbidden` | The proc is not allowed by the access setting, which was changed as the request was made |
-| `timeout` | A request that is run on OBS's main thread, such as a proc of another plugin's device whose `thread` is `device`, was not run within five seconds, as OBS's main thread was busy. It may still run |
 | `unavailable` | OBS is closing |
 
 A request for a proc that the access setting doesn't allow, or for one that no
@@ -419,7 +411,7 @@ They are there unless the setting is `off`.
 | `ptz_bridge_version` | `major` and `minor`: the version of the binding |
 | `ptz_get_selected` | `device`: the UUID of the camera selected in the PTZ dock, "" if none is |
 | `ptz_list_devices` | `devices`: an array with, for each PTZ device there is, its `device` (the UUID), its `name`, the `source` it is on (the name of the source whose video the camera shows), and its `api`, the `major` and `minor` of the version of the API it implements |
-| `ptz_list_api` | The requests and events there are for the API, as two arrays, `device-proc` and `device-signal`, of an object for each with its `name`. What a device has is not there until there has been one |
+| `ptz_list_api` | The procs and signals of a device, as two arrays, `device-proc` and `device-signal`, of an object for each with its `name` and the `decl` it is declared with (`"void ptz_preset_recall(string id)"`), and for a proc the `access` a client needs to call it, `"read"`, `"control"` or `"none"`, for one there is no request for. They are the ones this document lists, whether or not there is a device that has them |
 
 ### Events of the binding's own
 
@@ -451,7 +443,6 @@ Its procs can be called from any thread (see
 - No proc waits for another thread, OBS's main thread above all: the caller can
   be a thread that the main thread is waiting for, and then neither goes on.
   This plugin hung OBS on quit that way once.
-- `ptz_get_api_info`, if it has one, says `any` for each proc's `thread`.
 
 Device configuration is managed the same way as any other source, via
 `save`, `update`, and `get_properties` in its `obs_source_info`.
@@ -567,7 +558,7 @@ differently for: `read` if it only reads the device, and so is let through
 where control of the camera is not, and `none` if it can't be called from
 outside OBS at all.
 A proc with no such line controls the device.
-`ptz_get_api_info` gives both, for each proc.
+The websocket binding's `ptz_list_api` gives both, for each proc.
 
 Each field a proc reads is marked *required* or *optional*, which its
 declaration can't say: see Fields in [Rules for calling](#rules-for-calling).
@@ -578,24 +569,6 @@ Returns the version of the PTZ API this device implements.
 Each device may implement a different version of the API.
 Controllers must not assume that all devices implement the same API version.
 A caller must check each device's own before relying on anything else in the API.
-Access: read.
-
-### `ptr ptz_get_api_info()`
-
-Returns, as `return`, an `obs_data_t *` that the caller releases with
-`obs_data_release()`, describing the procs and signals the device has, which a
-caller has no other way to ask for: libobs calls a proc and connects a signal
-only by a name the caller already knows.
-
-- `procs` (array): each an object with the proc's `name`, the `decl` it is
-  declared with (`"void ptz_preset_recall(string id)"`), a `thread` that is
-  always `"any"` (see [Rules for calling](#rules-for-calling)), and the
-  `access` a caller outside OBS needs to call it, `"read"`, `"control"` or
-  `"none"`.
-- `signals` (array): each an object with the signal's `name` and `decl`.
-
-A caller takes a proc that has no `thread` as `"device"`, and one that has no
-`access` as `"control"`.
 Access: read.
 
 ### `void ptz_stop()`
@@ -1148,12 +1121,6 @@ The instance does the work on the main thread.
 
 The version of the PTZ API the instance implements, as a device's
 `ptz_get_api_version` says it: one version covers both.
-Access: read.
-
-### `ptr ptz_get_api_info()`
-
-The procs and signals the instance has, as a device's `ptz_get_api_info` gives
-its own.
 Access: read.
 
 ### `void ptz_discovery_start()`
