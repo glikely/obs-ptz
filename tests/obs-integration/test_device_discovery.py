@@ -15,10 +15,9 @@ broadcast; loopback alone won't do.
 
 The dialog is driven through the UI driver (World.add_device() in conftest.py),
 which waits for a detected device to show up before picking it.
-The discovery kinds, without the dialog, are driven over the PTZ API's
-websocket binding, as a remote controller does, and, for what only a listener
-inside OBS can do from inside a signal, through
-tests/ui-harness/discovery-test.cpp.
+The discovery kinds, without the dialog, are driven through
+tests/ui-harness/discovery-test.cpp, as a controller inside OBS does: the PTZ
+API's websocket binding has no discovery.
 """
 
 import json
@@ -180,12 +179,6 @@ def sources(obs_world):
 # harness answers it from inside its event loop) doesn't take these with it
 
 
-def discovery_kinds(world):
-    """The kinds of the discovery instances the websocket binding makes: one for each
-    discovery kind OBS has, as the controller finds them"""
-    return {i["kind"] for i in world.ws.vendor("obs-ptz", "ptz_list_discovery")["instances"]}
-
-
 def discover(world, out, **mode):
     """Makes a private instance of each discovery kind, starts it, and has what
     each said until it finished (see tests/ui-harness/discovery-test.cpp for
@@ -199,69 +192,33 @@ def assert_responsive(world):
     """The main thread still runs requests, promptly: the UI driver does its on it"""
     world.need_ui_driver()
     world.ui.call("ping")
-    assert discovery_kinds(world) == DISCOVERY_KINDS
 
 
-def test_discovery_kind_not_listed(obs_world):
-    """OBS doesn't offer a discovery kind as a source to add, while the
+def test_discovery_kind_not_listed(obs_world, tmp_path):
+    """OBS doesn't offer a discovery kind as a source to add, while a
     controller still finds it"""
     listed = set(obs_world.ws.call("GetInputKindList", {"unversioned": False})["inputKinds"])
     listed |= set(obs_world.ws.call("GetInputKindList", {"unversioned": True})["inputKinds"])
     assert listed, "OBS listed no input kinds at all"
     assert DISCOVERY_KINDS & listed == set()
 
-    assert discovery_kinds(obs_world) == DISCOVERY_KINDS
+    assert set(discover(obs_world, tmp_path / "discover.json")["instances"]) == DISCOVERY_KINDS
 
 
-def discover_over_websocket(world, timeout=20):
-    """Starts each of the websocket binding's discovery instances, as a remote
-    controller does, and has what each said until it finished, and for a while
-    after: {"instances": {uuid: kind}, "said": [(event, data)...]}"""
-    instances = {i["device"]: i["kind"] for i in world.ws.vendor("obs-ptz", "ptz_list_discovery")["instances"]}
-    # The binding keeps its instances: one may still be looking for an earlier test
-    for uuid in instances:
-        world.ws.vendor("obs-ptz", "ptz_discovery_stop", {"device": uuid})
-    world.events.events("VendorEvent", settle=0.3)
-    for uuid in instances:
-        world.ws.vendor("obs-ptz", "ptz_discovery_start", {"device": uuid})
-
-    said = []
-    finished = set()
-
-    def listen(settle):
-        for event in world.events.events("VendorEvent", settle=settle):
-            data = event.get("eventData") or {}
-            if event.get("vendorName") != "obs-ptz" or data.get("device") not in instances:
-                continue
-            said.append((event["eventType"], data))
-            if event["eventType"] == "ptz_discovery_finished":
-                finished.add(data["device"])
-
-    deadline = time.time() + timeout
-    while finished != set(instances) and time.time() < deadline:
-        listen(0.5)
-    # Anything said after finishing is said soon after
-    listen(1.0)
-    return {"instances": instances, "said": said}
-
-
-def test_discovery_through_websocket(obs_world, onvif_sim, sony_sim):
+def test_discovery_finds_each_camera(obs_world, onvif_sim, sony_sim, tmp_path):
     host = primary_ipv4()
-    result = discover_over_websocket(obs_world)
+    result = discover(obs_world, tmp_path / "discover.json")
 
-    instances = result["instances"]
-    assert set(instances.values()) == DISCOVERY_KINDS
-    for uuid, kind in instances.items():
-        version = obs_world.ws.vendor("obs-ptz", "ptz_get_api_version", {"device": uuid})
-        assert (version["major"], version["minor"]) == declared_version(), kind
-        said = [event for event, data in result["said"] if data["device"] == uuid]
-        assert said.count("ptz_discovery_finished") == 1, kind
-        assert "ptz_device_found" not in said[said.index("ptz_discovery_finished"):], f"{kind} found after finishing"
+    assert set(result["instances"]) == DISCOVERY_KINDS
+    for kind, instance in result["instances"].items():
+        assert (instance["major"], instance["minor"]) == declared_version(), kind
+        assert instance["finished"] == 1, kind
+        assert instance["found_after_finished"] == 0, f"{kind} found after finishing"
 
-    found = [{**data, "discovery": instances[data["device"]]}
-             for event, data in result["said"] if event == "ptz_device_found"]
+    found = result["found"]
     for device in found:
         assert device["kind"] == device["discovery"].removesuffix(".discovery"), device
+        assert device["source_is_instance"], device
     for kind in DISCOVERY_KINDS:
         ids = [d["id"] for d in found if d["discovery"] == kind]
         assert len(ids) == len(set(ids)), f"{kind} found one twice"

@@ -102,7 +102,7 @@ through the harness once, as `call_proc`, `get_device_state`, `get_api_version`,
 requests do: `update_device` (`SetSourceFilterSettings`, in
 `World.update_device()`), `fire_hotkey` (`TriggerHotkeyByName`), `driver_kinds` and
 `discovery_kinds` (`GetSourceFilterKindList` and `GetSourceFilterDefaultSettings`
-in `test_driver_kinds.py`, and `ptz_list_discovery`) and `hold_source` (nothing
+in `test_driver_kinds.py`, and `discover` here) and `hold_source` (nothing
 used it), and `get_device_backups`, which was the backup file's contents.
 
 An earlier version polled a temp file every 100ms instead. obs-websocket

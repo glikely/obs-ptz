@@ -33,6 +33,8 @@ struct SearchInstance {
 	OBSSource source;
 	long long major = -1;
 	long long minor = -1;
+	/* What its ptz_get_api_info returned, if it has one */
+	OBSData apiInfo;
 	int finished = 0;
 	int foundAfterFinished = 0;
 	/* With stop_on_found: whether it was stopped, and what it found after */
@@ -124,6 +126,8 @@ void finishSearch(Search *search)
 		OBSDataAutoRelease item = obs_data_create();
 		obs_data_set_int(item, "major", instance->major);
 		obs_data_set_int(item, "minor", instance->minor);
+		if (instance->apiInfo)
+			obs_data_set_obj(item, "api_info", instance->apiInfo);
 		obs_data_set_int(item, "finished", instance->finished);
 		obs_data_set_int(item, "found_after_finished", instance->foundAfterFinished);
 		obs_data_set_bool(item, "stopped", instance->stopped);
@@ -201,6 +205,12 @@ void runDiscoverTest(const QMap<QString, QString> &params)
 		if (proc_handler_call(obs_source_get_proc_handler(source), "ptz_get_api_version", &cd)) {
 			instance->major = calldata_int(&cd, "major");
 			instance->minor = calldata_int(&cd, "minor");
+		}
+		calldata_free(&cd);
+		cd = {};
+		if (proc_handler_call(obs_source_get_proc_handler(source), "ptz_get_api_info", &cd)) {
+			OBSDataAutoRelease info = static_cast<obs_data_t *>(calldata_ptr(&cd, "return"));
+			instance->apiInfo = info.Get();
 		}
 		calldata_free(&cd);
 		signal_handler_t *sh = obs_source_get_signal_handler(source);
@@ -355,10 +365,6 @@ static void armDiscoverySpy(const QMap<QString, QString> &)
 		auto kinds = static_cast<QStringList *>(data);
 		if (!kinds->contains(QString::fromUtf8(obs_source_get_id(source))))
 			return true;
-		/* Not the dialog's, but the ones the websocket binding keeps for its
-		 * clients (ptz_list_discovery), which outlive any dialog */
-		if (strcmp(obs_source_get_name(source), "ptz-websocket") == 0)
-			return true;
 		signal_handler_t *sh = obs_source_get_signal_handler(source);
 		signal_handler_connect(sh, "ptz_device_found", spyFoundCb, nullptr);
 		signal_handler_connect(sh, "ptz_discovery_finished", spyFinishedCb, nullptr);
@@ -378,7 +384,8 @@ static void closeDiscoverySpy(const QMap<QString, QString> &)
 
 /* discover: filename - where to write, once an instance of every discovery
  *   kind has said ptz_discovery_finished (or after 15s), {"instances": {kind:
- *   {"major", "minor" (from its ptz_get_api_version), "finished" (how often it
+ *   {"major", "minor" (from its ptz_get_api_version), "api_info" (what its
+ *   ptz_get_api_info returned), "finished" (how often it
  *   said so), "found_after_finished"}}, "found": [{"discovery" (the instance's
  *   kind), "kind", "id", "name", "address", "settings", "source_is_instance"}...]}.
  *   stop_on_found: "true" to call ptz_discovery_stop from inside an instance's

@@ -194,31 +194,13 @@ def test_an_integer_out_of_range_is_a_bad_type(obs_world, index):
     assert error_of(obs_world, "ptz_preset_move", {"device": uuid, "id": "camera:1", "index": index}) == "bad_type"
 
 
-def test_list_discovery_has_an_instance_of_each_kind(obs_world):
-    """Which a client can't make itself, so the binding does, and keeps them"""
-    instances = obs_world.ws.vendor(VENDOR, "ptz_list_discovery")["instances"]
-    assert instances
-    assert all(i["kind"].endswith(".discovery") and i["device"] for i in instances)
-    assert len({i["device"] for i in instances}) == len(instances) == len({i["kind"] for i in instances})
-    assert obs_world.ws.vendor(VENDOR, "ptz_list_discovery")["instances"] == instances
-    # and they are not devices
-    listed = {d["device"] for d in obs_world.ws.vendor(VENDOR, "ptz_list_devices")["devices"]}
-    assert not listed & {i["device"] for i in instances}
-
-
-def test_a_discovery_instance_is_called_as_a_device_is(obs_world):
-    instance = obs_world.ws.vendor(VENDOR, "ptz_list_discovery")["instances"][0]["device"]
-    assert obs_world.ws.vendor(VENDOR, "ptz_get_api_version", {"device": instance}) == API_VERSION
-    assert obs_world.ws.vendor(VENDOR, "ptz_discovery_start", {"device": instance}) == {}
-    assert obs_world.ws.vendor(VENDOR, "ptz_discovery_stop", {"device": instance}) == {}
-
-
-def test_a_proc_the_device_does_not_have(obs_world):
-    """A discovery instance's proc is a request too, once there is an instance, which
-    a device does not answer; nor an instance a device's"""
-    instance = obs_world.ws.vendor(VENDOR, "ptz_list_discovery")["instances"][0]["device"]
-    assert error_of(obs_world, "ptz_discovery_start", {"device": device(obs_world, "visca-tcp")}) == "no_such_proc"
-    assert error_of(obs_world, "ptz_stop", {"device": instance}) == "no_such_proc"
+def test_discovery_is_not_on_the_binding(obs_world):
+    """A client can neither make a discovery instance nor call one"""
+    assert is_unknown_request(obs_world, "ptz_list_discovery")
+    for proc in ("ptz_discovery_start", "ptz_discovery_stop"):
+        assert is_unknown_request(obs_world, proc, {"device": device(obs_world, "visca-tcp")})
+    api = obs_world.ws.vendor(VENDOR, "ptz_list_api")
+    assert set(api) == {"device-proc", "device-signal"}
 
 
 def test_a_proc_that_cannot_cross_the_wire_is_no_request(obs_world):
@@ -268,8 +250,6 @@ def test_access_read_only_reads_and_does_not_control(obs_world, access):
     assert is_unknown_request(obs_world, "ptz_move", {"device": uuid, "pan": 0.5, "tilt": 0.0})
     assert is_unknown_request(obs_world, "ptz_preset_delete", {"device": uuid, "id": "camera:1"})
     assert is_unknown_request(obs_world, "ptz_get_parent_source", {"device": uuid})
-    # nor make the discovery instances, which it could do nothing with
-    assert is_unknown_request(obs_world, "ptz_list_discovery")
     assert obs_world.state()["pan_speed"] == 0.0
 
 

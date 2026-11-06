@@ -9,7 +9,8 @@
  * A request of the vendor is a proc of the PTZ API by the same name, on the
  * device whose UUID the request gives. Nothing here knows the API's procs: a
  * device says what it has in ptz_get_api_info, with the declaration of each,
- * and a request's JSON is turned into the proc's calldata by that.
+ * and a request's JSON is turned into the proc's calldata by that. A discovery
+ * instance is not on it: a client can neither make one nor call one.
  *
  * Threads. obs-websocket calls a request on any thread of its own pool, and
  * several at once. A request holds a reference to its device for as long as it
@@ -62,7 +63,6 @@
 
 #include "ptz.h"
 #include "ptz-controls.hpp"
-#include "ptz-driver-kinds.hpp"
 #include "ptz-ws-decl.hpp"
 
 namespace {
@@ -114,9 +114,6 @@ std::string selectedDevice()
 	std::lock_guard<std::mutex> lock(selectedMutex);
 	return selectedUuid;
 }
-
-/* The discovery instances made for clients, by kind: see listDiscovery(). Main thread. */
-std::map<std::string, OBSSource> discoveryInstances;
 
 bool admits(Access level, const std::string &access)
 {
@@ -236,7 +233,7 @@ std::map<std::string, ProcInfo> procsOf(obs_source_t *source)
 }
 
 /* A discovery instance has the same version proc as a device, and is told
- * from one by what else it has */
+ * from one by what else it has. It is not on the binding. */
 bool isDiscovery(const std::map<std::string, ProcInfo> &procs)
 {
 	return procs.count("ptz_discovery_start") > 0;
@@ -443,6 +440,10 @@ void procRequest(obs_data_t *requestData, obs_data_t *response, void *priv)
 		return;
 	}
 	auto procs = procsOf(source);
+	if (isDiscovery(procs)) {
+		setError(response, "unknown_device", "no PTZ device '" + uuid + "'");
+		return;
+	}
 	auto found = procs.find(request->name);
 	if (found == procs.end()) {
 		setError(response, "no_such_proc", "the device has no " + request->name);
@@ -504,7 +505,6 @@ std::map<std::string, std::unique_ptr<SignalLink>> signalLinks;
 struct Connected {
 	OBSWeakSource source;
 	std::vector<SignalLink *> links;
-	bool discovery = false;
 };
 
 /* By UUID. A source is added on the main thread, and taken out on whichever
@@ -572,15 +572,13 @@ void sourceDestroyed(void *, calldata_t *cd)
 		connected.erase(found);
 	}
 	disconnectEntry(was);
-	if (was.discovery)
-		return;
 	OBSDataAutoRelease event = obs_data_create();
 	obs_data_set_string(event, "device", uuid.c_str());
 	emitEvent("ptz_device_remove", event);
 }
 
 /* Connects to the signals the source says it has, if it hasn't been. Main thread. */
-void connectSignals(obs_source_t *source, bool discovery)
+void connectSignals(obs_source_t *source)
 {
 	std::string uuid = obs_source_get_uuid(source);
 	{
@@ -590,7 +588,6 @@ void connectSignals(obs_source_t *source, bool discovery)
 	}
 	Connected entry;
 	entry.source = OBSGetWeakRef(source);
-	entry.discovery = discovery;
 	signal_handler_t *handler = obs_source_get_signal_handler(source);
 
 	calldata_t cd = {};
@@ -612,7 +609,7 @@ void connectSignals(obs_source_t *source, bool discovery)
 			SignalLink *link = signalLinks[text].get();
 			signal_handler_connect(handler, link->name.c_str(), signalRaised, link);
 			entry.links.push_back(link);
-			exposed[discovery ? "discovery-signal" : "device-signal"].insert(link->name);
+			exposed["device-signal"].insert(link->name);
 		}
 	}
 	calldata_free(&cd);
@@ -622,8 +619,6 @@ void connectSignals(obs_source_t *source, bool discovery)
 		std::lock_guard<std::mutex> lock(connectedMutex);
 		connected[uuid] = entry;
 	}
-	if (discovery)
-		return;
 	OBSDataAutoRelease event = obs_data_create();
 	obs_data_set_string(event, "device", uuid.c_str());
 	emitEvent("ptz_device_add", event);
@@ -658,21 +653,22 @@ std::vector<OBSSource> allSources()
 }
 
 /* Has a request for each proc the source says it has, and hears its signals,
- * if it is a device or a discovery instance. Main thread. */
+ * if it is a device. Main thread. */
 void considerSource(obs_source_t *source)
 {
 	if (!source || !ptz_source_is_device(source))
 		return;
 	auto procs = procsOf(source);
-	bool discovery = isDiscovery(procs);
+	if (isDiscovery(procs))
+		return;
 	for (const auto &proc : procs) {
 		if (proc.second.access != "read" && proc.second.access != "control")
 			continue;
 		addRequest(proc.first, proc.second.access, procRequest);
-		exposed[discovery ? "discovery-proc" : "device-proc"].insert(proc.first);
+		exposed["device-proc"].insert(proc.first);
 	}
 	applyAccess();
-	connectSignals(source, discovery);
+	connectSignals(source);
 }
 
 /* A device says it has been added: on whatever thread added it */
@@ -765,37 +761,6 @@ void getSelected(obs_data_t *, obs_data_t *response, void *)
 	obs_data_set_string(response, "device", selectedDevice().c_str());
 }
 
-/* The discovery instances a client can use, one of each kind there is, which
- * are made the first time they are asked for and kept until the plugin
- * unloads: OBS has none of its own but while the dialog that adds a device is
- * open, and a client has no way to make one. */
-void listDiscovery(obs_data_t *, obs_data_t *response, void *)
-{
-	InFlight running;
-	/* A source is made on the main thread, which fills in a list of its own */
-	OBSDataArrayAutoRelease made = obs_data_array_create();
-	OBSDataArray instances = made.Get();
-	auto work = [instances]() {
-		for (const PTZDriverKind &kind : ptz_discovery_kinds()) {
-			std::string id = kind.kind.toStdString();
-			if (!discoveryInstances.count(id)) {
-				OBSSourceAutoRelease instance =
-					obs_source_create_private(id.c_str(), "ptz-websocket", nullptr);
-				if (!instance)
-					continue;
-				discoveryInstances[id] = instance.Get();
-				considerSource(instance);
-			}
-			OBSDataAutoRelease item = obs_data_create();
-			obs_data_set_string(item, "device", obs_source_get_uuid(discoveryInstances[id]));
-			obs_data_set_string(item, "kind", id.c_str());
-			obs_data_array_push_back(instances, item);
-		}
-	};
-	if (hopDone(onMainThread(work), "ptz_list_discovery", response))
-		obs_data_set_array(response, "instances", instances);
-}
-
 /* What there is a request or an event for, of the API's procs and signals */
 void listApi(obs_data_t *, obs_data_t *response, void *)
 {
@@ -803,7 +768,7 @@ void listApi(obs_data_t *, obs_data_t *response, void *)
 	OBSDataAutoRelease made = obs_data_create();
 	OBSData api = made.Get();
 	auto work = [api]() {
-		for (const char *scope : {"device-proc", "device-signal", "discovery-proc", "discovery-signal"}) {
+		for (const char *scope : {"device-proc", "device-signal"}) {
 			OBSDataArrayAutoRelease list = obs_data_array_create();
 			for (const std::string &name : exposed[scope]) {
 				OBSDataAutoRelease item = obs_data_create();
@@ -846,7 +811,7 @@ void letGoOfObsWebsocket()
 /* OBS is closing. It has stopped running what the main thread is sent well
  * before it unloads a plugin, and obs-websocket, which waits for its requests
  * to finish, is unloaded first: so it is here that waiting stops, and here that
- * the binding lets go of obs-websocket, and of the sources it made. */
+ * the binding lets go of obs-websocket. */
 void frontendEvent(enum obs_frontend_event event, void *)
 {
 	if (event != OBS_FRONTEND_EVENT_EXIT && event != OBS_FRONTEND_EVENT_SCRIPTING_SHUTDOWN)
@@ -854,7 +819,6 @@ void frontendEvent(enum obs_frontend_event event, void *)
 	beginClosing();
 	letGoOfObsWebsocket();
 	disconnectSignals();
-	discoveryInstances.clear();
 }
 
 Access accessNamed(const char *access)
@@ -905,8 +869,6 @@ void ptz_websocket_load(void)
 	addRequest("ptz_bridge_version", "read", bridgeVersion);
 	addRequest("ptz_list_devices", "read", listDevices);
 	addRequest("ptz_get_selected", "read", getSelected);
-	/* It makes sources, which only a client that can use them is let do */
-	addRequest("ptz_list_discovery", "control", listDiscovery);
 	addRequest("ptz_list_api", "read", listApi);
 
 	/* No source has been loaded yet, but one that a module made is there */
@@ -942,5 +904,4 @@ void ptz_websocket_unload(void)
 		std::this_thread::sleep_for(std::chrono::milliseconds(5));
 	if (inFlight.load() > 0)
 		blog(LOG_WARNING, "[obs-ptz] %d websocket requests were still running at unload", inFlight.load());
-	discoveryInstances.clear();
 }

@@ -256,9 +256,11 @@ A program outside OBS uses the API over
 [obs-websocket](https://github.com/obsproject/obs-websocket), which OBS has
 built in.
 PTZ Controls registers a vendor there, `obs-ptz`, with a request for each proc
-of the API and an event for each signal, so that what is written of a proc or a
-signal in this document is true of its request or its event.
+of a device and an event for each signal, so that what is written of a proc or
+a signal in this document is true of its request or its event.
 Nothing is added for a client to learn but what is in this section.
+[Discovery](#discovery-kinds) is not on the binding: a client can neither make
+a discovery instance nor call one.
 
 This is version **1.0** of the binding, which `ptz_bridge_version` answers
 with.
@@ -296,9 +298,7 @@ A client need not think about threads.
 A proc that `ptz_get_api_info` says may be called from any thread, as every
 proc of this plugin's devices is, is run at once, on obs-websocket's own thread.
 One that says `device`, as another plugin's device may, is run on OBS's main
-thread and waited for, for up to five seconds, as are the binding's own
-requests that make or list what is on the main thread, such as
-`ptz_list_discovery`.
+thread and waited for, for up to five seconds.
 Requests may be made at the same time, on one connection or on several, and
 each is answered when it is done: two that are sent one after the other are
 not always answered in that order.
@@ -352,7 +352,7 @@ answer's data that has the error.
 | --- | --- |
 | `unknown_device` | `device` is missing, or is not the UUID of a PTZ device that exists |
 | `no_selection` | `device` is `selected`, and no camera is selected in the PTZ dock |
-| `no_such_proc` | The device hasn't this proc, as a discovery instance hasn't `ptz_move` |
+| `no_such_proc` | The device hasn't this proc |
 | `unknown_field` | The request has a field that the proc doesn't have |
 | `bad_type` | A field is not of the type the proc declares for it |
 | `forbidden` | The proc is not allowed by the access setting, which was changed as the request was made |
@@ -412,16 +412,14 @@ same for all of them, and is no substitute for the password.
 ### Requests of the binding's own
 
 These are not procs of a device, and take no `device`.
-They are there unless the setting is `off`, but for `ptz_list_discovery`, which
-makes sources and is there only when the setting is `control`.
+They are there unless the setting is `off`.
 
 | Request | Answers |
 | --- | --- |
 | `ptz_bridge_version` | `major` and `minor`: the version of the binding |
 | `ptz_get_selected` | `device`: the UUID of the camera selected in the PTZ dock, "" if none is |
 | `ptz_list_devices` | `devices`: an array with, for each PTZ device there is, its `device` (the UUID), its `name`, the `source` it is on (the name of the source whose video the camera shows), and its `api`, the `major` and `minor` of the version of the API it implements |
-| `ptz_list_discovery` | `instances`: an array with, for each [discovery kind](#discovery-kinds) there is, the `kind` and the `device` (the UUID) of a discovery instance of it, to call `ptz_discovery_start` on. The binding makes them the first time it is asked, and keeps them: a client can't make one. What an instance finds can be added as a device with obs-websocket's own `CreateSourceFilter`, of the `kind` and with the `settings` its `ptz_device_found` gives |
-| `ptz_list_api` | The requests and events there are for the API, as four arrays, `device-proc`, `device-signal`, `discovery-proc` and `discovery-signal`, of an object for each with its `name`. What a device or an instance has is not there until there has been one |
+| `ptz_list_api` | The requests and events there are for the API, as two arrays, `device-proc` and `device-signal`, of an object for each with its `name`. What a device has is not there until there has been one |
 
 ### Events of the binding's own
 

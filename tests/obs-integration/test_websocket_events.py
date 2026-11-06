@@ -1,6 +1,6 @@
 """Covers the PTZ API's signals over obs-websocket ("WebSocket binding" in
 docs/ptz-device-api.md, src/controller/ptz-websocket.cpp): each signal of a
-device, and of a discovery instance, as an event of the "obs-ptz" vendor that
+device as an event of the "obs-ptz" vendor that
 names the device it is from, and the binding's own event for a device that has
 gone.
 
@@ -98,21 +98,6 @@ def test_selecting_another_camera_in_the_dock_is_an_event(obs_world):
     obs_world.select_in_dock(second)
     assert not [e for e in obs_world.events.events("VendorEvent", settle=0.5)
                 if e.get("eventType") == "ptz_selected_changed"]
-
-
-def test_a_discovery_instance_says_when_it_has_finished(obs_world):
-    instances = obs_world.ws.vendor(VENDOR, "ptz_list_discovery")["instances"]
-    forget_events(obs_world)
-    for instance in instances:
-        obs_world.ws.vendor(VENDOR, "ptz_discovery_start", {"device": instance["device"]})
-    # In whatever order they finish: an event that is not the one waited for is dropped
-    waiting = {instance["device"] for instance in instances}
-    while waiting:
-        finished = obs_world.events.wait_event(
-            "VendorEvent", lambda e: ptz_event("ptz_discovery_finished")(e) and e["eventData"]["device"] in waiting,
-            timeout=30)
-        assert set(finished["eventData"]) == {"device"}
-        waiting.discard(finished["eventData"]["device"])
 
 
 def move_by_action(obs_world):
