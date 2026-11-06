@@ -36,7 +36,7 @@ changes in the camera.
 
 ## API version
 
-This is version **0.10** of the PTZ API.
+This is version **0.11** of the PTZ API.
 The API is in a pre-release state, published as an RFC.
 It is subject to change at any time.
 Please provide feedback on the [API discussion
@@ -258,7 +258,7 @@ Nothing is added for a client to learn but what is in this section.
 [Discovery](#discovery-kinds) is not on the binding: a client can neither make
 a discovery instance nor call one.
 
-This is version **1.0** of the binding, which `ptz_bridge_version` answers
+This is version **1.1** of the binding, which `ptz_bridge_version` answers
 with.
 It is the binding's own, and goes up as the API's version does, when the
 binding changes: the API's version is still each device's own, from

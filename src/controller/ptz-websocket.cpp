@@ -72,7 +72,7 @@ namespace {
 
 /* The version of the binding, which can change while the API's doesn't */
 constexpr int kBridgeVersionMajor = 1;
-constexpr int kBridgeVersionMinor = 0;
+constexpr int kBridgeVersionMinor = 1;
 
 /* What a request gives as its "device" to mean the camera selected in the dock */
 constexpr const char *kSelectedDevice = "selected";

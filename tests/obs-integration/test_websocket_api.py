@@ -51,7 +51,7 @@ def is_unknown_request(obs_world, request, data=None):
 
 
 def test_bridge_version(obs_world):
-    assert obs_world.ws.vendor(VENDOR, "ptz_bridge_version") == {"major": 1, "minor": 0}
+    assert obs_world.ws.vendor(VENDOR, "ptz_bridge_version") == {"major": 1, "minor": 1}
 
 
 def test_list_devices_has_every_configured_device(obs_world):
