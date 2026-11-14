@@ -419,16 +419,31 @@ void PTZSettings::joystickUpdate()
 	auto controls = PTZControls::getInstance();
 	m_joystickNamesModel.setStringList(joysticks->deviceNames());
 	auto jid = controls->joystickId();
+	if (jid < 0 && !joysticks->deviceNames().isEmpty()) {
+		jid = 0;
+		controls->setJoystickId(0);
+	}
 	auto idx = m_joystickNamesModel.index(jid, 0);
 	if (idx.isValid()) {
-		ui->joystickNamesListView->setCurrentIndex(idx);
-		for (int i = joystickAxisLabels.count(); i < joysticks->getNumAxes(jid); i++) {
-			const int numcols = 4;
+		if (ui->joystickNamesListView->currentIndex() != idx) {
+			QSignalBlocker blocker(ui->joystickNamesListView->selectionModel());
+			ui->joystickNamesListView->setCurrentIndex(idx);
+		}
+
+		qDeleteAll(joystickAxisLabels);
+		joystickAxisLabels.clear();
+		qDeleteAll(joystickAxisCBs);
+		joystickAxisCBs.clear();
+		qDeleteAll(joystickButtonButtons);
+		joystickButtonButtons.clear();
+
+		const int numcols = 4;
+		for (int i = 0; i < joysticks->getNumAxes(jid); i++) {
 			auto label = new QLabel(this);
 			auto cb = new QComboBox(this);
 			label->setText(QString(obs_module_text("PTZ.Settings.Joystick.AxisNum")).arg(i).arg(0));
-			for (int i = PTZ_JOY_ACTION_NONE; i <= PTZ_JOY_ACTION_FOCUS_INVERT; i++)
-				cb->addItem(obs_module_text(ptz_joy_action_axis_names[i]), i);
+			for (int a = PTZ_JOY_ACTION_NONE; a <= PTZ_JOY_ACTION_FOCUS_INVERT; a++)
+				cb->addItem(obs_module_text(ptz_joy_action_axis_names[a]), a);
 			cb->setProperty("axis-id", i);
 			joystickAxisLabels.append(label);
 			joystickAxisCBs.append(cb);
@@ -437,8 +452,7 @@ void PTZSettings::joystickUpdate()
 			connect(cb, &QComboBox::currentIndexChanged, this, &PTZSettings::on_joystickAxisActionChanged);
 		}
 
-		for (int i = joystickButtonButtons.count(); i < joysticks->getNumButtons(jid); i++) {
-			const int numcols = 4;
+		for (int i = 0; i < joysticks->getNumButtons(jid); i++) {
 			auto b = new PTZJoyButtonMapper(this, i);
 			joystickButtonButtons.append(b);
 			ui->joystickButtonGridLayout->addWidget(b, i / numcols + BUTTON_ROW_OFFSET, i % numcols);
@@ -461,7 +475,12 @@ void PTZSettings::joystickAxisMappingChanged(size_t axis, ptz_joy_action_id acti
 void PTZSettings::joystickCurrentChanged(QModelIndex current, QModelIndex previous)
 {
 	Q_UNUSED(previous);
-	PTZControls::getInstance()->setJoystickId(current.row());
+	if (!current.isValid())
+		return;
+	if (current.row() != PTZControls::getInstance()->joystickId()) {
+		PTZControls::getInstance()->setJoystickId(current.row());
+		joystickUpdate();
+	}
 }
 
 void PTZSettings::joystickAxisEvent(const QJoystickAxisEvent evt)

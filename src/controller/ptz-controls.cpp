@@ -555,7 +555,7 @@ PTZControls::PTZControls(QWidget *parent) : QFrame(parent), ui(new Ui::PTZContro
 void PTZControls::joystickSetup()
 {
 	auto joysticks = QJoysticks::getInstance();
-	joysticks->setVirtualJoystickEnabled(false);
+	joysticks->setVirtualJoystickEnabled(qEnvironmentVariableIntValue("PTZ_VIRTUAL_JOYSTICK") != 0);
 	joysticks->updateInterfaces();
 	connect(joysticks, &QJoysticks::axisEvent, this, &PTZControls::joystickAxisEvent);
 	connect(joysticks, &QJoysticks::buttonEvent, this, &PTZControls::joystickButtonEvent);
