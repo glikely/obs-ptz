@@ -48,8 +48,12 @@ PTZViewControl::PTZViewControl(QWidget *parent) : PTZSourceDisplay(parent)
 	 * those change, having brought the list model up to date first. */
 	connect(ptzDeviceList, &PTZListModel::dataChanged, this,
 		[this](const QModelIndex &topLeft, const QModelIndex &bottomRight) {
-			if (QItemSelectionRange(topLeft, bottomRight).contains(device()))
+			if (QItemSelectionRange(topLeft, bottomRight).contains(device())) {
+				/* A drag is in the picture of the source it began in */
+				if (followSource())
+					m_dragging = false;
 				updateControls();
+			}
 		});
 	if (auto controls = PTZControls::getInstance())
 		connect(controls, &PTZControls::moveControlsChanged, this, &PTZViewControl::updateControls);
@@ -242,8 +246,7 @@ void PTZViewControl::updateControls()
  * report that. */
 bool PTZViewControl::readPosition(const QModelIndex &index, double &pan, double &tilt, double &zoom) const
 {
-	OBSDataAutoRelease state = obs_data_create();
-	ptzDeviceList->saveState(index, state.Get());
+	OBSData state = ptzDeviceList->deviceState(index);
 	if (!obs_data_has_user_value(state, "pan") || !obs_data_has_user_value(state, "tilt"))
 		return false;
 	pan = obs_data_get_double(state, "pan");
@@ -291,13 +294,40 @@ bool quadratic_coefficients(double x1, double y1, double x2, double y2, double x
 	return true;
 }
 
+/* The source the camera is on, as followSource() last found it. For the
+ * graphics thread's draw callback as well as this one: the list model is the
+ * main thread's only. */
+OBSSource PTZViewControl::source() const
+{
+	std::lock_guard<std::mutex> guard(m_sourceLock);
+	return OBSGetStrongRef(m_source);
+}
+
+/* Find the source the camera is on again: it can be moved to another. Held
+ * weakly, as PTZSourceDisplay holds it, so as not to keep it alive. Returns
+ * whether it changed. */
+bool PTZViewControl::followSource()
+{
+	OBSSource source = m_device.isValid() ? ptzDeviceList->parentSource(m_device) : OBSSource();
+	OBSWeakSource weak = OBSGetWeakRef(source);
+	std::lock_guard<std::mutex> guard(m_sourceLock);
+	if (m_source.Get() == weak.Get())
+		return false;
+	m_source = weak;
+	return true;
+}
+
 void PTZViewControl::setDevice(const QModelIndex &index)
 {
-	OBSSource source = index.isValid() ? ptzDeviceList->parentSource(index) : nullptr;
-	if (QModelIndex(m_device) == index && source.Get() == this->source().Get())
+	bool deviceChanged = QModelIndex(m_device) != index;
+	if (deviceChanged) {
+		m_device = index;
+		/* Which shows the camera's source, and follows it if it moves */
+		PTZSourceDisplay::setDevice(index);
+	}
+	bool sourceChanged = followSource();
+	if (!deviceChanged && !sourceChanged)
 		return;
-	m_device = index;
-	PTZSourceDisplay::setSource(source);
 	m_dragging = false;
 	m_wheelDelta = 0;
 	m_lastZoom.invalidate();
@@ -447,9 +477,8 @@ void PTZViewControl::wheelEvent(QWheelEvent *event)
  * when it was */
 void PTZViewControl::updateReadout(const QModelIndex &index)
 {
-	OBSDataAutoRelease state = obs_data_create();
-	if (index.isValid())
-		ptzDeviceList->saveState(index, state.Get());
+	/* Empty for no device */
+	OBSData state = ptzDeviceList->deviceState(index);
 	auto read = [&](const char *key, double from) -> std::optional<double> {
 		if (!obs_data_has_user_value(state, key))
 			return std::nullopt;
@@ -550,8 +579,7 @@ void PTZViewControl::tick()
 
 	if (m_wheelDelta && PTZListModel::hasFeature(index, "zoom_abs")) {
 		if (!m_lastZoom.isValid() || m_lastZoom.elapsed() > zoomSettleMs) {
-			OBSDataAutoRelease state = obs_data_create();
-			ptzDeviceList->saveState(index, state.Get());
+			OBSData state = ptzDeviceList->deviceState(index);
 			if (!obs_data_has_user_value(state, "zoom")) {
 				m_wheelDelta = 0;
 				return;

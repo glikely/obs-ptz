@@ -5,6 +5,7 @@
 #pragma once
 
 #include <atomic>
+#include <mutex>
 #include <obs.hpp>
 #include <QElapsedTimer>
 #include <optional>
@@ -46,6 +47,13 @@ private:
 	static void drawCallback(void *param, uint32_t cx, uint32_t cy);
 	/* Where the source is drawn, in widget coordinates */
 	QRectF sourceRect() const;
+	/* The source the camera is on. PTZSourceDisplay keeps its own, which is
+	 * private to it; this one is for working out where it is drawn, from
+	 * either thread. */
+	OBSSource source() const;
+	bool followSource();
+	mutable std::mutex m_sourceLock;
+	OBSWeakSource m_source;
 	/* Whether the camera may be moved, as PTZMovementControls works it out:
 	 * when the dock says its controls have changed */
 	void updateControls();
