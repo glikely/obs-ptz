@@ -15,6 +15,7 @@
 #include "ptz-list-model.hpp"
 #include "ptz-legacy-migration.hpp"
 #include "ptz-visca.hpp"
+#include "ptz-panasonic.hpp"
 #include "ptz-virtual.hpp"
 #include "ptz.h"
 
@@ -49,6 +50,7 @@ void ptz_load_devices()
 #if defined(ENABLE_ONVIF)
 	ptz_onvif_register_filter();
 #endif /* ENABLE_ONVIF */
+	ptz_panasonic_register_filter();
 #if defined(ENABLE_USB_CAM)
 	ptz_usb_cam_register_filter();
 #endif /* ENABLE_USB_CAM */

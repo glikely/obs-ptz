@@ -282,6 +282,16 @@ endif()
 unset(_usb_backend_sources)
 unset(_usb_backend_libs)
 
+ptz_add_library(ptz-driver-panasonic OBJECT)
+target_include_directories(ptz-driver-panasonic PUBLIC "${CMAKE_SOURCE_DIR}/src/drivers/panasonic")
+target_link_libraries(ptz-driver-panasonic PUBLIC ptz-device-core)
+target_sources(
+  ptz-driver-panasonic
+  PRIVATE
+    src/drivers/panasonic/ptz-panasonic.cpp
+    src/drivers/panasonic/ptz-panasonic.hpp
+)
+
 ptz_add_library(ptz-driver-virtual OBJECT)
 target_include_directories(ptz-driver-virtual PUBLIC "${CMAKE_SOURCE_DIR}/src/drivers/virtual")
 target_link_libraries(ptz-driver-virtual PUBLIC ptz-device-core)

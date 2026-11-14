@@ -18,7 +18,7 @@ ACTION_PAN_TILT = 3
 ACTION_STOP = 4
 ACTION_PRESET_SAVE = 5
 
-BACKENDS = ["visca-tcp", "visca-udp", "visca-serial", "pelco-d", "pelco-p"]
+BACKENDS = ["visca-tcp", "visca-udp", "visca-serial", "pelco-d", "pelco-p", "panasonic"]
 
 
 @pytest.mark.parametrize("backend", BACKENDS)
