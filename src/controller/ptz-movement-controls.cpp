@@ -19,6 +19,7 @@
 #include <QResizeEvent>
 
 #include "ptz-movement-controls.hpp"
+#include "ptz-view-control.hpp"
 #include "ui_ptz-movement-controls.h"
 #include "ptz-controls.hpp"
 #include "ptz-list-model.hpp"
@@ -236,17 +237,40 @@ void PTZMovementControls::updateControls()
 	ui->zoomButton_tele->setEnabled(!is_locked && PTZListModel::hasFeature(index, "zoom"));
 	ui->zoomButton_wide->setEnabled(!is_locked && PTZListModel::hasFeature(index, "zoom"));
 
+	/* The view control shows the source the camera is on, which may have
+	 * changed. It works out for itself whether it may move the camera: it
+	 * isn't disabled, so that its readouts still follow the mouse. */
+	ui->viewControl->setDevice(index);
+
 	showAutofocus(obs_data_get_bool(ptzDeviceList->deviceState(index), "focus_af_enabled"));
+}
+
+void PTZMovementControls::showPanTiltPage(int page, bool enabled)
+{
+	if (enabled)
+		ui->pantiltStack->setCurrentIndex(page);
+	else if (ui->pantiltStack->currentIndex() == page)
+		ui->pantiltStack->setCurrentWidget(ui->buttonsPage);
 }
 
 bool PTZMovementControls::onscreenJoystick() const
 {
-	return ui->pantiltStack->currentIndex() != 0;
+	return ui->pantiltStack->currentWidget() == ui->touchPage;
 }
 
 void PTZMovementControls::setOnscreenJoystick(bool enabled)
 {
-	ui->pantiltStack->setCurrentIndex(enabled ? 1 : 0);
+	showPanTiltPage(ui->pantiltStack->indexOf(ui->touchPage), enabled);
+}
+
+bool PTZMovementControls::viewControl() const
+{
+	return ui->pantiltStack->currentWidget() == ui->viewPage;
+}
+
+void PTZMovementControls::setViewControl(bool enabled)
+{
+	showPanTiltPage(ui->pantiltStack->indexOf(ui->viewPage), enabled);
 }
 
 /**
@@ -500,6 +524,11 @@ void PTZMovementControls::addContextActions(QMenu *menu, const QPoint &pos)
 	touchpad->setCheckable(true);
 	touchpad->setChecked(onscreenJoystick());
 	connect(touchpad, &QAction::toggled, this, &PTZMovementControls::setOnscreenJoystick);
+
+	QAction *view = menu->addAction(obs_module_text("PTZ.Dock.ViewControl"));
+	view->setCheckable(true);
+	view->setChecked(viewControl());
+	connect(view, &QAction::toggled, this, &PTZMovementControls::setViewControl);
 }
 
 void PTZMovementControls::contextMenuEvent(QContextMenuEvent *event)

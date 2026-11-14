@@ -73,6 +73,10 @@ public:
 	/* Whether pan and tilt are the touch pad rather than the buttons */
 	bool onscreenJoystick() const;
 	void setOnscreenJoystick(bool enabled);
+	/* Whether pan and tilt are the camera's picture, moved by dragging it,
+	 * rather than the buttons */
+	bool viewControl() const;
+	void setViewControl(bool enabled);
 
 private:
 	std::unique_ptr<Ui::PTZMovementControls> ui;
@@ -110,6 +114,8 @@ private:
 	void updateFocusControls();
 	void stop();
 	void applySize();
+	/* Show a page of the pan/tilt stack, or, if it is showing, the buttons */
+	void showPanTiltPage(int page, bool enabled);
 
 protected:
 	void contextMenuEvent(QContextMenuEvent *event) override;

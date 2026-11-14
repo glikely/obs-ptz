@@ -252,6 +252,25 @@
        </item>
       </layout>
      </widget>
+     <widget class="QWidget" name="viewPage">
+      <layout class="QVBoxLayout" name="viewPageVerticalLayout">
+       <property name="leftMargin">
+        <number>0</number>
+       </property>
+       <property name="topMargin">
+        <number>0</number>
+       </property>
+       <property name="rightMargin">
+        <number>0</number>
+       </property>
+       <property name="bottomMargin">
+        <number>0</number>
+       </property>
+       <item>
+        <widget class="PTZViewControl" name="viewControl" native="true"/>
+       </item>
+      </layout>
+     </widget>
     </widget>
    </item>
    <item row="0" column="3" rowspan="3">
@@ -384,6 +403,11 @@
    <class>SquareToolButton</class>
    <extends>QToolButton</extends>
    <header>square-tool-button.hpp</header>
+  </customwidget>
+  <customwidget>
+   <class>PTZViewControl</class>
+   <extends>QWidget</extends>
+   <header>ptz-view-control.hpp</header>
   </customwidget>
  </customwidgets>
  <resources/>
