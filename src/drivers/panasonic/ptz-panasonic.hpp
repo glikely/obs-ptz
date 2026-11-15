@@ -76,4 +76,3 @@ public:
 };
 
 void ptz_panasonic_register_filter();
-

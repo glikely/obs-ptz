@@ -164,8 +164,7 @@ void PTZPanasonic::parseCamdata(const QString &body)
 	}
 	if (parsed.powerOn) {
 		bool powerOn = *parsed.powerOn;
-		if (!obs_data_has_user_value(state, "power_on") ||
-		    obs_data_get_bool(state, "power_on") != powerOn) {
+		if (!obs_data_has_user_value(state, "power_on") || obs_data_get_bool(state, "power_on") != powerOn) {
 			obs_data_set_bool(state, "power_on", powerOn);
 			obs_data_set_bool(stateChanged, "power_on", powerOn);
 			changed = true;
@@ -388,4 +387,3 @@ void ptz_panasonic_register_filter()
 	info.filter_add = ptz_filter_add;
 	obs_register_source(&info);
 }
-

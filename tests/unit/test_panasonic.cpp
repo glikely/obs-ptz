@@ -53,12 +53,11 @@ TEST_CASE("panasonic: zoom/focus hex conversions map [0, 1] to [0x555, 0xFFF]", 
 
 TEST_CASE("panasonic: parseCamdataBody parses full status payload", "[panasonic]")
 {
-	const std::string body =
-		"p1\r\n"
-		"aPC8000FFFF\r\n"
-		"gz555\r\n"
-		"gfFFF\r\n"
-		"d11\r\n";
+	const std::string body = "p1\r\n"
+				 "aPC8000FFFF\r\n"
+				 "gz555\r\n"
+				 "gfFFF\r\n"
+				 "d11\r\n";
 
 	CamdataUpdate u = parseCamdataBody(body);
 	REQUIRE(u.powerOn.has_value());
@@ -77,13 +76,12 @@ TEST_CASE("panasonic: parseCamdataBody parses full status payload", "[panasonic]
 
 TEST_CASE("panasonic: parseCamdataBody handles standby, manual focus, case, and bad hex", "[panasonic]")
 {
-	const std::string body =
-		"P0\r\n"
-		"D10\r\n"
-		"apc0001ZZZZ\r\n"
-		"gzZZZ\r\n"
-		"gfAAA\r\n"
-		"short\r\n";
+	const std::string body = "P0\r\n"
+				 "D10\r\n"
+				 "apc0001ZZZZ\r\n"
+				 "gzZZZ\r\n"
+				 "gfAAA\r\n"
+				 "short\r\n";
 
 	CamdataUpdate u = parseCamdataBody(body);
 	REQUIRE(u.powerOn.has_value());
@@ -97,4 +95,3 @@ TEST_CASE("panasonic: parseCamdataBody handles standby, manual focus, case, and 
 	REQUIRE(u.focus.has_value());
 	REQUIRE(*u.focus == Approx(zoomFocusHexToNorm(0xAAA)));
 }
-

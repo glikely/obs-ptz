@@ -67,7 +67,8 @@ Presets are 2-digit zero-padded indices `00`–`99` (100 slots):
 
 ## Status Polling (`/live/camdata.html`)
 
-`PTZPanasonic` polls `/live/camdata.html` on a dedicated single-flight network manager every `5000 ms` while idle (paused during continuous movement, with a coalesced `400 ms` follow-up poll after stopping or discrete commands). The response body consists of `\r\n`-delimited lines; `obs-ptz` parses:
+`PTZPanasonic` polls `/live/camdata.html` on a dedicated single-flight network manager every `5000 ms` while idle (paused during continuous movement, with a coalesced `400 ms` follow-up poll after stopping or discrete commands).
+The response body consists of `\r\n`-delimited lines; `obs-ptz` parses:
 
 | Line | State Field | Format |
 | --- | --- | --- |

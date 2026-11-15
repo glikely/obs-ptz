@@ -107,7 +107,8 @@ inline CamdataUpdate parseCamdataBody(std::string_view body)
 	size_t pos = 0;
 	while (pos < body.size()) {
 		size_t end = body.find("\r\n", pos);
-		std::string_view rawLine = (end == std::string_view::npos) ? body.substr(pos) : body.substr(pos, end - pos);
+		std::string_view rawLine = (end == std::string_view::npos) ? body.substr(pos)
+									   : body.substr(pos, end - pos);
 		pos = (end == std::string_view::npos) ? body.size() : end + 2;
 
 		std::string_view line = trimAscii(rawLine);
@@ -141,4 +142,3 @@ inline CamdataUpdate parseCamdataBody(std::string_view body)
 }
 
 } // namespace panasonic_protocol
-
