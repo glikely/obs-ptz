@@ -29,7 +29,7 @@ Speeds are 2-digit zero-padded decimal integers in `01`–`99`, where `50` is **
 | `#Z[zz]` | Zoom speed | `01` = fastest wide (out), `49` = slowest wide, `50` = stop, `51` = slowest tele (in), `99` = fastest tele |
 | `#F[ff]` | Focus speed | `01` = fastest near, `49` = slowest near, `50` = stop, `51` = slowest far, `99` = fastest far |
 
-To avoid flooding the camera's embedded HTTP server during rapid joystick updates, `PTZPanasonic` keeps at most one in-flight velocity request per axis group (`pt`, `z`, `f`), coalesces intermediate updates, and bypasses the in-flight gate for stop commands (`#PTS5050`, `#Z50`, `#F50`) so stops are always sent immediately.
+To avoid flooding or reordering requests on the camera's embedded HTTP server during rapid joystick updates, `PTZPanasonic` keeps at most one in-flight velocity request per axis group (`pt`, `z`, `f`), coalesces intermediate updates, skips unchanged quantized speeds, and retries stop commands (`#PTS5050`, `#Z50`, `#F50`) if their HTTP request fails.
 
 ### Absolute Position & Home
 
@@ -67,13 +67,13 @@ Presets are 2-digit zero-padded indices `00`–`99` (100 slots):
 
 ## Status Polling (`/live/camdata.html`)
 
-`PTZPanasonic` polls `/live/camdata.html` every `1500 ms` at rest and `500 ms` while moving (plus follow-up polls at `400 ms` and `1500 ms` after discrete commands). The response body consists of `\r\n`-delimited lines; `obs-ptz` parses:
+`PTZPanasonic` polls `/live/camdata.html` on a dedicated single-flight network manager every `5000 ms` while idle (paused during continuous movement, with a coalesced `400 ms` follow-up poll after stopping or discrete commands). The response body consists of `\r\n`-delimited lines; `obs-ptz` parses:
 
 | Line | State Field | Format |
 | --- | --- | --- |
 | `aPC[pppp][tttt]` | `pan`, `tilt` | 4-digit hex each (`8000` = `0.0`, mapped to `[-1.0, 1.0]`) |
-| `gz[zzz]` | `zoom` | 3-digit hex (`555` = `0.0`, `FFF` = `1.0`) |
-| `gf[fff]` | `focus` | 3-digit hex (`555` = `0.0`, `FFF` = `1.0`) |
+| `gz[zzz]` / `axz[zzz]` | `zoom` | 3-digit hex (`555` = `0.0`, `FFF` = `1.0`) |
+| `gf[fff]` / `axf[fff]` | `focus` | 3-digit hex (`555` = `0.0`, `FFF` = `1.0`) |
 | `d11` / `d10` | `focus_af_enabled` | `d11` = `true`, `d10` = `false` |
 | `p1` / `p0` | `power_on` | `p1` = `true`, `p0` = `false` |
 
