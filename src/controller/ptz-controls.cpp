@@ -593,7 +593,8 @@ double PTZControls::readAxis(const QJoystickDevice *jd, int axis, bool invert)
 	double v = jd->axes.at(axis) * (invert ? -1 : 1);
 	if (abs(v) < m_joystick_deadzone)
 		return 0.0;
-	return std::copysign((abs(v) - m_joystick_deadzone) / (1.0 - m_joystick_deadzone), v);
+	double scaled = std::copysign((abs(v) - m_joystick_deadzone) / (1.0 - m_joystick_deadzone), v);
+	return std::clamp(scaled * m_joystick_speed, -1.0, 1.0);
 }
 
 void PTZControls::joystickAxesChanged(const QJoystickDevice *jd, uint32_t updated)
