@@ -24,11 +24,18 @@ private:
 	int port = 80;
 
 	QNetworkAccessManager m_networkManager;
+	QNetworkAccessManager m_statusNetworkManager;
 	QTimer m_statusTimer;
+	QTimer m_pollSoonTimer;
 
-	bool m_ptInFlight = false;
-	bool m_zInFlight = false;
-	bool m_fInFlight = false;
+	int m_ptInFlight = 0;
+	int m_zInFlight = 0;
+	int m_fInFlight = 0;
+	int m_lastPp = -1;
+	int m_lastTt = -1;
+	int m_lastZz = -1;
+	int m_lastFf = -1;
+	bool m_camdataInFlight = false;
 	QSet<QString> m_drivePending;
 	int m_consecutiveFailures = 0;
 
@@ -41,6 +48,7 @@ private:
 
 private slots:
 	void requestFinished(QNetworkReply *reply);
+	void statusRequestFinished(QNetworkReply *reply);
 
 public:
 	PTZPanasonic(OBSData config, obs_source_t *source = nullptr);

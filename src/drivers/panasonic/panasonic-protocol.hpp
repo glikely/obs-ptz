@@ -122,8 +122,14 @@ inline CamdataUpdate parseCamdataBody(std::string_view body)
 		} else if (istartsWith(line, "gz") && line.size() >= 5) {
 			if (auto zoomRaw = parseHex(line.substr(2, 3)))
 				out.zoom = zoomFocusHexToNorm(*zoomRaw);
+		} else if (istartsWith(line, "axz") && line.size() >= 6) {
+			if (auto zoomRaw = parseHex(line.substr(3, 3)))
+				out.zoom = zoomFocusHexToNorm(*zoomRaw);
 		} else if (istartsWith(line, "gf") && line.size() >= 5) {
 			if (auto focusRaw = parseHex(line.substr(2, 3)))
+				out.focus = zoomFocusHexToNorm(*focusRaw);
+		} else if (istartsWith(line, "axf") && line.size() >= 6) {
+			if (auto focusRaw = parseHex(line.substr(3, 3)))
 				out.focus = zoomFocusHexToNorm(*focusRaw);
 		} else if (iequals(line, "d10") || iequals(line, "d11")) {
 			out.focusAfEnabled = (line.back() == '1');

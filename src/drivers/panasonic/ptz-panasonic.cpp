@@ -20,9 +20,18 @@ PTZPanasonic::PTZPanasonic(OBSData config, obs_source_t *source) : PTZDevice(con
 	m_networkManager.setAutoDeleteReplies(true);
 	connect(&m_networkManager, &QNetworkAccessManager::finished, this, &PTZPanasonic::requestFinished);
 
-	m_statusTimer.setInterval(1500);
+	m_statusNetworkManager.setAutoDeleteReplies(true);
+	connect(&m_statusNetworkManager, &QNetworkAccessManager::finished, this, &PTZPanasonic::statusRequestFinished);
+
+	m_statusTimer.setInterval(5000);
 	connect(&m_statusTimer, &QTimer::timeout, this, &PTZPanasonic::pollStatus);
 	m_statusTimer.start();
+
+	m_pollSoonTimer.setSingleShot(true);
+	connect(&m_pollSoonTimer, &QTimer::timeout, this, [this]() {
+		if (isConnected())
+			pollStatus();
+	});
 
 	update(config);
 }
@@ -30,6 +39,7 @@ PTZPanasonic::PTZPanasonic(OBSData config, obs_source_t *source) : PTZDevice(con
 PTZPanasonic::~PTZPanasonic()
 {
 	m_statusTimer.stop();
+	m_pollSoonTimer.stop();
 }
 
 void PTZPanasonic::sendPtzCommand(const QString &cmd, const char *category)
@@ -58,38 +68,67 @@ void PTZPanasonic::sendCamCommand(const QString &cmd)
 
 void PTZPanasonic::pollStatus()
 {
+	if (m_camdataInFlight)
+		return;
 	const QString h = effectiveHost();
 	if (h.isEmpty())
 		return;
+	m_camdataInFlight = true;
 	QString url = QStringLiteral("http://%1:%2/live/camdata.html").arg(h).arg(port);
 	QNetworkRequest request{QUrl(url)};
 	request.setTransferTimeout(5000);
-	QNetworkReply *reply = m_networkManager.get(request);
-	reply->setProperty("ptz_category", QStringLiteral("camdata"));
+	m_statusNetworkManager.get(request);
 }
 
 void PTZPanasonic::pollStatusSoon()
 {
-	for (int delay_ms : {400, 1500}) {
-		QTimer::singleShot(delay_ms, this, [this]() {
-			if (isConnected())
-				pollStatus();
-		});
-	}
+	m_pollSoonTimer.start(400);
 }
 
 void PTZPanasonic::requestFinished(QNetworkReply *reply)
 {
 	QString category = reply->property("ptz_category").toString();
-	if (category == QStringLiteral("pt"))
-		m_ptInFlight = false;
-	else if (category == QStringLiteral("z"))
-		m_zInFlight = false;
-	else if (category == QStringLiteral("f"))
-		m_fInFlight = false;
+	if (category == QStringLiteral("pt") && m_ptInFlight > 0)
+		--m_ptInFlight;
+	else if (category == QStringLiteral("z") && m_zInFlight > 0)
+		--m_zInFlight;
+	else if (category == QStringLiteral("f") && m_fInFlight > 0)
+		--m_fInFlight;
 
 	if (reply->error() != QNetworkReply::NoError) {
 		ptz_debug("HTTP error (%s): %s", QT_TO_UTF8(category), QT_TO_UTF8(reply->errorString()));
+		++m_consecutiveFailures;
+		if (m_consecutiveFailures >= 3 && isConnected())
+			setConnected(false);
+
+		/* Retry stop if the HTTP request failed while the axis is now at 0 */
+		if (category == QStringLiteral("pt") && speed("pan") == 0.0 && speed("tilt") == 0.0) {
+			m_lastPp = -1;
+			m_lastTt = -1;
+			m_drivePending.insert(QStringLiteral("pan"));
+			m_drivePending.insert(QStringLiteral("tilt"));
+		} else if (category == QStringLiteral("z") && speed("zoom") == 0.0) {
+			m_lastZz = -1;
+			m_drivePending.insert(QStringLiteral("zoom"));
+		} else if (category == QStringLiteral("f") && speed("focus") == 0.0) {
+			m_lastFf = -1;
+			m_drivePending.insert(QStringLiteral("focus"));
+		}
+	} else {
+		m_consecutiveFailures = 0;
+		if (!isConnected())
+			setConnected(true);
+	}
+
+	sendDrive();
+}
+
+void PTZPanasonic::statusRequestFinished(QNetworkReply *reply)
+{
+	m_camdataInFlight = false;
+
+	if (reply->error() != QNetworkReply::NoError) {
+		ptz_debug("HTTP error (camdata): %s", QT_TO_UTF8(reply->errorString()));
 		++m_consecutiveFailures;
 		if (m_consecutiveFailures >= 3 && isConnected())
 			setConnected(false);
@@ -97,12 +136,8 @@ void PTZPanasonic::requestFinished(QNetworkReply *reply)
 		m_consecutiveFailures = 0;
 		if (!isConnected())
 			setConnected(true);
-		QByteArray data = reply->readAll();
-		if (category == QStringLiteral("camdata"))
-			parseCamdata(QString::fromUtf8(data));
+		parseCamdata(QString::fromUtf8(reply->readAll()));
 	}
-
-	sendDrive();
 }
 
 void PTZPanasonic::parseCamdata(const QString &body)
@@ -156,41 +191,45 @@ void PTZPanasonic::sendDrive()
 	const double focus_speed = speed("focus");
 
 	const bool moving = pan_speed != 0.0 || tilt_speed != 0.0 || zoom_speed != 0.0 || focus_speed != 0.0;
-	const int interval = moving ? 500 : 1500;
-	if (m_statusTimer.interval() != interval) {
-		m_statusTimer.setInterval(interval);
-		if (!moving)
-			pollStatusSoon();
+	if (moving) {
+		if (m_statusTimer.isActive())
+			m_statusTimer.stop();
+		m_pollSoonTimer.stop();
+	} else if (!m_statusTimer.isActive()) {
+		m_statusTimer.start();
+		pollStatusSoon();
 	}
 
-	if (m_drivePending.contains(QStringLiteral("pan")) || m_drivePending.contains(QStringLiteral("tilt"))) {
+	if ((m_drivePending.contains(QStringLiteral("pan")) || m_drivePending.contains(QStringLiteral("tilt"))) &&
+	    m_ptInFlight == 0) {
 		int pp = speedToPanasonic(pan_speed);
 		int tt = speedToPanasonic(tilt_speed);
-		bool isStop = (pp == 50 && tt == 50);
-		if (isStop || !m_ptInFlight) {
-			m_drivePending.remove(QStringLiteral("pan"));
-			m_drivePending.remove(QStringLiteral("tilt"));
-			m_ptInFlight = true;
+		m_drivePending.remove(QStringLiteral("pan"));
+		m_drivePending.remove(QStringLiteral("tilt"));
+		if (pp != m_lastPp || tt != m_lastTt) {
+			m_lastPp = pp;
+			m_lastTt = tt;
+			++m_ptInFlight;
 			sendPtzCommand(QString::asprintf("PTS%02d%02d", pp, tt), "pt");
 		}
 	}
 
-	if (m_drivePending.contains(QStringLiteral("zoom"))) {
+	if (m_drivePending.contains(QStringLiteral("zoom")) && m_zInFlight == 0) {
 		int zz = speedToPanasonic(zoom_speed);
-		bool isStop = (zz == 50);
-		if (isStop || !m_zInFlight) {
-			m_drivePending.remove(QStringLiteral("zoom"));
-			m_zInFlight = true;
+		m_drivePending.remove(QStringLiteral("zoom"));
+		if (zz != m_lastZz) {
+			m_lastZz = zz;
+			++m_zInFlight;
 			sendPtzCommand(QString::asprintf("Z%02d", zz), "z");
 		}
 	}
 
-	if (m_drivePending.contains(QStringLiteral("focus"))) {
+	if (m_drivePending.contains(QStringLiteral("focus")) && m_fInFlight == 0) {
 		int ff = speedToPanasonic(focus_speed);
-		bool isStop = (ff == 50);
-		if (isStop || !m_fInFlight) {
-			m_drivePending.remove(QStringLiteral("focus"));
-			m_fInFlight = true;
+		m_drivePending.remove(QStringLiteral("focus"));
+		if (ff != m_lastFf) {
+			m_lastFf = ff;
+			++m_fInFlight;
 			sendPtzCommand(QString::asprintf("F%02d", ff), "f");
 		}
 	}
@@ -315,7 +354,7 @@ obs_properties_t *PTZPanasonic::get_obs_properties()
 	obs_properties_t *ptz_props = PTZDevice::get_obs_properties();
 	obs_property_t *p = obs_properties_get(ptz_props, "interface");
 	obs_properties_t *config = obs_property_group_content(p);
-	obs_property_set_description(p, "Panasonic (HTTP)");
+	obs_property_set_description(p, "Panasonic AW");
 	obs_properties_add_text(config, "host", obs_module_text("PTZ.Device.Hostname"), OBS_TEXT_DEFAULT);
 	obs_properties_add_int(config, "port", obs_module_text("PTZ.Device.TCPPort"), 1, 65535, 1);
 	return ptz_props;
@@ -328,7 +367,7 @@ void ptz_panasonic_register_filter()
 	info.type = OBS_SOURCE_TYPE_FILTER;
 	info.output_flags = OBS_SOURCE_VIDEO;
 	info.get_name = [](void *) -> const char * {
-		return "Panasonic (HTTP) PTZ Control";
+		return "Panasonic AW PTZ Control";
 	};
 	info.create = [](obs_data_t *, obs_source_t *source) -> void * {
 		return ptz_filter_create(source, [source](OBSData config) -> PTZDevice * {
