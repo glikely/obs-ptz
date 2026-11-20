@@ -318,6 +318,7 @@ target_sources(
     src/controller/ptz-backup-store.cpp
     src/controller/settings.cpp
     src/controller/ptz-camera-report.cpp
+    src/controller/ptz-state-format.cpp
     src/controller/ptz-state-view.cpp
     src/controller/ptz-source-display.cpp
     src/controller/ptz-ws-decl.cpp
@@ -334,6 +335,7 @@ target_sources(
     src/controller/ptz-backup-store.hpp
     src/controller/settings.hpp
     src/controller/ptz-camera-report.hpp
+    src/controller/ptz-state-format.hpp
     src/controller/ptz-state-view.hpp
     src/controller/ptz-source-display.hpp
     src/controller/ptz-ws-decl.hpp

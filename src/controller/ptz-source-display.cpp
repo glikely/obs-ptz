@@ -8,11 +8,14 @@
 #include <obs-module.h>
 #include <graphics/graphics.h>
 #include <graphics/matrix4.h>
+#include <QItemSelectionRange>
+#include <QPainter>
 #include <QTimer>
 #include <QWindow>
 
 #include "ptz-source-display.hpp"
 #include "display-helpers.hpp"
+#include "ptz-list-model.hpp"
 
 PTZSourceDisplay::PTZSourceDisplay(QWidget *parent) : OBSQTDisplay(parent)
 {
@@ -23,6 +26,15 @@ PTZSourceDisplay::PTZSourceDisplay(QWidget *parent) : OBSQTDisplay(parent)
 	 * draws into it */
 	connect(this, &OBSQTDisplay::DisplayCreated, this,
 		[this]() { obs_display_add_draw_callback(GetDisplay(), draw, this); });
+
+	/* A device can be moved to another source, which changes what it shows */
+	connect(ptzDeviceList, &PTZListModel::dataChanged, this,
+		[this](const QModelIndex &topLeft, const QModelIndex &bottomRight) {
+			if (QItemSelectionRange(topLeft, bottomRight).contains(QModelIndex(m_device))) {
+				setSource(ptzDeviceList->parentSource(m_device));
+				updateOverlay();
+			}
+		});
 }
 
 PTZSourceDisplay::~PTZSourceDisplay()
@@ -33,6 +45,11 @@ PTZSourceDisplay::~PTZSourceDisplay()
 	 * does: OBSQTDisplay would only do it after they are gone. */
 	DestroyDisplay();
 	releaseShowing();
+	if (m_overlayTexture) {
+		obs_enter_graphics();
+		gs_texture_destroy(m_overlayTexture);
+		obs_leave_graphics();
+	}
 }
 
 /* The display is a window of its own, which Qt keeps where the widget is
@@ -140,6 +157,57 @@ void PTZSourceDisplay::releaseShowingLocked()
 		obs_source_dec_showing(source);
 }
 
+void PTZSourceDisplay::setDevice(const QModelIndex &index)
+{
+	m_device = index;
+	setSource(ptzDeviceList->parentSource(index));
+	updateOverlay();
+}
+
+/* Only paints when the text changes, as a moving camera reports all the time */
+void PTZSourceDisplay::updateOverlay()
+{
+	QString text;
+	if (m_device.isValid()) {
+		const char *status = "PTZ.Device.Status.Connected";
+		if (!m_device.data(PTZListModel::IsConnectedRole).toBool())
+			status = "PTZ.Device.Status.Disconnected";
+		else if (m_device.data(PTZListModel::IsPoweredOffRole).toBool())
+			status = "PTZ.Device.Status.PoweredOff";
+		text = m_device.data(Qt::DisplayRole).toString() + "\n" + obs_module_text(status);
+	}
+	if (text == m_overlayText)
+		return;
+	m_overlayText = text;
+
+	QImage image = text.isEmpty() ? QImage() : paintOverlay(text);
+	std::lock_guard<std::mutex> guard(m_lock);
+	m_overlayImage = image;
+	m_overlayChanged = true;
+}
+
+/* In the byte order of GS_BGRA, with its alpha premultiplied, for draw() */
+QImage PTZSourceDisplay::paintOverlay(const QString &text) const
+{
+	const int padding = 6;
+	const QSize size = fontMetrics().size(0, text) + QSize(padding * 2, padding * 2);
+	const qreal ratio = devicePixelRatioF();
+
+	QImage image(size * ratio, QImage::Format_ARGB32_Premultiplied);
+	image.setDevicePixelRatio(ratio);
+	image.fill(Qt::transparent);
+
+	QPainter painter(&image);
+	painter.setRenderHint(QPainter::Antialiasing);
+	painter.setPen(Qt::NoPen);
+	painter.setBrush(QColor(0, 0, 0, 160));
+	painter.drawRoundedRect(QRect(QPoint(0, 0), size), 4, 4);
+	painter.setPen(Qt::white);
+	painter.setFont(font());
+	painter.drawText(QRect(QPoint(0, 0), size).adjusted(padding, padding, -padding, -padding), text);
+	return image;
+}
+
 void PTZSourceDisplay::setSource(OBSSource source)
 {
 	OBSWeakSource weak = OBSGetWeakRef(source);
@@ -151,10 +219,11 @@ void PTZSourceDisplay::setSource(OBSSource source)
 	holdShowingLocked();
 }
 
-OBSSource PTZSourceDisplay::source() const
+QString PTZSourceDisplay::shownSource() const
 {
 	std::lock_guard<std::mutex> guard(m_lock);
-	return OBSGetStrongRef(m_source);
+	OBSSource source = OBSGetStrongRef(m_source);
+	return QString::fromUtf8(obs_source_get_name(source));
 }
 
 /* The shape of the widget is the layout's to choose, not the source's: the
@@ -169,18 +238,8 @@ QSize PTZSourceDisplay::minimumSizeHint() const
 	return QSize(120, 68);
 }
 
-/* Runs on the graphics thread, once a frame, with the display's own size */
-void PTZSourceDisplay::draw(void *param, uint32_t cx, uint32_t cy)
+static void drawVideo(obs_source_t *source, uint32_t cx, uint32_t cy)
 {
-	auto *self = static_cast<PTZSourceDisplay *>(param);
-	OBSSourceAutoRelease source;
-	{
-		std::lock_guard<std::mutex> guard(self->m_lock);
-		source = obs_weak_source_get_source(self->m_source);
-	}
-	if (!source || !cx || !cy)
-		return;
-
 	uint32_t sourceCX = obs_source_get_width(source);
 	uint32_t sourceCY = obs_source_get_height(source);
 	if (!sourceCX || !sourceCY)
@@ -202,4 +261,52 @@ void PTZSourceDisplay::draw(void *param, uint32_t cx, uint32_t cy)
 	gs_set_linear_srgb(previous);
 	gs_projection_pop();
 	gs_viewport_pop();
+}
+
+/* In the display's own pixels, so it is the same size whatever the video's */
+static void drawOverlay(gs_texture_t *texture)
+{
+	const float margin = 8.0f;
+	gs_effect_t *effect = obs_get_base_effect(OBS_EFFECT_PREMULTIPLIED_ALPHA);
+
+	gs_blend_state_push();
+	gs_blend_function(GS_BLEND_ONE, GS_BLEND_INVSRCALPHA);
+	gs_matrix_push();
+	gs_matrix_translate3f(margin, margin, 0.0f);
+	gs_effect_set_texture(gs_effect_get_param_by_name(effect, "image"), texture);
+	while (gs_effect_loop(effect, "Draw"))
+		gs_draw_sprite(texture, 0, gs_texture_get_width(texture), gs_texture_get_height(texture));
+	gs_matrix_pop();
+	gs_blend_state_pop();
+}
+
+/* Runs on the graphics thread, once a frame, with the display's own size */
+void PTZSourceDisplay::draw(void *param, uint32_t cx, uint32_t cy)
+{
+	auto *self = static_cast<PTZSourceDisplay *>(param);
+	OBSSourceAutoRelease source;
+	QImage overlay;
+	bool overlayChanged;
+	{
+		std::lock_guard<std::mutex> guard(self->m_lock);
+		source = obs_weak_source_get_source(self->m_source);
+		overlayChanged = self->m_overlayChanged;
+		self->m_overlayChanged = false;
+		overlay = self->m_overlayImage;
+	}
+	if (overlayChanged) {
+		if (self->m_overlayTexture)
+			gs_texture_destroy(self->m_overlayTexture);
+		const uint8_t *bits = overlay.constBits();
+		self->m_overlayTexture =
+			overlay.isNull() ? nullptr
+					 : gs_texture_create(overlay.width(), overlay.height(), GS_BGRA, 1, &bits, 0);
+	}
+	if (!cx || !cy)
+		return;
+
+	if (source)
+		drawVideo(source, cx, cy);
+	if (self->m_overlayTexture)
+		drawOverlay(self->m_overlayTexture);
 }
