@@ -70,6 +70,7 @@ if not __package__:
     os.execve(sys.executable, [sys.executable, "-m", "ptzsim"] + sys.argv[1:], env)
 
 from .backends.onvif import OnvifBackend
+from .backends.panasonic import PanasonicBackend
 from .backends.sony_setup import SonySetupBackend
 from .backends.pelco import PelcoBackend
 from .backends.visca import ViscaBackend, ViscaCameraLogic, SonyUdpQuirks
@@ -169,6 +170,10 @@ def parse_args():
                      help="symlink path for the emulated Pelco serial port")
     ap.add_argument("--pelco-address", type=int, default=1,
                      help="Pelco device address to respond to")
+
+    ap.add_argument("--no-panasonic", action="store_true", help="disable the Panasonic HTTP CGI backend")
+    ap.add_argument("--panasonic-http-port", type=int, default=8081,
+                     help="Panasonic HTTP CGI listen port")
 
     ap.add_argument("--rtsp-port", type=int, default=8554,
                      help="RTSP port in the stream URI ONVIF advertises (nothing serves one)")
@@ -396,6 +401,11 @@ def main():
         pelco = PelcoBackend(state, args.pelco_serial_path, args.pelco_address)
         pelco.start(loop)
         backends.append(pelco)
+
+    if not args.no_panasonic:
+        panasonic = PanasonicBackend(state, args.host, args.panasonic_http_port)
+        panasonic.start()
+        backends.append(panasonic)
 
     if not backends:
         print("[sim] warning: no backends are enabled, the camera can't be controlled")

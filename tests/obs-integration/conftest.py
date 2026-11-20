@@ -150,6 +150,8 @@ DEVICE_IDS = {
     "visca-tcp-power-late": 17,
     # Has neither setting, and talks to a camera that starts off
     "visca-tcp-no-power": 18,
+    # Talks Panasonic HTTP CGI to the shared ptzsim
+    "panasonic": 19,
 }
 
 # The name of the source each device is on: the one in its config, or for a
@@ -357,6 +359,13 @@ def write_ptz_plugin_config(home: Path, ports, serial_paths):
         "port": ports["onvif_http"],
         "username": "admin",
         "password": "",
+    })
+    devices.append({
+        "id": DEVICE_IDS["panasonic"],
+        "name": "sim-panasonic",
+        "type": "panasonic",
+        "host": "127.0.0.1",
+        "port": ports["panasonic_http"],
     })
     devices.append({
         "id": DEVICE_IDS["unnamed"],
@@ -1643,6 +1652,7 @@ def ptz_ports():
         "visca_tcp": free_port(),
         "visca_udp": free_udp_port(),
         "onvif_http": free_port(),
+        "panasonic_http": free_port(),
         "debug_http": free_port(),
         "rtsp": free_port(),
         "visca_tcp_flaky": free_port(),
@@ -1675,6 +1685,7 @@ def ptzsim_process(tmp_path_factory, ptz_ports):
         "--visca-udp-port", str(ptz_ports["visca_udp"]),
         "--pelco-address", "1",
         "--onvif-http-port", str(ptz_ports["onvif_http"]),
+        "--panasonic-http-port", str(ptz_ports["panasonic_http"]),
         "--rtsp-port", str(ptz_ports["rtsp"]),
         "--debug-http-port", str(ptz_ports["debug_http"]),
     ]
@@ -1707,7 +1718,7 @@ def sony_ptzsim(ptz_ports):
         "--host", "127.0.0.1",
         "--visca-udp-port", str(ptz_ports["visca_udp_sony"]),
         "--visca-udp-sony-quirks",
-        "--no-visca-tcp", "--no-visca-serial", "--no-onvif", "--no-pelco",
+        "--no-visca-tcp", "--no-visca-serial", "--no-onvif", "--no-pelco", "--no-panasonic",
         "--debug-http-port", str(ptz_ports["debug_http_sony"]),
     ]
     with output_log("ptzsim-sony") as out:
@@ -1750,7 +1761,7 @@ def birddog_ptzsim(ptz_ports):
         "--host", "127.0.0.1",
         "--visca-tcp-port", str(ptz_ports["visca_tcp_birddog"]),
         "--visca-no-block-inquiries", "--visca-no-version-inquiry", "--visca-no-completions",
-        "--no-visca-udp", "--no-visca-serial", "--no-onvif", "--no-pelco",
+        "--no-visca-udp", "--no-visca-serial", "--no-onvif", "--no-pelco", "--no-panasonic",
     ]
     with output_log("ptzsim-birddog") as out:
         proc = subprocess.Popen(cmd, cwd=REPO_ROOT / "scripts", stdout=out, stderr=subprocess.STDOUT)
@@ -1778,7 +1789,7 @@ class StandbyPtzsim:
             sys.executable, "-m", "ptzsim",
             "--host", "127.0.0.1",
             "--visca-tcp-port", str(self.tcp_port),
-            "--no-visca-udp", "--no-visca-serial", "--no-onvif", "--no-pelco",
+            "--no-visca-udp", "--no-visca-serial", "--no-onvif", "--no-pelco", "--no-panasonic",
             "--start-in-standby",
             "--debug-http-port", str(self.debug_port),
         ]
@@ -1872,7 +1883,7 @@ class FlakyPtzsim:
             sys.executable, "-m", "ptzsim",
             "--host", "127.0.0.1",
             "--visca-tcp-port", str(self.port),
-            "--no-visca-udp", "--no-visca-serial", "--no-onvif", "--no-pelco",
+            "--no-visca-udp", "--no-visca-serial", "--no-onvif", "--no-pelco", "--no-panasonic",
         ]
         with output_log("ptzsim-flaky") as out:
             self.proc = subprocess.Popen(cmd, cwd=REPO_ROOT / "scripts", stdout=out, stderr=subprocess.STDOUT)

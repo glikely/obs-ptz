@@ -45,6 +45,7 @@ const char *ptz_legacy_kind_for_type(const char *type)
 		{"pelco", "ca.secretlab.obs-ptz.pelco"},
 		{"pelco-p", "ca.secretlab.obs-ptz.pelco"},
 		{"onvif", "ca.secretlab.obs-ptz.onvif"},
+		{"panasonic", "ca.secretlab.obs-ptz.panasonic"},
 		{"usb-cam", "ca.secretlab.obs-ptz.usb-cam"},
 		/* Written by this plugin, not by the old backend, for a backup
 		 * or a detected device that has no "kind" */
