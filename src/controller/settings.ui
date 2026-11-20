@@ -388,6 +388,13 @@
                  <item alignment="Qt::AlignmentFlag::AlignTop">
                   <widget class="PTZSourceDisplay" name="sourcePreview"/>
                  </item>
+                 <item alignment="Qt::AlignmentFlag::AlignTop">
+                  <widget class="QCheckBox" name="tryIesvFixCheckBox">
+                   <property name="text">
+                    <string>PTZ.Settings.TryIesvFix</string>
+                   </property>
+                  </widget>
+                 </item>
                  <item>
                   <spacer name="topSpacer">
                    <property name="orientation">
