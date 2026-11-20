@@ -756,6 +756,7 @@ void PTZControls::SaveConfig()
 	obs_data_set_bool(savedata, "refresh_thumbnail_on_recall", refresh_thumbnail_on_recall);
 	obs_data_set_int(savedata, "preset_grid_zoom", presetDelegate->gridZoom());
 	obs_data_set_bool(savedata, "preset_grid_view", ui->actionPresetGridView->isChecked());
+	obs_data_set_bool(savedata, "view_control_enabled", ui->movementControlsWidget->viewControl());
 	obs_data_set_bool(savedata, "preset_default_camera", actionPresetDefaultCamera->isChecked());
 	obs_data_set_bool(savedata, "joystick_enable", m_joystick_enable);
 	obs_data_set_int(savedata, "joystick_id", m_joystick_id);
@@ -850,6 +851,7 @@ void PTZControls::LoadConfig()
 	refresh_thumbnail_on_recall = obs_data_get_bool(loaddata, "refresh_thumbnail_on_recall");
 	presetZoomSlider->setValue((int)obs_data_get_int(loaddata, "preset_grid_zoom"));
 	ui->actionPresetGridView->setChecked(obs_data_get_bool(loaddata, "preset_grid_view"));
+	ui->movementControlsWidget->setViewControl(obs_data_get_bool(loaddata, "view_control_enabled"));
 	actionPresetDefaultCamera->setChecked(obs_data_get_bool(loaddata, "preset_default_camera"));
 	m_joystick_enable = obs_data_get_bool(loaddata, "joystick_enable");
 	m_joystick_id = (int)obs_data_get_int(loaddata, "joystick_id");
@@ -1220,8 +1222,7 @@ void PTZControls::showContextMenu(const QPoint &pos)
 	if (within(ui->deviceList))
 		device = ui->deviceList->indexAt(ui->deviceList->viewport()->mapFrom(this, pos));
 	if (device.isValid()) {
-		OBSDataAutoRelease state = obs_data_create();
-		ptzDeviceList->saveState(device, state.Get());
+		OBSData state = ptzDeviceList->deviceState(device);
 		power_on = obs_data_get_bool(state, "power_on");
 		if (PTZListModel::hasFeature(device, "power"))
 			powerAction = menu.addAction(
@@ -1285,12 +1286,17 @@ void PTZControls::showContextMenu(const QPoint &pos)
 	menu.addSeparator();
 
 	if (!ui->movementControlsWidget->isHidden() && !within(ui->movementControlsWidget)) {
-		/* Over the controls the joystick toggle is already above */
+		/* Over the controls these toggles are already above */
 		QAction *joystickAction = menu.addAction(obs_module_text("PTZ.Dock.OnscreenJoystick"));
 		joystickAction->setCheckable(true);
 		joystickAction->setChecked(ui->movementControlsWidget->onscreenJoystick());
 		connect(joystickAction, &QAction::toggled, ui->movementControlsWidget,
 			&PTZMovementControls::setOnscreenJoystick);
+		QAction *viewAction = menu.addAction(obs_module_text("PTZ.Dock.ViewControl"));
+		viewAction->setCheckable(true);
+		viewAction->setChecked(ui->movementControlsWidget->viewControl());
+		connect(viewAction, &QAction::toggled, ui->movementControlsWidget,
+			&PTZMovementControls::setViewControl);
 	}
 	menu.addAction(ui->actionProperties);
 
