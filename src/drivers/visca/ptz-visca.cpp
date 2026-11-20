@@ -75,12 +75,40 @@ void PTZVisca::reset()
 {
 	link_answered = false;
 	forget_moves();
+	/* Whether the camera has the inquiry it didn't answer won't now be
+	 * known: ask it again */
+	forget_unanswered_inquiry();
 	/* It may be another camera now */
 	if (completes_moves) {
 		completes_moves = false;
 		featuresChanged();
 	}
 	cmd_get_camera_info();
+}
+
+/* A request the camera doesn't have. What an inquiry read is read with the
+ * next inquiry for each value, if there is one. */
+void PTZVisca::mark_unsupported(const PTZCmd &cmd)
+{
+	unsupported_requests.insert(cmd.cmd);
+	if (!cmd.isInquiry())
+		return;
+	for (const auto &control : profile->controls) {
+		for (const auto &read : control.reads) {
+			if (read.cmd == cmd.cmd)
+				stale_state += control.key;
+		}
+	}
+}
+
+/* The inquiry that went unanswered may be one the camera has after all: it
+ * didn't answer what was asked after it either */
+void PTZVisca::forget_unanswered_inquiry()
+{
+	if (!unanswered_inquiry)
+		return;
+	unsupported_requests.remove(*unanswered_inquiry);
+	unanswered_inquiry.reset();
 }
 
 /* The moves sent or still to send that the camera hasn't completed or refused */
@@ -230,6 +258,7 @@ void PTZVisca::update(OBSData cfg)
 	transport->update(cfg);
 	transport->setSourceHost(parentSourceHost());
 	unsupported_requests.clear();
+	unanswered_inquiry.reset();
 }
 
 void PTZVisca::onParentHostChanged(const QString &host)
@@ -546,25 +575,59 @@ void PTZVisca::timeout()
 	if (isConnected() && active_cmd[0].has_value() && (timeout_retry < 3)) {
 		send_packet(active_cmd[0].value().cmd);
 		timeout_retry++;
-	} else {
-		setConnected(false);
-		active_cmd[0] = std::nullopt;
-		forget_moves();
-		send_pending();
+		return;
 	}
+	/* Some cameras don't answer an inquiry they don't have, rather than
+	 * answer it with a syntax error. One that has been answering may be one
+	 * of those, or may have gone: ask it what every camera answers, and
+	 * if it answers that, it doesn't have this one (see receive()). */
+	if (isConnected() && link_answered && active_cmd[0]->isInquiry() && !unanswered_inquiry) {
+		unanswered_inquiry = active_cmd[0]->cmd;
+		mark_unsupported(*active_cmd[0]);
+		active_cmd[0] = std::nullopt;
+		if (const ViscaControl *power = profile->control("power_on")) {
+			for (const auto &read : power->reads) {
+				if (!unsupported_requests.contains(read.cmd)) {
+					pending_cmds.prepend(read);
+					break;
+				}
+			}
+		}
+		send_pending();
+		return;
+	}
+	/* Nothing asked since was answered either: it is the camera that has
+	 * gone, not the inquiry */
+	forget_unanswered_inquiry();
+	if (isConnected())
+		ptz_info("no reply to %s: disconnected", active_cmd[0]->cmd.toHex(':').data());
+	setConnected(false);
+	active_cmd[0] = std::nullopt;
+	forget_moves();
+	send_pending();
 }
 
-/* One property for each of the command set's different inquiries, in the order
- * they are polled in. The reply to an inquiry marks all of the properties it
- * reads as up to date, so asking for one of them is asking for them all. */
+/* One property for each of the different inquiries the camera's properties are
+ * read with, in the order they are polled in. A property is read with the
+ * first of its inquiries the camera has (see send_pending()), and the reply to
+ * an inquiry marks all of the properties it reads as up to date, so asking for
+ * one of them is asking for them all. One whose block inquiry the camera
+ * doesn't have is read with an inquiry of its own, and polled on its own. */
 QStringList PTZVisca::inquiry_poll_list() const
 {
 	QStringList props;
 	QSet<QByteArray> seen;
 	for (const auto &control : profile->controls) {
-		if (control.reads.isEmpty() || seen.contains(control.reads.first().cmd))
+		const PTZInq *read = nullptr;
+		for (const auto &r : control.reads) {
+			if (!unsupported_requests.contains(r.cmd)) {
+				read = &r;
+				break;
+			}
+		}
+		if (!read || seen.contains(read->cmd))
 			continue;
-		seen.insert(control.reads.first().cmd);
+		seen.insert(read->cmd);
 		props += control.key;
 	}
 	return props;
@@ -809,6 +872,7 @@ void PTZVisca::set_profile(std::shared_ptr<const ViscaProfile> new_profile)
 	ptz_info("using the %s command set", QT_TO_UTF8(new_profile->id));
 	profile = new_profile;
 	unsupported_requests.clear();
+	unanswered_inquiry.reset();
 	mark_all_stale();
 	featuresChanged();
 }
@@ -870,6 +934,8 @@ void PTZVisca::choose_profile()
 
 void PTZVisca::cmd_get_camera_info()
 {
+	if (!isConnected())
+		ptz_info("the link was reset: connected, asking the camera again");
 	setConnected(true);
 	mark_all_stale();
 	send_pending();
@@ -897,6 +963,16 @@ void PTZVisca::receive(const QByteArray &msg)
 	incrementStatistic("visca_recv_bytes", (int)msg.size());
 	int slot = msg[1] & 0x7;
 	report_answer(msg, slot);
+	/* The camera answers what was asked after the inquiry it didn't
+	 * answer: it doesn't have that one */
+	if (unanswered_inquiry) {
+		ptz_info("no reply to %s, while the camera answers others: taken as one it doesn't have",
+			 unanswered_inquiry->toHex(':').data());
+		unanswered_inquiry.reset();
+	}
+	/* An ACK or a completion is what says the camera is there */
+	if (!isConnected() && ((msg[1] & 0xf0) == VISCA_RESPONSE_ACK || (msg[1] & 0xf0) == VISCA_RESPONSE_COMPLETED))
+		ptz_info("the camera answers again (%s): connected", msg.toHex(':').data());
 	since_last_rx.start();
 	link_answered = true;
 
@@ -958,6 +1034,30 @@ void PTZVisca::receive(const QByteArray &msg)
 			for (auto item = obs_data_first(rslt_props); item; obs_data_item_next(&item))
 				stale_state -= obs_data_item_get_name(item);
 
+			/* What the inquiry was asked for, and couldn't be read from
+			 * its reply, isn't asked for again straight away: the
+			 * camera would only say the same again. A reply none of it
+			 * can be read from is one to an inquiry the camera doesn't
+			 * have as the command set has it: read what it covers
+			 * with the next inquiry for each, if there is one. */
+			const PTZCmd &inquiry = *active_cmd[0];
+			if (inquiry.isInquiry() && !inquiry.results.isEmpty()) {
+				bool read = false;
+				for (const auto &field : inquiry.results) {
+					read |= obs_data_has_user_value(rslt_props, field->name);
+					stale_state -= field->name;
+				}
+				if (!read) {
+					QStringList names;
+					for (const auto &field : inquiry.results)
+						names += field->name;
+					ptz_info("reply %s to %s doesn't read as %s: taken as one it doesn't have",
+						 msg.toHex(':').data(), inquiry.cmd.toHex(':').data(),
+						 QT_TO_UTF8(names.join(", ")));
+					mark_unsupported(inquiry);
+				}
+			}
+
 			/* Data has been updated */
 			notifyStateChanged();
 			obs_data_release(rslt_props);
@@ -1012,20 +1112,9 @@ void PTZVisca::receive(const QByteArray &msg)
 		if (active_cmd[0].has_value()) {
 			for (auto rslt : active_cmd[0].value().results)
 				stale_state -= rslt->name;
-			/* An inquiry the camera doesn't have: read what it
-			 * covers with the next inquiry for each, if there is one */
-			if (!active_cmd[0]->assumes.isEmpty() && msg.size() > 2 && msg[2] == VISCA_ERROR_SYNTAX)
-				unsupported_requests.insert(active_cmd[0]->cmd);
-			if (active_cmd[0]->isInquiry() && msg.size() > 2 && msg[2] == VISCA_ERROR_SYNTAX) {
-				const QByteArray unsupported = active_cmd[0]->cmd;
-				unsupported_requests.insert(unsupported);
-				for (const auto &control : profile->controls) {
-					for (const auto &read : control.reads) {
-						if (read.cmd == unsupported)
-							stale_state += control.key;
-					}
-				}
-			}
+			if (msg.size() > 2 && msg[2] == VISCA_ERROR_SYNTAX &&
+			    (active_cmd[0]->isInquiry() || !active_cmd[0]->assumes.isEmpty()))
+				mark_unsupported(*active_cmd[0]);
 		}
 		ptz_debug_trace("rx error: %s", msg.toHex(':').data());
 		active_cmd[0] = std::nullopt;
