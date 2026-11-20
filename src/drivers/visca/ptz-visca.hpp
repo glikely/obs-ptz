@@ -109,8 +109,15 @@ protected:
 	std::shared_ptr<const ViscaProfile> profile = visca_generic_profile();
 	QString profile_setting = "auto";
 	/* Inquiries, and commands for state that can't be read back, that the
-	 * camera answered with a syntax error: it doesn't have them */
+	 * camera answered with a syntax error, or inquiries it didn't answer at
+	 * all while it answered others: it doesn't have them */
 	QSet<QByteArray> unsupported_requests;
+	/* An inquiry that went unanswered while the camera was there, and is
+	 * taken as one it doesn't have once the camera answers what is asked
+	 * next. Until then it may be the camera that has gone. */
+	std::optional<QByteArray> unanswered_inquiry;
+	void mark_unsupported(const PTZCmd &cmd);
+	void forget_unanswered_inquiry();
 	QList<PTZCmd> pending_cmds;
 	std::optional<PTZCmd> active_cmd[8];
 	/* Whether the camera has completed a move, which a BirdDog, that only
