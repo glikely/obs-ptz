@@ -13,6 +13,7 @@ inline const QStringList ptz_translator_credits = {
 	"ETE-Design",
 	"<b>German</b>",
 	"Normen Hansen (normenh)",
+	"TeraX",
 	"<b>Spanish</b>",
 	"alanfermtz",
 	"<b>French</b>",
