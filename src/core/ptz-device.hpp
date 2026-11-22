@@ -145,6 +145,8 @@ private:
 		std::string scale;
 	};
 	std::vector<Axis> m_axes;
+	/* What setDirect() last said, as JSON, "" for nothing yet */
+	std::string m_direct;
 	Axis *axis(const char *name);
 	const Axis *axis(const char *name) const;
 	/* The values a move proc was called with, by axis: only those given */
@@ -282,6 +284,13 @@ protected:
 	};
 	bool setAxisStep(const char *axis, double step);
 	bool setAxisScale(const char *axis, const char *unit, const std::vector<AxisPoint> &points);
+	/* The state keys whose value a client shows as the number the device
+	 * reports, rather than as what it would mean on most cameras: in the
+	 * state and in what changed, under "direct", as an object with each key
+	 * true. Said whole, and only when it differs, so an empty object in what
+	 * changed is that there are none now. Doesn't notify; says whether
+	 * there was a change. */
+	bool setDirect(const QStringList &keys);
 	bool wrongThread(const char *method) const;
 	/* A driver whose features() change once it is made, as it finds out
 	 * what the camera has, calls this to report them */

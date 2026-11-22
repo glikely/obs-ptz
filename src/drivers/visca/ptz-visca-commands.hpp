@@ -25,6 +25,10 @@ struct ViscaControl {
 	/* What reads it, best first: the next is for a camera that answers
 	 * one with a syntax error. A block inquiry reads many values. */
 	QList<PTZInq> reads;
+	/* Shown as the number the camera reports, rather than as what a Sony
+	 * camera means by it: for a camera that means something else by it, as
+	 * an OBSBOT means ISO / 100 by gain */
+	bool direct = false;
 
 	ViscaControl(const QString &key, const std::optional<PTZCmd> &set, const QList<PTZInq> &reads = {})
 		: key(key),

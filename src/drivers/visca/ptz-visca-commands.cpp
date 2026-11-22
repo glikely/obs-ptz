@@ -947,7 +947,7 @@ public:
 	bool control(ViscaProfile &profile, const QJsonObject &json)
 	{
 		const QString key = json["key"].toString();
-		if (!only(json, {"key", "set", "set_to", "reads"}, QString("control \"%1\"").arg(key)))
+		if (!only(json, {"key", "set", "set_to", "reads", "direct"}, QString("control \"%1\"").arg(key)))
 			return false;
 		ViscaControl *existing = profile.control(key);
 		if (!existing && !key.startsWith("user_")) {
@@ -992,6 +992,14 @@ public:
 				static_cast<PTZCmd &>(read) = *inq;
 				control.reads.append(read);
 			}
+		}
+		/* Kept from the command set it extends unless it says */
+		if (json.contains("direct")) {
+			if (!json["direct"].isBool()) {
+				fail(QString("\"direct\" of \"%1\" isn't true or false").arg(key));
+				return false;
+			}
+			control.direct = json["direct"].toBool();
 		}
 		if (!control.settable() && control.reads.isEmpty()) {
 			fail(QString("%1 can be neither set nor read").arg(key));

@@ -13,7 +13,7 @@ import urllib.request
 
 from obsws import ObsWebSocketError
 
-from conftest import REPO_ROOT, free_port, output_log, wait_for_port
+from conftest import REPO_ROOT, SETTINGS_DIALOG, STATE_VIEW, free_port, output_log, wait_for_port
 
 FILTER_KIND = "ca.secretlab.obs-ptz.visca"
 
@@ -112,6 +112,43 @@ def test_a_command_set_says_what_its_axes_mean(request, obs_world, tmp_path):
     # an axis it says nothing of has its step, and no unit
     assert axes["tilt"]["step"] == 1 / 0x500
     assert "unit" not in axes["tilt"]
+
+
+def test_a_command_set_says_what_is_shown_as_the_cameras_number(request, obs_world, tmp_path):
+    """test-user's gain_pos is "direct", and so is the one that extends it"""
+    camera = Camera(request, obs_world, tmp_path, "0123:0001")
+    state = camera.wait_for_state(lambda s: "user_wb" in s and "direct" in s)
+    assert state["direct"] == {"gain_pos": True}
+
+    (tmp_path / "extended").mkdir()
+    extended = Camera(request, obs_world, tmp_path / "extended", "0123:0002")
+    state = extended.wait_for_state(lambda s: "wb_mode" in s and "direct" in s)
+    assert state["direct"] == {"gain_pos": True}
+
+
+def test_the_state_view_shows_a_direct_value_as_its_number(request, obs_world, tmp_path):
+    """A gain of 0x16, which the Sony list hasn't, is shown as 22 in a number
+    box instead of the list, and what is typed in it is sent as it is"""
+    camera = Camera(request, obs_world, tmp_path, "0123:0001")
+    camera.wait_for_state(lambda s: "gain_pos" in s and "direct" in s)
+    obs_world.set_device_state(camera.device_name, gain_pos=0x16)
+    obs_world.wait_for(lambda: camera.sim.state()["visca"]["gain_pos"] == 0x16, timeout=5)
+
+    obs_world.open_settings_dialog(camera.device_name)
+    out = tmp_path / "dialog.json"
+    obs_world.wait_for_settings_dialog(out, lambda r: r["shown"].get("gain_pos") == 0x16, timeout=15)
+    assert not obs_world.ui.get1(SETTINGS_DIALOG, STATE_VIEW, "gain_pos_direct", name="hidden")
+    assert obs_world.ui.get1(SETTINGS_DIALOG, STATE_VIEW, "gain_pos", name="hidden")
+
+    obs_world.ui.set(SETTINGS_DIALOG, STATE_VIEW, "gain_pos_direct", value=4)
+    obs_world.wait_for(lambda: camera.sim.state()["visca"]["gain_pos"] == 4, timeout=5)
+    obs_world.wait_for_settings_dialog(out, lambda r: r["shown"].get("gain_pos") == 4, timeout=5)
+
+
+def test_the_generic_command_set_has_nothing_direct(request, obs_world, tmp_path):
+    camera = Camera(request, obs_world, tmp_path, "0001:0000")
+    state = camera.wait_for_state(lambda s: "ae_mode" in s and "power_on" in s)
+    assert "direct" not in state
 
 
 def test_a_user_trigger_is_sent(request, obs_world, tmp_path):

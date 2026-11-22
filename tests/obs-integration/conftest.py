@@ -388,6 +388,10 @@ VISCA_PROFILES = {
         }, {
             "key": "user_zoom",
             "reads": [{"cmd": "81097e7e00ff", "results": [{"type": "u16", "offset": 2}]}],
+        }, {
+            # shown as the number the camera reports
+            "key": "gain_pos",
+            "direct": True,
         }],
         "triggers": {"user_home": "81010604ff"},
         # what its axes mean: a pan that steps by 4 counts and is 100 degrees at

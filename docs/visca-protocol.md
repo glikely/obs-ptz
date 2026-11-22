@@ -158,6 +158,10 @@ For example (the auto tracking commands are made up):
   with whichever of `set`, `set_to` and `reads` it has.
   `set_to` is a command for each value: `{"1": "8101043802ff", "0": "8101043803ff"}`.
   `"set": null` is for a value the camera can only be asked for, not set.
+  `"direct": true` is for a value the camera means something else by than a Sony camera does,
+  which the settings then show as the number the camera reports, rather than in a list of what
+  a Sony camera means by it (see [Direct values](#direct-values)). It is kept from the command
+  set it extends unless the control says `true` or `false`.
   A key the command set it extends doesn't have must start with `user_`,
   so it is never one the plugin has; it is in the device's state like any other.
 - `actions`: commands for the driver, which must take as many arguments as the generic one's.
@@ -179,6 +183,36 @@ or an object with them as `cmd` and:
 - `affects`: the keys to read again once the camera has done it, the control's if it doesn't say.
 - `assumes`: the state the camera is in once it has taken the command, for one that can't be read back:
   `{"user_lamp": true}`.
+
+### Direct values
+
+The settings show most of what a camera reports of its picture in lists of what the values
+mean on a Sony camera: a gain of 0x05 as +10 dB, a shutter of 0x0d as 1/500. A camera that
+means something else by them reports values the list hasn't, which it then shows as nothing,
+or names them wrongly. An OBSBOT Tail Air reports its gain as ISO / 100, its shutter as a
+place in a table of its own, and its bright from 0 to 100:
+
+```json
+{
+  "id": "obsbot-tail-air",
+  "extends": "generic",
+  "controls": [
+    {"key": "gain_pos", "direct": true},
+    {"key": "shutter_pos", "direct": true},
+    {"key": "bright_pos", "direct": true}
+  ]
+}
+```
+
+A gain of ISO 2200 is then shown as 22, in a box that a number can be typed in, and what is
+typed is sent as it is, with the control's command. Nothing is converted: what the camera
+reports is shown, and what is typed is what the camera is sent. If the camera doesn't take
+it, the box goes back to what the camera reports.
+
+`direct` only changes how the value is shown. It is read and set as it was, so a camera that
+takes the command and does nothing, as the Tail Air does with all three of these, still does
+nothing; `"set": null` with it says so. It applies to the settings that are shown in a list;
+the white balance mode, which has a group of its own, is still shown in its list.
 
 ## Camera Reports
 

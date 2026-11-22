@@ -719,6 +719,25 @@ bool PTZDevice::setAxisScale(const char *name, const char *unit, const std::vect
 	return true;
 }
 
+bool PTZDevice::setDirect(const QStringList &keys)
+{
+	OBSDataAutoRelease direct = obs_data_create();
+	QStringList sorted = keys;
+	sorted.sort();
+	for (const QString &key : sorted)
+		obs_data_set_bool(direct, QT_TO_UTF8(key), true);
+	/* None, before anything has been said, is nothing to say */
+	std::string json = obs_data_get_json(direct);
+	if (m_direct == json || (m_direct.empty() && sorted.isEmpty()))
+		return false;
+	m_direct = json;
+	for (obs_data_t *where : {state.Get(), stateChanged.Get()}) {
+		OBSDataAutoRelease copy = obs_data_create_from_json(json.c_str());
+		obs_data_set_obj(where, "direct", copy);
+	}
+	return true;
+}
+
 /* A copy of what a caller owns, for the device's thread to have once the proc
  * has returned: by its JSON, so that it shares no nested object with the
  * caller's, which the caller may change or release */

@@ -36,7 +36,7 @@ changes in the camera.
 
 ## API version
 
-This is version **0.11** of the PTZ API.
+This is version **0.12** of the PTZ API.
 The API is in a pre-release state, published as an RFC.
 It is subject to change at any time.
 Please provide feedback on the [API discussion
@@ -910,6 +910,7 @@ calling](#rules-for-calling) says.
 | `pan`, `tilt` | number | when known | Position, -1.0 to 1.0, as the camera last reported it. Absent until it has |
 | `zoom`, `focus` | number | when known | Position, 0.0 to 1.0, as above |
 | `axes` | object | when known | What each of `pan`, `tilt`, `zoom` and `focus` means and how finely it is set, as an object for each axis that a driver knows something of: see [Axes](#axes) |
+| `direct` | object | when known | The driver's own state keys whose value a client shows as the number the device reports, rather than as what it would mean on most cameras: each key `true`, as a VISCA command set's `"direct": true` says (see [VISCA](visca-protocol.md#direct-values)). Absent for none. It is said whole, so a `ptz_state_changed` with an empty `direct` is that there are none now |
 | `focus_af_enabled` | bool | when known | Autofocus is on. Can be changed with `ptz_request_state` |
 | `power_on` | bool | when known | The camera is powered on, and not in standby. A camera in standby is still `connected`. Can be changed with `ptz_request_state` by a device with the `power` feature |
 | `camera_report` | object | when known | Progress of a `camera_report` trigger while one is running |

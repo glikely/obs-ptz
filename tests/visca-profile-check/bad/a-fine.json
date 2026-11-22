@@ -6,5 +6,11 @@
   ],
   "remove": [
     "low_latency"
+  ],
+  "controls": [
+    {
+      "key": "gain_pos",
+      "direct": true
+    }
   ]
 }

@@ -1,0 +1,10 @@
+{
+  "id": "bad-direct-not-boolean",
+  "source": "A test of the checks: tests/visca-profile-check",
+  "controls": [
+    {
+      "key": "gain_pos",
+      "direct": "yes"
+    }
+  ]
+}

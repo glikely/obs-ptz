@@ -811,6 +811,14 @@ void PTZVisca::set_profile(std::shared_ptr<const ViscaProfile> new_profile)
 	unsupported_requests.clear();
 	mark_all_stale();
 	featuresChanged();
+	/* What it shows as the camera's own numbers */
+	QStringList direct;
+	for (const auto &control : profile->controls) {
+		if (control.direct)
+			direct += control.key;
+	}
+	if (setDirect(direct))
+		notifyStateChanged();
 }
 
 /* What the command set has the commands for */
