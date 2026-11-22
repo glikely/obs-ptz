@@ -2067,6 +2067,7 @@ def obs_world(request, tmp_path_factory, ptzsim_process, sony_ptzsim, birddog_pt
     # And the UI driver (tests/ui-driver/), a plugin of its own, which is only
     # there when the scripts that run this suite installed it
     env["OBS_UI_DRIVER"] = "1"
+    env["PTZ_VIRTUAL_JOYSTICK"] = "1"
     if platform.system() == "Darwin":
         isolate_macos_obs(home, env)
 
