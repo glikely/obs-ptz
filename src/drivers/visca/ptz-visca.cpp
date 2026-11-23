@@ -46,6 +46,7 @@ static constexpr int VISCA_TRAFFIC_MIN_MS = 500;
 /* How long a power-on at startup waits for the camera to answer */
 static constexpr int VISCA_POWER_ON_WAIT_MS = 60000;
 
+static constexpr int VISCA_ERROR_MESSAGE_LENGTH = 0x01;
 static constexpr int VISCA_ERROR_SYNTAX = 0x02;
 static constexpr int VISCA_ERROR_BUFFER_FULL = 0x03;
 static constexpr int VISCA_ERROR_CANCELLED = 0x04;
@@ -80,6 +81,7 @@ void PTZVisca::reset()
 		completes_moves = false;
 		featuresChanged();
 	}
+	forget_settable_tests();
 	cmd_get_camera_info();
 }
 
@@ -543,6 +545,14 @@ void PTZVisca::timeout()
 		send_pending();
 		return;
 	}
+	/* ...nor is one that doesn't answer a safe test of a set command: that
+	 * says nothing of whether it has it */
+	if (!settable_test_sent.isEmpty() && active_cmd[0]->cmd == settable_test_sent && timeout_retry >= 1) {
+		active_cmd[0] = std::nullopt;
+		settable_test_sent.clear();
+		send_pending();
+		return;
+	}
 	if (isConnected() && active_cmd[0].has_value() && (timeout_retry < 3)) {
 		send_packet(active_cmd[0].value().cmd);
 		timeout_retry++;
@@ -550,6 +560,8 @@ void PTZVisca::timeout()
 		setConnected(false);
 		active_cmd[0] = std::nullopt;
 		forget_moves();
+		/* It may be another camera when it answers again */
+		forget_settable_tests();
 		send_pending();
 	}
 }
@@ -608,6 +620,7 @@ void PTZVisca::update_timer_callback()
 		poll_clock.start();
 	poll_active = true;
 	poll_started_ms = poll_clock.elapsed();
+	settable_tested_this_poll = false;
 	/* The camera can be moved by something other than this plugin (an IR
 	 * remote, another controller), and tells nobody when it is, so the
 	 * position is read again on every tick, moving or not. */
@@ -809,6 +822,7 @@ void PTZVisca::set_profile(std::shared_ptr<const ViscaProfile> new_profile)
 	ptz_info("using the %s command set", QT_TO_UTF8(new_profile->id));
 	profile = new_profile;
 	unsupported_requests.clear();
+	forget_settable_tests();
 	mark_all_stale();
 	featuresChanged();
 	/* What it shows as the camera's own numbers */
@@ -818,6 +832,35 @@ void PTZVisca::set_profile(std::shared_ptr<const ViscaProfile> new_profile)
 			direct += control.key;
 	}
 	if (setDirect(direct))
+		notifyStateChanged();
+	say_read_only();
+}
+
+/* The settings the camera can't change, though cameras usually can (the
+ * generic command set can set them): each that the command set reads, but
+ * can't set, because it says "set": null for it or has no control for it at
+ * all, or because the camera refused the command for it (see
+ * queue_settable_test()) */
+void PTZVisca::say_read_only()
+{
+	const auto generic = visca_generic_profile();
+	QSet<QString> read;
+	for (const auto &control : profile->controls) {
+		for (const auto &inq : control.reads) {
+			for (const auto &field : inq.results)
+				read += QString::fromUtf8(field->name);
+		}
+	}
+	QStringList keys;
+	for (const QString &key : read) {
+		const ViscaControl *usual = generic->control(key);
+		if (!usual || !usual->settable())
+			continue;
+		const ViscaControl *control = profile->control(key);
+		if (!control || !control->settable() || unsettable.contains(key))
+			keys += key;
+	}
+	if (setReadOnly(keys))
 		notifyStateChanged();
 }
 
@@ -844,7 +887,7 @@ PTZDevice::Features PTZVisca::features() const
 	}
 	auto settable = [this](const char *key) {
 		const ViscaControl *control = profile->control(key);
-		return control && control->settable();
+		return control && control->settable() && !unsettable.contains(QString::fromUtf8(key));
 	};
 	if (settable("focus_af_enabled"))
 		features |= AutoFocus;
@@ -1016,6 +1059,9 @@ void PTZVisca::receive(const QByteArray &msg)
 			active_cmd[0] = std::nullopt;
 			break;
 		}
+		if (slot == 0 && msg.size() > 2 && active_cmd[0].has_value() && !settable_test_sent.isEmpty() &&
+		    active_cmd[0]->cmd == settable_test_sent)
+			settable_test_failed((uint8_t)msg[2]);
 		/* This command failed, don't generate it again */
 		if (active_cmd[0].has_value()) {
 			for (auto rslt : active_cmd[0].value().results)
@@ -1108,6 +1154,8 @@ int PTZVisca::expected_value(const char *key) const
  * last set to, as a tally lamp's is. */
 void PTZVisca::set_control(const ViscaControl &control, int value, OBSData requested)
 {
+	if (unsettable.contains(control.key))
+		return;
 	if (control.set) {
 		PTZCmd cmd = *control.set;
 		QList<int> args;
@@ -1239,13 +1287,7 @@ void PTZVisca::send_pending()
 				const ViscaControl *control = profile->control(prop);
 				if (!control || control->reads.isEmpty())
 					continue;
-				const PTZInq *inq = nullptr;
-				for (const auto &read : control->reads) {
-					if (!unsupported_requests.contains(read.cmd)) {
-						inq = &read;
-						break;
-					}
-				}
+				const PTZInq *inq = first_read(*control);
 				if (!inq) {
 					/* Nothing to read it with */
 					stale_state -= prop;
@@ -1258,9 +1300,11 @@ void PTZVisca::send_pending()
 	}
 
 	if (pending_cmds.isEmpty()) {
-		/* Nothing left to ask: the poll is answered */
+		/* Nothing left to ask: the poll is answered. What is left of the
+		 * test of what the camera can set goes after it. */
 		poll_done();
-		return;
+		if (!queue_settable_test())
+			return;
 	}
 
 	active_cmd[0] = pending_cmds.takeFirst();
@@ -1360,6 +1404,146 @@ static QString visca_report_error(int code)
 		return "not executable";
 	default:
 		return QString("error %1").arg(code, 2, 16, QChar('0'));
+	}
+}
+
+/* The first inquiry that reads a value which the camera hasn't said it doesn't
+ * have, or null for none */
+const PTZInq *PTZVisca::first_read(const ViscaControl &control) const
+{
+	for (const auto &read : control.reads) {
+		if (!unsupported_requests.contains(read.cmd))
+			return &read;
+	}
+	return nullptr;
+}
+
+/* Queues the next step of the test of what the camera can set, if there is
+ * one to take now, and says whether it did. Each value the command set can
+ * set with a command that takes it is read again, then set to what the
+ * camera said, as a camera report does: that changes nothing. A camera that
+ * answers with a syntax or message length error hasn't got the command, and
+ * the value is one it can't be set to anything (settable_test_failed()).
+ *
+ * One value is tested a poll, once everything the camera has been asked for
+ * has been answered, so the test never holds up a move or a poll for long. It
+ * isn't taken while anything sent is still waiting to complete, or while the
+ * camera is moving, so it can't put back what is being changed; nor in
+ * standby, when what was read may not be what the camera is, nor while a
+ * report or discover_limits() is running. A command for one value out of a
+ * few (set_to) is never tested: one value's command failing says nothing of
+ * the others'. */
+bool PTZVisca::queue_settable_test()
+{
+	if (!isConnected() || settable_tested_this_poll || report_next >= 0 || discover_step >= 0)
+		return false;
+	if (obs_data_has_user_value(state, "power_on") && !obs_data_get_bool(state, "power_on"))
+		return false;
+	if (speed("pan") || speed("tilt") || speed("zoom") || speed("focus"))
+		return false;
+	for (const auto &cmd : active_cmd) {
+		if (cmd.has_value())
+			return false;
+	}
+	if (!settable_tests_listed) {
+		settable_tests_listed = true;
+		QSet<QByteArray> listed;
+		for (const auto &control : profile->controls) {
+			if (!control.set || control.reads.isEmpty() || visca_report_unsent.contains(control.key) ||
+			    listed.contains(control.set->cmd))
+				continue;
+			listed += control.set->cmd;
+			settable_tests += control.key;
+		}
+	}
+	while (!settable_tests.isEmpty()) {
+		const QString key = settable_tests.first();
+		const ViscaControl *control = profile->control(key);
+		bool testable = control && control->set && !unsettable.contains(key);
+		if (testable && !settable_test_read) {
+			/* What it is now, for each value the command sets */
+			QList<PTZCmd> reads;
+			QSet<QByteArray> asked;
+			for (const auto &field : control->set->args) {
+				const ViscaControl *of = profile->control(QString::fromUtf8(field->name));
+				const PTZInq *inq = of ? first_read(*of) : nullptr;
+				if (!inq) {
+					testable = false;
+					break;
+				}
+				if (!asked.contains(inq->cmd)) {
+					asked += inq->cmd;
+					reads += *inq;
+				}
+			}
+			if (testable) {
+				pending_cmds += reads;
+				settable_test_read = true;
+				return true;
+			}
+		}
+		settable_tests.removeFirst();
+		settable_test_read = false;
+		if (!testable)
+			continue;
+		QList<int> args;
+		for (const auto &field : control->set->args) {
+			if (!obs_data_has_user_value(state, field->name))
+				break;
+			args += visca_value(state, field->name);
+		}
+		/* A value the camera didn't answer for */
+		if (args.size() != control->set->args.size())
+			continue;
+		PTZCmd cmd = *control->set;
+		cmd.encode(args);
+		settable_test_sent = cmd.cmd;
+		settable_test_template = control->set->cmd;
+		settable_tested_this_poll = true;
+		pending_cmds += cmd;
+		return true;
+	}
+	return false;
+}
+
+/* The camera answered the safe test of a set command with an error. A syntax
+ * or message length error is the camera not having the command: every value it
+ * sets is one it can't be set. Any other, such as "not executable", is the
+ * camera not doing it now, in the mode it is in, which says nothing of whether
+ * it can. */
+void PTZVisca::settable_test_failed(int error)
+{
+	settable_test_sent.clear();
+	if (error != VISCA_ERROR_SYNTAX && error != VISCA_ERROR_MESSAGE_LENGTH)
+		return;
+	QStringList keys;
+	for (const auto &control : profile->controls) {
+		if (control.set && control.set->cmd == settable_test_template && !unsettable.contains(control.key)) {
+			unsettable += control.key;
+			keys += control.key;
+		}
+	}
+	if (keys.isEmpty())
+		return;
+	ptz_info("the camera can't set %s: its command %s got a %s", QT_TO_UTF8(keys.join(", ")),
+		 settable_test_template.toHex().constData(), QT_TO_UTF8(visca_report_error(error)));
+	featuresChanged();
+	say_read_only();
+}
+
+/* What the test found, and how far it has got, for a camera that may not be the
+ * same one, or a command set that may not have the same commands */
+void PTZVisca::forget_settable_tests()
+{
+	settable_tests.clear();
+	settable_tests_listed = false;
+	settable_test_read = false;
+	settable_test_sent.clear();
+	settable_test_template.clear();
+	if (!unsettable.isEmpty()) {
+		unsettable.clear();
+		featuresChanged();
+		say_read_only();
 	}
 }
 

@@ -49,6 +49,8 @@ struct PTZStateView::Field {
 	 * something else by the numbers than the list names */
 	QSpinBox *number = nullptr;
 	bool direct = false;
+	/* The device says the camera can't change it: shown, but not to be edited */
+	bool readOnly = false;
 	QGroupBox *group = nullptr;
 	/* What the device last reported, null while it doesn't report it */
 	QVariant reported;
@@ -571,6 +573,29 @@ void PTZStateView::requestField(Field *field, const QVariant &value)
 	field->settle.start();
 }
 
+/* Whether the user can change the field, which is on if it is a checkbox */
+bool PTZStateView::editable(const Field *field, bool on)
+{
+	return !field->readOnly && (!field->offOnly || on);
+}
+
+/* Disables a field the camera can't change, and says why */
+void PTZStateView::showReadOnly(Field *field)
+{
+	const QString why = field->readOnly ? text("PTZ.Device.State.ReadOnly") : QString();
+	if (field->kind == FlagField)
+		field->widget->setEnabled(editable(field, static_cast<QCheckBox *>(field->widget)->isChecked()));
+	else
+		field->widget->setEnabled(!field->readOnly);
+	field->widget->setToolTip(why);
+	if (field->number) {
+		field->number->setEnabled(!field->readOnly);
+		field->number->setToolTip(why);
+	}
+	if (field->label)
+		field->label->setToolTip(why);
+}
+
 /* Shows `value` in the field's widget; says whether that changed it */
 bool PTZStateView::showField(Field *field, const QVariant &value)
 {
@@ -580,8 +605,8 @@ bool PTZStateView::showField(Field *field, const QVariant &value)
 	case FlagField: {
 		auto box = static_cast<QCheckBox *>(field->widget);
 		bool on = value.toBool(), changed = false;
-		if (field->offOnly && box->isEnabled() != on) {
-			box->setEnabled(on);
+		if (box->isEnabled() != editable(field, on)) {
+			box->setEnabled(editable(field, on));
 			changed = true;
 		}
 		if (box->isChecked() != on) {
@@ -769,6 +794,33 @@ void PTZStateView::applyData(obs_data_t *data, bool all)
 			field->widget->setVisible(!isDirect);
 			field->number->setVisible(isDirect);
 			showField(field, field->reported);
+			changed = true;
+		}
+	}
+
+	/* What the device says the camera can't change, which it says whole when
+	 * it changes. The power, autofocus and white balance mode aren't fields. */
+	if (all || has("read_only")) {
+		OBSDataAutoRelease readOnly = obs_data_get_obj(data, "read_only");
+		auto isReadOnly = [&readOnly](const char *key) {
+			return readOnly && obs_data_get_bool(readOnly, key);
+		};
+		for (const auto &owned : m_fields) {
+			Field *field = owned.get();
+			if (field->kind == TextField || isReadOnly(field->key) == field->readOnly)
+				continue;
+			field->readOnly = !field->readOnly;
+			showReadOnly(field);
+			changed = true;
+		}
+		const std::pair<QWidget *, const char *> others[] = {{m_power, "power_on"},
+								     {m_focusAuto, "focus_af_enabled"},
+								     {m_whiteBalanceMode, "wb_mode"}};
+		for (const auto &[widget, key] : others) {
+			if (widget->isEnabled() != isReadOnly(key))
+				continue;
+			widget->setEnabled(!isReadOnly(key));
+			widget->setToolTip(isReadOnly(key) ? text("PTZ.Device.State.ReadOnly") : QString());
 			changed = true;
 		}
 	}

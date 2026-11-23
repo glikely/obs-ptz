@@ -145,8 +145,11 @@ private:
 		std::string scale;
 	};
 	std::vector<Axis> m_axes;
-	/* What setDirect() last said, as JSON, "" for nothing yet */
+	/* What setDirect() and setReadOnly() last said, as JSON, "" for nothing
+	 * yet, and how they say it */
 	std::string m_direct;
+	std::string m_readOnly;
+	bool setKeyFlags(const char *name, std::string &said, const QStringList &keys);
 	Axis *axis(const char *name);
 	const Axis *axis(const char *name) const;
 	/* The values a move proc was called with, by axis: only those given */
@@ -291,6 +294,10 @@ protected:
 	 * changed is that there are none now. Doesn't notify; says whether
 	 * there was a change. */
 	bool setDirect(const QStringList &keys);
+	/* The state keys of settings the camera can't change, though most cameras
+	 * can: what a client shows, but doesn't let its user change. Said as
+	 * setDirect() says, under "read_only". */
+	bool setReadOnly(const QStringList &keys);
 	bool wrongThread(const char *method) const;
 	/* A driver whose features() change once it is made, as it finds out
 	 * what the camera has, calls this to report them */

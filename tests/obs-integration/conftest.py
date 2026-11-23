@@ -424,6 +424,13 @@ VISCA_PROFILES = {
         "models": ["0123:0005"],
         "controls": [{"key": "ae_mode", "set": None}],
     },
+    # One that takes away a value the camera control block inquiry still
+    # reads: it can't be set, but it is still read
+    "removed-read.json": {
+        "id": "test-removed-read",
+        "models": ["0123:0006"],
+        "remove": ["aperture_gain"],
+    },
     # One that takes the camera's presets away, and leaves the absolute moves
     # that the local ones are made of
     "local-only.json": {

@@ -13,9 +13,9 @@ from pathlib import Path
 
 import pytest
 
-from conftest import REPO_ROOT
+from conftest import REPO_ROOT, SETTINGS_DIALOG, STATE_VIEW
 from test_camera_report import report
-from test_visca_profiles import camera
+from test_visca_profiles import Sim, camera
 
 REPORTS = sorted((REPO_ROOT / "tests" / "camera-reports").glob("*.json"))
 
@@ -75,6 +75,94 @@ def test_a_replayed_camera_refuses_what_the_camera_did(request, obs_world, tmp_p
     obs_world.set_device_state(device_name, ae_mode=3)
     sim.wait_for(lambda s: s["visca_syntax_errors"] > errors)
     assert sim.state()["visca"]["ae_mode"] == 0
+
+
+def refusing_gain(result):
+    """A camera report of one that answers Gain Direct with `result`, and
+    takes the white balance mode"""
+    return {
+        "report": "obs-ptz camera report", "format": 1, "protocol": "visca",
+        "camera": {"vendor_id": "0123", "model_id": "0009", "rom_version": "0001"},
+        "inquiries": [
+            {"inquiry": "81090002ff", "reply": "9050012300090001ff"},
+            {"inquiry": "81090400ff", "reply": "905002ff"},
+            {"inquiry": "81090435ff", "reply": "905000ff"},
+            {"inquiry": "8109044cff", "reply": "905000000005ff"},
+        ],
+        "commands": [
+            {"key": "wb_mode", "command": "8101043500ff", "result": "completed"},
+            {"key": "gain_pos", "command": "8101044c00000005ff", "result": result},
+        ],
+    }
+
+
+def test_a_value_the_camera_cant_be_set_isnt_sent(request, obs_world, tmp_path):
+    """The plugin sets each value it reads to what the camera says it is,
+    which changes nothing. One whose command the camera refuses with a syntax
+    error isn't sent again, whatever it is set to; one it takes still is."""
+    sim, state, device_name = camera(request, obs_world, tmp_path, sim_args=replaying(refusing_gain("syntax error"),
+                                                                                      tmp_path),
+                                   read={"wb_mode", "gain_pos"})
+    # the test of Gain Direct, at what the camera has, is refused: the
+    # inquiries the report hasn't were too, once each, when first read
+    gain = sim.state()["visca"]["gain_pos"]
+    state = obs_world.wait_for_device_state(device_name, tmp_path / "read-only.json",
+                                            lambda r: "read_only" in r["state"], timeout=15)["state"]
+    assert state["read_only"] == {"gain_pos": True}
+    errors = sim.syntax_errors()
+    assert errors > 0
+
+    obs_world.set_device_state(device_name, gain_pos=gain + 2)
+    obs_world.set_device_state(device_name, wb_mode=1)
+    sim.wait_for(lambda s: s["visca"]["wb_mode"] == 1)
+    assert sim.syntax_errors() == errors
+    assert sim.state()["visca"]["gain_pos"] == gain
+
+    # and the settings show it, but don't offer to change it
+    obs_world.open_settings_dialog(device_name)
+    obs_world.wait_for_settings_dialog(tmp_path / "dialog.json", lambda r: r["shown"].get("gain_pos") == gain,
+                                       timeout=15)
+    assert not obs_world.ui.get1(SETTINGS_DIALOG, STATE_VIEW, "gain_pos", name="enabled")
+    assert obs_world.ui.get1(SETTINGS_DIALOG, STATE_VIEW, "wb_mode", name="enabled")
+
+
+def test_a_value_the_camera_wont_set_now_isnt_read_only(request, obs_world, tmp_path):
+    """"Not executable" is the camera not doing it in the mode it is in, which
+    says nothing of whether it can: it is still sent"""
+    sim, _, device_name = camera(request, obs_world, tmp_path, sim_args=replaying(refusing_gain("not executable"),
+                                                                                   tmp_path),
+                                 read={"wb_mode", "gain_pos"})
+    # long enough for each value to have been tested
+    time.sleep(5)
+    assert "read_only" not in obs_world.wait_for_device_state(
+        device_name, tmp_path / "state.json", lambda r: "gain_pos" in r["state"])["state"]
+    def commands_sent():
+        return obs_world.device_state(device_name, tmp_path / "statistics.json")["state"]["statistics"].get(
+            "visca_command_count", 0)
+    sent = commands_sent()
+    gain = sim.state()["visca"]["gain_pos"]
+    obs_world.set_device_state(device_name, gain_pos=gain + 2)
+    obs_world.wait_for(lambda: commands_sent() > sent, timeout=5)
+
+
+def test_another_camera_is_tested_again(request, obs_world, tmp_path):
+    """What the test found is of the camera it found it of: pointed at one that
+    takes Gain Direct, the device has nothing read-only once it has tested it"""
+    sim, _, device_name = camera(request, obs_world, tmp_path, sim_args=replaying(refusing_gain("syntax error"),
+                                                                                   tmp_path),
+                                 read={"wb_mode", "gain_pos"})
+    obs_world.wait_for_device_state(device_name, tmp_path / "state.json",
+                                    lambda r: r["state"].get("read_only") == {"gain_pos": True}, timeout=15)
+
+    other = Sim(model="0123:0009", flags=())
+    request.addfinalizer(other.stop)
+    obs_world.update_device(device_name, tcp_port=other.tcp_port)
+    obs_world.wait_for_device_state(device_name, tmp_path / "state.json",
+                                    lambda r: r["state"].get("read_only", {}) == {}, timeout=15)
+    # and it can be set again
+    gain = other.state()["visca"]["gain_pos"]
+    obs_world.set_device_state(device_name, gain_pos=gain + 2)
+    other.wait_for(lambda s: s["visca"]["gain_pos"] == gain + 2)
 
 
 @pytest.mark.parametrize("path", REPORTS, ids=[p.stem for p in REPORTS])

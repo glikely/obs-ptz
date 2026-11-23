@@ -9,6 +9,7 @@ import itertools
 import json
 import subprocess
 import sys
+import time
 import urllib.request
 
 from obsws import ObsWebSocketError
@@ -149,6 +150,45 @@ def test_the_generic_command_set_has_nothing_direct(request, obs_world, tmp_path
     camera = Camera(request, obs_world, tmp_path, "0001:0000")
     state = camera.wait_for_state(lambda s: "ae_mode" in s and "power_on" in s)
     assert "direct" not in state
+
+
+def test_a_value_the_command_set_cant_set_is_read_only(request, obs_world, tmp_path):
+    """control-only.json says the AE mode can't be set: it is still read"""
+    camera = Camera(request, obs_world, tmp_path, "0123:0005")
+    state = camera.wait_for_state(lambda s: "ae_mode" in s and "read_only" in s)
+    assert state["read_only"] == {"ae_mode": True}
+
+
+def test_a_removed_value_an_inquiry_still_reads_is_read_only(request, obs_world, tmp_path):
+    """removed-read.json takes away the aperture, which the camera control
+    block inquiry reads with the rest"""
+    camera = Camera(request, obs_world, tmp_path, "0123:0006")
+    state = camera.wait_for_state(lambda s: "aperture_gain" in s and "read_only" in s)
+    assert state["read_only"] == {"aperture_gain": True}
+
+
+def test_the_state_view_doesnt_offer_to_change_what_is_read_only(request, obs_world, tmp_path):
+    """The AE mode is shown, and followed, but can't be picked; the white
+    balance mode, which can be set, still can"""
+    camera = Camera(request, obs_world, tmp_path, "0123:0005")
+    camera.wait_for_state(lambda s: "ae_mode" in s and "read_only" in s)
+    obs_world.open_settings_dialog(camera.device_name)
+    out = tmp_path / "dialog.json"
+    ae_mode = camera.sim.state()["visca"]["ae_mode"]
+    obs_world.wait_for_settings_dialog(out, lambda r: r["shown"].get("ae_mode") == ae_mode, timeout=15)
+    assert not obs_world.ui.get1(SETTINGS_DIALOG, STATE_VIEW, "ae_mode", name="hidden")
+    assert not obs_world.ui.get1(SETTINGS_DIALOG, STATE_VIEW, "ae_mode", name="enabled")
+    assert obs_world.ui.get1(SETTINGS_DIALOG, STATE_VIEW, "ae_mode", name="toolTip")
+    assert obs_world.ui.get1(SETTINGS_DIALOG, STATE_VIEW, "wb_mode", name="enabled")
+    assert not obs_world.ui.get1(SETTINGS_DIALOG, STATE_VIEW, "wb_mode", name="toolTip")
+
+
+def test_the_generic_command_set_has_nothing_read_only(request, obs_world, tmp_path):
+    """Nor, once it has been set to what it is, does ptzsim refuse anything"""
+    camera = Camera(request, obs_world, tmp_path, "0001:0000")
+    camera.wait_for_state(lambda s: "ae_mode" in s and "power_on" in s)
+    time.sleep(10)
+    assert "read_only" not in camera.wait_for_state(lambda s: "ae_mode" in s)
 
 
 def test_a_user_trigger_is_sent(request, obs_world, tmp_path):

@@ -157,7 +157,8 @@ For example (the auto tracking commands are made up):
 - `controls`: each replaces what the command set it extends does for its `key`,
   with whichever of `set`, `set_to` and `reads` it has.
   `set_to` is a command for each value: `{"1": "8101043802ff", "0": "8101043803ff"}`.
-  `"set": null` is for a value the camera can only be asked for, not set.
+  `"set": null` is for a value the camera can only be asked for, not set: the settings show it,
+  but don't offer to change it (see [Read-only settings](#read-only-settings)).
   `"direct": true` is for a value the camera means something else by than a Sony camera does,
   which the settings then show as the number the camera reports, rather than in a list of what
   a Sony camera means by it (see [Direct values](#direct-values)). It is kept from the command
@@ -213,6 +214,29 @@ it, the box goes back to what the camera reports.
 takes the command and does nothing, as the Tail Air does with all three of these, still does
 nothing; `"set": null` with it says so. It applies to the settings that are shown in a list;
 the white balance mode, which has a group of its own, is still shown in its list.
+
+### Read-only settings
+
+A setting most cameras can change, but this one can't, is shown but not offered to be
+changed, and setting it does nothing: the device lists it in its state's `read_only`
+(see [the API](ptz-device-api.md)). That is each value the command set reads, and the
+generic command set can set, but the camera can't:
+
+- one whose control has `"set": null`, or whose control the command set removes, though an
+  inquiry still reads it, as the block inquiries read many values at once;
+- one whose set command the camera refuses. Once a camera has answered everything it is asked
+  when it connects, the plugin sets each value it can set with a command that takes the value
+  to what the camera has just said it is, which changes nothing: one at a time, read again
+  just before, and not while anything sent is still being done, the camera is moving, or it
+  is in standby. A camera that answers one with a syntax error or a message length error
+  hasn't got the command, and every value it sets is read-only until the camera connects
+  again or the command set changes. The log says so. Any other error, such as "not
+  executable", is the camera not doing it in the mode it is in, which says nothing of
+  whether it can. A control with a command for each value (`set_to`) isn't tested.
+
+A camera that takes a command and does nothing can't be told from one that does it, short of
+changing the value. The OBSBOT Tail Air takes Gain, Shutter and Bright Direct and ignores
+them, so a command set for it says `"set": null` for each, and they are then read-only.
 
 ## Camera Reports
 

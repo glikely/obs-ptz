@@ -721,19 +721,31 @@ bool PTZDevice::setAxisScale(const char *name, const char *unit, const std::vect
 
 bool PTZDevice::setDirect(const QStringList &keys)
 {
-	OBSDataAutoRelease direct = obs_data_create();
+	return setKeyFlags("direct", m_direct, keys);
+}
+
+bool PTZDevice::setReadOnly(const QStringList &keys)
+{
+	return setKeyFlags("read_only", m_readOnly, keys);
+}
+
+/* `keys`, said under `name` as an object with each key true, if that isn't
+ * what was `said` last */
+bool PTZDevice::setKeyFlags(const char *name, std::string &said, const QStringList &keys)
+{
+	OBSDataAutoRelease flags = obs_data_create();
 	QStringList sorted = keys;
 	sorted.sort();
 	for (const QString &key : sorted)
-		obs_data_set_bool(direct, QT_TO_UTF8(key), true);
+		obs_data_set_bool(flags, QT_TO_UTF8(key), true);
 	/* None, before anything has been said, is nothing to say */
-	std::string json = obs_data_get_json(direct);
-	if (m_direct == json || (m_direct.empty() && sorted.isEmpty()))
+	std::string json = obs_data_get_json(flags);
+	if (said == json || (said.empty() && sorted.isEmpty()))
 		return false;
-	m_direct = json;
+	said = json;
 	for (obs_data_t *where : {state.Get(), stateChanged.Get()}) {
 		OBSDataAutoRelease copy = obs_data_create_from_json(json.c_str());
-		obs_data_set_obj(where, "direct", copy);
+		obs_data_set_obj(where, name, copy);
 	}
 	return true;
 }
