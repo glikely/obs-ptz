@@ -117,9 +117,12 @@ protected:
 	 * keys still to test, whether their list has been made, whether the
 	 * values the next one sets have been read again for it, the command being
 	 * tested and what it is before its values are put in it, and whether one
-	 * has been tested since the last poll. */
+	 * has been tested since the last poll. The keys waiting for the camera to
+	 * be in a mode they need (ViscaControl::dependsOn) are put back when it
+	 * is. */
 	QSet<QString> unsettable;
 	QStringList settable_tests;
+	QStringList settable_tests_waiting;
 	bool settable_tests_listed = false;
 	bool settable_test_read = false;
 	QByteArray settable_test_sent;

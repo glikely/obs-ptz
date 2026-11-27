@@ -79,7 +79,7 @@ def test_a_replayed_camera_refuses_what_the_camera_did(request, obs_world, tmp_p
 
 def refusing_gain(result):
     """A camera report of one that answers Gain Direct with `result`, and
-    takes the white balance mode"""
+    takes the white balance and exposure modes"""
     return {
         "report": "obs-ptz camera report", "format": 1, "protocol": "visca",
         "camera": {"vendor_id": "0123", "model_id": "0009", "rom_version": "0001"},
@@ -87,13 +87,21 @@ def refusing_gain(result):
             {"inquiry": "81090002ff", "reply": "9050012300090001ff"},
             {"inquiry": "81090400ff", "reply": "905002ff"},
             {"inquiry": "81090435ff", "reply": "905000ff"},
+            {"inquiry": "81090439ff", "reply": "905000ff"},
             {"inquiry": "8109044cff", "reply": "905000000005ff"},
         ],
         "commands": [
             {"key": "wb_mode", "command": "8101043500ff", "result": "completed"},
+            {"key": "ae_mode", "command": "8101043900ff", "result": "completed"},
             {"key": "gain_pos", "command": "8101044c00000005ff", "result": result},
         ],
     }
+
+
+def in_manual_exposure(sim, obs_world, device_name):
+    """Gain is only tested in manual exposure, which ptzsim starts out of"""
+    obs_world.set_device_state(device_name, ae_mode=3)
+    sim.wait_for(lambda s: s["visca"]["ae_mode"] == 3)
 
 
 def test_a_value_the_camera_cant_be_set_isnt_sent(request, obs_world, tmp_path):
@@ -103,6 +111,7 @@ def test_a_value_the_camera_cant_be_set_isnt_sent(request, obs_world, tmp_path):
     sim, state, device_name = camera(request, obs_world, tmp_path, sim_args=replaying(refusing_gain("syntax error"),
                                                                                       tmp_path),
                                    read={"wb_mode", "gain_pos"})
+    in_manual_exposure(sim, obs_world, device_name)
     # the test of Gain Direct, at what the camera has, is refused: the
     # inquiries the report hasn't were too, once each, when first read
     gain = sim.state()["visca"]["gain_pos"]
@@ -132,6 +141,7 @@ def test_a_value_the_camera_wont_set_now_isnt_read_only(request, obs_world, tmp_
     sim, _, device_name = camera(request, obs_world, tmp_path, sim_args=replaying(refusing_gain("not executable"),
                                                                                    tmp_path),
                                  read={"wb_mode", "gain_pos"})
+    in_manual_exposure(sim, obs_world, device_name)
     # long enough for each value to have been tested
     time.sleep(5)
     assert "read_only" not in obs_world.wait_for_device_state(
@@ -151,6 +161,7 @@ def test_another_camera_is_tested_again(request, obs_world, tmp_path):
     sim, _, device_name = camera(request, obs_world, tmp_path, sim_args=replaying(refusing_gain("syntax error"),
                                                                                    tmp_path),
                                  read={"wb_mode", "gain_pos"})
+    in_manual_exposure(sim, obs_world, device_name)
     obs_world.wait_for_device_state(device_name, tmp_path / "state.json",
                                     lambda r: r["state"].get("read_only") == {"gain_pos": True}, timeout=15)
 
@@ -163,6 +174,27 @@ def test_another_camera_is_tested_again(request, obs_world, tmp_path):
     gain = other.state()["visca"]["gain_pos"]
     obs_world.set_device_state(device_name, gain_pos=gain + 2)
     other.wait_for(lambda s: s["visca"]["gain_pos"] == gain + 2)
+
+
+def test_a_value_is_only_tested_in_the_mode_it_needs(request, obs_world, tmp_path):
+    """Gain only means something in manual exposure, and some cameras switch
+    to it when it is set in another: it isn't sent back while the camera is
+    in full auto, and is once the camera is in manual"""
+    sim, _, device_name = camera(request, obs_world, tmp_path, sim_args=replaying(refusing_gain("syntax error"),
+                                                                                   tmp_path),
+                                 read={"ae_mode", "gain_pos"})
+    assert sim.state()["visca"]["ae_mode"] == 0
+    # long enough for each value to have been tested
+    time.sleep(5)
+    errors = sim.syntax_errors()
+    time.sleep(3)
+    assert sim.syntax_errors() == errors
+    assert "read_only" not in obs_world.device_state(device_name, tmp_path / "auto.json")["state"]
+    assert sim.state()["visca"]["ae_mode"] == 0
+
+    in_manual_exposure(sim, obs_world, device_name)
+    obs_world.wait_for_device_state(device_name, tmp_path / "manual.json",
+                                    lambda r: r["state"].get("read_only") == {"gain_pos": True}, timeout=15)
 
 
 @pytest.mark.parametrize("path", REPORTS, ids=[p.stem for p in REPORTS])

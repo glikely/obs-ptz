@@ -163,6 +163,16 @@ For example (the auto tracking commands are made up):
   which the settings then show as the number the camera reports, rather than in a list of what
   a Sony camera means by it (see [Direct values](#direct-values)). It is kept from the command
   set it extends unless the control says `true` or `false`.
+  `depends_on` is the modes the value only means something in, as the values other controls
+  must have, each a list of which it can be: `{"wb_mode": [5]}` for R and B gain, which a
+  Sony camera only uses in manual white balance; `{"ae_mode": [3, 10]}` for one used in
+  manual or shutter priority exposure. Every key listed must be met. The generic command set
+  has them as a Sony camera does (R and B gain: `wb_mode` 5; shutter: `ae_mode` 3 or 10;
+  iris: 3 or 11; gain: 3; bright: 13; exposure compensation: `exposure_comp` on, 1).
+  The test of what the camera can set, and a camera report, don't send a value back while
+  the camera isn't in its mode (see [Read-only settings](#read-only-settings)). It is kept
+  from the command set it extends unless the control says; `null` is none. A key in it the
+  command set doesn't have is a reason it can't be read.
   A key the command set it extends doesn't have must start with `user_`,
   so it is never one the plugin has; it is in the device's state like any other.
 - `actions`: commands for the driver, which must take as many arguments as the generic one's.
@@ -233,6 +243,11 @@ generic command set can set, but the camera can't:
   again or the command set changes. The log says so. Any other error, such as "not
   executable", is the camera not doing it in the mode it is in, which says nothing of
   whether it can. A control with a command for each value (`set_to`) isn't tested.
+  Nor is a value while the camera isn't in a mode its `depends_on` says it needs: some
+  cameras switch to the mode when it is set in another, as an OBSBOT Tail Air switches to
+  manual white balance when R or B gain is set in auto. The mode is read again with the
+  value, and one that isn't met puts the value aside until the camera is in it. One whose
+  mode the camera can't be asked for is never tested, and the log says so.
 
 A camera that takes a command and does nothing can't be told from one that does it, short of
 changing the value. The OBSBOT Tail Air takes Gain, Shutter and Bright Direct and ignores
@@ -260,7 +275,9 @@ the generic command set and the camera's own can ask for.
 Then it sends each value the camera said it has, and can be set, back to it as the camera said it was,
 which changes nothing. It sends no moves, and doesn't send back the video format, the video output
 or low latency, which some cameras restart their video for even when they are set to what they were,
-nor the camera's ID.
+nor the camera's ID. Nor does it send a value while the camera isn't in a mode the value needs
+(`depends_on`, above), such as R and B gain outside manual white balance: some cameras switch
+to the mode when it is set. The camera's own command set says which mode, or the generic one.
 A camera in standby isn't asked anything, since some won't wake after being asked for what they can't be then.
 The state's `camera_report` says how far it has got (`running`, `done` and `total`),
 or why there is no report (`"error": "standby"`),
@@ -279,7 +296,8 @@ and the device's `ptz_get_camera_report` proc hands back the last report made, a
   (`syntax error`, `not executable`, `no reply`, ...).
   A reply with the camera's ID in it has it as zeros, and says so in `masked`.
 - `commands`: each value sent back, by its `key`, the `command` sent, and the `result`:
-  `completed`, `ack` for one the camera never said it had done, or the error.
+  `completed`, `ack` for one the camera never said it had done, or the error;
+  or `not tested: needs wb_mode 5`, say, for one not sent because the camera wasn't in its mode.
 - `buffer_full`: how often the camera said it was too busy to take a request.
 - `draft_command_set`: a command set for the camera, which its user can try by saving it
   in their command sets (above) and restarting OBS: the generic one, for the camera's model,

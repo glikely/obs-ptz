@@ -58,6 +58,10 @@ class ViscaReportReplay:
         self.inquiries = {bytes.fromhex(i["inquiry"])[:-1]: i for i in report.get("inquiries", [])}
         self.commands = {}
         for command in report.get("commands", []):
+            # one the report didn't send, outside the mode it needs, says
+            # nothing of what the camera does with it: ptzsim answers it
+            if command["result"].startswith("not tested"):
+                continue
             self.commands[shape(bytes.fromhex(command["command"])[:-1])] = command["result"]
 
     @classmethod

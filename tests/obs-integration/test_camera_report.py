@@ -87,8 +87,25 @@ def test_a_report_says_which_commands_never_complete(request, obs_world, tmp_pat
     sim, _, device_name = camera(request, obs_world, tmp_path, read={"wb_mode"},
                                sim_args={"model": "0001:0000", "flags": ("--visca-no-completions",)})
     made = report(obs_world, tmp_path, device_name)
-    assert made["commands"]
-    assert {c["result"] for c in made["commands"]} == {"ack"}
+    sent = [c for c in made["commands"] if not c["result"].startswith("not tested")]
+    assert sent
+    assert {c["result"] for c in sent} == {"ack"}
+
+
+def test_a_report_doesnt_send_a_value_outside_its_mode(request, obs_world, tmp_path):
+    """R and B gain only mean something in manual white balance, and some
+    cameras switch to it when either is set in another: in auto, the report
+    says it didn't send them, and why, and the camera stays in auto"""
+    sim, _, device_name = camera(request, obs_world, tmp_path, sim_args=SONY, read={"wb_mode"})
+    assert sim.state()["visca"]["wb_mode"] == 0
+    made = report(obs_world, tmp_path, device_name)
+    commands = {c["key"]: c for c in made["commands"]}
+    assert commands["r_gain"]["result"] == "not tested: needs wb_mode 5"
+    assert commands["b_gain"]["result"] == "not tested: needs wb_mode 5"
+    assert commands["wb_mode"]["result"] == "completed"
+    assert sim.state()["visca"]["wb_mode"] == 0
+    # nor is a command it didn't send one the draft says the camera can't set
+    assert {"key": "r_gain", "set": None} not in made["draft_command_set"].get("controls", [])
 
 
 def test_a_report_drafts_a_command_set_for_the_camera(request, obs_world, tmp_path):

@@ -10,7 +10,23 @@
   "controls": [
     {
       "key": "gain_pos",
-      "direct": true
+      "direct": true,
+      "depends_on": {"ae_mode": [3, 14]}
+    },
+    {
+      "key": "r_gain",
+      "depends_on": null
+    },
+    {
+      "key": "user_tracking_speed",
+      "set": {"cmd": "81018e0200ff", "args": [{"type": "u4", "offset": 4}]},
+      "reads": [{"cmd": "81098e02ff", "results": [{"type": "u4", "offset": 2}]}],
+      "depends_on": {"user_tracking": [1, 2, 3]}
+    },
+    {
+      "key": "user_tracking",
+      "set": {"cmd": "81018e0100ff", "args": [{"type": "u7", "offset": 4}]},
+      "reads": [{"cmd": "81098e01ff", "results": [{"type": "u7", "offset": 2}]}]
     }
   ]
 }

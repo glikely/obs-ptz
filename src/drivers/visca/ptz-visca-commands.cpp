@@ -598,6 +598,29 @@ static PTZCmd assuming(PTZCmd cmd, const char *key, const QVariant &value)
 	return cmd;
 }
 
+QStringList ViscaControl::unmetDependencies(obs_data_t *values) const
+{
+	QStringList unmet;
+	for (auto i = dependsOn.begin(); i != dependsOn.end(); i++) {
+		const QByteArray key = i.key().toUtf8();
+		obs_data_item_t *item = obs_data_item_byname(values, key.constData());
+		bool met = false;
+		if (item && obs_data_item_has_user_value(item)) {
+			int value = obs_data_item_gettype(item) == OBS_DATA_BOOLEAN ? obs_data_item_get_bool(item)
+										    : (int)obs_data_item_get_int(item);
+			met = i.value().contains(value);
+		}
+		obs_data_item_release(&item);
+		if (met)
+			continue;
+		QStringList each;
+		for (int value : i.value())
+			each += QString::number(value);
+		unmet += i.key() + " " + each.join(" or ");
+	}
+	return unmet;
+}
+
 /* Every state value the camera has, how it is set, and how it is read. A
  * value is set by the command's argument for it, a bool for an on/off one, or by
  * a command for each value it can be set to (the menu can only be closed). In
@@ -682,6 +705,22 @@ static const QList<ViscaControl> visca_controls = {
 	  {0, assuming(VISCA_CAM_TallyGreen_Off, "tally_preview", false)}}},
 };
 
+/* The modes each of these values only means something in, as a Sony camera
+ * has them: the values another control must have, each one of those listed
+ * (ViscaControl::dependsOn). An OBSBOT Tail Air switches to manual white
+ * balance when R or B gain is set in another. A table of its own, beside
+ * visca_controls rather than in it, which scripts/ptz-probe/gen_tables.py
+ * reads as it is. */
+static const QMap<QString, QMap<QString, QList<int>>> visca_dependencies = {
+	{"r_gain", {{"wb_mode", {5}}}},
+	{"b_gain", {{"wb_mode", {5}}}},
+	{"shutter_pos", {{"ae_mode", {3, 0x0a}}}},
+	{"iris_pos", {{"ae_mode", {3, 0x0b}}}},
+	{"gain_pos", {{"ae_mode", {3}}}},
+	{"bright_pos", {{"ae_mode", {0x0d}}}},
+	{"exposure_comp_pos", {{"exposure_comp", {1}}}},
+};
+
 /* A move to somewhere, which the camera completes when it is there */
 static PTZCmd moving(PTZCmd cmd)
 {
@@ -752,6 +791,8 @@ std::shared_ptr<const ViscaProfile> visca_generic_profile()
 		profile->id = "generic";
 		profile->name = obs_module_text("PTZ.Visca.Profile.Generic");
 		profile->controls = visca_controls;
+		for (auto &control : profile->controls)
+			control.dependsOn = visca_dependencies.value(control.key);
 		profile->actions = visca_actions;
 		profile->triggers = visca_triggers;
 		return std::shared_ptr<const ViscaProfile>(profile);
@@ -947,7 +988,8 @@ public:
 	bool control(ViscaProfile &profile, const QJsonObject &json)
 	{
 		const QString key = json["key"].toString();
-		if (!only(json, {"key", "set", "set_to", "reads", "direct"}, QString("control \"%1\"").arg(key)))
+		if (!only(json, {"key", "set", "set_to", "reads", "direct", "depends_on"},
+			  QString("control \"%1\"").arg(key)))
 			return false;
 		ViscaControl *existing = profile.control(key);
 		if (!existing && !key.startsWith("user_")) {
@@ -1001,6 +1043,9 @@ public:
 			}
 			control.direct = json["direct"].toBool();
 		}
+		/* Also kept unless it says: null, or {}, for none */
+		if (json.contains("depends_on") && !dependsOn(control, json["depends_on"]))
+			return false;
 		if (!control.settable() && control.reads.isEmpty()) {
 			fail(QString("%1 can be neither set nor read").arg(key));
 			return false;
@@ -1009,6 +1054,61 @@ public:
 			*existing = control;
 		else
 			profile.controls.append(control);
+		return true;
+	}
+
+	/* The values a control says it needs others to have, each key's a list
+	 * of numbers: {"wb_mode": [5]}. What they are keys of is checked once
+	 * every control has been read (dependenciesFound()), since a control may
+	 * need one the file has after it. */
+	QList<QPair<QString, QString>> dependencies;
+
+	bool dependsOn(ViscaControl &control, const QJsonValue &json)
+	{
+		control.dependsOn.clear();
+		if (json.isNull())
+			return true;
+		if (!json.isObject()) {
+			fail(QString("\"depends_on\" of \"%1\" isn't an object, or null").arg(control.key));
+			return false;
+		}
+		const QJsonObject needs = json.toObject();
+		for (auto i = needs.begin(); i != needs.end(); i++) {
+			QList<int> values;
+			for (const auto value : i.value().toArray()) {
+				if (!value.isDouble() || value.toDouble() != (int)value.toDouble()) {
+					values.clear();
+					break;
+				}
+				values += value.toInt();
+			}
+			if (values.isEmpty()) {
+				fail(QString("\"depends_on\" of \"%1\" has \"%2\" without a list of whole numbers")
+					     .arg(control.key, i.key()));
+				return false;
+			}
+			if (i.key() == control.key) {
+				fail(QString("\"%1\" depends on itself").arg(control.key));
+				return false;
+			}
+			control.dependsOn.insert(i.key(), values);
+			dependencies.append({control.key, i.key()});
+		}
+		return true;
+	}
+
+	/* Whether every value a control of this file says it needs is one the
+	 * command set has: a misspelt one would otherwise never be met, and the
+	 * control never tested, with nothing to say why */
+	bool dependenciesFound(const ViscaProfile &profile)
+	{
+		for (const auto &[key, needed] : dependencies) {
+			if (!profile.control(needed)) {
+				fail(QString("\"%1\" depends on \"%2\", which the command set doesn't have")
+					     .arg(key, needed));
+				return false;
+			}
+		}
 		return true;
 	}
 
@@ -1162,6 +1262,8 @@ public:
 			if (!control(*profile, value.toObject()))
 				return nullptr;
 		}
+		if (!dependenciesFound(*profile))
+			return nullptr;
 		const QJsonObject actions = json["actions"].toObject();
 		for (auto i = actions.begin(); i != actions.end(); i++) {
 			if (!action(*profile, i.key(), i.value()))

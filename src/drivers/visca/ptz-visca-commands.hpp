@@ -29,6 +29,12 @@ struct ViscaControl {
 	 * camera means by it: for a camera that means something else by it, as
 	 * an OBSBOT means ISO / 100 by gain */
 	bool direct = false;
+	/* The modes the value means something in, as the values another one
+	 * must have, each key's being one of those listed: R and B gain in the
+	 * manual white balance mode. Some cameras switch to the mode when it is
+	 * set in another, so the test of what the camera can set, and a camera
+	 * report, don't send it back outside them. */
+	QMap<QString, QList<int>> dependsOn;
 
 	ViscaControl(const QString &key, const std::optional<PTZCmd> &set, const QList<PTZInq> &reads = {})
 		: key(key),
@@ -43,6 +49,9 @@ struct ViscaControl {
 	{
 	}
 	bool settable() const { return set || !setTo.isEmpty(); }
+	/* The modes it needs that `values` doesn't have it in, as "wb_mode 5",
+	 * or "ae_mode 3 or 10"; none if it has them all */
+	QStringList unmetDependencies(obs_data_t *values) const;
 };
 
 /* A camera's command set: its state values, what the driver moves it and

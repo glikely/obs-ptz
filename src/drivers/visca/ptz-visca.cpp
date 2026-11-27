@@ -1432,7 +1432,14 @@ const PTZInq *PTZVisca::first_read(const ViscaControl &control) const
  * standby, when what was read may not be what the camera is, nor while a
  * report or discover_limits() is running. A command for one value out of a
  * few (set_to) is never tested: one value's command failing says nothing of
- * the others'. */
+ * the others'.
+ *
+ * A value that only means something in a mode (ViscaControl::dependsOn), as
+ * R and B gain do in manual white balance, is only tested while the camera is
+ * in it: some cameras switch to the mode when it is set in another. The mode
+ * is read again with the value, and one that isn't met puts the value aside
+ * until it is, which is looked at once the rest have been tested. One whose
+ * mode the camera can't be asked for is never tested, and the log says so. */
 bool PTZVisca::queue_settable_test()
 {
 	if (!isConnected() || settable_tested_this_poll || report_next >= 0 || discover_step >= 0)
@@ -1453,19 +1460,52 @@ bool PTZVisca::queue_settable_test()
 			    listed.contains(control.set->cmd))
 				continue;
 			listed += control.set->cmd;
+			QStringList unreadable;
+			for (const auto &needed : control.dependsOn.keys()) {
+				const ViscaControl *of = profile->control(needed);
+				if (!of || !first_read(*of))
+					unreadable += needed;
+			}
+			if (!unreadable.isEmpty()) {
+				ptz_info("not testing whether the camera can set %s: it can't be asked its %s",
+					 QT_TO_UTF8(control.key), QT_TO_UTF8(unreadable.join(", ")));
+				continue;
+			}
 			settable_tests += control.key;
 		}
 	}
-	while (!settable_tests.isEmpty()) {
+	for (;;) {
+		/* The values that were waiting for a mode the camera is now in */
+		if (settable_tests.isEmpty()) {
+			for (const auto &key : QStringList(settable_tests_waiting)) {
+				const ViscaControl *control = profile->control(key);
+				if (!control || control->unmetDependencies(state).isEmpty()) {
+					settable_tests_waiting.removeOne(key);
+					settable_tests += key;
+				}
+			}
+			if (settable_tests.isEmpty())
+				return false;
+		}
 		const QString key = settable_tests.first();
 		const ViscaControl *control = profile->control(key);
 		bool testable = control && control->set && !unsettable.contains(key);
+		/* Not read again for while the camera isn't in its mode */
+		if (testable && !settable_test_read && !control->unmetDependencies(state).isEmpty()) {
+			settable_tests.removeFirst();
+			settable_tests_waiting += key;
+			continue;
+		}
 		if (testable && !settable_test_read) {
-			/* What it is now, for each value the command sets */
+			/* What it is now, for each value the command sets, and the
+			 * mode it needs the camera in */
+			QStringList keys = control->dependsOn.keys();
+			for (const auto &field : control->set->args)
+				keys += QString::fromUtf8(field->name);
 			QList<PTZCmd> reads;
 			QSet<QByteArray> asked;
-			for (const auto &field : control->set->args) {
-				const ViscaControl *of = profile->control(QString::fromUtf8(field->name));
+			for (const auto &of_key : keys) {
+				const ViscaControl *of = profile->control(of_key);
 				const PTZInq *inq = of ? first_read(*of) : nullptr;
 				if (!inq) {
 					testable = false;
@@ -1486,6 +1526,11 @@ bool PTZVisca::queue_settable_test()
 		settable_test_read = false;
 		if (!testable)
 			continue;
+		/* It left the mode since it was last read */
+		if (!control->unmetDependencies(state).isEmpty()) {
+			settable_tests_waiting += key;
+			continue;
+		}
 		QList<int> args;
 		for (const auto &field : control->set->args) {
 			if (!obs_data_has_user_value(state, field->name))
@@ -1503,7 +1548,6 @@ bool PTZVisca::queue_settable_test()
 		pending_cmds += cmd;
 		return true;
 	}
-	return false;
 }
 
 /* The camera answered the safe test of a set command with an error. A syntax
@@ -1536,6 +1580,7 @@ void PTZVisca::settable_test_failed(int error)
 void PTZVisca::forget_settable_tests()
 {
 	settable_tests.clear();
+	settable_tests_waiting.clear();
 	settable_tests_listed = false;
 	settable_test_read = false;
 	settable_test_sent.clear();
@@ -1587,6 +1632,9 @@ void PTZVisca::report_ask()
 		report_commands = true;
 		queue_report_commands();
 	}
+	/* One that already has its result isn't sent */
+	while (report_next < report_probes.size() && !report_probes[report_next].result.isEmpty())
+		report_next++;
 	if (report_next >= report_probes.size()) {
 		report_settle();
 		return;
@@ -1708,7 +1756,13 @@ void PTZVisca::queue_report_commands()
 		if (!cmd || sent.contains(cmd->cmd))
 			continue;
 		sent += cmd->cmd;
-		report_probes.append({cmd->cmd, control.key});
+		/* Not sent outside the mode it means something in, which some
+		 * cameras switch to when it is: the camera's own command set
+		 * knows best which that is */
+		const ViscaControl *own = profile->control(control.key);
+		const QStringList unmet = (own ? own : &control)->unmetDependencies(values);
+		report_probes.append(
+			{cmd->cmd, control.key, unmet.isEmpty() ? QString() : "not tested: needs " + unmet.join(", ")});
 	}
 }
 
