@@ -102,6 +102,8 @@ private:
 	Field *addField(QFormLayout *form, const char *key, FieldKind kind, const char *text);
 	void requestField(Field *field, const QVariant &value);
 	bool showField(Field *field, const QVariant &value);
+	static bool editable(const Field *field, bool on);
+	void showReadOnly(Field *field);
 	void showShutterSpeeds();
 
 	QCheckBox *m_connected;

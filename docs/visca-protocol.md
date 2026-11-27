@@ -157,7 +157,28 @@ For example (the auto tracking commands are made up):
 - `controls`: each replaces what the command set it extends does for its `key`,
   with whichever of `set`, `set_to` and `reads` it has.
   `set_to` is a command for each value: `{"1": "8101043802ff", "0": "8101043803ff"}`.
-  `"set": null` is for a value the camera can only be asked for, not set.
+  `"set": null` is for a value the camera can only be asked for, not set: the settings show it,
+  but don't offer to change it (see [Read-only settings](#read-only-settings)).
+  `"direct": true` is for a value the camera means something else by than a Sony camera does,
+  which the settings then show as the number the camera reports, rather than in a list of what
+  a Sony camera means by it (see [Direct values](#direct-values)). It is kept from the command
+  set it extends unless the control says `true` or `false`.
+  `depends_on` is the modes the value only means something in, as the values other controls
+  must have, each a list of which it can be: `{"wb_mode": [5]}` for R and B gain, which a
+  Sony camera only uses in manual white balance; `{"ae_mode": [3, 10]}` for one used in
+  manual or shutter priority exposure. Every key listed must be met. The generic command set
+  has them as a Sony camera does (R and B gain: `wb_mode` 5; shutter: `ae_mode` 3 or 10;
+  iris: 3 or 11; gain: 3; bright: 13; exposure compensation: `exposure_comp` on, 1).
+  The test of what the camera can set, and a camera report, don't send a value back while
+  the camera isn't in its mode (see [Read-only settings](#read-only-settings)). It is kept
+  from the command set it extends unless the control says; `null` is none. A key in it the
+  command set doesn't have is a reason it can't be read.
+  `"tested": true` is for a value whose set command has been tried on the camera, and works:
+  it isn't tested again each time the camera connects (see [Read-only settings](#read-only-settings)).
+  For a camera that changes something when a value is set to what it is, as an OBSBOT Tail Air
+  keeps one less of R or B gain than it is sent, and turns its AI tracking off when it is
+  set to the mode it is in. It is kept from the command set it extends unless the control
+  says `true` or `false`.
   A key the command set it extends doesn't have must start with `user_`,
   so it is never one the plugin has; it is in the device's state like any other.
 - `actions`: commands for the driver, which must take as many arguments as the generic one's.
@@ -179,6 +200,66 @@ or an object with them as `cmd` and:
 - `affects`: the keys to read again once the camera has done it, the control's if it doesn't say.
 - `assumes`: the state the camera is in once it has taken the command, for one that can't be read back:
   `{"user_lamp": true}`.
+
+### Direct values
+
+The settings show most of what a camera reports of its picture in lists of what the values
+mean on a Sony camera: a gain of 0x05 as +10 dB, a shutter of 0x0d as 1/500. A camera that
+means something else by them reports values the list hasn't, which it then shows as nothing,
+or names them wrongly. An OBSBOT Tail Air reports its gain as ISO / 100, its shutter as a
+place in a table of its own, and its bright from 0 to 100:
+
+```json
+{
+  "id": "obsbot-tail-air",
+  "extends": "generic",
+  "controls": [
+    {"key": "gain_pos", "direct": true},
+    {"key": "shutter_pos", "direct": true},
+    {"key": "bright_pos", "direct": true}
+  ]
+}
+```
+
+A gain of ISO 2200 is then shown as 22, in a box that a number can be typed in, and what is
+typed is sent as it is, with the control's command. Nothing is converted: what the camera
+reports is shown, and what is typed is what the camera is sent. If the camera doesn't take
+it, the box goes back to what the camera reports.
+
+`direct` only changes how the value is shown. It is read and set as it was, so a camera that
+takes the command and does nothing, as the Tail Air does with all three of these, still does
+nothing; `"set": null` with it says so. It applies to the settings that are shown in a list;
+the white balance mode, which has a group of its own, is still shown in its list.
+
+### Read-only settings
+
+A setting most cameras can change, but this one can't, is shown but not offered to be
+changed, and setting it does nothing: the device lists it in its state's `read_only`
+(see [the API](ptz-device-api.md)). That is each value the command set reads, and the
+generic command set can set, but the camera can't:
+
+- one whose control has `"set": null`, or whose control the command set removes, though an
+  inquiry still reads it, as the block inquiries read many values at once;
+- one whose set command the camera refuses. Once a camera has answered everything it is asked
+  when it connects, the plugin sets each value it can set with a command that takes the value
+  to what the camera has just said it is, which changes nothing: one at a time, read again
+  just before, and not while anything sent is still being done, the camera is moving, or it
+  is in standby. A camera that answers one with a syntax error or a message length error
+  hasn't got the command, and every value it sets is read-only until the camera connects
+  again or the command set changes. The log says so. Any other error, such as "not
+  executable", is the camera not doing it in the mode it is in, which says nothing of
+  whether it can. A control with a command for each value (`set_to`) isn't tested.
+  Nor is a value while the camera isn't in a mode its `depends_on` says it needs: some
+  cameras switch to the mode when it is set in another, as an OBSBOT Tail Air switches to
+  manual white balance when R or B gain is set in auto. The mode is read again with the
+  value, and one that isn't met puts the value aside until the camera is in it. One whose
+  mode the camera can't be asked for is never tested, and the log says so. Nor is one whose
+  control says `"tested": true`: whoever wrote the command set has found it works, and
+  setting it again, even to what it is, isn't always nothing to the camera.
+
+A camera that takes a command and does nothing can't be told from one that does it, short of
+changing the value. The OBSBOT Tail Air takes Gain, Shutter and Bright Direct and ignores
+them, so a command set for it says `"set": null` for each, and they are then read-only.
 
 ## Camera Reports
 
@@ -202,7 +283,9 @@ the generic command set and the camera's own can ask for.
 Then it sends each value the camera said it has, and can be set, back to it as the camera said it was,
 which changes nothing. It sends no moves, and doesn't send back the video format, the video output
 or low latency, which some cameras restart their video for even when they are set to what they were,
-nor the camera's ID.
+nor the camera's ID. Nor does it send a value while the camera isn't in a mode the value needs
+(`depends_on`, above), such as R and B gain outside manual white balance: some cameras switch
+to the mode when it is set. The camera's own command set says which mode, or the generic one.
 A camera in standby isn't asked anything, since some won't wake after being asked for what they can't be then.
 The state's `camera_report` says how far it has got (`running`, `done` and `total`),
 or why there is no report (`"error": "standby"`),
@@ -221,7 +304,8 @@ and the device's `ptz_get_camera_report` proc hands back the last report made, a
   (`syntax error`, `not executable`, `no reply`, ...).
   A reply with the camera's ID in it has it as zeros, and says so in `masked`.
 - `commands`: each value sent back, by its `key`, the `command` sent, and the `result`:
-  `completed`, `ack` for one the camera never said it had done, or the error.
+  `completed`, `ack` for one the camera never said it had done, or the error;
+  or `not tested: needs wb_mode 5`, say, for one not sent because the camera wasn't in its mode.
 - `buffer_full`: how often the camera said it was too busy to take a request.
 - `draft_command_set`: a command set for the camera, which its user can try by saving it
   in their command sets (above) and restarting OBS: the generic one, for the camera's model,

@@ -388,6 +388,10 @@ VISCA_PROFILES = {
         }, {
             "key": "user_zoom",
             "reads": [{"cmd": "81097e7e00ff", "results": [{"type": "u16", "offset": 2}]}],
+        }, {
+            # shown as the number the camera reports
+            "key": "gain_pos",
+            "direct": True,
         }],
         "triggers": {"user_home": "81010604ff"},
         # what its axes mean: a pan that steps by 4 counts and is 100 degrees at
@@ -419,6 +423,27 @@ VISCA_PROFILES = {
         "id": "test-control-only",
         "models": ["0123:0005"],
         "controls": [{"key": "ae_mode", "set": None}],
+    },
+    # One that takes away a value the camera control block inquiry still
+    # reads: it can't be set, but it is still read
+    "removed-read.json": {
+        "id": "test-removed-read",
+        "models": ["0123:0006"],
+        "remove": ["aperture_gain"],
+    },
+    # Two that set the white balance mode with a command ptzsim hasn't got:
+    # one says it has been tested on the camera, so it isn't tested when the
+    # camera connects, and the other doesn't, so it is, and is read-only
+    "tested.json": {
+        "id": "test-tested",
+        "models": ["0123:000a"],
+        "controls": [{"key": "wb_mode", "set": {"cmd": "8101047f00ff", "args": [{"type": "u4", "offset": 4}]},
+                      "tested": True}],
+    },
+    "untested.json": {
+        "id": "test-untested",
+        "models": ["0123:000b"],
+        "controls": [{"key": "wb_mode", "set": {"cmd": "8101047f00ff", "args": [{"type": "u4", "offset": 4}]}}],
     },
     # One that takes the camera's presets away, and leaves the absolute moves
     # that the local ones are made of

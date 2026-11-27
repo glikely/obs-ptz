@@ -9,11 +9,12 @@ import itertools
 import json
 import subprocess
 import sys
+import time
 import urllib.request
 
 from obsws import ObsWebSocketError
 
-from conftest import REPO_ROOT, free_port, output_log, wait_for_port
+from conftest import REPO_ROOT, SETTINGS_DIALOG, STATE_VIEW, free_port, output_log, wait_for_port
 
 FILTER_KIND = "ca.secretlab.obs-ptz.visca"
 
@@ -112,6 +113,102 @@ def test_a_command_set_says_what_its_axes_mean(request, obs_world, tmp_path):
     # an axis it says nothing of has its step, and no unit
     assert axes["tilt"]["step"] == 1 / 0x500
     assert "unit" not in axes["tilt"]
+
+
+def test_a_command_set_says_what_is_shown_as_the_cameras_number(request, obs_world, tmp_path):
+    """test-user's gain_pos is "direct", and so is the one that extends it"""
+    camera = Camera(request, obs_world, tmp_path, "0123:0001")
+    state = camera.wait_for_state(lambda s: "user_wb" in s and "direct" in s)
+    assert state["direct"] == {"gain_pos": True}
+
+    (tmp_path / "extended").mkdir()
+    extended = Camera(request, obs_world, tmp_path / "extended", "0123:0002")
+    state = extended.wait_for_state(lambda s: "wb_mode" in s and "direct" in s)
+    assert state["direct"] == {"gain_pos": True}
+
+
+def test_the_state_view_shows_a_direct_value_as_its_number(request, obs_world, tmp_path):
+    """A gain of 0x16, which the Sony list hasn't, is shown as 22 in a number
+    box instead of the list, and what is typed in it is sent as it is"""
+    camera = Camera(request, obs_world, tmp_path, "0123:0001")
+    camera.wait_for_state(lambda s: "gain_pos" in s and "direct" in s)
+    obs_world.set_device_state(camera.device_name, gain_pos=0x16)
+    obs_world.wait_for(lambda: camera.sim.state()["visca"]["gain_pos"] == 0x16, timeout=5)
+
+    obs_world.open_settings_dialog(camera.device_name)
+    out = tmp_path / "dialog.json"
+    obs_world.wait_for_settings_dialog(out, lambda r: r["shown"].get("gain_pos") == 0x16, timeout=15)
+    assert not obs_world.ui.get1(SETTINGS_DIALOG, STATE_VIEW, "gain_pos_direct", name="hidden")
+    assert obs_world.ui.get1(SETTINGS_DIALOG, STATE_VIEW, "gain_pos", name="hidden")
+
+    obs_world.ui.set(SETTINGS_DIALOG, STATE_VIEW, "gain_pos_direct", value=4)
+    obs_world.wait_for(lambda: camera.sim.state()["visca"]["gain_pos"] == 4, timeout=5)
+    obs_world.wait_for_settings_dialog(out, lambda r: r["shown"].get("gain_pos") == 4, timeout=5)
+
+
+def test_the_generic_command_set_has_nothing_direct(request, obs_world, tmp_path):
+    camera = Camera(request, obs_world, tmp_path, "0001:0000")
+    state = camera.wait_for_state(lambda s: "ae_mode" in s and "power_on" in s)
+    assert "direct" not in state
+
+
+def test_a_value_the_command_set_cant_set_is_read_only(request, obs_world, tmp_path):
+    """control-only.json says the AE mode can't be set: it is still read"""
+    camera = Camera(request, obs_world, tmp_path, "0123:0005")
+    state = camera.wait_for_state(lambda s: "ae_mode" in s and "read_only" in s)
+    assert state["read_only"] == {"ae_mode": True}
+
+
+def test_a_removed_value_an_inquiry_still_reads_is_read_only(request, obs_world, tmp_path):
+    """removed-read.json takes away the aperture, which the camera control
+    block inquiry reads with the rest"""
+    camera = Camera(request, obs_world, tmp_path, "0123:0006")
+    state = camera.wait_for_state(lambda s: "aperture_gain" in s and "read_only" in s)
+    assert state["read_only"] == {"aperture_gain": True}
+
+
+def test_the_state_view_doesnt_offer_to_change_what_is_read_only(request, obs_world, tmp_path):
+    """The AE mode is shown, and followed, but can't be picked; the white
+    balance mode, which can be set, still can"""
+    camera = Camera(request, obs_world, tmp_path, "0123:0005")
+    camera.wait_for_state(lambda s: "ae_mode" in s and "read_only" in s)
+    obs_world.open_settings_dialog(camera.device_name)
+    out = tmp_path / "dialog.json"
+    ae_mode = camera.sim.state()["visca"]["ae_mode"]
+    obs_world.wait_for_settings_dialog(out, lambda r: r["shown"].get("ae_mode") == ae_mode, timeout=15)
+    assert not obs_world.ui.get1(SETTINGS_DIALOG, STATE_VIEW, "ae_mode", name="hidden")
+    assert not obs_world.ui.get1(SETTINGS_DIALOG, STATE_VIEW, "ae_mode", name="enabled")
+    assert obs_world.ui.get1(SETTINGS_DIALOG, STATE_VIEW, "ae_mode", name="toolTip")
+    assert obs_world.ui.get1(SETTINGS_DIALOG, STATE_VIEW, "wb_mode", name="enabled")
+    assert not obs_world.ui.get1(SETTINGS_DIALOG, STATE_VIEW, "wb_mode", name="toolTip")
+
+
+def test_the_generic_command_set_has_nothing_read_only(request, obs_world, tmp_path):
+    """Nor, once it has been set to what it is, does ptzsim refuse anything"""
+    camera = Camera(request, obs_world, tmp_path, "0001:0000")
+    camera.wait_for_state(lambda s: "ae_mode" in s and "power_on" in s)
+    time.sleep(10)
+    assert "read_only" not in camera.wait_for_state(lambda s: "ae_mode" in s)
+
+
+def test_a_value_tested_on_the_camera_isnt_tested_again(request, obs_world, tmp_path):
+    """tested.json and untested.json set the white balance mode with a command
+    ptzsim hasn't got. Sent back as it is when the camera connects, it is
+    refused, and is read-only; said to be tested, it isn't sent"""
+    (tmp_path / "untested").mkdir()
+    untested = Camera(request, obs_world, tmp_path / "untested", "0123:000b")
+    untested.wait_for_state(lambda s: s.get("read_only") == {"wb_mode": True}, timeout=20)
+
+    (tmp_path / "tested").mkdir()
+    camera = Camera(request, obs_world, tmp_path / "tested", "0123:000a")
+    camera.wait_for_state(lambda s: "wb_mode" in s and "power_on" in s)
+    # long enough for each value to have been tested
+    time.sleep(10)
+    assert "read_only" not in camera.wait_for_state(lambda s: "wb_mode" in s)
+    # and it can still be set, with its command, which ptzsim refuses
+    errors = camera.sim.state()["visca_syntax_errors"]
+    obs_world.set_device_state(camera.device_name, wb_mode=1)
+    obs_world.wait_for(lambda: camera.sim.state()["visca_syntax_errors"] > errors, timeout=5)
 
 
 def test_a_user_trigger_is_sent(request, obs_world, tmp_path):

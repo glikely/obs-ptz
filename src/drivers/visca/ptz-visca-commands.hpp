@@ -25,6 +25,21 @@ struct ViscaControl {
 	/* What reads it, best first: the next is for a camera that answers
 	 * one with a syntax error. A block inquiry reads many values. */
 	QList<PTZInq> reads;
+	/* Shown as the number the camera reports, rather than as what a Sony
+	 * camera means by it: for a camera that means something else by it, as
+	 * an OBSBOT means ISO / 100 by gain */
+	bool direct = false;
+	/* The modes the value means something in, as the values another one
+	 * must have, each key's being one of those listed: R and B gain in the
+	 * manual white balance mode. Some cameras switch to the mode when it is
+	 * set in another, so the test of what the camera can set, and a camera
+	 * report, don't send it back outside them. */
+	QMap<QString, QList<int>> dependsOn;
+	/* Tested on the camera by whoever wrote the command set, and found to
+	 * work, so not tested again when it connects: setting some values to
+	 * what they are still changes something on some cameras, as R and B
+	 * gain do on an OBSBOT Tail Air, which keeps one less than it is sent */
+	bool tested = false;
 
 	ViscaControl(const QString &key, const std::optional<PTZCmd> &set, const QList<PTZInq> &reads = {})
 		: key(key),
@@ -39,6 +54,9 @@ struct ViscaControl {
 	{
 	}
 	bool settable() const { return set || !setTo.isEmpty(); }
+	/* The modes it needs that `values` doesn't have it in, as "wb_mode 5",
+	 * or "ae_mode 3 or 10"; none if it has them all */
+	QStringList unmetDependencies(obs_data_t *values) const;
 };
 
 /* A camera's command set: its state values, what the driver moves it and

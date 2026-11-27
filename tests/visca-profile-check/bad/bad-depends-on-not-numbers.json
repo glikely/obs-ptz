@@ -1,0 +1,10 @@
+{
+  "id": "bad-depends-on-not-numbers",
+  "source": "A test of the checks: tests/visca-profile-check",
+  "controls": [
+    {
+      "key": "r_gain",
+      "depends_on": {"wb_mode": "manual"}
+    }
+  ]
+}

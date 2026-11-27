@@ -719,6 +719,37 @@ bool PTZDevice::setAxisScale(const char *name, const char *unit, const std::vect
 	return true;
 }
 
+bool PTZDevice::setDirect(const QStringList &keys)
+{
+	return setKeyFlags("direct", m_direct, keys);
+}
+
+bool PTZDevice::setReadOnly(const QStringList &keys)
+{
+	return setKeyFlags("read_only", m_readOnly, keys);
+}
+
+/* `keys`, said under `name` as an object with each key true, if that isn't
+ * what was `said` last */
+bool PTZDevice::setKeyFlags(const char *name, std::string &said, const QStringList &keys)
+{
+	OBSDataAutoRelease flags = obs_data_create();
+	QStringList sorted = keys;
+	sorted.sort();
+	for (const QString &key : sorted)
+		obs_data_set_bool(flags, QT_TO_UTF8(key), true);
+	/* None, before anything has been said, is nothing to say */
+	std::string json = obs_data_get_json(flags);
+	if (said == json || (said.empty() && sorted.isEmpty()))
+		return false;
+	said = json;
+	for (obs_data_t *where : {state.Get(), stateChanged.Get()}) {
+		OBSDataAutoRelease copy = obs_data_create_from_json(json.c_str());
+		obs_data_set_obj(where, name, copy);
+	}
+	return true;
+}
+
 /* A copy of what a caller owns, for the device's thread to have once the proc
  * has returned: by its JSON, so that it shares no nested object with the
  * caller's, which the caller may change or release */

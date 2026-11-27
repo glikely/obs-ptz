@@ -7,6 +7,7 @@
 #include <QFormLayout>
 #include <QGridLayout>
 #include <QGroupBox>
+#include <QHBoxLayout>
 #include <QLabel>
 #include <QLocale>
 #include <QPushButton>
@@ -40,6 +41,16 @@ struct PTZStateView::Field {
 	std::function<QString(obs_data_t *)> format;
 	QLabel *label = nullptr; // none for a checkbox, which names itself
 	QWidget *widget = nullptr;
+	/* What is in the form, shown and hidden with the label: the widget, or for
+	 * a list, a box with the list and the number below in it */
+	QWidget *row = nullptr;
+	/* A list's value as the number the device reports, which is shown instead
+	 * of the list while the device says it is "direct": its camera means
+	 * something else by the numbers than the list names */
+	QSpinBox *number = nullptr;
+	bool direct = false;
+	/* The device says the camera can't change it: shown, but not to be edited */
+	bool readOnly = false;
 	QGroupBox *group = nullptr;
 	/* What the device last reported, null while it doesn't report it */
 	QVariant reported;
@@ -521,13 +532,28 @@ PTZStateView::Field *PTZStateView::addField(QFormLayout *form, const char *key, 
 	}
 	}
 	field->widget->setObjectName(key);
+	field->row = field->widget;
+	if (kind == ChoiceField) {
+		field->row = new QWidget();
+		auto both = new QHBoxLayout(field->row);
+		both->setContentsMargins(0, 0, 0, 0);
+		both->addWidget(field->widget);
+		field->number = new QSpinBox();
+		field->number->setObjectName(QString::fromUtf8(key) + "_direct");
+		field->number->setRange(0, 0xffff);
+		field->number->setKeyboardTracking(false);
+		field->number->hide();
+		connect(field->number, &QSpinBox::valueChanged, this,
+			[this, field](int value) { requestField(field, value); });
+		both->addWidget(field->number);
+	}
 	if (kind == FlagField) {
 		form->addRow(field->widget);
 		field->widget->hide();
 	} else {
 		field->label = new QLabel(obs_module_text(label));
-		form->addRow(field->label, field->widget);
-		setRowVisible(field->label, field->widget, false);
+		form->addRow(field->label, field->row);
+		setRowVisible(field->label, field->row, false);
 	}
 	field->settle.setSingleShot(true);
 	field->settle.setInterval(1500);
@@ -547,6 +573,29 @@ void PTZStateView::requestField(Field *field, const QVariant &value)
 	field->settle.start();
 }
 
+/* Whether the user can change the field, which is on if it is a checkbox */
+bool PTZStateView::editable(const Field *field, bool on)
+{
+	return !field->readOnly && (!field->offOnly || on);
+}
+
+/* Disables a field the camera can't change, and says why */
+void PTZStateView::showReadOnly(Field *field)
+{
+	const QString why = field->readOnly ? text("PTZ.Device.State.ReadOnly") : QString();
+	if (field->kind == FlagField)
+		field->widget->setEnabled(editable(field, static_cast<QCheckBox *>(field->widget)->isChecked()));
+	else
+		field->widget->setEnabled(!field->readOnly);
+	field->widget->setToolTip(why);
+	if (field->number) {
+		field->number->setEnabled(!field->readOnly);
+		field->number->setToolTip(why);
+	}
+	if (field->label)
+		field->label->setToolTip(why);
+}
+
 /* Shows `value` in the field's widget; says whether that changed it */
 bool PTZStateView::showField(Field *field, const QVariant &value)
 {
@@ -556,8 +605,8 @@ bool PTZStateView::showField(Field *field, const QVariant &value)
 	case FlagField: {
 		auto box = static_cast<QCheckBox *>(field->widget);
 		bool on = value.toBool(), changed = false;
-		if (field->offOnly && box->isEnabled() != on) {
-			box->setEnabled(on);
+		if (box->isEnabled() != editable(field, on)) {
+			box->setEnabled(editable(field, on));
 			changed = true;
 		}
 		if (box->isChecked() != on) {
@@ -567,6 +616,13 @@ bool PTZStateView::showField(Field *field, const QVariant &value)
 		return changed;
 	}
 	case ChoiceField: {
+		if (field->direct) {
+			if (field->number->value() == value.toInt())
+				return false;
+			const QSignalBlocker blocker(field->number);
+			field->number->setValue(value.toInt());
+			return true;
+		}
 		auto combo = static_cast<QComboBox *>(field->widget);
 		int at = combo->findData(value);
 		for (int i = 0; at < 0 && field->stepped && i < combo->count(); i++)
@@ -722,13 +778,60 @@ void PTZStateView::applyData(obs_data_t *data, bool all)
 		changed = true;
 	}
 
+	/* The lists the device says to show as its own numbers, which it says
+	 * whole when it changes: before the values, so that a value is shown
+	 * the way it is to be */
+	if (all || has("direct")) {
+		OBSDataAutoRelease direct = obs_data_get_obj(data, "direct");
+		for (const auto &owned : m_fields) {
+			Field *field = owned.get();
+			if (field->kind != ChoiceField || field->boolValue)
+				continue;
+			bool isDirect = direct && obs_data_get_bool(direct, field->key);
+			if (isDirect == field->direct)
+				continue;
+			field->direct = isDirect;
+			field->widget->setVisible(!isDirect);
+			field->number->setVisible(isDirect);
+			showField(field, field->reported);
+			changed = true;
+		}
+	}
+
+	/* What the device says the camera can't change, which it says whole when
+	 * it changes. The power, autofocus and white balance mode aren't fields. */
+	if (all || has("read_only")) {
+		OBSDataAutoRelease readOnly = obs_data_get_obj(data, "read_only");
+		auto isReadOnly = [&readOnly](const char *key) {
+			return readOnly && obs_data_get_bool(readOnly, key);
+		};
+		for (const auto &owned : m_fields) {
+			Field *field = owned.get();
+			if (field->kind == TextField || isReadOnly(field->key) == field->readOnly)
+				continue;
+			field->readOnly = !field->readOnly;
+			showReadOnly(field);
+			changed = true;
+		}
+		const std::pair<QWidget *, const char *> others[] = {{m_power, "power_on"},
+								     {m_focusAuto, "focus_af_enabled"},
+								     {m_whiteBalanceMode, "wb_mode"}};
+		for (const auto &[widget, key] : others) {
+			if (widget->isEnabled() != isReadOnly(key))
+				continue;
+			widget->setEnabled(!isReadOnly(key));
+			widget->setToolTip(isReadOnly(key) ? text("PTZ.Device.State.ReadOnly") : QString());
+			changed = true;
+		}
+	}
+
 	/* A field's widget is set when what the device reports changes, not
 	 * whenever it is reported: the user may have just picked something
 	 * else, which is left until the device has done it or the field
 	 * settles back */
 	for (const auto &owned : m_fields) {
 		Field *field = owned.get();
-		bool shown = !field->widget->isHidden();
+		bool shown = !field->row->isHidden();
 		if (has(field->key)) {
 			QVariant value = field->kind == TextField ? QVariant(field->format(data))
 					 : field->boolValue       ? QVariant(obs_data_get_bool(data, field->key))
@@ -739,7 +842,7 @@ void PTZStateView::applyData(obs_data_t *data, bool all)
 			}
 			if (!shown) {
 				if (field->label)
-					setRowVisible(field->label, field->widget, true);
+					setRowVisible(field->label, field->row, true);
 				else
 					field->widget->show();
 				changed = true;
@@ -747,7 +850,7 @@ void PTZStateView::applyData(obs_data_t *data, bool all)
 		} else if (all && shown) {
 			field->reported = QVariant();
 			if (field->label)
-				setRowVisible(field->label, field->widget, false);
+				setRowVisible(field->label, field->row, false);
 			else
 				field->widget->hide();
 			changed = true;
@@ -768,7 +871,7 @@ void PTZStateView::applyData(obs_data_t *data, bool all)
 	for (QGroupBox *group : m_groups) {
 		bool any = group == m_whiteBalanceGroup && m_reportedWhiteBalance >= 0;
 		for (const auto &field : m_fields)
-			any |= field->group == group && !field->widget->isHidden();
+			any |= field->group == group && !field->row->isHidden();
 		if (any == group->isHidden()) {
 			group->setVisible(any);
 			changed = true;
@@ -891,14 +994,15 @@ QVariantMap PTZStateView::shownValues() const
 	if (m_reportedWhiteBalance >= 0)
 		shown["wb_mode"] = m_whiteBalanceMode->currentData().toInt();
 	for (const auto &field : m_fields) {
-		if (field->widget->isHidden())
+		if (field->row->isHidden())
 			continue;
 		switch (field->kind) {
 		case FlagField:
 			shown[field->key] = static_cast<QCheckBox *>(field->widget)->isChecked();
 			break;
 		case ChoiceField:
-			shown[field->key] = static_cast<QComboBox *>(field->widget)->currentData();
+			shown[field->key] = field->direct ? QVariant(field->number->value())
+							  : static_cast<QComboBox *>(field->widget)->currentData();
 			break;
 		case NumberField:
 			shown[field->key] = static_cast<QSpinBox *>(field->widget)->value();

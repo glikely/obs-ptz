@@ -79,6 +79,20 @@ def generic(source):
             names = names[1:]
         control["reads"] = [defs[n]["cmd"] for n in names]
         controls.append(control)
+    # the modes a value only means something in (visca_dependencies), which
+    # the report doesn't send it back outside of
+    i = source.index("visca_dependencies = {")
+    body = source[i:source.index("\n};", i)]
+    dependencies = {}
+    for entry in re.findall(r'\n\t\{"(\w+)", \{(.*)\}\},', body):
+        key, needs = entry
+        dependencies[key] = {k: [int(v, 0) for v in vs.split(",")]
+                             for k, vs in re.findall(r'\{"(\w+)", \{([^}]*)\}\}', needs)}
+    for control in controls:
+        if control["key"] in dependencies:
+            control["depends_on"] = dependencies.pop(control["key"])
+    if dependencies:
+        raise ValueError(f"visca_dependencies has {sorted(dependencies)}, which visca_controls hasn't")
     inquiries = {}
     for control in controls:
         for cmd in control["reads"]:
@@ -106,24 +120,27 @@ def command_sets(generic_controls):
         data = files[cid]
         parent = data.get("extends", "generic")
         if parent == "generic":
-            reads, standby = {}, None
+            reads, standby, depends_on = {}, None, {}
         else:
-            reads, standby, _, _ = resolve(parent)
-            reads = dict(reads)
+            reads, standby, _, _, depends_on = resolve(parent)
+            reads, depends_on = dict(reads), dict(depends_on)
         for control in data.get("controls", []):
             if "reads" in control:
                 reads[control["key"]] = control["reads"]
+            # what it says of the modes a value needs, over the generic one's
+            if "depends_on" in control:
+                depends_on[control["key"]] = control["depends_on"] or {}
         for gone in data.get("remove", []):
             reads.pop(gone, None)
         if "standby_reads" in data:
             standby = data["standby_reads"]
         models = [int(m.replace(":", ""), 16) for m in data.get("models", []) if not m.endswith(":*")]
         vendors = [int(m[:-2], 16) for m in data.get("models", []) if m.endswith(":*")]
-        return reads, standby, models, vendors
+        return reads, standby, models, vendors, depends_on
 
     out = []
     for cid in files:
-        reads, standby, models, vendors = resolve(cid)
+        reads, standby, models, vendors, depends_on = resolve(cid)
         removed = set(files[cid].get("remove_inquiries", []))
         inquiries = sorted({r["cmd"] for rs in reads.values() for r in rs if r["cmd"] not in removed})
         power = None
@@ -136,8 +153,10 @@ def command_sets(generic_controls):
                     power.append({"cmd": r["cmd"], "field": ["power_on", kind, result["offset"], mask, False, 0]})
                 else:
                     power.append({"cmd": r["cmd"]})
-        out.append({"id": cid, "models": models, "vendors": vendors, "inquiries": inquiries,
-                    "power": power})
+        entry = {"id": cid, "models": models, "vendors": vendors, "inquiries": inquiries, "power": power}
+        if depends_on:
+            entry["depends_on"] = depends_on
+        out.append(entry)
     return out
 
 

@@ -9,7 +9,9 @@ or whose camera it can't talk to at all.
 
 It asks the camera for everything the plugin can ask any camera for, then
 sends each value the camera can set back to it as it said it was, which
-changes nothing. It doesn't move the camera. It talks to the camera, and to
+changes nothing; not one that only means something in a mode the camera
+isn't in, such as R and B gain outside manual white balance, which some
+cameras switch to when it is set. It doesn't move the camera. It talks to the camera, and to
 nothing else: it never sends the report anywhere. The report has the
 camera's make, model and firmware version, and what it answered; not its
 address, nor the ID its user gave it, nor anything about its user.
@@ -285,7 +287,12 @@ TABLES = json.loads(r'''
    "reads": [
     "81097e7e01ff",
     "81090443ff"
-   ]
+   ],
+   "depends_on": {
+    "wb_mode": [
+     5
+    ]
+   }
   },
   {
    "key": "b_gain",
@@ -306,7 +313,12 @@ TABLES = json.loads(r'''
    "reads": [
     "81097e7e01ff",
     "81090444ff"
-   ]
+   ],
+   "depends_on": {
+    "wb_mode": [
+     5
+    ]
+   }
   },
   {
    "key": "shutter_pos",
@@ -327,7 +339,13 @@ TABLES = json.loads(r'''
    "reads": [
     "81097e7e01ff",
     "8109044aff"
-   ]
+   ],
+   "depends_on": {
+    "ae_mode": [
+     3,
+     10
+    ]
+   }
   },
   {
    "key": "iris_pos",
@@ -348,7 +366,13 @@ TABLES = json.loads(r'''
    "reads": [
     "81097e7e01ff",
     "8109044bff"
-   ]
+   ],
+   "depends_on": {
+    "ae_mode": [
+     3,
+     11
+    ]
+   }
   },
   {
    "key": "gain_pos",
@@ -369,7 +393,12 @@ TABLES = json.loads(r'''
    "reads": [
     "81097e7e01ff",
     "8109044cff"
-   ]
+   ],
+   "depends_on": {
+    "ae_mode": [
+     3
+    ]
+   }
   },
   {
    "key": "gain_limit",
@@ -411,7 +440,12 @@ TABLES = json.loads(r'''
    "reads": [
     "81097e7e01ff",
     "8109044dff"
-   ]
+   ],
+   "depends_on": {
+    "ae_mode": [
+     13
+    ]
+   }
   },
   {
    "key": "exposure_comp_pos",
@@ -432,7 +466,12 @@ TABLES = json.loads(r'''
    "reads": [
     "81097e7e01ff",
     "8109044eff"
-   ]
+   ],
+   "depends_on": {
+    "exposure_comp": [
+     1
+    ]
+   }
   },
   {
    "key": "back_light",
@@ -2268,6 +2307,14 @@ def plugin_version():
         return "unknown"
 
 
+def unmet_dependencies(depends_on, values):
+    """The modes a value needs that `values` doesn't have the camera in, as
+    "wb_mode 5" or "ae_mode 3 or 10", in the order the plugin says them
+    (ViscaControl::unmetDependencies())"""
+    return [f"{key} " + " or ".join(str(v) for v in needed)
+            for key, needed in sorted(depends_on.items()) if values.get(key) not in needed]
+
+
 def make_report(probe, progress=lambda done, total: None):
     """The report, or None, with why, if it can't be made"""
     result, reply = probe.ask(bytes.fromhex(VERSION_INQUIRY))
@@ -2315,11 +2362,20 @@ def make_report(probe, progress=lambda done, total: None):
         if cmd in sent:
             continue
         sent.add(cmd)
-        commands.append({"key": key, "command": cmd.hex()})
+        command = {"key": key, "command": cmd.hex()}
+        # not sent outside the mode it means something in, which some
+        # cameras switch to when it is: the camera's own command set says
+        # which that is, or the generic one
+        own = (command_set or {}).get("depends_on", {})
+        unmet = unmet_dependencies(own[key] if key in own else control.get("depends_on", {}), values)
+        if unmet:
+            command["result"] = "not tested: needs " + ", ".join(unmet)
+        commands.append(command)
     total = len(probes) + len(commands)
     for i, c in enumerate(commands):
         progress(len(probes) + i, total)
-        c["result"], _ = probe.ask(bytes.fromhex(c["command"]), c)
+        if "result" not in c:
+            c["result"], _ = probe.ask(bytes.fromhex(c["command"]), c)
     probe.settle()
     progress(total, total)
 

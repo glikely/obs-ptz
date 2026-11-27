@@ -10,8 +10,11 @@ with the camera report form on GitHub.
 It talks to the camera and to nothing else, and never sends the report
 anywhere. It doesn't move the camera: it asks for everything the plugin can
 ask any camera for, then sends each value the camera can set back to it as
-the camera said it was, which changes nothing. It doesn't ask a camera in
-standby that can't be asked for everything then.
+the camera said it was, which changes nothing. Not one that only means
+something in a mode the camera isn't in, such as R and B gain outside manual
+white balance, which some cameras switch to when it is set: the report says
+it wasn't sent, and why. It doesn't ask a camera in standby that can't be
+asked for everything then.
 
 `ptz-probe.py` is one file, which needs only Python 3.8 or later:
 

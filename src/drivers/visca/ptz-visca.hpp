@@ -111,6 +111,28 @@ protected:
 	/* Inquiries, and commands for state that can't be read back, that the
 	 * camera answered with a syntax error: it doesn't have them */
 	QSet<QByteArray> unsupported_requests;
+	/* Which values the camera can't be set to anything: what the command set
+	 * can set, tested once a connection by setting each to what the camera has
+	 * just said it is, which changes nothing (see queue_settable_test()). The
+	 * keys still to test, whether their list has been made, whether the
+	 * values the next one sets have been read again for it, the command being
+	 * tested and what it is before its values are put in it, and whether one
+	 * has been tested since the last poll. The keys waiting for the camera to
+	 * be in a mode they need (ViscaControl::dependsOn) are put back when it
+	 * is. */
+	QSet<QString> unsettable;
+	QStringList settable_tests;
+	QStringList settable_tests_waiting;
+	bool settable_tests_listed = false;
+	bool settable_test_read = false;
+	QByteArray settable_test_sent;
+	QByteArray settable_test_template;
+	bool settable_tested_this_poll = false;
+	bool queue_settable_test();
+	void settable_test_failed(int error);
+	void forget_settable_tests();
+	void say_read_only();
+	const PTZInq *first_read(const ViscaControl &control) const;
 	QList<PTZCmd> pending_cmds;
 	std::optional<PTZCmd> active_cmd[8];
 	/* Whether the camera has completed a move, which a BirdDog, that only
