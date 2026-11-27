@@ -431,6 +431,20 @@ VISCA_PROFILES = {
         "models": ["0123:0006"],
         "remove": ["aperture_gain"],
     },
+    # Two that set the white balance mode with a command ptzsim hasn't got:
+    # one says it has been tested on the camera, so it isn't tested when the
+    # camera connects, and the other doesn't, so it is, and is read-only
+    "tested.json": {
+        "id": "test-tested",
+        "models": ["0123:000a"],
+        "controls": [{"key": "wb_mode", "set": {"cmd": "8101047f00ff", "args": [{"type": "u4", "offset": 4}]},
+                      "tested": True}],
+    },
+    "untested.json": {
+        "id": "test-untested",
+        "models": ["0123:000b"],
+        "controls": [{"key": "wb_mode", "set": {"cmd": "8101047f00ff", "args": [{"type": "u4", "offset": 4}]}}],
+    },
     # One that takes the camera's presets away, and leaves the absolute moves
     # that the local ones are made of
     "local-only.json": {

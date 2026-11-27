@@ -173,6 +173,12 @@ For example (the auto tracking commands are made up):
   the camera isn't in its mode (see [Read-only settings](#read-only-settings)). It is kept
   from the command set it extends unless the control says; `null` is none. A key in it the
   command set doesn't have is a reason it can't be read.
+  `"tested": true` is for a value whose set command has been tried on the camera, and works:
+  it isn't tested again each time the camera connects (see [Read-only settings](#read-only-settings)).
+  For a camera that changes something when a value is set to what it is, as an OBSBOT Tail Air
+  keeps one less of R or B gain than it is sent, and turns its AI tracking off when it is
+  set to the mode it is in. It is kept from the command set it extends unless the control
+  says `true` or `false`.
   A key the command set it extends doesn't have must start with `user_`,
   so it is never one the plugin has; it is in the device's state like any other.
 - `actions`: commands for the driver, which must take as many arguments as the generic one's.
@@ -247,7 +253,9 @@ generic command set can set, but the camera can't:
   cameras switch to the mode when it is set in another, as an OBSBOT Tail Air switches to
   manual white balance when R or B gain is set in auto. The mode is read again with the
   value, and one that isn't met puts the value aside until the camera is in it. One whose
-  mode the camera can't be asked for is never tested, and the log says so.
+  mode the camera can't be asked for is never tested, and the log says so. Nor is one whose
+  control says `"tested": true`: whoever wrote the command set has found it works, and
+  setting it again, even to what it is, isn't always nothing to the camera.
 
 A camera that takes a command and does nothing can't be told from one that does it, short of
 changing the value. The OBSBOT Tail Air takes Gain, Shutter and Bright Direct and ignores

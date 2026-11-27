@@ -15,7 +15,8 @@
     },
     {
       "key": "r_gain",
-      "depends_on": null
+      "depends_on": null,
+      "tested": true
     },
     {
       "key": "user_tracking_speed",

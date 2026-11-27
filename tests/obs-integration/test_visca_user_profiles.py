@@ -191,6 +191,26 @@ def test_the_generic_command_set_has_nothing_read_only(request, obs_world, tmp_p
     assert "read_only" not in camera.wait_for_state(lambda s: "ae_mode" in s)
 
 
+def test_a_value_tested_on_the_camera_isnt_tested_again(request, obs_world, tmp_path):
+    """tested.json and untested.json set the white balance mode with a command
+    ptzsim hasn't got. Sent back as it is when the camera connects, it is
+    refused, and is read-only; said to be tested, it isn't sent"""
+    (tmp_path / "untested").mkdir()
+    untested = Camera(request, obs_world, tmp_path / "untested", "0123:000b")
+    untested.wait_for_state(lambda s: s.get("read_only") == {"wb_mode": True}, timeout=20)
+
+    (tmp_path / "tested").mkdir()
+    camera = Camera(request, obs_world, tmp_path / "tested", "0123:000a")
+    camera.wait_for_state(lambda s: "wb_mode" in s and "power_on" in s)
+    # long enough for each value to have been tested
+    time.sleep(10)
+    assert "read_only" not in camera.wait_for_state(lambda s: "wb_mode" in s)
+    # and it can still be set, with its command, which ptzsim refuses
+    errors = camera.sim.state()["visca_syntax_errors"]
+    obs_world.set_device_state(camera.device_name, wb_mode=1)
+    obs_world.wait_for(lambda: camera.sim.state()["visca_syntax_errors"] > errors, timeout=5)
+
+
 def test_a_user_trigger_is_sent(request, obs_world, tmp_path):
     camera = Camera(request, obs_world, tmp_path, "0123:0001")
     camera.wait_for_state(lambda s: "pan" in s)

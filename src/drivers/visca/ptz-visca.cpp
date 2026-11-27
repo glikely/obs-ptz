@@ -1439,7 +1439,9 @@ const PTZInq *PTZVisca::first_read(const ViscaControl &control) const
  * in it: some cameras switch to the mode when it is set in another. The mode
  * is read again with the value, and one that isn't met puts the value aside
  * until it is, which is looked at once the rest have been tested. One whose
- * mode the camera can't be asked for is never tested, and the log says so. */
+ * mode the camera can't be asked for is never tested, and the log says so.
+ * Nor is one the command set says has been tested on the camera
+ * (ViscaControl::tested): it is taken to work. */
 bool PTZVisca::queue_settable_test()
 {
 	if (!isConnected() || settable_tested_this_poll || report_next >= 0 || discover_step >= 0)
@@ -1457,7 +1459,7 @@ bool PTZVisca::queue_settable_test()
 		QSet<QByteArray> listed;
 		for (const auto &control : profile->controls) {
 			if (!control.set || control.reads.isEmpty() || visca_report_unsent.contains(control.key) ||
-			    listed.contains(control.set->cmd))
+			    control.tested || listed.contains(control.set->cmd))
 				continue;
 			listed += control.set->cmd;
 			QStringList unreadable;

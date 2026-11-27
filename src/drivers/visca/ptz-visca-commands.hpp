@@ -35,6 +35,11 @@ struct ViscaControl {
 	 * set in another, so the test of what the camera can set, and a camera
 	 * report, don't send it back outside them. */
 	QMap<QString, QList<int>> dependsOn;
+	/* Tested on the camera by whoever wrote the command set, and found to
+	 * work, so not tested again when it connects: setting some values to
+	 * what they are still changes something on some cameras, as R and B
+	 * gain do on an OBSBOT Tail Air, which keeps one less than it is sent */
+	bool tested = false;
 
 	ViscaControl(const QString &key, const std::optional<PTZCmd> &set, const QList<PTZInq> &reads = {})
 		: key(key),

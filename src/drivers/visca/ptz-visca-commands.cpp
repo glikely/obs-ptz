@@ -988,7 +988,7 @@ public:
 	bool control(ViscaProfile &profile, const QJsonObject &json)
 	{
 		const QString key = json["key"].toString();
-		if (!only(json, {"key", "set", "set_to", "reads", "direct", "depends_on"},
+		if (!only(json, {"key", "set", "set_to", "reads", "direct", "depends_on", "tested"},
 			  QString("control \"%1\"").arg(key)))
 			return false;
 		ViscaControl *existing = profile.control(key);
@@ -1046,6 +1046,14 @@ public:
 		/* Also kept unless it says: null, or {}, for none */
 		if (json.contains("depends_on") && !dependsOn(control, json["depends_on"]))
 			return false;
+		/* And this */
+		if (json.contains("tested")) {
+			if (!json["tested"].isBool()) {
+				fail(QString("\"tested\" of \"%1\" isn't true or false").arg(key));
+				return false;
+			}
+			control.tested = json["tested"].toBool();
+		}
 		if (!control.settable() && control.reads.isEmpty()) {
 			fail(QString("%1 can be neither set nor read").arg(key));
 			return false;
